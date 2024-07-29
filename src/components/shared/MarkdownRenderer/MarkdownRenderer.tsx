@@ -16,6 +16,8 @@ import {
   MarkdownPre,
   MarkdownImage,
   MarkdownSteps,
+  MarkdownTabs,
+  MarkdownTab,
 } from "./components";
 
 /**
@@ -223,6 +225,8 @@ const DEFAULT_COMPONENTS: MDXRemoteProps["components"] = {
   Callout: MarkdownCallout,
   Embed: MarkdownEmbed,
   Steps: MarkdownSteps,
+  Tabs: MarkdownTabs,
+  Tab: MarkdownTab,
 };
 
 type MarkdownRendererProps = {
