@@ -18,6 +18,8 @@ import {
   MarkdownSteps,
   MarkdownTabs,
   MarkdownTab,
+  MarkdownAccordion,
+  MarkdownAccordionItem,
 } from "./components";
 
 /**
@@ -227,6 +229,8 @@ const DEFAULT_COMPONENTS: MDXRemoteProps["components"] = {
   Steps: MarkdownSteps,
   Tabs: MarkdownTabs,
   Tab: MarkdownTab,
+  Accordion: MarkdownAccordion,
+  AccordionItem: MarkdownAccordionItem,
 };
 
 type MarkdownRendererProps = {
