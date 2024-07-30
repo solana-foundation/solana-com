@@ -7,21 +7,7 @@ const { i18n } = require("./next-i18next.config");
 const rewritesAndRedirectsJson = require("./rewrites-redirects.json");
 const { builder } = require("@builder.io/sdk");
 
-// Security Headers
-// https://nextjs.org/docs/advanced-features/security-headers
-// const ContentSecurityPolicy = `
-//   default-src 'self';
-//   script-src 'self';
-//   child-src solana.com;
-//   style-src 'self' solana.com;
-//   font-src 'self';
-// `;
-
 const securityHeaders = [
-  // {
-  //   key: "Content-Security-Policy",
-  //   value: ContentSecurityPolicy.replace(/\s{2,}/g, " ").trim(),
-  // },
   {
     key: "X-Frame-Options",
     value: "SAMEORIGIN",
