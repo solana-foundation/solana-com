@@ -14,8 +14,6 @@ import MarkdownRenderer from "@/components/shared/MarkdownRenderer/MarkdownRende
 import Link from "next/link";
 import { useRouter } from "next/router";
 
-import ArrowLeft from "@@/public/src/img/icons/ArrowLeft.inline.svg";
-import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import DocsNavSidebar from "@/components/developers/DocsNavSidebar";
 import { InferGetStaticPropsType } from "next";
 import { SidebarToggleButton } from "@/components/developers/DevelopersContentPage/SidebarToggleButton";
@@ -75,19 +73,8 @@ export default function DeveloperDocs({
                   title={t("shared.general.toc")}
                   currentPath={router.asPath}
                   content={record.body}
+                  githubPath={record._raw.sourceFilePath}
                 />
-
-                <Link
-                  href={ContentApi.computeGitHubFileUrl(
-                    record._raw.sourceFilePath,
-                  )}
-                  target="_blank"
-                  className={styles["developers-content-page__simpleButton"]}
-                >
-                  <GithubIcon width="18" height="18" />
-                  <span>{t("shared.general.edit-page")}</span>
-                  <ArrowLeft style={{ transform: "rotate(180deg)" }} />
-                </Link>
               </div>
 
               <article
