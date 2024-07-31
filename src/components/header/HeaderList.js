@@ -26,7 +26,8 @@ const HeaderList = () => {
     asPath.includes("/developers") ||
     asPath.includes("/docs") ||
     asPath === "/hackathon";
-  const isNetworkActive = asPath === "/validators" || asPath === "/rpc";
+  const isNetworkActive =
+    asPath === "/validators" || asPath === "/rpc" || asPath === "/solanaramp";
   const isCommunityActive =
     asPath === "/community" ||
     asPath.includes("/events") ||

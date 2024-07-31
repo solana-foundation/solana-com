@@ -49,6 +49,16 @@ const HeaderListNetwork = () => {
             </strong>
             {networkResourcesItems[2].description}
           </InlineLink>
+          <Link
+            to="/solanaramp"
+            className="nav-link nav-link--secondary"
+            activeClassName="active"
+          >
+            <strong className="d-block text-white">
+              {networkResourcesItems[3].title}
+            </strong>
+            {networkResourcesItems[3].description}
+          </Link>
         </div>
       </div>
 
