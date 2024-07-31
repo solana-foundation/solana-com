@@ -1760,10 +1760,10 @@ export const RichTextQuoteConfig = {
   inputs: [
     {
       name: "quote",
-      type: "text",
+      type: "richText",
       localized: true,
       defaultValue:
-        "xNFTs take a radically practical approach to solving two of web3’s main problems today, decentralization and distribution, with profound implications.",
+        "<p>xNFTs take a radically practical approach to solving two of web3’s main problems today, decentralization and distribution, with profound implications.</p>",
     },
     {
       name: "author",
