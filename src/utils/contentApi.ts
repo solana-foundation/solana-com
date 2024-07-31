@@ -353,7 +353,7 @@ export default class ContentApi {
 
         // we remove any special characters from the end of the label
         // to make it look cleaner in the UI
-        label = label.replace(/[^a-zA-Z0-9]+$/, "");
+        label = label.replace(/[^\p{L}\p{N}]+$/u, "");
 
         // if (!duplicator.has(label)) {
         //   duplicator.set(label, 0);
@@ -388,7 +388,7 @@ export default class ContentApi {
         .trim()
         .replace(/\s+/g, "-")
         .replace(/\./g, "")
-        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/[^\p{L}\p{N}]+/gu, "-")
         .replace(/^-/g, "")
         .replace(/-$/g, "")
         .replace(/--+/g, "-");
