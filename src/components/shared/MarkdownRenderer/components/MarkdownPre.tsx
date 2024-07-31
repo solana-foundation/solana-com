@@ -2,10 +2,10 @@ import React from "react";
 import styles from "./MarkdownPre.module.scss";
 import { CopyToClipBoardButton } from "./CopyToClipBoardButton";
 
-import RustIcon from "../../../../../public/src/img/icons/Rust.inline.svg";
-import TypescriptIcon from "../../../../../public/src/img/icons/Typescript.inline.svg";
-import TerminalIcon from "../../../../../public/src/img/icons/Terminal.inline.svg";
-import FileDiffIcon from "../../../../../public/src/img/icons/FileDiff.inline.svg";
+import RustIcon from "@@/public/src/img/icons/Rust.inline.svg";
+import TypescriptIcon from "@@/public/src/img/icons/Typescript.inline.svg";
+import TerminalIcon from "@@/public/src/img/icons/Terminal.inline.svg";
+import FileDiffIcon from "@@/public/src/img/icons/FileDiff.inline.svg";
 
 /**
  * Listing of the supported custom metadata that can be attached to parsed components via `attachMetadata`

@@ -1,8 +1,8 @@
 import styles from "./CopyToClipBoardButton.module.scss";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import CopyIcon from "../../../../../public/src/img/icons/Copy.inline.svg";
-import CopyConfirmIcon from "../../../../../public/src/img/icons/CopyConfirm.inline.svg";
+import CopyIcon from "@@/public/src/img/icons/Copy.inline.svg";
+import CopyConfirmIcon from "@@/public/src/img/icons/CopyConfirm.inline.svg";
 
 export function CopyToClipBoardButton() {
   const btnRef = useRef<HTMLButtonElement | null>(null);

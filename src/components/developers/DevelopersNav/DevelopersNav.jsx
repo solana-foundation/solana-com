@@ -1,12 +1,12 @@
 import styles from "./DevelopersNav.module.scss";
 import Link from "@/utils/Link";
-import DocsIcon from "../../../../public/src/img/developers/docs.inline.svg";
-import RpcApiIcon from "../../../../public/src/img/developers/api.inline.svg";
-import CookbookIcon from "../../../../public/src/img/developers/cookbook.inline.svg";
-import GuidesIcon from "../../../../public/src/img/developers/guides.inline.svg";
-import TerminologyIcon from "../../../../public/src/img/developers/terminology.inline.svg";
-import CoursesIcon from "../../../../public/src/img/developers/courses.inline.svg";
-import StackExchangeIcon from "../../../../assets/developers/stackexchange.inline.svg";
+import DocsIcon from "@@/public/src/img/developers/docs.inline.svg";
+import RpcApiIcon from "@@/public/src/img/developers/api.inline.svg";
+import CookbookIcon from "@@/public/src/img/developers/cookbook.inline.svg";
+import GuidesIcon from "@@/public/src/img/developers/guides.inline.svg";
+import TerminologyIcon from "@@/public/src/img/developers/terminology.inline.svg";
+import CoursesIcon from "@@/public/src/img/developers/courses.inline.svg";
+import StackExchangeIcon from "@@/assets/developers/stackexchange.inline.svg";
 import { useTranslation } from "next-i18next";
 
 export default function DevelopersNav({ containerClassName }) {
