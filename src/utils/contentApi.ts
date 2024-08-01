@@ -353,6 +353,7 @@ export default class ContentApi {
 
         // we remove any special characters from the end of the label
         // to make it look cleaner in the UI
+        // @ts-ignore
         label = label.replace(/[^\p{L}\p{N}]+$/u, "");
 
         // if (!duplicator.has(label)) {
@@ -380,18 +381,21 @@ export default class ContentApi {
    */
   static slugify(url: string): string {
     try {
-      return url
-        .toString()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/\./g, "")
-        .replace(/[^\p{L}\p{N}]+/gu, "-")
-        .replace(/^-/g, "")
-        .replace(/-$/g, "")
-        .replace(/--+/g, "-");
+      return (
+        url
+          .toString()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, "-")
+          .replace(/\./g, "")
+          // @ts-ignore
+          .replace(/[^\p{L}\p{N}]+/gu, "-")
+          .replace(/^-/g, "")
+          .replace(/-$/g, "")
+          .replace(/--+/g, "-")
+      );
     } catch (err) {
       console.error("[slugify error]", err);
       return "#err";
