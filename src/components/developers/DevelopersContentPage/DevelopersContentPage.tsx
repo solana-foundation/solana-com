@@ -5,14 +5,9 @@ import styles from "./DevelopersContentPage.module.scss";
 import { FormattedDate } from "@/components/SolFormattedMessage";
 import MarkdownRenderer from "@/components/shared/MarkdownRenderer/MarkdownRenderer";
 import Link from "next/link";
-import ContentApi from "@/utils/contentApi";
 import Image from "next/image";
-
 import defaultImg from "@@/public/social/solana.jpg";
 import blurImage from "@@/public/img/blurImage.png";
-import ArrowLeft from "@@/public/src/img/icons/ArrowLeft.inline.svg";
-
-import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import SocialShareButtons from "@/components/sharedPageSections/SocialShareButtons";
 import { config } from "src/config";
 import { useRouter } from "next/router";
@@ -156,17 +151,8 @@ export default memo(function DevelopersContentPage({
                 !!showSidebar &&
                 styles["developers-content-page__sidebar__active"]
               }
+              githubPath={record._raw.sourceFilePath}
             />
-
-            <Link
-              href={ContentApi.computeGitHubFileUrl(record._raw.sourceFilePath)}
-              target="_blank"
-              className={styles["developers-content-page__simpleButton"]}
-            >
-              <GithubIcon width="18" height="18" />
-              <span>{t("shared.general.edit-page")}</span>
-              <ArrowLeft style={{ transform: "rotate(180deg)" }} />
-            </Link>
           </section>
         </aside>
       </section>

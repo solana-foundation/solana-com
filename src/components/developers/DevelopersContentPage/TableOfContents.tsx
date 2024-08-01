@@ -1,10 +1,11 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import classNames from "classnames";
 import styles from "./DevelopersContentPage.module.scss";
 import Link from "next/link";
 import ContentApi from "@/utils/contentApi";
 import { TOC_HEADING_SIZE } from "@/constants/developerContentConfig";
 import ArrowLeft from "@@/public/src/img/icons/ArrowLeft.inline.svg";
+import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import { useTranslation } from "next-i18next";
 
 type TableOfContentsProps = {
@@ -18,6 +19,8 @@ type TableOfContentsProps = {
   content: string;
   /** the current router's path */
   currentPath: string;
+  /** the path to the github repo */
+  githubPath: string;
 };
 
 /**
@@ -31,6 +34,7 @@ export const TableOfContents = memo(
     content = "",
     className = "",
     currentPath = "",
+    githubPath = "",
   }: TableOfContentsProps) => {
     const { t } = useTranslation("common");
 
@@ -41,6 +45,21 @@ export const TableOfContents = memo(
 
     // show nothing if we are unable to parse the TOC
     // if (!toc || toc?.length <= 0) return <></>;
+
+    const [showScrollToTop, setShowScrollToTop] = useState(false);
+
+    useEffect(() => {
+      const checkScroll = () => {
+        setShowScrollToTop(window.scrollY > window.innerHeight);
+      };
+
+      window.addEventListener("scroll", checkScroll);
+      return () => window.removeEventListener("scroll", checkScroll);
+    }, []);
+
+    const scrollToTop = () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
 
     return (
       <div id={id} className={classNames(className)}>
@@ -69,17 +88,27 @@ export const TableOfContents = memo(
           ))}
         </ul>
 
-        <Link
-          href="#"
-          onClick={() =>
-            typeof window != "undefined" &&
-            window.scrollTo({ top: 0, behavior: "instant" })
-          }
-          className={styles["developers-content-page__simpleButton"]}
+        <li>
+          <Link
+            href={ContentApi.computeGitHubFileUrl(githubPath)}
+            target="_blank"
+            className={styles["toc-action-item"]}
+          >
+            <GithubIcon width="18" height="18" />
+            <span>{t("shared.general.edit-page")}</span>
+          </Link>
+        </li>
+
+        <li
+          className={`${styles["scroll-to-top"]} ${
+            showScrollToTop ? styles["show"] : ""
+          }`}
         >
-          <ArrowLeft style={{ transform: "rotate(90deg)" }} />
-          <span>{t("shared.general.scroll-to-top")}</span>
-        </Link>
+          <button onClick={scrollToTop} className={styles["toc-action-item"]}>
+            <ArrowLeft style={{ transform: "rotate(90deg)" }} />
+            <span>{t("shared.general.scroll-to-top")}</span>
+          </button>
+        </li>
       </div>
     );
   },

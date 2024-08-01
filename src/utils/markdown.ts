@@ -5,7 +5,8 @@ import rehypePrettyCode, {
   Options as RehypePrettyCodeOptions,
 } from "rehype-pretty-code";
 import { transformerNotationDiff } from "@shikijs/transformers";
-import codeTheme from "shiki/themes/github-dark-dimmed.mjs";
+import darkTheme from "shiki/themes/github-dark-dimmed.mjs";
+import lightTheme from "shiki/themes/github-light.mjs";
 // import codeTheme from "shiki/themes/rose-pine-moon.mjs";
 
 // import codeTheme from "shiki/themes/andromeeda.mjs";
@@ -116,7 +117,10 @@ export const rehypePluginConfig: import("unified").PluggableList = [
       defaultLang: {
         block: "text",
       },
-      theme: codeTheme,
+      theme: {
+        dark: darkTheme,
+        light: lightTheme,
+      },
       transformers: [transformerNotationDiff()],
     } as RehypePrettyCodeOptions,
     // rehypeSanitize,
