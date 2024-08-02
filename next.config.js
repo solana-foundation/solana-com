@@ -113,12 +113,6 @@ const moduleExports = () => {
       );
       imageLoaderRule.exclude = /\.inline\.svg$/;
 
-      // Alias configuration
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        react: path.resolve(__dirname, "node_modules/react"),
-      };
-
       return config;
     },
 
