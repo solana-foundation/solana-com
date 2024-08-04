@@ -35,7 +35,7 @@ const Ramps = ({
 
   // Default modal data
   const [generalModalData, setGeneralModalData] = useState({
-    title: t("on-off-ramp.ramp-modal-data.defaults.title"),
+    title: "Ramp",
     websiteUrl: "",
     imageUrl: "",
   });
@@ -43,7 +43,8 @@ const Ramps = ({
   // Sets default modal data but will be replaced by ramp data when clicking on a specific ramp
   const [modalData, setModalData] = useState([
     {
-      content: t("on-off-ramp.ramp-modal-data.defaults.countries"),
+      content:
+        "Austria / Belgium / Brazil / Bulgaria / Croatia / Cyprus / Czech Republic / Denmark / Estonia / Finland / France / Germany / Greece / Hungary / Ireland / Italy / Latvia / Lithuania / Luxembourg / Malta / Netherlands / Poland / Portugal / Romania / Slovakia / Slovenia / Spain / Sweden / United Kingdom",
       title: t("on-off-ramp.ramp-modal-data.country-title"),
     },
     {
@@ -51,7 +52,7 @@ const Ramps = ({
       title: t("on-off-ramp.ramp-modal-data.fiat-title"),
     },
     {
-      content: t("on-off-ramp.ramp-modal-data.defaults.payment-rails"),
+      content: "PayPal / Google Wallet / Apple Pay",
       title: t("on-off-ramp.ramp-modal-data.payment-rails-title"),
     },
   ]);
@@ -148,14 +149,7 @@ const Ramps = ({
         ) : (
           <div className={styles["ramp-no-results"]}>
             {t("on-off-ramp.no-results.title")}
-            <Button
-              to={""}
-              ariaLabel={t("on-off-ramp.no-results.reset-filters-button-title")}
-              variant="captioned"
-              size="md"
-              newTab={false}
-              onClick={resetFilters}
-            >
+            <Button variant="outline" onClick={resetFilters} className="ms-2">
               {t("on-off-ramp.no-results.reset-filters-button-title")}
             </Button>
           </div>
@@ -193,7 +187,7 @@ const Ramps = ({
               {t("on-off-ramp.ramp-modal-data.button-title")}
             </Button>
           </div>
-          <div className="ramp-countries">
+          <div className="mt-5">
             <Accordion defaultActiveKey={["0"]} alwaysOpen>
               {modalData.map((itemData, index) => (
                 <Accordion.Item
