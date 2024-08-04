@@ -13,6 +13,11 @@ const RampFilter = ({
 }) => {
   const { t } = useTranslation();
 
+  // Initialize state for options with checked status and local filter text
+  const [optionStates, setOptionStates] = useState(
+    options.map((option) => ({ ...option, checked: false })),
+  );
+  const [filterText, setFilterText] = useState("");
   const [active, setActive] = useState(0);
 
   const toggleActiveState = (e) => {
@@ -38,24 +43,27 @@ const RampFilter = ({
       value: filterValue,
     };
 
-    if (e.target.checked === true) {
+    if (checked) {
       currentFilters.push(filterData);
     } else {
-      currentFilters = currentFilters.filter((filter) => {
-        if (filter.value != filterValue) {
-          if (filter.name === filter.name) {
-            return true;
-          }
-        }
-
-        return false;
-      });
+      currentFilters = currentFilters.filter(
+        (filter) => filter.value !== filterValue || filter.name !== filterName,
+      );
     }
 
     setFilters(currentFilters);
 
+    // Update the checked status of the options
+    setOptionStates(
+      optionStates.map((option) =>
+        option.value === filterValue && option.name === filterName
+          ? { ...option, checked }
+          : option,
+      ),
+    );
+
     if (currentFilters.length > 0) {
-      // Go through our current ramps and filter them based on the new filters
+      // Filter the ramps based on the current filters
       const updatedRamps = placeholderRamps.filter((ramp) => {
         let matchesFilter = false; // flag to return to .filter
 
@@ -90,6 +98,10 @@ const RampFilter = ({
     }
   };
 
+  const filteredOptions = optionStates.filter((item) =>
+    item.title.toLowerCase().includes(filterText.toLowerCase()),
+  );
+
   return (
     <div className={`ramp-filter ${styles["ramp-filter"]}`}>
       <div
@@ -107,12 +119,23 @@ const RampFilter = ({
         ></button>
       </div>
       <div
-        className={`${styles["ramp-options"]} ${
-          inputType === "currency" ? styles["ramp-options--currency"] : ""
-        } ${active === 1 ? styles["ramp-options--active"] : ""}`}
+        className={`${styles["ramp-options"]} ${active === 1 ? styles["ramp-options--active"] : ""}`}
       >
-        {options &&
-          options.map((item, index) => (
+        <div>
+          <input
+            type="search"
+            className={styles["ramp-filter__search-input"]}
+            value={filterText}
+            onChange={(event) => setFilterText(event.target.value)}
+          />
+        </div>
+
+        <div
+          className={
+            inputType === "currency" ? styles["ramp-options--currency"] : ""
+          }
+        >
+          {filteredOptions.map((item, index) => (
             <div
               className={`${styles["ramp-options__option"]} ${
                 inputType === "currency"
@@ -130,6 +153,7 @@ const RampFilter = ({
                 type="checkbox"
                 name={item.name}
                 id={item.value}
+                checked={item.checked}
                 onChange={toggleFilterStatus}
               />
               <label
@@ -144,6 +168,7 @@ const RampFilter = ({
               </label>
             </div>
           ))}
+        </div>
       </div>
     </div>
   );
