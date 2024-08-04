@@ -150,7 +150,7 @@ const Ramps = ({
           <div className={styles["ramp-no-results"]}>
             {t("on-off-ramp.no-results.title")}
             <Button variant="outline" onClick={resetFilters} className="ms-2">
-              {t("on-off-ramp.no-results.reset-filters-button-title")}
+              {t("on-off-ramp.no-results.clear-filters-button")}
             </Button>
           </div>
         )}

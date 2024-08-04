@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styles from "./RampFilter.module.scss";
 import { useTranslation } from "next-i18next";
 
@@ -54,8 +54,8 @@ const RampFilter = ({
     setFilters(currentFilters);
 
     // Update the checked status of the options
-    setOptionStates(
-      optionStates.map((option) =>
+    setOptionStates((prevOptionStates) =>
+      prevOptionStates.map((option) =>
         option.value === filterValue && option.name === filterName
           ? { ...option, checked }
           : option,
@@ -102,6 +102,16 @@ const RampFilter = ({
     item.title.toLowerCase().includes(filterText.toLowerCase()),
   );
 
+  // Clear filters when filters length becomes 0
+  useEffect(() => {
+    if (filters.length === 0) {
+      setOptionStates((prevOptionStates) =>
+        prevOptionStates.map((option) => ({ ...option, checked: false })),
+      );
+      setFilterText("");
+    }
+  }, [filters.length]);
+
   return (
     <div className={`ramp-filter ${styles["ramp-filter"]}`}>
       <div
@@ -119,7 +129,9 @@ const RampFilter = ({
         ></button>
       </div>
       <div
-        className={`${styles["ramp-options"]} ${active === 1 ? styles["ramp-options--active"] : ""}`}
+        className={`${styles["ramp-options"]} ${
+          active === 1 ? styles["ramp-options--active"] : ""
+        }`}
       >
         <div>
           <input
