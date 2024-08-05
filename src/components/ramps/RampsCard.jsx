@@ -23,7 +23,7 @@ const RampsCard = ({
           src={imageUrl ?? RampIconPlaceholder}
           width={61}
           height={61}
-          alt={t("on-off-ramp.cards.ramp-logo-placeholder-alt")}
+          alt=""
         />
       </div>
       <h2 className={`${styles["ramps-card__title"]}`}>{title}</h2>
