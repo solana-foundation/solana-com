@@ -172,7 +172,7 @@ const Ramps = ({
               src={generalModalData.imageUrl ?? RampIconPlaceholder}
               width={61}
               height={61}
-              alt="Ramp Icon Placeholder"
+              alt=""
             />
             <h3 className={styles["ramp-popup__title"]}>
               {generalModalData.title}
