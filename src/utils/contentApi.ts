@@ -354,7 +354,7 @@ export default class ContentApi {
         // we remove any special characters from the end of the label
         // to make it look cleaner in the UI
         // @ts-ignore
-        label = label.replace(/[^\p{L}\p{N}]+$/u, "");
+        label = label.replace(/[^\p{Letter}\p{Number}]+$/u, "");
 
         // if (!duplicator.has(label)) {
         //   duplicator.set(label, 0);
@@ -391,7 +391,7 @@ export default class ContentApi {
           .replace(/\s+/g, "-")
           .replace(/\./g, "")
           // @ts-ignore
-          .replace(/[^\p{L}\p{N}]+/gu, "-")
+          .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
           .replace(/^-/g, "")
           .replace(/-$/g, "")
           .replace(/--+/g, "-")
