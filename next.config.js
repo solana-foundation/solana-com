@@ -6,7 +6,6 @@ const withBundleAnalyzer = require("@next/bundle-analyzer");
 const { i18n } = require("./next-i18next.config");
 const rewritesAndRedirectsJson = require("./rewrites-redirects.json");
 const { builder } = require("@builder.io/sdk");
-const path = require("path");
 
 const securityHeaders = [
   {
