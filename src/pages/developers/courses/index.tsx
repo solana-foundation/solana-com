@@ -46,9 +46,6 @@ export default function DeveloperCoursesIndex({
     return {
       type: "blog",
       eyebrow: record.lessons.length > 0 && `${record.lessons.length} Lessons`,
-      // publishedDate?: string;
-      // heading: record.title,
-      // headingAs?: ElementType;
       body: record.description,
       callToAction: {
         hierarchy: "link",
