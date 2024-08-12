@@ -6,7 +6,6 @@ const withBundleAnalyzer = require("@next/bundle-analyzer");
 const { i18n } = require("./next-i18next.config");
 const rewritesAndRedirectsJson = require("./rewrites-redirects.json");
 const { builder } = require("@builder.io/sdk");
-const path = require("path");
 
 const securityHeaders = [
   {
@@ -112,12 +111,6 @@ const moduleExports = () => {
         (rule) => rule.loader == "next-image-loader",
       );
       imageLoaderRule.exclude = /\.inline\.svg$/;
-
-      // Alias configuration
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        react: path.resolve(__dirname, "node_modules/react"),
-      };
 
       return config;
     },
