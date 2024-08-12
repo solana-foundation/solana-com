@@ -35,7 +35,6 @@ export async function getStaticProps({ locale }) {
 }
 
 export default function DeveloperCoursesIndex({
-  // todo: featured,
   records,
 }: InferGetStaticPropsType<typeof getStaticProps>) {
   const { t } = useTranslation("common");
