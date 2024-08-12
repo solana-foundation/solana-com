@@ -43,7 +43,7 @@ export default function DeveloperCoursesIndex({
   // Sort the course records by their priority
   // Eg, 'intro' courses should be listed first before more advanced topics.
   records.sort((a, b) => a.priority - b.priority);
-  const results: DefaultCard[] = records.map((record) => {
+  const courseCards: Array<DefaultCard> = records.map((record) => {
     return {
       type: "blog",
       eyebrow: record.lessons.length > 0 && `${record.lessons.length} Lessons`,
@@ -73,7 +73,7 @@ export default function DeveloperCoursesIndex({
         description={t("developers.guides.seo-description")}
       />
 
-      <CardDeck numCols={3} cards={results} isListing />
+      <CardDeck numCols={3} cards={courseCards} isListing />
 
       <div className={classNames(styles["developers-content-page"])}>
         {/* @ts-expect-error */}
