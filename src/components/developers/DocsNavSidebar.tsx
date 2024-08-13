@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import ContentApi from "@/utils/contentApi";
 import classNames from "classnames";
 import Link from "next/link";
@@ -157,28 +157,45 @@ const SidebarMenu = memo(
     currentPath,
     nestedCount = 1,
     isOpen = true,
-    isInFolder = false,
   }: SidebarMenuProps) => {
-    // do nothing if there are no child items
-    if (!navItems?.length) return <></>;
+    const [height, setHeight] = useState<string | number>("auto");
+    const contentRef = useRef<HTMLUListElement>(null);
+
+    const updateHeight = useCallback(() => {
+      if (contentRef.current) {
+        setHeight(isOpen ? contentRef.current.scrollHeight : 0);
+      }
+    }, [isOpen]);
+
+    useEffect(() => {
+      updateHeight();
+      window.addEventListener("resize", updateHeight);
+      return () => window.removeEventListener("resize", updateHeight);
+    }, [updateHeight]);
+
+    if (!navItems?.length) return null;
 
     return (
-      <ul
+      <div
         style={{
-          display: !isOpen ? "none" : undefined,
-          borderColor: isInFolder ? "var(--mdx-details-border)" : undefined,
+          maxHeight: height,
+          opacity: isOpen ? 1 : 0,
+          overflow: "hidden",
+          transition: "max-height 300ms ease-in-out, opacity 300ms ease-in-out",
         }}
       >
-        {navItems.map((section, key) => (
-          <SidebarMenuChildren
-            isExpandedDefault={isExpandedDefault}
-            key={key}
-            section={section}
-            currentPath={currentPath}
-            nestedCount={nestedCount}
-          />
-        ))}
-      </ul>
+        <ul ref={contentRef}>
+          {navItems.map((section, key) => (
+            <SidebarMenuChildren
+              isExpandedDefault={isExpandedDefault}
+              key={key}
+              section={section}
+              currentPath={currentPath}
+              nestedCount={nestedCount}
+            />
+          ))}
+        </ul>
+      </div>
     );
   },
 );
@@ -213,6 +230,7 @@ const SidebarMenuChildren = memo(
           e.target?.tagName.toLowerCase(),
         );
         if (clickedToggleIcon) e.preventDefault();
+
         setIsOpen(!isOpen);
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
