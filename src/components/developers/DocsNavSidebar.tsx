@@ -158,43 +158,56 @@ const SidebarMenu = memo(
     nestedCount = 1,
     isOpen = true,
   }: SidebarMenuProps) => {
-    const [height, setHeight] = useState<string | number>("auto");
+    const [height, setHeight] = useState("auto");
+    const [isRendered, setIsRendered] = useState(isOpen);
     const contentRef = useRef<HTMLUListElement>(null);
 
     const updateHeight = useCallback(() => {
       if (contentRef.current) {
-        setHeight(isOpen ? contentRef.current.scrollHeight : 0);
+        const maxHeight = contentRef.current.scrollHeight;
+        setHeight(isOpen ? `${maxHeight}px` : "0px");
       }
     }, [isOpen]);
 
     useEffect(() => {
-      updateHeight();
-      window.addEventListener("resize", updateHeight);
-      return () => window.removeEventListener("resize", updateHeight);
-    }, [updateHeight]);
+      if (isRendered) {
+        updateHeight();
+        const resizeObserver = new ResizeObserver(updateHeight);
+        if (contentRef.current) resizeObserver.observe(contentRef.current);
+        return () => resizeObserver.disconnect();
+      }
+    }, [isRendered, updateHeight]);
 
-    if (!navItems?.length) return null;
+    useEffect(() => {
+      if (isOpen) {
+        setIsRendered(true);
+      }
+    }, [isOpen]);
+
+    // do nothing if there are no child items
+    if (!navItems?.length) return <></>;
 
     return (
       <div
         style={{
           maxHeight: height,
           opacity: isOpen ? 1 : 0,
-          overflow: "hidden",
           transition: "max-height 300ms ease-in-out, opacity 300ms ease-in-out",
         }}
       >
-        <ul ref={contentRef}>
-          {navItems.map((section, key) => (
-            <SidebarMenuChildren
-              isExpandedDefault={isExpandedDefault}
-              key={key}
-              section={section}
-              currentPath={currentPath}
-              nestedCount={nestedCount}
-            />
-          ))}
-        </ul>
+        {isRendered && (
+          <ul ref={contentRef}>
+            {navItems.map((section, key) => (
+              <SidebarMenuChildren
+                isExpandedDefault={isExpandedDefault}
+                key={key}
+                section={section}
+                currentPath={currentPath}
+                nestedCount={nestedCount}
+              />
+            ))}
+          </ul>
+        )}
       </div>
     );
   },
