@@ -283,14 +283,12 @@ export const AccordionConfig = {
       name: "headline",
       type: "text",
       defaultValue: "Frequently asked questions",
-
       localized: true,
     },
     {
       name: "eyebrow",
       type: "text",
       defaultValue: "Solana FAQ",
-
       localized: true,
     },
     {
@@ -307,14 +305,12 @@ export const AccordionConfig = {
           name: "title",
           type: "text",
           defaultValue: "Accordion item question",
-
           localized: true,
         },
         {
           name: "body",
           type: "richText",
           defaultValue: "<p>Accordion item body</p>",
-
           localized: true,
         },
       ],
@@ -334,8 +330,7 @@ export const AnnouncementBarConfig = {
     {
       name: "text",
       type: "text",
-      defaultValue: "Join the nft showdown - ",
-
+      defaultValue: "Announcement bar text",
       localized: true,
     },
     {
@@ -346,7 +341,6 @@ export const AnnouncementBarConfig = {
           name: "label",
           type: "text",
           defaultValue: "Build the next generation of nft brands on Solana",
-
           localized: true,
         },
         {
@@ -396,14 +390,12 @@ export const CardDeckConfig = {
           name: "eyebrow",
           type: "text",
           defaultValue: "Eyebrow Text",
-
           localized: true,
         },
         {
           name: "heading",
           type: "text",
           defaultValue: "Heading Text",
-
           localized: true,
         },
         {
@@ -415,7 +407,6 @@ export const CardDeckConfig = {
           name: "body",
           type: "longtext",
           defaultValue: "Body Text",
-
           localized: true,
         },
         {
@@ -730,7 +721,6 @@ export const SliderCard = {
           name: "alt",
           type: "text",
           defaultValue: "",
-
           localized: true,
         },
       ],
@@ -1457,7 +1447,6 @@ export const CommunityGalleryConfig = {
         {
           name: "eyebrow",
           type: "text",
-
           localized: true,
           defaultValue: "",
 
@@ -1972,6 +1961,8 @@ export const BreakpointTitleConfig = {
       name: "title",
       type: "text",
       required: true,
+      defaultValue: "Title",
+      localized: true,
     },
     {
       name: "image",
@@ -1994,14 +1985,20 @@ export const BreakpointHero = {
     {
       name: "title",
       type: "text",
+      defaultValue: "Title",
+      localized: true,
     },
     {
       name: "subtitle",
       type: "text",
+      defaultValue: "Subtitle",
+      localized: true,
     },
     {
       name: "description",
       type: "richText",
+      defaultValue: "Description",
+      localized: true,
     },
     {
       name: "logo",
@@ -2025,11 +2022,13 @@ export const BreakpointCard = {
       name: "heading",
       type: "string",
       defaultValue: "",
+      localized: true,
     },
     {
       name: "content",
       type: "richText",
       defaultValue: "",
+      localized: true,
     },
     {
       name: "buttons",
