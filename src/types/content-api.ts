@@ -77,6 +77,10 @@ export type ContentRecordBase = ContentApiNavItem & {
   // Priority
   priority?: number | undefined;
 
+  // Only hides from UI, as there's a CFP to update it and people
+  // that know the URL should still be able to access it.
+  isHidden?: boolean | undefined;
+
   /** The next record */
   next?: ContentApiNavItem;
   /** The previous record */

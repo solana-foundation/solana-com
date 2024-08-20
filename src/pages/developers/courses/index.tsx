@@ -35,36 +35,44 @@ export async function getStaticProps({ locale }) {
 }
 
 export default function DeveloperCoursesIndex({
-  // todo: featured,
-  records,
+  records: courseRecords,
 }: InferGetStaticPropsType<typeof getStaticProps>) {
   const { t } = useTranslation("common");
 
-  // Sort the course records by their priority
-  // Eg, 'intro' courses should be listed first before more advanced topics.
-  records.sort((a, b) => a.priority - b.priority);
-  const results: DefaultCard[] = records.map((record) => {
-    return {
-      type: "blog",
-      eyebrow: record.lessons.length > 0 && `${record.lessons.length} Lessons`,
-      // publishedDate?: string;
-      // heading: record.title,
-      // headingAs?: ElementType;
-      body: record.description,
-      callToAction: {
-        hierarchy: "link",
-        size: "md",
-        label: "Start Course",
-        endIcon: "arrow-up-right",
-        iconSize: "sm",
-        url: record.href,
-      },
-      backgroundImage: {
-        src: record.image || `/opengraph/developers/courses/${record.slug}`,
-      },
-      isFeatured: false,
-    };
-  });
+  let filteredCourseRecords = courseRecords
+    // Remove any courses with the isHidden flag
+    // Note: we don't remove the routing to them as there's currently a CFP to
+    // update these courses, and we want people working on these updates to
+    // browse their content if they know the URL.
+    .filter((courseRecord) => {
+      return !courseRecord.isHidden;
+    })
+    // Sort the course records by their priority
+    // Eg, 'intro' courses should be listed first before more advanced topics.
+    .sort((a, b) => a.priority - b.priority);
+
+  const courseCards: Array<DefaultCard> = filteredCourseRecords.map(
+    (record) => {
+      return {
+        type: "blog",
+        eyebrow:
+          record.lessons.length > 0 && `${record.lessons.length} Lessons`,
+        body: record.description,
+        callToAction: {
+          hierarchy: "link",
+          size: "md",
+          label: "Start Course",
+          endIcon: "arrow-up-right",
+          iconSize: "sm",
+          url: record.href,
+        },
+        backgroundImage: {
+          src: record.image || `/opengraph/developers/courses/${record.slug}`,
+        },
+        isFeatured: false,
+      };
+    },
+  );
 
   return (
     <DevelopersLayout>
@@ -73,7 +81,7 @@ export default function DeveloperCoursesIndex({
         description={t("developers.guides.seo-description")}
       />
 
-      <CardDeck numCols={3} cards={results} isListing />
+      <CardDeck numCols={3} cards={courseCards} isListing />
 
       <div className={classNames(styles["developers-content-page"])}>
         {/* @ts-expect-error */}
