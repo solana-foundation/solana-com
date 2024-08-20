@@ -86,6 +86,24 @@ const Header = () => {
                   {t("breakpoint.header.tickets")}
                 </Link>
               </li>
+              <li className="nav-item">
+                <Link
+                  className="nav-link nav-link--primary"
+                  activeClassName="active"
+                  to="/breakpoint/sponsors"
+                >
+                  {t("breakpoint.header.sponsors")}
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link
+                  className="nav-link nav-link--primary"
+                  activeClassName="active"
+                  to="/breakpoint/speakers"
+                >
+                  {t("breakpoint.header.speakers")}
+                </Link>
+              </li>
             </ul>
           </Navbar.Collapse>
         </div>
