@@ -44,6 +44,15 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
+              to="/wallets"
+              className="nav-link nav-link--secondary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-white">
+                {solutionsToolsItems[10].title}
+              </strong>
+            </Link>
+            <Link
               to="/solutions/solana-permissioned-environments"
               className="nav-link nav-link--secondary"
               activeClassName="active"

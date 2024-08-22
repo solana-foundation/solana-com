@@ -21,7 +21,8 @@ const HeaderList = () => {
   const [showLearn, updateShowLearn] = useState(false);
 
   const isLearnActive = asPath.includes("/learn") || asPath === "/environment";
-  const isSolutionsActive = asPath.includes("/solutions");
+  const isSolutionsActive =
+    asPath.includes("/solutions") || asPath.includes("/wallets");
   const isBuildActive =
     asPath.includes("/developers") ||
     asPath.includes("/docs") ||
