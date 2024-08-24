@@ -41,7 +41,10 @@ function SitewideTopAlert({ locale }) {
       });
   }, [locale]);
 
-  if (router.pathname.includes(announcementBarData?.cta.url)) {
+  if (
+    router.pathname.includes(announcementBarData?.cta.url) ||
+    router.asPath.includes("/breakpoint/app")
+  ) {
     return null;
   }
 
