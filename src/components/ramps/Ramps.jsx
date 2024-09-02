@@ -1,16 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import styles from "./Ramps.module.scss";
 import RampsCard from "./RampsCard";
 import SharedModal from "../shared/SharedModal";
-// import FAQsection from "../sharedPageSections/FAQsection";
 import Image from "next/image";
-import RampIconPlaceholder from "./assets/ramp-icon-placeholder.png";
 import Button from "../shared/Button";
 import { Accordion } from "react-bootstrap";
-// import AccordionBody from "react-bootstrap/esm/AccordionBody";
 import CommonMarkdown from "../sharedPageSections/CommonMarkdown";
 import ChevronDown from "../../../public/src/img/icons/Angle-down.inline.svg";
 import { useTranslation } from "next-i18next";
+import RampIconPlaceholder from "./assets/ramp-icon-placeholder.png";
 
 const Ramps = ({
   fiatAssets,
@@ -20,110 +18,57 @@ const Ramps = ({
   resetFilters,
 }) => {
   const { t } = useTranslation();
-
-  const textContent = (content) => {
-    return `<div class="${styles["ramp_popup_content"]}"><p>${content}</p></div>`;
-  };
-
-  const fiatContent = [...Array(16).keys()]
-    .map(() => {
-      return `<span class="${styles["fiat_asset"]}">€ EURO</span>`;
-    })
-    .join(" ");
-
   const [showModal, setShowModal] = useState(false);
-
-  // Default modal data
+  const [modalData, setModalData] = useState([]);
   const [generalModalData, setGeneralModalData] = useState({
     title: "Ramp",
     websiteUrl: "",
     imageUrl: "",
   });
 
-  // Sets default modal data but will be replaced by ramp data when clicking on a specific ramp
-  const [modalData, setModalData] = useState([
-    {
-      content:
-        "Austria / Belgium / Brazil / Bulgaria / Croatia / Cyprus / Czech Republic / Denmark / Estonia / Finland / France / Germany / Greece / Hungary / Ireland / Italy / Latvia / Lithuania / Luxembourg / Malta / Netherlands / Poland / Portugal / Romania / Slovakia / Slovenia / Spain / Sweden / United Kingdom",
-      title: t("on-off-ramp.ramp-modal-data.country-title"),
-    },
-    {
-      content: `<div class="tw-flex tw-flex-row tw-gap-2 tw-flex-wrap py-2">${fiatContent}</div>`,
-      title: t("on-off-ramp.ramp-modal-data.fiat-title"),
-    },
-    {
-      content: "PayPal / Google Wallet / Apple Pay",
-      title: t("on-off-ramp.ramp-modal-data.payment-rails-title"),
-    },
-  ]);
+  const handleShowModal = (ramp) => {
+    const countriesOfRamp = countries.filter((countryData) =>
+      ramp.meta.countries.includes(countryData.value),
+    );
+    const fiatAssetsOfRamp = fiatAssets.filter((fiatData) =>
+      ramp.meta["fiat-assets"].includes(fiatData.value),
+    );
+    const paymentRailsOfRamp = paymentRails.filter((paymentData) =>
+      ramp.meta["payment-rails"].includes(paymentData.value),
+    );
 
-  useEffect(() => {
-    setShowModal(false);
-  }, []);
+    const fiatHtml = fiatAssetsOfRamp
+      .map(
+        (item) => `<span class="${styles["fiat_asset"]}">${item.title}</span>`,
+      )
+      .join(" ");
 
-  const showModalOnClick = (e) => {
-    const index = e.target?.dataset?.index;
+    setGeneralModalData({
+      title: ramp.title,
+      websiteUrl: ramp.websiteUrl,
+      imageUrl: ramp.imageUrl || RampIconPlaceholder.src,
+    });
 
-    if (index) {
-      const data = ramps[index]; // The main object containing all the maps of the data specific to the clicked ramp
-
-      const countriesOfRamp = countries.filter((countryData) => {
-        if (data.meta.countries.includes(countryData.value)) {
-          return true;
-        }
-      });
-
-      const fiatAssetsOfRamp = fiatAssets.filter((fiatData) => {
-        if (data.meta["fiat-assets"].includes(fiatData.value)) {
-          return true;
-        }
-      });
-
-      const paymentRailsOfRamp = paymentRails.filter((paymentData) => {
-        if (data.meta["payment-rails"].includes(paymentData.value)) {
-          return true;
-        }
-      });
-
-      const fiatHtml = fiatAssetsOfRamp
-        .map((item) => {
-          return `<span class="${styles["fiat_asset"]}">${item.title}</span>`;
-        })
-        .join(" ");
-
-      setGeneralModalData({
-        title: data.title,
-        websiteUrl: data.websiteUrl,
-        countriesOfRamp,
-        imageUrl: data.imageUrl ?? null,
-      });
-
-      // Used for the new inline accordion that allows for multiple items open at once
-      setModalData([
-        {
-          content: textContent(
-            countriesOfRamp
-              .map((item) => item.title)
-              .sort()
-              .join(" / "),
-          ),
-          title: t("on-off-ramp.ramp-modal-data.country-title"),
-        },
-        {
-          content: `<div class="tw-flex tw-flex-row tw-gap-2 tw-flex-wrap py-2">${fiatHtml}</div>`,
-          title: t("on-off-ramp.ramp-modal-data.fiat-title"),
-        },
-        {
-          content: textContent(
-            paymentRailsOfRamp
-              .map((item) => item.title)
-              .sort()
-              .join(" / "),
-          ),
-          title: t("on-off-ramp.ramp-modal-data.payment-rails-title"),
-        },
-      ]);
-    }
+    setModalData([
+      {
+        content: countriesOfRamp
+          .map((item) => item.title)
+          .sort()
+          .join(" / "),
+        title: t("on-off-ramp.ramp-modal-data.country-title"),
+      },
+      {
+        content: `<div class="tw-flex tw-flex-row tw-gap-2 tw-flex-wrap py-2">${fiatHtml}</div>`,
+        title: t("on-off-ramp.ramp-modal-data.fiat-title"),
+      },
+      {
+        content: paymentRailsOfRamp
+          .map((item) => item.title)
+          .sort()
+          .join(" / "),
+        title: t("on-off-ramp.ramp-modal-data.payment-rails-title"),
+      },
+    ]);
 
     setShowModal(true);
   };
@@ -143,8 +88,8 @@ const Ramps = ({
               key={index}
               rampIndex={index}
               imageUrl={item.imageUrl}
-              showModalOnClick={showModalOnClick}
-            ></RampsCard>
+              showModalOnClick={() => handleShowModal(item)}
+            />
           ))
         ) : (
           <div className={styles["ramp-no-results"]}>
@@ -169,10 +114,10 @@ const Ramps = ({
         <div className="ramp-data">
           <div className={styles["ramp__header"]}>
             <Image
-              src={generalModalData.imageUrl ?? RampIconPlaceholder}
+              src={generalModalData.imageUrl}
               width={61}
               height={61}
-              alt=""
+              alt={generalModalData.title}
             />
             <h3 className={styles["ramp-popup__title"]}>
               {generalModalData.title}
