@@ -104,6 +104,15 @@ const Header = () => {
                   {t("breakpoint.header.speakers")}
                 </Link>
               </li>
+              <li className="nav-item">
+                <Link
+                  className="nav-link nav-link--primary"
+                  activeClassName="active"
+                  to="https://e.jublia.com/SolanaBreakpoint/agenda/"
+                >
+                  {t("breakpoint.header.schedule")}
+                </Link>
+              </li>
             </ul>
           </Navbar.Collapse>
         </div>
