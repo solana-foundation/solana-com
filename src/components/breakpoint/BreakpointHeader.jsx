@@ -54,9 +54,46 @@ const Header = () => {
                 <Link
                   className="nav-link nav-link--primary"
                   activeClassName="active"
+                  to="/breakpoint/tickets"
+                >
+                  {t("breakpoint.header.tickets")}
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link
+                  className="nav-link nav-link--primary"
+                  activeClassName="active"
+                  to="https://e.jublia.com/SolanaBreakpoint/agenda/"
+                >
+                  {t("breakpoint.header.schedule")}
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link
+                  className="nav-link nav-link--primary"
+                  activeClassName="active"
+                  to="/breakpoint/speakers"
+                >
+                  {t("breakpoint.header.speakers")}
+                </Link>
+              </li>
+
+              <li className="nav-item">
+                <Link
+                  className="nav-link nav-link--primary"
+                  activeClassName="active"
                   to="/breakpoint/side-events"
                 >
                   {t("breakpoint.header.events")}
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link
+                  className="nav-link nav-link--primary"
+                  activeClassName="active"
+                  to="/breakpoint/sponsors"
+                >
+                  {t("breakpoint.header.sponsors")}
                 </Link>
               </li>
               <li className="nav-item">
@@ -75,33 +112,6 @@ const Header = () => {
                   to="/breakpoint/faq"
                 >
                   {t("breakpoint.header.faq")}
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className="nav-link nav-link--primary"
-                  activeClassName="active"
-                  to="/breakpoint/tickets"
-                >
-                  {t("breakpoint.header.tickets")}
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className="nav-link nav-link--primary"
-                  activeClassName="active"
-                  to="/breakpoint/sponsors"
-                >
-                  {t("breakpoint.header.sponsors")}
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className="nav-link nav-link--primary"
-                  activeClassName="active"
-                  to="/breakpoint/speakers"
-                >
-                  {t("breakpoint.header.speakers")}
                 </Link>
               </li>
             </ul>
