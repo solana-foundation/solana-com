@@ -34,6 +34,9 @@ export const MAINNET_ENDPOINT = "https://explorer-api.mainnet-beta.solana.com";
  */
 export const INTERNAL_MAINNET_ENDPOINT = "";
 
+const isDevelopment = process?.env?.NODE_ENV === "development" || false;
+const rpcNodeURL = isDevelopment ? INTERNAL_MAINNET_ENDPOINT : MAINNET_ENDPOINT;
+
 // Test for AbortController support.
 const isAbortControllerSupported =
   typeof window !== "undefined" && window.hasOwnProperty("AbortController");
@@ -49,8 +52,6 @@ const initAbortController = () =>
     ? new AbortController()
     : { abort: noOp, signal: {} };
 
-const isDevelopment = process?.env?.NODE_ENV === "development" || false;
-
 /**
  * Hook to return current transaction statistics from the JSON-RPC endpoint.
  *
@@ -62,7 +63,7 @@ const isDevelopment = process?.env?.NODE_ENV === "development" || false;
  * @returns {{availableStats: boolean, avgTps: number, validators: number, totalTransactionCount: number}}
  */
 export const useTransactionStats = ({
-  visible = false,
+  visible,
   performanceUpdateSeconds,
   sampleHistoryHours,
   getLiveTransactionCount = true,
@@ -72,6 +73,7 @@ export const useTransactionStats = ({
   const [avgTps, setAvgTps] = useState(0);
   const [totalTransactionCount, setTotalTransactionCount] = useState(0);
   const [validators, setValidators] = useState(0);
+  const [superminority, setSuperminority] = useState(null);
 
   const getRPCData = useCallback(
     async (getValidatorNodes, getTransactionCount, abortSignal) => {
@@ -84,9 +86,7 @@ export const useTransactionStats = ({
       try {
         // Do *not* batch these queries.
         // Batching has been disabled on the homepage's API endpoint.
-        const rpcNodeURL = isDevelopment
-          ? INTERNAL_MAINNET_ENDPOINT
-          : MAINNET_ENDPOINT;
+
         if (rpcNodeURL) {
           await Promise.all([
             (async () => {
@@ -181,10 +181,54 @@ export const useTransactionStats = ({
     getRPCData,
   ]);
 
+  const fetchSuperminority = async () => {
+    try {
+      const response = await fetch(rpcNodeURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getVoteAccounts",
+        }),
+      });
+      const data = await response.json();
+
+      // Sort validators by stake in descending order
+      const sortedValidators = data.result.current.sort((a, b) =>
+        Number(BigInt(b.activatedStake) - BigInt(a.activatedStake)),
+      );
+
+      const totalStake = sortedValidators.reduce(
+        (sum, validator) => sum + BigInt(validator.activatedStake),
+        BigInt(0),
+      );
+      const oneThirdStake = totalStake / BigInt(3);
+
+      let cumulativeStake = BigInt(0);
+      let superminorityCount = 0;
+
+      for (const validator of sortedValidators) {
+        if (cumulativeStake > oneThirdStake) break;
+        cumulativeStake += BigInt(validator.activatedStake);
+        superminorityCount++;
+      }
+
+      setSuperminority(superminorityCount);
+    } catch (error) {
+      console.error("Error fetching superminority:", error);
+    }
+  };
+
+  if (visible) {
+    fetchSuperminority();
+  }
+
   return {
     availableStats,
     avgTps,
     totalTransactionCount,
     validators,
+    superminority,
   };
 };
