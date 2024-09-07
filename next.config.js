@@ -76,7 +76,7 @@ const moduleExports = () => {
         .getAll("url-redirects", {
           apiKey:
             process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
-            "983ae1dad0ba4ca4ac6dd4ac310edee1",
+            "ce0c7323a97a4d91bd0baa7490ec9139",
           options: { noTargeting: true },
           cachebust: true,
         })
