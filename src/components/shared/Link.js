@@ -25,7 +25,7 @@ export const Link = ({
         asPath.includes(to) &&
         !partiallyActiveIgnore.filter((el) => asPath.startsWith(el)).length)
     );
-  }, [partiallyActive, asPath, to]);
+  }, [partiallyActive, asPath, to, partiallyActiveIgnore]); // Added partiallyActiveIgnore to dependencies
 
   if (internal) {
     const { scroll, prefetch, ...aProps } = other;

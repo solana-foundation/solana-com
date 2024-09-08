@@ -3,19 +3,19 @@ import styled from "styled-components";
 const StyledDivider = styled.div`
   height: ${(props) => props.height || "auto"};
   ${(props) =>
-    props.axis === "x"
+    props.$axis === "x"
       ? "border-top"
-      : props.axis === "y"
+      : props.$axis === "y"
         ? "border-right"
         : "border"}: 1px solid
     rgba(
       ${(props) =>
-    props.theme === "light"
+    props.$theme === "light"
       ? "255, 255, 255"
-      : props.theme === "dark"
+      : props.$theme === "dark"
         ? "0, 0, 0"
-        : "100,100,100"},
-      ${(props) => props.alpha || 0.4}
+        : "100, 100, 100"},
+      ${(props) => props.$alpha || 0.4}
     );
 `;
 
@@ -32,9 +32,9 @@ const StyledDivider = styled.div`
 const Divider = ({ theme, alpha, axis, height, className }) => (
   <StyledDivider
     role="separator"
-    theme={theme}
-    alpha={alpha}
-    axis={axis}
+    $theme={theme}
+    $alpha={alpha}
+    $axis={axis}
     height={height}
     className={className}
   />
