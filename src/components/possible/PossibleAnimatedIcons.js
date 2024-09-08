@@ -21,16 +21,18 @@ const PossibleAnimatedIcons = ({
       },
     );
 
-    if (videoRef.current) {
-      observer.observe(videoRef.current);
+    const currentVideoRef = videoRef.current; // Store the current ref
+
+    if (currentVideoRef) {
+      observer.observe(currentVideoRef);
     }
 
     return () => {
-      if (videoRef.current) {
-        observer.unobserve(videoRef.current);
+      if (currentVideoRef) {
+        observer.unobserve(currentVideoRef);
       }
     };
-  }, [videoSrc]);
+  }, []);
 
   const handleVideoError = () => {
     setShowFallback(true);

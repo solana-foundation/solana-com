@@ -1,4 +1,11 @@
-import { useEffect, useState, useRef, createElement } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  createElement,
+  useCallback,
+  useMemo,
+} from "react";
 import { useRouter } from "next/router";
 import { Modal, CloseButton } from "react-bootstrap";
 import ArtistsAndCreatorsNewsletter from "../newsletter/artistsAndCreators";
@@ -10,11 +17,14 @@ const ModalLauncher = () => {
   const [modalLaunchId, setModalLaunchId] = useState("default");
   const modalActionCompleted = useRef(false);
 
-  const modalMapping = {
-    artistAndCreatorsNewsletter: ArtistsAndCreatorsNewsletter,
-  };
+  const modalMapping = useMemo(
+    () => ({
+      artistAndCreatorsNewsletter: ArtistsAndCreatorsNewsletter,
+    }),
+    [],
+  );
 
-  const modalCloseHandler = () => {
+  const modalCloseHandler = useCallback(() => {
     // if the modal action is not complete, track bounce
     if (!modalActionCompleted.current && typeof window.gtag !== "undefined") {
       window.gtag("event", "modal_bounce", {
@@ -37,7 +47,7 @@ const ModalLauncher = () => {
       undefined,
       { shallow: true },
     );
-  };
+  }, [modalLaunchId, router]);
 
   useEffect(() => {
     const { modalLaunch, modalLaunchId } = router.query;
@@ -68,7 +78,7 @@ const ModalLauncher = () => {
       setShowModal(false);
       setModalComponent(null);
     }
-  }, [router.query]);
+  }, [router.query, modalCloseHandler, modalMapping]);
 
   return (
     <Modal

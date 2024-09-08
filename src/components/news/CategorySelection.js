@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import styles from "./CategorySelection.module.scss";
 import classNames from "classnames";
 import { SwitcherButtons } from "@solana-foundation/solana-lib";
@@ -29,7 +29,7 @@ const CategorySelection = ({
     return arr.length; // Return -1 if the sum never exceeds maxNumber
   };
 
-  const updateDisplayedItems = () => {
+  const updateDisplayedItems = useCallback(() => {
     const containerWidth = categoryContainer.current.offsetWidth;
     const dropdownWidth = moreCategoriesLabel?.length * 10 + 70; // 70 = padding + ~margin
     maxDisplayItems.current = findExceedingIndex(
@@ -45,7 +45,7 @@ const CategorySelection = ({
       setDisplayCategories(categories);
       setMoreCategories([]);
     }
-  };
+  }, [buttonWidths, moreCategoriesLabel, categories]); // Added 'categories' to dependencies
 
   // estimate the widths of the category buttons on initial render
   // note: can't rely on actual widths because some buttons are stored in the dropdown and are not accessible
@@ -66,7 +66,7 @@ const CategorySelection = ({
     return () => {
       window.removeEventListener("resize", updateDisplayedItems);
     };
-  }, [buttonWidths]);
+  }, [buttonWidths, updateDisplayedItems]);
 
   return (
     <>

@@ -162,7 +162,9 @@ export async function getStaticProps({ locale }) {
             console.error("Issue calling Airtable API:", error),
           );
 
-        response?.records.forEach((item) => allData.push(item));
+        if (response && Array.isArray(response.records)) {
+          response.records.forEach((item) => allData.push(item));
+        }
 
         if (response.offset) {
           return await getAllAirtableRecords(
