@@ -32,10 +32,11 @@ export const MAINNET_ENDPOINT = "https://explorer-api.mainnet-beta.solana.com";
  *
  * @type {string}
  */
-export const INTERNAL_MAINNET_ENDPOINT = "";
 
-const isDevelopment = process?.env?.NODE_ENV === "development" || false;
-const rpcNodeURL = isDevelopment ? INTERNAL_MAINNET_ENDPOINT : MAINNET_ENDPOINT;
+const rpcNodeURL = process.env.NEXT_PUBLIC_RPC_ENDPOINT || "";
+if (!rpcNodeURL) {
+  console.warn("Warning: RPC_ENDPOINT is not set.");
+}
 
 // Test for AbortController support.
 const isAbortControllerSupported =
@@ -77,12 +78,6 @@ export const useTransactionStats = ({
 
   const getRPCData = useCallback(
     async (getValidatorNodes, getTransactionCount, abortSignal) => {
-      if (!visible) {
-        if (isDevelopment) {
-          console.debug("not visible, or homepage exit");
-        }
-        return;
-      }
       try {
         // Do *not* batch these queries.
         // Batching has been disabled on the homepage's API endpoint.
@@ -143,11 +138,9 @@ export const useTransactionStats = ({
         if (error.name === "AbortError" || error.name === "TypeError") {
           return;
         }
-
-        isDevelopment && console.error("error: ", error);
       }
     },
-    [sampleHistoryHours, visible],
+    [sampleHistoryHours],
   );
 
   // Load dynamic statistics only when the component is visible.
