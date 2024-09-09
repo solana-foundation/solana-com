@@ -183,19 +183,13 @@ export const useTransactionStats = ({
 
   const fetchSuperminority = async () => {
     try {
-      const response = await fetch(rpcNodeURL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getVoteAccounts",
-        }),
+      const voteAccounts = await makeRPCCall({
+        method: "getVoteAccounts",
+        rpcNodeURL,
       });
-      const data = await response.json();
 
       // Sort validators by stake in descending order
-      const sortedValidators = data.result.current.sort((a, b) =>
+      const sortedValidators = voteAccounts.result.current.sort((a, b) =>
         Number(BigInt(b.activatedStake) - BigInt(a.activatedStake)),
       );
 
