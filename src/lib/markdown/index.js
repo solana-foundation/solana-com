@@ -21,7 +21,7 @@ export function getPostBySlug(path, slug) {
   const date =
     data.date && typeof data.date !== "string"
       ? format(data.date, "MMMM dd, yyyy")
-      : data.date ?? null;
+      : (data.date ?? null);
   return {
     path: realSlug,
     frontmatter: { ...data, date, reviewed: true },
