@@ -30,6 +30,7 @@ import transfi from "./assets/logos/transfi.png";
 import unlimit from "./assets/logos/unlimit.png";
 import utorg from "./assets/logos/untorg.png";
 import paybis from "./assets/logos/paybis.png";
+import topper from "./assets/logos/topper.png";
 
 const RampLayout = ({
   data,
@@ -138,6 +139,10 @@ const RampLayout = ({
     {
       ramp: "Paybis",
       logo: paybis,
+    },
+    {
+      ramp: "Topper",
+      logo: topper,
     },
   ];
 

@@ -170,7 +170,11 @@ const PostCard = ({ post, index, isFirstPage, variant = "primary" }) => {
               height={1073}
             />
           </Link>
-          <h2 className="post-card-title secondary">{post?.data?.title}</h2>
+          <h2 className="post-card-title secondary">
+            {typeof post?.data?.title === "string"
+              ? post.data.title
+              : post?.data?.title?.Default}
+          </h2>
         </div>
         <Link to={url} className="post-card-button">
           {t("blog.read-article")}
@@ -198,7 +202,11 @@ const PostCard = ({ post, index, isFirstPage, variant = "primary" }) => {
                   <small className="d-block post-card-date">
                     <PublishedAt publishedDateString={publishedDate} />
                   </small>
-                  <h2 className="post-card-title">{post?.data?.title}</h2>
+                  <h2 className="post-card-title">
+                    {typeof post?.data?.title === "string"
+                      ? post.data.title
+                      : post?.data?.title?.Default}
+                  </h2>
                   <p className="post-card-excerpt">{excerpt}</p>
                 </div>
               </div>
@@ -232,7 +240,11 @@ const PostCard = ({ post, index, isFirstPage, variant = "primary" }) => {
                 <span className="d-block post-card-date">
                   <PublishedAt publishedDateString={publishedDate} />
                 </span>
-                <h2 className="post-card-title">{post?.data?.title}</h2>
+                <h2 className="post-card-title">
+                  {typeof post?.data?.title === "string"
+                    ? post.data.title
+                    : post?.data?.title?.Default}
+                </h2>
                 <p className="post-card-excerpt">{excerpt}</p>
               </div>
             ) : (
