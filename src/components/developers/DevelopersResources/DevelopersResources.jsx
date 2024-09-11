@@ -14,32 +14,37 @@ const DevelopersResourcesFilters = dynamic(
 
 const mapItemsIntoFilters = (itemFilters) => (item) => {
   // handle the `category` field
-  if (!!item?.category)
+  if (!!item?.category) {
     if (!itemFilters.category.items.includes(item?.category)) {
       itemFilters.category.items.push(item?.category);
     }
+  }
 
   // handle the `difficulty` field
-  if (!!item?.difficulty)
+  if (!!item?.difficulty) {
     if (!itemFilters.difficulty.items.includes(item?.difficulty)) {
+      console.log(item.difficulty);
       itemFilters.difficulty.items.push(item?.difficulty);
     }
+  }
 
   // handle the `labels` field
-  if (!!item?.labels)
+  if (!!item?.labels) {
     item.labels?.forEach((label) => {
       if (!itemFilters?.labels.items.includes(label)) {
         itemFilters.labels.items.push(label);
       }
     });
+  }
 
   // handle the `tags` field
-  if (!!item?.tags)
+  if (!!item?.tags) {
     item.tags.forEach((tag) => {
       if (!itemFilters.tags.items.includes(tag)) {
         itemFilters.tags.items.push(tag);
       }
     });
+  }
 
   return item;
 };
@@ -72,6 +77,20 @@ export default memo(function DevelopersResources({ items, title = "" }) {
 
     // map all the filterable items to populate the filters
     items.map(mapItemsIntoFilters(filters));
+
+    // deduplicate all filters
+    filters.difficulty.items = Array.from(
+      new Set(filters.difficulty.items.map((item) => item.toLowerCase())),
+    );
+    filters.category.items = Array.from(
+      new Set(filters.category.items.map((item) => item.toLowerCase())),
+    );
+    filters.tags.items = Array.from(
+      new Set(filters.tags.items.map((item) => item.toLowerCase())),
+    );
+    filters.labels.items = Array.from(
+      new Set(filters.labels.items.map((item) => item.toLowerCase())),
+    );
 
     // force sort all filters to the same, always
     for (const key in filters) filters[key].items.sort();
