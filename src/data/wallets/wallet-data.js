@@ -22,6 +22,7 @@ import binanceIcon from "../../../assets/wallets/icons/binance.png";
 import exodusIcon from "../../../assets/wallets/icons/exodus.png";
 import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
 import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
+import gemIcon from "../../../assets/wallets/icons/gem.png";
 
 export const walletData = [
   {
@@ -692,6 +693,30 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "Gem Wallet",
+    body: "Gem Wallet is an open-source and self-custodial crypto wallet that lets you send, receive, swap, use dApps, buy, and stake cryptocurrencies.",
+    website: "https://gemwallet.com/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Open Source • Staking",
+    icon: gemIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: false,
+    hold_nfts: false,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: true,
+    spending_limits: false,
+    open_source: true,
     hardware: false,
     private_key_infrastructure: false,
   },
