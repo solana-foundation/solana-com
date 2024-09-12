@@ -10,7 +10,7 @@ import styles from "./MarkdownTabs.module.scss";
 
 interface MarkdownTabsProps {
   children: ReactNode;
-  items?: string[];
+  items?: string[] | string;
   defaultIndex?: number;
   groupId?: string;
   persist?: boolean;
@@ -27,7 +27,12 @@ export function MarkdownTabs({
   persist = false,
   ...props
 }: MarkdownTabsProps) {
-  const values = useMemo(() => items.map((item) => toValue(item)), [items]);
+  const labels: string[] = useMemo(() => {
+    if (typeof items == "string")
+      return items.split(",").map((item) => item.trim());
+    else return items;
+  }, []);
+  const values = useMemo(() => labels.map((item) => toValue(item)), [labels]);
   const [value, setValue] = useState(values[defaultIndex]);
 
   useLayoutEffect(() => {
@@ -75,7 +80,7 @@ export function MarkdownTabs({
               v === value ? styles["active"] : ""
             }`}
           >
-            {items[i]}
+            {labels[i]}
           </TabsPrimitive.Trigger>
         ))}
       </TabsPrimitive.List>

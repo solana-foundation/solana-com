@@ -96,7 +96,10 @@ export async function getStaticProps({ params, locale }) {
   if (!!redirect) return redirect;
 
   // serialize the content via mdx
-  const source = await serializeMarkdown(record.body || "", record?.id);
+  const source = await serializeMarkdown(
+    record.body || "",
+    `${locale}-${record?.id}`,
+  );
 
   return {
     props: {

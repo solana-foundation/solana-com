@@ -34,7 +34,7 @@ export async function serializeMarkdown(
       },
     });
   } catch (err) {
-    console.error("[serializeMarkdown]", docKey);
+    console.error("[ERROR] [serializeMarkdown]", docKey);
     console.error(err);
     return await serialize(
       "There was an unknown error while processing the markdown content. \n\n" +
