@@ -39,25 +39,28 @@ export const fetchSuperminority = async () => {
       Number(BigInt(b.activatedStake) - BigInt(a.activatedStake)),
     );
 
+    // Calculate total stake from sorted validators
     const totalStake = sortedValidators.reduce(
       (sum, validator) => sum + BigInt(validator.activatedStake),
       BigInt(0),
     );
-    const oneThirdStake = totalStake / BigInt(3);
 
+    // Calculate one-third of the total stake
+    const oneThirdStake = totalStake / BigInt(3);
     let cumulativeStake = BigInt(0);
     let superminorityCount = 0;
 
+    // Count superminority
     for (const validator of sortedValidators) {
       if (cumulativeStake > oneThirdStake) break;
       cumulativeStake += BigInt(validator.activatedStake);
       superminorityCount++;
     }
 
-    return superminorityCount; // Return the count of superminority validators
+    return superminorityCount;
   } catch (error) {
     console.error("Error fetching superminority:", error);
-    return null; // Return null in case of error
+    return null;
   }
 };
 
