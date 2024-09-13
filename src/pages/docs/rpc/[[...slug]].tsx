@@ -64,7 +64,9 @@ export default function DeveloperRPCDocs({
   return (
     <DocsLayout>
       <HTMLHead
-        title={record.title ? record.title : "RPC Documentation"}
+        title={
+          record?.seoTitle || record?.title ? record.title : "RPC Documentation"
+        }
         description={record?.description || ""}
         socialShare={
           !!record.href ? `/opengraph/developers${record.href}` : undefined

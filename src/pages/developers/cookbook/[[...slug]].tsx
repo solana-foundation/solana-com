@@ -119,7 +119,7 @@ export default function Cookbook({
   return (
     <DocsLayout>
       <HTMLHead
-        title={record?.title || "Solana Cookbook"}
+        title={record?.seoTitle || record?.title || "Solana Cookbook"}
         description={record?.description || ""}
         socialShare={!!record.href ? `/opengraph${record.href}` : undefined}
       />
