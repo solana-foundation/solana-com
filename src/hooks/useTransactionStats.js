@@ -34,10 +34,13 @@ export const fetchSuperminority = async () => {
       rpcNodeURL,
     });
 
-    // Sort validators by stake in descending order
-    const sortedValidators = voteAccounts.result.current.sort((a, b) =>
-      Number(BigInt(b.activatedStake) - BigInt(a.activatedStake)),
-    );
+    // Sort validators by stake in ascending order
+    const sortedValidators = voteAccounts.result.current.sort((a, b) => {
+      const diff = BigInt(b.activatedStake) - BigInt(a.activatedStake);
+      if (diff > 0) return 1;
+      else if (diff < 0) return -1;
+      else return 0;
+    });
 
     // Calculate total stake from sorted validators
     const totalStake = sortedValidators.reduce(
