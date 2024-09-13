@@ -25,7 +25,7 @@ export default function SingleDeveloperCourseLessonPage({
   return (
     <DevelopersLayout>
       <HTMLHead
-        title={record.title || "Developer Course Lesson"}
+        title={record?.seoTitle || record?.title || "Developer Course Lesson"}
         description={record.description || ""}
         socialShare={!!record.href ? `/opengraph${record.href}` : undefined}
       />

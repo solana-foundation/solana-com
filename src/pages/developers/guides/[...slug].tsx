@@ -15,7 +15,7 @@ export default function SingleDeveloperGuidePage({
   return (
     <DevelopersLayout>
       <HTMLHead
-        title={record.title || "Developer Guide"}
+        title={record?.seoTitle || record?.title || "Developer Guide"}
         description={record.description || ""}
         socialShare={!!record.href ? `/opengraph${record.href}` : undefined}
       />
