@@ -9,7 +9,7 @@ import {
 } from "../../hooks/useTransactionStats";
 
 const ValidatorsCards = ({ visible }) => {
-  const { validators, availableStats } = useTransactionStats({
+  const { validators, availableStats, superminority } = useTransactionStats({
     visible,
     performanceUpdateSeconds: PERF_UPDATE_SEC,
     sampleHistoryHours: SAMPLE_HISTORY_HOURS,
@@ -37,7 +37,11 @@ const ValidatorsCards = ({ visible }) => {
           <div className="col-lg-6 mt-4 mt-lg-0">
             <RoundedDepthCard className="px-5 py-8" shadow="bottom">
               <div className="h1 text-black">
-                {availableStats ? 21 : <Loader />}
+                {superminority !== null ? (
+                  <FormattedNumber value={superminority} />
+                ) : (
+                  <Loader />
+                )}
               </div>
               <p className="text-black m-0">
                 {t("validators.new.cards.nakamoto-text")}
