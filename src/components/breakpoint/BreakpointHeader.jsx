@@ -54,15 +54,6 @@ const Header = () => {
                 <Link
                   className="nav-link nav-link--primary"
                   activeClassName="active"
-                  to="/breakpoint/tickets"
-                >
-                  {t("breakpoint.header.tickets")}
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className="nav-link nav-link--primary"
-                  activeClassName="active"
                   to="https://e.jublia.com/SolanaBreakpoint/agenda/"
                 >
                   {t("breakpoint.header.schedule")}
