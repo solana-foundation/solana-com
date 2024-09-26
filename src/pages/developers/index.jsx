@@ -23,8 +23,8 @@ export default function DevelopersPage({
   return (
     <Layout>
       <HTMLHead
-        title={t("titles.developers")}
-        description="Learn why Solana is used by the best and brightest teams in crypto. Explore our guides and examples to start building on the Solana blockchain."
+        title={t("developers.title")}
+        description={t("developers.description")}
       />
       <div className="overflow-hidden">
         <DevelopersHeroSection />
