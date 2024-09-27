@@ -48,7 +48,10 @@ export async function getStaticProps({ params, locale }) {
   if (!!redirect) return redirect;
 
   // serialize the content via mdx
-  const source = await serializeMarkdown(record.body, record?.id);
+  const source = await serializeMarkdown(
+    record.body,
+    `${locale}-${record?.id}`,
+  );
 
   // load the nav data
   const navData = await ContentApi.getNavForGroup("cookbook", locale);
@@ -116,7 +119,7 @@ export default function Cookbook({
   return (
     <DocsLayout>
       <HTMLHead
-        title={record?.title || "Solana Cookbook"}
+        title={record?.seoTitle || record?.title || "Solana Cookbook"}
         description={record?.description || ""}
         socialShare={!!record.href ? `/opengraph${record.href}` : undefined}
       />

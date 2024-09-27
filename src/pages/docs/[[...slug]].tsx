@@ -40,7 +40,7 @@ export default function DeveloperDocs({
   return (
     <DocsLayout>
       <HTMLHead
-        title={record?.title || "Documentation"}
+        title={record?.seoTitle || record?.title || "Documentation"}
         description={record?.description || ""}
         socialShare={
           !!record.href ? `/opengraph/developers${record.href}` : undefined
@@ -180,7 +180,10 @@ export async function getStaticProps({ params, locale }) {
   if (!!redirect) return redirect;
 
   // serialize the content via mdx
-  const source = await serializeMarkdown(record.body, record?.id);
+  const source = await serializeMarkdown(
+    record.body,
+    `${locale}-${record?.id}`,
+  );
 
   // load the nav data
   const navData = await ContentApi.getNavForGroup("docs", locale);

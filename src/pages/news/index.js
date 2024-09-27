@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { builder, BuilderComponent } from "@builder.io/react";
 import HTMLHead from "../../components/builder/HTMLHead";
 import Layout from "../../components/layout";
@@ -36,20 +36,22 @@ const BlogIndex = ({ builderLocale, newsListingPage, pressRelease, posts }) => {
   const newsContent = newsListingPage;
 
   // convert Builder category data to switcherButtons data and prepend a 'All' category with a null value
-  const categoryFilters = [
-    {
-      category: "All",
-      value: null,
-      id: null,
-    },
-    ...(categoryFiltersData?.map((item, index) => {
-      return {
-        category: item.category.value.name,
-        value: index + 1,
-        id: item.category.value.id,
-      };
-    }) || []),
-  ];
+  const categoryFilters = useMemo(() => {
+    return [
+      {
+        category: "All",
+        value: null,
+        id: null,
+      },
+      ...(categoryFiltersData?.map((item, index) => {
+        return {
+          category: item.category.value.name,
+          value: index + 1,
+          id: item.category.value.id,
+        };
+      }) || []),
+    ];
+  }, [categoryFiltersData]);
 
   // convert Builder press release data to Slider data
   const pressReleaseSliderData =
@@ -66,45 +68,46 @@ const BlogIndex = ({ builderLocale, newsListingPage, pressRelease, posts }) => {
     }) || [];
 
   // convert Builder post data to CardDeck data
-  const allPostData =
-    posts
-      ?.map((post) => {
-        const postData = post?.data;
-        if (!postData) {
-          return null;
-        }
+  const allPostData = useMemo(() => {
+    return (
+      posts
+        ?.map((post) => {
+          const postData = post?.data;
+          if (!postData) {
+            return null;
+          }
 
-        return {
-          type: "blog",
-          publishedDate: postData?.datePublished,
-          heading: postData?.title,
-          body: postData?.intro,
-          backgroundImage: {
-            src: postData?.image || "/src/img/news/blogbackup.png",
-          },
-          tags:
-            postData?.tags?.map((item) => {
-              return item.tag ? item.tag.id : null;
-            }) || [],
-          callToAction: {
-            hierarchy: "link",
-            size: "md",
-            label: newsListingPage?.callToActionLabel || t("blog.readArticle"),
-            endIcon: "arrow-up-right",
-            iconSize: "sm",
-            url: `/news/${postData?.slug || ""}`,
-          },
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => {
-        // Convert dates to a format that can be compared
-        const dateA = new Date(a.publishedDate);
-        const dateB = new Date(b.publishedDate);
-
-        // Compare the dates to determine the order
-        return dateB - dateA;
-      }) || [];
+          return {
+            type: "blog",
+            publishedDate: postData?.datePublished,
+            heading: postData?.title,
+            body: postData?.intro,
+            backgroundImage: {
+              src: postData?.image || "/src/img/news/blogbackup.png",
+            },
+            tags:
+              postData?.tags?.map((item) => {
+                return item.tag ? item.tag.id : null;
+              }) || [],
+            callToAction: {
+              hierarchy: "link",
+              size: "md",
+              label:
+                newsListingPage?.callToActionLabel || t("blog.readArticle"),
+              endIcon: "arrow-up-right",
+              iconSize: "sm",
+              url: `/news/${postData?.slug || ""}`,
+            },
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => {
+          const dateA = new Date(a.publishedDate);
+          const dateB = new Date(b.publishedDate);
+          return dateB - dateA;
+        }) || []
+    );
+  }, [posts, newsListingPage?.callToActionLabel, t]);
 
   // Set state for all post data
   const [postResults, setPostResults] = useState(allPostData);
@@ -155,7 +158,13 @@ const BlogIndex = ({ builderLocale, newsListingPage, pressRelease, posts }) => {
       setPostResults(results);
       setNumResults(postsPerPage);
     }
-  }, [categoryFilter, searchFilter]);
+  }, [
+    categoryFilter,
+    searchFilter,
+    allPostData,
+    categoryFilters,
+    postsPerPage,
+  ]);
 
   return (
     <Layout>

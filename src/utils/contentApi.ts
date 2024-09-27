@@ -282,7 +282,9 @@ export default class ContentApi {
     if (!filePath) return repoUrl;
     else if (!filePath.startsWith("/")) filePath = `/${filePath}`;
 
-    return new URL(`${repoUrl}/tree/main${filePath}`).toString();
+    const url = new URL(`${repoUrl}/blob/main${filePath}`);
+    url.searchParams.set("plain", "1");
+    return url.toString();
   }
 
   /**

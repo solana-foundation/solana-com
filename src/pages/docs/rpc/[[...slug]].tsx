@@ -64,7 +64,9 @@ export default function DeveloperRPCDocs({
   return (
     <DocsLayout>
       <HTMLHead
-        title={record.title ? record.title : "RPC Documentation"}
+        title={
+          record?.seoTitle || record?.title ? record.title : "RPC Documentation"
+        }
         description={record?.description || ""}
         socialShare={
           !!record.href ? `/opengraph/developers${record.href}` : undefined
@@ -236,7 +238,10 @@ export async function getStaticProps({ params, locale }) {
   if (!!redirect) return redirect;
 
   // serialize the content via mdx
-  const source = await serializeMarkdown(record.body, record?.id);
+  const source = await serializeMarkdown(
+    record.body,
+    `${locale}-${record?.id}`,
+  );
 
   // load the nav data
   const navData = await ContentApi.getNavForGroup("docs/rpc", locale);
