@@ -39,11 +39,9 @@ export default function DevelopersDocumentsSection({ latestVideo }) {
             </div>
             <div className="col-12 col-lg-6 mt-10 mt-lg-0">
               <DevelopersDocumentItem
-                title={t("developers.documents.metaplex-docs.title")}
-                description={t(
-                  "developers.documents.metaplex-docs.description",
-                )}
-                url="https://developers.metaplex.com/"
+                title={t("developers.documents.anchor-docs.title")}
+                description={t("developers.documents.anchor-docs.description")}
+                url="https://www.anchor-lang.com/"
                 newTab={true}
               />
             </div>
