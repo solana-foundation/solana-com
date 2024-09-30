@@ -11,12 +11,13 @@ import HeaderList from "./header/HeaderList";
 import { DocSearch } from "@docsearch/react";
 import { useTheme } from "@/themecontext";
 import styled from "styled-components";
+import { useTranslation } from "react-i18next";
 import DevelopersNav from "./developers/DevelopersNav/DevelopersNav";
 
 const Header = ({ className = "", containerClassName = "" }) => {
   const router = useRouter();
   const { theme, toggleTheme, isThemePage } = useTheme();
-
+  const { t } = useTranslation();
   const ThemeToggleButton = styled.button`
     background-image: url(${({ theme }) =>
       theme === "light" ? colorModeLight.src : colorModeDark.src});
@@ -76,7 +77,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
                 apiKey={"011e01358301f5023b02da5db6af7f4d"}
                 appId={"FQ12ISJR4B"}
                 indexName={"solana-com"}
-                placeholder="Search"
+                placeholder={t("commands.search")}
                 searchParameters={{
                   facetFilters: [`language:${router?.locale || "en"}`],
                 }}
