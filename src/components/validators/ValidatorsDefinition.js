@@ -19,10 +19,8 @@ const ValidatorsDefinition = () => {
             />
           </div>
           <div className="d-flex flex-column">
-            <h2>{t("validators.new.definition.title")}</h2>
-            <p className="text-white my-0">
-              {t("validators.new.definition.text")}
-            </p>
+            <h2>{t("validators.definition.title")}</h2>
+            <p className="text-white my-0">{t("validators.definition.text")}</p>
           </div>
         </div>
       </div>
