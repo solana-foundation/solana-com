@@ -43,9 +43,6 @@ const EventsLandingPage = ({ events, communityEvents }) => {
                     meetupLink: (
                       <InlineLink to="https://community-meetups-playbook.super.site/" />
                     ),
-                    formLink: (
-                      <InlineLink to="https://airtable.com/appv1u39y3pSmc3f0/pagwePpqa7QrmqeqK/form" />
-                    ),
                   }}
                 />
               </li>
