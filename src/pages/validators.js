@@ -20,8 +20,8 @@ const ValidatorPage = ({ validatorFAQs }) => {
   return (
     <Layout>
       <HTMLHead
-        title={t("titles.validators")}
-        description="The Solana Mainnet Beta network is currently supported by 1,000+ independent validators and can support transaction throughput of up to 50k TPS with sub-second confirmation times. Learn more about joining the ecosystem as a validator to start earning SOL rewards."
+        title={t("validators.title")}
+        description={t("validators.description")}
       />
       <div className="validators-page mt-n12 pt-12 pb-8">
         <ValidatorsHero ref={ref} />

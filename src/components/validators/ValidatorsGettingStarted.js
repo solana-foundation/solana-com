@@ -39,10 +39,10 @@ const ValidatorsGettingStarted = () => {
           <StyledGettingStartedCard background="#AB66FF">
             <div>
               <h2 className="text-black">
-                {t("validators.new.getting-started.cards.docs-header")}
+                {t("validators.getting-started.cards.docs-header")}
               </h2>
               <p className="clamp text-black mt-2">
-                {t("validators.new.getting-started.cards.docs-text")}
+                {t("validators.getting-started.cards.docs-text")}
               </p>
             </div>
             <Button
@@ -58,10 +58,10 @@ const ValidatorsGettingStarted = () => {
           <StyledGettingStartedCard background="#14F195">
             <div>
               <h2 className="text-black">
-                {t("validators.new.getting-started.cards.explorer-header")}
+                {t("validators.getting-started.cards.explorer-header")}
               </h2>
               <p className="clamp text-black mt-2">
-                {t("validators.new.getting-started.cards.explorer-text")}
+                {t("validators.getting-started.cards.explorer-text")}
               </p>
             </div>
             <Button
@@ -71,16 +71,16 @@ const ValidatorsGettingStarted = () => {
               variant="none"
               arrow={true}
             >
-              {t("validators.new.getting-started.cards.explorer-btn")}
+              {t("validators.getting-started.cards.explorer-btn")}
             </Button>
           </StyledGettingStartedCard>
           <StyledGettingStartedCard background="#EB54BC">
             <div>
               <h2 className="text-black">
-                {t("validators.new.getting-started.cards.server-header")}
+                {t("validators.getting-started.cards.server-header")}
               </h2>
               <p className="clamp text-black mt-2">
-                {t("validators.new.getting-started.cards.server-text")}
+                {t("validators.getting-started.cards.server-text")}
               </p>
             </div>
             <Button
@@ -96,10 +96,10 @@ const ValidatorsGettingStarted = () => {
           <StyledGettingStartedCard background="#FF754A">
             <div>
               <h2 className="text-black">
-                {t("validators.new.getting-started.cards.delegation-header")}
+                {t("validators.getting-started.cards.delegation-header")}
               </h2>
               <p className="clamp text-black mt-2">
-                {t("validators.new.getting-started.cards.delegation-text")}
+                {t("validators.getting-started.cards.delegation-text")}
               </p>
             </div>
             <div className="d-flex flex-wrap">
@@ -120,7 +120,7 @@ const ValidatorsGettingStarted = () => {
                 arrow={true}
                 className="mt-2"
               >
-                {t("validators.new.getting-started.cards.delegation-btn")}
+                {t("validators.getting-started.cards.delegation-btn")}
               </Button>
             </div>
           </StyledGettingStartedCard>
