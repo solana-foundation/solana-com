@@ -87,8 +87,8 @@ export default function DevelopersCoursesSection(/* { courses } */) {
         </div>
         <div className={styles["courses-section__grid-container"]}>
           <DevelopersCourseFeaturedItem
-            title="Solana Development Courses"
-            description="Quickstart your Solana development starting from nothing to complex programs."
+            title={t("developers.courses.featured-item.title")}
+            description={t("developers.courses.featured-item.description")}
             courseCreator={"Unboxed"}
             url="/developers/courses"
             image={solanaDevCourseImg}
