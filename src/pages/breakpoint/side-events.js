@@ -73,6 +73,7 @@ export async function getStaticProps({ locale }) {
       ...(await serverSideTranslations(locale, ["common"])),
     },
     revalidate: 60,
+    notFound: true,
   };
 }
 
