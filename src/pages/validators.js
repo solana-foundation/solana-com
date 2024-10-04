@@ -8,10 +8,9 @@ import ValidatorsDefinition from "../components/validators/ValidatorsDefinition"
 import ValidatorsRewards from "../components/validators/ValidatorsRewards";
 import ValidatorsGettingStarted from "../components/validators/ValidatorsGettingStarted";
 import ValidatorsFAQ from "../components/validators/ValidatorsFAQ";
-import { getAllPostsInDir } from "../lib/markdown";
 import { useInView } from "react-intersection-observer";
 
-const ValidatorPage = ({ validatorFAQs }) => {
+const ValidatorPage = () => {
   const { t } = useTranslation("common");
   const { ref, inView } = useInView({
     threshold: 0,
@@ -28,7 +27,7 @@ const ValidatorPage = ({ validatorFAQs }) => {
         <ValidatorsCards visible={inView} />
         <ValidatorsDefinition />
         <ValidatorsRewards />
-        <ValidatorsFAQ validatorFAQs={validatorFAQs} />
+        <ValidatorsFAQ />
         <ValidatorsGettingStarted />
       </div>
     </Layout>
@@ -36,16 +35,11 @@ const ValidatorPage = ({ validatorFAQs }) => {
 };
 
 export async function getStaticProps({ locale }) {
-  const validatorFAQs = getAllPostsInDir("validatorsFAQ").map((p) => ({
-    frontmatter: p.frontmatter,
-    content: p.content,
-  }));
   return {
     props: {
-      validatorFAQs,
       ...(await serverSideTranslations(locale, ["common"])),
     },
-    revalidate: 30,
+    revalidate: 60,
   };
 }
 
