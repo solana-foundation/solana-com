@@ -31,7 +31,7 @@ export function MarkdownTabs({
     if (typeof items == "string")
       return items.split(",").map((item) => item.trim());
     else return items;
-  }, []);
+  }, [items]);
   const values = useMemo(() => labels.map((item) => toValue(item)), [labels]);
   const [value, setValue] = useState(values[defaultIndex]);
 

@@ -2,7 +2,7 @@ import Navbar from "react-bootstrap/Navbar";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { Link } from "../utils/Link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import SolanaLogo from "../../public/src/img/logos-solana/logotype.svg";
 import SolanaLogoDark from "../../public/src/img/logos-solana/logotype-dark.svg";
 import colorModeLight from "../../public/src/img/icons/color-mode-light.svg";
@@ -11,12 +11,13 @@ import HeaderList from "./header/HeaderList";
 import { DocSearch } from "@docsearch/react";
 import { useTheme } from "@/themecontext";
 import styled from "styled-components";
+import { useTranslation } from "react-i18next";
 import DevelopersNav from "./developers/DevelopersNav/DevelopersNav";
 
 const Header = ({ className = "", containerClassName = "" }) => {
   const router = useRouter();
   const { theme, toggleTheme, isThemePage } = useTheme();
-
+  const { t } = useTranslation();
   const ThemeToggleButton = styled.button`
     background-image: url(${({ theme }) =>
       theme === "light" ? colorModeLight.src : colorModeDark.src});
@@ -29,8 +30,11 @@ const Header = ({ className = "", containerClassName = "" }) => {
     margin-left: 20px;
   `;
 
-  // Update the navbar class when the theme changes
+  const [searchText, setSearchText] = useState("Search");
+
   useEffect(() => {
+    setSearchText(t("commands.search"));
+
     const navbar = document.getElementById("navbar");
     if (navbar) {
       if (isThemePage) {
@@ -40,7 +44,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
         navbar.classList.add("navbar-dark");
       }
     }
-  }, [theme, isThemePage]);
+  }, [t, theme, isThemePage]);
 
   return (
     <>
@@ -76,13 +80,18 @@ const Header = ({ className = "", containerClassName = "" }) => {
                 apiKey={"011e01358301f5023b02da5db6af7f4d"}
                 appId={"FQ12ISJR4B"}
                 indexName={"solana-com"}
-                placeholder="Search"
+                placeholder={searchText}
                 searchParameters={{
                   facetFilters: [`language:${router?.locale || "en"}`],
                 }}
+                translations={{
+                  button: {
+                    buttonText: searchText,
+                    buttonAriaLabel: searchText,
+                  },
+                }}
               />
 
-              {/* Theme Toggle Button */}
               {isThemePage && (
                 <ThemeToggleButton
                   onClick={toggleTheme}

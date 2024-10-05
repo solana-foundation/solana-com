@@ -8,10 +8,9 @@ import ValidatorsDefinition from "../components/validators/ValidatorsDefinition"
 import ValidatorsRewards from "../components/validators/ValidatorsRewards";
 import ValidatorsGettingStarted from "../components/validators/ValidatorsGettingStarted";
 import ValidatorsFAQ from "../components/validators/ValidatorsFAQ";
-import { getAllPostsInDir } from "../lib/markdown";
 import { useInView } from "react-intersection-observer";
 
-const ValidatorPage = ({ validatorFAQs }) => {
+const ValidatorPage = () => {
   const { t } = useTranslation("common");
   const { ref, inView } = useInView({
     threshold: 0,
@@ -20,15 +19,15 @@ const ValidatorPage = ({ validatorFAQs }) => {
   return (
     <Layout>
       <HTMLHead
-        title={t("titles.validators")}
-        description="The Solana Mainnet Beta network is currently supported by 1,000+ independent validators and can support transaction throughput of up to 50k TPS with sub-second confirmation times. Learn more about joining the ecosystem as a validator to start earning SOL rewards."
+        title={t("validators.title")}
+        description={t("validators.description")}
       />
       <div className="validators-page mt-n12 pt-12 pb-8">
         <ValidatorsHero ref={ref} />
         <ValidatorsCards visible={inView} />
         <ValidatorsDefinition />
         <ValidatorsRewards />
-        <ValidatorsFAQ validatorFAQs={validatorFAQs} />
+        <ValidatorsFAQ />
         <ValidatorsGettingStarted />
       </div>
     </Layout>
@@ -36,16 +35,11 @@ const ValidatorPage = ({ validatorFAQs }) => {
 };
 
 export async function getStaticProps({ locale }) {
-  const validatorFAQs = getAllPostsInDir("validatorsFAQ").map((p) => ({
-    frontmatter: p.frontmatter,
-    content: p.content,
-  }));
   return {
     props: {
-      validatorFAQs,
       ...(await serverSideTranslations(locale, ["common"])),
     },
-    revalidate: 30,
+    revalidate: 60,
   };
 }
 

@@ -1,23 +1,56 @@
-import FAQsection from "../sharedPageSections/FAQsection";
+import { useTranslation, Trans } from "next-i18next";
+import HashAccordion, {
+  HashAccordionItem,
+} from "../sharedPageSections/HashAccordion";
+import Link from "next/link";
+import Image from "next/image";
+import faqLogo from "../../../public/src/img/validators/validators_geometry_small2.png";
 
-const ValidatorFAQsTitles = [
-  {
-    sectionTitle: "Validating on Solana",
-  },
-];
+const ValidatorsFAQ = () => {
+  const { t } = useTranslation("common");
+  const questionsAndAnswers = t("validators.qa.items", { returnObjects: true });
 
-/**
- * This component generates the FAQ Accordion section.
- *
- * @returns {JSX.Element}
- * @constructor
- */
-
-const ValidatorsFAQ = ({ validatorFAQs }) => {
   return (
     <section className="mt-12">
       <div className="container">
-        <FAQsection data={validatorFAQs} titles={ValidatorFAQsTitles} />
+        <h2 className="mb-4 mb-md-7">{t("validators.qa.title")}</h2>
+
+        <div className="row">
+          <div className="col-lg-8">
+            <HashAccordion>
+              {questionsAndAnswers.map((qa, index) => (
+                <HashAccordionItem
+                  key={index}
+                  question={qa.question}
+                  answer={
+                    <Trans
+                      i18nKey={qa.answer}
+                      components={{
+                        bugreportslink: (
+                          <Link href="https://github.com/anza-xyz/agave/security" />
+                        ),
+                        discordlink: <Link href="/discord" />,
+                        requirementslink: (
+                          <Link href="https://docs.solanalabs.com/operations/requirements" />
+                        ),
+                        economicslink: (
+                          <Link href="https://docs.solana.com/cluster/economics" />
+                        ),
+                        stakinglink: <Link href="/docs/economics/staking" />,
+                        programlink: (
+                          <Link href="https://solana.org/delegation-program" />
+                        ),
+                      }}
+                    />
+                  }
+                />
+              ))}
+            </HashAccordion>
+          </div>
+          <div className="col-lg-4 d-none d-lg-block">
+            <Image src={faqLogo} alt="" />
+          </div>
+        </div>
       </div>
     </section>
   );

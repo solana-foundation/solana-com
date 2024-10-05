@@ -30,7 +30,7 @@ const ValidatorsCards = ({ visible }) => {
                 )}
               </div>
               <p className="text-black m-0">
-                {t("validators.new.cards.number-text")}
+                {t("validators.cards.number-text")}
               </p>
             </RoundedDepthCard>
           </div>
@@ -44,7 +44,7 @@ const ValidatorsCards = ({ visible }) => {
                 )}
               </div>
               <p className="text-black m-0">
-                {t("validators.new.cards.nakamoto-text")}
+                {t("validators.cards.nakamoto-text")}
               </p>
             </RoundedDepthCard>
           </div>

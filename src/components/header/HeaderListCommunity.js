@@ -76,7 +76,7 @@ const HeaderListCommunity = () => {
             />
 
             <div className="text-white" style={{ lineHeight: 1.2 }}>
-              Sept. 20-21, 2024 - SINGAPORE
+              Dec. 11-13, 2025 - ABU DHABI
             </div>
           </Link>
         </div>
