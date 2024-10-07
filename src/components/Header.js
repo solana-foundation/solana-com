@@ -49,7 +49,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
       <header className={`position-sticky sticky-top ${className}`}>
         <Navbar id="navbar" expand="lg" variant="">
           <div className={`container-xl ${containerClassName}`}>
-            <Link to="/" className="d-flex">
+            <Link to="/" className="d-flex" aria-label="Solana">
               <SolanaLogo
                 style={{ color: "var(--body-text)" }}
                 width={149}
