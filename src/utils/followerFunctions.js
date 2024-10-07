@@ -68,6 +68,29 @@ const scrapeYoutubeSubscriberCount = async () => {
   return 0;
 };
 
+const getYoutubeSubscriberCount = async () => {
+  const channelId = process.env.YOUTUBE_CHANNEL_ID
+  const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
+  try {
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`);
+
+    if (!response.ok) {
+      throw new Error(`Error fetching data: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.items && data.items.length > 0) {
+      return parseInt(data.items[0].statistics.subscriberCount, 10)/1000;
+    }
+
+    throw new Error('Channel statistics not found');
+  } catch (error) {
+    console.error('Error getting subscriber count:', error.message);
+    throw error;
+  }
+};
+
 const scrapeVKontakteFollowerCount = async () => {
   const followerCountTag = await scrapeUrlForTag(
     `https://vk.com/solanarus`,
@@ -202,6 +225,7 @@ export {
   scrapeUrlForTag,
   scrapeMeetupMemberCount,
   scrapeYoutubeSubscriberCount,
+  getYoutubeSubscriberCount,
   scrapeVKontakteFollowerCount,
   // scrapeWeiboFanCount,
   getStableCoins,
