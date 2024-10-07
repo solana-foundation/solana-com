@@ -1,4 +1,4 @@
-import cheerio from "cheerio";
+import * as cheerio from "cheerio";
 import fetch from "node-fetch-cache";
 
 const scrapeUrlForTag = async (url, tagName) => {
@@ -42,7 +42,7 @@ const scrapeYoutubeSubscriberCount = async () => {
         youtubeSubscriberCountScripts[i].hasOwnProperty("children") &&
         youtubeSubscriberCountScripts[i].children.length &&
         youtubeSubscriberCountScripts[i].children[0].data.includes(
-          "subscriberCountText",
+          "contentMetadataViewModel",
         )
       ) {
         ytContent = youtubeSubscriberCountScripts[i]?.children[0]?.data;
@@ -54,10 +54,13 @@ const scrapeYoutubeSubscriberCount = async () => {
         ytContent.replace("var ytInitialData = ", "").replace("};", "}"),
       );
       const youtubeSubscriberKCountText =
-        ytContentObject?.header?.c4TabbedHeaderRenderer?.subscriberCountText
-          ?.simpleText;
+        ytContentObject?.header?.pageHeaderRenderer?.content
+          ?.pageHeaderViewModel?.metadata?.contentMetadataViewModel
+          ?.metadataRows?.[1]?.metadataParts?.[0]?.text?.content;
       const youtubeSubscriberCount = youtubeSubscriberKCountText
-        ? parseFloat(youtubeSubscriberKCountText, 10)
+        ? parseFloat(
+            youtubeSubscriberKCountText.replace("K subscribers", "").trim(),
+          )
         : 0;
       return youtubeSubscriberCount;
     }
