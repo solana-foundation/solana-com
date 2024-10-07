@@ -1,10 +1,8 @@
 import Navbar from "react-bootstrap/Navbar";
-import Image from "next/image";
 import { useRouter } from "next/router";
 import { Link } from "../utils/Link";
 import { useEffect, useState } from "react";
-import SolanaLogo from "../../public/src/img/logos-solana/logotype.svg";
-import SolanaLogoDark from "../../public/src/img/logos-solana/logotype-dark.svg";
+import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
 import colorModeLight from "../../public/src/img/icons/color-mode-light.svg";
 import colorModeDark from "../../public/src/img/icons/color-mode-dark.svg";
 import HeaderList from "./header/HeaderList";
@@ -52,12 +50,10 @@ const Header = ({ className = "", containerClassName = "" }) => {
         <Navbar id="navbar" expand="lg" variant="">
           <div className={`container-xl ${containerClassName}`}>
             <Link to="/" className="d-flex">
-              <Image
-                alt="Solana"
-                src={theme === "dark" ? SolanaLogo : SolanaLogoDark}
+              <SolanaLogo
+                style={{ color: "var(--body-text)" }}
                 width={149}
                 height={22}
-                priority
               />
             </Link>
 
