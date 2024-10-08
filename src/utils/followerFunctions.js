@@ -1,6 +1,8 @@
 import * as cheerio from "cheerio";
 import fetch from "node-fetch-cache";
 
+const ytBaseURL = "https://www.googleapis.com/youtube/v3/";
+
 const scrapeUrlForTag = async (url, tagName) => {
   const siteData = await fetch(url)
     .then((res) => res.text())
@@ -28,52 +30,12 @@ const scrapeMeetupMemberCount = async () => {
   return 0;
 };
 
-const scrapeYoutubeSubscriberCount = async () => {
-  const youtubeSubscriberCountScripts = await scrapeUrlForTag(
-    `https://www.youtube.com/c/SolanaFndn`,
-    `script`,
-  );
-
-  if (youtubeSubscriberCountScripts.length) {
-    let ytContent;
-    for (let i = 0; i <= youtubeSubscriberCountScripts.length; i++) {
-      if (
-        youtubeSubscriberCountScripts[i] &&
-        youtubeSubscriberCountScripts[i].hasOwnProperty("children") &&
-        youtubeSubscriberCountScripts[i].children.length &&
-        youtubeSubscriberCountScripts[i].children[0].data.includes(
-          "contentMetadataViewModel",
-        )
-      ) {
-        ytContent = youtubeSubscriberCountScripts[i]?.children[0]?.data;
-        break;
-      }
-    }
-    if (ytContent) {
-      const ytContentObject = JSON.parse(
-        ytContent.replace("var ytInitialData = ", "").replace("};", "}"),
-      );
-      const youtubeSubscriberKCountText =
-        ytContentObject?.header?.pageHeaderRenderer?.content
-          ?.pageHeaderViewModel?.metadata?.contentMetadataViewModel
-          ?.metadataRows?.[1]?.metadataParts?.[0]?.text?.content;
-      const youtubeSubscriberCount = youtubeSubscriberKCountText
-        ? parseFloat(
-            youtubeSubscriberKCountText.replace("K subscribers", "").trim(),
-          )
-        : 0;
-      return youtubeSubscriberCount;
-    }
-  }
-  return 0;
-};
-
 const getYoutubeSubscriberCount = async () => {
   const channelId = process.env.YOUTUBE_CHANNEL_ID;
   const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
   try {
     const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`,
+      `${ytBaseURL}channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`,
     );
 
     if (!response.ok) {
@@ -176,17 +138,15 @@ const getYTVideos = async (
   let videos = [];
   let videoResp;
 
-  const baseURL = "https://www.googleapis.com/youtube/v3/";
-
   // Playlist videos
   if (playlistId) {
     videoResp = await fetch(
-      `${baseURL}playlistItems?part=snippet%2CcontentDetails%2Cstatus&maxResults=${pageSize}&playlistId=${playlistId}&key=${apiKey}`,
+      `${ytBaseURL}playlistItems?part=snippet%2CcontentDetails%2Cstatus&maxResults=${pageSize}&playlistId=${playlistId}&key=${apiKey}`,
     );
     // Channel videos
   } else {
     const channelResp = await fetch(
-      `${baseURL}channels?part=contentDetails&id=${channelId}&key=${apiKey}`,
+      `${ytBaseURL}channels?part=contentDetails&id=${channelId}&key=${apiKey}`,
     );
 
     const channelData = await channelResp.json();
@@ -196,7 +156,7 @@ const getYTVideos = async (
         channelData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
 
       videoResp = await fetch(
-        `${baseURL}playlistItems?part=snippet%2CcontentDetails%2Cstatus&maxResults=${pageSize}&playlistId=${uploadsId}&key=${apiKey}`,
+        `${ytBaseURL}playlistItems?part=snippet%2CcontentDetails%2Cstatus&maxResults=${pageSize}&playlistId=${uploadsId}&key=${apiKey}`,
       );
     }
   }
@@ -226,7 +186,6 @@ const getYTVideos = async (
 export {
   scrapeUrlForTag,
   scrapeMeetupMemberCount,
-  scrapeYoutubeSubscriberCount,
   getYoutubeSubscriberCount,
   scrapeVKontakteFollowerCount,
   // scrapeWeiboFanCount,
