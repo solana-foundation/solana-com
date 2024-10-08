@@ -91,7 +91,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
               {isThemePage && (
                 <ThemeToggleButton
                   onClick={toggleTheme}
-                  aria-label="Toggle theme"
+                  aria-label={t("commands.toggle")}
                 />
               )}
             </div>
