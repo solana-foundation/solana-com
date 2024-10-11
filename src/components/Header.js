@@ -1,34 +1,21 @@
 import Navbar from "react-bootstrap/Navbar";
-import Image from "next/image";
 import { useRouter } from "next/router";
 import { Link } from "../utils/Link";
 import { useEffect, useState } from "react";
-import SolanaLogo from "../../public/src/img/logos-solana/logotype.svg";
-import SolanaLogoDark from "../../public/src/img/logos-solana/logotype-dark.svg";
-import colorModeLight from "../../public/src/img/icons/color-mode-light.svg";
-import colorModeDark from "../../public/src/img/icons/color-mode-dark.svg";
+import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
+import Moon from "../../public/src/img/icons/Moon.inline.svg";
+import Sun from "../../public/src/img/icons/Sun.inline.svg";
 import HeaderList from "./header/HeaderList";
 import { DocSearch } from "@docsearch/react";
 import { useTheme } from "@/themecontext";
-import styled from "styled-components";
 import { useTranslation } from "react-i18next";
 import DevelopersNav from "./developers/DevelopersNav/DevelopersNav";
+import styles from "./Header.module.scss";
 
 const Header = ({ className = "", containerClassName = "" }) => {
   const router = useRouter();
   const { theme, toggleTheme, isThemePage } = useTheme();
   const { t } = useTranslation();
-  const ThemeToggleButton = styled.button`
-    background-image: url(${({ theme }) =>
-      theme === "light" ? colorModeLight.src : colorModeDark.src});
-    background-color: transparent;
-    border: none;
-    cursor: pointer;
-    width: 60px;
-    height: 24px;
-    background-size: contain;
-    margin-left: 20px;
-  `;
 
   const [searchText, setSearchText] = useState("Search");
 
@@ -51,13 +38,11 @@ const Header = ({ className = "", containerClassName = "" }) => {
       <header className={`position-sticky sticky-top ${className}`}>
         <Navbar id="navbar" expand="lg" variant="">
           <div className={`container-xl ${containerClassName}`}>
-            <Link to="/" className="d-flex">
-              <Image
-                alt="Solana"
-                src={theme === "dark" ? SolanaLogo : SolanaLogoDark}
+            <Link to="/" className="d-flex" aria-label="Solana">
+              <SolanaLogo
+                style={{ color: "var(--body-text)" }}
                 width={149}
                 height={22}
-                priority
               />
             </Link>
 
@@ -93,10 +78,14 @@ const Header = ({ className = "", containerClassName = "" }) => {
               />
 
               {isThemePage && (
-                <ThemeToggleButton
+                <button
+                  className={styles.header__toggle}
                   onClick={toggleTheme}
-                  aria-label="Toggle theme"
-                />
+                  aria-label={t("commands.toggle")}
+                >
+                  {theme === "light" && <Moon />}
+                  {theme === "dark" && <Sun />}
+                </button>
               )}
             </div>
           </div>
