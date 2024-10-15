@@ -25,7 +25,7 @@ export default function DevelopersCoursesSection(/* { courses } */) {
       <DevelopersCourseItem
         title="Solana Bootcamp"
         courseCreator={"Solana Foundation"}
-        url="https://www.youtube.com/watch?v=0P8JeL3TURU&list=PLilwLeBwGuK6NsYMPP_BlVkeQgff0NwvU"
+        url="https://www.youtube.com/watch?v=amAq-WHAFs8&list=PLilwLeBwGuK7HN8ZnXpGAD9q6i4syhnVc"
         image={shapeImg5}
       />
       <DevelopersCourseItem
