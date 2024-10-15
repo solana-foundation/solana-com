@@ -1,8 +1,7 @@
 import Navbar from "react-bootstrap/Navbar";
-import Image from "next/image";
 import Link from "../shared/Link";
 import { useTranslation } from "next-i18next";
-import SolanaLogo from "../../../public/src/img/logos-solana/logotype.svg";
+import SolanaLogo from "../../../public/src/img/logos-solana/logotype.inline.svg";
 
 const Header = () => {
   const { t } = useTranslation();
@@ -20,13 +19,11 @@ const Header = () => {
         style={{ zIndex: 1020 }}
       >
         <div className="container-xl">
-          <Link to="/" className="d-flex">
-            <Image
-              alt="Solana"
-              src={SolanaLogo}
+          <Link to="/" className="d-flex" aria-label="Solana">
+            <SolanaLogo
+              style={{ color: "var(--body-text)" }}
               width={149}
               height={22}
-              priority
             />
           </Link>
 

@@ -14,7 +14,7 @@ import {
   getYTVideos,
   scrapeMeetupMemberCount,
   scrapeVKontakteFollowerCount,
-  scrapeYoutubeSubscriberCount,
+  getYoutubeSubscriberCount,
 } from "../utils/followerFunctions";
 
 import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
@@ -52,7 +52,7 @@ export async function getStaticProps({ locale }) {
       getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 6),
       getPostPagination(1, NEWS_BUILDER_CONFIG.postsModel),
       scrapeVKontakteFollowerCount(),
-      scrapeYoutubeSubscriberCount(),
+      getYoutubeSubscriberCount(),
       getGHStargazers(),
       scrapeMeetupMemberCount(),
       getYTVideos(10),
