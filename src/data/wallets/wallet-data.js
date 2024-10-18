@@ -23,6 +23,7 @@ import exodusIcon from "../../../assets/wallets/icons/exodus.png";
 import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
 import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
 import gemIcon from "../../../assets/wallets/icons/gem.png";
+import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 
 export const walletData = [
   {
@@ -151,7 +152,7 @@ export const walletData = [
     website: "https://www.dynamic.xyz/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Gas Abstraction • Social Recovery",
-    icon: defaultIcon,
+    icon: dynamicIcon,
     custodial: false,
     non_custodial: false,
     te: false,
