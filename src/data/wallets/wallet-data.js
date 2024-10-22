@@ -125,7 +125,7 @@ export const walletData = [
   {
     name: "Fuse",
     body: "Empower your business with open-source solutions and global reach.",
-    website: "https://www.fuse.io/",
+    website: "https://www.fusewallet.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Gas Abstraction • Social recovery • Staking • Spending Limits • Open Source",
     icon: fuseIcon,
