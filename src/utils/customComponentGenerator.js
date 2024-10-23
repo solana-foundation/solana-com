@@ -111,6 +111,35 @@ const breakpointDataModels = [
   },
 ];
 
+const accelerateDataModels = [
+  {
+    component: dynamic(() =>
+      import("@solana-foundation/solana-lib").then((lib) => lib.Speakers),
+    ),
+    config: BreakpointSpeakersConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("@solana-foundation/solana-lib").then(
+        (lib) => lib.BreakpointTitle,
+      ),
+    ),
+    config: BreakpointTitleConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("@solana-foundation/solana-lib").then((lib) => lib.BreakpointHero),
+    ),
+    config: BreakpointHero,
+  },
+  {
+    component: dynamic(() =>
+      import("@solana-foundation/solana-lib").then((lib) => lib.BreakpointCard),
+    ),
+    config: BreakpointCard,
+  },
+];
+
 const componentDataModel = [
   {
     component: dynamic(() =>
@@ -264,6 +293,7 @@ const componentDataModel = [
   },
   ...richTextDataModels,
   ...breakpointDataModels,
+  ...accelerateDataModels,
 ];
 
 const customComponentsRegistration = () => {
@@ -279,6 +309,11 @@ const customComponentsRegistration = () => {
   Builder.register("insertMenu", {
     name: "Breakpoint Components",
     items: breakpointDataModels.map((model) => ({ name: model.config.name })),
+  });
+
+  Builder.register("insertMenu", {
+    name: "Accelerate Components",
+    items: accelerateDataModels.map((model) => ({ name: model.config.name })),
   });
 };
 
