@@ -52,6 +52,7 @@ export const switchMonthAndDay = (dateString) => {
     const dateArray = dateString.split("-");
     return [dateArray[0], dateArray[2], dateArray[1]].join("-");
   } catch (err) {
+    console.error(err);
     return dateString;
   }
 };
@@ -85,6 +86,7 @@ export const fixDate = (dateString) => {
     return dateString;
   } catch (err) {
     // Errored out, return as string.
+    console.error(err);
     return dateString;
   }
 };
@@ -112,6 +114,7 @@ export function parseDuration(duration) {
   try {
     return parseDurationString(duration);
   } catch (error) {
+    console.error(error);
     return null;
   }
 }
