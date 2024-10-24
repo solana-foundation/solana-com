@@ -123,9 +123,9 @@ export const walletData = [
     private_key_infrastructure: false,
   },
   {
-    name: "Fuse",
-    body: "Empower your business with open-source solutions and global reach.",
-    website: "https://www.fuse.io/",
+    name: "Fuse Wallet",
+    body: "A safe wallet for your Solana assets. 2FA. Recovery. No seed phrase.",
+    website: "https://www.fusewallet.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Gas Abstraction • Social recovery • Staking • Spending Limits • Open Source",
     icon: fuseIcon,
