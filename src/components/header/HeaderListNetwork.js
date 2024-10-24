@@ -88,6 +88,15 @@ const HeaderListNetwork = () => {
             </strong>
             {networkInspectItems[1].description}
           </InlineLink>
+          <InlineLink
+            to="https://explorer.solana.com/"
+            className="nav-link nav-link--secondary"
+          >
+            <strong className="d-block text-white">
+              {networkInspectItems[2].title}
+            </strong>
+            {networkInspectItems[2].description}
+          </InlineLink>
         </div>
       </div>
     </div>
