@@ -28,7 +28,7 @@ import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 export const walletData = [
   {
     name: "Fuse Wallet",
-    body: "The safest wallet for your Solana assets. 2FA. Recovery. No seed phrase.",
+    body: "A safe wallet for your Solana assets. 2FA. Recovery. No seed phrase.",
     website: "https://www.fusewallet.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Gas Abstraction • Social recovery • Staking • Spending Limits • Open Source",
