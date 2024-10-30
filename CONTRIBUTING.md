@@ -72,3 +72,13 @@ NEXT_PUBLIC_BUILDER_NEWS_SETTINGS_ID=""
 ```
 
 > Note from Builder [docs](https://www.builder.io/c/docs/using-your-api-key): The Builder Public API Key is public, meaning that you don't have to keep it private.
+
+## RPC providers
+
+To be considered for listing on the https://solana.com/rpc page, providers must demonstrate:
+
+- **Reliability**: High uptime with robust failover and redundancy.
+- **Performance**: Low-latency responses and the ability to handle Solana's high throughput.
+- **Documentation**: Comprehensive guides, API examples, setup instructions, and performance dashboards.
+- **Developer Support**: Strong resources, active community engagement, and transparent service status reporting.
+- **Compliance**: Review by the Solana Foundation to ensure technical, security, and operational standards are met.
