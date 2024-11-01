@@ -15,15 +15,12 @@ const generateRssFeed = async (posts) => {
   });
 
   posts.forEach((post) => {
-    const postData = combinePostData(post.data?.blocks[0]?.children);
-
     const feedItemData = {
-      title: post.data.title,
+      title: post.data.title.Default,
       id: post.id,
       link: newsURL + post.data.slug,
       description: post.data.intro,
       date: new Date(post.data.datePublished),
-      content: Array.isArray(postData) ? postData.join(" ") : "",
     };
 
     if (post.data.image) {
@@ -39,37 +36,10 @@ const generateRssFeed = async (posts) => {
   return feed.rss2();
 };
 
-/**
- * Goes through any Copy or Text components in the builder IO post and adds the raw HTML or text into an array so we
- * add that data to our RSS feed
- *
- * @param {Array} blockData Block data that comes from fetching a Builder IO Post
- * @returns {Array} An array of strings that contain the post data or an empty array
- */
-const combinePostData = (blockData) => {
-  const acceptableBlockNames = ["Copy", "Text"];
-
-  if (blockData) {
-    const postContent = blockData.map((block) => {
-      if (acceptableBlockNames.includes(block?.component?.name)) {
-        if (block.component.name === "Text") {
-          return block.component.options.text;
-        } else if (block.component.name === "Copy") {
-          return block.component.options.rawHtml;
-        }
-      }
-    });
-
-    return postContent;
-  }
-
-  return [];
-};
-
 const Rss = () => {};
 
 export async function getServerSideProps({ res }) {
-  const posts = await getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 100, "");
+  const posts = await getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 50, "");
   const rss = await generateRssFeed(posts);
 
   res.setHeader("Content-Type", "text/xml");
