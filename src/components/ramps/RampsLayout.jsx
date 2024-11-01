@@ -32,6 +32,7 @@ import utorg from "./assets/logos/untorg.png";
 import paybis from "./assets/logos/paybis.png";
 import topper from "./assets/logos/topper.png";
 import sphere from "./assets/logos/sphere.png";
+import stables from "./assets/logos/stables.png";
 
 const RampLayout = ({
   data,
@@ -148,6 +149,10 @@ const RampLayout = ({
     {
       ramp: "Sphere",
       logo: sphere,
+    },
+    {
+      ramp: "Stables",
+      logo: stables,
     },
   ];
 
