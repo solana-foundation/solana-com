@@ -171,9 +171,9 @@ const RampLayout = ({
         RampStatusOff,
         RampStatusOn,
         WebsiteUrl,
-        Countries2,
-        FiatAssets2,
-        PaymentRails2,
+        Countries,
+        FiatAssets,
+        PaymentRails,
       } = matchingRamp[0].fields;
 
       const matchingRampLogoObject = RampLogoMap.filter(
@@ -188,9 +188,9 @@ const RampLayout = ({
           ? matchingRampLogoObject[0].logo.src
           : null,
         meta: {
-          countries: Countries2 ?? [],
-          "payment-rails": PaymentRails2 ?? [],
-          "fiat-assets": FiatAssets2 ?? [],
+          countries: Countries ?? [],
+          "payment-rails": PaymentRails ?? [],
+          "fiat-assets": FiatAssets ?? [],
           "ramp-status-on": RampStatusOn ?? false,
           "ramp-status-off": RampStatusOff ?? false,
         },
@@ -242,7 +242,8 @@ const RampLayout = ({
         const data = dataArray.filter((item) => item.fields.Name === title);
         sortedData.push({
           value: data[0].id,
-          title: data[0].fields?.Name,
+          title:
+            checkboxName === "fiat-assets" ? data[0].id : data[0].fields?.Name,
           name: checkboxName,
         });
       });
