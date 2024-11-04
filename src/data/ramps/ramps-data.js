@@ -1,10 +1,35 @@
+import alchemyPayLogo from "../../../assets/ramps/logos/alchemy-pay.png";
+import banxa from "../../../assets/ramps/logos/banxa.png";
+import coinflow from "../../../assets/ramps/logos/coinflow.png";
+import coinify from "../../../assets/ramps/logos/coinify.png";
+import kado from "../../../assets/ramps/logos/kado.png";
+import luno from "../../../assets/ramps/logos/luno.png";
+import mercuryo from "../../../assets/ramps/logos/mercuryo.png";
+import mesonetwork from "../../../assets/ramps/logos/meso.png";
+import moonpay from "../../../assets/ramps/logos/moonpay.png";
+import onmeta from "../../../assets/ramps/logos/onmeta.png";
+import onramp from "../../../assets/ramps/logos/onramp.png";
+import payfura from "../../../assets/ramps/logos/payfura.png";
+import saber from "../../../assets/ramps/logos/saber.png";
+import scalex from "../../../assets/ramps/logos/scalex.png";
+import stripe from "../../../assets/ramps/logos/stripe.png";
+import transak from "../../../assets/ramps/logos/transak.png";
+import transfero from "../../../assets/ramps/logos/transfero.png";
+import transfi from "../../../assets/ramps/logos/transfi.png";
+import unlimit from "../../../assets/ramps/logos/unlimit.png";
+import utorg from "../../../assets/ramps/logos/untorg.png";
+import paybis from "../../../assets/ramps/logos/paybis.png";
+import topper from "../../../assets/ramps/logos/topper.png";
+import sphere from "../../../assets/ramps/logos/sphere.png";
+import stables from "../../../assets/ramps/logos/stables.png";
+
 export const rampData = [
   {
     id: "mercuryo",
     fields: {
       RampName: "Mercuryo",
       WebsiteUrl: "https://mercuryo.io",
-      RampLogo: [{ url: "/assets/ramps/mercuryo.png" }],
+      RampLogo: mercuryo,
       PaymentRails: [
         "apple-pay",
         "google-pay",
@@ -233,7 +258,7 @@ export const rampData = [
     fields: {
       RampName: "Paybis",
       WebsiteUrl: "https://paybis.com/",
-      RampLogo: [{ url: "/assets/ramps/paybis.png" }],
+      RampLogo: paybis,
       PaymentRails: [
         "apple-pay",
         "astropay",
@@ -462,7 +487,7 @@ export const rampData = [
     fields: {
       RampName: "Meso Network",
       WebsiteUrl: "https://developers.meso.network/",
-      RampLogo: [{ url: "/assets/ramps/meso.png" }],
+      RampLogo: mesonetwork,
       PaymentRails: ["debit"],
       FiatAssets: ["USD"],
       Countries: ["united-states"],
@@ -475,7 +500,7 @@ export const rampData = [
     fields: {
       RampName: "Stables",
       WebsiteUrl: "https://stables.money/",
-      RampLogo: [{ url: "/assets/ramps/stables.png" }],
+      RampLogo: stables,
       PaymentRails: ["ach", "mastercard", "rtp", "sepa", "visa", "wires"],
       FiatAssets: [
         "AED",
@@ -663,7 +688,7 @@ export const rampData = [
     fields: {
       RampName: "AlchemyPay",
       WebsiteUrl: "https://alchemypay.org/",
-      RampLogo: [{ url: "/assets/ramps/alchemy-pay.png" }],
+      RampLogo: alchemyPayLogo,
       PaymentRails: ["bank-transfer", "sepa"],
       FiatAssets: ["ARS", "EUR", "USD"],
       Countries: ["france", "germany", "united-states"],
@@ -676,7 +701,7 @@ export const rampData = [
     fields: {
       RampName: "Utorg",
       WebsiteUrl: "https://utorg.pro/",
-      RampLogo: [{ url: "/assets/ramps/utorg.png" }],
+      RampLogo: utorg,
       PaymentRails: ["mastercard", "visa"],
       FiatAssets: ["TWD", "USD"],
       Countries: ["taiwan"],
@@ -689,7 +714,7 @@ export const rampData = [
     fields: {
       RampName: "Onmeta",
       WebsiteUrl: "https://onmeta.in/",
-      RampLogo: [{ url: "/assets/ramps/onmeta.png" }],
+      RampLogo: onmeta,
       PaymentRails: [],
       FiatAssets: ["INR"],
       Countries: ["india"],
@@ -702,7 +727,7 @@ export const rampData = [
     fields: {
       RampName: "Transfero",
       WebsiteUrl: "https://transfero.com/",
-      RampLogo: [{ url: "/assets/ramps/transfero.png" }],
+      RampLogo: transfero,
       PaymentRails: ["pix"],
       FiatAssets: ["BRL"],
       Countries: ["brazil", "mexico"],
@@ -715,7 +740,7 @@ export const rampData = [
     fields: {
       RampName: "Topper",
       WebsiteUrl: "https://www.topperpay.com/",
-      RampLogo: [{ url: "/assets/ramps/topper.png" }],
+      RampLogo: topper,
       PaymentRails: ["apple-pay", "credit", "debit", "google-pay", "pix"],
       FiatAssets: [
         "AED",
@@ -919,7 +944,7 @@ export const rampData = [
     fields: {
       RampName: "Moonpay",
       WebsiteUrl: "https://www.moonpay.com/",
-      RampLogo: [{ url: "/assets/ramps/moonpay.png" }],
+      RampLogo: moonpay,
       PaymentRails: [
         "apple-pay",
         "credit",
@@ -1145,7 +1170,7 @@ export const rampData = [
     fields: {
       RampName: "OnRamp",
       WebsiteUrl: "https://onramp.money/",
-      RampLogo: [{ url: "/assets/ramps/onramp.png" }],
+      RampLogo: onramp,
       PaymentRails: ["bank-transfer", "upi", "vietqr"],
       FiatAssets: ["INR", "TRY", "VND"],
       Countries: ["india", "turkey", "vietnam"],
@@ -1158,7 +1183,7 @@ export const rampData = [
     fields: {
       RampName: "Coinify",
       WebsiteUrl: "https://help.coinify.com/",
-      RampLogo: [{ url: "/assets/ramps/coinify.png" }],
+      RampLogo: coinify,
       PaymentRails: ["mastercard", "visa"],
       FiatAssets: ["USD"],
       Countries: ["hong-kong", "lesotho", "qatar"],
@@ -1171,7 +1196,7 @@ export const rampData = [
     fields: {
       RampName: "Unlimit Crypto",
       WebsiteUrl: "https://www.crypto.unlimit.com/",
-      RampLogo: [{ url: "/assets/ramps/unlimit.png" }],
+      RampLogo: unlimit,
       PaymentRails: ["bank-transfer", "boleto", "picpay", "pix"],
       FiatAssets: ["BRL", "MXN"],
       Countries: ["brazil", "mexico"],
@@ -1184,7 +1209,7 @@ export const rampData = [
     fields: {
       RampName: "Stripe",
       WebsiteUrl: "https://docs.stripe.com/crypto/overview",
-      RampLogo: [{ url: "/assets/ramps/stripe.png" }],
+      RampLogo: stripe,
       PaymentRails: ["ach", "apple-pay", "credit", "debit"],
       FiatAssets: ["USD"],
       Countries: ["united-states"],
@@ -1197,7 +1222,7 @@ export const rampData = [
     fields: {
       RampName: "Saber Money",
       WebsiteUrl: "https://saber.money/",
-      RampLogo: [{ url: "/assets/ramps/saber.png" }],
+      RampLogo: saber,
       PaymentRails: ["bank-transfer", "upi"],
       FiatAssets: ["INR"],
       Countries: ["india"],
@@ -1210,7 +1235,7 @@ export const rampData = [
     fields: {
       RampName: "Transak",
       WebsiteUrl: "https://transak.com/",
-      RampLogo: [{ url: "/assets/ramps/transak.png" }],
+      RampLogo: transak,
       PaymentRails: [
         "apple-pay",
         "astropay",
@@ -1468,7 +1493,7 @@ export const rampData = [
     fields: {
       RampName: "Banxa",
       WebsiteUrl: "https://banxa.com/",
-      RampLogo: [{ url: "/assets/ramps/banxa.png" }],
+      RampLogo: banxa,
       PaymentRails: ["mastercard", "sar", "sepa", "visa"],
       FiatAssets: ["EUR", "SOL", "USDC", "USDT"],
       Countries: [
@@ -1490,7 +1515,7 @@ export const rampData = [
     fields: {
       RampName: "Kado",
       WebsiteUrl: "https://www.kado.money/",
-      RampLogo: [{ url: "/assets/ramps/kado.png" }],
+      RampLogo: kado,
       PaymentRails: ["credit", "crypto", "debit", "fiat", "otc", "sepa"],
       FiatAssets: ["VND"],
       Countries: [
@@ -1634,7 +1659,7 @@ export const rampData = [
     fields: {
       RampName: "Payfura",
       WebsiteUrl: "https://payfura.com/",
-      RampLogo: [{ url: "/assets/ramps/payfura.png" }],
+      RampLogo: payfura,
       PaymentRails: [
         "7-eleven",
         "banco-do-brasil",
@@ -1654,7 +1679,7 @@ export const rampData = [
     fields: {
       RampName: "Luno",
       WebsiteUrl: "https://www.luno.com/en",
-      RampLogo: [{ url: "/assets/ramps/luno.png" }],
+      RampLogo: luno,
       PaymentRails: [],
       FiatAssets: ["NGN"],
       Countries: ["nigeria"],
@@ -1667,7 +1692,7 @@ export const rampData = [
     fields: {
       RampName: "Scalex",
       WebsiteUrl: "https://www.scalex.africa/",
-      RampLogo: [{ url: "/assets/ramps/scalex.png" }],
+      RampLogo: scalex,
       PaymentRails: [],
       FiatAssets: ["NGN"],
       Countries: ["nigeria"],
@@ -1680,7 +1705,7 @@ export const rampData = [
     fields: {
       RampName: "Sphere",
       WebsiteUrl: "https://spherepay.co/ramp",
-      RampLogo: [{ url: "/assets/ramps/sphere.png" }],
+      RampLogo: sphere,
       PaymentRails: ["ach", "sepa"],
       FiatAssets: [
         "AUD",
@@ -1906,7 +1931,7 @@ export const rampData = [
     fields: {
       RampName: "Coinflow",
       WebsiteUrl: "https://coinflow.cash/",
-      RampLogo: [{ url: "/assets/ramps/coinflow.png" }],
+      RampLogo: coinflow,
       PaymentRails: [
         "ach",
         "apple-pay",
@@ -1934,7 +1959,7 @@ export const rampData = [
     fields: {
       RampName: "TransFi",
       WebsiteUrl: "https://www.transfi.com/",
-      RampLogo: [{ url: "/assets/ramps/transfi.png" }],
+      RampLogo: transfi,
       PaymentRails: ["bank-transfer", "fpx", "mastercard", "vietqr", "visa"],
       FiatAssets: ["NGN", "USD", "VND"],
       Countries: ["dominican-republic", "nigeria", "vietnam"],

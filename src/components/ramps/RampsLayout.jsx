@@ -7,33 +7,6 @@ import { Hero } from "@solana-foundation/solana-lib";
 import onOffRampHeroImage from "../../../assets/onofframp/on-off-ramp-hero-img.png";
 import { useTranslation } from "next-i18next";
 
-// Logo imports
-import alchemyPayLogo from "./assets/logos/alchemy-pay.png";
-import banxa from "./assets/logos/banxa.png";
-import coinflow from "./assets/logos/coinflow.png";
-import coinify from "./assets/logos/coinify.png";
-import kado from "./assets/logos/kado.png";
-import luno from "./assets/logos/luno.png";
-import mercuryo from "./assets/logos/mercuryo.png";
-import mesonetwork from "./assets/logos/meso.png";
-import moneygram from "./assets/logos/moneygram.png";
-import moonpay from "./assets/logos/moonpay.png";
-import onmeta from "./assets/logos/onmeta.png";
-import onramp from "./assets/logos/onramp.png";
-import payfura from "./assets/logos/payfura.png";
-import saber from "./assets/logos/saber.png";
-import scalex from "./assets/logos/scalex.png";
-import stripe from "./assets/logos/stripe.png";
-import transak from "./assets/logos/transak.png";
-import transfero from "./assets/logos/transfero.png";
-import transfi from "./assets/logos/transfi.png";
-import unlimit from "./assets/logos/unlimit.png";
-import utorg from "./assets/logos/untorg.png";
-import paybis from "./assets/logos/paybis.png";
-import topper from "./assets/logos/topper.png";
-import sphere from "./assets/logos/sphere.png";
-import stables from "./assets/logos/stables.png";
-
 const RampLayout = ({
   data,
   fiatAssetsOptions,
@@ -53,109 +26,6 @@ const RampLayout = ({
     }
   };
 
-  const RampLogoMap = [
-    {
-      ramp: "AlchemyPay",
-      logo: alchemyPayLogo,
-    },
-    {
-      ramp: "Banxa",
-      logo: banxa,
-    },
-    {
-      ramp: "Coinflow",
-      logo: coinflow,
-    },
-    {
-      ramp: "Coinify",
-      logo: coinify,
-    },
-    {
-      ramp: "Kado",
-      logo: kado,
-    },
-    {
-      ramp: "Luno",
-      logo: luno,
-    },
-    {
-      ramp: "Mercuryo",
-      logo: mercuryo,
-    },
-    {
-      ramp: "Meso Network",
-      logo: mesonetwork,
-    },
-    {
-      ramp: "Moonpay",
-      logo: moonpay,
-    },
-    {
-      ramp: "Moneygram",
-      logo: moneygram,
-    },
-    {
-      ramp: "Onmeta",
-      logo: onmeta,
-    },
-    {
-      ramp: "OnRamp",
-      logo: onramp,
-    },
-    {
-      ramp: "Payfura",
-      logo: payfura,
-    },
-    {
-      ramp: "Saber Money",
-      logo: saber,
-    },
-    {
-      ramp: "Scalex",
-      logo: scalex,
-    },
-    {
-      ramp: "Stripe",
-      logo: stripe,
-    },
-    {
-      ramp: "Transak",
-      logo: transak,
-    },
-    {
-      ramp: "Transfero",
-      logo: transfero,
-    },
-    {
-      ramp: "TransFi",
-      logo: transfi,
-    },
-    {
-      ramp: "Unlimit Crypto",
-      logo: unlimit,
-    },
-    {
-      ramp: "Utorg",
-      logo: utorg,
-    },
-    {
-      ramp: "Paybis",
-      logo: paybis,
-    },
-    {
-      ramp: "Topper",
-      logo: topper,
-    },
-    {
-      ramp: "Sphere",
-      logo: sphere,
-    },
-    {
-      ramp: "Stables",
-      logo: stables,
-    },
-  ];
-
   const rampsTitles = data.map((data) => data.fields.RampName).sort();
   const placeholderRamps = [];
 
@@ -171,22 +41,17 @@ const RampLayout = ({
         RampStatusOff,
         RampStatusOn,
         WebsiteUrl,
+        RampLogo,
         Countries,
         FiatAssets,
         PaymentRails,
       } = matchingRamp[0].fields;
 
-      const matchingRampLogoObject = RampLogoMap.filter(
-        (item) => item.ramp === RampName,
-      );
-
       placeholderRamps.push({
         title: RampName,
         description: Description ?? "",
         websiteUrl: WebsiteUrl,
-        imageUrl: matchingRampLogoObject.length
-          ? matchingRampLogoObject[0].logo.src
-          : null,
+        imageUrl: RampLogo,
         meta: {
           countries: Countries ?? [],
           "payment-rails": PaymentRails ?? [],
