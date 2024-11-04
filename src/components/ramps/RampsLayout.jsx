@@ -227,11 +227,11 @@ const RampLayout = ({
   ];
 
   /**
-   * Runs through an array of records that comes from the Airtable API, sorts them by Name, then returns the correct format for the data for our checkboxes
+   * Sorts and formats the data for the filter checkboxes
    *
-   * @param {Array} dataArray the Data that gets returned from the Airtable API
-   * @param {String} checkboxName the name of the checkbox so when one is clicked the ramps will filter based on that data
-   * @returns array
+   * @param {Array} dataArray Array of items (fiatAssets, countries, or paymentRails)
+   * @param {String} checkboxName the name of the checkbox for filtering (fiat-assets, countries, or payment-rails)
+   * @returns array of formatted items for the filter checkboxes
    */
   const sortAndFormatData = (dataArray, checkboxName) => {
     const sortedData = [];
