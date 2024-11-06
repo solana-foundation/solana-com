@@ -46,7 +46,7 @@ const HeaderListBuild = () => {
             {t("nav.developers.items.resources.description")}
           </Link>
           <Link
-            to="/developers#courses"
+            to="/developers/courses"
             className="nav-link nav-link--secondary"
             activeClassName="active"
           >
