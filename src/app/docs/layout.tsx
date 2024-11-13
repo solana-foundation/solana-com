@@ -8,7 +8,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <>
       <Header containerClassName="container-docs" />
-      <div className="max-w-[1141px] mx-auto px-4">
+      <div className="container-xl container-docs">
         <DocsLayout tree={source.pageTree}>{children}</DocsLayout>
       </div>
       <Footer />
