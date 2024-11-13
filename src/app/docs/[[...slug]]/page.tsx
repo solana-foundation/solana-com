@@ -13,7 +13,16 @@ export default async function Page(props: {
   const MDX = page.data.body;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage
+      toc={page.data.toc}
+      full={page.data.full}
+      breadcrumb={{
+        enabled: true,
+        includeRoot: { url: "/docs" },
+        includeSeparator: true,
+        // includePage: true,
+      }}
+    >
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsBody>
         <MDX components={{ ...mdxComponents }} />
