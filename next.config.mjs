@@ -2,10 +2,14 @@
  * @type {import('next').NextConfig}
  **/
 
-const withBundleAnalyzer = require("@next/bundle-analyzer");
-const { i18n } = require("./next-i18next.config");
-const rewritesAndRedirectsJson = require("./rewrites-redirects.json");
-const { builder } = require("@builder.io/sdk");
+import withBundleAnalyzer from "@next/bundle-analyzer";
+import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
+import { builder } from "@builder.io/sdk";
+import { createMDX } from "fumadocs-mdx/next";
+
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { i18n } = require("./next-i18next.config.js");
 
 const securityHeaders = [
   {
@@ -38,6 +42,7 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
 
 const moduleExports = () => {
   const plugins = [
+    createMDX(),
     withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" }),
   ];
   return plugins.reduce((acc, next) => next(acc), {
@@ -174,4 +179,4 @@ const moduleExports = () => {
   });
 };
 
-module.exports = moduleExports;
+export default moduleExports;
