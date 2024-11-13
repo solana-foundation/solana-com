@@ -1,5 +1,5 @@
-import "./globals.css";
 import "../scss/index.scss";
+import "./globals.css";
 import { ThemeProvider } from "../themecontext";
 import initTranslations from "./i18n";
 import AppProvider from "./AppProvider";
