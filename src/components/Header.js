@@ -1,7 +1,7 @@
+import { useEffect, useState, useRef } from "react";
 import Navbar from "react-bootstrap/Navbar";
 import { useRouter } from "next/router";
 import { Link } from "../utils/Link";
-import { useEffect, useState } from "react";
 import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
 import Moon from "../../public/src/img/icons/Moon.inline.svg";
 import Sun from "../../public/src/img/icons/Sun.inline.svg";
@@ -33,9 +33,24 @@ const Header = ({ className = "", containerClassName = "" }) => {
     }
   }, [t, theme, isThemePage]);
 
+  // Set the header height as a CSS variable
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) {
+      const headerHeight = ref.current.offsetHeight;
+      document.documentElement.style.setProperty(
+        "--header-height",
+        `${headerHeight}px`,
+      );
+    }
+    return () => {
+      document.documentElement.style.removeProperty("--header-height");
+    };
+  }, []);
+
   return (
     <>
-      <header className={`position-sticky sticky-top ${className}`}>
+      <header className={`position-sticky sticky-top ${className}`} ref={ref}>
         <Navbar id="navbar" expand="lg" variant="">
           <div className={`container-xl ${containerClassName}`}>
             <Link to="/" className="d-flex" aria-label="Solana">
