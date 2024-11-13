@@ -1,7 +1,7 @@
 import Dropdown from "react-bootstrap/Dropdown";
 import Globe from "../../public/src/img/icons/Globe.inline.svg";
 import { ChevronDown } from "react-feather";
-import { useRouter } from "next/router";
+import { useRouter } from "@/hooks/useRouter";
 import languages from "../../public/json/languages.json";
 
 const Language = () => {
