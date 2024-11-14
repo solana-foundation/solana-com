@@ -35,7 +35,7 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
-              to="/solutions/actions"
+              to="/solutions/blinks-and-actions"
               className="nav-link nav-link--secondary"
               activeClassName="active"
             >
@@ -44,7 +44,7 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
-              to="/wallets"
+              to="/solutions/wallets"
               className="nav-link nav-link--secondary"
               activeClassName="active"
             >
@@ -62,7 +62,7 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
-              to="/solutions/games-tooling"
+              to="/solutions/gaming"
               className="nav-link nav-link--secondary"
               activeClassName="active"
             >
@@ -71,7 +71,7 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
-              to="/solutions/payments-tooling"
+              to="/solutions/payments"
               className="nav-link nav-link--secondary"
               activeClassName="active"
             >
@@ -155,7 +155,7 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
-              to="/solutions/artists-creators"
+              to="/solutions/creative"
               className="nav-link nav-link--secondary"
               activeClassName="active"
             >
@@ -164,7 +164,7 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
-              to="/solutions/financial-institutions"
+              to="/solutions/institutional-finance"
               className="nav-link nav-link--secondary"
               activeClassName="active"
             >
