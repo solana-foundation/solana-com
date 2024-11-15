@@ -3,7 +3,7 @@ import Dropdown from "react-bootstrap/Dropdown";
 import AngleUp from "../../../public/src/img/icons/Angle-up.inline.svg";
 import AngleDown from "../../../public/src/img/icons/Angle-down.inline.svg";
 import { useTranslation } from "next-i18next";
-import { useRouter } from "next/router";
+import { useRouter } from "@/hooks/useRouter";
 import HeaderListBuild from "./HeaderListBuild";
 import HeaderListSolutions from "./HeaderListSolutions";
 import HeaderListLearn from "./HeaderListLearn";
