@@ -14,6 +14,7 @@ export default async function Page(props: {
   const MDX = page.data.body;
 
   return (
+    // @ts-ignore
     <DocsPage
       toc={page.data.toc}
       full={page.data.full}
@@ -21,7 +22,6 @@ export default async function Page(props: {
         enabled: true,
         includeRoot: { url: "/docs" },
         includeSeparator: true,
-        // includePage: true,
       }}
       tableOfContent={{ footer: <EditOnGithub path={page.file.path} /> }}
     >
@@ -29,7 +29,7 @@ export default async function Page(props: {
         {page.data.title}
       </DocsTitle>
       <DocsBody>
-        <MDX components={{ ...mdxComponents }} />
+        <MDX components={mdxComponents} />
       </DocsBody>
     </DocsPage>
   );
