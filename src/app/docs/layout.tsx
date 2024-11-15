@@ -11,24 +11,27 @@ export default function Layout({ children }: { children: ReactNode }) {
     <>
       <Header containerClassName="container-docs" />
       <div className="container-xl container-docs fumadocs">
+        {/* @ts-ignore */}
         <DocsLayout
           tree={source.pageTree}
           nav={{ enabled: false }}
-          sidebar={{
-            component: (
-              <Sidebar
-                className="bg-transparent sticky overflow-auto overflow-x-hidden w-0 md:min-w-[var(--fd-sidebar-width)] scrollbar-thin"
-                style={{ top: 76, maxHeight: "calc(100vh - 76px)" }}
-              >
-                <SidebarItems />
-              </Sidebar>
-            ),
-          }}
+          sidebar={{ component: <CustomSidebar /> }}
         >
           {children}
         </DocsLayout>
       </div>
       <Footer />
     </>
+  );
+}
+
+function CustomSidebar() {
+  return (
+    <Sidebar
+      className="bg-transparent sticky overflow-auto overflow-x-hidden w-0 md:min-w-[var(--fd-sidebar-width)] scrollbar-thin"
+      style={{ top: 76, maxHeight: "calc(100vh - 76px)" }}
+    >
+      <SidebarItems />
+    </Sidebar>
   );
 }
