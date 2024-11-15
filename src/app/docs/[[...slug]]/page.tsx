@@ -25,7 +25,9 @@ export default async function Page(props: {
       }}
       tableOfContent={{ footer: <EditOnGithub path={page.file.path} /> }}
     >
-      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsTitle className="text-fd-accent-foreground">
+        {page.data.title}
+      </DocsTitle>
       <DocsBody>
         <MDX components={{ ...mdxComponents }} />
       </DocsBody>
@@ -40,10 +42,10 @@ function EditOnGithub({ path }: { path: string }) {
       href={href}
       target="_blank"
       rel="noreferrer noopener"
-      className="pt-2 flex items-center gap-2 text-base text-fd-muted-foreground hover:text-fd-accent-foreground/80"
+      className="pt-2 flex items-center gap-2 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground/80"
     >
       <GithubIcon width="18" height="18" />
-      <span>Edit Page</span>
+      <span>Edit page</span>
     </a>
   );
 }

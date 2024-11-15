@@ -13,10 +13,11 @@ export default function Layout({ children }: { children: ReactNode }) {
       <div className="container-xl container-docs fumadocs">
         <DocsLayout
           tree={source.pageTree}
+          nav={{ enabled: false }}
           sidebar={{
             component: (
               <Sidebar
-                className="bg-transparent sticky overflow-auto overflow-x-hidden min-w-[var(--fd-sidebar-width)] scrollbar-thin"
+                className="bg-transparent sticky overflow-auto overflow-x-hidden w-0 md:min-w-[var(--fd-sidebar-width)] scrollbar-thin"
                 style={{ top: 76, maxHeight: "calc(100vh - 76px)" }}
               >
                 <SidebarItems />
