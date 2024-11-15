@@ -5,6 +5,7 @@ import initTranslations from "./i18n";
 import AppProvider from "./AppProvider";
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
+import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
 import { config } from "@/config";
 import { RootProvider } from "fumadocs-ui/provider";
 
@@ -19,6 +20,8 @@ export default async function RootLayout({
   const { resources } = await initTranslations(locale, namespaces);
 
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
+  // TODO:
+  const builderLocale = "Default";
   return (
     <html lang="en">
       <body>
@@ -40,6 +43,7 @@ export default async function RootLayout({
           >
             <RootProvider>
               <GTMTrackingSnippet />
+              <SitewideTopAlert locale={builderLocale} />
               <CookieConsent />
               {children}
             </RootProvider>
