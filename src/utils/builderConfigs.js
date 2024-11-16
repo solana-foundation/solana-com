@@ -24,6 +24,7 @@ export const ButtonConfig = {
         "outline",
         "purpleGradient",
         "greenGradient",
+        "disabled",
       ],
       defaultValue: "primary",
     },
