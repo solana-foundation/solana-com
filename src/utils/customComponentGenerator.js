@@ -4,10 +4,14 @@ import dynamic from "next/dynamic";
 import {
   AccordionConfig,
   AnnouncementBarConfig,
-  BreakpointCard,
-  BreakpointHero,
+  BreakpointCardConfig,
+  BreakpointHeroConfig,
   BreakpointSpeakersConfig,
   BreakpointTitleConfig,
+  AccelerateSpeakersConfig,
+  AccelerateTitleConfig,
+  AccelerateHeroConfig,
+  AccelerateCardConfig,
   ButtonConfig,
   CardDeckConfig,
   CarouselConfig,
@@ -18,8 +22,8 @@ import {
   HeadingConfig,
   HeroConfig,
   HtmlParserConfig,
-  NewsletterForm,
-  NewsletterMultipleListsForm,
+  NewsletterFormConfig,
+  NewsletterMultipleListsFormConfig,
   RichTextQuoteConfig,
   RichStatsConfig,
   SectionConfig,
@@ -85,7 +89,9 @@ export const richTextDataModels = [
 const breakpointDataModels = [
   {
     component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then((lib) => lib.Speakers),
+      import("@solana-foundation/solana-lib").then(
+        (lib) => lib.BreakpointSpeakers,
+      ),
     ),
     config: BreakpointSpeakersConfig,
   },
@@ -101,42 +107,44 @@ const breakpointDataModels = [
     component: dynamic(() =>
       import("@solana-foundation/solana-lib").then((lib) => lib.BreakpointHero),
     ),
-    config: BreakpointHero,
+    config: BreakpointHeroConfig,
   },
   {
     component: dynamic(() =>
       import("@solana-foundation/solana-lib").then((lib) => lib.BreakpointCard),
     ),
-    config: BreakpointCard,
+    config: BreakpointCardConfig,
   },
 ];
 
 const accelerateDataModels = [
   {
     component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then((lib) => lib.Speakers),
+      import("@solana-foundation/solana-lib").then(
+        (lib) => lib.AccelerateSpeakers,
+      ),
     ),
-    config: BreakpointSpeakersConfig,
+    config: AccelerateSpeakersConfig,
   },
   {
     component: dynamic(() =>
       import("@solana-foundation/solana-lib").then(
-        (lib) => lib.BreakpointTitle,
+        (lib) => lib.AccelerateTitle,
       ),
     ),
-    config: BreakpointTitleConfig,
+    config: AccelerateTitleConfig,
   },
   {
     component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then((lib) => lib.BreakpointHero),
+      import("@solana-foundation/solana-lib").then((lib) => lib.AccelerateHero),
     ),
-    config: BreakpointHero,
+    config: AccelerateHeroConfig,
   },
   {
     component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then((lib) => lib.BreakpointCard),
+      import("@solana-foundation/solana-lib").then((lib) => lib.AccelerateCard),
     ),
-    config: BreakpointCard,
+    config: AccelerateCardConfig,
   },
 ];
 
@@ -225,7 +233,7 @@ const componentDataModel = [
     component: dynamic(() =>
       import("@solana-foundation/solana-lib").then((lib) => lib.NewsletterForm),
     ),
-    config: NewsletterForm,
+    config: NewsletterFormConfig,
   },
   {
     component: dynamic(() =>
@@ -233,7 +241,7 @@ const componentDataModel = [
         (lib) => lib.NewsletterMultipleListsForm,
       ),
     ),
-    config: NewsletterMultipleListsForm,
+    config: NewsletterMultipleListsFormConfig,
   },
   {
     component: dynamic(() =>

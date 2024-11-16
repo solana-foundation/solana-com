@@ -1815,33 +1815,6 @@ export const RichStatsConfig = {
   ],
 };
 
-export const BreakpointSpeakersConfig = {
-  name: "Breakpoint Speakers",
-  inputs: [
-    {
-      name: "speakers",
-      type: "list",
-      subFields: [
-        {
-          name: "speakerName",
-          type: "string",
-          defaultValue: "",
-        },
-        {
-          name: "title",
-          type: "string",
-          defaultValue: "",
-        },
-        {
-          name: "image",
-          type: "file",
-          allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
-          required: true,
-        },
-      ],
-    },
-  ],
-};
 export const CodeBlockConfig = {
   name: "Code Block",
   inputs: [
@@ -1979,7 +1952,7 @@ export const BreakpointTitleConfig = {
   ],
 };
 
-export const BreakpointHero = {
+export const BreakpointHeroConfig = {
   name: "Breakpoint Hero",
   inputs: [
     {
@@ -1997,7 +1970,7 @@ export const BreakpointHero = {
     {
       name: "description",
       type: "richText",
-      defaultValue: "Description",
+      defaultValue: "<p>Description</p>",
       localized: true,
     },
     {
@@ -2015,19 +1988,19 @@ export const BreakpointHero = {
   ],
 };
 
-export const BreakpointCard = {
+export const BreakpointCardConfig = {
   name: "Breakpoint Card",
   inputs: [
     {
       name: "heading",
       type: "string",
-      defaultValue: "",
+      defaultValue: "Heading",
       localized: true,
     },
     {
       name: "content",
       type: "richText",
-      defaultValue: "",
+      defaultValue: "<p>Content</p>",
       localized: true,
     },
     {
@@ -2038,7 +2011,147 @@ export const BreakpointCard = {
   ],
 };
 
-export const NewsletterForm = {
+export const BreakpointSpeakersConfig = {
+  name: "Breakpoint Speakers",
+  inputs: [
+    {
+      name: "speakers",
+      type: "list",
+      subFields: [
+        {
+          name: "speakerName",
+          type: "string",
+          defaultValue: "",
+        },
+        {
+          name: "title",
+          type: "string",
+          defaultValue: "",
+        },
+        {
+          name: "image",
+          type: "file",
+          allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
+          required: true,
+        },
+      ],
+    },
+  ],
+};
+
+export const AccelerateTitleConfig = {
+  name: "Accelerate Title",
+  inputs: [
+    {
+      name: "title",
+      type: "text",
+      required: true,
+      defaultValue: "Title",
+      localized: true,
+    },
+    {
+      name: "image",
+      type: "file",
+      allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
+    },
+    {
+      name: "modifier",
+      type: "text",
+      enum: ["start", "end"],
+      defaultValue: "start",
+      helperText: "Background position to determine the node orientation",
+    },
+  ],
+};
+
+export const AccelerateHeroConfig = {
+  name: "Accelerate Hero",
+  inputs: [
+    {
+      name: "title",
+      type: "text",
+      defaultValue: "Title",
+      localized: true,
+    },
+    {
+      name: "subtitle",
+      type: "text",
+      defaultValue: "Subtitle",
+      localized: true,
+    },
+    {
+      name: "description",
+      type: "richText",
+      defaultValue: "<p>Description</p>",
+      localized: true,
+    },
+    {
+      name: "logo",
+      type: "file",
+      allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
+      required: true,
+    },
+    {
+      name: "backgroundImage",
+      type: "file",
+      allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
+      required: true,
+    },
+  ],
+};
+
+export const AccelerateCardConfig = {
+  name: "Accelerate Card",
+  inputs: [
+    {
+      name: "heading",
+      type: "string",
+      defaultValue: "Heading",
+      localized: true,
+    },
+    {
+      name: "content",
+      type: "richText",
+      defaultValue: "<p>Content</p>",
+      localized: true,
+    },
+    {
+      name: "buttons",
+      type: "list",
+      subFields: ButtonConfig.inputs,
+    },
+  ],
+};
+
+export const AccelerateSpeakersConfig = {
+  name: "Accelerate Speakers",
+  inputs: [
+    {
+      name: "speakers",
+      type: "list",
+      subFields: [
+        {
+          name: "speakerName",
+          type: "string",
+          defaultValue: "",
+        },
+        {
+          name: "title",
+          type: "string",
+          defaultValue: "",
+        },
+        {
+          name: "image",
+          type: "file",
+          allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
+          required: true,
+        },
+      ],
+    },
+  ],
+};
+
+export const NewsletterFormConfig = {
   name: "Newsletter Form",
   inputs: [
     {
@@ -2079,7 +2192,7 @@ export const NewsletterForm = {
   ],
 };
 
-export const NewsletterMultipleListsForm = {
+export const NewsletterMultipleListsFormConfig = {
   name: "Newsletter Multiple Lists Form",
   inputs: [
     {
