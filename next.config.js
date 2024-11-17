@@ -72,33 +72,43 @@ const moduleExports = () => {
         })),
       ];
 
-      return builder
-        .getAll("url-redirects", {
-          apiKey:
-            process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
-            "ce0c7323a97a4d91bd0baa7490ec9139",
-          options: { noTargeting: true },
-          cachebust: true,
-        })
-        .then(
-          (results) => [
-            ...existingRedirects,
-            ...results
-              .filter((content) => {
-                const data = (content || {}).data || {};
-                return !!(data.sourceUrl && data.destinationUrl);
-              })
-              .map(({ data }) => ({
-                source: data.sourceUrl,
-                destination: data.destinationUrl,
-                permanent: !!data.permanentRedirect,
-              })),
-          ],
-          (error) => {
+      try {
+        return builder
+          .getAll("url-redirects", {
+            apiKey:
+              process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
+              "ce0c7323a97a4d91bd0baa7490ec9139",
+            options: { noTargeting: true },
+            cachebust: true,
+          })
+          .then((results) => {
+            try {
+              return [
+                ...existingRedirects,
+                ...results
+                  .filter((content) => {
+                    const data = (content || {}).data || {};
+                    return !!(data.sourceUrl && data.destinationUrl);
+                  })
+                  .map(({ data }) => ({
+                    source: data.sourceUrl,
+                    destination: data.destinationUrl,
+                    permanent: !!data.permanentRedirect,
+                  })),
+              ];
+            } catch (error) {
+              console.log("Error processing redirects", error);
+              return existingRedirects;
+            }
+          })
+          .catch((error) => {
             console.log("Error setting up redirects", error);
             return existingRedirects;
-          },
-        );
+          });
+      } catch (error) {
+        console.log("Error fetching redirects from Builder:", error);
+        return existingRedirects;
+      }
     },
     webpack(config) {
       config.module.rules.push({
