@@ -1,29 +1,31 @@
-import defaultIcon from "../../../assets/wallets/wallet-placeholder-icon.png";
-import phantomIcon from "../../../assets/wallets/icons/phantom.png";
-import backpackIcon from "../../../assets/wallets/icons/backpack.png";
-import solflareIcon from "../../../assets/wallets/icons/solflare.png";
-import fuseIcon from "../../../assets/wallets/icons/fuse.png";
-import capsuleIcon from "../../../assets/wallets/icons/capsule.png";
-import okxIcon from "../../../assets/wallets/icons/okx.png";
-import circleIcon from "../../../assets/wallets/icons/circle.png";
-import robinhoodIcon from "../../../assets/wallets/icons/robinhood.png";
-import heliumIcon from "../../../assets/wallets/icons/helium.png";
-import privyIcon from "../../../assets/wallets/icons/privy.png";
-import walletConnectIcon from "../../../assets/wallets/icons/walletconnect.png";
-import bitGetIcon from "../../../assets/wallets/icons/bitget.png";
-import braveIcon from "../../../assets/wallets/icons/brave.png";
-import crossmintIcon from "../../../assets/wallets/icons/crossmint.png";
-import decafIcon from "../../../assets/wallets/icons/decaf.png";
-import ledgerIcon from "../../../assets/wallets/icons/ledger.png";
-import tiplinkIcon from "../../../assets/wallets/icons/tiplink.png";
-import trustWalletCoreIcon from "../../../assets/wallets/icons/trustwalletcore.png";
-import web3authIcon from "../../../assets/wallets/icons/web3auth.png";
-import binanceIcon from "../../../assets/wallets/icons/binance.png";
-import exodusIcon from "../../../assets/wallets/icons/exodus.png";
-import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
-import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
-import gemIcon from "../../../assets/wallets/icons/gem.png";
-import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
+import backpackIcon from "../../../public/src/img/solana-wallets/Backpack.svg";
+import binanceIcon from "../../../public/src/img/solana-wallets/Binance.svg";
+import bitGetIcon from "../../../public/src/img/solana-wallets/Bitget.svg";
+import braveIcon from "../../../public/src/img/solana-wallets/Brave.svg";
+import capsuleIcon from "../../../public/src/img/solana-wallets/Capsule.svg";
+import circleIcon from "../../../public/src/img/solana-wallets/Circle.svg";
+import coinbaseIcon from "../../../public/src/img/solana-wallets/Coinbase.svg";
+import crossmintCustodialIcon from "../../../public/src/img/solana-wallets/CrossmintCustodial.svg";
+import crossmintNoncustodialIcon from "../../../public/src/img/solana-wallets/CorssmintNoncustodial.svg";
+import decafIcon from "../../../public/src/img/solana-wallets/Decaf.svg";
+import dynamicIcon from "../../../public/src/img/solana-wallets/Dynamic.svg";
+import exodusIcon from "../../../public/src/img/solana-wallets/Exodus.svg";
+import fuseIcon from "../../../public/src/img/solana-wallets/Fuse.svg";
+import glowIcon from "../../../public/src/img/solana-wallets/Glow.svg";
+import heliumIcon from "../../../public/src/img/solana-wallets/Helium.svg";
+import keystoneIcon from "../../../public/src/img/solana-wallets/KeyStone.svg";
+import ledgerIcon from "../../../public/src/img/solana-wallets/Ledger.svg";
+import okxIcon from "../../../public/src/img/solana-wallets/OKX.svg";
+import passkeysIcon from "../../../public/src/img/solana-wallets/Passkeys-Foundation.svg";
+import phantomIcon from "../../../public/src/img/solana-wallets/Phantom.svg";
+import privyIcon from "../../../public/src/img/solana-wallets/Privy.svg";
+import robinhoodIcon from "../../../public/src/img/solana-wallets/Robinhood.svg";
+import solflareIcon from "../../../public/src/img/solana-wallets/Solflare.svg";
+import tiplinkIcon from "../../../public/src/img/solana-wallets/Tiplink.svg";
+import trezorIcon from "../../../public/src/img/solana-wallets/Trezor.svg";
+import trustWalletCoreIcon from "../../../public/src/img/solana-wallets/Trust.svg";
+import turnkeyIcon from "../../../public/src/img/solana-wallets/TurnKey.svg";
+import web3authIcon from "../../../public/src/img/solana-wallets/Web3Auth.svg";
 
 export const walletData = [
   {
@@ -33,6 +35,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
     icon: phantomIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -47,7 +52,6 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -57,6 +61,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Hold NFTs • Staking • Open Source",
     icon: backpackIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -71,7 +78,6 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: true,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -81,6 +87,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
     icon: solflareIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -95,7 +104,6 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -104,7 +112,10 @@ export const walletData = [
     website: "https://www.coinbase.com/wallet",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Social recovery • Staking • Spending Limits • Open Source",
-    icon: defaultIcon,
+    icon: coinbaseIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: false,
@@ -115,11 +126,10 @@ export const walletData = [
     hold_nfts: true,
     mpc: true,
     gas_abstraction: false,
-    social_recovery: false,
+    social_recovery: true,
     staking: true,
     spending_limits: true,
     open_source: true,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -129,6 +139,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Gas Abstraction • Social recovery • Staking • Spending Limits • Open Source",
     icon: fuseIcon,
+    new_to_crypto: false,
+    developer: false,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: false,
@@ -143,7 +156,6 @@ export const walletData = [
     staking: true,
     spending_limits: true,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -153,21 +165,23 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Gas Abstraction • Social Recovery",
     icon: dynamicIcon,
+    new_to_crypto: false,
+    developer: true,
+    hardware: false,
     custodial: false,
-    non_custodial: false,
+    non_custodial: true,
     te: false,
-    blinks_and_actions: false,
+    blinks_and_actions: true,
     solana_pay: false,
-    buy_crypto: false,
-    sell_crypto: false,
+    buy_crypto: true,
+    sell_crypto: true,
     hold_nfts: true,
     mpc: false,
-    gas_abstraction: false,
-    social_recovery: false,
+    gas_abstraction: true,
+    social_recovery: true,
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -177,6 +191,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Buy Crypto • Sell Crytpo • Hold NFTs • MPC • Gas Abstraction • Social recovery • Staking • Spending Limits • Open Source",
     icon: capsuleIcon,
+    new_to_crypto: false,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -191,7 +208,6 @@ export const walletData = [
     staking: true,
     spending_limits: true,
     open_source: true,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -201,6 +217,9 @@ export const walletData = [
     additionalInfo:
       "Custodial • Token Extensions • Acttions & Blinks • Buy Crypto • Sell Crypto • Nold NFTs • Social recovery • Staking",
     icon: okxIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: true,
     non_custodial: false,
     te: true,
@@ -215,7 +234,6 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -225,6 +243,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Gas Abstraction",
     icon: privyIcon,
+    new_to_crypto: false,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -239,31 +260,32 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
     name: "Web3Auth",
     body: "An open source, non-custodial key management network. Making Web3 simple, secure, and easy to use.",
-    website: "https://tor.us/",
+    website: "https://web3auth.io/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Gas Abstraction • Social recovery • Staking • Open Source",
     icon: web3authIcon,
+    new_to_crypto: false,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: true,
-    te: false,
+    te: true,
     blinks_and_actions: false,
     solana_pay: true,
-    buy_crypto: false,
-    sell_crypto: false,
+    buy_crypto: true,
+    sell_crypto: true,
     hold_nfts: true,
     mpc: true,
-    gas_abstraction: false,
+    gas_abstraction: true,
     social_recovery: true,
-    staking: false,
+    staking: true,
     spending_limits: false,
     open_source: true,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -273,21 +295,23 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
     icon: exodusIcon,
+    new_to_crypto: true,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
     blinks_and_actions: false,
     solana_pay: false,
-    buy_crypto: false,
-    sell_crypto: false,
+    buy_crypto: true,
+    sell_crypto: true,
     hold_nfts: true,
-    mpc: true,
-    gas_abstraction: true,
-    social_recovery: true,
-    staking: false,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: true,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -298,6 +322,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extentions • Hold NFTs • Gas abstraction",
     icon: circleIcon,
+    new_to_crypto: true,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -312,7 +339,6 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -322,6 +348,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Spending Limits",
     icon: braveIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -336,7 +365,6 @@ export const walletData = [
     staking: false,
     spending_limits: true,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -346,6 +374,9 @@ export const walletData = [
     additionalInfo:
       "Custodial • Buy Crypto • Sell Crypto • Social recovery • Staking • Spending Limits",
     icon: robinhoodIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: true,
     non_custodial: false,
     te: false,
@@ -360,7 +391,6 @@ export const walletData = [
     staking: true,
     spending_limits: true,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -370,6 +400,9 @@ export const walletData = [
     additionalInfo:
       "Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Gas Abstraction",
     icon: tiplinkIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: true,
     non_custodial: false,
     te: true,
@@ -384,7 +417,6 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -394,6 +426,9 @@ export const walletData = [
     additionalInfo:
       "Vorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc vulputate libero et velit interdum, ac aliquet odio mattis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.",
     icon: trustWalletCoreIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: false,
     non_custodial: false,
     te: false,
@@ -408,7 +443,6 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -417,7 +451,10 @@ export const walletData = [
     website: "https://glow.app/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
-    icon: defaultIcon,
+    icon: glowIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -432,7 +469,6 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -441,6 +477,9 @@ export const walletData = [
     website: "https://docs.helium.com/wallets/helium-wallet-app/",
     additionalInfo: "Non-Custodial/Self Custodial • Hold NFTs • Open Source",
     icon: heliumIcon,
+    new_to_crypto: true,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: false,
@@ -455,7 +494,6 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: true,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -465,7 +503,10 @@ export const walletData = [
       "https://www.crossmint.com/products/non-custodial-wallets-as-a-service",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Gas Abstraction • Social recovery",
-    icon: crossmintIcon,
+    icon: crossmintNoncustodialIcon,
+    new_to_crypto: false,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -480,7 +521,6 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -489,7 +529,10 @@ export const walletData = [
     website: "https://www.crossmint.com/products/custodial-wallet-as-a-service",
     additionalInfo:
       "Custodial • Token Extensions • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Gas Abstraction • Social recovery",
-    icon: crossmintIcon,
+    icon: crossmintCustodialIcon,
+    new_to_crypto: false,
+    developer: true,
+    hardware: false,
     custodial: true,
     non_custodial: false,
     te: true,
@@ -504,7 +547,6 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -514,45 +556,23 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • MPS • Gas abstraction • Social recovery",
     icon: decafIcon,
-    custodial: false,
-    non_custodial: false,
-    te: false,
-    blinks_and_actions: false,
-    solana_pay: false,
-    buy_crypto: false,
-    sell_crypto: false,
-    hold_nfts: false,
-    mpc: false,
-    gas_abstraction: false,
-    social_recovery: false,
-    staking: false,
-    spending_limits: false,
-    open_source: false,
+    new_to_crypto: false,
+    developer: false,
     hardware: false,
-    private_key_infrastructure: false,
-  },
-  {
-    name: "WalletConnect",
-    body: "WalletConnect gives developers the tools to build user experiences that make digital ownership effortless, intuitive, and secure.",
-    website: "https://walletconnect.com/",
-    additionalInfo:
-      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPCs • Social recovery • Open Source",
-    icon: walletConnectIcon,
     custodial: false,
     non_custodial: true,
-    te: false,
-    blinks_and_actions: false,
-    solana_pay: false,
+    te: true,
+    blinks_and_actions: true,
+    solana_pay: true,
     buy_crypto: true,
     sell_crypto: true,
     hold_nfts: true,
     mpc: true,
-    gas_abstraction: false,
+    gas_abstraction: true,
     social_recovery: true,
     staking: false,
     spending_limits: false,
-    open_source: true,
-    hardware: false,
+    open_source: false,
     private_key_infrastructure: false,
   },
   {
@@ -562,6 +582,9 @@ export const walletData = [
     additionalInfo:
       "Token Extensions • Actions & Blinks • Hold NFTs • Gas Abstraction • Social recovery • Staking • Spending Limits • Private Key Infrastructure",
     icon: turnkeyIcon,
+    new_to_crypto: false,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: false,
     te: true,
@@ -576,7 +599,6 @@ export const walletData = [
     staking: true,
     spending_limits: true,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: true,
   },
   {
@@ -586,21 +608,23 @@ export const walletData = [
     additionalInfo:
       "Hardware • Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Staking",
     icon: ledgerIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: true,
     custodial: false,
-    non_custodial: false,
+    non_custodial: true,
     te: false,
     blinks_and_actions: false,
     solana_pay: false,
-    buy_crypto: false,
-    sell_crypto: false,
+    buy_crypto: true,
+    sell_crypto: true,
     hold_nfts: false,
     mpc: false,
     gas_abstraction: false,
     social_recovery: false,
-    staking: false,
+    staking: true,
     spending_limits: false,
     open_source: false,
-    hardware: true,
     private_key_infrastructure: false,
   },
   {
@@ -609,22 +633,24 @@ export const walletData = [
     website: "https://trezor.io/",
     additionalInfo:
       "Hardware • Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Staking",
-    icon: defaultIcon,
+    icon: trezorIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: true,
     custodial: false,
-    non_custodial: false,
+    non_custodial: true,
     te: false,
     blinks_and_actions: false,
     solana_pay: false,
-    buy_crypto: false,
-    sell_crypto: false,
+    buy_crypto: true,
+    sell_crypto: true,
     hold_nfts: false,
     mpc: false,
     gas_abstraction: false,
     social_recovery: false,
-    staking: false,
+    staking: true,
     spending_limits: false,
     open_source: false,
-    hardware: true,
     private_key_infrastructure: false,
   },
   {
@@ -633,8 +659,11 @@ export const walletData = [
     website: "https://keyst.one/",
     additionalInfo: "Hardware • Non-Custodial/Self Custodial • Open Source",
     icon: keystoneIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: true,
     custodial: false,
-    non_custodial: false,
+    non_custodial: true,
     te: false,
     blinks_and_actions: false,
     solana_pay: false,
@@ -646,8 +675,7 @@ export const walletData = [
     social_recovery: false,
     staking: false,
     spending_limits: false,
-    open_source: false,
-    hardware: true,
+    open_source: true,
     private_key_infrastructure: false,
   },
   {
@@ -657,6 +685,9 @@ export const walletData = [
     additionalInfo:
       "Custodial • Token Extensions • Actions & Blinks • MPC • Gas Abstraction",
     icon: bitGetIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: true,
     non_custodial: false,
     te: true,
@@ -671,7 +702,6 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -680,6 +710,9 @@ export const walletData = [
     website: "https://www.binance.com/en/web3wallet",
     additionalInfo: "Custodial • Token Extensions • MPC",
     icon: binanceIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
     custodial: true,
     non_custodial: false,
     te: true,
@@ -694,7 +727,6 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: false,
-    hardware: false,
     private_key_infrastructure: false,
   },
   {
@@ -704,6 +736,9 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Open Source • Staking",
     icon: gemIcon,
+    new_to_crypto: false,
+    developer: true,
+    hardware: false,
     custodial: false,
     non_custodial: true,
     te: false,
@@ -718,30 +753,32 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: true,
-    hardware: false,
     private_key_infrastructure: false,
   },
-  // {
-  //   name: "Passkeys.Foundation",
-  //   body: "Binance Web3 wallet is a keyless, seedless, multi-chain, semi-custody wallet designed for DeFi.",
-  //   website: "https://www.binance.com/en/web3wallet",
-  //   additionalInfo: "Non-Custodial/Self Custodial • Actions & Blinks • MPC • Gas Abstraction",
-  //   icon: defaultIcon,
-  //   custodial: false,
-  //   non_custodial: true,
-  //   te: false,
-  //   blinks_and_actions: true,
-  //   solana_pay: false,
-  //   buy_crypto: false,
-  //   sell_crypto: false,
-  //   hold_nfts: false,
-  //   mpc: true,
-  //   gas_abstraction: true,
-  //   social_recovery: false,
-  //   staking: false,
-  //   spending_limits: false,
-  //   open_source: false,
-  //   hardware: false,
-  //   private_key_infrastructure: false
-  // }
+  {
+    name: "Passkeys.Foundation",
+    body: "",
+    website: "https://passkeys.foundation/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Actions & Blinks • MPC • Gas Abstraction",
+    icon: passkeysIcon,
+    new_to_crypto: true,
+    developer: false,
+    hardware: false,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: true,
+    solana_pay: false,
+    buy_crypto: false,
+    sell_crypto: false,
+    hold_nfts: false,
+    mpc: true,
+    gas_abstraction: true,
+    social_recovery: false,
+    staking: false,
+    spending_limits: false,
+    open_source: false,
+    private_key_infrastructure: false,
+  },
 ];
