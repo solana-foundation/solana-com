@@ -46,6 +46,16 @@ const HeaderListBuild = () => {
             {t("nav.developers.items.courses.description")}
           </Link>
           <Link
+            to="/developers/cookbook"
+            className="nav-link nav-link--secondary"
+            activeClassName="active"
+          >
+            <strong className="d-block text-white">
+              {t("nav.developers.items.cookbook.title")}
+            </strong>
+            {t("nav.developers.items.cookbook.description")}
+          </Link>
+          <Link
             to="/developers/resources"
             className="nav-link nav-link--secondary"
             activeClassName="active"
