@@ -30,12 +30,14 @@ const GamesKit = () => {
         <div className={styles.TextBlock}>
           <AnimatedText element="h2" as="heading">
             <span>
-              <Trans i18nKey="solutions-gaming.games-kit.title">
-                Start with the <br />
-                <GradientText gradient="linear-gradient(90deg, #64A8F2 0%, #9945FF 49.61%, #EB54BC 100%);">
-                  Solana Games Kit
-                </GradientText>
-              </Trans>
+              <Trans
+                i18nKey="solutions-gaming.games-kit.title"
+                components={{
+                  gradient: (
+                    <GradientText gradient="linear-gradient(90deg, #64A8F2 0%, #9945FF 49.61%, #EB54BC 100%);" />
+                  ),
+                }}
+              />
             </span>
           </AnimatedText>
 
