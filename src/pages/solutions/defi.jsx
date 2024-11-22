@@ -35,6 +35,18 @@ import * as desktopHeroWithoutSolana from "../../../assets/solutions/defi/DeFi_D
 import * as longformTwo from "../../../assets/solutions/defi/DeFi_Interest_V1.json";
 import * as longformOne from "../../../assets/solutions/defi/DeFi_Blinks_V1.json";
 
+import credix from "../../../assets/solutions/defi/credix.svg";
+import jupiter from "../../../assets/solutions/defi/jupiter.svg";
+import kamino from "../../../assets/solutions/defi/kamino.svg";
+import marginfi from "../../../assets/solutions/defi/marginfi.svg";
+import openbook from "../../../assets/solutions/defi/openbook.svg";
+import orca from "../../../assets/solutions/defi/orca.svg";
+import phoenix from "../../../assets/solutions/defi/phoenix.svg";
+import pyth from "../../../assets/solutions/defi/pyth.svg";
+import pyusd from "../../../assets/solutions/defi/pyusd.svg";
+import raydium from "../../../assets/solutions/defi/raydium.svg";
+import save from "../../../assets/solutions/defi/save.svg";
+
 const DeFi = () => {
   const { t } = useTranslation();
 
@@ -65,23 +77,98 @@ const DeFi = () => {
 
   const ecosystemCards = [
     <Card
-      key="defi-card-1"
-      img="/path/to/image1.png"
-      url="https://example.com/1"
-      title={t("solutions-defi.ecosystem.card1.title")}
-      text={t("solutions-defi.ecosystem.card1.text")}
+      key="card-1"
+      img={jupiter}
+      url="https://jup.ag/"
+      title={t("solutions-defi.ecosystem.card-jupiter.title")}
+      text={t("solutions-defi.ecosystem.card-jupiter.text")}
+      className={styles.EcosystemCard}
     />,
     <Card
-      key="defi-card-2"
-      img="/path/to/image2.png"
-      url="https://example.com/2"
-      title={t("solutions-defi.ecosystem.card2.title")}
-      text={t("solutions-defi.ecosystem.card2.text")}
+      key="card-2"
+      img={orca}
+      url="https://www.orca.so/"
+      title={t("solutions-defi.ecosystem.card-orca.title")}
+      text={t("solutions-defi.ecosystem.card-orca.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-3"
+      img={raydium}
+      url="https://raydium.io/swap/"
+      title={t("solutions-defi.ecosystem.card-raydium.title")}
+      text={t("solutions-defi.ecosystem.card-raydium.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-4"
+      img={phoenix}
+      url="https://www.phoenix.trade/"
+      title={t("solutions-defi.ecosystem.card-phoenix.title")}
+      text={t("solutions-defi.ecosystem.card-phoenix.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-5"
+      img={openbook}
+      url="https://www.openbook.ag/"
+      title={t("solutions-defi.ecosystem.card-openbook.title")}
+      text={t("solutions-defi.ecosystem.card-openbook.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-6"
+      img={kamino}
+      url="https://app.kamino.finance/"
+      title={t("solutions-defi.ecosystem.card-kamino.title")}
+      text={t("solutions-defi.ecosystem.card-kamino.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-7"
+      img={save}
+      url="https://save.finance/"
+      title={t("solutions-defi.ecosystem.card-save.title")}
+      text={t("solutions-defi.ecosystem.card-save.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-8"
+      img={marginfi}
+      url="https://www.marginfi.com/"
+      title={t("solutions-defi.ecosystem.card-marginfi.title")}
+      text={t("solutions-defi.ecosystem.card-marginfi.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-9"
+      img={pyth}
+      url="https://www.fireblocks.com/customers/worldpay/"
+      title={t("solutions-defi.ecosystem.card-pyth.title")}
+      text={t("solutions-defi.ecosystem.card-pyth.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-10"
+      img={pyusd}
+      url="https://www.fireblocks.com/customers/worldpay/"
+      title={t("solutions-defi.ecosystem.card-pyusd.title")}
+      text={t("solutions-defi.ecosystem.card-pyusd.text")}
+      className={styles.EcosystemCard}
+    />,
+    <Card
+      key="card-11"
+      img={credix}
+      url="https://www.fireblocks.com/customers/worldpay/"
+      title={t("solutions-defi.ecosystem.card-credix.title")}
+      text={t("solutions-defi.ecosystem.card-credix.text")}
+      className={styles.EcosystemCard}
     />,
   ];
 
   const caseStudyCards = [
     <StoryCard
+      key="case-study-card-1"
       logo={"/solutions/defi/pyth-logo.webp"}
       logoAlt="Pyth logo"
       mobileImage={"/solutions/defi/pyth-main.jpg"}
@@ -98,9 +185,9 @@ const DeFi = () => {
       className={styles.StoryCard}
       logoClassName={styles.StoryCardLogo}
       mainImageClassName={styles.StoryCardImage}
-      key="story-card-1"
     />,
     <StoryCard
+      key="case-study-card-2"
       logo={"/solutions/defi/etherfuse-logo.svg"}
       logoAlt="Etherfuse logo"
       mobileImage={"/solutions/defi/etherfuse-main.webp"}
@@ -117,7 +204,6 @@ const DeFi = () => {
       className={styles.StoryCard}
       logoClassName={styles.StoryCardLogo}
       mainImageClassName={styles.StoryCardImage}
-      key="story-card-2"
     />,
   ];
 
