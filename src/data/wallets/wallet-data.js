@@ -1,5 +1,6 @@
 import backpackIcon from "../../../public/src/img/solana-wallets/Backpack.svg";
 import binanceIcon from "../../../public/src/img/solana-wallets/Binance.svg";
+import gemIcon from "../../../public/src/img/solana-wallets/gem.png";
 import bitGetIcon from "../../../public/src/img/solana-wallets/Bitget.svg";
 import braveIcon from "../../../public/src/img/solana-wallets/Brave.svg";
 import capsuleIcon from "../../../public/src/img/solana-wallets/Capsule.svg";
