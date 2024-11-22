@@ -65,6 +65,48 @@ const Creative = () => {
       title={t("solutions-creative.ecosystem.platforms.metaplex.title")}
       text={t("solutions-creative.ecosystem.platforms.metaplex.text")}
     />,
+    <Card
+      key="audius"
+      img="/solutions/creative/carousel-5.webp"
+      url="https://audius.co/"
+      title={t("solutions-creative.ecosystem.platforms.audius.title")}
+      text={t("solutions-creative.ecosystem.platforms.audius.text")}
+    />,
+    <Card
+      key="access-protocol"
+      img="/solutions/creative/carousel-6.webp"
+      url="https://hub.accessprotocol.co/creators"
+      title={t("solutions-creative.ecosystem.platforms.access-protocol.title")}
+      text={t("solutions-creative.ecosystem.platforms.access-protocol.text")}
+    />,
+    <Card
+      key="3-land"
+      img="/solutions/creative/carousel-7.webp"
+      url="https://3.land/"
+      title={t("solutions-creative.ecosystem.platforms.3-land.title")}
+      text={t("solutions-creative.ecosystem.platforms.3-land.text")}
+    />,
+    <Card
+      key="primatives"
+      img="/solutions/creative/carousel-8.webp"
+      url="https://blog.primitives.xyz/announcing-the-primitives-protocol/"
+      title={t("solutions-creative.ecosystem.platforms.primatives.title")}
+      text={t("solutions-creative.ecosystem.platforms.primatives.text")}
+    />,
+    <Card
+      key="exchange-art"
+      img="/solutions/creative/carousel-9.webp"
+      url="https://exchange.art/"
+      title={t("solutions-creative.ecosystem.platforms.exchange-art.title")}
+      text={t("solutions-creative.ecosystem.platforms.exchange-art.text")}
+    />,
+    <Card
+      key="floor"
+      img="/solutions/creative/carousel-10.webp"
+      url="https://www.floornfts.io/"
+      title={t("solutions-creative.ecosystem.platforms.floor.title")}
+      text={t("solutions-creative.ecosystem.platforms.floor.text")}
+    />,
   ];
 
   const creativesCards = [
@@ -109,16 +151,60 @@ const Creative = () => {
       text={
         <Trans i18nKey="solutions-creative.case-studies.cards.culture-hacker.excerpt" />
       }
+      buttonText={t(
+        "solutions-creative.case-studies.cards.culture-hacker.button",
+      )}
+      buttonUrl="https://solana.com/news/case-study-culturehacker-where-theres-smoke"
+      className={styles.StoryCard}
+      logoClassName={classNames(styles.StoryCardLogo, styles.StoryCard1Logo)}
+      mainImageClassName={styles.StoryCardMainImage}
+    />,
+    <StoryCard
+      key="eric-church"
+      logo="/solutions/creative/single-logo.png"
+      logoAlt="Single logo"
+      mobileImage="/solutions/creative/single.png"
+      desktopImage="/solutions/creative/single.png"
+      imageAlt="Eric Church"
+      text={
+        <Trans i18nKey="solutions-creative.case-studies.cards.eric-church.excerpt" />
+      }
+      buttonText={t("solutions-creative.case-studies.cards.eric-church.button")}
+      buttonUrl="https://single.xyz/blogs/blog/eric-church-future-proofs-fandom-solana-based-digital-deeds-nashville-bar"
+      className={styles.StoryCard}
+      logoClassName={classNames(styles.StoryCardLogo, styles.StoryCard2Logo)}
+      mainImageClassName={styles.StoryCardMainImage}
     />,
   ];
 
   const developerResourcesLinks = [
     <DeveloperResourcesLink
-      key="quick-start"
+      key="guide"
       title={t(
         "solutions-creative.developer-resources.links.quick-start.title",
       )}
-      link="https://example.com/quick-start"
+      link="/docs/intro/quick-start"
+    />,
+    <DeveloperResourcesLink
+      key="state-compression"
+      title={t(
+        "solutions-creative.developer-resources.links.actions-blinks.title",
+      )}
+      link="/solutions/actions"
+    />,
+    <DeveloperResourcesLink
+      key="token-extensions"
+      title={t(
+        "solutions-creative.developer-resources.links.token-extensions.title",
+      )}
+      link="/developers/guides/token-extensions/getting-started"
+    />,
+    <DeveloperResourcesLink
+      key="blinks-actions"
+      title={t(
+        "solutions-creative.developer-resources.links.compression-guide.title",
+      )}
+      link="/developers/guides/javascript/compressed-nfts"
     />,
   ];
 
