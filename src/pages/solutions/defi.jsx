@@ -175,10 +175,7 @@ const DeFi = () => {
       desktopImage={"/solutions/defi/pyth-main.jpg"}
       imageAlt="Pyth Main"
       text={
-        <Trans i18nKey="solutions-defi.case-studies.cards.item-one.excerpt">
-          Solana Mobile turned to <strong>Helio’s</strong> Solana Pay x Shopify
-          plugin to unlock new payment methods and save $1M in fees.
-        </Trans>
+        <Trans i18nKey="solutions-defi.case-studies.cards.item-one.excerpt" />
       }
       buttonText={t("solutions-defi.case-studies.cards.item-one.button")}
       buttonUrl="https://solana.com/news/case-study-pyth"
@@ -194,10 +191,7 @@ const DeFi = () => {
       desktopImage={"/solutions/defi/etherfuse-main.webp"}
       imageAlt="Helio"
       text={
-        <Trans i18nKey="solutions-defi.case-studies.cards.item-two.excerpt">
-          Solana Mobile turned to <strong>Helio’s</strong> Solana Pay x Shopify
-          plugin to unlock new payment methods and save $1M in fees.
-        </Trans>
+        <Trans i18nKey="solutions-defi.case-studies.cards.item-two.excerpt" />
       }
       buttonText={t("solutions-defi.case-studies.cards.item-two.button")}
       buttonUrl="https://solana.com/news/case-study-etherfuse"
