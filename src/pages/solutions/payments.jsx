@@ -34,6 +34,10 @@ import * as kycLottie from "../../../assets/solutions/payments/KYC.json";
 import * as blinksLottie from "../../../assets/solutions/payments/Blinks.json";
 import * as gaslessLottie from "../../../assets/solutions/payments/GaslessRelayer.json";
 
+import caseStudyHelioMobileImg from "../../../assets/solutions/payments/helio-case.png";
+import caseStudyVisaImg from "../../../assets/solutions/payments/visa-case.png";
+import caseStudyVisaLogo from "../../../assets/solutions/payments/visa-logo.svg";
+
 export default function Payments() {
   const { t } = useTranslation();
 
@@ -139,22 +143,35 @@ export default function Payments() {
 
   const caseStudyCards = [
     <StoryCard
-      key="case-study-1"
-      logo="/path/to/logo1.png"
-      logoAlt="Logo 1"
-      mobileImage="/path/to/mobileImage1.png"
-      desktopImage="/path/to/desktopImage1.png"
-      imageAlt="Image 1"
-      text={t("solutions-payments.case-studies.card1.text")}
+      logo="/solutions/payments/helio-logo.webp"
+      logoAlt="Helio logo"
+      mobileImage={caseStudyHelioMobileImg}
+      desktopImage={caseStudyHelioMobileImg}
+      imageAlt="Helio"
+      text={
+        <Trans i18nKey="solutions-payments.case-studies.cards.helio.excerpt" />
+      }
+      buttonText={t("solutions-payments.case-studies.cards.helio.button")}
+      buttonUrl="/news/case-study-helio"
+      className={styles.StoryCard}
+      mainImageClassName={styles.StoryCardImage}
+      key="case-study-helio"
     />,
     <StoryCard
-      key="case-study-2"
-      logo="/path/to/logo2.png"
-      logoAlt="Logo 2"
-      mobileImage="/path/to/mobileImage2.png"
-      desktopImage="/path/to/desktopImage2.png"
-      imageAlt="Image 2"
-      text={t("solutions-payments.case-studies.card2.text")}
+      logo={caseStudyVisaLogo}
+      logoAlt="Visa logo"
+      mobileImage={caseStudyVisaImg}
+      desktopImage={caseStudyVisaImg}
+      imageAlt="Visa"
+      text={
+        <Trans i18nKey="solutions-payments.case-studies.cards.visa.excerpt" />
+      }
+      buttonText={t("solutions-payments.case-studies.cards.visa.button")}
+      buttonUrl="https://usa.visa.com/solutions/crypto/deep-dive-on-solana.html"
+      className={styles.StoryCard}
+      logoClassName={classNames(styles.StoryCardLogo, styles.StoryCard2Logo)}
+      mainImageClassName={styles.StoryCardMainImage}
+      key="case-study-visa"
     />,
   ];
 
