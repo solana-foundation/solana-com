@@ -34,8 +34,12 @@ const WalletsExploreSolutions = ({ styles }) => {
 
       <div className={styles.WalletSolutionsCards}>
         <MotionSlideIn className={styles.WalletSolutionsCard}>
-          <h3>{t("solutions-wallets.explore.cards.new.title")}</h3>
-          <p>{t("solutions-wallets.explore.cards.new.subtitle")}</p>
+          <Text element="h3" as="heading">
+            {t("solutions-wallets.explore.cards.new.title")}
+          </Text>
+          <Text element="p" as="paragraph">
+            {t("solutions-wallets.explore.cards.new.subtitle")}
+          </Text>
         </MotionSlideIn>
 
         <MotionSlideIn className={styles.WalletSolutionsCard}>

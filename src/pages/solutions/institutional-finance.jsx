@@ -31,6 +31,13 @@ import * as longformThree from "../../../assets/solutions/institutional-finance/
 import homebaseLogo from "../../../assets/solutions/institutional-finance/homebase-logo.png";
 import homebaseMain from "../../../assets/solutions/institutional-finance/homebase-main.jpg";
 
+import medici from "../../../assets/solutions/institutional-finance/medici.svg";
+import hamilton from "../../../assets/solutions/institutional-finance/hamilton.svg";
+import paypal from "../../../assets/solutions/institutional-finance/paypal.svg";
+import visa from "../../../assets/solutions/institutional-finance/visa.svg";
+import pyth from "../../../assets/solutions/institutional-finance/pyth.svg";
+import etherfuse from "../../../assets/solutions/institutional-finance/etherfuse.svg";
+
 const InstitutionalFinance = () => {
   const { t } = useTranslation();
 
@@ -40,23 +47,54 @@ const InstitutionalFinance = () => {
 
   const ecosystemCards = [
     <Card
-      key="institutional-finance-card-1"
-      img="/path/to/image1.png"
-      url="https://example.com/1"
-      title={t("solutions-institutional-finance.ecosystem.card1.title")}
-      text={t("solutions-institutional-finance.ecosystem.card1.text")}
+      key="medici"
+      img={medici}
+      url="https://medici-docs.bridgesplit.com/"
+      title={t("solutions-institutional-finance.ecosystem.card-medici.title")}
+      text={t("solutions-institutional-finance.ecosystem.card-medici.text")}
     />,
     <Card
-      key="institutional-finance-card-2"
-      img="/path/to/image2.png"
-      url="https://example.com/2"
-      title={t("solutions-institutional-finance.ecosystem.card2.title")}
-      text={t("solutions-institutional-finance.ecosystem.card2.text")}
+      key="hamilton"
+      img={hamilton}
+      url="https://www.hamiltonlane.com/en-us/news/news-libre-launches-scope-on-solana"
+      title={t("solutions-institutional-finance.ecosystem.card-hamilton.title")}
+      text={t("solutions-institutional-finance.ecosystem.card-hamilton.text")}
+    />,
+    <Card
+      key="paypal"
+      img={paypal}
+      url="https://newsroom.paypal-corp.com/2024-05-29-PayPal-USD-Stablecoin-Now-Available-on-Solana-Blockchain,-Providing-Faster,-Cheaper-Transactions-for-Consumers"
+      title={t("solutions-institutional-finance.ecosystem.card-paypal.title")}
+      text={t("solutions-institutional-finance.ecosystem.card-paypal.text")}
+    />,
+    <Card
+      key="visa"
+      img={visa}
+      url="https://usa.visa.com/about-visa/newsroom/press-releases.releaseId.19881.html"
+      title={t("solutions-institutional-finance.ecosystem.card-visa.title")}
+      text={t("solutions-institutional-finance.ecosystem.card-visa.text")}
+    />,
+    <Card
+      key="pyth"
+      img={pyth}
+      url="https://www.pyth.network/"
+      title={t("solutions-institutional-finance.ecosystem.card-pyth.title")}
+      text={t("solutions-institutional-finance.ecosystem.card-pyth.text")}
+    />,
+    <Card
+      key="etherfuse"
+      img={etherfuse}
+      url="https://www.etherfuse.com/"
+      title={t(
+        "solutions-institutional-finance.ecosystem.card-etherfuse.title",
+      )}
+      text={t("solutions-institutional-finance.ecosystem.card-etherfuse.text")}
     />,
   ];
 
   const caseStudyCards = [
     <StoryCard
+      key="case-study-pyth"
       logo={"/solutions/institutional-finance/pyth-logo.svg"}
       logoAlt={t(
         "solutions-institutional-finance.case-studies.cards.item-one.logo-alt",
@@ -77,9 +115,9 @@ const InstitutionalFinance = () => {
       )}
       buttonUrl="https://solana.com/news/case-study-pyth"
       className={styles.StoryCard}
-      key="pyth"
     />,
     <StoryCard
+      key="case-study-homebase"
       logo={homebaseLogo}
       logoAlt={t(
         "solutions-institutional-finance.case-studies.cards.item-two.logo-alt",
@@ -100,31 +138,30 @@ const InstitutionalFinance = () => {
       )}
       buttonUrl="https://solana.com/news/case-study-homebase"
       className={styles.StoryCard}
-      key="homebase"
     />,
   ];
 
   const developerResourcesLinks = [
     <DeveloperResourcesLink
+      key="docs"
       title={t(
         "solutions-institutional-finance.developer-resources.links.quick-start.title",
       )}
       link="https://solana.com/docs/intro/quick-start"
-      key="quick-start"
     />,
     <DeveloperResourcesLink
+      key="solana-pay"
       title={t(
         "solutions-institutional-finance.developer-resources.links.solana-pay.title",
       )}
       link="https://docs.solanapay.com/"
-      key="solana-pay"
     />,
     <DeveloperResourcesLink
+      key="helio"
       title={t(
         "solutions-institutional-finance.developer-resources.links.helio.title",
       )}
       link="https://solana.com/docs/advanced/actions"
-      key="helio"
     />,
   ];
 
