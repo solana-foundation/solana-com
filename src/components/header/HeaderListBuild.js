@@ -36,16 +36,6 @@ const HeaderListBuild = () => {
             {t("nav.developers.items.docs.description")}
           </Link>
           <Link
-            to="/developers/resources"
-            className="nav-link nav-link--secondary"
-            activeClassName="active"
-          >
-            <strong className="d-block text-white">
-              {t("nav.developers.items.resources.title")}
-            </strong>
-            {t("nav.developers.items.resources.description")}
-          </Link>
-          <Link
             to="/developers/courses"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -54,6 +44,26 @@ const HeaderListBuild = () => {
               {t("nav.developers.items.courses.title")}
             </strong>
             {t("nav.developers.items.courses.description")}
+          </Link>
+          <Link
+            to="/developers/cookbook"
+            className="nav-link nav-link--secondary"
+            activeClassName="active"
+          >
+            <strong className="d-block text-white">
+              {t("nav.developers.items.cookbook.title")}
+            </strong>
+            {t("nav.developers.items.cookbook.description")}
+          </Link>
+          <Link
+            to="/developers/resources"
+            className="nav-link nav-link--secondary"
+            activeClassName="active"
+          >
+            <strong className="d-block text-white">
+              {t("nav.developers.items.resources.title")}
+            </strong>
+            {t("nav.developers.items.resources.description")}
           </Link>
         </div>
       </div>
@@ -74,7 +84,7 @@ const HeaderListBuild = () => {
             {t("nav.developers.tutorials.hello-world")}
           </Link>
           <Link
-            to="/developers/guides/getstarted/setup-local-development"
+            to="/docs/intro/installation"
             className="nav-link nav-link--secondary text-white d-block text-white fw-bold"
             activeClassName="active font-weight-bold"
           >
