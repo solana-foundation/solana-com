@@ -12,6 +12,9 @@ import DevelopersResourcesSection from "@/components/developers/sections/Develop
 import DevelopersDocumentsSection from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentsSection";
 import DevelopersContentSection from "@/components/developers/sections/DevelopersContentSection/DevelopersContentSection";
 
+import heroImg from "@@/assets/developers/hero-geometry.png";
+import StackExchangeIcon from "@@/assets/developers/stackexchange.inline.svg";
+
 export default function DevelopersPage({
   resources,
   guides,
@@ -27,24 +30,40 @@ export default function DevelopersPage({
         description={t("developers.description")}
       />
       <div className="overflow-hidden">
-        <DevelopersHeroSection />
+        <DevelopersHeroSection
+          title={t("developers.hero.title")}
+          description={t("developers.hero.description")}
+          img={{
+            src: heroImg,
+            // alt: "",
+          }}
+          buttons={{
+            cta: {
+              label: t("developers.hero.build"),
+              href: "/docs/intro/quick-start",
+            },
+            secondary: {
+              label: "Stack Exchange",
+              href: "https://solana.stackexchange.com",
+              icon: (
+                <StackExchangeIcon width={16} height={20} fill="currentColor" />
+              ),
+            },
+          }}
+        />
 
         <DevelopersCoursesSection /* courses={courses} */ />
-
         <DevelopersResourcesSection
           items={guides}
           baseHref={`/developers/guides`}
           translationKey={"guides"}
         />
-
         <DevelopersResourcesSection
           items={resources}
           baseHref={`/developers/resources`}
           translationKey={"resources"}
         />
-
         <DevelopersDocumentsSection latestVideo={latestChangelogVideo} />
-
         <DevelopersContentSection />
       </div>
     </Layout>
