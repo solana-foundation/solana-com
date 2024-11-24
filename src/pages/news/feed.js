@@ -16,10 +16,13 @@ const generateRssFeed = async (posts) => {
 
   posts.forEach((post) => {
     const feedItemData = {
-      title: post.data.title.Default,
+      title:
+        typeof post?.data?.title === "string"
+          ? post.data.title
+          : post.data.seo?.seoTitle,
       id: post.id,
       link: newsURL + post.data.slug,
-      description: post.data.intro,
+      description: post.data.intro || post.data.seo?.seoDescription,
       date: new Date(post.data.datePublished),
     };
 
