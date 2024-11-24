@@ -24,6 +24,7 @@ import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
 import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
 import gemIcon from "../../../assets/wallets/icons/gem.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
+import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
 
 export const walletData = [
   {
@@ -716,6 +717,30 @@ export const walletData = [
     gas_abstraction: false,
     social_recovery: false,
     staking: true,
+    spending_limits: false,
+    open_source: true,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "Enkrypt",
+    body: "A multichain crypto wallet hold, buy, send, receive, and swap tokens. Manage your NFTs. Access web3 apps across multiple blockchains.",
+    website: "https://www.enkrypt.com/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Open Source",
+    icon: enkryptIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: true,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: false,
     spending_limits: false,
     open_source: true,
     hardware: false,
