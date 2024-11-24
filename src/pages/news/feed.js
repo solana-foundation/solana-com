@@ -42,7 +42,7 @@ const generateRssFeed = async (posts) => {
 const Rss = () => {};
 
 export async function getServerSideProps({ res }) {
-  const posts = await getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 50, "");
+  const posts = await getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 20, "");
   const rss = await generateRssFeed(posts);
 
   res.setHeader("Content-Type", "text/xml");
