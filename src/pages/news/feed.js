@@ -16,10 +16,13 @@ const generateRssFeed = async (posts) => {
 
   posts.forEach((post) => {
     const feedItemData = {
-      title: post.data.title.Default,
+      title:
+        typeof post?.data?.title === "string"
+          ? post.data.title
+          : post.data.seo?.seoTitle,
       id: post.id,
       link: newsURL + post.data.slug,
-      description: post.data.intro,
+      description: post.data.intro || post.data.seo?.seoDescription,
       date: new Date(post.data.datePublished),
     };
 
@@ -39,7 +42,7 @@ const generateRssFeed = async (posts) => {
 const Rss = () => {};
 
 export async function getServerSideProps({ res }) {
-  const posts = await getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 50, "");
+  const posts = await getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 20, "");
   const rss = await generateRssFeed(posts);
 
   res.setHeader("Content-Type", "text/xml");
