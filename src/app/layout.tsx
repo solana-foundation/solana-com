@@ -8,6 +8,8 @@ import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
 import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
 import { config } from "@/config";
 import { RootProvider } from "fumadocs-ui/provider";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 const namespaces = ["common"];
 const locale = "en";
@@ -45,7 +47,9 @@ export default async function RootLayout({
               <GTMTrackingSnippet />
               <SitewideTopAlert locale={builderLocale} />
               <CookieConsent />
+              <Header containerClassName="container-docs" />
               {children}
+              <Footer />
             </RootProvider>
           </AppProvider>
         </ThemeProvider>
