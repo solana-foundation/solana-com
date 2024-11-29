@@ -16,8 +16,9 @@ export function DocsPage(props: {
   title: string;
 }) {
   return (
-    // @ts-ignore
+    //  @ts-ignore
     <FumaDocsPage
+      data-foo="bar"
       toc={props.toc}
       full={props.full}
       breadcrumb={{
@@ -25,13 +26,16 @@ export function DocsPage(props: {
         includeRoot: { url: "/docs" },
         includeSeparator: true,
       }}
+      tableOfContentPopover={{
+        enabled: !props.hideTableOfContents,
+      }}
       tableOfContent={{
         footer: <EditOnGithub path={props.filePath} />,
         enabled: !props.hideTableOfContents,
       }}
     >
       <DocsTitle className="text-fd-accent-foreground">{props.title}</DocsTitle>
-      <DocsBody>{props.children}</DocsBody>
+      <DocsBody className="text-lg">{props.children}</DocsBody>
     </FumaDocsPage>
   );
 }
