@@ -4,8 +4,8 @@ import {
 } from "fumadocs-ui/layouts/docs";
 import type { ReactNode } from "react";
 import { Sidebar } from "fumadocs-ui/layouts/docs/sidebar";
+import { NavbarSidebarTrigger } from "fumadocs-ui/layouts/docs/navbar";
 import { SidebarItems } from "fumadocs-ui/layouts/docs.client";
-
 export function DocsLayout({
   children,
   tree,
@@ -29,11 +29,19 @@ export function DocsLayout({
 
 function CustomSidebar() {
   return (
-    <Sidebar
-      className="bg-transparent sticky overflow-auto overflow-x-hidden w-0 md:min-w-[var(--fd-sidebar-width)] scrollbar-thin"
-      style={{ top: 76, maxHeight: "calc(100vh - 76px)" }}
-    >
-      <SidebarItems />
-    </Sidebar>
+    <>
+      <Sidebar
+        className="md:bg-transparent"
+        style={{ maxHeight: "calc(100vh - 76px)" }}
+      >
+        <SidebarItems />
+      </Sidebar>
+      <div
+        className="fixed bottom-0 left-0 z-50 p-7 md:hidden"
+        id="fd-sidebar-toggle"
+      >
+        <NavbarSidebarTrigger />
+      </div>
+    </>
   );
 }

@@ -16,7 +16,7 @@ export function DocsPage(props: {
   title: string;
 }) {
   return (
-    //  @ts-ignore
+    // @ts-ignore
     <FumaDocsPage
       data-foo="bar"
       toc={props.toc}
