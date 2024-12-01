@@ -34,7 +34,9 @@ export function DocsPage(props: {
         enabled: !props.hideTableOfContents,
       }}
     >
-      <DocsTitle className="text-fd-accent-foreground">{props.title}</DocsTitle>
+      <DocsTitle className="text-fd-accent-foreground text-4xl md:text-5xl">
+        {props.title}
+      </DocsTitle>
       <DocsBody className="text-lg">{props.children}</DocsBody>
     </FumaDocsPage>
   );
