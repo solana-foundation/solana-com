@@ -35,7 +35,7 @@ export default async function Page(props: {
     <DocsPage
       toc={page.data.toc}
       full={page.data.full}
-      title={page.data.title}
+      title={page.data.h1 || page.data.title}
       filePath={page.file.path}
       hideTableOfContents={page.data.hideTableOfContents}
     >
@@ -57,7 +57,7 @@ export async function generateMetadata(props: {
   if (!page) notFound();
 
   return {
-    title: page.data.title,
+    title: page.data.h1 || page.data.title,
     description: page.data.description,
   };
 }
