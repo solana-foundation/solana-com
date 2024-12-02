@@ -16,13 +16,13 @@ export const mdxComponents = {
 
 function Image(props: ImgHTMLAttributes<HTMLImageElement>) {
   return (
-    <span>
+    <span className="block">
       <NextImage
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 900px"
         {...(props as ImageProps)}
-        className="rounded-lg"
+        className="rounded-lg mb-4"
       />
-      <span className="text-center text-sm text-fd-muted-foreground">
+      <span className="text-center text-sm text-fd-muted-foreground block">
         {props.alt}
       </span>
     </span>
