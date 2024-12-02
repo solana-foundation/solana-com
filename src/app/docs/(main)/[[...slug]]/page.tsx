@@ -41,7 +41,7 @@ export async function generateMetadata(props: {
   if (!page) notFound();
 
   return {
-    title: page.data.h1 || page.data.title,
+    title: page.data.seoTitle || page.data.h1 || page.data.title,
     description: page.data.description,
   };
 }
