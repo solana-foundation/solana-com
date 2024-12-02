@@ -3,9 +3,10 @@ import { z } from "zod";
 
 const schema = z.custom<{
   title: string;
+  h1?: string;
+  seoTitle?: string;
   description?: string;
   hideTableOfContents?: boolean;
-  h1?: string;
   full?: boolean;
 }>();
 
