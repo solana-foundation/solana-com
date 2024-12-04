@@ -25,7 +25,7 @@ const ValidatorsHero = forwardRef((props, ref) => {
           <p className="regular hero-text">{t("validators.sub-header")}</p>
           <div className="hero-buttons">
             <Button
-              to="https://docs.solanalabs.com/operations"
+              to="https://docs.anza.xyz/operations"
               newTab
               aria-label="Read about becoming a Validator"
               className="d-inline-block mt-2 mt-md-4 me-sm-2 lift"

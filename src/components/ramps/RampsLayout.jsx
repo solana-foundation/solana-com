@@ -7,32 +7,6 @@ import { Hero } from "@solana-foundation/solana-lib";
 import onOffRampHeroImage from "../../../assets/onofframp/on-off-ramp-hero-img.png";
 import { useTranslation } from "next-i18next";
 
-// Logo imports
-import alchemyPayLogo from "./assets/logos/alchemy-pay.png";
-import banxa from "./assets/logos/banxa.png";
-import coinflow from "./assets/logos/coinflow.png";
-import coinify from "./assets/logos/coinify.png";
-import kado from "./assets/logos/kado.png";
-import luno from "./assets/logos/luno.png";
-import mercuryo from "./assets/logos/mercuryo.png";
-import mesonetwork from "./assets/logos/meso.png";
-import moneygram from "./assets/logos/moneygram.png";
-import moonpay from "./assets/logos/moonpay.png";
-import onmeta from "./assets/logos/onmeta.png";
-import onramp from "./assets/logos/onramp.png";
-import payfura from "./assets/logos/payfura.png";
-import saber from "./assets/logos/saber.png";
-import scalex from "./assets/logos/scalex.png";
-import stripe from "./assets/logos/stripe.png";
-import transak from "./assets/logos/transak.png";
-import transfero from "./assets/logos/transfero.png";
-import transfi from "./assets/logos/transfi.png";
-import unlimit from "./assets/logos/unlimit.png";
-import utorg from "./assets/logos/untorg.png";
-import paybis from "./assets/logos/paybis.png";
-import topper from "./assets/logos/topper.png";
-import sphere from "./assets/logos/sphere.png";
-
 const RampLayout = ({
   data,
   fiatAssetsOptions,
@@ -52,105 +26,6 @@ const RampLayout = ({
     }
   };
 
-  const RampLogoMap = [
-    {
-      ramp: "AlchemyPay",
-      logo: alchemyPayLogo,
-    },
-    {
-      ramp: "Banxa",
-      logo: banxa,
-    },
-    {
-      ramp: "Coinflow",
-      logo: coinflow,
-    },
-    {
-      ramp: "Coinify",
-      logo: coinify,
-    },
-    {
-      ramp: "Kado",
-      logo: kado,
-    },
-    {
-      ramp: "Luno",
-      logo: luno,
-    },
-    {
-      ramp: "Mercuryo",
-      logo: mercuryo,
-    },
-    {
-      ramp: "Meso Network",
-      logo: mesonetwork,
-    },
-    {
-      ramp: "Moonpay",
-      logo: moonpay,
-    },
-    {
-      ramp: "Moneygram",
-      logo: moneygram,
-    },
-    {
-      ramp: "Onmeta",
-      logo: onmeta,
-    },
-    {
-      ramp: "OnRamp",
-      logo: onramp,
-    },
-    {
-      ramp: "Payfura",
-      logo: payfura,
-    },
-    {
-      ramp: "Saber Money",
-      logo: saber,
-    },
-    {
-      ramp: "Scalex",
-      logo: scalex,
-    },
-    {
-      ramp: "Stripe",
-      logo: stripe,
-    },
-    {
-      ramp: "Transak",
-      logo: transak,
-    },
-    {
-      ramp: "Transfero",
-      logo: transfero,
-    },
-    {
-      ramp: "TransFi",
-      logo: transfi,
-    },
-    {
-      ramp: "Unlimit Crypto",
-      logo: unlimit,
-    },
-    {
-      ramp: "Utorg",
-      logo: utorg,
-    },
-    {
-      ramp: "Paybis",
-      logo: paybis,
-    },
-    {
-      ramp: "Topper",
-      logo: topper,
-    },
-    {
-      ramp: "Sphere",
-      logo: sphere,
-    },
-  ];
-
   const rampsTitles = data.map((data) => data.fields.RampName).sort();
   const placeholderRamps = [];
 
@@ -166,26 +41,21 @@ const RampLayout = ({
         RampStatusOff,
         RampStatusOn,
         WebsiteUrl,
-        Countries2,
-        FiatAssets2,
-        PaymentRails2,
+        RampLogo,
+        Countries,
+        FiatAssets,
+        PaymentRails,
       } = matchingRamp[0].fields;
-
-      const matchingRampLogoObject = RampLogoMap.filter(
-        (item) => item.ramp === RampName,
-      );
 
       placeholderRamps.push({
         title: RampName,
         description: Description ?? "",
         websiteUrl: WebsiteUrl,
-        imageUrl: matchingRampLogoObject.length
-          ? matchingRampLogoObject[0].logo.src
-          : null,
+        imageUrl: RampLogo,
         meta: {
-          countries: Countries2 ?? [],
-          "payment-rails": PaymentRails2 ?? [],
-          "fiat-assets": FiatAssets2 ?? [],
+          countries: Countries ?? [],
+          "payment-rails": PaymentRails ?? [],
+          "fiat-assets": FiatAssets ?? [],
           "ramp-status-on": RampStatusOn ?? false,
           "ramp-status-off": RampStatusOff ?? false,
         },
@@ -222,11 +92,11 @@ const RampLayout = ({
   ];
 
   /**
-   * Runs through an array of records that comes from the Airtable API, sorts them by Name, then returns the correct format for the data for our checkboxes
+   * Sorts and formats the data for the filter checkboxes
    *
-   * @param {Array} dataArray the Data that gets returned from the Airtable API
-   * @param {String} checkboxName the name of the checkbox so when one is clicked the ramps will filter based on that data
-   * @returns array
+   * @param {Array} dataArray Array of items (fiatAssets, countries, or paymentRails)
+   * @param {String} checkboxName the name of the checkbox for filtering (fiat-assets, countries, or payment-rails)
+   * @returns array of formatted items for the filter checkboxes
    */
   const sortAndFormatData = (dataArray, checkboxName) => {
     const sortedData = [];
@@ -237,7 +107,8 @@ const RampLayout = ({
         const data = dataArray.filter((item) => item.fields.Name === title);
         sortedData.push({
           value: data[0].id,
-          title: data[0].fields?.Name,
+          title:
+            checkboxName === "fiat-assets" ? data[0].id : data[0].fields?.Name,
           name: checkboxName,
         });
       });

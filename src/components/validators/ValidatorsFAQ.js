@@ -31,10 +31,10 @@ const ValidatorsFAQ = () => {
                         ),
                         discordlink: <Link href="/discord" />,
                         requirementslink: (
-                          <Link href="https://docs.solanalabs.com/operations/requirements" />
+                          <Link href="https://docs.anza.xyz/operations/requirements" />
                         ),
                         economicslink: (
-                          <Link href="https://docs.solana.com/cluster/economics" />
+                          <Link href="https://docs.anza.xyz/implemented-proposals/ed_overview/" />
                         ),
                         stakinglink: <Link href="/docs/economics/staking" />,
                         programlink: (

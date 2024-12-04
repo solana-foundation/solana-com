@@ -45,7 +45,7 @@ export async function serializeMarkdown(
   }
 }
 
-const CODE_BLOCK_FILENAME_REGEX = /(name|file|filename)="?([^"\s]*)"?/;
+const CODE_BLOCK_FILENAME_REGEX = /(name|filename)="?([^"\s]*)"?/;
 // const CODE_BLOCK_SHOW_LINE_NUMBERS_REGEX = /showLineNumbers=?(true|false)?/;
 
 function visit(node: any, tagNames: any, handler: any) {

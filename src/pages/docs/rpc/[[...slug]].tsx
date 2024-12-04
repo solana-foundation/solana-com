@@ -252,6 +252,6 @@ export async function getStaticProps({ params, locale }) {
       source,
       navData,
     },
-    revalidate: 60,
+    // revalidate: 60,
   };
 }
