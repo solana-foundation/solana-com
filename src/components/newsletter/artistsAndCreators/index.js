@@ -95,6 +95,7 @@ const ArtistsAndCreatorsNewsletter = ({
           });
         }
       } catch (err) {
+        console.error(err);
         setError("Something went wrong, please try again.");
       } finally {
         setIsSuccess(true);
