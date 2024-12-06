@@ -15,6 +15,16 @@ const HeaderListLearn = () => {
         </div>
         <div>
           <Link
+            to="/learn/wallets"
+            className="nav-link nav-link--secondary"
+            activeClassName="active"
+          >
+            <strong className="d-block text-white">
+              {learnStartItems[3].title}
+            </strong>
+            {learnStartItems[3].description}
+          </Link>
+          <Link
             to="/learn/blockchain-basics"
             className="nav-link nav-link--secondary"
             activeClassName="active"
