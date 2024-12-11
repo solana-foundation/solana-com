@@ -47,7 +47,7 @@ const Header = () => {
                   Breakpoint
                 </Link>
               </li>
-              <li className="nav-item">
+              {/* <li className="nav-item">
                 <Link
                   className="nav-link nav-link--primary"
                   activeClassName="active"
@@ -55,8 +55,8 @@ const Header = () => {
                 >
                   {t("breakpoint.header.speakers")}
                 </Link>
-              </li>
-              <li className="nav-item">
+              </li> */}
+              {/* <li className="nav-item">
                 <Link
                   className="nav-link nav-link--primary"
                   activeClassName="active"
@@ -64,7 +64,7 @@ const Header = () => {
                 >
                   {t("breakpoint.header.sponsors")}
                 </Link>
-              </li>
+              </li> */}
               <li className="nav-item">
                 <Link
                   className="nav-link nav-link--primary"
