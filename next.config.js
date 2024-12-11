@@ -40,10 +40,6 @@ const nextConfig = {
   i18n,
   reactStrictMode: true,
   productionBrowserSourceMaps: true,
-  // TODO: https://sass-lang.com/d/legacy-js-api
-  sassOptions: {
-    silenceDeprecations: ["legacy-js-api"],
-  },
 
   async rewrites() {
     return rewritesAndRedirectsJson.rewrites;
