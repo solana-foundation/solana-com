@@ -108,7 +108,7 @@ export const getStaticProps = async ({ locale, params }) => {
         morePosts,
         ...(await serverSideTranslations(locale, ["common"])),
       },
-      revalidate: 30,
+      // revalidate: 30,
     };
   } catch (error) {
     console.error(error);

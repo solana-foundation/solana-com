@@ -361,7 +361,7 @@ export async function getStaticProps({ locale }) {
         posts,
         ...(await serverSideTranslations(builderLocale, ["common"])),
       },
-      revalidate: 30,
+      // revalidate: 30,
     };
   } catch (error) {
     console.error(error);

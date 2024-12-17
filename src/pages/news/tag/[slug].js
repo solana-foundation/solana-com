@@ -112,7 +112,7 @@ export async function getStaticProps({ locale, params }) {
           : [],
         ...(await serverSideTranslations(locale, ["common"])),
       },
-      revalidate: 30,
+      // revalidate: 30,
     };
   } catch (error) {
     console.error(error);
