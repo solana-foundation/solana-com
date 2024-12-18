@@ -30,7 +30,7 @@ export const walletData = [
   {
     name: "Phantom",
     body: "Multiple chains, one wallet. No more switching.",
-    website: "https://phantom.app/",
+    website: "https://phantom.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
     icon: phantomIcon,
