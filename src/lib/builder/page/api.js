@@ -2,6 +2,7 @@ import { Builder, builder } from "@builder.io/react";
 import { PAGE_BUILDER_CONFIG } from "./constants";
 
 builder.init(PAGE_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 Builder.isStatic = true;
 
 export async function getAllPagesWithSlug() {

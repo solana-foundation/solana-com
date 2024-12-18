@@ -9,6 +9,7 @@ import { getPage, getAllPagesWithSlug } from "@/lib/builder/page/api";
 import ModalLauncher from "../components/ModalLauncher/ModalLauncher";
 
 builder.init(PAGE_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 customComponentsRegistration();
 
 const Page = ({ page, builderLocale }) => {

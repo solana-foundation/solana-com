@@ -20,6 +20,7 @@ import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
 
 builder.init(NEWS_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 customComponentsRegistration();
 
 const BlogIndex = ({ builderLocale, newsListingPage, pressRelease, posts }) => {

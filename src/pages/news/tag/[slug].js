@@ -16,6 +16,7 @@ import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
 import { MetaData } from "../../../components/blog/meta";
 
 builder.init(NEWS_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 
 const StyledBlogTagHeader = styled.div`
   font-family: Diatype, var(--font-family-sans-serif);

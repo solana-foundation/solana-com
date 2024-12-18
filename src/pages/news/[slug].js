@@ -14,6 +14,7 @@ import { DetailsHero } from "@solana-foundation/solana-lib";
 import { PageBreadcrumbs } from "@/components/developers/DevelopersContentPage/PageBreadcrumbs";
 
 builder.init(NEWS_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 customComponentsRegistration();
 
 /**
