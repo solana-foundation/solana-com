@@ -6,6 +6,7 @@ import { PAGE_BUILDER_CONFIG } from "@/lib/builder/page/constants";
 import customComponentsRegistration from "../utils/customComponentGenerator";
 
 builder.init(PAGE_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 customComponentsRegistration();
 
 export default function Page() {

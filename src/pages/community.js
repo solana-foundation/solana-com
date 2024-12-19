@@ -71,7 +71,7 @@ export async function getStaticProps({ locale }) {
       posts: posts?.value || [],
       ...(await serverSideTranslations(locale, ["common"])),
     },
-    revalidate: 30,
+    revalidate: 60,
   };
 }
 

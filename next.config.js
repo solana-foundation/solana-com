@@ -36,152 +36,176 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
   });
 }
 
-const moduleExports = () => {
-  const plugins = [
-    withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" }),
-  ];
-  return plugins.reduce((acc, next) => next(acc), {
-    i18n,
-    reactStrictMode: true,
-    swcMinify: true,
-    productionBrowserSourceMaps: true,
-    async rewrites() {
-      return rewritesAndRedirectsJson.rewrites;
-    },
-    async redirects() {
-      const existingRedirects = [
-        {
-          source: "/news/tag/:tag*/page/:page*",
-          destination: `/news/tag/:tag*`,
-          permanent: true,
-        },
-        {
-          source: "/news/tag",
-          destination: `/news`,
-          permanent: true,
-        },
-        {
-          source: "/news/page",
-          destination: `/news`,
-          permanent: true,
-        },
-        ...rewritesAndRedirectsJson.redirects.map((redirect) => ({
-          ...redirect,
-          // @ts-ignore
-          permanent: redirect.permanent ?? true,
-        })),
-      ];
+const nextConfig = {
+  i18n,
+  reactStrictMode: true,
+  productionBrowserSourceMaps: true,
 
-      try {
-        return builder
-          .getAll("url-redirects", {
-            apiKey:
-              process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
-              "ce0c7323a97a4d91bd0baa7490ec9139",
-            options: { noTargeting: true },
-            cachebust: true,
-          })
-          .then((results) => {
-            try {
-              return [
-                ...existingRedirects,
-                ...results
-                  .filter((content) => {
-                    const data = (content || {}).data || {};
-                    return !!(data.sourceUrl && data.destinationUrl);
-                  })
-                  .map(({ data }) => ({
-                    source: data.sourceUrl,
-                    destination: data.destinationUrl,
-                    permanent: !!data.permanentRedirect,
-                  })),
-              ];
-            } catch (error) {
-              console.log("Error processing redirects", error);
-              return existingRedirects;
-            }
-          })
-          .catch((error) => {
-            console.log("Error setting up redirects", error);
+  async rewrites() {
+    return rewritesAndRedirectsJson.rewrites;
+  },
+
+  async redirects() {
+    const existingRedirects = [
+      {
+        source: "/news/tag/:tag*/page/:page*",
+        destination: `/news/tag/:tag*`,
+        permanent: true,
+      },
+      {
+        source: "/news/tag",
+        destination: `/news`,
+        permanent: true,
+      },
+      {
+        source: "/news/page",
+        destination: `/news`,
+        permanent: true,
+      },
+      ...rewritesAndRedirectsJson.redirects.map((redirect) => ({
+        ...redirect,
+        permanent: redirect.permanent ?? true,
+      })),
+    ];
+
+    try {
+      return builder
+        .getAll("url-redirects", {
+          apiKey:
+            process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
+            "ce0c7323a97a4d91bd0baa7490ec9139",
+          options: { noTargeting: true },
+          cachebust: true,
+        })
+        .then((results) => {
+          try {
+            return [
+              ...existingRedirects,
+              ...results
+                .filter((content) => {
+                  const data = (content || {}).data || {};
+                  return !!(data.sourceUrl && data.destinationUrl);
+                })
+                .map(({ data }) => ({
+                  source: data.sourceUrl,
+                  destination: data.destinationUrl,
+                  permanent: !!data.permanentRedirect,
+                })),
+            ];
+          } catch (error) {
+            console.log("Error processing redirects", error);
             return existingRedirects;
-          });
-      } catch (error) {
-        console.log("Error fetching redirects from Builder:", error);
-        return existingRedirects;
-      }
-    },
-    webpack(config) {
-      config.module.rules.push({
-        test: /\.inline\.svg$/,
-        exclude: /node_modules/,
-        loader: "svg-react-loader",
-      });
+          }
+        })
+        .catch((error) => {
+          console.log("Error setting up redirects", error);
+          return existingRedirects;
+        });
+    } catch (error) {
+      console.log("Error fetching redirects from Builder:", error);
+      return existingRedirects;
+    }
+  },
 
-      const imageLoaderRule = config.module.rules.find(
-        (rule) => rule.loader == "next-image-loader",
-      );
-      imageLoaderRule.exclude = /\.inline\.svg$/;
+  webpack(config) {
+    config.module.rules.push({
+      test: /\.svg$/,
+      use: {
+        loader: "@svgr/webpack",
+        options: {
+          svgoConfig: {
+            plugins: [
+              {
+                name: "preset-default",
+                params: {
+                  overrides: {
+                    removeViewBox: false,
+                    removeUselessStrokeAndFill: false,
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
 
-      return config;
-    },
+    return config;
+  },
 
-    images: {
-      remotePatterns: [
-        {
-          protocol: "https",
-          hostname: "i.ytimg.com",
-        },
-        {
-          protocol: "https",
-          hostname: "img.youtube.com",
-        },
-        {
-          protocol: "https",
-          hostname: "**.gstatic.com",
-        },
-        {
-          protocol: "https",
-          hostname: "**.lumacdn.com",
-        },
-        {
-          protocol: "https",
-          hostname: "**.lu.ma",
-        },
-        {
-          protocol: "https",
-          hostname: "cdn.builder.io",
-        },
-        {
-          protocol: "https",
-          hostname: "solana-developer-content.vercel.app",
-        },
-        {
-          protocol: "https",
-          hostname: "images.unsplash.com",
-        },
-        {
-          protocol: "https",
-          hostname: "assets.getriver.io",
-        },
-      ],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+      },
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.gstatic.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.lumacdn.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.lu.ma",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.builder.io",
+      },
+      {
+        protocol: "https",
+        hostname: "solana-developer-content.vercel.app",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "assets.getriver.io",
+      },
+    ],
+  },
+
+  compiler: {
+    styledComponents: true,
+  },
+
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
+    ];
+  },
+
+  experimental: {
+    scrollRestoration: true,
+  },
+
+  // Ignore deprecation warnings and mixed declaration warnings
+  // https://github.com/vercel/next.js/issues/71638
+  sassOptions: {
+    logger: {
+      warn: function (message) {
+        if (
+          message.includes("deprecat") ||
+          message.includes("declarations that appear after nested")
+        )
+          return;
+        console.warn(message);
+      },
     },
-    compiler: {
-      // ssr and displayName are configured by default
-      styledComponents: true,
-    },
-    async headers() {
-      return [
-        {
-          // Apply headers to all routes
-          source: "/:path*",
-          headers: securityHeaders,
-        },
-      ];
-    },
-    experimental: {
-      scrollRestoration: true,
-    },
-  });
+  },
 };
 
-module.exports = moduleExports;
+module.exports =
+  process.env.ANALYZE === "true" ? withBundleAnalyzer(nextConfig) : nextConfig;

@@ -9,6 +9,7 @@ import { getPage, getAllPagesWithSlug } from "@/lib/builder/page/api";
 import ModalLauncher from "../components/ModalLauncher/ModalLauncher";
 
 builder.init(PAGE_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 customComponentsRegistration();
 
 const Page = ({ page, builderLocale }) => {
@@ -75,7 +76,7 @@ export const getStaticProps = async ({ locale, params }) => {
         page: page || null,
         ...(await serverSideTranslations(builderLocale, ["common"])),
       },
-      // revalidate: 30,
+      // revalidate: 60,
     };
   } catch (error) {
     console.error(error);

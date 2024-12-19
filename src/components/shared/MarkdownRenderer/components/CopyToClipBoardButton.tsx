@@ -32,6 +32,7 @@ export function CopyToClipBoardButton() {
 
       setIsCopied(true);
     } catch (err) {
+      console.error(err);
       console.warn("Unable to copy to clipboard");
     }
   }, [btnRef]);
