@@ -1,8 +1,8 @@
-import { Youtube } from "react-feather";
 import { FormattedNumber } from "../SolFormattedMessage";
 import { Badge } from "react-bootstrap";
 import Telegram from "../../../public/src/img/community/socials-telegram.inline.svg";
 import Twitter from "../../../public/src/img/community/socials-twitter.inline.svg";
+import Youtube from "../../../public/src/img/community/socials-youtube.inline.svg";
 import VK from "../../../public/src/img/community/socials-vk.inline.svg";
 import Weibo from "../../../public/src/img/community/socials-weibo.inline.svg";
 import Discord from "../../../public/src/img/community/socials-discord.inline.svg";

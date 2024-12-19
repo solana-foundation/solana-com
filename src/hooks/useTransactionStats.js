@@ -62,7 +62,7 @@ export const fetchSuperminority = async () => {
 
     return superminorityCount;
   } catch (error) {
-    console.error("Error fetching superminority:", error);
+    console.warn("Error fetching superminority:", error);
     return null;
   }
 };

@@ -5,6 +5,7 @@ import uniqBy from "lodash/uniqBy";
 import take from "lodash/take";
 
 builder.init(BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 Builder.isStatic = true;
 
 const builderLimit = 100; // This seems to be the builder limit

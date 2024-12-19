@@ -2,6 +2,7 @@ import { builder } from "@builder.io/react";
 import { BUILDER_CONFIG } from "./builderConstants";
 
 builder.init(BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 
 export async function getBuilderSinglePost(postSlug) {
   return builder

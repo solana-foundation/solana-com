@@ -60,6 +60,7 @@ export const getStaticProps = async ({ locale, params }) => {
       },
     };
   } catch (error) {
+    console.error(error);
     return { notFound: true };
   }
 };

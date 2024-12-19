@@ -103,6 +103,6 @@ export async function getStaticProps({ locale }) {
 
       latestChangelogVideo,
     },
-    revalidate: 30,
+    revalidate: 60,
   };
 }
