@@ -26,7 +26,7 @@ export async function getStaticProps({ locale }) {
       records,
       featured,
     },
-    // revalidate: 60,
+    revalidate: 60,
   };
 }
 
