@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { useTranslation } from "next-i18next";
 import styles from "./EnvironmentHero.module.scss";
+import { Button } from "@solana-foundation/solana-lib";
 
 export default function EnvironmentHero() {
   const { t } = useTranslation();
@@ -23,6 +24,23 @@ export default function EnvironmentHero() {
             >
               {t("environment.hero.subtitle")}
             </p>
+            <Button
+              url={"https://solanaclimate.com/"}
+              hierarchy={"outline"}
+              endIcon={"arrow-up-right"}
+              size={"lg"}
+              iconSize={"md"}
+              className="me-2 mb-2"
+            >
+              {t("environment.cta-data")}
+            </Button>
+            <Button
+              url="https://solana.com/news/announcing-real-time-emissions-measurement-on-the-solana-blockchain"
+              hierarchy={"outline"}
+              size={"lg"}
+            >
+              {t("environment.energy.cta")}
+            </Button>
           </div>
         </div>
       </section>
