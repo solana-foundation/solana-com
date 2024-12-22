@@ -1,14 +1,8 @@
-import Image from "next/legacy/image";
+import Image from "next/image";
 import styled from "styled-components";
 import Divider from "../shared/Divider";
 import Button from "../shared/Button";
 import { useTranslation } from "next-i18next";
-
-import solanaLogo from "../../../public/src/img/branding/solanaLogo.svg";
-import solanaLogoMark from "../../../public/src/img/branding/solanaLogoMark.svg";
-import solanaVerticalLogo from "../../../public/src/img/branding/solanaVerticalLogo.svg";
-import solanaFoundationLogo from "../../../public/src/img/branding/solanaFoundationLogo.svg";
-import solanaWordMark from "../../../public/src/img/branding/solanaWordMark.svg";
 
 const StyledSection = styled.section`
   .logo-section {
@@ -25,7 +19,6 @@ const StyledSection = styled.section`
       height: 160px;
       display: flex;
       align-items: center;
-      justify-content: center;
     }
   }
 `;
@@ -66,7 +59,12 @@ const BrandingAssets = () => {
           </div>
         </div>
         <div className="logo">
-          <Image alt={`Solana`} src={solanaLogo} />
+          <Image
+            alt={`Solana`}
+            src="/src/img/branding/solanaLogo.svg"
+            width={320}
+            height={160}
+          />
         </div>
       </div>
 
@@ -90,7 +88,12 @@ const BrandingAssets = () => {
           </div>
         </div>
         <div className="logo">
-          <Image alt={`Solana`} src={solanaLogoMark} />
+          <Image
+            alt={`Solana`}
+            src="/src/img/branding/solanaLogoMark.svg"
+            width={100}
+            height={100}
+          />
         </div>
       </div>
 
@@ -114,7 +117,12 @@ const BrandingAssets = () => {
           </div>
         </div>
         <div className="logo">
-          <Image alt={`Solana`} src={solanaWordMark} />
+          <Image
+            alt={`Solana`}
+            src="/src/img/branding/solanaWordMark.svg"
+            width={320}
+            height={160}
+          />
         </div>
       </div>
 
@@ -138,7 +146,12 @@ const BrandingAssets = () => {
           </div>
         </div>
         <div className="logo">
-          <Image alt={`Solana`} src={solanaVerticalLogo} />
+          <Image
+            alt={`Solana`}
+            src="/src/img/branding/solanaVerticalLogo.svg"
+            width={320}
+            height={160}
+          />
         </div>
       </div>
 
@@ -162,7 +175,12 @@ const BrandingAssets = () => {
           </div>
         </div>
         <div className="logo">
-          <Image alt={`Solana`} src={solanaFoundationLogo} />
+          <Image
+            alt={`Solana`}
+            src="/src/img/branding/solanaFoundationLogo.svg"
+            width={320}
+            height={160}
+          />
         </div>
       </div>
     </StyledSection>
