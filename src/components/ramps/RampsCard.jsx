@@ -1,5 +1,4 @@
 import styles from "./RampsCard.module.scss";
-import RampIconPlaceholder from "./assets/ramp-icon-placeholder.png";
 import Image from "next/image";
 import { useTranslation } from "next-i18next";
 
@@ -19,12 +18,7 @@ const RampsCard = ({
       onClick={showModalOnClick}
     >
       <div className={`${styles["ramps-card__icon-container"]}`}>
-        <Image
-          src={imageUrl ?? RampIconPlaceholder}
-          width={61}
-          height={61}
-          alt=""
-        />
+        <Image src={imageUrl} width={61} height={61} alt="" />
       </div>
       <h2 className={`${styles["ramps-card__title"]}`}>{title}</h2>
       <p className={`${styles["ramps-card__description"]}`}>{description}</p>
