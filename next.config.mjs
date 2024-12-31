@@ -7,10 +7,6 @@ import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
 import { builder } from "@builder.io/sdk";
 import { createMDX } from "fumadocs-mdx/next";
 
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const { i18n } = require("./next-i18next.config.js");
-
 const securityHeaders = [
   {
     key: "X-Frame-Options",
@@ -41,7 +37,6 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
 }
 
 const nextConfig = {
-  i18n,
   reactStrictMode: true,
   productionBrowserSourceMaps: true,
 

@@ -1,12 +1,15 @@
+"use client";
+
 import Dropdown from "react-bootstrap/Dropdown";
 import Globe from "../../public/src/img/icons/Globe.inline.svg";
 import { ChevronDown } from "react-feather";
-import { useRouter } from "@/hooks/useRouter";
 import languages from "../../public/json/languages.json";
+import { usePathname } from "@/i18n";
+import { useLocale } from "next-intl";
 
 const Language = () => {
-  const { asPath } = useRouter();
-  const currentLocale = useRouter().locale;
+  const currentLocale = useLocale();
+  const asPath = usePathname();
 
   return (
     <Dropdown align="end" style={{ marginTop: "-5px" }} drop="auto">

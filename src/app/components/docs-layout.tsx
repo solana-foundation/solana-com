@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "fumadocs-ui/layouts/docs/sidebar";
 import { NavbarSidebarTrigger } from "fumadocs-ui/layouts/docs/navbar";
 import { SidebarItems } from "fumadocs-ui/layouts/docs.client";
+
 export function DocsLayout({
   children,
   tree,
@@ -15,7 +16,6 @@ export function DocsLayout({
 }) {
   return (
     <div className="container-xl container-docs fumadocs">
-      {/* @ts-ignore */}
       <FumaDocsLayout
         tree={tree}
         nav={{ enabled: false }}

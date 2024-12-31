@@ -1,9 +1,10 @@
 import { createInstance } from "i18next";
 import { initReactI18next } from "react-i18next/initReactI18next";
-import common from "../../public/locales/en/common.json";
+import resourcesToBackend from "i18next-resources-to-backend";
+import { locales } from "../i18n";
 
 const i18nConfig = {
-  locales: ["en"],
+  locales: locales,
   defaultLocale: "en",
 };
 
@@ -11,13 +12,19 @@ export default async function initTranslations(
   locale,
   namespaces,
   i18nInstance?,
-  rs?,
+  resources?,
 ) {
   i18nInstance = i18nInstance || createInstance();
 
   i18nInstance.use(initReactI18next);
 
-  const resources = rs || { en: { common } };
+  if (!resources) {
+    i18nInstance.use(
+      resourcesToBackend(
+        (lang, ns) => import(`../../public/locales/${lang}/${ns}.json`),
+      ),
+    );
+  }
 
   await i18nInstance.init({
     lng: locale,
