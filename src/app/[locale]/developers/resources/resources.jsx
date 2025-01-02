@@ -1,55 +1,18 @@
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+"use client";
 
-import HTMLHead from "@/components/HTMLHead";
 import Button from "@/components/shared/Button";
 import RoundedDepthCard from "@/components/shared/RoundedDepthCard";
-import DevelopersLayout from "@/components/developers/DevelopersLayout";
 import DevelopersResources from "@/components/developers/DevelopersResources/DevelopersResources";
-import ContentApi from "@/utils/contentApi";
 import DevelopersFeaturedResourcesList from "@/components/developers/DevelopersFeaturedResourcesList/DevelopersFeaturedResourcesList";
 import { useTranslation } from "next-i18next";
+import classNames from "classnames";
+import styles from "@/components/developers/DevelopersContentPage/DevelopersContentPage.module.scss";
 
-export async function getStaticProps({ params }) {
-  const { locale = "en" } = params;
-  // locate the records for the group being viewed (via the correctly formatted api route)
-  const records = await ContentApi.getRecordsForGroup("resources", locale);
-
-  // extract a list of featured records
-  const featured = ContentApi.extractFeaturedRecords({
-    records,
-    limit: 3,
-  });
-
-  return {
-    props: {
-      locale,
-      ...(await serverSideTranslations(locale, ["common"])),
-
-      records,
-      featured,
-    },
-    revalidate: 60,
-  };
-}
-
-export async function getStaticPaths() {
-  return {
-    paths: withLocales(),
-    fallback: "blocking",
-  };
-}
-
-export default function ResourcesIndex({ records, featured }) {
+export function ResourcesIndex({ records, featured }) {
   const { t } = useTranslation("common");
 
   return (
-    <DevelopersLayout>
-      <HTMLHead
-        title={"Developer Resources"}
-        description={t("developers.resources-page.seo-description")}
-      />
-
+    <div className={classNames(styles["developers-content-page"])}>
       <DevelopersFeaturedResourcesList
         items={featured}
         translationTag={"featured-resources-list"}
@@ -76,6 +39,6 @@ export default function ResourcesIndex({ records, featured }) {
           {t("developers.resources.items.stackexchange.ask.cta-label")}
         </Button>
       </RoundedDepthCard>
-    </DevelopersLayout>
+    </div>
   );
 }

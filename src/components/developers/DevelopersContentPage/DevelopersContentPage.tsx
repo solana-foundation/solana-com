@@ -1,3 +1,5 @@
+"use client";
+
 import { memo, useEffect, useState } from "react";
 import classNames from "classnames";
 import { useTranslation } from "next-i18next";
@@ -32,6 +34,79 @@ type DevelopersContentPageProps = {
     Record<string, unknown>
   >;
 };
+
+export function HeroTitle({
+  record,
+  baseHref,
+}: {
+  record: ContentRecord<ContentRecordGroupKey>;
+  baseHref?: string;
+}) {
+  return (
+    <section className="row mb-8" id="hero">
+      <div className={"col-lg-8 mb-5"}>
+        <h1 className={styles["developers-content-page__h1"]}>
+          <Link
+            href={record.href || "#"}
+            style={{ color: "inherit", fontSize: "56px" }}
+          >
+            {record.title}
+          </Link>
+        </h1>
+
+        <SocialShareButtons
+          url={`${config.siteUrl}${record.href}`}
+          title={record.title}
+          className="my-4"
+        />
+
+        <p className={styles["developers-content-page__date-time"]}>
+          {!!record?.date && (
+            <>
+              updated{" "}
+              <FormattedDate
+                value={new Date(record.date)}
+                month="long"
+                year="numeric"
+                day="numeric"
+              />
+            </>
+          )}
+          {/* {!!resource?.author && (
+      <>
+        {" "}
+        by{" "}
+        <Link href="#" className="">
+          {record.author.name}
+        </Link>
+      </>
+    )} */}
+        </p>
+
+        <TagCloud record={record} baseHref={baseHref} />
+      </div>
+      <div className={"col-lg-4"}>
+        <div className={styles["developers-content-page__hero-image"]}>
+          <Link href={record.href || "#"}>
+            <Image
+              alt={record.title}
+              src={`/opengraph${record.href}` || defaultImg}
+              loading="lazy"
+              fill
+              sizes="100vw"
+              className="position-relative img-fluid"
+              placeholder="blur"
+              blurDataURL={blurImage.blurDataURL}
+              onError={(e) => {
+                e.currentTarget.srcset = "/social/solana.jpg";
+              }}
+            />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default memo(function DevelopersContentPage({
   record,
@@ -108,6 +183,7 @@ export default memo(function DevelopersContentPage({
           </div>
         </div>
       </section>
+      <HeroTitle record={record} baseHref={baseHref} />
 
       <section className="row">
         <article

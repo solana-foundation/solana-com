@@ -1,109 +1,19 @@
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+"use client";
+
 import { useRef } from "react";
-import { InferGetStaticPropsType } from "next";
 
 import { useTranslation } from "next-i18next";
-import HTMLHead from "@/components/HTMLHead";
 import Button from "@/components/shared/Button";
 import RoundedDepthCard from "@/components/shared/RoundedDepthCard";
-import DevelopersLayout from "@/components/developers/DevelopersLayout";
-import ContentApi from "@/utils/contentApi";
 import classNames from "classnames";
 import styles from "@/components/developers/DevelopersContentPage/DevelopersContentPage.module.scss";
 
 import { CardDeck, DetailsHero } from "@solana-foundation/solana-lib";
 import type { PersonProps } from "@solana-foundation/solana-lib/src/types";
 import { DefaultCard } from "@solana-foundation/solana-lib/dist/components/CardDeck/DefaultCard/defaultCard";
-import { pathsWithLocales } from "@/i18n";
 
-export async function getStaticPaths(
-  {
-    /*locales,*/
-  },
-) {
-  // const localeParam = locales.join("&locale=");
-
-  // locate the current record being viewed (via the correctly formatted api route)
-  const pathData = await ContentApi.getPathsForGroup("courses");
-  const paths = pathData
-    // removing the `isExternal=true` items prevents local redirects via our site
-    ?.filter(
-      (record) =>
-        !(record?.isExternal == true && !!record.href) &&
-        record.href?.startsWith("/developers/courses"),
-    )
-    .map((item) => {
-      return {
-        params: {
-          course: item.href.toLowerCase().match(/.*\/(.*)/i)?.[1],
-        },
-      };
-    });
-
-  return {
-    paths: pathsWithLocales(paths),
-    fallback: "blocking",
-  };
-}
-
-export async function getStaticProps({
-  params,
-}: {
-  params: { course: string; locale: string };
-}) {
-  const { locale = "en" } = params;
-  const { course: courseSlug } = params;
-
-  if (!courseSlug) {
-    return {
-      notFound: true,
-    };
-  }
-
-  // define the base route for the requested content
-  const route = `${"courses"}/${courseSlug}`;
-
-  // locate the current record being viewed (via the correctly formatted api route)
-  const course = await ContentApi.getSingleRecord(route, locale);
-
-  // ensure the content record was found
-  if (!course || !course.href) {
-    return {
-      notFound: true,
-    };
-  }
-
-  // handle record redirects for altRoutes and external links
-  const redirect = ContentApi.recordRedirectPayload(
-    course,
-    route,
-    locale,
-    "/developers/", // prefix
-  );
-  if (!!redirect) return redirect;
-
-  const lessons = await ContentApi.getRecordsForGroup(
-    "lessons",
-    locale,
-    courseSlug,
-  );
-
-  return {
-    props: {
-      locale,
-      ...(await serverSideTranslations(locale, ["common"])),
-      course,
-      lessons,
-      // source,
-    },
-    revalidate: 60,
-  };
-}
-
-export default function DeveloperCourseCurriculumPage({
-  course,
-  lessons,
-}: InferGetStaticPropsType<typeof getStaticProps>) {
+export default function Curriculum({ course }) {
+  const { lessons } = course;
   const { t } = useTranslation("common");
 
   const postsGridRef = useRef(null);
@@ -140,19 +50,7 @@ export default function DeveloperCourseCurriculumPage({
   });
 
   return (
-    <DevelopersLayout>
-      <HTMLHead
-        title={course.title}
-        description={
-          course.description || t("developers.courses.seo-description")
-        }
-        socialShare={
-          Boolean(course.href)
-            ? `/opengraph/developers/courses/${course.slug}`
-            : undefined
-        }
-      />
-
+    <div>
       <div ref={postsGridRef}>
         <DetailsHero
           shareIcons={true}
@@ -162,11 +60,7 @@ export default function DeveloperCourseCurriculumPage({
           }
           title={course.title}
           titleAsLink={true}
-          image={
-            course.image || !!course.slug
-              ? `/opengraph/developers/courses/${course.slug}`
-              : "/src/img/news/blogbackup.png"
-          }
+          image={`/opengraph${course.href}`}
           publishedDate={course.date}
           buttons={
             lessons.length > 0
@@ -209,6 +103,6 @@ export default function DeveloperCourseCurriculumPage({
           </Button>
         </RoundedDepthCard>
       </div>
-    </DevelopersLayout>
+    </div>
   );
 }

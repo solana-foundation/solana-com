@@ -10,16 +10,21 @@ import { SidebarItems } from "fumadocs-ui/layouts/docs.client";
 export function DocsLayout({
   children,
   tree,
+  sidebarEnabled = true,
 }: {
   children: ReactNode;
   tree: DocsLayoutProps["tree"];
+  sidebarEnabled?: boolean;
 }) {
   return (
     <div className="container-xl container-docs fumadocs">
       <FumaDocsLayout
         tree={tree}
         nav={{ enabled: false }}
-        sidebar={{ component: <CustomSidebar /> }}
+        sidebar={{
+          enabled: sidebarEnabled,
+          component: <CustomSidebar />,
+        }}
       >
         {children}
       </FumaDocsLayout>

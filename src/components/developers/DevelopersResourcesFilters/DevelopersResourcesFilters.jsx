@@ -1,7 +1,7 @@
 import { Fragment, memo, useCallback } from "react";
 import classNames from "classnames";
 import styles from "./DevelopersResourcesFilters.module.scss";
-import { useRouter } from "next/router";
+import { useRouter } from "@/hooks/useRouter";
 
 export default memo(function DevelopersResourcesFilters({ filters }) {
   const router = useRouter();

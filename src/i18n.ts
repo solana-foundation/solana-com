@@ -34,7 +34,7 @@ export const { Link, redirect, usePathname, useRouter } =
   createNavigation(routing);
 
 // locales to be used in getStaticPaths (for static generation)
-const staticLocales = ["en"];
+export const staticLocales = ["en"];
 
 export function withLocales() {
   const paths = staticLocales.map((locale) => ({ params: { locale } }));

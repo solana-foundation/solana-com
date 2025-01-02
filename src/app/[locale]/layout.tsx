@@ -10,7 +10,7 @@ import { config } from "@/config";
 import { RootProvider } from "fumadocs-ui/provider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { locales } from "@/i18n";
+import { staticLocales } from "@/i18n";
 
 const namespaces = ["common"];
 
@@ -59,5 +59,5 @@ export default async function RootLayout({ children, params }: Props) {
 }
 
 export async function generateStaticParams() {
-  return locales.map((locale) => ({ locale }));
+  return staticLocales.map((locale) => ({ locale }));
 }

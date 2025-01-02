@@ -18,7 +18,6 @@ export function DocsPage(props: {
   return (
     // @ts-ignore
     <FumaDocsPage
-      data-foo="bar"
       toc={props.toc}
       full={props.full}
       breadcrumb={{

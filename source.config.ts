@@ -8,6 +8,10 @@ const schema = z.custom<{
   description?: string;
   hideTableOfContents?: boolean;
   full?: boolean;
+  author?: string;
+  tags?: string[];
+  date?: string;
+  difficulty?: string;
 }>();
 
 const docsData = defineDocs({
@@ -25,3 +29,19 @@ const cookbookData = defineDocs({
 
 export const cookbook = cookbookData.docs;
 export const cookbookMeta = cookbookData.meta;
+
+const coursesData = defineDocs({
+  dir: "content/courses",
+  docs: { schema },
+});
+
+export const courses = coursesData.docs;
+export const coursesMeta = coursesData.meta;
+
+const guidesData = defineDocs({
+  dir: "content/guides",
+  docs: { schema },
+});
+
+export const guides = guidesData.docs;
+export const guidesMeta = guidesData.meta;

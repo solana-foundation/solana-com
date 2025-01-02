@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import classNames from "classnames";
-import { useRouter } from "next/router";
+import { useRouter } from "@/hooks/useRouter";
 import DevelopersResourceItem from "../sections/DevelopersResourcesSection/DevelopersResourceItem";
 import styles from "./DevelopersResourcesGrid.module.scss";
 

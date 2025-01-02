@@ -1,6 +1,6 @@
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { getPage } from "@/lib/builder/page/api";
-import Page from "./[...slug]";
+import Page from "./.slug";
 import { withLocales } from "@/i18n";
 
 export default function Home(props) {

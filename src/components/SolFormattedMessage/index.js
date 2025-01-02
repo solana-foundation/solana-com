@@ -1,4 +1,4 @@
-import { useRouter } from "next/router";
+import { useRouter } from "@/hooks/useRouter";
 import { useEffect, useMemo, useState } from "react";
 
 export const formatNumber = (locale, value, options) => {

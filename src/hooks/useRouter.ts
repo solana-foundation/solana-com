@@ -7,6 +7,7 @@ export function useRouter() {
   const router = usePagesRouter();
   const pathname = usePathname();
   const params = useParams();
+  // const searchParams = useSearchParams();
   if (router) {
     // console.log("Using pages router", { pathname, params });
     return router;
@@ -17,5 +18,6 @@ export function useRouter() {
     asPath: pathname,
     pathname,
     isReady: true,
+    query: {},
   };
 }
