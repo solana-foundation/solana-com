@@ -16,7 +16,7 @@ export default async function Page(props: {
       title={page.data.h1 || page.data.title}
       filePath={page.file.path}
       href={page.url}
-      breadcrumbRoot="/developers/guides"
+      baseHref="/developers/guides"
       tags={page.data.tags}
       date={page.data.date}
       difficulty={page.data.difficulty}

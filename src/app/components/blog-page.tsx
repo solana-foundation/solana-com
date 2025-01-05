@@ -14,7 +14,7 @@ export function BlogPage(props: {
   full?: boolean;
   title: string;
   href: string;
-  breadcrumbRoot?: string;
+  baseHref?: string;
   tags?: string[];
   date?: string;
   difficulty?: string;
@@ -32,12 +32,12 @@ export function BlogPage(props: {
     <div>
       <div className="my-4">
         {/* <Breadcrumb
-          includeRoot={{ url: props.breadcrumbRoot }}
+          includeRoot={{ url: props.baseHref }}
           includeSeparator={true}
         /> */}
       </div>
       <div className="">
-        <HeroTitle record={record} baseHref="/developers/courses" />
+        <HeroTitle record={record} baseHref={props.baseHref} />
       </div>
       <div className="flex gap-8">
         <Toc>
@@ -56,28 +56,6 @@ export function BlogPage(props: {
       </div>
     </div>
   );
-
-  // return (
-  //   <FumaDocsPage
-  //     toc={props.toc}
-  //     full={true}
-  //     breadcrumb={{
-  //       enabled: true,
-  //       includeRoot: { url: "/developers/courses" },
-  //       includeSeparator: true,
-  //     }}
-  //     tableOfContentPopover={{
-  //       enabled: !props.hideTableOfContents,
-  //     }}
-  //     tableOfContent={{
-  //       footer: <EditOnGithub path={props.filePath} />,
-  //       enabled: !props.hideTableOfContents,
-  //     }}
-  //   >
-  //     Title
-  //     <DocsBody className="text-lg">{props.children}</DocsBody>
-  //   </FumaDocsPage>
-  // );
 }
 
 function EditOnGithub({ path }: { path: string }) {
