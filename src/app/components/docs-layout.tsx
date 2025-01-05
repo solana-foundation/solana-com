@@ -4,8 +4,8 @@ import {
 } from "fumadocs-ui/layouts/docs";
 import type { ReactNode } from "react";
 import { Sidebar } from "fumadocs-ui/layouts/docs/sidebar";
-import { NavbarSidebarTrigger } from "fumadocs-ui/layouts/docs/navbar";
-import { SidebarItems } from "fumadocs-ui/layouts/docs.client";
+import { NavbarSidebarTrigger } from "fumadocs-ui/layouts/docs.client";
+import { SidebarPageTree } from "fumadocs-ui/layouts/docs/sidebar";
 
 export function DocsLayout({
   children,
@@ -39,7 +39,7 @@ function CustomSidebar() {
         className="md:bg-transparent"
         style={{ maxHeight: "calc(100vh - 76px)" }}
       >
-        <SidebarItems />
+        <SidebarPageTree />
       </Sidebar>
       <div
         className="fixed bottom-0 left-0 z-50 p-7 md:hidden"

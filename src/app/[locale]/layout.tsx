@@ -25,8 +25,8 @@ export default async function RootLayout({ children, params }: Props) {
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
   const builderLocale = locale == "en" ? "Default" : locale;
   return (
-    <html lang={locale}>
-      <body>
+    <html lang={locale} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe
@@ -43,7 +43,10 @@ export default async function RootLayout({ children, params }: Props) {
             locale={locale}
             resources={resources}
           >
-            <RootProvider>
+            <RootProvider
+              search={{ enabled: false }}
+              theme={{ disableTransitionOnChange: true }}
+            >
               <GTMTrackingSnippet />
               <SitewideTopAlert locale={builderLocale} />
               <CookieConsent />
