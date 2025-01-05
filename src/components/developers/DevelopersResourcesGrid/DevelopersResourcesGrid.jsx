@@ -1,32 +1,37 @@
+"use client";
+
 import { memo, useMemo } from "react";
 import classNames from "classnames";
-import { useRouter } from "@/hooks/useRouter";
+import { useSearchParams } from "next/navigation";
 import DevelopersResourceItem from "../sections/DevelopersResourcesSection/DevelopersResourceItem";
 import styles from "./DevelopersResourcesGrid.module.scss";
 
 export default memo(function DevelopersResourcesGrid({ items }) {
-  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       let matchesFilters = true;
-      const filters = Object.keys(router.query);
 
-      for (let i = 0; i < filters.length; i++) {
-        let filter = router.query[filters[i]];
-        const values = item?.[filters[i]];
-        if (!values) return;
+      // Get unique filter keys from searchParams
+      const filterKeys = new Set();
+      for (const [key] of searchParams.entries()) {
+        filterKeys.add(key);
+      }
 
-        if (typeof filter === "string") {
-          filter = [filter];
-        }
+      for (const filterKey of filterKeys) {
+        const filterValues = searchParams.getAll(filterKey);
+        if (!filterValues.length) continue;
 
-        if (typeof values === "string") {
-          matchesFilters = filter.includes(values);
-        } else {
-          matchesFilters = !!values.find((value) => {
-            return filter.includes(value);
-          });
+        const itemValues = item?.[filterKey];
+        if (!itemValues) return false;
+
+        if (typeof itemValues === "string") {
+          matchesFilters = filterValues.includes(itemValues);
+        } else if (Array.isArray(itemValues)) {
+          matchesFilters = itemValues.some((value) =>
+            filterValues.includes(value),
+          );
         }
 
         if (!matchesFilters) {
@@ -36,7 +41,7 @@ export default memo(function DevelopersResourcesGrid({ items }) {
 
       return matchesFilters;
     });
-  }, [items, router.query]);
+  }, [items, searchParams]);
 
   return (
     <div className={classNames(styles["developers-resources-grid"])}>

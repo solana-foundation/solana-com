@@ -1,39 +1,54 @@
-import { Fragment, memo, useCallback } from "react";
+"use client";
+
+import { Fragment, memo, useCallback, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import classNames from "classnames";
 import styles from "./DevelopersResourcesFilters.module.scss";
-import { useRouter } from "@/hooks/useRouter";
 
 export default memo(function DevelopersResourcesFilters({ filters }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+
+  const createQueryString = useCallback((params) => {
+    const urlSearchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, values]) => {
+      if (Array.isArray(values)) {
+        values.forEach((value) => urlSearchParams.append(key, value));
+      }
+    });
+    return urlSearchParams.toString();
+  }, []);
 
   const resetFilters = useCallback(() => {
-    router.replace({ query: {} }, undefined, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    startTransition(() => {
+      router.push("?", { scroll: false });
+    });
+  }, [router]);
 
   const toggleFilter = useCallback(
     (key, filter) => {
-      let query = router.query[key] || [];
-      if (typeof query === "string") query = [query];
-      const index = query.indexOf(filter);
-      if (index !== -1) {
-        query.splice(index, 1);
-      } else {
-        query.push(filter);
-      }
-      router.replace(
-        {
-          query: {
-            ...router.query,
-            [key]: query,
-          },
-        },
-        undefined,
-        { scroll: false },
-      );
+      const currentValues = searchParams.getAll(key);
+      const newValues = currentValues.includes(filter)
+        ? currentValues.filter((v) => v !== filter)
+        : [...currentValues, filter];
+
+      const newParams = {};
+      // Preserve other query parameters
+      Array.from(searchParams.entries()).forEach(([key, value]) => {
+        if (!newParams[key]) {
+          newParams[key] = [];
+        }
+        newParams[key].push(value);
+      });
+      // Update the specific filter
+      newParams[key] = newValues;
+
+      startTransition(() => {
+        router.push("?" + createQueryString(newParams), { scroll: false });
+      });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [router.query],
+    [router, searchParams, createQueryString],
   );
 
   return (
@@ -43,11 +58,11 @@ export default memo(function DevelopersResourcesFilters({ filters }) {
         type="button"
         onClick={resetFilters}
         className={styles["developers-resources-filters__reset"]}
+        disabled={isPending}
       >
         reset filters
       </button>
       {Object.keys(filters)
-        // remove filters tha have no child items
         .filter((item) => !!filters[item].items.length)
         .map((key) => (
           <Fragment key={key}>
@@ -56,10 +71,7 @@ export default memo(function DevelopersResourcesFilters({ filters }) {
             >
               {filters[key].label}
             </div>
-            <div
-              key={key}
-              className={styles["developers-resources-filters__filters"]}
-            >
+            <div className={styles["developers-resources-filters__filters"]}>
               {filters[key].items.map((filter) =>
                 !!filter ? (
                   <div
@@ -74,11 +86,10 @@ export default memo(function DevelopersResourcesFilters({ filters }) {
                         {
                           [styles[
                             "developers-resources-filters__filter-btn--active"
-                          ]]:
-                            router.query?.[key] === filter ||
-                            router.query?.[key]?.includes(filter),
+                          ]]: searchParams.getAll(key).includes(filter),
                         },
                       )}
+                      disabled={isPending}
                     >
                       {filter}
                     </button>
