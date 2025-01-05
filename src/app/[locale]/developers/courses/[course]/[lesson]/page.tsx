@@ -10,13 +10,21 @@ export default async function Page(props: {
   const page = coursesSource.getPage([params.course, params.lesson]);
   if (!page) notFound();
   const MDX = page.data.body;
+
+  const course = coursesSource.getPage([params.course]);
   return (
     <BlogPage
       toc={page.data.toc}
       title={page.data.h1 || page.data.title}
+      baseHref="/developers/courses"
+      breadcrumb={[
+        {
+          title: course.data.title,
+          path: params.course,
+        },
+      ]}
       filePath={page.file.path}
       href={page.url}
-      baseHref="/developers/courses"
     >
       <MDX components={mdxComponents} />
     </BlogPage>

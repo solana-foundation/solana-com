@@ -48,7 +48,12 @@ export function HeroTitle({
         <h1 className={styles["developers-content-page__h1"]}>
           <Link
             href={record.href || "#"}
-            style={{ color: "inherit", fontSize: "56px" }}
+            style={{
+              color: "inherit",
+              fontSize: "56px",
+              lineHeight: "1.2",
+              fontWeight: 700,
+            }}
           >
             {record.title}
           </Link>

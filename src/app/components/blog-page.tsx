@@ -1,13 +1,14 @@
 import { DocsBody, DocsPageProps } from "fumadocs-ui/page";
 import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import { ReactNode } from "react";
-// import { Breadcrumb } from "fumadocs-ui/components/layout/breadcrumb";
 import { Toc, TOCItems } from "fumadocs-ui/components/layout/toc";
 import { Text } from "lucide-react";
 import { HeroTitle } from "@/components/developers/DevelopersContentPage/DevelopersContentPage";
+import { Breadcrumb } from "./breadcrumb";
 
 export function BlogPage(props: {
   children: ReactNode;
+  breadcrumb: { title: string; path: string }[];
   filePath: string;
   toc: DocsPageProps["toc"];
   hideTableOfContents?: boolean;
@@ -31,10 +32,7 @@ export function BlogPage(props: {
   return (
     <div>
       <div className="my-4">
-        {/* <Breadcrumb
-          includeRoot={{ url: props.baseHref }}
-          includeSeparator={true}
-        /> */}
+        <Breadcrumb root={props.baseHref} items={props.breadcrumb} />
       </div>
       <div className="">
         <HeroTitle record={record} baseHref={props.baseHref} />
