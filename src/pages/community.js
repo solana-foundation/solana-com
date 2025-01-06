@@ -13,7 +13,6 @@ import {
   getGHStargazers,
   getYTVideos,
   scrapeMeetupMemberCount,
-  scrapeVKontakteFollowerCount,
   getYoutubeSubscriberCount,
 } from "../utils/followerFunctions";
 
@@ -47,11 +46,10 @@ const CommunityPage = ({ posts, socialData, youtubeVideos }) => {
 };
 
 export async function getStaticProps({ locale }) {
-  const [posts, pagination, vk, youtube, github, meetup, youtubeVideos] =
+  const [posts, pagination, youtube, github, meetup, youtubeVideos] =
     await Promise.allSettled([
       getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 6),
       getPostPagination(1, NEWS_BUILDER_CONFIG.postsModel),
-      scrapeVKontakteFollowerCount(),
       getYoutubeSubscriberCount(),
       getGHStargazers(),
       scrapeMeetupMemberCount(),
@@ -61,7 +59,6 @@ export async function getStaticProps({ locale }) {
   return {
     props: {
       socialData: {
-        vk: vk?.value || null,
         youtube: youtube?.value || null,
         github: github?.value || null,
         meetup: meetup?.value || null,

@@ -3,7 +3,6 @@ import { Badge } from "react-bootstrap";
 import Telegram from "../../../public/src/img/community/socials-telegram.inline.svg";
 import Twitter from "../../../public/src/img/community/socials-twitter.inline.svg";
 import Youtube from "../../../public/src/img/community/socials-youtube.inline.svg";
-import VK from "../../../public/src/img/community/socials-vk.inline.svg";
 import Weibo from "../../../public/src/img/community/socials-weibo.inline.svg";
 import Discord from "../../../public/src/img/community/socials-discord.inline.svg";
 import Git from "../../../public/src/img/community/socials-git.inline.svg";
@@ -24,13 +23,15 @@ const CommunitySocial = ({ data }) => {
   const { t } = useTranslation();
 
   const {
-    twitter = 2463994,
-    github = 11576,
-    meetup = 11406,
-    youtube = 18,
-    vk = 2771,
-    news = 210,
-    reddit = 200000,
+    telegram = 70463,
+    twitter = 3028785,
+    github = 97,
+    discord = 141556,
+    meetup = 8656,
+    weibo = 4400,
+    youtube = 75000,
+    news = 237,
+    reddit = 344000,
   } = data;
 
   const socialAccounts = [
@@ -40,7 +41,7 @@ const CommunitySocial = ({ data }) => {
       renderIcon: () => <Telegram />,
       nameId: "community.socials.telegram",
       memberStrId: "community.socials.approx-members",
-      members: 85032,
+      members: telegram,
     },
     {
       link: "/twitter",
@@ -59,14 +60,6 @@ const CommunitySocial = ({ data }) => {
       members: youtube,
     },
     {
-      link: "https://vk.com/solanarus",
-      category: "Announcements",
-      renderIcon: () => <VK />,
-      nameId: "community.socials.vk",
-      memberStrId: "community.socials.vk-subscribers",
-      members: vk,
-    },
-    {
       link: "/reddit",
       category: "Discussions",
       renderIcon: () => <Reddit />,
@@ -80,7 +73,7 @@ const CommunitySocial = ({ data }) => {
       renderIcon: () => <Discord />,
       nameId: "community.socials.discord",
       memberStrId: "community.socials.approx-members",
-      members: 44556,
+      members: discord,
     },
     {
       link: "/github",
@@ -104,7 +97,7 @@ const CommunitySocial = ({ data }) => {
       renderIcon: () => <Weibo />,
       nameId: "community.socials.weibo",
       memberStrId: "community.socials.weibo-subscribers",
-      members: 2000,
+      members: weibo,
     },
     {
       link: "/news",
