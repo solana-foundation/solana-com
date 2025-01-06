@@ -3,7 +3,10 @@ import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import { ReactNode } from "react";
 import { Toc, TOCItems } from "fumadocs-ui/components/layout/toc";
 import { Text } from "lucide-react";
-import { HeroTitle } from "@/components/developers/DevelopersContentPage/DevelopersContentPage";
+import {
+  HeroTitle,
+  PageContainer,
+} from "@/components/developers/DevelopersContentPage/DevelopersContentPage";
 import { Breadcrumb } from "./breadcrumb";
 
 export function BlogPage(props: {
@@ -27,18 +30,21 @@ export function BlogPage(props: {
     tags: props.tags,
     difficulty: props.difficulty,
   };
-  // TODO small screen
   // TODO prev, next links
+  // TODO smalls creen ToC
   return (
-    <div>
-      <div className="my-4">
+    <PageContainer>
+      <div className="my-6">
         <Breadcrumb root={props.baseHref} items={props.breadcrumb} />
       </div>
-      <div className="">
+      <div>
         <HeroTitle record={record} baseHref={props.baseHref} />
       </div>
       <div className="flex gap-8">
-        <Toc>
+        <Toc
+          className="max-xl:block max-[990px]:hidden"
+          style={{ "--fd-toc-width": "268px" } as React.CSSProperties}
+        >
           <div className="flex h-full w-[var(--fd-toc-width)] max-w-full flex-col gap-3">
             <h3 className="-ms-0.5 inline-flex items-center gap-1.5 text-sm text-fd-muted-foreground">
               <Text className="size-4" />
@@ -48,11 +54,11 @@ export function BlogPage(props: {
             <EditOnGithub path={props.filePath} />
           </div>
         </Toc>
-        <article>
+        <article className="min-w-0">
           <DocsBody className="text-lg">{props.children}</DocsBody>
         </article>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

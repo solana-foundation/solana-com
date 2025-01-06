@@ -35,6 +35,10 @@ type DevelopersContentPageProps = {
   >;
 };
 
+export function PageContainer({ children }: { children: React.ReactNode }) {
+  return <div className={classNames("container")}>{children}</div>;
+}
+
 export function HeroTitle({
   record,
   baseHref,
@@ -43,18 +47,13 @@ export function HeroTitle({
   baseHref?: string;
 }) {
   return (
-    <section className="row mb-8" id="hero">
+    <section
+      id="hero"
+      className={classNames("row mb-8", styles["developers-content-page"])}
+    >
       <div className={"col-lg-8 mb-5"}>
         <h1 className={styles["developers-content-page__h1"]}>
-          <Link
-            href={record.href || "#"}
-            style={{
-              color: "inherit",
-              fontSize: "56px",
-              lineHeight: "1.2",
-              fontWeight: 700,
-            }}
-          >
+          <Link href={record.href || "#"} style={{ color: "inherit" }}>
             {record.title}
           </Link>
         </h1>
