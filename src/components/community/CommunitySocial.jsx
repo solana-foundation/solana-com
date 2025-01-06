@@ -25,13 +25,13 @@ const CommunitySocial = ({ data }) => {
   const {
     telegram = 70463,
     twitter = 3028785,
-    github = 13557,
+    github = 97,
     discord = 141556,
     meetup = 8656,
     weibo = 4400,
     youtube = 75000,
-    news = 210,
-    reddit = 200000,
+    news = 237,
+    reddit = 344000,
   } = data;
 
   const socialAccounts = [
