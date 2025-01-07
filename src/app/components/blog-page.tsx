@@ -3,10 +3,7 @@ import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import { ReactNode } from "react";
 import { Toc, TOCItems } from "fumadocs-ui/components/layout/toc";
 import { Text } from "lucide-react";
-import {
-  HeroTitle,
-  PageContainer,
-} from "@/components/developers/DevelopersContentPage/DevelopersContentPage";
+import { HeroTitle } from "@/components/developers/DevelopersContentPage/DevelopersContentPage";
 import { Breadcrumb } from "./breadcrumb";
 
 export function BlogPage(props: {
@@ -31,9 +28,8 @@ export function BlogPage(props: {
     difficulty: props.difficulty,
   };
   // TODO prev, next links
-  // TODO smalls creen ToC
   return (
-    <PageContainer>
+    <div className="container">
       <div className="my-6">
         <Breadcrumb root={props.baseHref} items={props.breadcrumb} />
       </div>
@@ -58,7 +54,7 @@ export function BlogPage(props: {
           <DocsBody className="text-lg">{props.children}</DocsBody>
         </article>
       </div>
-    </PageContainer>
+    </div>
   );
 }
 
