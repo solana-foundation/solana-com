@@ -4,20 +4,21 @@ import ContentApi from "@/utils/contentApi";
 import DeveloperDocsImage from "@/components/opengraph/DeveloperDocsImage";
 
 // Route segment config
-export const runtime = IMAGE_SETTINGS.runtime;
+export const runtime = "nodejs";
 export const revalidate = 3600; // 1 hour
 // export const dynamic = "force-static";
 
 export async function GET(
-  request: Request,
+  _request: Request,
   {
     params,
   }: {
-    params: { slug: string[] };
+    params: Promise<{ slug: string[] }>;
   },
 ) {
+  const slug = (await params).slug;
   // format the provided slug as a path route
-  let route = params.slug.join("/").toLowerCase();
+  let route = slug.join("/").toLowerCase();
 
   // handle the special case for course lessons
   if (route.startsWith("courses/lesson/"))
@@ -34,7 +35,7 @@ export async function GET(
   }
 
   // select the correct heading text based on the specific content
-  let heading = getHeading(params.slug);
+  let heading = getHeading(slug);
 
   // create the dynamic image
   // todo: add support for more image variations

@@ -9,6 +9,7 @@ import HTMLHead from "@/components/builder/HTMLHead";
 import SimpleHero from "@/components/breakpoint/BreakpointSimpleHero";
 
 builder.init(BREAKPOINT_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 customComponentsRegistration();
 
 /**
@@ -103,7 +104,7 @@ export const getStaticProps = async ({ locale, params }) => {
         page: page || null,
         ...(await serverSideTranslations(locale, ["common"])),
       },
-      revalidate: 30,
+      revalidate: 60,
     };
   } catch (error) {
     console.error(error);

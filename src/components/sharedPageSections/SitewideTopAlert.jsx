@@ -18,6 +18,7 @@ function SitewideTopAlert({ locale }) {
   useEffect(() => {
     // Fetch announcement bar data from Builder.io
     builder.init(BUILDER_CONFIG.apiKey);
+    builder.apiVersion = "v3";
     builder
       .get("component-announcement-bar", {
         staleCacheSeconds: 20,

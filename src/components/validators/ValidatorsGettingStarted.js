@@ -46,7 +46,7 @@ const ValidatorsGettingStarted = () => {
               </p>
             </div>
             <Button
-              to="https://docs.solanalabs.com/operations"
+              to="https://docs.anza.xyz/operations"
               newTab
               aria-label="Solana Docs"
               variant="none"

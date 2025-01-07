@@ -94,7 +94,7 @@ export async function getStaticProps({
       lessons,
       // source,
     },
-    // revalidate: 60,
+    revalidate: 60,
   };
 }
 

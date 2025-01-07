@@ -19,7 +19,6 @@ import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import DocsNavSidebar from "@/components/developers/DocsNavSidebar";
 import { InferGetStaticPropsType } from "next";
 import { SidebarToggleButton } from "@/components/developers/DevelopersContentPage/SidebarToggleButton";
-import { type MDXComponents } from "@mdx-js/react/lib";
 import { TableOfContents } from "@/components/developers/DevelopersContentPage/TableOfContents";
 import { PageNav } from "@/components/developers/DevelopersContentPage/PageNav";
 
@@ -36,7 +35,7 @@ import { PageBreadcrumbs } from "@/components/developers/DevelopersContentPage/P
 /**
  * Define custom MDX components for use with this MarkdownRender
  */
-const rpcMDXComponents: MDXComponents = {
+const rpcMDXComponents = {
   DocSideBySide,
   DocLeftSide,
   Parameter,
@@ -253,6 +252,6 @@ export async function getStaticProps({ params, locale }) {
       source,
       navData,
     },
-    // revalidate: 60,
+    revalidate: 60,
   };
 }

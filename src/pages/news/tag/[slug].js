@@ -16,6 +16,7 @@ import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
 import { MetaData } from "../../../components/blog/meta";
 
 builder.init(NEWS_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 
 const StyledBlogTagHeader = styled.div`
   font-family: Diatype, var(--font-family-sans-serif);
@@ -112,7 +113,7 @@ export async function getStaticProps({ locale, params }) {
           : [],
         ...(await serverSideTranslations(locale, ["common"])),
       },
-      revalidate: 30,
+      revalidate: 60,
     };
   } catch (error) {
     console.error(error);
