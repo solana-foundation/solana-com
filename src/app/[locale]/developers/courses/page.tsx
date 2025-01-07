@@ -31,3 +31,11 @@ export default function Page() {
 
   return <Courses courseCards={courseCards} />;
 }
+
+export async function generateMetadata() {
+  return {
+    title: "Developer Courses",
+    description:
+      "Learn Solana development with developer guides, from beginner to advanced. JavaScript, TypeScript, Rust, and more.",
+  };
+}

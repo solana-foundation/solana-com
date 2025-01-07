@@ -29,3 +29,11 @@ function getGuidesFromFolder(folder: any) {
     }
   });
 }
+
+export async function generateMetadata() {
+  return {
+    title: "Developer Guides",
+    description:
+      "Learn Solana development with developer guides, from beginner to advanced. JavaScript, TypeScript, Rust, and more.",
+  };
+}

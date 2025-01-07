@@ -40,7 +40,7 @@ export function Breadcrumb({
           <ChevronRight className="size-4 shrink-0 rtl:rotate-180" />
           <Link
             className="truncate hover:text-fd-accent-foreground"
-            href={`/${root}/${item.path}`}
+            href={`${root}/${item.path}`}
           >
             {item.title}
           </Link>

@@ -55,6 +55,8 @@ export async function generateMetadata(props: {
   return {
     title: page.data.seoTitle || page.data.h1 || page.data.title,
     description: page.data.description,
-    images: `/opengraph${page.url}`,
+    openGraph: {
+      images: `/opengraph${page.url}`,
+    },
   };
 }

@@ -11,3 +11,11 @@ export default function Page() {
     </div>
   );
 }
+
+export async function generateMetadata() {
+  return {
+    title: "Developer Resources",
+    description:
+      "Discover developer resources for the Solana ecosystem. Documentation, tooling, frameworks, sdks, and more.",
+  };
+}

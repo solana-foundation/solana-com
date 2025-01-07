@@ -1,7 +1,12 @@
 import { IMAGE_SETTINGS } from "@/utils/images";
 import { notFound } from "next/navigation";
-import ContentApi from "@/utils/contentApi";
 import DeveloperDocsImage from "@/components/opengraph/DeveloperDocsImage";
+import {
+  cookbookSource,
+  coursesSource,
+  docsSource,
+  guidesSource,
+} from "@/app/source";
 
 // Route segment config
 export const runtime = "nodejs";
@@ -26,27 +31,18 @@ export async function GET(
 
   let size = IMAGE_SETTINGS.sizeDefault;
 
-  // locate the current record being viewed (via the correctly formatted api route)
-  const record = await ContentApi.getSingleRecord(route);
-
-  // ensure the content record was found
-  if (!record || !record.href) {
-    notFound();
-  }
-
   // select the correct heading text based on the specific content
   let heading = getHeading(slug);
-
+  let title = getTitle(slug);
+  if (!title) {
+    notFound();
+  }
   // create the dynamic image
   // todo: add support for more image variations
   const imageData = await DeveloperDocsImage(
     {
       heading,
-      title:
-        record.seoTitle ||
-        record.sidebarLabel ||
-        record.title ||
-        "Learn how to be a better Solana Developer",
+      title,
     },
     size,
   );
@@ -58,6 +54,39 @@ export async function GET(
     },
   });
 }
+
+const getTitle = (slugItems: Array<string>) => {
+  let [firstSlugItem, ...path] = slugItems;
+  if (slugItems.length > 2 && firstSlugItem === "courses") {
+    firstSlugItem = "lesson";
+  }
+  switch (firstSlugItem.toLowerCase()) {
+    case "resources":
+      return "Developer Resources";
+    case "docs":
+      const docsPage = docsSource.getPage(path);
+      if (!docsPage) return null;
+      return docsPage.data.seoTitle || docsPage.data.h1 || docsPage.data.title;
+    case "cookbook":
+      const page = cookbookSource.getPage(path);
+      if (!page) return null;
+      return page.data.seoTitle || page.data.h1 || page.data.title;
+    case "guides":
+      const guide = guidesSource.getPage(path);
+      if (!guide) return null;
+      return guide.data.seoTitle || guide.data.h1 || guide.data.title;
+    case "courses":
+      const course = coursesSource.getPage(path);
+      if (!course) return null;
+      return course.data.seoTitle || course.data.h1 || course.data.title;
+    case "lesson":
+      const lesson = coursesSource.getPage(path);
+      if (!lesson) return null;
+      return lesson.data.seoTitle || lesson.data.h1 || lesson.data.title;
+    default:
+      return "Solana Developers";
+  }
+};
 
 // Get the heading text based on the provided slugItems
 const getHeading = (slugItems: Array<string>) => {
