@@ -25,6 +25,7 @@ export default async function Page(props: {
       ]}
       filePath={page.file.path}
       href={page.url}
+      pageTree={coursesSource.pageTree}
     >
       <MDX components={mdxComponents} />
     </BlogPage>

@@ -21,6 +21,7 @@ export default async function Page(props: {
       tags={page.data.tags}
       date={page.data.date}
       difficulty={page.data.difficulty}
+      pageTree={guidesSource.pageTree}
     >
       <MDX components={mdxComponents} />
     </BlogPage>

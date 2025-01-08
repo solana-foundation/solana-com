@@ -6,6 +6,7 @@ import {
 } from "fumadocs-ui/page";
 import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import { ReactNode } from "react";
+import { ScrollToTop } from "./scroll-to-top";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -29,7 +30,12 @@ export function DocsPage(props: {
         enabled: !props.hideTableOfContents,
       }}
       tableOfContent={{
-        footer: <EditOnGithub path={props.filePath} />,
+        footer: (
+          <>
+            <EditOnGithub path={props.filePath} />
+            <ScrollToTop />
+          </>
+        ),
         enabled: !props.hideTableOfContents,
       }}
     >
@@ -42,7 +48,7 @@ export function DocsPage(props: {
 }
 
 function EditOnGithub({ path }: { path: string }) {
-  const href = `https://github.com/solana-foundation/solana-com/blob/main/${path.startsWith("/") ? path.slice(1) : path}`;
+  const href = `https://github.com/solana-foundation/solana-com/blob/main/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
   return (
     <a
       href={href}
