@@ -43,3 +43,12 @@ export default async function initTranslations(
     t: i18nInstance.t,
   };
 }
+
+const namespaces = ["common"];
+
+export async function serverTranslation(lng, ns = namespaces) {
+  const { i18n } = await initTranslations(lng, ns);
+  return {
+    t: i18n.getFixedT(lng, Array.isArray(ns) ? ns[0] : ns),
+  };
+}

@@ -55,3 +55,26 @@ export const guidesSource = loader({
     },
   },
 });
+
+export function getGuides() {
+  return getGuidesFromFolder(guidesSource.pageTree);
+}
+
+function getGuidesFromFolder(folder: any) {
+  return folder.children.flatMap((node: any) => {
+    if (node.children) {
+      return getGuidesFromFolder(node);
+    } else {
+      return [
+        {
+          href: node.href || node.url,
+          title: node.name,
+          description: node.description,
+          difficulty: node.difficulty,
+          tags: node.tags,
+          featured: node.featured,
+        },
+      ];
+    }
+  });
+}
