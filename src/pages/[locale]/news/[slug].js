@@ -70,7 +70,6 @@ const Post = ({ builderLocale, post, pageSettings }) => {
 
 export async function getStaticPaths() {
   const allPosts = await getAllPostSlugs(NEWS_BUILDER_CONFIG.postsModel);
-  console.log("allPosts", allPosts);
   return {
     paths: pathsWithLocales(allPosts || []),
     fallback: "blocking",

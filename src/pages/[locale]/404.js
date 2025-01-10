@@ -15,7 +15,7 @@ const NotFoundPage = () => {
       <div className="container py-10">
         <div className="row align-items-center justify-content-center">
           <div className="col-md-6 col-lg-8 order-md-2">
-            <Image src={NotFoundImg} />
+            <Image src={NotFoundImg} alt="Not found" />
           </div>
           <div className="col-md-6 col-lg-4 order-md-1">
             <h1 className="display-3 fw-bold text-center">{t("404.title")}</h1>

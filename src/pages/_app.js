@@ -8,16 +8,14 @@ import { NextIntlClientProvider } from "next-intl";
 
 const App = ({ Component, pageProps: { ...pageProps } }) => {
   return (
-    <>
-      <NextIntlClientProvider locale={pageProps.locale}>
-        <GTMTrackingSnippet />
-        <SitewideTopAlert locale={pageProps.builderLocale || "Default"} />
-        <CookieConsent />
-        <ThemeProvider>
-          <Component {...pageProps} />
-        </ThemeProvider>
-      </NextIntlClientProvider>
-    </>
+    <NextIntlClientProvider locale={pageProps.locale || "en"}>
+      <GTMTrackingSnippet />
+      <SitewideTopAlert locale={pageProps.builderLocale || "Default"} />
+      <CookieConsent />
+      <ThemeProvider>
+        <Component {...pageProps} key={pageProps.key} />
+      </ThemeProvider>
+    </NextIntlClientProvider>
   );
 };
 
