@@ -1,6 +1,5 @@
 import { docsSource } from "@/app/source";
 import { notFound } from "next/navigation";
-
 import {
   DocSideBySide,
   DocLeftSide,
@@ -21,17 +20,12 @@ const rpcMDXComponents = {
   DocRightSide,
 };
 
-export default async function Page(props: {
-  params: Promise<{ slug?: string[] }>;
-}) {
-  const params = await props.params;
-  const slug = params.slug ? ["rpc", ...params.slug] : ["rpc"];
+export function RpcDocsPage({ slug }: { slug: string[] }) {
   const page = docsSource.getPage(slug);
   if (!page) notFound();
   const MDX = page.data.body;
 
   return (
-    // @ts-ignore
     <DocsPage
       toc={page.data.toc}
       full={page.data.full}
@@ -44,15 +38,7 @@ export default async function Page(props: {
   );
 }
 
-export async function generateStaticParams() {
-  return docsSource.generateParams();
-}
-
-export async function generateMetadata(props: {
-  params: Promise<{ slug?: string[] }>;
-}) {
-  const params = await props.params;
-  const slug = params.slug ? ["rpc", ...params.slug] : ["rpc"];
+export function getMetadataFromSlug(slug: string[]) {
   const page = docsSource.getPage(slug);
   if (!page) notFound();
 

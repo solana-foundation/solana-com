@@ -1,20 +1,15 @@
 import { cookbookSource } from "@/app/source";
-
 import { DocsPage } from "@/app/components/docs-page";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 
-export default async function Page(props: {
-  params: Promise<{ slug?: string[] }>;
-}) {
-  const params = await props.params;
-  const page = cookbookSource.getPage(params.slug);
+export function CookbookPage({ slug }: { slug: string[] }) {
+  const page = cookbookSource.getPage(slug);
   if (!page) notFound();
 
   const MDX = page.data.body;
 
   return (
-    // @ts-ignore
     <DocsPage
       toc={page.data.toc}
       full={page.data.full}
@@ -27,15 +22,8 @@ export default async function Page(props: {
   );
 }
 
-export async function generateStaticParams() {
-  return cookbookSource.generateParams();
-}
-
-export async function generateMetadata(props: {
-  params: Promise<{ slug?: string[] }>;
-}) {
-  const params = await props.params;
-  const page = cookbookSource.getPage(params.slug);
+export function getMetadataFromSlug(slug: string[]) {
+  const page = cookbookSource.getPage(slug);
   if (!page) notFound();
 
   return {
