@@ -17,7 +17,7 @@ import { getPageSettings } from "@/lib/builder/api";
 import customComponentsRegistration from "@/utils/customComponentGenerator";
 import { useTranslation } from "next-i18next";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
 
 builder.init(NEWS_BUILDER_CONFIG.apiKey);

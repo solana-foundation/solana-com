@@ -1,5 +1,5 @@
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 import { useTranslation } from "next-i18next";
 
 import PlayGGLayout from "@/components/playgg/PlayGGLayout";

@@ -11,7 +11,7 @@ import { config } from "src/config";
 
 import { getAllPostsInDir, getPostBySlug } from "@/lib/markdown";
 import LearnPagination from "@/components/learn/LearnPagination";
-import { pathsWithLocales } from "@/i18n";
+import { pathsWithLocales } from "@/i18n/routing";
 
 const LearnPage = ({ article }) => {
   const {

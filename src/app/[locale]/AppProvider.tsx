@@ -1,7 +1,7 @@
 "use client";
 
 import { I18nextProvider } from "react-i18next";
-import initTranslations from "@/app/i18n";
+import initTranslations from "@/i18n/translation";
 import { createInstance } from "i18next";
 import { NextIntlClientProvider } from "next-intl";
 

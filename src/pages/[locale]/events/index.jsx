@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { Trans, useTranslation } from "next-i18next";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";

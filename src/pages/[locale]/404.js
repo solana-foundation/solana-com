@@ -2,7 +2,7 @@ import { Link } from "@/utils/Link";
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 import { useTranslation } from "next-i18next";
 import NotFoundImg from "@@/public/img/not-found.png";
 import Image from "next/image";

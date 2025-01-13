@@ -1,7 +1,7 @@
 import "@/scss/index.scss";
 import "@/app/globals.css";
 import { ThemeProvider } from "@/themecontext";
-import initTranslations from "@/app/i18n";
+import initTranslations from "@/i18n/translation";
 import AppProvider from "./AppProvider";
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
@@ -10,7 +10,7 @@ import { config } from "@/config";
 import { RootProvider } from "fumadocs-ui/provider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { staticLocales } from "@/i18n";
+import { staticLocales } from "@/i18n/config.cjs";
 import { Metadata } from "next";
 
 const namespaces = ["common"];

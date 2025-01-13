@@ -7,7 +7,7 @@ import CommunitySocial from "@/components/community/CommunitySocial";
 import CommunityNews from "@/components/community/CommunityNews";
 import CommunityCollective from "@/components/community/CommunityCollective";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 import { useTranslation } from "next-i18next";
 import { getPostsPage, getPostPagination } from "@/lib/builder/api";
 import {

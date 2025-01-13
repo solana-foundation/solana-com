@@ -9,7 +9,7 @@ import {
 } from "@/lib/builder/api";
 import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { pathsWithLocales } from "@/i18n";
+import { pathsWithLocales } from "@/i18n/routing";
 import { MetaData } from "@/components/blog/meta";
 import { DetailsHero } from "@solana-foundation/solana-lib";
 import { PageBreadcrumbs } from "@/components/developers/DevelopersContentPage/PageBreadcrumbs";

@@ -2,7 +2,7 @@ import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import { useTranslation } from "next-i18next";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 
 import FormatNFTVolume from "@/components/format/FormatNFTVolume";
 import FormatHero from "@/components/format/FormatHero";

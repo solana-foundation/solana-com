@@ -2,7 +2,7 @@ import { DevelopersPage } from "./developers";
 import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
 import { getYTVideos } from "@/utils/followerFunctions";
 import { resources, getGuides } from "@/app/source";
-import { serverTranslation } from "@/app/i18n";
+import { serverTranslation } from "@/i18n/translation";
 
 type Props = { params: Promise<{ locale: string }> };
 

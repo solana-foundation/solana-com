@@ -2,7 +2,7 @@ import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import EmailSubscribeForm from "@/components/shared/EmailSubscribeForm";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 import { useTranslation } from "next-i18next";
 
 const NewsletterPage = () => {

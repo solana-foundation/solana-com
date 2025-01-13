@@ -4,7 +4,7 @@ import PostCard from "@/components/blog/PostCard";
 import HTMLHead from "@/components/HTMLHead";
 import styled from "styled-components";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { slugWithLocales } from "@/i18n";
+import { slugWithLocales } from "@/i18n/routing";
 import {
   getSingleTag,
   getPostsByTag,

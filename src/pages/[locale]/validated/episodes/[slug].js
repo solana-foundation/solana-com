@@ -1,5 +1,5 @@
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { pathsWithLocales } from "@/i18n";
+import { pathsWithLocales } from "@/i18n/routing";
 
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";

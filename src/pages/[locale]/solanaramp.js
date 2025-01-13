@@ -3,7 +3,7 @@ import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import RampLayout from "@/components/ramps/RampsLayout";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 import {
   rampData,
   fiatAssets,

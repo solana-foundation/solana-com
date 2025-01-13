@@ -1,44 +1,24 @@
 import { createNavigation } from "next-intl/navigation";
 import { defineRouting } from "next-intl/routing";
-
-export const locales = [
-  "en",
-  "ar",
-  "de",
-  "el",
-  "es",
-  "fi",
-  "fr",
-  "hi",
-  "id",
-  "it",
-  "ja",
-  "ko",
-  "nl",
-  "pl",
-  "pt",
-  "ru",
-  "tr",
-  "uk",
-  "vi",
-  "zh",
-];
+import { locales, defaultLocale } from "./config.cjs";
+import { useLocale } from "next-intl";
 
 export const routing = defineRouting({
   locales,
-  defaultLocale: "en",
+  defaultLocale,
   localePrefix: "as-needed", // default locale won't have a prefix
 });
 
 export const { Link, redirect, usePathname, useRouter } =
   createNavigation(routing);
 
+export { useLocale };
+
 // locales to be used in getStaticPaths (for static generation)
 export const staticLocales = ["en"];
 
 export function withLocales() {
-  const paths = staticLocales.map((locale) => ({ params: { locale } }));
-  return paths;
+  return staticLocales.map((locale) => ({ params: { locale } }));
 }
 
 export function slugsWithLocales(slugs: string[]) {

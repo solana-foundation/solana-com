@@ -1,30 +1,10 @@
+const { locales, defaultLocale } = require("./src/i18n/config.cjs");
 const path = require("path");
 
 module.exports = {
   i18n: {
-    defaultLocale: "en",
-    locales: [
-      "en",
-      "ar",
-      "de",
-      "el",
-      "es",
-      "fi",
-      "fr",
-      "hi",
-      "id",
-      "it",
-      "ja",
-      "ko",
-      "nl",
-      "pl",
-      "pt",
-      "ru",
-      "tr",
-      "uk",
-      "vi",
-      "zh",
-    ],
+    defaultLocale,
+    locales,
   },
   localePath: path.resolve("./public/locales"),
 };

@@ -2,7 +2,7 @@ import { uniqBy, orderBy } from "lodash";
 import { StrictMode, useState } from "react";
 import { useTranslation } from "next-i18next";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n";
+import { withLocales } from "@/i18n/routing";
 
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
