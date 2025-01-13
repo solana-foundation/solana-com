@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRouter } from "@/hooks/useRouter";
+import { usePathname } from "@/hooks/useRouter";
 
 const ThemeContext = createContext({
   theme: "dark",
@@ -9,7 +9,7 @@ const ThemeContext = createContext({
 });
 
 export const ThemeProvider = ({ children }) => {
-  const { pathname } = useRouter();
+  const pathname = usePathname();
   const isThemePage =
     pathname.startsWith("/docs") ||
     pathname.startsWith("/developers/cookbook") ||

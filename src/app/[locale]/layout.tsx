@@ -38,12 +38,12 @@ export default async function RootLayout({ children, params }: Props) {
           ></iframe>
         </noscript>
         {/* End Google Tag Manager (noscript) */}
-        <ThemeProvider>
-          <AppProvider
-            namespaces={namespaces}
-            locale={locale}
-            resources={resources}
-          >
+        <AppProvider
+          namespaces={namespaces}
+          locale={locale}
+          resources={resources}
+        >
+          <ThemeProvider>
             <RootProvider
               search={{ enabled: false }}
               theme={{ disableTransitionOnChange: true }}
@@ -55,8 +55,8 @@ export default async function RootLayout({ children, params }: Props) {
               {children}
               <Footer />
             </RootProvider>
-          </AppProvider>
-        </ThemeProvider>
+          </ThemeProvider>
+        </AppProvider>
       </body>
     </html>
   );

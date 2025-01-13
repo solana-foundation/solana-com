@@ -26,3 +26,12 @@ export default function NotFound() {
     </div>
   );
 }
+
+// https://github.com/vercel/next.js/issues/45620
+// export async function generateMetadata({ params }: Props) {
+//   const { locale } = await params;
+//   const { t } = await serverTranslation(locale);
+//   return {
+//     title: t("titles.404"),
+//   };
+// }
