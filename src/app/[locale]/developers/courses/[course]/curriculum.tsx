@@ -50,7 +50,7 @@ export default function Curriculum({ course }) {
   });
 
   return (
-    <div>
+    <div className="container">
       <div ref={postsGridRef}>
         <DetailsHero
           shareIcons={true}
@@ -79,9 +79,7 @@ export default function Curriculum({ course }) {
           author={author}
         />
       </div>
-
       <CardDeck numCols={3} cards={lessonCards} isListing />
-
       <div className={classNames(styles["developers-content-page"])}>
         {/* @ts-expect-error */}
         <RoundedDepthCard
