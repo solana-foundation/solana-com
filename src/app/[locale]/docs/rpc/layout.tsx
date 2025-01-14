@@ -4,7 +4,9 @@ import { DocsLayout } from "@/app/components/docs-layout";
 
 export default function Layout({ children }: { children: ReactNode }) {
   const rpcFolder = docsSource.pageTree.children.find(
-    (child) => child.name === "Solana RPC Methods",
+    (child) =>
+      typeof child.name === "string" &&
+      child.name.startsWith("Solana RPC Methods"),
   );
   const pageTree = { ...docsSource.pageTree, children: [rpcFolder] };
   return <DocsLayout tree={pageTree}>{children}</DocsLayout>;

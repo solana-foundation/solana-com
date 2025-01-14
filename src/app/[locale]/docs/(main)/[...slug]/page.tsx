@@ -11,6 +11,7 @@ export default async function Page(props: {
 export async function generateStaticParams() {
   const params = docsSource
     .generateParams()
+    .filter((param) => param.slug.length > 0)
     .filter((param) => param.slug[0] !== "rpc");
   return params;
 }

@@ -9,7 +9,11 @@ export default async function Page(props: {
 }
 
 export async function generateStaticParams() {
-  return docsSource.generateParams();
+  return docsSource
+    .generateParams()
+    .filter((param) => param.slug[0] === "rpc")
+    .map((param) => ({ slug: param.slug.slice(1) }))
+    .filter((param) => param.slug.length > 0);
 }
 
 export async function generateMetadata(props: {

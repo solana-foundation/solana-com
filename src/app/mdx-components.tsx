@@ -3,9 +3,18 @@ import { Pre, CodeBlock } from "fumadocs-ui/components/codeblock";
 import NextImage from "next/image";
 import type { ImageProps } from "next/image";
 import { ImgHTMLAttributes } from "react";
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
+  Steps,
+  Step,
+  Accordion,
+  Accordions,
+  Tab,
+  Tabs,
   pre: ({ ref: _ref, ...props }) => (
     <CodeBlock {...props} allowCopy>
       <Pre className="max-h-none">{props.children}</Pre>
@@ -15,6 +24,20 @@ export const mdxComponents = {
 };
 
 function Image(props: ImgHTMLAttributes<HTMLImageElement>) {
+  if (typeof props.src === "function") {
+    // this is the `@svgr/webpack` loader
+    // maybe it should ignore imports from mdx files
+    const { src, ...rest } = props;
+    const Component = src as any;
+    return (
+      <span className="block">
+        <Component {...rest} className="rounded-lg mb-4 w-full" />
+        <span className="text-center text-sm text-fd-muted-foreground block">
+          {props.alt}
+        </span>
+      </span>
+    );
+  }
   return (
     <span className="block">
       <NextImage

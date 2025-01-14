@@ -9,7 +9,9 @@ export default async function Page(props: {
 }
 
 export async function generateStaticParams() {
-  return cookbookSource.generateParams();
+  return cookbookSource
+    .generateParams()
+    .filter((param) => param.slug.length > 0);
 }
 
 export async function generateMetadata(props: {
