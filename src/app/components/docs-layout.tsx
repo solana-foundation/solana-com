@@ -42,11 +42,13 @@ function CustomSidebar() {
   return (
     <>
       <Sidebar
-        className="md:bg-transparent"
+        className="md:bg-transparent text-base"
         style={{ maxHeight: "calc(100vh - 76px)" }}
       >
         <SidebarViewport>
-          <SidebarPageTree />
+          <div className="mt-1">
+            <SidebarPageTree />
+          </div>
         </SidebarViewport>
       </Sidebar>
       <div
