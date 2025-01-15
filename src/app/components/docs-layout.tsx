@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Sidebar, SidebarViewport } from "fumadocs-ui/layouts/docs/sidebar";
 import { NavbarSidebarTrigger } from "fumadocs-ui/layouts/docs.client";
 import { SidebarPageTree } from "fumadocs-ui/layouts/docs/sidebar";
+import { RootProvider } from "fumadocs-ui/provider";
 
 export function DocsLayout({
   children,
@@ -17,18 +18,23 @@ export function DocsLayout({
   sidebarEnabled?: boolean;
 }) {
   return (
-    <div className="container-xl container-docs fumadocs">
-      <FumaDocsLayout
-        tree={tree}
-        nav={{ enabled: false }}
-        sidebar={{
-          enabled: sidebarEnabled,
-          component: <CustomSidebar />,
-        }}
-      >
-        {children}
-      </FumaDocsLayout>
-    </div>
+    <RootProvider
+      search={{ enabled: false }}
+      theme={{ disableTransitionOnChange: true }}
+    >
+      <div className="container-xl container-docs fumadocs">
+        <FumaDocsLayout
+          tree={tree}
+          nav={{ enabled: false }}
+          sidebar={{
+            enabled: sidebarEnabled,
+            component: <CustomSidebar />,
+          }}
+        >
+          {children}
+        </FumaDocsLayout>
+      </div>
+    </RootProvider>
   );
 }
 

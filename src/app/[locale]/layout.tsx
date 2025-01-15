@@ -2,12 +2,11 @@ import "@/scss/index.scss";
 import "@/app/globals.css";
 import { ThemeProvider } from "@/themecontext";
 import initTranslations from "@/i18n/translation";
-import AppProvider from "./AppProvider";
+import I18nProvider from "@/i18n/I18nProvider";
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
 import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
 import { config } from "@/config";
-import { RootProvider } from "fumadocs-ui/provider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { staticLocales } from "@/i18n/config.cjs";
@@ -38,25 +37,20 @@ export default async function RootLayout({ children, params }: Props) {
           ></iframe>
         </noscript>
         {/* End Google Tag Manager (noscript) */}
-        <AppProvider
+        <I18nProvider
           namespaces={namespaces}
           locale={locale}
           resources={resources}
         >
           <ThemeProvider>
-            <RootProvider
-              search={{ enabled: false }}
-              theme={{ disableTransitionOnChange: true }}
-            >
-              <GTMTrackingSnippet />
-              <SitewideTopAlert locale={builderLocale} />
-              <CookieConsent />
-              <Header containerClassName="container-docs" />
-              {children}
-              <Footer />
-            </RootProvider>
+            <GTMTrackingSnippet />
+            <SitewideTopAlert locale={builderLocale} />
+            <CookieConsent />
+            <Header containerClassName="container-docs" />
+            {children}
+            <Footer />
           </ThemeProvider>
-        </AppProvider>
+        </I18nProvider>
       </body>
     </html>
   );
