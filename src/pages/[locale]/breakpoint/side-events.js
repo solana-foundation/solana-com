@@ -5,6 +5,7 @@ import BreakpointLayout from "@/components/breakpoint/BreakpointLayout";
 import { fetchCalendarEvents } from "@/lib/events/fetchCalendarEvents";
 import EventsList from "@/components/events/EventsList";
 import { useTranslation } from "next-i18next";
+import { withLocales } from "@/i18n/routing";
 import Button from "@/components/shared/Button";
 
 const SideEvents = ({
@@ -81,7 +82,7 @@ export async function getStaticProps({ params }) {
 
 export async function getStaticPaths() {
   return {
-    paths: [],
+    paths: withLocales(),
     fallback: "blocking",
   };
 }

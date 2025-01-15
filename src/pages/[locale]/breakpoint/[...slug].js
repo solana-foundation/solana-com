@@ -52,7 +52,6 @@ const Page = ({ builderLocale, page }) => {
 
 export async function getStaticPaths() {
   const allPages = await getAllBreakpointSlugs(BREAKPOINT_BUILDER_CONFIG.model);
-
   return {
     paths: slugsWithLocales(allPages || []),
     fallback: "blocking",
