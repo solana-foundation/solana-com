@@ -1,4 +1,3 @@
-import { memo } from "react";
 import styles from "./MarkdownCallout.module.scss";
 import classNames from "classnames";
 
@@ -25,7 +24,7 @@ type CalloutType =
   | "green"
   | "success";
 
-export const MarkdownCallout = memo(function MarkdownCallout({
+export const MarkdownCallout = function MarkdownCallout({
   children,
   title,
   type = "info",
@@ -45,7 +44,7 @@ export const MarkdownCallout = memo(function MarkdownCallout({
       {children}
     </div>
   );
-});
+};
 
 // only allow the supported callout types
 const getCalloutClass = (type: CalloutType) => {

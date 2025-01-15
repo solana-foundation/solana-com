@@ -20,7 +20,10 @@ export function Breadcrumb({
   const rootParts = root?.split("/").filter((part) => part);
 
   return (
-    <div className="-mb-3 flex flex-row items-center gap-1 text-sm font-medium text-fd-muted-foreground">
+    <div
+      className="-mb-3 flex flex-row items-center gap-1 text-sm font-medium text-fd-muted-foreground"
+      id="nd-breadcrumb"
+    >
       <Link className="truncate hover:text-fd-accent-foreground" href="/">
         Home
       </Link>

@@ -32,7 +32,6 @@ export function BlogPage(props: {
     tags: props.tags,
     difficulty: props.difficulty,
   };
-  // TODO prev, next links
   return (
     <div className="container">
       <div className="my-6">
