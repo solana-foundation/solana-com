@@ -7,10 +7,12 @@ import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { MarkdownCallout } from "@/components/shared/MarkdownRenderer/components/MarkdownCallout";
+import { MarkdownEmbed } from "@/components/shared/MarkdownRenderer/components/MarkdownEmbed";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
   Callout: MarkdownCallout,
+  Embed: MarkdownEmbed,
   Steps,
   Step,
   Accordion,
