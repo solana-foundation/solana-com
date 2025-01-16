@@ -22,7 +22,7 @@ export function DocsLayout({
       search={{ enabled: false }}
       theme={{ disableTransitionOnChange: true }}
     >
-      <div className="container-xl container-docs fumadocs">
+      <div className="container-xl fumadocs">
         <FumaDocsLayout
           tree={tree}
           nav={{ enabled: false }}

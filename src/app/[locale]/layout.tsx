@@ -46,7 +46,7 @@ export default async function RootLayout({ children, params }: Props) {
             <GTMTrackingSnippet />
             <SitewideTopAlert locale={builderLocale} />
             <CookieConsent />
-            <Header containerClassName="container-docs" />
+            <Header />
             {children}
             <Footer />
           </ThemeProvider>

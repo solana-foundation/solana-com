@@ -17,7 +17,6 @@ export function DocsPage(props: {
   title: string;
 }) {
   return (
-    // @ts-ignore
     <FumaDocsPage
       toc={props.toc}
       full={props.full}
@@ -42,7 +41,7 @@ export function DocsPage(props: {
       <DocsTitle className="text-fd-accent-foreground text-4xl md:text-5xl">
         {props.title}
       </DocsTitle>
-      <DocsBody className="text-lg">{props.children}</DocsBody>
+      <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
     </FumaDocsPage>
   );
 }
