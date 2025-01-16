@@ -749,7 +749,7 @@ export const walletData = [
    {
     name: "NOW Wallet",
     body: "NOW Wallet is a versatile and user-friendly non-custodial crypto wallet. Store, buy, exchange and stake crypto in a secured mobile and desktop app. 40+ blockchains and thousands of tokens available.",
-    website: "https://walletnow.app//",
+    website: "https://walletnow.app/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Open Source",
     icon: nowwalletIcon,
@@ -764,9 +764,9 @@ export const walletData = [
     mpc: false,
     gas_abstraction: false,
     social_recovery: false,
-    staking: false,
+    staking: true,
     spending_limits: false,
-    open_source: true,
+    open_source: false,
     hardware: false,
     private_key_infrastructure: false,
   },
