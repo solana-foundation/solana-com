@@ -1,4 +1,4 @@
-import { docsSource } from "@/app/source";
+import { docsSource } from "@/app/sources/docs";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@/app/components/docs-layout";
 

@@ -1,4 +1,4 @@
-import { getGuides } from "@/app/source";
+import { getGuides } from "@/app/sources/guides";
 import { GuidesIndex } from "./guides";
 
 export default function Page() {

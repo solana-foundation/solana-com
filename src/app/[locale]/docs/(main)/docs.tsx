@@ -1,4 +1,4 @@
-import { docsSource } from "@/app/source";
+import { docsSource } from "@/app/sources/docs";
 import { DocsPage } from "@/app/components/docs-page";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";

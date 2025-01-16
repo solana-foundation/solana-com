@@ -1,12 +1,10 @@
 import { IMAGE_SETTINGS } from "@/utils/images";
 import { notFound } from "next/navigation";
 import DeveloperDocsImage from "@/components/opengraph/DeveloperDocsImage";
-import {
-  cookbookSource,
-  coursesSource,
-  docsSource,
-  guidesSource,
-} from "@/app/source";
+import { coursesSource } from "@/app/sources/courses";
+import { docsSource } from "@/app/sources/docs";
+import { cookbookSource } from "@/app/sources/cookbook";
+import { guidesSource } from "@/app/sources/guides";
 
 // Route segment config
 export const runtime = "nodejs";

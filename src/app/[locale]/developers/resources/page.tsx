@@ -1,4 +1,4 @@
-import { resources } from "@/app/source";
+import { resources } from "@/app/sources/resources";
 import { ResourcesIndex } from "./resources";
 
 export default function Page() {

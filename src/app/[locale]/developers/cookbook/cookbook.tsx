@@ -1,4 +1,4 @@
-import { cookbookSource } from "@/app/source";
+import { cookbookSource } from "@/app/sources/cookbook";
 import { DocsPage } from "@/app/components/docs-page";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";

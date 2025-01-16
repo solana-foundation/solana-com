@@ -1,4 +1,4 @@
-import { coursesSource } from "@/app/source";
+import { coursesSource } from "@/app/sources/courses";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { BlogPage } from "@/app/components/blog-page";

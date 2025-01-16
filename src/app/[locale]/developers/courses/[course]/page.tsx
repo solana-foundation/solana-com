@@ -1,4 +1,5 @@
-import { coursesSource, authors } from "@/app/source";
+import { coursesSource } from "@/app/sources/courses";
+import { authors } from "@/app/sources/authors";
 import Curriculum from "./curriculum";
 import { notFound } from "next/navigation";
 

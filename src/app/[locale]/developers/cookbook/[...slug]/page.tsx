@@ -1,4 +1,4 @@
-import { cookbookSource } from "@/app/source";
+import { cookbookSource } from "@/app/sources/cookbook";
 import { CookbookPage, getMetadataFromSlug } from "../cookbook";
 
 export default async function Page(props: {

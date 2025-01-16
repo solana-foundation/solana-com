@@ -1,4 +1,4 @@
-import { cookbookSource } from "@/app/source";
+import { cookbookSource } from "@/app/sources/cookbook";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@/app/components/docs-layout";
 

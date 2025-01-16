@@ -1,4 +1,4 @@
-import { docsSource } from "@/app/source";
+import { docsSource } from "@/app/sources/docs";
 import { getMetadataFromSlug, MainDocsPage } from "../docs";
 
 export default async function Page(props: {

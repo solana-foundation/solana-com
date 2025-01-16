@@ -1,7 +1,8 @@
 import { DevelopersPage } from "./developers";
 import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
 import { getYTVideos } from "@/utils/followerFunctions";
-import { resources, getGuides } from "@/app/source";
+import { resources } from "@/app/sources/resources";
+import { getGuides } from "@/app/sources/guides";
 import { serverTranslation } from "@/i18n/translation";
 import { ResolvingMetadata } from "next";
 

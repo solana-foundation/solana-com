@@ -1,4 +1,4 @@
-import { coursesSource } from "@/app/source";
+import { coursesSource } from "@/app/sources/courses";
 import Courses from "./courses-index";
 
 import { DefaultCard } from "@solana-foundation/solana-lib/dist/components/CardDeck/DefaultCard/defaultCard";

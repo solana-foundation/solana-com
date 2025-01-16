@@ -1,4 +1,4 @@
-import { docsSource } from "@/app/source";
+import { docsSource } from "@/app/sources/docs";
 import { notFound } from "next/navigation";
 import {
   DocSideBySide,
