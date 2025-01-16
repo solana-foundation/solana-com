@@ -3,6 +3,7 @@ import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
 import { getYTVideos } from "@/utils/followerFunctions";
 import { resources, getGuides } from "@/app/source";
 import { serverTranslation } from "@/i18n/translation";
+import { ResolvingMetadata } from "next";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -44,11 +45,20 @@ async function getResources() {
   return resources.filter((r) => r.featured).slice(0, 6);
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata(
+  { params }: Props,
+  parent: ResolvingMetadata,
+) {
   const { locale } = await params;
   const { t } = await serverTranslation(locale);
+  const { openGraph } = await parent;
   return {
-    title: t("developers.hero.title"),
+    title: t("developers.title"),
     description: t("developers.description"),
+    openGraph: {
+      ...openGraph,
+      title: t("developers.title"),
+      description: t("developers.description"),
+    },
   };
 }
