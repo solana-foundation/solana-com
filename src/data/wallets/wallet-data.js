@@ -25,7 +25,7 @@ import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
 import gemIcon from "../../../assets/wallets/icons/gem.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
-
+import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 export const walletData = [
   {
     name: "Phantom",
@@ -729,6 +729,30 @@ export const walletData = [
     additionalInfo:
       "Non-Custodial/Self Custodial • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Open Source",
     icon: enkryptIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: true,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+   {
+    name: "NOW Wallet",
+    body: "NOW Wallet is a versatile and user-friendly non-custodial crypto wallet. Store, buy, exchange and stake crypto in a secured mobile and desktop app. 40+ blockchains and thousands of tokens available.",
+    website: "https://walletnow.app//",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Open Source",
+    icon: nowwalletIcon,
     custodial: false,
     non_custodial: true,
     te: false,
