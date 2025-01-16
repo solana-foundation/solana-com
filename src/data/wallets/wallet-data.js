@@ -29,7 +29,7 @@ import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 export const walletData = [
   {
     name: "Phantom",
-    body: "Multiple chains, one wallet. No more switching.",
+    body: "NOW Wallet - the only crypto wallet you’ll ever need",
     website: "https://phantom.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
@@ -748,15 +748,15 @@ export const walletData = [
   },
    {
     name: "NOW Wallet",
-    body: "NOW Wallet is a versatile and user-friendly non-custodial crypto wallet. Store, buy, exchange and stake crypto in a secured mobile and desktop app. 40+ blockchains and thousands of tokens available.",
+    body: "текст заменить на короткое, референс - фантом.",
     website: "https://walletnow.app/",
     additionalInfo:
-      "Non-Custodial/Self Custodial • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Open Source",
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs  • Staking",
     icon: nowwalletIcon,
     custodial: false,
     non_custodial: true,
     te: false,
-    blinks_and_actions: true,
+    blinks_and_actions: false,
     solana_pay: false,
     buy_crypto: true,
     sell_crypto: true,
