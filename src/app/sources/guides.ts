@@ -1,4 +1,4 @@
-import { guides, guidesMeta } from "../../../.source";
+import { guides, guidesMeta } from "@@/.source/guides";
 import { createMDXSource } from "fumadocs-mdx";
 import { loader } from "fumadocs-core/source";
 

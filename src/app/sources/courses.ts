@@ -1,4 +1,4 @@
-import { courses, coursesMeta } from "../../../.source";
+import { courses, coursesMeta } from "@@/.source/courses";
 import { createMDXSource } from "fumadocs-mdx";
 import { loader } from "fumadocs-core/source";
 

@@ -1,4 +1,4 @@
-import { cookbook, cookbookMeta } from "../../../.source";
+import { cookbook, cookbookMeta } from "@@/.source/cookbook";
 import { createMDXSource } from "fumadocs-mdx";
 import { loader } from "fumadocs-core/source";
 
