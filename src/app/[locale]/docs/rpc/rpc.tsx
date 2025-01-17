@@ -10,6 +10,7 @@ import {
 } from "@/components/shared/MarkdownRenderer/DocSideBySide";
 import { DocsPage } from "@/app/components/docs-page";
 import { mdxComponents } from "@/app/mdx-components";
+import { getAlternates } from "@/i18n/routing";
 
 const rpcMDXComponents = {
   DocSideBySide,
@@ -38,7 +39,7 @@ export function RpcDocsPage({ slug }: { slug: string[] }) {
   );
 }
 
-export function getMetadataFromSlug(slug: string[]) {
+export function getMetadataFromSlug(slug: string[], locale: string) {
   const page = docsSource.getPage(slug);
   if (!page) notFound();
 
@@ -48,5 +49,6 @@ export function getMetadataFromSlug(slug: string[]) {
     openGraph: {
       images: `/opengraph/developers${page.url}`,
     },
+    alternates: getAlternates(page.url, locale),
   };
 }

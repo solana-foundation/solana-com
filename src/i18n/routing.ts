@@ -51,3 +51,16 @@ export function pathsWithLocales<T>(paths: { params: T }[]) {
     })
   );
 }
+
+export function getAlternates(path: string, locale: string) {
+  const languages = {
+    "x-default": `/${path}`,
+  };
+  locales.forEach((l) => {
+    languages[l] = l === defaultLocale ? `/${path}` : `/${l}${path}`;
+  });
+  return {
+    canonical: locale === defaultLocale ? `/${path}` : `/${locale}${path}`,
+    languages,
+  };
+}

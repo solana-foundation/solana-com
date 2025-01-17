@@ -2,6 +2,7 @@ import { docsSource } from "@/app/sources/docs";
 import { DocsPage } from "@/app/components/docs-page";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
+import { getAlternates } from "@/i18n/routing";
 
 export function MainDocsPage({ slug }: { slug: string[] }) {
   const page = docsSource.getPage(slug);
@@ -22,7 +23,7 @@ export function MainDocsPage({ slug }: { slug: string[] }) {
   );
 }
 
-export function getMetadataFromSlug(slug: string[]) {
+export function getMetadataFromSlug(slug: string[], locale: string) {
   const page = docsSource.getPage(slug);
   if (!page) notFound();
 
@@ -32,5 +33,6 @@ export function getMetadataFromSlug(slug: string[]) {
     openGraph: {
       images: `/opengraph/developers${page.url}`,
     },
+    alternates: getAlternates(page.url, locale),
   };
 }

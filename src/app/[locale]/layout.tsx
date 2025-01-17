@@ -86,9 +86,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     robots: "index, follow",
     manifest: "/site.webmanifest",
     metadataBase: new URL(siteUrl),
-    alternates: {
-      canonical: "./",
-    },
     icons: [
       {
         url: "/favicon.png",

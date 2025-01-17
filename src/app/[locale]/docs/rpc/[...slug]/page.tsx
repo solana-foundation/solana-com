@@ -17,8 +17,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata(props: {
-  params: Promise<{ slug?: string[] }>;
+  params: Promise<{ slug?: string[]; locale: string }>;
 }) {
-  const params = await props.params;
-  return getMetadataFromSlug(["rpc", ...params.slug]);
+  const { slug, locale } = await props.params;
+  return getMetadataFromSlug(["rpc", ...slug], locale);
 }

@@ -7,6 +7,9 @@ export default async function Page() {
   return <CookbookPage slug={[]} />;
 }
 
-export async function generateMetadata() {
-  return getMetadataFromSlug([]);
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>;
+}) {
+  const params = await props.params;
+  return getMetadataFromSlug([], params.locale);
 }

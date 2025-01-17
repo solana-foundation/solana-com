@@ -7,6 +7,9 @@ export default async function Page() {
   return <RpcDocsPage slug={["rpc"]} />;
 }
 
-export async function generateMetadata() {
-  return getMetadataFromSlug(["rpc"]);
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await props.params;
+  return getMetadataFromSlug(["rpc"], locale);
 }

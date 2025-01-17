@@ -2,6 +2,7 @@ import { coursesSource } from "@/app/sources/courses";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { BlogPage } from "@/app/components/blog-page";
+import { getAlternates } from "@/i18n/routing";
 
 export default async function Page(props: {
   params: Promise<{ course: string; lesson: string }>;
@@ -47,10 +48,10 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata(props: {
-  params: Promise<{ course: string; lesson: string }>;
+  params: Promise<{ course: string; lesson: string; locale: string }>;
 }) {
-  const params = await props.params;
-  const page = coursesSource.getPage([params.course, params.lesson]);
+  const { course, lesson, locale } = await props.params;
+  const page = coursesSource.getPage([course, lesson]);
   if (!page) notFound();
 
   return {
@@ -59,5 +60,6 @@ export async function generateMetadata(props: {
     openGraph: {
       images: `/opengraph${page.url}`,
     },
+    alternates: getAlternates(page.url, locale),
   };
 }

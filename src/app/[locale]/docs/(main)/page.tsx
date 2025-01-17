@@ -7,6 +7,9 @@ export default async function Page() {
   return <MainDocsPage slug={[]} />;
 }
 
-export async function generateMetadata() {
-  return getMetadataFromSlug([]);
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await props.params;
+  return getMetadataFromSlug([], locale);
 }

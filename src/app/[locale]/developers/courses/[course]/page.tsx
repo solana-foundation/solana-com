@@ -2,6 +2,7 @@ import { coursesSource } from "@/app/sources/courses";
 import { authors } from "@/app/sources/authors";
 import Curriculum from "./curriculum";
 import { notFound } from "next/navigation";
+import { getAlternates } from "@/i18n/routing";
 
 export default async function Page(props: {
   params: Promise<{ course: string }>;
@@ -42,10 +43,10 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata(props: {
-  params: Promise<{ course: string }>;
+  params: Promise<{ course: string; locale: string }>;
 }) {
-  const params = await props.params;
-  const page = coursesSource.getPage([params.course]);
+  const { course, locale } = await props.params;
+  const page = coursesSource.getPage([course]);
   if (!page) notFound();
 
   return {
@@ -54,5 +55,6 @@ export async function generateMetadata(props: {
     openGraph: {
       images: `/opengraph${page.url}`,
     },
+    alternates: getAlternates(page.url, locale),
   };
 }

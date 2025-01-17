@@ -1,10 +1,11 @@
 import Head from "next/head";
-import { useRouter } from "next/router";
+import { usePathname, useLocale } from "@/i18n/routing";
 import { config } from "src/config";
 import MetaLinks from "../MetaLinks";
 
 const HTMLHead = ({ seo = {}, openGraph = {}, twitterMeta = {} }) => {
-  const { asPath, locale } = useRouter();
+  const locale = useLocale();
+  const asPath = usePathname();
   const asPathNoRedirect = asPath === "/" ? "" : asPath;
   const localeNoEnDefault = locale === "en" ? "" : "/" + locale;
 

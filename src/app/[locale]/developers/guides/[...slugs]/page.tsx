@@ -2,6 +2,7 @@ import { guidesSource } from "@/app/sources/guides";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { BlogPage } from "@/app/components/blog-page";
+import { getAlternates } from "@/i18n/routing";
 
 export default async function Page(props: {
   params: Promise<{ slugs: string[] }>;
@@ -34,10 +35,10 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata(props: {
-  params: Promise<{ slugs?: string[] }>;
+  params: Promise<{ slugs?: string[]; locale: string }>;
 }) {
-  const params = await props.params;
-  const page = guidesSource.getPage(params.slugs);
+  const { slugs, locale } = await props.params;
+  const page = guidesSource.getPage(slugs);
   if (!page) notFound();
 
   return {
@@ -46,5 +47,6 @@ export async function generateMetadata(props: {
     openGraph: {
       images: `/opengraph${page.url}`,
     },
+    alternates: getAlternates(page.url, locale),
   };
 }

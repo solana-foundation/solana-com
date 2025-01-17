@@ -5,6 +5,7 @@ import { resources } from "@/app/sources/resources";
 import { getGuides } from "@/app/sources/guides";
 import { serverTranslation } from "@/i18n/translation";
 import { ResolvingMetadata } from "next";
+import { getAlternates } from "@/i18n/routing";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -61,5 +62,6 @@ export async function generateMetadata(
       title: t("developers.title"),
       description: t("developers.description"),
     },
+    alternates: getAlternates("/developers", locale),
   };
 }
