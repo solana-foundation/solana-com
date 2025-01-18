@@ -7,7 +7,7 @@ import Layout from "@/components/layout";
 import { PAGE_BUILDER_CONFIG } from "@/lib/builder/page/constants";
 import { getPage, getAllPagesWithSlug } from "@/lib/builder/page/api";
 import ModalLauncher from "@/components/ModalLauncher/ModalLauncher";
-import { slugsWithLocales, usePathname } from "@/i18n/routing";
+import { slugWithLocales, usePathname } from "@/i18n/routing";
 
 builder.init(PAGE_BUILDER_CONFIG.apiKey);
 builder.apiVersion = "v3";
@@ -47,15 +47,12 @@ const Page = ({ page, builderLocale }) => {
 
 export async function getStaticPaths() {
   const allPages = await getAllPagesWithSlug();
-
   const slugs = await allPages
-    ?.map((page) => {
-      return page.data.slug[0] === "/" ? page.data.slug : `/${page.data.slug}`;
-    })
-    .filter((slug) => slug !== "/");
-
+    ?.filter((page) => page.data.slug[0] !== "/")
+    ?.map((page) => page.data.slug.split("/"));
+  const paths = slugWithLocales(slugs || []);
   return {
-    paths: slugsWithLocales(slugs || []),
+    paths,
     fallback: "blocking",
   };
 }

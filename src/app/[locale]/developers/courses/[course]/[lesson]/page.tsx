@@ -49,7 +49,7 @@ export async function generateStaticParams() {
     const lessonSlugs = courseFolder.children.map((c: any) => c.slug);
     return lessonSlugs.map((slug: string) => ({
       course: courseFolder.index.slug,
-      lesson: slug,
+      lesson: slug.split("/").slice(1).join("/"),
     }));
   });
 }

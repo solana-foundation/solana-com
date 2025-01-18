@@ -7,7 +7,7 @@ import { BREAKPOINT_BUILDER_CONFIG } from "@/lib/builder/breakpoint/constants";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import HTMLHead from "@/components/builder/HTMLHead";
 import SimpleHero from "@/components/breakpoint/BreakpointSimpleHero";
-import { slugsWithLocales } from "@/i18n/routing";
+import { slugWithLocales } from "@/i18n/routing";
 
 builder.init(BREAKPOINT_BUILDER_CONFIG.apiKey);
 builder.apiVersion = "v3";
@@ -53,7 +53,7 @@ const Page = ({ builderLocale, page }) => {
 export async function getStaticPaths() {
   const allPages = await getAllBreakpointSlugs(BREAKPOINT_BUILDER_CONFIG.model);
   return {
-    paths: slugsWithLocales(allPages || []),
+    paths: slugWithLocales(allPages || []),
     fallback: "blocking",
   };
 }

@@ -21,17 +21,6 @@ export function withLocales() {
   return staticLocales.map((locale) => ({ params: { locale } }));
 }
 
-export function slugsWithLocales(slugs: string[]) {
-  return (
-    slugs &&
-    slugs.flatMap((slug) => {
-      return staticLocales.map((locale) => ({
-        params: { locale, slug: [slug] },
-      }));
-    })
-  );
-}
-
 export function slugWithLocales(slugs: string[]) {
   return (
     slugs &&
