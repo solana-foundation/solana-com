@@ -35,8 +35,6 @@ export default function AiHero() {
             />
           </h1>
           <div className={classNames("w-lg-75", styles["hero__points"])}>
-            <div>{t("ai.hero.point-1")}</div>
-            <div>{t("ai.hero.point-2")}</div>
             <div>{t("ai.hero.point-3")}</div>
           </div>
         </div>
