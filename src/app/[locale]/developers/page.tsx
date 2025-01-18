@@ -9,9 +9,10 @@ import { getAlternates } from "@/i18n/routing";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export default async function Page() {
+export default async function Page(props: Props) {
+  const { locale } = await props.params;
   const latestChangelogVideo = await getLatestChangelogVideo();
-  const guides = getGuides()
+  const guides = getGuides(locale)
     .filter((guide: any) => guide.featured)
     .slice(0, 6);
   const resources = await getResources();

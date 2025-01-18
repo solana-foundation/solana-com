@@ -4,9 +4,9 @@ import {
   DocsTitle,
   DocsPageProps,
 } from "fumadocs-ui/page";
-import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import { ReactNode } from "react";
 import { ScrollToTop } from "./scroll-to-top";
+import { EditOnGithub } from "./edit-page";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -16,6 +16,8 @@ export function DocsPage(props: {
   full?: boolean;
   title: string;
 }) {
+  const path = props.filePath;
+  const href = `https://github.com/solana-foundation/solana-com/blob/main/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
   return (
     <FumaDocsPage
       toc={props.toc}
@@ -31,7 +33,7 @@ export function DocsPage(props: {
       tableOfContent={{
         footer: (
           <>
-            <EditOnGithub path={props.filePath} />
+            <EditOnGithub href={href} />
             <ScrollToTop />
           </>
         ),
@@ -43,20 +45,5 @@ export function DocsPage(props: {
       </DocsTitle>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
     </FumaDocsPage>
-  );
-}
-
-function EditOnGithub({ path }: { path: string }) {
-  const href = `https://github.com/solana-foundation/solana-com/blob/main/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
-      className="pt-2 flex items-center gap-2 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground/80"
-    >
-      <GithubIcon width="18" height="18" />
-      <span>Edit page</span>
-    </a>
   );
 }

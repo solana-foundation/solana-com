@@ -3,9 +3,16 @@ import { DocsPage } from "@/app/components/docs-page";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { getAlternates } from "@/i18n/routing";
+import { getUrlWithoutLocale } from "@/app/sources/utils";
 
-export function CookbookPage({ slug }: { slug: string[] }) {
-  const page = cookbookSource.getPage(slug);
+export function CookbookPage({
+  slug,
+  locale,
+}: {
+  slug: string[];
+  locale: string;
+}) {
+  const page = cookbookSource.getPage(slug, locale);
   if (!page) notFound();
 
   const MDX = page.data.body;
@@ -24,15 +31,16 @@ export function CookbookPage({ slug }: { slug: string[] }) {
 }
 
 export function getMetadataFromSlug(slug: string[], locale: string) {
-  const page = cookbookSource.getPage(slug);
+  const page = cookbookSource.getPage(slug, locale);
   if (!page) notFound();
+  const url = getUrlWithoutLocale(page);
 
   return {
     title: page.data.seoTitle || page.data.h1 || page.data.title,
     description: page.data.description,
     openGraph: {
-      images: `/opengraph${page.url}`,
+      images: `/opengraph${url}`,
     },
-    alternates: getAlternates(page.url, locale),
+    alternates: getAlternates(url, locale),
   };
 }

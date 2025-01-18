@@ -3,12 +3,15 @@ import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { BlogPage } from "@/app/components/blog-page";
 import { getAlternates } from "@/i18n/routing";
+import { getUrlWithoutLocale, toStaticParams } from "@/app/sources/utils";
 
-export default async function Page(props: {
-  params: Promise<{ slugs: string[] }>;
-}) {
-  const params = await props.params;
-  const page = guidesSource.getPage(params.slugs);
+type Props = {
+  params: Promise<{ slugs: string[]; locale: string }>;
+};
+
+export default async function Page(props: Props) {
+  const { slugs, locale } = await props.params;
+  const page = guidesSource.getPage(slugs, locale);
   if (!page) notFound();
   const MDX = page.data.body;
   return (
@@ -16,13 +19,13 @@ export default async function Page(props: {
       toc={page.data.toc}
       title={page.data.h1 || page.data.title}
       filePath={page.file.path}
-      href={page.url}
+      href={getUrlWithoutLocale(page)}
       baseHref="/developers/guides"
       breadcrumb={[]}
       tags={page.data.tags}
       date={page.data.date}
       difficulty={page.data.difficulty}
-      pageTree={guidesSource.pageTree}
+      pageTree={guidesSource.pageTree[locale]}
     >
       <MDX components={mdxComponents} />
     </BlogPage>
@@ -30,23 +33,22 @@ export default async function Page(props: {
 }
 
 export async function generateStaticParams() {
-  const params = guidesSource.generateParams();
+  const params = toStaticParams(guidesSource);
   return params.map((p) => ({ slugs: p.slug }));
 }
 
-export async function generateMetadata(props: {
-  params: Promise<{ slugs?: string[]; locale: string }>;
-}) {
+export async function generateMetadata(props: Props) {
   const { slugs, locale } = await props.params;
-  const page = guidesSource.getPage(slugs);
+  const page = guidesSource.getPage(slugs, locale);
   if (!page) notFound();
+  const url = getUrlWithoutLocale(page);
 
   return {
     title: page.data.seoTitle || page.data.h1 || page.data.title,
     description: page.data.description,
     openGraph: {
-      images: `/opengraph${page.url}`,
+      images: `/opengraph${url}`,
     },
-    alternates: getAlternates(page.url, locale),
+    alternates: getAlternates(url, locale),
   };
 }

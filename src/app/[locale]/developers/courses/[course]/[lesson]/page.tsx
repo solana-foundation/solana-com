@@ -3,16 +3,23 @@ import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { BlogPage } from "@/app/components/blog-page";
 import { getAlternates } from "@/i18n/routing";
+import { getUrlWithoutLocale } from "@/app/sources/utils";
 
-export default async function Page(props: {
-  params: Promise<{ course: string; lesson: string }>;
-}) {
+type Props = {
+  params: Promise<{ course: string; lesson: string; locale: string }>;
+};
+
+export default async function Page(props: Props) {
   const params = await props.params;
-  const page = coursesSource.getPage([params.course, params.lesson]);
+  const page = coursesSource.getPage(
+    [params.course, params.lesson],
+    params.locale,
+  );
   if (!page) notFound();
   const MDX = page.data.body;
 
-  const course = coursesSource.getPage([params.course]);
+  const course = coursesSource.getPage([params.course], params.locale);
+  const tree = coursesSource.pageTree[params.locale];
   return (
     <BlogPage
       toc={page.data.toc}
@@ -25,8 +32,8 @@ export default async function Page(props: {
         },
       ]}
       filePath={page.file.path}
-      href={page.url}
-      pageTree={coursesSource.pageTree}
+      href={getUrlWithoutLocale(page)}
+      pageTree={tree}
     >
       <MDX components={mdxComponents} />
     </BlogPage>
@@ -34,7 +41,7 @@ export default async function Page(props: {
 }
 
 export async function generateStaticParams() {
-  const courseFolders: any = coursesSource.pageTree.children.filter(
+  const courseFolders: any = coursesSource.pageTree["en"].children.filter(
     (c: any) => c?.index.slug,
   );
 
@@ -51,15 +58,15 @@ export async function generateMetadata(props: {
   params: Promise<{ course: string; lesson: string; locale: string }>;
 }) {
   const { course, lesson, locale } = await props.params;
-  const page = coursesSource.getPage([course, lesson]);
+  const page = coursesSource.getPage([course, lesson], locale);
   if (!page) notFound();
-
+  const url = getUrlWithoutLocale(page);
   return {
     title: page.data.seoTitle || page.data.h1 || page.data.title,
     description: page.data.description,
     openGraph: {
-      images: `/opengraph${page.url}`,
+      images: `/opengraph${url}`,
     },
-    alternates: getAlternates(page.url, locale),
+    alternates: getAlternates(url, locale),
   };
 }

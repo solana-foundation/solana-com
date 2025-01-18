@@ -11,6 +11,7 @@ import {
 import { DocsPage } from "@/app/components/docs-page";
 import { mdxComponents } from "@/app/mdx-components";
 import { getAlternates } from "@/i18n/routing";
+import { getUrlWithoutLocale } from "@/app/sources/utils";
 
 const rpcMDXComponents = {
   DocSideBySide,
@@ -21,8 +22,14 @@ const rpcMDXComponents = {
   DocRightSide,
 };
 
-export function RpcDocsPage({ slug }: { slug: string[] }) {
-  const page = docsSource.getPage(slug);
+export async function RpcDocsPage({
+  slug,
+  locale,
+}: {
+  slug: string[];
+  locale: string;
+}) {
+  const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
   const MDX = page.data.body;
 
@@ -40,15 +47,17 @@ export function RpcDocsPage({ slug }: { slug: string[] }) {
 }
 
 export function getMetadataFromSlug(slug: string[], locale: string) {
-  const page = docsSource.getPage(slug);
+  const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
+
+  const url = getUrlWithoutLocale(page);
 
   return {
     title: page.data.seoTitle || page.data.h1 || page.data.title,
     description: page.data.description,
     openGraph: {
-      images: `/opengraph/developers${page.url}`,
+      images: `/opengraph/developers${url}`,
     },
-    alternates: getAlternates(page.url, locale),
+    alternates: getAlternates(url, locale),
   };
 }

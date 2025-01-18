@@ -1,5 +1,4 @@
 import { DocsBody, DocsPageProps } from "fumadocs-ui/page";
-import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
 import { ReactNode } from "react";
 import { Toc, TOCItems } from "fumadocs-ui/components/layout/toc";
 import { ChevronLeft, Text } from "lucide-react";
@@ -9,6 +8,7 @@ import { ScrollToTop } from "./scroll-to-top";
 import { ChevronRight } from "react-feather";
 import Link from "next/link";
 import { findNeighbour } from "fumadocs-core/server";
+import { EditOnGithub, TocLabel } from "./edit-page";
 
 export function BlogPage(props: {
   children: ReactNode;
@@ -32,6 +32,11 @@ export function BlogPage(props: {
     tags: props.tags,
     difficulty: props.difficulty,
   };
+  const baseHref = props.baseHref
+    ?.replace(/^\/developers/, "")
+    .replace(/^\//, "");
+  const filePath = props.filePath?.replace(/^\//, "");
+  const href = `https://github.com/solana-foundation/solana-com/blob/main/content/${baseHref}/${filePath}`;
   return (
     <div className="container">
       <div className="my-6">
@@ -48,10 +53,10 @@ export function BlogPage(props: {
           <div className="flex h-full w-[var(--fd-toc-width)] max-w-full flex-col gap-3">
             <h3 className="-ms-0.5 inline-flex items-center gap-1.5 text-sm text-fd-muted-foreground">
               <Text className="size-4" />
-              On this page
+              <TocLabel />
             </h3>
             <TOCItems items={props.toc} />
-            <EditOnGithub root={props.baseHref} path={props.filePath} />
+            <EditOnGithub href={href} />
             <ScrollToTop />
           </div>
         </Toc>
@@ -100,22 +105,5 @@ function Footer({ pageTree, pageUrl }: { pageTree: any; pageUrl: string }) {
         </Link>
       ) : null}
     </div>
-  );
-}
-
-function EditOnGithub({ root, path }: { root: string; path: string }) {
-  const first = root.startsWith("/developers") ? root.slice(12) : root.slice(1);
-  const second = path.startsWith("/") ? path.slice(1) : path;
-  const href = `https://github.com/solana-foundation/solana-com/blob/main/content/${first}/${second}`;
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
-      className="pt-2 flex items-center gap-2 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground/80"
-    >
-      <GithubIcon width="18" height="18" />
-      <span>Edit page</span>
-    </a>
   );
 }

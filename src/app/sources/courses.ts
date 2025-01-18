@@ -1,8 +1,13 @@
 import { courses, coursesMeta } from "@@/.source/courses";
 import { createMDXSource } from "fumadocs-mdx";
 import { loader } from "fumadocs-core/source";
+import { locales, defaultLocale } from "@/i18n/config.cjs";
 
 export const coursesSource = loader({
+  i18n: {
+    defaultLanguage: defaultLocale,
+    languages: locales,
+  },
   baseUrl: "/developers/courses",
   source: createMDXSource(courses, coursesMeta),
   pageTree: {

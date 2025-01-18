@@ -1,8 +1,13 @@
 import { guides, guidesMeta } from "@@/.source/guides";
 import { createMDXSource } from "fumadocs-mdx";
 import { loader } from "fumadocs-core/source";
+import { locales, defaultLocale } from "@/i18n/config.cjs";
 
 export const guidesSource = loader({
+  i18n: {
+    defaultLanguage: defaultLocale,
+    languages: locales,
+  },
   baseUrl: "/developers/guides",
   source: createMDXSource(guides, guidesMeta),
   pageTree: {
@@ -19,12 +24,12 @@ export const guidesSource = loader({
   },
 });
 
-export function getGuides() {
-  return getGuidesFromFolder(guidesSource.pageTree);
+export function getGuides(locale: string) {
+  return getGuidesFromFolder(guidesSource.pageTree[locale]);
 }
 
-function getGuidesFromFolder(folder: any) {
-  return folder.children.flatMap((node: any) => {
+function getGuidesFromFolder(folder: { children: any[] }) {
+  return folder.children.flatMap((node) => {
     if (node.children) {
       return getGuidesFromFolder(node);
     } else {

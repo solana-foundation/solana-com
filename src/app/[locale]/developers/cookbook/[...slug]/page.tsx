@@ -1,22 +1,23 @@
 import { cookbookSource } from "@/app/sources/cookbook";
 import { CookbookPage, getMetadataFromSlug } from "../cookbook";
+import { toStaticParams } from "@/app/sources/utils";
 
-export default async function Page(props: {
-  params: Promise<{ slug?: string[] }>;
-}) {
-  const params = await props.params;
-  return <CookbookPage slug={params.slug} />;
+type Props = {
+  params: Promise<{ slug?: string[]; locale: string }>;
+};
+
+export default async function Page(props: Props) {
+  const { slug, locale } = await props.params;
+  return <CookbookPage slug={slug} locale={locale} />;
 }
 
 export async function generateStaticParams() {
-  return cookbookSource
-    .generateParams()
-    .filter((param) => param.slug.length > 0);
+  return toStaticParams(cookbookSource).filter(
+    (param) => param.slug.length > 0,
+  );
 }
 
-export async function generateMetadata(props: {
-  params: Promise<{ slug?: string[]; locale: string }>;
-}) {
+export async function generateMetadata(props: Props) {
   const { slug, locale } = await props.params;
   return getMetadataFromSlug(slug, locale);
 }
