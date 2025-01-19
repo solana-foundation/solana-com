@@ -20,16 +20,32 @@ export function CopyToClipBoardButton() {
 
   const copyToClipboard = useCallback(async () => {
     try {
+      const codeElement = btnRef.current?.closest("pre")?.querySelector("code");
+      const textToCopy = codeElement?.textContent || "[err]";
+
       if (!navigator?.clipboard) {
-        // todo: fallback copy
-        console.log("unable to access the window's clipboard");
+        // Fallback for browsers that don't support the Clipboard API
+        const textArea = document.createElement("textarea");
+        textArea.value = textToCopy;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+
+        try {
+          document.execCommand("copy");
+          textArea.remove();
+          setIsCopied(true);
+          return;
+        } catch (err) {
+          console.error("Fallback copy failed:", err);
+          textArea.remove();
+          throw new Error("Copy failed");
+        }
       }
 
-      await navigator.clipboard.writeText(
-        btnRef.current?.closest("pre")?.querySelector("code")?.textContent ||
-          "[err]",
-      );
-
+      await navigator.clipboard.writeText(textToCopy);
       setIsCopied(true);
     } catch (err) {
       console.error(err);
