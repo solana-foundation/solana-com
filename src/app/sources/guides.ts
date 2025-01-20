@@ -7,6 +7,7 @@ export const guidesSource = loader({
   i18n: {
     defaultLanguage: defaultLocale,
     languages: locales,
+    hideLocale: "default-locale",
   },
   baseUrl: "/developers/guides",
   source: createMDXSource(guides, guidesMeta),

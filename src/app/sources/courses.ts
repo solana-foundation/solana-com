@@ -7,6 +7,7 @@ export const coursesSource = loader({
   i18n: {
     defaultLanguage: defaultLocale,
     languages: locales,
+    hideLocale: "default-locale",
   },
   baseUrl: "/developers/courses",
   source: createMDXSource(courses, coursesMeta),

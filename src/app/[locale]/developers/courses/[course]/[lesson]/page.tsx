@@ -32,7 +32,7 @@ export default async function Page(props: Props) {
         },
       ]}
       filePath={page.file.path}
-      href={getUrlWithoutLocale(page)}
+      href={page.url}
       pageTree={tree}
     >
       <MDX components={mdxComponents} />

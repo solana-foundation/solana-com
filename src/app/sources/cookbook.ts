@@ -7,6 +7,7 @@ export const cookbookSource = loader({
   i18n: {
     defaultLanguage: defaultLocale,
     languages: locales,
+    hideLocale: "default-locale",
   },
   baseUrl: "/developers/cookbook",
   source: createMDXSource(cookbook, cookbookMeta),

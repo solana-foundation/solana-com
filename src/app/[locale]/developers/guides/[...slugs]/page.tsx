@@ -19,7 +19,7 @@ export default async function Page(props: Props) {
       toc={page.data.toc}
       title={page.data.h1 || page.data.title}
       filePath={page.file.path}
-      href={getUrlWithoutLocale(page)}
+      href={page.url}
       baseHref="/developers/guides"
       breadcrumb={[]}
       tags={page.data.tags}

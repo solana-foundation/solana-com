@@ -71,6 +71,7 @@ export function BlogPage(props: {
 
 function Footer({ pageTree, pageUrl }: { pageTree: any; pageUrl: string }) {
   let { next, previous } = findNeighbour(pageTree, pageUrl);
+
   // only if neighbours are in the same folder
   const folderUrl = pageUrl.split("/").slice(0, -1).join("/");
   const nextFolder = next?.url.split("/").slice(0, -1).join("/");
