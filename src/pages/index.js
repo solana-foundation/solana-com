@@ -3,7 +3,11 @@ import { getPage } from "@/lib/builder/page/api";
 import Page from "./[...slug]";
 
 export default function Home(props) {
-  return <Page {...props} />;
+  return (
+    <div className="overflow-hidden">
+      <Page {...props} />
+    </div>
+  );
 }
 
 export const getStaticProps = async ({ locale }) => {
