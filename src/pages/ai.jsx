@@ -6,7 +6,7 @@ import HTMLHead from "../components/HTMLHead";
 import AiHero from "../components/ai/AiHero";
 import AiWhySection from "../components/ai/AiWhySection";
 import AiCard from "../components/ai/AiCard";
-import AiHighlight from "../components/ai/AiHighlight";
+// import AiHighlight from "../components/ai/AiHighlight";
 import AiBuild from "../components/ai/AiBuild";
 
 export default function AiPage() {
@@ -18,7 +18,7 @@ export default function AiPage() {
         <AiHero />
         <AiWhySection />
         <AiCard />
-        <AiHighlight />
+        {/* <AiHighlight /> */}
         <AiBuild />
       </div>
     </Layout>
