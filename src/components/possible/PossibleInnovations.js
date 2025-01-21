@@ -99,7 +99,7 @@ const PossibleInnovation = () => {
                   ),
                   aiLink: (
                     <Link
-                      href="/developers/ai"
+                      href="/ai"
                       className="text-decoration-underline copy__link"
                     ></Link>
                   ),

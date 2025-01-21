@@ -5,15 +5,6 @@ import { ArrowRight } from "react-feather";
 import { Trans, useTranslation } from "next-i18next";
 import Button from "../shared/Button";
 import CarouselCards from "../shared/CarouselCards";
-
-import auditsImg from "../../../assets/ai/audits.png";
-import auditsIcon from "../../../assets/ai/audits-icon.png";
-import ecosystemImg from "../../../assets/ai/ecosystem.png";
-import ecosystemIcon from "../../../assets/ai/ecosystem-icon.png";
-import askSolanaImg from "../../../assets/ai/ask-solana.png";
-import askSolanaIcon from "../../../assets/ai/ask-solana-icon.png";
-import marginfiImg from "../../../assets/ai/marginfi.png";
-import marginfiIcon from "../../../assets/ai/marginfi-icon.png";
 import bgImage from "../../../assets/ai/build-bg.png";
 
 import styles from "./AiBuild.module.scss";
@@ -32,7 +23,6 @@ function Card({
   bgColor,
   bgImage,
   dividerColor,
-  icon,
   title,
   subtitle,
   content,
@@ -51,9 +41,6 @@ function Card({
       {title && (
         <>
           <div>
-            {icon && (
-              <Image className={styles["card__icon"]} src={icon} alt={title} />
-            )}
             <h3 className={styles["card__title"]}>{t(title)}</h3>
             <p className={styles["card__subtitle"]}>{t(subtitle)}</p>
             <span
@@ -90,44 +77,32 @@ export default function AiBuild() {
         <CarouselCards>
           <Card
             bgColor="#027DF2"
-            icon={auditsIcon}
             title="ai.build.card-1.title"
-            subtitle="ai.build.card-1.subtitle"
             content="ai.build.card-1.content"
-            ctaLink="https://twitter.com/ryan_trat/status/1645987870845566976?s=20"
+            ctaLink="https://github.com/sendaifun/solana-agent-kit"
           />
-          <Card bgImage={auditsImg} />
           <Card
             color="#000"
             bgColor="#fff"
             dividerColor="#AC9EE3"
-            icon={ecosystemIcon}
             title="ai.build.card-2.title"
-            subtitle="ai.build.card-2.subtitle"
             content="ai.build.card-2.content"
-            ctaLink="https://twitter.com/0xSamHogan/status/1649108585467740160"
+            ctaLink="https://github.com/elizaOS/eliza"
           />
-          <Card bgImage={ecosystemImg} />
           <Card
             bgColor="#752C8B"
             dividerColor="#FB8AF9"
-            icon={askSolanaIcon}
             title="ai.build.card-3.title"
-            subtitle="ai.build.card-3.subtitle"
             content="ai.build.card-3.content"
-            ctaLink="https://twitter.com/ryan_trat/status/1635911140499943424?s=20"
+            ctaLink="https://github.com/0xPlaygrounds/rig"
           />
-          <Card bgImage={askSolanaImg} />
           <Card
             bgColor="#43A0B6"
-            dividerColor="#484DFF"
-            icon={marginfiIcon}
+            dividerColor="#88e8ff"
             title="ai.build.card-4.title"
-            subtitle="ai.build.card-4.subtitle"
             content="ai.build.card-4.content"
-            ctaLink="https://twitter.com/marginfi/status/1648316203092574210?s=20"
+            ctaLink="https://github.com/goat-sdk/goat"
           />
-          <Card bgImage={marginfiImg} />
         </CarouselCards>
       </div>
     </section>

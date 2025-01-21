@@ -1,13 +1,13 @@
 import { useTranslation } from "next-i18next";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 
-import Layout from "../../components/layout";
-import HTMLHead from "../../components/HTMLHead";
-import AiHero from "../../components/ai/AiHero";
-import AiWhySection from "../../components/ai/AiWhySection";
-import AiGrantFund from "../../components/ai/AiGrantFund";
-import AiChatGPT from "../../components/ai/AiChatGPT";
-import AiBuild from "../../components/ai/AiBuild";
+import Layout from "../components/layout";
+import HTMLHead from "../components/HTMLHead";
+import AiHero from "../components/ai/AiHero";
+import AiWhySection from "../components/ai/AiWhySection";
+import AiCard from "../components/ai/AiCard";
+// import AiHighlight from "../components/ai/AiHighlight";
+import AiBuild from "../components/ai/AiBuild";
 
 export default function AiPage() {
   const { t } = useTranslation("common");
@@ -17,8 +17,8 @@ export default function AiPage() {
       <div className="overflow-hidden pb-10 mb-n10">
         <AiHero />
         <AiWhySection />
-        <AiGrantFund />
-        <AiChatGPT />
+        <AiCard />
+        {/* <AiHighlight /> */}
         <AiBuild />
       </div>
     </Layout>
