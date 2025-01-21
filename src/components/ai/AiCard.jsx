@@ -42,7 +42,7 @@ export default function AiCard() {
             noBorder={true}
             newTab
           >
-            Read more on Solana x AI
+            {t("ai.card.cta")}
             <ArrowRight className="ms-2" />
           </Button>
         </div>
