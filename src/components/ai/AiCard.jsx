@@ -2,7 +2,7 @@ import classNames from "classnames";
 import Image from "next/legacy/image";
 import { ArrowRight } from "react-feather";
 
-// import { useTranslation } from "next-i18next";
+import { useTranslation } from "next-i18next";
 import Button from "../shared/Button";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
 
@@ -11,7 +11,7 @@ import nftsEcosystemBlob from "../../../assets/ai/fund.png";
 import styles from "./AiCard.module.scss";
 
 export default function AiCard() {
-  // const { t } = useTranslation();
+  const { t } = useTranslation();
 
   return (
     <section className="container my-12 py-md-10">
@@ -24,17 +24,14 @@ export default function AiCard() {
         className={classNames(styles["card"], "px-8 pt-8 pb-5")}
       >
         <h3 className={classNames(styles["card__title"], "h2")}>
-          Focus areas at the intersection of crypto and AI
+          {t("ai.card.title")}
         </h3>
 
         <div className={classNames(styles["card__content"], "my-5")}>
           <ul>
-            <li>Facilitate the most vibrant agent-driven economy on Solana</li>
-            <li>
-              Make LLMs really good at writing Solana code and empowering Solana
-              developers
-            </li>
-            <li>Support the open and decentralized AI stack</li>
+            <li>{t("ai.card.check-1")}</li>
+            <li>{t("ai.card.check-2")}</li>
+            <li>{t("ai.card.check-3")}</li>
           </ul>
         </div>
 
