@@ -34,10 +34,13 @@ const Page = ({ page, builderLocale }) => {
       />
       <Layout>
         <BuilderComponent
-          options={{ includeRefs: true }}
           model={PAGE_BUILDER_CONFIG.pagesModel}
           content={page}
           locale={builderLocale || "Default"}
+          options={{
+            includeRefs: true,
+            noTraverse: true,
+          }}
         />
         <ModalLauncher />
       </Layout>
@@ -46,15 +49,28 @@ const Page = ({ page, builderLocale }) => {
 };
 
 export async function getStaticPaths() {
-  const allPages = await getAllPagesWithSlug();
-  const slugs = await allPages
-    ?.filter((page) => page.data.slug[0] !== "/")
-    ?.map((page) => page.data.slug.split("/"));
-  const paths = slugWithLocales(slugs || []);
-  return {
-    paths,
-    fallback: "blocking",
-  };
+  try {
+    const allPages = await getAllPagesWithSlug();
+
+    const slugs = await allPages
+      ?.filter((page) => page.data.slug[0] !== "/")
+      ?.map((page) => page.data.slug.split("/"));
+    const paths = slugWithLocales(slugs || []);
+
+    return {
+      paths,
+      fallback: "blocking",
+    };
+  } catch (error) {
+    console.error("[getStaticPaths] Error:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    return {
+      paths: [],
+      fallback: "blocking",
+    };
+  }
 }
 
 export async function getStaticProps({ params }) {
@@ -81,7 +97,7 @@ export async function getStaticProps({ params }) {
         page: page || null,
         ...(await serverSideTranslations(builderLocale, ["common"])),
       },
-      // revalidate: 60,
+      revalidate: 60,
     };
   } catch (error) {
     console.error(error);

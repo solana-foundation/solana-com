@@ -8,7 +8,6 @@ import { Accordion } from "react-bootstrap";
 import CommonMarkdown from "../sharedPageSections/CommonMarkdown";
 import ChevronDown from "../../../public/src/img/icons/Angle-down.inline.svg";
 import { useTranslation } from "next-i18next";
-import RampIconPlaceholder from "./assets/ramp-icon-placeholder.png";
 
 const Ramps = ({
   fiatAssets,
@@ -46,7 +45,7 @@ const Ramps = ({
     setGeneralModalData({
       title: ramp.title,
       websiteUrl: ramp.websiteUrl,
-      imageUrl: ramp.imageUrl || RampIconPlaceholder.src,
+      imageUrl: ramp.imageUrl,
     });
 
     setModalData([

@@ -45,7 +45,7 @@ const getYoutubeSubscriberCount = async () => {
     const data = await response.json();
 
     if (data.items && data.items.length > 0) {
-      return parseInt(data.items[0].statistics.subscriberCount, 10) / 1000;
+      return parseInt(data.items[0].statistics.subscriberCount, 10);
     }
 
     throw new Error("Channel statistics not found");
@@ -54,25 +54,6 @@ const getYoutubeSubscriberCount = async () => {
     throw error;
   }
 };
-
-const scrapeVKontakteFollowerCount = async () => {
-  const followerCountTag = await scrapeUrlForTag(
-    `https://vk.com/solanarus`,
-    `em.pm_counter`,
-  );
-  if (followerCountTag.length) {
-    const vkCountString = followerCountTag[1].children[0].data;
-    return parseInt(vkCountString.replace(",", "").replace(".", ""), 10);
-  }
-  return 0;
-};
-
-// const scrapeWeiboFanCount = async () => {
-//   const fanCountLink = await scrapeUrlForTag(
-//     `https://weibo.com/SolanaNews`,
-//     `a[href*='current=fans']`
-//   );
-// };
 
 const getStableCoins = async () => {
   const url = "https://api.circle.com/v1/stablecoins";
@@ -96,13 +77,16 @@ const getStableCoins = async () => {
 };
 
 const getGHStargazers = async () => {
-  const res = await fetch("https://api.github.com/repos/solana-labs/solana", {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
+  const res = await fetch(
+    "https://api.github.com/repos/solana-foundation/solana-com",
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
   const jsonData = await res.json();
   return jsonData?.stargazers_count || 0;
 };
@@ -187,8 +171,6 @@ export {
   scrapeUrlForTag,
   scrapeMeetupMemberCount,
   getYoutubeSubscriberCount,
-  scrapeVKontakteFollowerCount,
-  // scrapeWeiboFanCount,
   getStableCoins,
   getGHStargazers,
   getYTVideos,

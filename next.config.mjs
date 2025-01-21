@@ -108,7 +108,7 @@ const nextConfig = {
 
   webpack(config) {
     config.module.rules.push({
-      test: /\.svg$/,
+      test: /\.inline\.svg$/,
       use: {
         loader: "@svgr/webpack",
         options: {
@@ -127,6 +127,11 @@ const nextConfig = {
           },
         },
       },
+    });
+
+    config.module.rules.push({
+      test: /(?<!inline)\.svg$/,
+      type: "asset",
     });
 
     return config;

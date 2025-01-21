@@ -4,7 +4,11 @@ import Page from "./[...slug]";
 import { withLocales } from "@/i18n/routing";
 
 export default function Home(props) {
-  return <Page {...props} />;
+  return (
+    <div className="overflow-hidden">
+      <Page {...props} />
+    </div>
+  );
 }
 
 export async function getStaticProps({ params }) {
@@ -21,7 +25,7 @@ export async function getStaticProps({ params }) {
         page: page || null,
         ...(await serverSideTranslations(builderLocale, ["common"])),
       },
-      // revalidate: 60,
+      revalidate: 60,
     };
   } catch (error) {
     console.error(error);

@@ -119,7 +119,7 @@ export async function getStaticProps({ params }) {
           : [],
         ...(await serverSideTranslations(locale, ["common"])),
       },
-      // revalidate: 60,
+      revalidate: 60,
     };
   } catch (error) {
     console.error(error);
