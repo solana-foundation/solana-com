@@ -94,21 +94,14 @@ export default function AiBuild() {
             dividerColor="#FB8AF9"
             title="ai.build.card-3.title"
             content="ai.build.card-3.content"
-            ctaLink="https://github.com/goat-sdk/goat"
+            ctaLink="https://github.com/0xPlaygrounds/rig"
           />
           <Card
             bgColor="#43A0B6"
             dividerColor="#88e8ff"
             title="ai.build.card-4.title"
             content="ai.build.card-4.content"
-            ctaLink="https://x.com/askthehive_ai/status/1879673480133931379"
-          />
-          <Card
-            bgColor="#008565"
-            dividerColor="#4fffd5"
-            title="ai.build.card-5.title"
-            content="ai.build.card-5.content"
-            ctaLink="https://github.com/piotrostr/listen"
+            ctaLink="https://github.com/goat-sdk/goat"
           />
         </CarouselCards>
       </div>
