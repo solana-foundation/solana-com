@@ -78,34 +78,37 @@ export default function AiBuild() {
           <Card
             bgColor="#027DF2"
             title="ai.build.card-1.title"
-            subtitle="ai.build.card-1.subtitle"
             content="ai.build.card-1.content"
-            ctaLink="https://twitter.com/ryan_trat/status/1645987870845566976?s=20"
+            ctaLink="https://github.com/sendaifun/solana-agent-kit"
           />
           <Card
             color="#000"
             bgColor="#fff"
             dividerColor="#AC9EE3"
             title="ai.build.card-2.title"
-            subtitle="ai.build.card-2.subtitle"
             content="ai.build.card-2.content"
-            ctaLink="https://twitter.com/0xSamHogan/status/1649108585467740160"
+            ctaLink="https://github.com/elizaOS/eliza"
           />
           <Card
             bgColor="#752C8B"
             dividerColor="#FB8AF9"
             title="ai.build.card-3.title"
-            subtitle="ai.build.card-3.subtitle"
             content="ai.build.card-3.content"
-            ctaLink="https://twitter.com/ryan_trat/status/1635911140499943424?s=20"
+            ctaLink="https://github.com/goat-sdk/goat"
           />
           <Card
             bgColor="#43A0B6"
-            dividerColor="#484DFF"
+            dividerColor="#88e8ff"
             title="ai.build.card-4.title"
-            subtitle="ai.build.card-4.subtitle"
             content="ai.build.card-4.content"
-            ctaLink="https://twitter.com/marginfi/status/1648316203092574210?s=20"
+            ctaLink="https://x.com/askthehive_ai/status/1879673480133931379"
+          />
+          <Card
+            bgColor="#008565"
+            dividerColor="#4fffd5"
+            title="ai.build.card-5.title"
+            content="ai.build.card-5.content"
+            ctaLink="https://github.com/piotrostr/listen"
           />
         </CarouselCards>
       </div>
