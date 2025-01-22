@@ -29,7 +29,7 @@ import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 export const walletData = [
   {
     name: "Phantom",
-    body: "NOW Wallet - the only crypto wallet you’ll ever need",
+    body: "Multiple chains, one wallet. No more switching.",
     website: "https://phantom.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
@@ -748,7 +748,7 @@ export const walletData = [
   },
    {
     name: "NOW Wallet",
-    body: "текст заменить на короткое, референс - фантом.",
+    body: "NOW Wallet - the only crypto wallet you’ll ever need.",
     website: "https://walletnow.app/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs  • Staking",
