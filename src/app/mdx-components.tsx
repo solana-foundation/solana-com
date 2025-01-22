@@ -28,14 +28,10 @@ export const mdxComponents = {
 };
 
 function Image(props: ImgHTMLAttributes<HTMLImageElement>) {
-  if (typeof props.src === "function") {
-    // this is the `@svgr/webpack` loader
-    // maybe it should ignore imports from mdx files
-    const { src, ...rest } = props;
-    const Component = src as any;
+  if (typeof props.src === "string" && props.src.endsWith(".svg")) {
     return (
       <span className="block">
-        <Component {...rest} className="rounded-lg mb-4 w-full" />
+        <img {...props} className="rounded-lg mb-4 w-full" />
         <span className="text-center text-sm text-fd-muted-foreground block">
           {props.alt}
         </span>
