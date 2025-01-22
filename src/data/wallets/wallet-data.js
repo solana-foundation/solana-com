@@ -26,6 +26,7 @@ import gemIcon from "../../../assets/wallets/icons/gem.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
 import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
+
 export const walletData = [
   {
     name: "Phantom",
