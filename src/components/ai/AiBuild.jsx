@@ -6,6 +6,10 @@ import { Trans, useTranslation } from "next-i18next";
 import Button from "../shared/Button";
 import CarouselCards from "../shared/CarouselCards";
 import bgImage from "../../../assets/ai/build-bg.png";
+import solanaAgentKitIcon from "../../../assets/ai/solana-agent-kit.png";
+import elizaIcon from "../../../assets/ai/eliza.png";
+import rigIcon from "../../../assets/ai/rig.png";
+import goatIcon from "../../../assets/ai/goat.png";
 
 import styles from "./AiBuild.module.scss";
 
@@ -13,21 +17,11 @@ const StyledCard = styled.div`
   position: relative;
   color: ${(props) => (props.color ? props.color : "#fff")};
   background-color: ${(props) => props.bgColor ?? "unset"};
-  background-image: url("${(props) => (props.$image ? props.$image.src : "")}");
   background-size: cover;
   background-repeat: no-repeat;
 `;
 
-function Card({
-  color,
-  bgColor,
-  bgImage,
-  dividerColor,
-  title,
-  subtitle,
-  content,
-  ctaLink,
-}) {
+function Card({ color, bgColor, dividerColor, title, icon, content, ctaLink }) {
   const { t } = useTranslation();
 
   return (
@@ -35,14 +29,13 @@ function Card({
       color={color}
       bgColor={bgColor}
       dividerColor={dividerColor}
-      $image={bgImage}
       className={styles["card"]}
     >
       {title && (
         <>
           <div>
             <h3 className={styles["card__title"]}>{t(title)}</h3>
-            <p className={styles["card__subtitle"]}>{t(subtitle)}</p>
+            <Image src={icon} alt="" className={styles["card__icon"]} />
             <span
               className={styles["card__divider"]}
               style={{ borderColor: dividerColor }}
@@ -78,14 +71,15 @@ export default function AiBuild() {
           <Card
             bgColor="#027DF2"
             title="ai.build.card-1.title"
+            icon={solanaAgentKitIcon}
             content="ai.build.card-1.content"
             ctaLink="https://github.com/sendaifun/solana-agent-kit"
           />
           <Card
-            color="#000"
-            bgColor="#fff"
-            dividerColor="#AC9EE3"
+            bgColor="#387462"
+            dividerColor="#00ffbd"
             title="ai.build.card-2.title"
+            icon={elizaIcon}
             content="ai.build.card-2.content"
             ctaLink="https://github.com/elizaOS/eliza"
           />
@@ -93,6 +87,7 @@ export default function AiBuild() {
             bgColor="#752C8B"
             dividerColor="#FB8AF9"
             title="ai.build.card-3.title"
+            icon={rigIcon}
             content="ai.build.card-3.content"
             ctaLink="https://github.com/0xPlaygrounds/rig"
           />
@@ -100,6 +95,7 @@ export default function AiBuild() {
             bgColor="#43A0B6"
             dividerColor="#88e8ff"
             title="ai.build.card-4.title"
+            icon={goatIcon}
             content="ai.build.card-4.content"
             ctaLink="https://github.com/goat-sdk/goat"
           />
