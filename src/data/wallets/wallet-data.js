@@ -749,7 +749,7 @@ export const walletData = [
   },
    {
     name: "NOW Wallet",
-    body: "NOW Wallet - the only crypto wallet you’ll ever need.",
+    body: "Built for ease, powered by security. Swap and store crypto across 70+ networks.",
     website: "https://walletnow.app/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs  • Staking",
