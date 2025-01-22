@@ -7,6 +7,8 @@ import {
 import { ReactNode } from "react";
 import { ScrollToTop } from "./scroll-to-top";
 import { EditOnGithub } from "./edit-page";
+import { DocsFooter } from "./docs-footer";
+import { findNeighbour } from "fumadocs-core/server";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -15,6 +17,8 @@ export function DocsPage(props: {
   hideTableOfContents?: boolean;
   full?: boolean;
   title: string;
+  pageTree?: any;
+  href: string;
 }) {
   const path = props.filePath;
   const href = `https://github.com/solana-foundation/solana-com/blob/main/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
@@ -39,6 +43,9 @@ export function DocsPage(props: {
         ),
         enabled: !props.hideTableOfContents,
       }}
+      footer={{
+        component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
+      }}
     >
       <DocsTitle className="text-fd-accent-foreground text-4xl md:text-5xl">
         {props.title}
@@ -46,4 +53,19 @@ export function DocsPage(props: {
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
     </FumaDocsPage>
   );
+}
+
+function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
+  let { next, previous } = findNeighbour(pageTree, pageUrl);
+
+  if (!previous && !next) {
+    // we are at the root (which isn't part of the page tree)
+    let firstPage = pageTree;
+    while (firstPage && firstPage.children) {
+      firstPage = firstPage.index || firstPage.children[0];
+    }
+    if (!firstPage) return null;
+    return <DocsFooter next={firstPage} previous={undefined} />;
+  }
+  return <DocsFooter previous={previous} next={next} />;
 }

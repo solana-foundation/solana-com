@@ -24,6 +24,8 @@ export function CookbookPage({
       title={page.data.h1 || page.data.title}
       filePath={page.file.path}
       hideTableOfContents={true}
+      pageTree={cookbookSource.pageTree[locale]}
+      href={page.url}
     >
       <MDX components={mdxComponents} />
     </DocsPage>

@@ -40,6 +40,8 @@ export async function RpcDocsPage({
       title={page.data.h1 || page.data.title}
       filePath={page.file.path}
       hideTableOfContents={page.data.hideTableOfContents}
+      pageTree={docsSource.pageTree[locale]}
+      href={page.url}
     >
       <MDX components={{ ...mdxComponents, ...rpcMDXComponents }} />
     </DocsPage>
