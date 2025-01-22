@@ -1,12 +1,14 @@
 import classNames from "classnames";
-import Image from "next/legacy/image";
+import Image from "next/image";
 import { ArrowRight } from "react-feather";
 
 import { useTranslation } from "next-i18next";
 import Button from "../shared/Button";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
 import nftsEcosystemBlob from "../../../assets/ai/fund.png";
+import sendAIhackathon from "../../../assets/ai/sendai-hackathon.png";
 import styles from "./AiCard.module.scss";
+import Link from "next/link";
 
 export default function AiCard() {
   const { t } = useTranslation();
@@ -54,12 +56,24 @@ export default function AiCard() {
         </h3>
 
         <div className={classNames(styles["card__content"], "my-5")}>
-          <ul>
-            <li>{t("ai.hackathon.check-1")}</li>
-            <li>{t("ai.hackathon.check-2")}</li>
-            <li>{t("ai.hackathon.check-3")}</li>
-            <li>{t("ai.hackathon.check-4")}</li>
-          </ul>
+          <div className="d-flex flex-column flex-md-row justify-content-between align-md-items-center">
+            <ul>
+              <li>{t("ai.hackathon.check-1")}</li>
+              <li>{t("ai.hackathon.check-2")}</li>
+              <li>{t("ai.hackathon.check-3")}</li>
+              <li>{t("ai.hackathon.check-4")}</li>
+            </ul>
+            <Link
+              href="https://www.solanaagentkit.xyz/?ref=solana.com/ai"
+              target="_blank"
+            >
+              <Image
+                src={sendAIhackathon}
+                alt={t("ai.hackathon.title")}
+                height={100}
+              />
+            </Link>
+          </div>
         </div>
 
         <div className="d-flex flex-column">

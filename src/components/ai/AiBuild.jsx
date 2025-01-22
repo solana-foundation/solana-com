@@ -89,7 +89,7 @@ export default function AiBuild() {
             title="ai.build.card-3.title"
             icon={rigIcon}
             content="ai.build.card-3.content"
-            ctaLink="https://github.com/0xPlaygrounds/rig"
+            ctaLink="https://docs.rig.rs/"
           />
           <Card
             bgColor="#43A0B6"
