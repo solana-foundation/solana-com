@@ -747,7 +747,7 @@ export const walletData = [
     hardware: false,
     private_key_infrastructure: false,
   },
-   {
+  {
     name: "NOW Wallet",
     body: "Built for ease, powered by security. Swap and store crypto across 70+ networks.",
     website: "https://walletnow.app/",
