@@ -85,7 +85,7 @@ export default {
     { source: "/summercamp(.*)", destination: "/hackathon" },
     { source: "/grizzlython(.*)", destination: "/hackathon" },
     { source: "/hyperdrive(.*)", destination: "/hackathon" },
-    { source: "/ai", destination: "/developers/ai" },
+    { source: "/developers/ai", destination: "/ai" },
     { source: "/developer", destination: "/developers" },
     { source: "/token22", destination: "/solutions/token-extensions" },
     {
