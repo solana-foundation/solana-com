@@ -25,6 +25,7 @@ import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
 import gemIcon from "../../../assets/wallets/icons/gem.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
+import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 
 export const walletData = [
   {
@@ -743,6 +744,30 @@ export const walletData = [
     staking: false,
     spending_limits: false,
     open_source: true,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "NOW Wallet",
+    body: "Built for ease, powered by security. Swap and store crypto across 70+ networks.",
+    website: "https://walletnow.app/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs  • Staking",
+    icon: nowwalletIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: true,
+    spending_limits: false,
+    open_source: false,
     hardware: false,
     private_key_infrastructure: false,
   },
