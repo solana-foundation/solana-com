@@ -2,6 +2,7 @@ import { resources } from "@/app/sources/resources";
 import { ResourcesIndex } from "./resources";
 import { getAlternates } from "@/i18n/routing";
 import { serverTranslation } from "@/i18n/translation";
+
 export default function Page() {
   const featured = resources
     .filter((record: any) => record.featured)
