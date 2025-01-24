@@ -2,6 +2,11 @@ import { resources } from "@/app/sources/resources";
 import { ResourcesIndex } from "./resources";
 import { getAlternates } from "@/i18n/routing";
 import { serverTranslation } from "@/i18n/translation";
+import { ResolvingMetadata } from "next";
+
+type Props = {
+  params: Promise<{ locale: string }>;
+};
 
 export default function Page() {
   const featured = resources
@@ -14,16 +19,19 @@ export default function Page() {
   );
 }
 
-export async function generateMetadata(props: {
-  params: Promise<{ locale: string }>;
-}) {
+export async function generateMetadata(
+  props: Props,
+  parent: ResolvingMetadata,
+) {
   const { locale } = await props.params;
   const { t } = await serverTranslation(locale);
+  const { openGraph } = await parent;
 
   return {
     title: t("developers.resources-page.title"),
     description: t("developers.resources-page.seo-description"),
     openGraph: {
+      ...openGraph,
       title: t("developers.resources-page.title"),
       description: t("developers.resources-page.seo-description"),
     },

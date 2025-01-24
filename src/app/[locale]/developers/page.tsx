@@ -55,6 +55,7 @@ export async function generateMetadata(
   const { locale } = await params;
   const { t } = await serverTranslation(locale);
   const { openGraph } = await parent;
+
   return {
     title: t("developers.title"),
     description: t("developers.description"),

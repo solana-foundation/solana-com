@@ -4,6 +4,7 @@ import { mdxComponents } from "@/app/mdx-components";
 import { BlogPage } from "@/app/components/blog-page";
 import { getAlternates } from "@/i18n/routing";
 import { getUrlWithoutLocale, toStaticParams } from "@/app/sources/utils";
+import { ResolvingMetadata } from "next";
 
 type Props = {
   params: Promise<{ slugs: string[]; locale: string }>;
@@ -37,16 +38,21 @@ export async function generateStaticParams() {
   return params.map((p) => ({ slugs: p.slug }));
 }
 
-export async function generateMetadata(props: Props) {
+export async function generateMetadata(
+  props: Props,
+  parent: ResolvingMetadata,
+) {
   const { slugs, locale } = await props.params;
   const page = guidesSource.getPage(slugs, locale);
   if (!page) notFound();
   const url = getUrlWithoutLocale(page);
+  const { openGraph } = await parent;
 
   return {
     title: page.data.seoTitle || page.data.h1 || page.data.title,
     description: page.data.description,
     openGraph: {
+      ...openGraph,
       images: `/opengraph${url}`,
     },
     alternates: getAlternates(url, locale),

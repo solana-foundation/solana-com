@@ -2,6 +2,7 @@ import { getGuides } from "@/app/sources/guides";
 import { GuidesIndex } from "./guides";
 import { getAlternates } from "@/i18n/routing";
 import { serverTranslation } from "@/i18n/translation";
+import { ResolvingMetadata } from "next";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -18,14 +19,19 @@ export default async function Page(props: Props) {
   );
 }
 
-export async function generateMetadata(props: Props) {
+export async function generateMetadata(
+  props: Props,
+  parent: ResolvingMetadata,
+) {
   const { locale } = await props.params;
   const { t } = await serverTranslation(locale);
+  const { openGraph } = await parent;
 
   return {
     title: t("developers.guides.title"),
     description: t("developers.guides.seo-description"),
     openGraph: {
+      ...openGraph,
       title: t("developers.guides.title"),
       description: t("developers.guides.seo-description"),
     },

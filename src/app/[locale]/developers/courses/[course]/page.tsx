@@ -4,6 +4,7 @@ import Curriculum from "./curriculum";
 import { notFound } from "next/navigation";
 import { getAlternates } from "@/i18n/routing";
 import { getUrlWithoutLocale, toUrlWithoutLocale } from "@/app/sources/utils";
+import { ResolvingMetadata } from "next";
 
 type Props = {
   params: Promise<{ course: string; locale: string }>;
@@ -46,17 +47,22 @@ export async function generateStaticParams() {
   return slugs.map((slug: string) => ({ course: slug }));
 }
 
-export async function generateMetadata(props: Props) {
+export async function generateMetadata(
+  props: Props,
+  parent: ResolvingMetadata,
+) {
   const { course, locale } = await props.params;
   const page = coursesSource.getPage([course]);
   if (!page) notFound();
 
   const url = getUrlWithoutLocale(page);
+  const { openGraph } = await parent;
 
   return {
     title: page.data.seoTitle || page.data.h1 || page.data.title,
     description: page.data.description,
     openGraph: {
+      ...openGraph,
       images: `/opengraph${url}`,
     },
     alternates: getAlternates(url, locale),

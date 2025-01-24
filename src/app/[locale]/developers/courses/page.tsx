@@ -5,6 +5,7 @@ import { DefaultCard } from "@solana-foundation/solana-lib/dist/components/CardD
 import { getAlternates } from "@/i18n/routing";
 import { toUrlWithoutLocale } from "@/app/sources/utils";
 import { serverTranslation } from "@/i18n/translation";
+import { ResolvingMetadata } from "next";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -41,14 +42,19 @@ export default async function Page(props: Props) {
   return <Courses courseCards={courseCards} />;
 }
 
-export async function generateMetadata(props: Props) {
+export async function generateMetadata(
+  props: Props,
+  parent: ResolvingMetadata,
+) {
   const { locale } = await props.params;
   const { t } = await serverTranslation(locale);
+  const { openGraph } = await parent;
 
   return {
     title: t("developers.courses.title"),
     description: t("developers.courses.seo-description"),
     openGraph: {
+      ...openGraph,
       title: t("developers.courses.title"),
       description: t("developers.courses.seo-description"),
     },
