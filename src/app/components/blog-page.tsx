@@ -2,7 +2,10 @@ import { DocsBody, DocsPageProps } from "fumadocs-ui/page";
 import { ReactNode } from "react";
 import { Toc, TOCItems } from "fumadocs-ui/components/layout/toc";
 import { Text } from "lucide-react";
-import { HeroTitle } from "@/components/developers/DevelopersContentPage/DevelopersContentPage";
+import {
+  HeroTitle,
+  ContentRecord,
+} from "@/components/developers/DevelopersContentPage/DevelopersContentPage";
 import { Breadcrumb } from "./breadcrumb";
 import { ScrollToTop } from "./scroll-to-top";
 import { findNeighbour } from "fumadocs-core/server";
@@ -24,7 +27,7 @@ export function BlogPage(props: {
   difficulty?: string;
   pageTree?: any;
 }) {
-  const record: any = {
+  const record: ContentRecord = {
     href: props.href,
     title: props.title,
     date: props.date,

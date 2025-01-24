@@ -9,14 +9,13 @@ import defaultImg from "@@/public/social/solana.jpg";
 import blurImage from "@@/public/img/blurImage.png";
 import SocialShareButtons from "@/components/sharedPageSections/SocialShareButtons";
 import { config } from "src/config";
-import { ContentRecord, ContentRecordGroupKey } from "@/types";
 import { TagCloud } from "./TagCloud";
 
 export function HeroTitle({
   record,
   baseHref,
 }: {
-  record: ContentRecord<ContentRecordGroupKey>;
+  record: ContentRecord;
   baseHref?: string;
 }) {
   return (
@@ -84,3 +83,11 @@ export function HeroTitle({
     </section>
   );
 }
+
+export type ContentRecord = {
+  title: string;
+  href: string;
+  date: string;
+  tags?: string[];
+  difficulty?: string;
+};

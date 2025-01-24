@@ -1,4 +1,3 @@
-import ContentApi from "@/utils/contentApi";
 import styles from "./DocSideBySide.module.css";
 import Link from "next/link";
 
@@ -109,7 +108,7 @@ function computeHeader({
   optional = null,
   children,
 }) {
-  href = ContentApi.processSingleLink(href);
+  href = processSingleLink(href);
 
   // format the Parameter's name
   if (name) {
@@ -160,4 +159,27 @@ function computeHeader({
     optional,
     children,
   };
+}
+
+function processSingleLink(url: string = ""): string {
+  if (!url) return url;
+
+  // convert `solana.com` links to internal links
+  url = url.replace(/^https?:\/\/?solana.com\//gi, "/");
+
+  // process the internal links (i.e. those that start with "/" and ".")
+  if (url.startsWith("/") || url.startsWith(".")) {
+    // prevent relative climbing
+    url = url.replace(/^.*?\//gi, "/");
+
+    // removed specific file extensions (".md", ".mdx", etc) and index.*
+    url = url.replace(/((index)?.mdx?|.html?)/gi, "");
+
+    // convert all "developer content" links to lower case
+    if (/^\/(docs|developers)/gm.test(url)) url = url.toLowerCase();
+  } else {
+    // do nothing with other links
+  }
+
+  return url;
 }
