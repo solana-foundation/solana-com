@@ -85,21 +85,21 @@ const HeaderListBuild = () => {
           </Link>
           <Link
             to="/docs/intro/installation"
-            className="nav-link nav-link--secondary text-white d-block text-white fw-bold"
+            className="nav-link nav-link--secondary text-white d-block fw-bold"
             activeClassName="active font-weight-bold"
           >
             {t("nav.developers.tutorials.local-setup")}
           </Link>
           <Link
             to="/developers/evm-to-svm"
-            className="nav-link nav-link--secondary text-white d-block text-white fw-bold"
+            className="nav-link nav-link--secondary text-white d-block fw-bold"
             activeClassName="active font-weight-bold"
           >
             {t("nav.developers.tutorials.evm-to-svm")}
           </Link>
           <Link
             to="/developers/guides"
-            className="nav-link nav-link--secondary text-white d-block text-white fw-bold"
+            className="nav-link nav-link--secondary text-white d-block fw-bold"
             activeClassName="active font-weight-bold"
           >
             {t("nav.developers.tutorials.all-guides")}

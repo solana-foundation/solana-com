@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Dropdown from "react-bootstrap/Dropdown";
 import AngleUp from "../../../public/src/img/icons/Angle-up.inline.svg";
 import AngleDown from "../../../public/src/img/icons/Angle-down.inline.svg";
 import { useTranslation } from "next-i18next";
-import { useRouter } from "next/router";
+import { useRouter } from "@/hooks/useRouter";
 import HeaderListBuild from "./HeaderListBuild";
 import HeaderListSolutions from "./HeaderListSolutions";
 import HeaderListLearn from "./HeaderListLearn";
@@ -19,6 +19,12 @@ const HeaderList = () => {
   const [showDevelopers, updateShowDevelopers] = useState(false);
   const [showCommunity, updateShowCommunity] = useState(false);
   const [showLearn, updateShowLearn] = useState(false);
+
+  useEffect(() => {
+    // links from "developers" (app router) doesnt reload the page
+    // so we need to close the dropdown when the route changes
+    updateShowDevelopers(false);
+  }, [asPath]);
 
   const isLearnActive = asPath.includes("/learn") || asPath === "/environment";
   const isSolutionsActive =
@@ -69,6 +75,7 @@ const HeaderList = () => {
         onToggle={(isOpen) => {
           isOpen ? updateShowDevelopers(true) : updateShowDevelopers(false);
         }}
+        show={showDevelopers}
         style={{ "--color-active": "#fed612" }}
       >
         <Dropdown.Toggle

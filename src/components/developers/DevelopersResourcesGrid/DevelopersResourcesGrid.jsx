@@ -1,46 +1,15 @@
-import { memo, useMemo } from "react";
+"use client";
+
+import { memo, useMemo, Suspense } from "react";
 import classNames from "classnames";
-import { useRouter } from "next/router";
+import { useSearchParams } from "next/navigation";
 import DevelopersResourceItem from "../sections/DevelopersResourcesSection/DevelopersResourceItem";
 import styles from "./DevelopersResourcesGrid.module.scss";
 
-export default memo(function DevelopersResourcesGrid({ items }) {
-  const router = useRouter();
-
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      let matchesFilters = true;
-      const filters = Object.keys(router.query);
-
-      for (let i = 0; i < filters.length; i++) {
-        let filter = router.query[filters[i]];
-        const values = item?.[filters[i]];
-        if (!values) return;
-
-        if (typeof filter === "string") {
-          filter = [filter];
-        }
-
-        if (typeof values === "string") {
-          matchesFilters = filter.includes(values);
-        } else {
-          matchesFilters = !!values.find((value) => {
-            return filter.includes(value);
-          });
-        }
-
-        if (!matchesFilters) {
-          break;
-        }
-      }
-
-      return matchesFilters;
-    });
-  }, [items, router.query]);
-
+function Grid({ items }) {
   return (
     <div className={classNames(styles["developers-resources-grid"])}>
-      {filteredItems.map((item, id) => (
+      {items.map((item, id) => (
         <div
           key={id}
           className={classNames(styles["developers-resources-grid__item"])}
@@ -55,5 +24,52 @@ export default memo(function DevelopersResourcesGrid({ items }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function FilteredGrid({ items }) {
+  const searchParams = useSearchParams();
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      let matchesFilters = true;
+
+      const filterKeys = new Set();
+      for (const [key] of searchParams.entries()) {
+        filterKeys.add(key);
+      }
+
+      for (const filterKey of filterKeys) {
+        const filterValues = searchParams.getAll(filterKey);
+        if (!filterValues.length) continue;
+
+        const itemValues = item?.[filterKey];
+        if (!itemValues) return false;
+
+        if (typeof itemValues === "string") {
+          matchesFilters = filterValues.includes(itemValues);
+        } else if (Array.isArray(itemValues)) {
+          matchesFilters = itemValues.some((value) =>
+            filterValues.includes(value),
+          );
+        }
+
+        if (!matchesFilters) {
+          break;
+        }
+      }
+
+      return matchesFilters;
+    });
+  }, [items, searchParams]);
+
+  return <Grid items={filteredItems} />;
+}
+
+export default memo(function DevelopersResourcesGrid({ items }) {
+  return (
+    <Suspense fallback={<Grid items={items} />}>
+      <FilteredGrid items={items} />
+    </Suspense>
   );
 });

@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { NextSeo } from "next-seo";
 import { config } from "@/config";
-import { useRouter } from "next/router";
+import { usePathname, useLocale } from "@/i18n/routing";
 import MetaLinks from "./MetaLinks";
 import { prependSiteUrl } from "@/utils/general";
 
@@ -32,7 +32,8 @@ export default function HTMLHead({
   addDefaultMeta = true,
   socialShare,
 }: HTMLHeadProps) {
-  const { asPath, locale } = useRouter();
+  const locale = useLocale();
+  const asPath = usePathname();
   const asPathNoRedirect = asPath === "/" ? "" : asPath;
   const localeNoEnDefault = locale === "en" ? "" : "/" + locale;
   const metaDescription = description || config.siteMetadata.description;

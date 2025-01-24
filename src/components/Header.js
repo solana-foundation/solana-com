@@ -1,5 +1,7 @@
+"use client";
+
 import Navbar from "react-bootstrap/Navbar";
-import { useRouter } from "next/router";
+import { useRouter } from "@/hooks/useRouter";
 import { Link } from "../utils/Link";
 import { useEffect, useState } from "react";
 import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";

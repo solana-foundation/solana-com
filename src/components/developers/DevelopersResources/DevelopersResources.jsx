@@ -23,7 +23,7 @@ const mapItemsIntoFilters = (itemFilters) => (item) => {
   // handle the `difficulty` field
   if (!!item?.difficulty) {
     if (!itemFilters.difficulty.items.includes(item?.difficulty)) {
-      console.log(item.difficulty);
+      // console.log(item.difficulty);
       itemFilters.difficulty.items.push(item?.difficulty);
     }
   }

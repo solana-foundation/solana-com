@@ -1,15 +1,19 @@
-import { NextResponse } from "next/server";
+import createMiddleware from "next-intl/middleware";
+import { routing } from "@/i18n/routing";
+
+export default createMiddleware(routing);
 
 export const config = {
-  matcher: "/((?!.*\\.).*)",
+  matcher: ["/((?!api|opengraph|_next|_vercel|.*\\..*).*)"],
 };
 
-export async function middleware(req) {
-  if (req.nextUrl.pathname === req.nextUrl.pathname.toLowerCase()) {
-    return NextResponse.next();
-  }
+// TODO add this back
+// export async function middleware(req) {
+//   if (req.nextUrl.pathname === req.nextUrl.pathname.toLowerCase()) {
+//     return NextResponse.next();
+//   }
 
-  return NextResponse.redirect(
-    `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}`,
-  );
-}
+//   return NextResponse.redirect(
+//     `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}`,
+//   );
+// }

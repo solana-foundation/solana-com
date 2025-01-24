@@ -1,5 +1,6 @@
 module.exports = {
   plugins: [
+    "tailwindcss",
     "postcss-flexbugs-fixes",
     [
       "postcss-preset-env",
@@ -14,11 +15,14 @@ module.exports = {
       },
     ],
     [
-      "@fullhuman/postcss-purgecss",
+      "./src/utils/postcss-conditional-purge",
       {
+        ignore: /globals\.css$/,
         content: [
           "./src/pages/**/*.{js,jsx,ts,tsx}",
           "./src/components/**/*.{js,jsx,ts,tsx}",
+          "./src/app/**/*.{ts,tsx}",
+          "./node_modules/fumadocs-ui/dist/**/*.js",
         ],
         defaultExtractor: (content) => content.match(/[\w-/:]+(?<!:)/g) || [],
         safelist: {

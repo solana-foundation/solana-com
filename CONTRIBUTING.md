@@ -48,19 +48,16 @@ and block approval/merging.
 
 Translations are handled via the Crowdin platform. The content within this repo is in the default/base language of English. When the content is uploaded to the Crowdin platform, it will be broken into small strings where people that have access can perform translations.
 
-## Developer Content API
+## Documentation
 
-The majority of the content within the developer specific sections of solana.com (e.g. `/developers` and `/docs`) are driven from the [`developer-content`](https://github.com/solana-foundation/developer-content) repo which deploys an API for `solana-com` to consume via the [`ContentApi` class](/src/utils/contentApi.ts).
+The developer docs content for solana.com is located in the
+[`/content`](/content) directory which contains the pages for `/docs`,
+`/developers/cookbook`, `/developers/guides`, `/developers/courses` in the
+respective subdirectories.
 
-This class defaults to the public API endpoint of `https://solana-developer-content.vercel.app`.
-
-For local development and testing of developer content changes, you can run the `developer-content` API locally and set the `NEXT_PUBLIC_DEVELOPER_CONTENT_API_URL` env variable to use your local instance to view your changes within the UI of `solana-com`:
-
-```conf
-NEXT_PUBLIC_DEVELOPER_CONTENT_API_URL="http://localhost:3001"
-```
-
-> Note: This assumes the `developer-content` API is running on port `3001` (which it is configured to do so by default).
+The developer docs are built with [Fumadocs](https://fumadocs.vercel.app/). For
+additional details on how files are structured, see the
+[Fumadocs documentation](https://fumadocs.vercel.app/docs/headless/page-conventions#overview).
 
 ## Builder API
 
