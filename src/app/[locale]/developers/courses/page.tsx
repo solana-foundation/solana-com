@@ -4,6 +4,7 @@ import Courses from "./courses-index";
 import { DefaultCard } from "@solana-foundation/solana-lib/dist/components/CardDeck/DefaultCard/defaultCard";
 import { getAlternates } from "@/i18n/routing";
 import { toUrlWithoutLocale } from "@/app/sources/utils";
+import { serverTranslation } from "@/i18n/translation";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -42,10 +43,15 @@ export default async function Page(props: Props) {
 
 export async function generateMetadata(props: Props) {
   const { locale } = await props.params;
+  const { t } = await serverTranslation(locale);
+
   return {
-    title: "Developer Courses",
-    description:
-      "Learn Solana development with developer guides, from beginner to advanced. JavaScript, TypeScript, Rust, and more.",
+    title: t("developers.courses.title"),
+    description: t("developers.courses.seo-description"),
+    openGraph: {
+      title: t("developers.courses.title"),
+      description: t("developers.courses.seo-description"),
+    },
     alternates: getAlternates("/developers/courses", locale),
   };
 }

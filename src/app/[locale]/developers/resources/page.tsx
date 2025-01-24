@@ -1,7 +1,7 @@
 import { resources } from "@/app/sources/resources";
 import { ResourcesIndex } from "./resources";
 import { getAlternates } from "@/i18n/routing";
-
+import { serverTranslation } from "@/i18n/translation";
 export default function Page() {
   const featured = resources
     .filter((record: any) => record.featured)
@@ -17,10 +17,15 @@ export async function generateMetadata(props: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await props.params;
+  const { t } = await serverTranslation(locale);
+
   return {
-    title: "Developer Resources",
-    description:
-      "Discover developer resources for the Solana ecosystem. Documentation, tooling, frameworks, sdks, and more.",
+    title: t("developers.resources-page.title"),
+    description: t("developers.resources-page.seo-description"),
+    openGraph: {
+      title: t("developers.resources-page.title"),
+      description: t("developers.resources-page.seo-description"),
+    },
     alternates: getAlternates("/developers/resources", locale),
   };
 }

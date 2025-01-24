@@ -1,6 +1,7 @@
 import { getGuides } from "@/app/sources/guides";
 import { GuidesIndex } from "./guides";
 import { getAlternates } from "@/i18n/routing";
+import { serverTranslation } from "@/i18n/translation";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -19,10 +20,15 @@ export default async function Page(props: Props) {
 
 export async function generateMetadata(props: Props) {
   const { locale } = await props.params;
+  const { t } = await serverTranslation(locale);
+
   return {
-    title: "Developer Guides",
-    description:
-      "Learn Solana development with developer guides, from beginner to advanced. JavaScript, TypeScript, Rust, and more.",
+    title: t("developers.guides.title"),
+    description: t("developers.guides.seo-description"),
+    openGraph: {
+      title: t("developers.guides.title"),
+      description: t("developers.guides.seo-description"),
+    },
     alternates: getAlternates("/developers/guides", locale),
   };
 }
