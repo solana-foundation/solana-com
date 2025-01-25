@@ -2,8 +2,7 @@ import { docsSource } from "@/app/sources/docs";
 import { DocsPage } from "@/app/components/docs-page";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
-import { getAlternates } from "@/i18n/routing";
-import { getUrlWithoutLocale } from "@/app/sources/utils";
+import { getMdxMetadata } from "@/app/metadata";
 
 export function MainDocsPage({
   slug,
@@ -35,15 +34,5 @@ export function MainDocsPage({
 export function getMetadataFromSlug(slug: string[], locale: string) {
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
-
-  const url = getUrlWithoutLocale(page);
-
-  return {
-    title: page.data.seoTitle || page.data.h1 || page.data.title,
-    description: page.data.description,
-    openGraph: {
-      images: `/opengraph/developers${url}`,
-    },
-    alternates: getAlternates(url, locale),
-  };
+  return getMdxMetadata(page);
 }

@@ -2,8 +2,8 @@ import { guidesSource } from "@/app/sources/guides";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { BlogPage } from "@/app/components/blog-page";
-import { getAlternates } from "@/i18n/routing";
-import { getUrlWithoutLocale, toStaticParams } from "@/app/sources/utils";
+import { toStaticParams } from "@/app/sources/utils";
+import { getMdxMetadata } from "@/app/metadata";
 
 type Props = {
   params: Promise<{ slugs: string[]; locale: string }>;
@@ -41,14 +41,5 @@ export async function generateMetadata(props: Props) {
   const { slugs, locale } = await props.params;
   const page = guidesSource.getPage(slugs, locale);
   if (!page) notFound();
-  const url = getUrlWithoutLocale(page);
-
-  return {
-    title: page.data.seoTitle || page.data.h1 || page.data.title,
-    description: page.data.description,
-    openGraph: {
-      images: `/opengraph${url}`,
-    },
-    alternates: getAlternates(url, locale),
-  };
+  return getMdxMetadata(page);
 }

@@ -2,8 +2,7 @@ import { coursesSource } from "@/app/sources/courses";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { BlogPage } from "@/app/components/blog-page";
-import { getAlternates } from "@/i18n/routing";
-import { getUrlWithoutLocale } from "@/app/sources/utils";
+import { getMdxMetadata } from "@/app/metadata";
 
 type Props = {
   params: Promise<{ course: string; lesson: string; locale: string }>;
@@ -60,13 +59,5 @@ export async function generateMetadata(props: {
   const { course, lesson, locale } = await props.params;
   const page = coursesSource.getPage([course, lesson], locale);
   if (!page) notFound();
-  const url = getUrlWithoutLocale(page);
-  return {
-    title: page.data.seoTitle || page.data.h1 || page.data.title,
-    description: page.data.description,
-    openGraph: {
-      images: `/opengraph${url}`,
-    },
-    alternates: getAlternates(url, locale),
-  };
+  return getMdxMetadata(page);
 }

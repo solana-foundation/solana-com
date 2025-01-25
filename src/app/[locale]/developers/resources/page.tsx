@@ -1,6 +1,6 @@
 import { resources } from "@/app/sources/resources";
 import { ResourcesIndex } from "./resources";
-import { getAlternates } from "@/i18n/routing";
+import { getIndexMetadata } from "@/app/metadata";
 
 export default function Page() {
   const featured = resources
@@ -17,10 +17,10 @@ export async function generateMetadata(props: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await props.params;
-  return {
-    title: "Developer Resources",
-    description:
-      "Discover developer resources for the Solana ecosystem. Documentation, tooling, frameworks, sdks, and more.",
-    alternates: getAlternates("/developers/resources", locale),
-  };
+  return await getIndexMetadata({
+    titleKey: "developers.resources-page.title",
+    descriptionKey: "developers.resources-page.seo-description",
+    path: "/developers/resources",
+    locale,
+  });
 }
