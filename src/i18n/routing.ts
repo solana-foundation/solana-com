@@ -41,6 +41,19 @@ export function pathsWithLocales<T>(paths: { params: T }[]) {
   );
 }
 
+export function getMetadata(
+  title: string,
+  description: string,
+  path: string,
+  locale: string,
+) {
+  return {
+    title: title,
+    description: description,
+    alternates: getAlternates(path, locale),
+  };
+}
+
 export function getAlternates(path: string, locale: string) {
   const languages = {
     "x-default": `/${path}`,

@@ -2,8 +2,8 @@ import { coursesSource } from "@/app/sources/courses";
 import { authors } from "@/app/sources/authors";
 import Curriculum from "./curriculum";
 import { notFound } from "next/navigation";
-import { getAlternates } from "@/i18n/routing";
-import { getUrlWithoutLocale, toUrlWithoutLocale } from "@/app/sources/utils";
+import { getMdxMetadata } from "@/app/metadata";
+import { toUrlWithoutLocale } from "@/app/sources/utils";
 
 type Props = {
   params: Promise<{ course: string; locale: string }>;
@@ -48,17 +48,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata(props: Props) {
   const { course, locale } = await props.params;
-  const page = coursesSource.getPage([course]);
+  const page = coursesSource.getPage([course], locale);
   if (!page) notFound();
-
-  const url = getUrlWithoutLocale(page);
-
-  return {
-    title: page.data.seoTitle || page.data.h1 || page.data.title,
-    description: page.data.description,
-    openGraph: {
-      images: `/opengraph${url}`,
-    },
-    alternates: getAlternates(url, locale),
-  };
+  return getMdxMetadata(page);
 }
