@@ -243,391 +243,391 @@ export default {
     },
     {
       source: "/docs/rpc/getConfirmedBlock",
-      destination: "/docs/rpc/deprecated/getConfirmedBlock",
+      destination: "/docs/rpc/deprecated/getconfirmedblock",
     },
     {
       source: "/docs/rpc/http/getConfirmedBlock",
-      destination: "/docs/rpc/deprecated/getConfirmedBlock",
+      destination: "/docs/rpc/deprecated/getconfirmedblock",
     },
     {
       source: "/docs/rpc/getConfirmedBlocks",
-      destination: "/docs/rpc/deprecated/getConfirmedBlocks",
+      destination: "/docs/rpc/deprecated/getconfirmedblocks",
     },
     {
       source: "/docs/rpc/http/getConfirmedBlocks",
-      destination: "/docs/rpc/deprecated/getConfirmedBlocks",
+      destination: "/docs/rpc/deprecated/getconfirmedblocks",
     },
     {
       source: "/docs/rpc/getConfirmedBlocksWithLimit",
-      destination: "/docs/rpc/deprecated/getConfirmedBlocksWithLimit",
+      destination: "/docs/rpc/deprecated/getconfirmedblockswithlimit",
     },
     {
       source: "/docs/rpc/http/getConfirmedBlocksWithLimit",
-      destination: "/docs/rpc/deprecated/getConfirmedBlocksWithLimit",
+      destination: "/docs/rpc/deprecated/getconfirmedblockswithlimit",
     },
     {
       source: "/docs/rpc/getConfirmedSignaturesForAddress2",
-      destination: "/docs/rpc/deprecated/getConfirmedSignaturesForAddress2",
+      destination: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress2",
     },
     {
       source: "/docs/rpc/http/getConfirmedSignaturesForAddress2",
-      destination: "/docs/rpc/deprecated/getConfirmedSignaturesForAddress2",
+      destination: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress2",
     },
     {
       source: "/docs/rpc/getSignaturesForAddress2",
-      destination: "/docs/rpc/deprecated/getConfirmedSignaturesForAddress2",
+      destination: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress2",
     },
     {
       source: "/docs/rpc/http/getSignaturesForAddress2",
-      destination: "/docs/rpc/deprecated/getConfirmedSignaturesForAddress2",
+      destination: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress2",
     },
     {
       source: "/docs/rpc/deprecated/getSignaturesForAddress2",
-      destination: "/docs/rpc/deprecated/getConfirmedSignaturesForAddress2",
+      destination: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress2",
     },
     {
       source: "/docs/rpc/http/getconfirmedsignaturesforaddress",
-      destination: "/docs/rpc/deprecated/getConfirmedSignaturesForAddress2",
+      destination: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress2",
     },
     {
       source: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress",
-      destination: "/docs/rpc/deprecated/getConfirmedSignaturesForAddress2",
+      destination: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress2",
     },
     {
       source: "/docs/rpc/getconfirmedsignaturesforaddress",
-      destination: "/docs/rpc/deprecated/getConfirmedSignaturesForAddress2",
+      destination: "/docs/rpc/deprecated/getconfirmedsignaturesforaddress2",
     },
     {
       source: "/docs/rpc/getConfirmedTransaction",
-      destination: "/docs/rpc/deprecated/getConfirmedTransaction",
+      destination: "/docs/rpc/deprecated/getconfirmedtransaction",
     },
     {
       source: "/docs/rpc/http/getConfirmedTransaction",
-      destination: "/docs/rpc/deprecated/getConfirmedTransaction",
+      destination: "/docs/rpc/deprecated/getconfirmedtransaction",
     },
     {
       source: "/docs/rpc/getFeeCalculatorForBlockhash",
-      destination: "/docs/rpc/deprecated/getFeeCalculatorForBlockhash",
+      destination: "/docs/rpc/deprecated/getfeecalculatorforblockhash",
     },
     {
       source: "/docs/rpc/http/getFeeCalculatorForBlockhash",
-      destination: "/docs/rpc/deprecated/getFeeCalculatorForBlockhash",
+      destination: "/docs/rpc/deprecated/getfeecalculatorforblockhash",
     },
     {
       source: "/docs/rpc/getFeeRateGovernor",
-      destination: "/docs/rpc/deprecated/getFeeRateGovernor",
+      destination: "/docs/rpc/deprecated/getfeerategovernor",
     },
     {
       source: "/docs/rpc/http/getFeeRateGovernor",
-      destination: "/docs/rpc/deprecated/getFeeRateGovernor",
+      destination: "/docs/rpc/deprecated/getfeerategovernor",
     },
     {
       source: "/docs/rpc/getFees",
-      destination: "/docs/rpc/deprecated/getFees",
+      destination: "/docs/rpc/deprecated/getfees",
     },
     {
       source: "/docs/rpc/http/getFees",
-      destination: "/docs/rpc/deprecated/getFees",
+      destination: "/docs/rpc/deprecated/getfees",
     },
     {
       source: "/docs/rpc/http/getRecentBlockhash",
-      destination: "/docs/rpc/deprecated/getRecentBlockhash",
+      destination: "/docs/rpc/deprecated/getrecentblockhash",
     },
     {
       source: "/docs/rpc/getRecentBlockhash",
-      destination: "/docs/rpc/deprecated/getRecentBlockhash",
+      destination: "/docs/rpc/deprecated/getrecentblockhash",
     },
     {
       source: "/docs/rpc/http/getSnapshotSlot",
-      destination: "/docs/rpc/deprecated/getSnapshotSlot",
+      destination: "/docs/rpc/deprecated/getsnapshotslot",
     },
     {
       source: "/docs/rpc/getSnapshotSlot",
-      destination: "/docs/rpc/deprecated/getSnapshotSlot",
+      destination: "/docs/rpc/deprecated/getsnapshotslot",
     },
     {
       source: "/docs/rpc/http/getStakeActivation",
-      destination: "/docs/rpc/deprecated/getStakeActivation",
+      destination: "/docs/rpc/deprecated/getstakeactivation",
     },
     {
       source: "/docs/rpc/getAccountInfo",
-      destination: "/docs/rpc/http/getAccountInfo",
+      destination: "/docs/rpc/http/getaccountinfo",
     },
     {
       source: "/docs/rpc/getBalance",
-      destination: "/docs/rpc/http/getBalance",
+      destination: "/docs/rpc/http/getbalance",
     },
     {
       source: "/docs/rpc/getBlock",
-      destination: "/docs/rpc/http/getBlock",
+      destination: "/docs/rpc/http/getblock",
     },
     {
       source: "/docs/rpc/getBlockCommitment",
-      destination: "/docs/rpc/http/getBlockCommitment",
+      destination: "/docs/rpc/http/getblockcommitment",
     },
     {
       source: "/docs/rpc/getBlockHeight",
-      destination: "/docs/rpc/http/getBlockHeight",
+      destination: "/docs/rpc/http/getblockheight",
     },
     {
       source: "/docs/rpc/getBlockProduction",
-      destination: "/docs/rpc/http/getBlockProduction",
+      destination: "/docs/rpc/http/getblockproduction",
     },
     {
       source: "/docs/rpc/getBlocks",
-      destination: "/docs/rpc/http/getBlocks",
+      destination: "/docs/rpc/http/getblocks",
     },
     {
       source: "/docs/rpc/getBlocksWithLimit",
-      destination: "/docs/rpc/http/getBlocksWithLimit",
+      destination: "/docs/rpc/http/getblockswithlimit",
     },
     {
       source: "/docs/rpc/getBlockTime",
-      destination: "/docs/rpc/http/getBlockTime",
+      destination: "/docs/rpc/http/getblocktime",
     },
     {
       source: "/docs/rpc/getClusterNodes",
-      destination: "/docs/rpc/http/getClusterNodes",
+      destination: "/docs/rpc/http/getclusternodes",
     },
     {
       source: "/docs/rpc/getEpochInfo",
-      destination: "/docs/rpc/http/getEpochInfo",
+      destination: "/docs/rpc/http/getepochinfo",
     },
     {
       source: "/docs/rpc/getEpochSchedule",
-      destination: "/docs/rpc/http/getEpochSchedule",
+      destination: "/docs/rpc/http/getepochschedule",
     },
     {
       source: "/docs/rpc/getFeeForMessage",
-      destination: "/docs/rpc/http/getFeeForMessage",
+      destination: "/docs/rpc/http/getfeeformessage",
     },
     {
       source: "/docs/rpc/getFirstAvailableBlock",
-      destination: "/docs/rpc/http/getFirstAvailableBlock",
+      destination: "/docs/rpc/http/getfirstavailableblock",
     },
     {
       source: "/docs/rpc/getGenesisHash",
-      destination: "/docs/rpc/http/getGenesisHash",
+      destination: "/docs/rpc/http/getgenesishash",
     },
     {
       source: "/docs/rpc/getHealth",
-      destination: "/docs/rpc/http/getHealth",
+      destination: "/docs/rpc/http/gethealth",
     },
     {
       source: "/docs/rpc/getHighestSnapshotSlot",
-      destination: "/docs/rpc/http/getHighestSnapshotSlot",
+      destination: "/docs/rpc/http/gethighestsnapshotslot",
     },
     {
       source: "/docs/rpc/getIdentity",
-      destination: "/docs/rpc/http/getIdentity",
+      destination: "/docs/rpc/http/getidentity",
     },
     {
       source: "/docs/rpc/getInflationGovernor",
-      destination: "/docs/rpc/http/getInflationGovernor",
+      destination: "/docs/rpc/http/getinflationgovernor",
     },
     {
       source: "/docs/rpc/getInflationRate",
-      destination: "/docs/rpc/http/getInflationRate",
+      destination: "/docs/rpc/http/getinflationrate",
     },
     {
       source: "/docs/rpc/getInflationReward",
-      destination: "/docs/rpc/http/getInflationReward",
+      destination: "/docs/rpc/http/getinflationreward",
     },
     {
       source: "/docs/rpc/getLargestAccounts",
-      destination: "/docs/rpc/http/getLargestAccounts",
+      destination: "/docs/rpc/http/getlargestaccounts",
     },
     {
       source: "/docs/rpc/getLatestBlockhash",
-      destination: "/docs/rpc/http/getLatestBlockhash",
+      destination: "/docs/rpc/http/getlatestblockhash",
     },
     {
       source: "/docs/rpc/getLeaderSchedule",
-      destination: "/docs/rpc/http/getLeaderSchedule",
+      destination: "/docs/rpc/http/getleaderschedule",
     },
     {
       source: "/docs/rpc/getMaxRetransmitSlot",
-      destination: "/docs/rpc/http/getMaxRetransmitSlot",
+      destination: "/docs/rpc/http/getmaxretransmitslot",
     },
     {
       source: "/docs/rpc/getMaxShredInsertSlot",
-      destination: "/docs/rpc/http/getMaxShredInsertSlot",
+      destination: "/docs/rpc/http/getmaxshredinsertslot",
     },
     {
       source: "/docs/rpc/getMinimumBalanceForRentExemption",
-      destination: "/docs/rpc/http/getMinimumBalanceForRentExemption",
+      destination: "/docs/rpc/http/getminimumbalanceforrentexemption",
     },
     {
       source: "/docs/rpc/getMultipleAccounts",
-      destination: "/docs/rpc/http/getMultipleAccounts",
+      destination: "/docs/rpc/http/getmultipleaccounts",
     },
     {
       source: "/docs/rpc/getProgramAccounts",
-      destination: "/docs/rpc/http/getProgramAccounts",
+      destination: "/docs/rpc/http/getprogramaccounts",
     },
     {
       source: "/docs/rpc/getRecentPerformanceSamples",
-      destination: "/docs/rpc/http/getRecentPerformanceSamples",
+      destination: "/docs/rpc/http/getrecentperformancesamples",
     },
     {
       source: "/docs/rpc/getRecentPrioritizationFees",
-      destination: "/docs/rpc/http/getRecentPrioritizationFees",
+      destination: "/docs/rpc/http/getrecentprioritizationfees",
     },
     {
       source: "/docs/rpc/getSignaturesForAddress",
-      destination: "/docs/rpc/http/getSignaturesForAddress",
+      destination: "/docs/rpc/http/getsignaturesforaddress",
     },
     {
       source: "/docs/rpc/getSignatureStatuses",
-      destination: "/docs/rpc/http/getSignatureStatuses",
+      destination: "/docs/rpc/http/getsignaturestatuses",
     },
     {
       source: "/docs/rpc/getSlot",
-      destination: "/docs/rpc/http/getSlot",
+      destination: "/docs/rpc/http/getslot",
     },
     {
       source: "/docs/rpc/getSlotLeader",
-      destination: "/docs/rpc/http/getSlotLeader",
+      destination: "/docs/rpc/http/getslotleader",
     },
     {
       source: "/docs/rpc/getSlotLeaders",
-      destination: "/docs/rpc/http/getSlotLeaders",
+      destination: "/docs/rpc/http/getslotleaders",
     },
     {
       source: "/docs/rpc/getStakeMinimumDelegation",
-      destination: "/docs/rpc/http/getStakeMinimumDelegation",
+      destination: "/docs/rpc/http/getstakeminimumdelegation",
     },
     {
       source: "/docs/rpc/getSupply",
-      destination: "/docs/rpc/http/getSupply",
+      destination: "/docs/rpc/http/getsupply",
     },
     {
       source: "/docs/rpc/getTokenAccountBalance",
-      destination: "/docs/rpc/http/getTokenAccountBalance",
+      destination: "/docs/rpc/http/gettokenaccountbalance",
     },
     {
       source: "/docs/rpc/getTokenAccountsByDelegate",
-      destination: "/docs/rpc/http/getTokenAccountsByDelegate",
+      destination: "/docs/rpc/http/gettokenaccountsbydelegate",
     },
     {
       source: "/docs/rpc/getTokenAccountsByOwner",
-      destination: "/docs/rpc/http/getTokenAccountsByOwner",
+      destination: "/docs/rpc/http/gettokenaccountsbyowner",
     },
     {
       source: "/docs/rpc/getTokenLargestAccounts",
-      destination: "/docs/rpc/http/getTokenLargestAccounts",
+      destination: "/docs/rpc/http/gettokenlargestaccounts",
     },
     {
       source: "/docs/rpc/getTokenSupply",
-      destination: "/docs/rpc/http/getTokenSupply",
+      destination: "/docs/rpc/http/gettokensupply",
     },
     {
       source: "/docs/rpc/getTransaction",
-      destination: "/docs/rpc/http/getTransaction",
+      destination: "/docs/rpc/http/gettransaction",
     },
     {
       source: "/docs/rpc/getTransactionCount",
-      destination: "/docs/rpc/http/getTransactionCount",
+      destination: "/docs/rpc/http/gettransactioncount",
     },
     {
       source: "/docs/rpc/getVersion",
-      destination: "/docs/rpc/http/getVersion",
+      destination: "/docs/rpc/http/getversion",
     },
     {
       source: "/docs/rpc/getVoteAccounts",
-      destination: "/docs/rpc/http/getVoteAccounts",
+      destination: "/docs/rpc/http/getvoteaccounts",
     },
     {
       source: "/docs/rpc/isBlockhashValid",
-      destination: "/docs/rpc/http/isBlockhashValid",
+      destination: "/docs/rpc/http/isblockhashvalid",
     },
     {
       source: "/docs/rpc/minimumLedgerSlot",
-      destination: "/docs/rpc/http/minimumLedgerSlot",
+      destination: "/docs/rpc/http/minimumledgerslot",
     },
     {
       source: "/docs/rpc/requestAirdrop",
-      destination: "/docs/rpc/http/requestAirdrop",
+      destination: "/docs/rpc/http/requestairdrop",
     },
     {
       source: "/docs/rpc/sendTransaction",
-      destination: "/docs/rpc/http/sendTransaction",
+      destination: "/docs/rpc/http/sendtransaction",
     },
     {
       source: "/docs/rpc/simulateTransaction",
-      destination: "/docs/rpc/http/simulateTransaction",
+      destination: "/docs/rpc/http/simulatetransaction",
     },
     {
       source: "/docs/rpc/accountSubscribe",
-      destination: "/docs/rpc/websocket/accountSubscribe",
+      destination: "/docs/rpc/websocket/accountsubscribe",
     },
     {
       source: "/docs/rpc/accountUnsubscribe",
-      destination: "/docs/rpc/websocket/accountUnsubscribe",
+      destination: "/docs/rpc/websocket/accountunsubscribe",
     },
     {
       source: "/docs/rpc/blockSubscribe",
-      destination: "/docs/rpc/websocket/blockSubscribe",
+      destination: "/docs/rpc/websocket/blocksubscribe",
     },
     {
       source: "/docs/rpc/blockUnsubscribe",
-      destination: "/docs/rpc/websocket/blockUnsubscribe",
+      destination: "/docs/rpc/websocket/blockunsubscribe",
     },
     {
       source: "/docs/rpc/logsSubscribe",
-      destination: "/docs/rpc/websocket/logsSubscribe",
+      destination: "/docs/rpc/websocket/logssubscribe",
     },
     {
       source: "/docs/rpc/logsUnsubscribe",
-      destination: "/docs/rpc/websocket/logsUnsubscribe",
+      destination: "/docs/rpc/websocket/logsunsubscribe",
     },
     {
       source: "/docs/rpc/programSubscribe",
-      destination: "/docs/rpc/websocket/programSubscribe",
+      destination: "/docs/rpc/websocket/programsubscribe",
     },
     {
       source: "/docs/rpc/programUnsubscribe",
-      destination: "/docs/rpc/websocket/programUnsubscribe",
+      destination: "/docs/rpc/websocket/programunsubscribe",
     },
     {
       source: "/docs/rpc/rootSubscribe",
-      destination: "/docs/rpc/websocket/rootSubscribe",
+      destination: "/docs/rpc/websocket/rootsubscribe",
     },
     {
       source: "/docs/rpc/rootUnsubscribe",
-      destination: "/docs/rpc/websocket/rootUnsubscribe",
+      destination: "/docs/rpc/websocket/rootunsubscribe",
     },
     {
       source: "/docs/rpc/signatureSubscribe",
-      destination: "/docs/rpc/websocket/signatureSubscribe",
+      destination: "/docs/rpc/websocket/signaturesubscribe",
     },
     {
       source: "/docs/rpc/signatureUnsubscribe",
-      destination: "/docs/rpc/websocket/signatureUnsubscribe",
+      destination: "/docs/rpc/websocket/signatureunsubscribe",
     },
     {
       source: "/docs/rpc/slotSubscribe",
-      destination: "/docs/rpc/websocket/slotSubscribe",
+      destination: "/docs/rpc/websocket/slotsubscribe",
     },
     {
       source: "/docs/rpc/slotsUpdatesSubscribe",
-      destination: "/docs/rpc/websocket/slotsUpdatesSubscribe",
+      destination: "/docs/rpc/websocket/slotsupdatessubscribe",
     },
     {
       source: "/docs/rpc/slotsUpdatesUnsubscribe",
-      destination: "/docs/rpc/websocket/slotsUpdatesUnsubscribe",
+      destination: "/docs/rpc/websocket/slotsupdatesunsubscribe",
     },
     {
       source: "/docs/rpc/slotUnsubscribe",
-      destination: "/docs/rpc/websocket/slotUnsubscribe",
+      destination: "/docs/rpc/websocket/slotunsubscribe",
     },
     {
       source: "/docs/rpc/voteSubscribe",
-      destination: "/docs/rpc/websocket/voteSubscribe",
+      destination: "/docs/rpc/websocket/votesubscribe",
     },
     {
       source: "/docs/rpc/voteUnsubscribe",
-      destination: "/docs/rpc/websocket/voteUnsubscribe",
+      destination: "/docs/rpc/websocket/voteunsubscribe",
     },
     {
       source: "/docs/toolkit/projects",
