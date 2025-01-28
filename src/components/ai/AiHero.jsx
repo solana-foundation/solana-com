@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import Image from "next/image";
 import { Trans, useTranslation } from "next-i18next";
+import Button from "@/components/shared/Button";
 import bgSmall from "../../../assets/ai/hero-bg-small.png";
 import bgLarge from "../../../assets/ai/hero-bg-large.png";
 
@@ -28,8 +29,16 @@ export default function AiHero() {
             />
           </h1>
           <div className={classNames("w-lg-75", styles["hero__points"])}>
-            <div>{t("ai.hero.point-3")}</div>
+            <p className="mb-0">{t("ai.hero.point-3")}</p>
           </div>
+          <Button
+            newTab
+            size="large"
+            to="/developers/guides/getstarted/intro-to-ai"
+            variant="secondary"
+          >
+            {t("ai.hero.cta")}
+          </Button>
         </div>
       </div>
     </div>
