@@ -685,5 +685,9 @@ export default {
       source: "/developers/guides/immutable-owner",
       destination: "/developers/guides/token-extensions/immutable-owner",
     },
+    {
+      source: "/docs/more/exchange",
+      destination: "/developers/guides/advanced/exchange",
+    },
   ],
 };
