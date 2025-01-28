@@ -796,7 +796,7 @@ export const walletData = [
     hardware: true,
     private_key_infrastructure: true,
   },
-  
+
   // {
   //   name: "Passkeys.Foundation",
   //   body: "Binance Web3 wallet is a keyless, seedless, multi-chain, semi-custody wallet designed for DeFi.",
