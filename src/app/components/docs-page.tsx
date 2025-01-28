@@ -19,6 +19,7 @@ export function DocsPage(props: {
   title: string;
   pageTree?: any;
   href: string;
+  lastModified?: Date;
 }) {
   const path = props.filePath;
   const href = `https://github.com/solana-foundation/solana-com/blob/main/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
@@ -46,6 +47,7 @@ export function DocsPage(props: {
       footer={{
         component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
       }}
+      lastUpdate={props.lastModified}
     >
       <DocsTitle className="text-fd-accent-foreground text-4xl md:text-5xl">
         {props.title}

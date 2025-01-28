@@ -1,4 +1,4 @@
-import { defineDocs } from "fumadocs-mdx/config";
+import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 import { z } from "zod";
 
 const schema = z.custom<{
@@ -45,3 +45,7 @@ const guidesData = defineDocs({
 
 export const guides = guidesData.docs;
 export const guidesMeta = guidesData.meta;
+
+export default defineConfig({
+  lastModifiedTime: "git",
+});
