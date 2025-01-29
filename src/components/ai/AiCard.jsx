@@ -79,7 +79,7 @@ export default function AiCard() {
         <div className="d-flex flex-column flex-lg-row mt-6">
           <Button
             to="https://x.com/sendaifun/status/1879665070709621176"
-            className="me-2"
+            className="me-lg-2 mb-2 mb-lg-0"
             noBorder={true}
             newTab
           >
