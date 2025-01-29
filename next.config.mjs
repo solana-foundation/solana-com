@@ -120,6 +120,7 @@ const nextConfig = {
                   overrides: {
                     removeViewBox: false,
                     removeUselessStrokeAndFill: false,
+                    cleanupIds: false,
                   },
                 },
               },
