@@ -1,14 +1,16 @@
 import { builder, BuilderComponent, useIsPreviewing } from "@builder.io/react";
 import NotFoundPage from "../404";
-import customComponentsRegistration from "../../utils/customComponentGenerator";
+import customComponentsRegistration from "@/utils/customComponentGenerator";
 import AccelerateLayout from "@/components/accelerate/AccelerateLayout";
 import { getAllCustomSlugs, getCustomPage } from "@/lib/builder/api";
 import { ACCELERATE_BUILDER_CONFIG } from "@/lib/builder/accelerate/constants";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import HTMLHead from "@/components/builder/HTMLHead";
 import SimpleHero from "@/components/accelerate/AccelerateSimpleHero";
+import { slugWithLocales } from "@/i18n/routing";
 
 builder.init(ACCELERATE_BUILDER_CONFIG.apiKey);
+builder.apiVersion = "v3";
 customComponentsRegistration();
 
 /**
@@ -17,7 +19,7 @@ customComponentsRegistration();
  * This file renders a single page and loads all the content.
  *
  */
-const Page = ({ builderLocale, page }) => {
+const AcceleratePage = ({ builderLocale, page }) => {
   const isPreviewing = useIsPreviewing();
   const { showHeader, showDefaultHero, showFooter } = page?.data || false;
 
@@ -52,18 +54,21 @@ export async function getStaticPaths() {
     ACCELERATE_BUILDER_CONFIG.model,
   );
   return {
-    paths: allPages || [],
+    paths: slugWithLocales(allPages || []),
     fallback: "blocking",
   };
 }
 
-export const getStaticProps = async ({ locale, params }) => {
+export const getStaticProps = async ({ params }) => {
+  const { locale = "en" } = params;
   try {
     let slug = params?.slug || "";
     const isDefaultLocale = locale === "en";
     const builderLocale = isDefaultLocale ? "Default" : locale;
 
     if (typeof slug === "object" && slug.length) {
+      slug = slug.map((slug) => slug.replace(/(%\d+)+$/, ""));
+
       // if we have more than 1 slug, combine them so its a full path (ex: ['test', 'test'] => 'test/test')
       if (slug.length > 1 && slug !== "") {
         slug = slug.join("/");
@@ -80,12 +85,13 @@ export const getStaticProps = async ({ locale, params }) => {
 
     return {
       props: {
+        locale,
         builderLocale,
         key: page?.id + page?.data.slug + params.slug,
         page: page || null,
         ...(await serverSideTranslations(locale, ["common"])),
       },
-      revalidate: 30,
+      revalidate: 60,
     };
   } catch (error) {
     console.error(error);
@@ -93,4 +99,4 @@ export const getStaticProps = async ({ locale, params }) => {
   }
 };
 
-export default Page;
+export default AcceleratePage;

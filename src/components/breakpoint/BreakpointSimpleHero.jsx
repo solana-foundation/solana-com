@@ -2,7 +2,7 @@ import BreakpointHero from "../../../assets/breakpoint/hero.jpg";
 import Image from "next/image";
 import styles from "./BreakpointSimpleHero.module.scss";
 
-const SimpleHero = ({ frontmatter }) => {
+const SimpleHero = ({ title }) => {
   return (
     <div className={styles["simplehero"]}>
       <Image
@@ -12,7 +12,7 @@ const SimpleHero = ({ frontmatter }) => {
         placeholder="blur"
       />
       <div className="container my-8">
-        <h1 className="fw-normal">{frontmatter.title}</h1>
+        <h1 className="fw-normal">{title}</h1>
       </div>
     </div>
   );

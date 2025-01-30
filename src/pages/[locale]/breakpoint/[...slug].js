@@ -34,9 +34,7 @@ const Page = ({ builderLocale, page }) => {
         twitterMeta={page?.data?.openGraph}
       />
       <BreakpointLayout data={{ showHeader, showFooter }}>
-        {showDefaultHero && (
-          <SimpleHero frontmatter={{ title: page?.data?.heroTitle }} />
-        )}
+        {showDefaultHero && <SimpleHero title={page?.data?.heroTitle} />}
         <article>
           <BuilderComponent
             options={{ includeRefs: true }}
@@ -66,22 +64,8 @@ export const getStaticProps = async ({ params }) => {
   try {
     let slug = params?.slug || "";
 
-    // Leave this commented out to prevent 404 on the main landing since the slug will be empty?
-    // if (!slug) {
-    //   return { notFound: true };
-    // }
-
     const isDefaultLocale = locale === "en";
     const builderLocale = isDefaultLocale ? "Default" : locale;
-
-    // sometimes links will contain a URL encoded character at the end (as exposed by Sentries).
-    // make an effort to remove those so that the user doesnt get a 404
-    // real example: 9-14-network-outage-initial-overview%22
-
-    // Using the [[..slug]].js optional catch all segments, the slug fetched from builder will either be an array
-    // containing each slug path separated (ex: ['test', 'test']) or the main slug (['faq'])
-    // or an empty string (if we set no slug, meaning that page will be the homepage)
-    // join the slugs if its an array otherwise otherwise pass the empty string
 
     if (typeof slug === "object" && slug.length) {
       slug = slug.map((slug) => slug.replace(/(%\d+)+$/, ""));
@@ -93,8 +77,6 @@ export const getStaticProps = async ({ params }) => {
         slug = slug[0]; // Pass the slug (['faq'] => 'faq')
       }
     }
-
-    // slug = slug.replace(/(%\d+)+$/, "");
 
     let { page } = await getCustomPage(
       BREAKPOINT_BUILDER_CONFIG.model,
