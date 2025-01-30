@@ -13,13 +13,19 @@ const WalletCard = ({ index, walletImage, name, body, websiteUrl }) => {
         height={60}
         alt={name}
         className={styles["wallet-card-icon"]}
+        suppressHydrationWarning
       ></Image>
-      <h3 className={styles["wallet-card-title"]}>{name}</h3>
-      <p className={styles["wallet-card-body"]}>{body}</p>
+      <h3 className={styles["wallet-card-title"]} suppressHydrationWarning>
+        {name}
+      </h3>
+      <p className={styles["wallet-card-body"]} suppressHydrationWarning>
+        {body}
+      </p>
       <a
         href={websiteUrl}
         className={styles["wallet-card-view-details"]}
         target="_blank"
+        suppressHydrationWarning
       >
         {t("wallets.card.view-details")}
         <span>
