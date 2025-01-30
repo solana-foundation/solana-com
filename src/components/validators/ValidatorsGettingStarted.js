@@ -46,9 +46,9 @@ const ValidatorsGettingStarted = () => {
               </p>
             </div>
             <Button
-              to="https://docs.solanalabs.com/operations"
+              to="https://docs.anza.xyz/operations"
               newTab
-              aria-label="Read the Solana Documentation"
+              aria-label="Solana Docs"
               variant="none"
               arrow={true}
             >
@@ -67,7 +67,7 @@ const ValidatorsGettingStarted = () => {
             <Button
               to="https://solanabeach.io/validators"
               newTab
-              aria-label="Explore the Solana Network on solanabeach"
+              aria-label="Solanabeach"
               variant="none"
               arrow={true}
             >
@@ -77,16 +77,16 @@ const ValidatorsGettingStarted = () => {
           <StyledGettingStartedCard background="#EB54BC">
             <div>
               <h2 className="text-black">
-                {t("validators.getting-started.cards.server-header")}
+                {t("validators.getting-started.cards.education-header")}
               </h2>
               <p className="clamp text-black mt-2">
-                {t("validators.getting-started.cards.server-text")}
+                {t("validators.getting-started.cards.education-text")}
               </p>
             </div>
             <Button
-              to="https://solana.org/server-program"
+              to="https://www.youtube.com/watch?v=b0-vMyoojuo&list=PLilwLeBwGuK6jKrmn7KOkxRxS9tvbRa5p"
               newTab
-              aria-label="Learn more about the Solana Foundation Server Program"
+              aria-label="Solana Validator Education"
               variant="none"
               arrow={true}
             >
@@ -106,7 +106,7 @@ const ValidatorsGettingStarted = () => {
               <Button
                 to="https://solana.org/delegation-program"
                 newTab
-                aria-label="Learn more about the Solana Foundation delegation program"
+                aria-label="Solana Foundation delegation program"
                 variant="none"
                 className="mt-2 me-2"
               >
@@ -115,7 +115,7 @@ const ValidatorsGettingStarted = () => {
               <Button
                 to="https://solana.org/validators-search"
                 newTab
-                aria-label="View the Delegation Dashboard"
+                aria-label="Delegation Dashboard"
                 variant="transparent"
                 arrow={true}
                 className="mt-2"

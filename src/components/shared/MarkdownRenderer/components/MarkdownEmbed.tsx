@@ -1,3 +1,5 @@
+"use client";
+
 import { memo } from "react";
 import { YoutubeIFrame } from "../../Youtube";
 import videoStyles from "./MarkdownVideo.module.scss";

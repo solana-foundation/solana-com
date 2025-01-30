@@ -1,53 +1,22 @@
-import { Fragment, memo, useCallback } from "react";
+"use client";
+
+import { Fragment, memo, useCallback, useTransition, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import classNames from "classnames";
 import styles from "./DevelopersResourcesFilters.module.scss";
-import { useRouter } from "next/router";
 
-export default memo(function DevelopersResourcesFilters({ filters }) {
-  const router = useRouter();
-
-  const resetFilters = useCallback(() => {
-    router.replace({ query: {} }, undefined, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const toggleFilter = useCallback(
-    (key, filter) => {
-      let query = router.query[key] || [];
-      if (typeof query === "string") query = [query];
-      const index = query.indexOf(filter);
-      if (index !== -1) {
-        query.splice(index, 1);
-      } else {
-        query.push(filter);
-      }
-      router.replace(
-        {
-          query: {
-            ...router.query,
-            [key]: query,
-          },
-        },
-        undefined,
-        { scroll: false },
-      );
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [router.query],
-  );
-
+function Filters({ filters, onReset, onToggle, activeFilters = new Map() }) {
   return (
     <div className={styles["developers-resources-filters"]}>
       <h5 className={styles["developers-resources-filters__title"]}>Filters</h5>
       <button
         type="button"
-        onClick={resetFilters}
+        onClick={onReset}
         className={styles["developers-resources-filters__reset"]}
       >
         reset filters
       </button>
       {Object.keys(filters)
-        // remove filters tha have no child items
         .filter((item) => !!filters[item].items.length)
         .map((key) => (
           <Fragment key={key}>
@@ -56,10 +25,7 @@ export default memo(function DevelopersResourcesFilters({ filters }) {
             >
               {filters[key].label}
             </div>
-            <div
-              key={key}
-              className={styles["developers-resources-filters__filters"]}
-            >
+            <div className={styles["developers-resources-filters__filters"]}>
               {filters[key].items.map((filter) =>
                 !!filter ? (
                   <div
@@ -68,15 +34,13 @@ export default memo(function DevelopersResourcesFilters({ filters }) {
                   >
                     <button
                       type="button"
-                      onClick={() => toggleFilter(key, filter)}
+                      onClick={() => onToggle(key, filter)}
                       className={classNames(
                         styles["developers-resources-filters__filter-btn"],
                         {
                           [styles[
                             "developers-resources-filters__filter-btn--active"
-                          ]]:
-                            router.query?.[key] === filter ||
-                            router.query?.[key]?.includes(filter),
+                          ]]: activeFilters.get(key)?.includes(filter),
                         },
                       )}
                     >
@@ -89,5 +53,81 @@ export default memo(function DevelopersResourcesFilters({ filters }) {
           </Fragment>
         ))}
     </div>
+  );
+}
+
+function FilterLogic({ filters }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
+  const createQueryString = useCallback((params) => {
+    const urlSearchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, values]) => {
+      if (Array.isArray(values)) {
+        values.forEach((value) => urlSearchParams.append(key, value));
+      }
+    });
+    return urlSearchParams.toString();
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    startTransition(() => {
+      router.push("?", { scroll: false });
+    });
+  }, [router]);
+
+  const toggleFilter = useCallback(
+    (key, filter) => {
+      const currentValues = searchParams.getAll(key);
+      const newValues = currentValues.includes(filter)
+        ? currentValues.filter((v) => v !== filter)
+        : [...currentValues, filter];
+
+      const newParams = {};
+      // Preserve other query parameters
+      Array.from(searchParams.entries()).forEach(([key, value]) => {
+        if (!newParams[key]) {
+          newParams[key] = [];
+        }
+        newParams[key].push(value);
+      });
+      // Update the specific filter
+      newParams[key] = newValues;
+
+      startTransition(() => {
+        router.push("?" + createQueryString(newParams), { scroll: false });
+      });
+    },
+    [router, searchParams, createQueryString],
+  );
+
+  const activeFilters = new Map();
+  Array.from(searchParams.entries()).forEach(([key, value]) => {
+    if (!activeFilters.has(key)) {
+      activeFilters.set(key, []);
+    }
+    activeFilters.get(key).push(value);
+  });
+
+  return (
+    <Filters
+      filters={filters}
+      onReset={resetFilters}
+      onToggle={toggleFilter}
+      activeFilters={activeFilters}
+    />
+  );
+}
+
+export default memo(function DevelopersResourcesFilters({ filters }) {
+  return (
+    <Suspense
+      fallback={
+        <Filters filters={filters} onReset={() => {}} onToggle={() => {}} />
+      }
+    >
+      <FilterLogic filters={filters} />
+    </Suspense>
   );
 });

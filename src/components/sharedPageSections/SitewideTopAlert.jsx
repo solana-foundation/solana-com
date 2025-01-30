@@ -1,5 +1,7 @@
+"use client";
+
 import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "@/hooks/useRouter";
 import { AnnouncementBar } from "@solana-foundation/solana-lib";
 import builder from "@builder.io/react";
 import { BUILDER_CONFIG } from "../../lib/builder/builderConstants";
@@ -18,6 +20,7 @@ function SitewideTopAlert({ locale }) {
   useEffect(() => {
     // Fetch announcement bar data from Builder.io
     builder.init(BUILDER_CONFIG.apiKey);
+    builder.apiVersion = "v3";
     builder
       .get("component-announcement-bar", {
         staleCacheSeconds: 20,

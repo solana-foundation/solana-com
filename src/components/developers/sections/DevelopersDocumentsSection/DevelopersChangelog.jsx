@@ -14,7 +14,14 @@ export default function DevelopersChangelog({ latestVideo }) {
     <div className={styles["changelog"]}>
       <h3 className={styles["changelog__title"]}>Solana Changelog</h3>
       <p className={styles["changelog__description"]}>
-        {truncateTextByWord(latestVideo.snippet?.description, 240, "...")}
+        {truncateTextByWord(
+          (
+            latestVideo.snippet?.description ||
+            "Latest changes for the Solana blockchain"
+          ).split("---")[0],
+          160,
+          "...",
+        )}
       </p>
       <Button
         to={`https://www.youtube.com/watch?v=${latestVideo.snippet.resourceId.videoId}&list=${latestVideo.snippet.playlistId}`}

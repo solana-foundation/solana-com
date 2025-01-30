@@ -1,4 +1,3 @@
-export * from "./basic";
 export * from "./MarkdownLink";
 export * from "./MarkdownCallout";
 export * from "./MarkdownCallout";

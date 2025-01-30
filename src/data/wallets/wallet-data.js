@@ -24,12 +24,14 @@ import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
 import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
 import gemIcon from "../../../assets/wallets/icons/gem.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
+import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
+import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 
 export const walletData = [
   {
     name: "Phantom",
     body: "Multiple chains, one wallet. No more switching.",
-    website: "https://phantom.app/",
+    website: "https://phantom.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
     icon: phantomIcon,
@@ -123,9 +125,9 @@ export const walletData = [
     private_key_infrastructure: false,
   },
   {
-    name: "Fuse",
-    body: "Empower your business with open-source solutions and global reach.",
-    website: "https://www.fuse.io/",
+    name: "Fuse Wallet",
+    body: "A safe wallet for your Solana assets. 2FA. Recovery. No seed phrase.",
+    website: "https://www.fusewallet.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Gas Abstraction • Social recovery • Staking • Spending Limits • Open Source",
     icon: fuseIcon,
@@ -293,8 +295,7 @@ export const walletData = [
   {
     name: "Circle",
     body: "Circle: Built for Developers — Create the next revolutionary app powered by Circle digital currency and Web3 wallets.",
-    website:
-      "https://www.circle.com/en/?utm_term=circle%20crypto&utm_campaign=ENV+-+G+-+Search+-+Brand+-+Circle+Brand+-+BM&utm_source=adwords&utm_medium=ppc&hsa_acc=2894751369&hsa_cam=21275683630&hsa_grp=161485174945&hsa_ad=698997839918&hsa_src=g&hsa_tgt=kwd-406962479483&hsa_kw=circle%20crypto&hsa_mt=b&hsa_net=adwords&hsa_ver=3&gad_source=1&gclid=Cj0KCQjwt4a2BhD6ARIsALgH7Dr8b1BWSEQNruIubu5OfrHeciikyVpAAGh2Y9QlJJ9f3QJzoBcW7sMaAjCdEALw_wcB",
+    website: "https://www.circle.com/programmable-wallets",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extentions • Hold NFTs • Gas abstraction",
     icon: circleIcon,
@@ -718,6 +719,54 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: true,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "Enkrypt",
+    body: "A multichain crypto wallet hold, buy, send, receive, and swap tokens. Manage your NFTs. Access web3 apps across multiple blockchains.",
+    website: "https://www.enkrypt.com/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Open Source",
+    icon: enkryptIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: true,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "NOW Wallet",
+    body: "Built for ease, powered by security. Swap and store crypto across 70+ networks.",
+    website: "https://walletnow.app/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs  • Staking",
+    icon: nowwalletIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: true,
+    spending_limits: false,
+    open_source: false,
     hardware: false,
     private_key_infrastructure: false,
   },

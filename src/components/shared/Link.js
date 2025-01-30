@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import NextLink from "next/link";
-import { useRouter } from "next/router";
+import { useRouter, usePathname } from "@/hooks/useRouter";
 import classNames from "classnames";
 
 export const Link = ({
@@ -16,7 +16,9 @@ export const Link = ({
   to = to ?? href;
   const internal = /^\/(?!\/)/.test(to);
 
-  const { asPath, isReady } = useRouter();
+  const { isReady } = useRouter();
+
+  const asPath = usePathname();
 
   const isActive = useMemo(() => {
     return (

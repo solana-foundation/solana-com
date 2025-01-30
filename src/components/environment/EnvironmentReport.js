@@ -1,7 +1,5 @@
 import classNames from "classnames";
-import Image from "next/legacy/image";
 import { useTranslation } from "next-i18next";
-import FoundationLogo from "../../../assets/environment/logo.svg";
 import styles from "./EnvironmentReport.module.scss";
 
 export default function EnvironmentReport() {
@@ -21,16 +19,6 @@ export default function EnvironmentReport() {
           styles["environment-report__main"],
         )}
       >
-        <div className="mb-5">
-          <Image
-            alt="Solana Foundation"
-            src={FoundationLogo}
-            width={188}
-            height={40}
-            loading="eager"
-            priority
-          />
-        </div>
         <h2 className="mb-5">{t("environment.report.title")}</h2>
         <div
           className={classNames(
