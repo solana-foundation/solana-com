@@ -26,7 +26,7 @@ export function DevelopersPage({ latestChangelogVideo, guides, resources }) {
             href: "/docs/intro/quick-start",
           },
           secondary: {
-            label: "Stack Exchange",
+            label: "Get Support",
             href: "https://solana.stackexchange.com",
             icon: (
               <StackExchangeIcon width={16} height={20} fill="currentColor" />
