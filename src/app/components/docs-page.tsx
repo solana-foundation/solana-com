@@ -9,6 +9,7 @@ import { ScrollToTop } from "./scroll-to-top";
 import { EditOnGithub } from "./edit-page";
 import { DocsFooter } from "./docs-footer";
 import { findNeighbour } from "fumadocs-core/server";
+import Link from "next/link";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -49,8 +50,13 @@ export function DocsPage(props: {
       }}
       lastUpdate={props.lastModified}
     >
-      <DocsTitle className="text-fd-accent-foreground text-4xl md:text-5xl">
-        {props.title}
+      <DocsTitle>
+        <Link
+          className="!text-fd-accent-foreground hover:underline text-4xl md:text-5xl"
+          href={props.href}
+        >
+          {props.title}
+        </Link>
       </DocsTitle>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
     </FumaDocsPage>
