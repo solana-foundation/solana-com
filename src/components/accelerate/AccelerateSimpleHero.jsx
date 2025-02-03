@@ -1,4 +1,4 @@
-import AccelerateHero from "../../../assets/accelerate/hero.jpg";
+import AccelerateHero from "../../../assets/accelerate/hero.png";
 import Image from "next/image";
 import styles from "./AccelerateSimpleHero.module.scss";
 

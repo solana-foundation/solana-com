@@ -51,36 +51,18 @@ const Header = () => {
                 <Link
                   className="nav-link nav-link--primary"
                   activeClassName="active"
-                  to="/accelerate/speakers"
+                  to="/accelerate/scale-or-die"
                 >
-                  {t("accelerate.header.speakers")}
+                  {t("accelerate.header.scale")}
                 </Link>
               </li>
               <li className="nav-item">
                 <Link
                   className="nav-link nav-link--primary"
                   activeClassName="active"
-                  to="/accelerate/sponsors"
+                  to="/accelerate/ship-or-die"
                 >
-                  {t("accelerate.header.sponsors")}
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className="nav-link nav-link--primary"
-                  activeClassName="active"
-                  to="/accelerate/travel"
-                >
-                  {t("accelerate.header.travel")}
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className="nav-link nav-link--primary"
-                  activeClassName="active"
-                  to="/accelerate/faq"
-                >
-                  {t("accelerate.header.faq")}
+                  {t("accelerate.header.ship")}
                 </Link>
               </li>
             </ul>

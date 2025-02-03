@@ -6,7 +6,6 @@ import withBundleAnalyzer from "@next/bundle-analyzer";
 import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
 import { builder } from "@builder.io/sdk";
 import { createMDX } from "fumadocs-mdx/next";
-// import path from "path";
 
 const securityHeaders = [
   {
@@ -135,11 +134,6 @@ const nextConfig = {
       test: /(?<!inline)\.svg$/,
       type: "asset",
     });
-
-    // config.resolve.alias = {
-    //   ...config.resolve.alias,
-    //   react: path.resolve(__dirname, "node_modules/react"),
-    // };
 
     return config;
   },
