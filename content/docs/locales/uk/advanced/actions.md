@@ -100,7 +100,7 @@ API дій складається з простих `GET` і `POST` запиті
 - гаманець допомагає користувачеві підписати транзакцію і зрештою надсилає її в
   блокчейн для підтвердження
 
-![Життєвий цикл виконання дій Solana](/public/assets/docs/action-execution-and-lifecycle.png)
+![Життєвий цикл виконання дій Solana](/assets/docs/action-execution-and-lifecycle.png)
 
 Під час отримання транзакцій із URL дій клієнти повинні обробляти надсилання цих
 транзакцій у блокчейн і управляти їхнім станом.
@@ -592,7 +592,7 @@ export type ActionParameterType =
 
 Цей `ActionParameterSelectable` можна спростити до такого визначення типу:
 
-```ts filename="ActionParameterSelectable"
+```
 /**
  * note: for ease of reading, this is a simplified type of the actual
  */
