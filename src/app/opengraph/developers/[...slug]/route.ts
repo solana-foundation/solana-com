@@ -1,6 +1,10 @@
 import { IMAGE_SETTINGS } from "@/utils/images";
 import { notFound } from "next/navigation";
 import DeveloperDocsImage from "@/components/opengraph/DeveloperDocsImage";
+import { cookbookFrontmatter } from "@@/.source/cookbook.fm.js";
+import { guidesFrontmatter } from "@@/.source/guides.fm.js";
+import { coursesFrontmatter } from "@@/.source/courses.fm.js";
+import { docsFrontmatter } from "@@/.source/docs.fm.js";
 
 // Route segment config
 export const runtime = "nodejs";
@@ -10,18 +14,11 @@ export const revalidate = 3600; // 1 hour
 type Params = { params: Promise<{ slug: string[] }> };
 export async function GET(_request: Request, { params }: Params) {
   const { slug } = await params;
-  // select the correct heading text based on the specific content
-  let heading = getHeading(slug);
-  let title = getTitle(slug);
-  if (!title) {
+  const props = getImageProps(slug);
+  if (!props) {
     notFound();
   }
-  // create the dynamic image
-  // todo: add support for more image variations
-  const imageData = await DeveloperDocsImage({
-    heading,
-    title,
-  });
+  const imageData = await DeveloperDocsImage(props);
   return new Response(imageData.body, {
     headers: {
       "Content-Type": IMAGE_SETTINGS.contentType,
@@ -30,23 +27,50 @@ export async function GET(_request: Request, { params }: Params) {
   });
 }
 
-const getTitle = (slugItems: Array<string>) => {
-  let [firstSlugItem] = slugItems;
+function getImageProps(slugItems: Array<string>) {
+  let [firstSlugItem, ...rest] = slugItems;
+  let path = `/${rest.join("/")?.toLowerCase()}`;
+  let fm: any;
   switch (firstSlugItem.toLowerCase()) {
     case "resources":
-      return "Developer Resources";
+      return { heading: "Developer Resources", title: "Developer Resources" };
+    case "cookbook":
+      fm = cookbookFrontmatter[path];
+      if (!fm) {
+        return null;
+      }
+      return {
+        heading: "Solana Cookbook",
+        title: fm.seoTitle || fm.h1 || fm.title,
+      };
+    case "guides":
+      fm = guidesFrontmatter[path];
+      if (!fm) {
+        return null;
+      }
+      return {
+        heading: "Developer Guides",
+        title: fm.seoTitle || fm.h1 || fm.title,
+      };
+    case "courses":
+      fm = coursesFrontmatter[path];
+      if (!fm) {
+        return null;
+      }
+      return {
+        heading: rest.length > 1 ? "Lesson" : "Developer Course",
+        title: fm.seoTitle || fm.h1 || fm.title,
+      };
+    case "docs":
+      fm = docsFrontmatter[path];
+      if (!fm) {
+        return null;
+      }
+      return {
+        heading: "Solana Documentation",
+        title: fm.seoTitle || fm.h1 || fm.title,
+      };
     default:
-      return "Solana Developers";
+      return { heading: "Solana Developers", title: "Solana Developers" };
   }
-};
-
-// Get the heading text based on the provided slugItems
-const getHeading = (slugItems: Array<string>) => {
-  let firstSlugItem = slugItems[0].toLowerCase();
-  switch (firstSlugItem) {
-    case "resources":
-      return "Developer Resources";
-    default:
-      return "Solana Developers";
-  }
-};
+}
