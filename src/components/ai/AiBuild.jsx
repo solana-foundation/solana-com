@@ -10,6 +10,7 @@ import solanaAgentKitIcon from "../../../assets/ai/solana-agent-kit.png";
 import elizaIcon from "../../../assets/ai/eliza.png";
 import rigIcon from "../../../assets/ai/rig.png";
 import goatIcon from "../../../assets/ai/goat.png";
+import zerepyIcon from "../../../assets/ai/zerepy.jpg";
 
 import styles from "./AiBuild.module.scss";
 
@@ -98,6 +99,14 @@ export default function AiBuild() {
             icon={goatIcon}
             content="ai.build.card-4.content"
             ctaLink="https://github.com/goat-sdk/goat"
+          />
+          <Card
+            bgColor="#6930c4"
+            dividerColor="#b78bff"
+            title="ai.build.card-5.title"
+            icon={zerepyIcon}
+            content="ai.build.card-5.content"
+            ctaLink="https://www.zerepy.org/"
           />
         </CarouselCards>
       </div>

@@ -26,6 +26,7 @@ import gemIcon from "../../../assets/wallets/icons/gem.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
 import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
+import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
 import guardaIcon from "../../../assets/wallets/icons/guarda.png";
 
 export const walletData = [
@@ -296,8 +297,7 @@ export const walletData = [
   {
     name: "Circle",
     body: "Circle: Built for Developers — Create the next revolutionary app powered by Circle digital currency and Web3 wallets.",
-    website:
-      "https://www.circle.com/en/?utm_term=circle%20crypto&utm_campaign=ENV+-+G+-+Search+-+Brand+-+Circle+Brand+-+BM&utm_source=adwords&utm_medium=ppc&hsa_acc=2894751369&hsa_cam=21275683630&hsa_grp=161485174945&hsa_ad=698997839918&hsa_src=g&hsa_tgt=kwd-406962479483&hsa_kw=circle%20crypto&hsa_mt=b&hsa_net=adwords&hsa_ver=3&gad_source=1&gclid=Cj0KCQjwt4a2BhD6ARIsALgH7Dr8b1BWSEQNruIubu5OfrHeciikyVpAAGh2Y9QlJJ9f3QJzoBcW7sMaAjCdEALw_wcB",
+    website: "https://www.circle.com/programmable-wallets",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extentions • Hold NFTs • Gas abstraction",
     icon: circleIcon,
@@ -769,6 +769,30 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: false,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "Coin Wallet",
+    body: "A self-custodial multicurrency wallet for multiple platforms. Available since 2015.",
+    website: "https://coin.space/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Open Source",
+    icon: coinwalletIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: false,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
     hardware: false,
     private_key_infrastructure: false,
   },

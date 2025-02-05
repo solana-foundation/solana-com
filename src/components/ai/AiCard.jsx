@@ -76,14 +76,22 @@ export default function AiCard() {
           </div>
         </div>
 
-        <div className="d-flex flex-column">
+        <div className="d-flex flex-column flex-lg-row mt-6">
           <Button
             to="https://x.com/sendaifun/status/1879665070709621176"
-            className="mt-6"
+            className="me-lg-2 mb-2 mb-lg-0"
             noBorder={true}
             newTab
           >
             {t("ai.hackathon.cta")}
+            <ArrowRight className="ms-2" />
+          </Button>
+          <Button
+            newTab
+            to="https://solana.thegrid.id/?tags=id1737015029-ulUU9ISNQxOUF2UjdrJ6BQ,id1737015507-P6TfbQFKThCH7iMnt087KA"
+            variant="outline"
+          >
+            {t("ai.hero.cta-2")}
             <ArrowRight className="ms-2" />
           </Button>
         </div>

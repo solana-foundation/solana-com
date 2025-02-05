@@ -1,0 +1,251 @@
+---
+title: Solana Account Model
+description:
+  Learn about Solana's account model, including how accounts store data and
+  programs, rent mechanics, account ownership, and the relationship between
+  programs and data accounts. Understand the core concepts of Solana's key-value
+  storage system.
+---
+
+On Solana, all data is contained in what we call "accounts". You can think of
+data on Solana as a public database with a single "Accounts" table, where each
+entry in this table is an individual account with the same base
+[Account type](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60).
+
+![Accounts](/assets/docs/core/accounts/accounts.png)
+
+## Key Points
+
+- Accounts can store up to
+  [10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+  of data, which contain either executable program code or program state.
+
+- Accounts require a
+  [rent deposit](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+  in lamports (SOL) that is proportional to the amount of data stored, which is
+  fully refundable when the account is closed.
+
+- Every account has a program
+  [owner](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L55).
+  Only the program that owns an account can modify its data or deduct its
+  lamport balance. However, anyone can increase the balance.
+
+- Programs (smart contracts) are stateless accounts that store executable code.
+
+- Data accounts are created by programs to store and manage program state.
+
+- Native programs are built-in programs included with the Solana runtime.
+
+- Sysvar accounts are special accounts that store network cluster state.
+
+## Account
+
+Every account on Solana is identifiable by a unique 32 byte address, which is
+generally displayed as a base58 encoded string (e.g
+`14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5`).
+
+The relationship between the account and its address can be thought of as a
+key-value pair, where the address serves as the key to locate the corresponding
+on-chain data of the account.
+
+![Account Address](/assets/docs/core/accounts/account-address.svg)
+
+Most Solana accounts use an [Ed25519](https://ed25519.cr.yp.to/) public key as
+their address.
+
+While public keys are commonly used as account addresses, Solana also supports a
+feature called Program Derived Addresses (PDAs). PDAs are special addresses that
+are deterministically derived from a program ID and optional inputs (seeds). The
+details are covered on the [Program Derived Address](/docs/core/pda) page.
+
+### Account Type
+
+Accounts have a max size of
+[10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+and every account on Solana has the same base
+[Account](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60)
+type.
+
+![Account Type](/assets/docs/core/accounts/account-type.svg)
+
+Every Account on Solana has the following fields:
+
+- `data`: A byte array that stores arbitrary data for an account. For
+  non-executable accounts, this generally stores state that is meant to be
+  read-only. For program accounts (smart contracts), this contains the
+  executable program code. The data field is commonly referred to as "account
+  data".
+- `executable`: A boolean flag that indicates if the account is a program.
+- `lamports`: The account's balance in lamports, the smallest unit of SOL (1 SOL
+  = 1 billion lamports).
+- `owner`: The program ID (public key) of the program that owns this account.
+  Only the owner program can modify the account's data or deduct its lamports
+  balance.
+- `rent_epoch`: A legacy field from when Solana had a mechanism that
+  periodically deducted lamports from accounts. While this field still exists in
+  the Account type, it is no longer used since rent collection was deprecated.
+
+```rust title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+    /// the epoch at which this account will next owe rent
+    pub rent_epoch: Epoch,
+}
+```
+
+### Program Owner
+
+Program ownership is a key aspect of the Solana Account Model. Every account has
+a designated program as its owner. Only the owner program can:
+
+- Modify the account's `data` field
+- Deduct lamports from the account's balance
+
+Any modifications to an account's data or lamport balance must be done through
+instructions explicitly defined in the owner program's code.
+
+### Rent
+
+To store data on-chain, accounts must also maintain a minimum lamport (SOL)
+balance that is proportional to amount of data stored on the account (in bytes).
+This minimum balance is called "rent", although it functions more like a deposit
+because the full amount can be recovered when an account is closed. You can find
+the calculation
+[here](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+using these
+[constants](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70).
+
+The term "rent" is due to a deprecated mechanism that regularly deducted
+lamports from accounts that fell below the rent threshold. This mechanism is no
+longer active.
+
+## Native Programs
+
+The Solana validator implementation includes a list of special programs that
+provide various core functionalities for the network. These are sometimes
+referred to as "built-in" or "native" programs. You can find the full list
+[here](https://docs.anza.xyz/runtime/programs).
+
+Among the native programs, two are particularly important for Solana
+development:
+
+1. The System Program:
+
+   - Creates all new accounts on the network
+   - Allocates data space (bytes) for accounts
+   - Assigns account ownership to custom programs
+
+2. The BPF Loader:
+   - The program owner for all deployed custom programs
+   - Handles program deployment and upgrades
+
+### System Program
+
+By default, all new accounts are owned by the
+[System Program](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/system/src).
+The System Program performs several key tasks:
+
+- [New Account Creation](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L146):
+  Only the System Program can create new accounts.
+- [Space Allocation](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L71):
+  Sets the byte capacity for the data field of each account.
+- [Assign Program Ownership](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L113):
+  Once the System Program creates an account, it can reassign the designated
+  program owner to a different program account. This is how custom programs take
+  ownership of new accounts created by the System Program.
+
+All "wallet" accounts on Solana are simply accounts owned by the System Program.
+The lamport balance stored in these accounts represents the amount of SOL owned
+by the wallet. Only accounts owned by the System Program can be used as
+transaction fee payers.
+
+![System Account](/assets/docs/core/accounts/system-account.svg)
+
+### BPFLoader Program
+
+The
+[BPF Loader](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/bpf_loader/src)
+is the program owner of all custom programs on the network, excluding other
+native programs. It is responsible for deploying, upgrading, and executing
+custom programs.
+
+## Sysvar Accounts
+
+Sysvar accounts are special accounts located at predefined addresses that
+provide access to cluster state data. These accounts are dynamically updated
+with data about the network cluster. You can find the full list of Sysvar
+Accounts [here](https://docs.anza.xyz/runtime/sysvars).
+
+## Custom Programs
+
+On Solana, "smart contracts" are referred to as [programs](/docs/core/programs).
+Programs are accounts that contain executable code. You can identify program
+accounts by their "executable" flag being set to true.
+
+Programs are deployed to the network and can be invoked by users and other
+programs to execute their instructions.
+
+### Program Account
+
+When new programs are currently
+[deployed](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/bpf_loader/src/lib.rs#L527)
+on Solana, technically three separate accounts are created:
+
+- **Program Account**: The main account representing an on-chain program. This
+  account stores the address of an executable data account (which stores the
+  compiled program code) and the update authority for the program (address
+  authorized to make changes to the program).
+- **Program Executable Data Account**: An account that contains the executable
+  code for the program.
+- **Buffer Account**: A temporary account created during program deployment or
+  upgrades that stores the program's executable code. Upon successful
+  deployment, the code is moved to the Program Executable Data Account and the
+  buffer account is closed.
+
+For example, here are links to the Solana Explorer for the Token Extensions
+[Program Account](https://explorer.solana.com/address/TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb)
+and its corresponding
+[Program Executable Data Account](https://explorer.solana.com/address/DoU57AYuPFu2QU514RktNPG22QhApEjnKxnBcu4BHDTY).
+
+![Program and Executable Data Accounts](/assets/docs/core/accounts/program-account-expanded.svg)
+
+For simplicity, you can think of the Program Account as the program itself. When
+invoking a program's instructions, you specify the Program Account's address
+(commonly referred to as the "Program ID"). The details regarding the two
+separate accounts is primarily for understanding how programs are deployed and
+upgraded.
+
+![Program Account](/assets/docs/core/accounts/program-account-simple.svg)
+
+### Data Account
+
+Programs on Solana are "stateless", which means program accounts only store
+executable code and do not store data that's meant to be read from.
+
+To maintain state, programs define instructions to create separate accounts that
+are owned by the program. Each of these accounts has its own unique address and
+can store any arbitrary data defined by the program.
+
+![Data Account](/assets/docs/core/accounts/data-account.svg)
+
+Note that only the [System Program](/docs/core/accounts#system-program) can
+create new accounts. Once the System Program creates an account, it can then
+transfer ownership of the new account to another program.
+
+In other words, creating a data account for a custom program requires two steps:
+
+1. Invoke the System Program to create an account, which then transfers
+   ownership to the custom program
+2. Invoke the custom program, which now owns the account, to then initialize the
+   account data as defined by the program's instruction
+
+This account creation process is often abstracted as a single step, but it's
+helpful to understand the underlying process.
