@@ -697,5 +697,9 @@ export default {
       source: "/docs/clients/javascript-reference",
       destination: "/developers/cookbook",
     },
+    {
+      source: "/docs/programs/anchor/:path*",
+      destination: "https://www.anchor-lang.com/docs",
+    },
   ],
 };
