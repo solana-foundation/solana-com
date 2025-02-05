@@ -793,7 +793,7 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: false,
-    hardware: true,
+    hardware: false,
     private_key_infrastructure: true,
   },
 
