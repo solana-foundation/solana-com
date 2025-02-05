@@ -689,5 +689,13 @@ export default {
       source: "/docs/more/exchange",
       destination: "/developers/guides/advanced/exchange",
     },
+    {
+      source: "/developers/guides/getstarted/intro-to-native-rust",
+      destination: "/docs/programs/rust",
+    },
+    {
+      source: "/docs/clients/javascript-reference",
+      destination: "/developers/cookbook",
+    },
   ],
 };
