@@ -1,5 +1,5 @@
 import { cookbook, cookbookMeta } from "@@/.source/cookbook";
-import { createMDXSource } from "fumadocs-mdx";
+import { createMDXSource } from "fs-mdx";
 import { loader } from "fumadocs-core/source";
 import { locales, defaultLocale } from "@/i18n/config.cjs";
 
