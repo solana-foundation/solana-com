@@ -689,5 +689,21 @@ export default {
       source: "/docs/more/exchange",
       destination: "/developers/guides/advanced/exchange",
     },
+    {
+      source: "/developers/guides/getstarted/intro-to-native-rust",
+      destination: "/docs/programs/rust",
+    },
+    {
+      source: "/docs/clients/javascript-reference",
+      destination: "/developers/cookbook",
+    },
+    {
+      source: "/docs/programs/anchor/:path*",
+      destination: "https://www.anchor-lang.com/docs",
+    },
+    {
+      source: "/docs/intro/dev",
+      destination: "/docs",
+    },
   ],
 };
