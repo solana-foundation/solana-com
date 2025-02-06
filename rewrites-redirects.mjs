@@ -701,5 +701,9 @@ export default {
       source: "/docs/programs/anchor/:path*",
       destination: "https://www.anchor-lang.com/docs",
     },
+    {
+      source: "/docs/intro/dev",
+      destination: "/docs",
+    },
   ],
 };
