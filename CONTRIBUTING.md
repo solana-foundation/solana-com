@@ -1,6 +1,8 @@
 # Contributing to solana.com
 
-We really appreciate your input, and that's why we've made solana.com an open-source project! We're all about keeping things easy and transparent when it comes to contributing to the site, whether it's:
+We really appreciate your input, and that's why we've made solana.com an
+open-source project! We're all about keeping things easy and transparent when it
+comes to contributing to the site, whether it's:
 
 - Reporting a bug
 - Submitting a fix
@@ -46,7 +48,10 @@ and block approval/merging.
 
 ## Crowdin localization
 
-Translations are handled via the Crowdin platform. The content within this repo is in the default/base language of English. When the content is uploaded to the Crowdin platform, it will be broken into small strings where people that have access can perform translations.
+Translations are handled via the Crowdin platform. The content within this repo
+is in the default/base language of English. When the content is uploaded to the
+Crowdin platform, it will be broken into small strings where people that have
+access can perform translations.
 
 ## Documentation
 
@@ -61,21 +66,30 @@ additional details on how files are structured, see the
 
 ## Builder API
 
-The blog content located at `/news` and most of the landing pages under `/solutions` utilize Builder.io, a headless CMS integrated with our current Next.js project.
+The blog content located at `/news` and most of the landing pages under
+`/solutions` utilize Builder.io, a headless CMS integrated with our current
+Next.js project.
 
 ```conf
 NEXT_PUBLIC_BUILDER_API_KEY=""
 NEXT_PUBLIC_BUILDER_NEWS_SETTINGS_ID=""
 ```
 
-> Note from Builder [docs](https://www.builder.io/c/docs/using-your-api-key): The Builder Public API Key is public, meaning that you don't have to keep it private.
+> Note from Builder [docs](https://www.builder.io/c/docs/using-your-api-key):
+> The Builder Public API Key is public, meaning that you don't have to keep it
+> private.
 
 ## RPC providers
 
-To be considered for listing on the https://solana.com/rpc page, providers must demonstrate:
+To be considered for listing on the https://solana.com/rpc page, providers must
+demonstrate:
 
 - **Reliability**: High uptime with robust failover and redundancy.
-- **Performance**: Low-latency responses and the ability to handle Solana's high throughput.
-- **Documentation**: Comprehensive guides, API examples, setup instructions, and performance dashboards.
-- **Developer Support**: Strong resources, active community engagement, and transparent service status reporting.
-- **Compliance**: Review by the Solana Foundation to ensure technical, security, and operational standards are met.
+- **Performance**: Low-latency responses and the ability to handle Solana's high
+  throughput.
+- **Documentation**: Comprehensive guides, API examples, setup instructions, and
+  performance dashboards.
+- **Developer Support**: Strong resources, active community engagement, and
+  transparent service status reporting.
+- **Compliance**: Review by the Solana Foundation to ensure technical, security,
+  and operational standards are met.
