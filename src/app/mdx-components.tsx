@@ -5,13 +5,13 @@ import type { ImageProps } from "next/image";
 import { ImgHTMLAttributes } from "react";
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
+import { Callout } from "fumadocs-ui/components/callout";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
-import { MarkdownCallout } from "@/components/shared/MarkdownRenderer/components/MarkdownCallout";
 import { MarkdownEmbed } from "@/components/shared/MarkdownRenderer/components/MarkdownEmbed";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
-  Callout: MarkdownCallout,
+  Callout,
   Embed: MarkdownEmbed,
   Steps,
   Step,
