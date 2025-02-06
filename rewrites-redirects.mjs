@@ -705,5 +705,9 @@ export default {
       source: "/docs/intro/dev",
       destination: "/docs",
     },
+    {
+      source: "/docs/intro/wallets",
+      destination: "/wallets",
+    },
   ],
 };
