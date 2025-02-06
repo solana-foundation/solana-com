@@ -2092,12 +2092,6 @@ export const AccelerateHeroConfig = {
       allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
       required: true,
     },
-    {
-      name: "backgroundImage",
-      type: "file",
-      allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
-      required: true,
-    },
   ],
 };
 
