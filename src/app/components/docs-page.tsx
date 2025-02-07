@@ -52,7 +52,7 @@ export function DocsPage(props: {
     >
       <DocsTitle>
         <Link
-          className="!text-fd-accent-foreground hover:underline text-4xl md:text-5xl"
+          className="!text-fd-accent-foreground text-4xl md:text-5xl"
           href={props.href}
         >
           {props.title}

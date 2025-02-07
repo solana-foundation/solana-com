@@ -1,7 +1,6 @@
 import { DevelopersPage } from "./developers";
 import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
 import { getYTVideos } from "@/utils/followerFunctions";
-import { resources } from "@/app/sources/resources";
 import { getGuides } from "@/app/sources/guides";
 import { getIndexMetadata } from "@/app/metadata";
 
@@ -13,12 +12,10 @@ export default async function Page(props: Props) {
   const guides = getGuides(locale)
     .filter((guide: any) => guide.featured)
     .slice(0, 6);
-  const resources = await getResources();
   return (
     <DevelopersPage
       latestChangelogVideo={latestChangelogVideo}
       guides={guides}
-      resources={resources}
     />
   );
 }
@@ -40,10 +37,6 @@ async function getLatestChangelogVideo() {
     console.error("Error fetching YouTube videos:", error);
     return null;
   }
-}
-
-async function getResources() {
-  return resources.filter((r) => r.featured).slice(0, 6);
 }
 
 export async function generateMetadata({ params }: Props) {

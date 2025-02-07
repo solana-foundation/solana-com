@@ -651,19 +651,23 @@ export default {
     },
     {
       source: "/developers/guides/hello-world-in-your-browser",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solana-playground",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solang/solang-getting-started",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solang-getting-started",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
+    },
+    {
+      source: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/local-rust-hello-world",
@@ -703,6 +707,14 @@ export default {
     },
     {
       source: "/docs/intro/dev",
+      destination: "/docs",
+    },
+    {
+      source: "/docs/intro/wallets",
+      destination: "/wallets",
+    },
+    {
+      source: "/developers/resources",
       destination: "/docs",
     },
   ],
