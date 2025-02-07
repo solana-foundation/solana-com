@@ -4,7 +4,6 @@ import DocsIcon from "@@/public/src/img/developers/docs.inline.svg";
 import RpcApiIcon from "@@/public/src/img/developers/api.inline.svg";
 import CookbookIcon from "@@/public/src/img/developers/cookbook.inline.svg";
 import GuidesIcon from "@@/public/src/img/developers/guides.inline.svg";
-import TerminologyIcon from "@@/public/src/img/developers/terminology.inline.svg";
 import CoursesIcon from "@@/public/src/img/developers/courses.inline.svg";
 import StackExchangeIcon from "@@/assets/developers/stackexchange.inline.svg";
 import { useTranslation } from "next-i18next";
@@ -20,12 +19,26 @@ export default function DevelopersNav({ containerClassName }) {
             <Link
               partiallyActive
               to="/docs"
-              partiallyActiveIgnore={["/docs/rpc", "/docs/terminology"]}
+              partiallyActiveIgnore={["/docs/rpc"]}
               activeClassName="active"
             >
               <DocsIcon height="16" width="16" className="me-2" />
               <span className="align-middle">
                 {t("developers.nav.documentation")}
+              </span>
+            </Link>
+            <Link partiallyActive to="/docs/rpc" activeClassName="active">
+              <RpcApiIcon height="16" width="16" className="me-2" />
+              <span className="align-middle">{t("developers.nav.rpc")}</span>
+            </Link>
+            <Link
+              partiallyActive
+              to="/developers/cookbook"
+              activeClassName="active"
+            >
+              <CookbookIcon height="16" width="16" className="me-2" />
+              <span className="align-middle">
+                {t("developers.nav.cookbook")}
               </span>
             </Link>
             <Link
@@ -47,26 +60,6 @@ export default function DevelopersNav({ containerClassName }) {
               <span className="align-middle">{t("developers.nav.guides")}</span>
             </Link>
             <Link
-              partiallyActive
-              to="/developers/cookbook"
-              activeClassName="active"
-            >
-              <CookbookIcon height="16" width="16" className="me-2" />
-              <span className="align-middle">
-                {t("developers.nav.cookbook")}
-              </span>
-            </Link>
-            <Link to="/docs/terminology" activeClassName="active">
-              <TerminologyIcon height="16" width="16" className="me-2" />
-              <span className="align-middle">
-                {t("developers.nav.terminology")}
-              </span>
-            </Link>
-            <Link partiallyActive to="/docs/rpc" activeClassName="active">
-              <RpcApiIcon height="16" width="16" className="me-2" />
-              <span className="align-middle">{t("developers.nav.rpc")}</span>
-            </Link>
-            <Link
               href="https://solana.stackexchange.com/"
               target="_blank"
               activeClassName="active"
@@ -77,7 +70,7 @@ export default function DevelopersNav({ containerClassName }) {
                 className="me-2"
                 fill="currentColor"
               />
-              <span className="align-middle">Stack Exchange</span>
+              <span className="align-middle">Get Support</span>
             </Link>
           </nav>
         </div>
