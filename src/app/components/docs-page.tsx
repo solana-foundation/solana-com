@@ -4,12 +4,13 @@ import {
   DocsTitle,
   DocsPageProps,
 } from "fumadocs-ui/page";
-import { ReactNode } from "react";
+import { JSX, ReactNode } from "react";
 import { ScrollToTop } from "./scroll-to-top";
 import { EditOnGithub } from "./edit-page";
 import { DocsFooter } from "./docs-footer";
 import { findNeighbour } from "fumadocs-core/server";
 import Link from "next/link";
+import GiscusWidget from "./giscus";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -65,6 +66,7 @@ export function DocsPage(props: {
 
 function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
   let { next, previous } = findNeighbour(pageTree, pageUrl);
+  let docsFooter: JSX.Element | null;
 
   if (!previous && !next) {
     // we are at the root (which isn't part of the page tree)
@@ -73,7 +75,17 @@ function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
       firstPage = firstPage.index || firstPage.children[0];
     }
     if (!firstPage) return null;
-    return <DocsFooter next={firstPage} previous={undefined} />;
+    docsFooter = <DocsFooter next={firstPage} previous={undefined} />;
+  } else {
+    docsFooter = <DocsFooter previous={previous} next={next} />;
   }
-  return <DocsFooter previous={previous} next={next} />;
+
+  return (
+    <>
+      {!pageUrl.startsWith("/docs/rpc") && (
+        <GiscusWidget discussionKey={pageUrl} />
+      )}
+      {docsFooter}
+    </>
+  );
 }
