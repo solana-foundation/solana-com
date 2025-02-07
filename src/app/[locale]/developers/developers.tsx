@@ -9,7 +9,7 @@ import heroImg from "@@/assets/developers/hero-geometry.png";
 import { useTranslation } from "next-i18next";
 import StackExchangeIcon from "@@/assets/developers/stackexchange.inline.svg";
 
-export function DevelopersPage({ latestChangelogVideo, guides, resources }) {
+export function DevelopersPage({ latestChangelogVideo, guides }) {
   const { t } = useTranslation();
   return (
     <div className="overflow-hidden">
@@ -39,11 +39,6 @@ export function DevelopersPage({ latestChangelogVideo, guides, resources }) {
         items={guides}
         baseHref={`/developers/guides`}
         translationKey={"guides"}
-      />
-      <DevelopersResourcesSection
-        items={resources}
-        baseHref={`/developers/resources`}
-        translationKey={"resources"}
       />
       <DevelopersDocumentsSection latestVideo={latestChangelogVideo} />
       <DevelopersContentSection />
