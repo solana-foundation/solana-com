@@ -41,6 +41,7 @@ export async function RpcDocsPage({
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
+      locale={locale}
     >
       <MDX components={{ ...mdxComponents, ...rpcMDXComponents }} />
     </DocsPage>
