@@ -26,6 +26,7 @@ export function MainDocsPage({
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
       lastModified={page.data.lastModified}
+      locale={locale}
     >
       <MDX components={mdxComponents} />
     </DocsPage>

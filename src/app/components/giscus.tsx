@@ -8,7 +8,6 @@ interface GiscusWidgetProps {
 }
 
 export default function GiscusWidget({ discussionKey }: GiscusWidgetProps) {
-  console.log("discussionKey", discussionKey);
   const { resolvedTheme } = useTheme();
   return (
     <Giscus
@@ -17,7 +16,8 @@ export default function GiscusWidget({ discussionKey }: GiscusWidgetProps) {
       repoId="R_kgDON1vT5w"
       category="Announcements"
       categoryId="DIC_kwDON1vT584CmvXl"
-      mapping="pathname"
+      mapping="specific"
+      term={discussionKey}
       inputPosition="top"
       loading="lazy"
       strict="1"
