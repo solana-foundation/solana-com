@@ -203,7 +203,7 @@ export const walletData = [
     body: "Your portal to Web3. Access 100+ decentralized networks with many more on the way.",
     website: "https://www.okx.com/web3",
     additionalInfo:
-      "Custodial • Token Extensions • Acttions & Blinks • Buy Crypto • Sell Crypto • Nold NFTs • Social recovery • Staking",
+      "Custodial • Token Extensions • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Social recovery • Staking",
     icon: okxIcon,
     custodial: true,
     non_custodial: false,
@@ -299,7 +299,7 @@ export const walletData = [
     body: "Circle: Built for Developers — Create the next revolutionary app powered by Circle digital currency and Web3 wallets.",
     website: "https://www.circle.com/programmable-wallets",
     additionalInfo:
-      "Non-Custodial/Self Custodial • Token Extentions • Hold NFTs • Gas abstraction",
+      "Non-Custodial/Self Custodial • Token Extensions • Hold NFTs • Gas abstraction",
     icon: circleIcon,
     custodial: false,
     non_custodial: true,
