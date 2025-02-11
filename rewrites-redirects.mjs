@@ -1,12 +1,14 @@
 export default {
   rewrites: [
+    //
+  ],
+
+  redirects: [
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     { source: "/upgrade", destination: "/news/solana-network-upgrades" },
     { source: "/upgrades", destination: "/news/solana-network-upgrades" },
-  ],
 
-  redirects: [
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
     {
@@ -651,23 +653,19 @@ export default {
     },
     {
       source: "/developers/guides/hello-world-in-your-browser",
-      destination: "/docs/intro/quick-start",
+      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
     },
     {
       source: "/developers/guides/solana-playground",
-      destination: "/docs/intro/quick-start",
+      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
     },
     {
       source: "/developers/guides/solang/solang-getting-started",
-      destination: "/docs/intro/quick-start",
+      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
     },
     {
       source: "/developers/guides/solang-getting-started",
-      destination: "/docs/intro/quick-start",
-    },
-    {
-      source: "/developers/guides/getstarted/hello-world-in-your-browser",
-      destination: "/docs/intro/quick-start",
+      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
     },
     {
       source: "/developers/guides/local-rust-hello-world",
@@ -692,30 +690,6 @@ export default {
     {
       source: "/docs/more/exchange",
       destination: "/developers/guides/advanced/exchange",
-    },
-    {
-      source: "/developers/guides/getstarted/intro-to-native-rust",
-      destination: "/docs/programs/rust",
-    },
-    {
-      source: "/docs/clients/javascript-reference",
-      destination: "/developers/cookbook",
-    },
-    {
-      source: "/docs/programs/anchor/:path*",
-      destination: "https://www.anchor-lang.com/docs",
-    },
-    {
-      source: "/docs/intro/dev",
-      destination: "/docs",
-    },
-    {
-      source: "/docs/intro/wallets",
-      destination: "/wallets",
-    },
-    {
-      source: "/developers/resources",
-      destination: "/docs",
     },
   ],
 };
