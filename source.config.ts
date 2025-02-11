@@ -16,7 +16,7 @@ const schema = z.custom<{
 
 const docsData = defineDocs({
   dir: "content/docs",
-  docs: { schema },
+  docs: { schema, async: true },
   output: "docs",
 });
 
@@ -25,7 +25,7 @@ export const docsMeta = docsData.meta;
 
 const cookbookData = defineDocs({
   dir: "content/cookbook",
-  docs: { schema },
+  docs: { schema, async: true },
   output: "cookbook",
 });
 
@@ -34,7 +34,7 @@ export const cookbookMeta = cookbookData.meta;
 
 const coursesData = defineDocs({
   dir: "content/courses",
-  docs: { schema },
+  docs: { schema, async: true },
   output: "courses",
 });
 
@@ -43,7 +43,7 @@ export const coursesMeta = coursesData.meta;
 
 const guidesData = defineDocs({
   dir: "content/guides",
-  docs: { schema },
+  docs: { schema, async: true },
   output: "guides",
 });
 
