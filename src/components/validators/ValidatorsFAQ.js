@@ -36,7 +36,9 @@ const ValidatorsFAQ = () => {
                         economicslink: (
                           <Link href="https://docs.anza.xyz/implemented-proposals/ed_overview/" />
                         ),
-                        stakinglink: <Link href="/docs/economics/staking" />,
+                        stakinglink: (
+                          <Link href="/docs/references/economics/staking" />
+                        ),
                         programlink: (
                           <Link href="https://solana.org/delegation-program" />
                         ),
