@@ -691,5 +691,25 @@ export default {
       source: "/docs/more/exchange",
       destination: "/developers/guides/advanced/exchange",
     },
+    {
+      source: "/docs/terminology",
+      destination: "/docs/references/terminology",
+    },
+    {
+      source: "/docs/core/clusters",
+      destination: "/docs/references/clusters",
+    },
+    {
+      source: "/docs/clients/:path*",
+      destination: "/docs/references/clients/:path*",
+    },
+    {
+      source: "/docs/economics/:path*",
+      destination: "/docs/references/economics/:path*",
+    },
+    {
+      source: "/docs/advanced/:path*",
+      destination: "/docs/guides/advanced/:path*",
+    },
   ],
 };
