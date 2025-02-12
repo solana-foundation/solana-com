@@ -709,7 +709,7 @@ export default {
     },
     {
       source: "/docs/advanced/:path*",
-      destination: "/docs/guides/advanced/:path*",
+      destination: "/developers/guides/advanced/:path*",
     },
   ],
 };
