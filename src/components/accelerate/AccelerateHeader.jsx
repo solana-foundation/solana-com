@@ -2,6 +2,8 @@ import Navbar from "react-bootstrap/Navbar";
 import Link from "../shared/Link";
 import { useTranslation } from "next-i18next";
 import SolanaLogo from "../../../public/src/img/logos-solana/logotype.inline.svg";
+import classNames from "classnames";
+import styles from "./AccelerateHeader.module.scss";
 
 const Header = () => {
   const { t } = useTranslation();
@@ -15,7 +17,7 @@ const Header = () => {
         id="navbar"
         expand="lg"
         variant=""
-        className="navbar-dark"
+        className={classNames("navbar-dark", styles["accelerate-navbar"])}
         style={{ zIndex: 1020 }}
       >
         <div className="container-xl">
@@ -44,12 +46,12 @@ const Header = () => {
                   activeClassName="active"
                   to="/accelerate"
                 >
-                  Accelerate
+                  {t("accelerate.header.home")}
                 </Link>
               </li>
               <li className="nav-item">
                 <Link
-                  className="nav-link nav-link--primary"
+                  className="nav-link nav-link--primary nav-link--scale"
                   activeClassName="active"
                   to="/accelerate/scale-or-die"
                 >
@@ -58,7 +60,7 @@ const Header = () => {
               </li>
               <li className="nav-item">
                 <Link
-                  className="nav-link nav-link--primary"
+                  className="nav-link nav-link--primary nav-link--ship"
                   activeClassName="active"
                   to="/accelerate/ship-or-die"
                 >
