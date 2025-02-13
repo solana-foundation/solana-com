@@ -1,3 +1,4 @@
+// @ts-check
 import {
   BuilderAPIs,
   getEndpointsForBuilderAPI,
@@ -34,10 +35,7 @@ export const ButtonConfig = {
       enum: ["sm", "md", "lg", "xl"],
       defaultValue: "md",
     },
-    {
-      name: "url",
-      type: "url",
-    },
+    { name: "url", type: "url" },
     {
       name: "startIcon",
       type: "text",
@@ -159,22 +157,13 @@ const statValue = {
 const FeatureCard = {
   name: "Feature Card",
   inputs: [
-    {
-      name: "variant",
-      type: "text",
-      enum: ["logo", "none"],
-    },
+    { name: "variant", type: "text", enum: ["logo", "none"] },
     {
       name: "color",
       type: "text",
       enum: ["aqua", "orange", "purple", "green"],
     },
-    {
-      name: "feature",
-      type: "text",
-      defaultValue: "FAST",
-      localized: true,
-    },
+    { name: "feature", type: "text", defaultValue: "FAST", localized: true },
     {
       name: "body",
       type: "text",
@@ -190,10 +179,7 @@ const FeatureCard = {
           name: "value",
           type: "object",
           subFields: statValue.inputs,
-          defaultValue: {
-            statType: "static",
-            staticValue: "3,751",
-          },
+          defaultValue: { statType: "static", staticValue: "3,751" },
         },
         {
           name: "description",
@@ -203,10 +189,7 @@ const FeatureCard = {
         },
       ],
       defaultValue: {
-        value: {
-          statType: "static",
-          staticValue: "3,751",
-        },
+        value: { statType: "static", staticValue: "3,751" },
         description: "Transactions per second",
       },
     },
@@ -220,22 +203,14 @@ const FeatureCard = {
       name: "button",
       type: "object",
       subFields: ButtonConfig.inputs,
-      defaultValue: {
-        label: "Button CTA",
-      },
+      defaultValue: { label: "Button CTA" },
     },
     {
       name: "logo",
       type: "object",
       subFields: [
-        {
-          name: "src",
-          type: "file",
-        },
-        {
-          name: "alt",
-          type: "text",
-        },
+        { name: "src", type: "file" },
+        { name: "alt", type: "text" },
       ],
       showIf: "options.get('variant') === 'logo'",
     },
@@ -245,34 +220,16 @@ const FeatureCard = {
 const featuredCompany = {
   name: "Featured Company",
   inputs: [
-    {
-      name: "name",
-      type: "text",
-      localized: true,
-      defaultValue: "Solana",
-    },
-    {
-      name: "website",
-      type: "text",
-    },
+    { name: "name", type: "text", localized: true, defaultValue: "Solana" },
+    { name: "website", type: "text" },
     {
       name: "logo",
       type: "object",
       subFields: [
-        {
-          name: "src",
-          type: "file",
-        },
-        {
-          name: "alt",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "src", type: "file" },
+        { name: "alt", type: "text", localized: true, defaultValue: "" },
       ],
-      defaultValue: {
-        alt: "",
-      },
+      defaultValue: { alt: "" },
     },
   ],
 };
@@ -344,10 +301,7 @@ export const AnnouncementBarConfig = {
           defaultValue: "Build the next generation of nft brands on Solana",
           localized: true,
         },
-        {
-          name: "url",
-          type: "url",
-        },
+        { name: "url", type: "url" },
       ],
       defaultValue: {
         label: "Build the next generation of nft brands on Solana",
@@ -376,9 +330,7 @@ export const CardDeckConfig = {
 
           body: "Body Text",
 
-          callToAction: {
-            label: "Button CTA",
-          },
+          callToAction: { label: "Button CTA" },
         },
       ],
       subFields: [
@@ -414,9 +366,7 @@ export const CardDeckConfig = {
           name: "callToAction",
           type: "object",
           subFields: ButtonConfig.inputs,
-          defaultValue: {
-            label: "Button CTA",
-          },
+          defaultValue: { label: "Button CTA" },
         },
         {
           name: "backgroundGradient",
@@ -432,10 +382,7 @@ export const CardDeckConfig = {
               type: "file",
               allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
             },
-            {
-              name: "alt",
-              type: "text",
-            },
+            { name: "alt", type: "text" },
           ],
         },
         {
@@ -447,28 +394,16 @@ export const CardDeckConfig = {
               type: "file",
               allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
             },
-            {
-              name: "alt",
-              type: "text",
-            },
+            { name: "alt", type: "text" },
           ],
           showIf:
             "options.get('type') === 'image' || options.get('type') === 'tall'",
         },
-        {
-          name: "isFeatured",
-          type: "boolean",
-        },
-        {
-          name: "hiddenOnDesktop",
-          type: "boolean",
-        },
+        { name: "isFeatured", type: "boolean" },
+        { name: "hiddenOnDesktop", type: "boolean" },
       ],
     },
-    {
-      name: "featured",
-      type: "boolean",
-    },
+    { name: "featured", type: "boolean" },
     {
       name: "numCols",
       type: "number",
@@ -481,24 +416,13 @@ export const CarouselConfig = {
   name: "Carousel",
   defaults: {
     responsiveStyles: {
-      large: {
-        marginBottom: "64px",
-      },
-      medium: {
-        marginBottom: "64px",
-      },
-      small: {
-        marginBottom: "32px",
-      },
+      large: { marginBottom: "64px" },
+      medium: { marginBottom: "64px" },
+      small: { marginBottom: "32px" },
     },
   },
   inputs: [
-    {
-      name: "autoplay",
-      type: "boolean",
-      defaultValue: true,
-      required: true,
-    },
+    { name: "autoplay", type: "boolean", defaultValue: true, required: true },
     {
       name: "autoplaySpeed",
       type: "number",
@@ -618,21 +542,9 @@ export const FeatureHighlightConfig = {
       type: "object",
       subFields: [{ name: "src", type: "file" }],
     },
-    {
-      name: "headingAs",
-      type: "text",
-      enum: ["h2", "h3", "h4", "h5", "h6"],
-    },
-    {
-      name: "buttons",
-      type: "list",
-      subFields: ButtonConfig.inputs,
-    },
-    {
-      name: "color",
-      type: "text",
-      enum: ["green", "purple"],
-    },
+    { name: "headingAs", type: "text", enum: ["h2", "h3", "h4", "h5", "h6"] },
+    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
+    { name: "color", type: "text", enum: ["green", "purple"] },
     {
       name: "cards",
       type: "list",
@@ -650,9 +562,7 @@ export const FeatureHighlightConfig = {
           },
           eyebrow: "Optional Eyebrow",
 
-          button: {
-            label: "Button CTA",
-          },
+          button: { label: "Button CTA" },
         },
       ],
     },
@@ -693,11 +603,7 @@ export const HeadingConfig = {
 
       localized: true,
     },
-    {
-      name: "buttons",
-      type: "list",
-      subFields: ButtonConfig.inputs,
-    },
+    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
     {
       name: "variant",
       type: "text",
@@ -714,20 +620,10 @@ export const SliderCard = {
       name: "image",
       type: "object",
       subFields: [
-        {
-          name: "src",
-          type: "file",
-        },
-        {
-          name: "alt",
-          type: "text",
-          defaultValue: "",
-          localized: true,
-        },
+        { name: "src", type: "file" },
+        { name: "alt", type: "text", defaultValue: "", localized: true },
       ],
-      defaultValue: {
-        alt: "",
-      },
+      defaultValue: { alt: "" },
     },
     {
       name: "title",
@@ -743,30 +639,19 @@ export const SliderCard = {
 
       localized: true,
     },
-    {
-      name: "url",
-      type: "text",
-    },
+    { name: "url", type: "text" },
     {
       name: "button",
       type: "object",
       subFields: ButtonConfig.inputs,
-      defaultValue: {
-        label: "Button CTA",
-      },
+      defaultValue: { label: "Button CTA" },
     },
   ],
 };
 
 export const SliderConfig = {
   name: "Slider",
-  inputs: [
-    {
-      name: "cards",
-      type: "list",
-      subFields: SliderCard.inputs,
-    },
-  ],
+  inputs: [{ name: "cards", type: "list", subFields: SliderCard.inputs }],
 };
 
 export const StatsConfig = {
@@ -775,18 +660,9 @@ export const StatsConfig = {
     {
       name: "stats",
       type: "list",
-      defaultValue: [
-        {
-          stat: "11.5M+",
-          description: "active accounts",
-        },
-      ],
+      defaultValue: [{ stat: "11.5M+", description: "active accounts" }],
       subFields: [
-        {
-          name: "value",
-          type: "object",
-          subFields: statValue.inputs,
-        },
+        { name: "value", type: "object", subFields: statValue.inputs },
         {
           name: "description",
           type: "text",
@@ -857,11 +733,7 @@ export const SwitchbackConfig = {
       defaultValue:
         "<p>Lorem ipsum dolor sit amet consectetur. Ipsum nunc quam tellus tincidunt egestas pharetra nibh. Pharetra et felis imperdiet eget in pharetra interdum malesuada. A tortor massa morbi sed purus vitae elit nullam porta. In amet pharetra orci cras sit sit massa dignissim.</p>",
     },
-    {
-      name: "buttons",
-      type: "list",
-      subFields: ButtonConfig.inputs,
-    },
+    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
     {
       name: "image",
       type: "object",
@@ -871,16 +743,9 @@ export const SwitchbackConfig = {
           type: "file",
           allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
         },
-        {
-          name: "alt",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "alt", type: "text", localized: true, defaultValue: "" },
       ],
-      defaultValue: {
-        alt: "",
-      },
+      defaultValue: { alt: "" },
     },
     {
       name: "newsLetter",
@@ -899,24 +764,9 @@ export const SwitchbackConfig = {
       localized: true,
       defaultValue: "",
     },
-    {
-      name: "emailError",
-      type: "text",
-      localized: true,
-      defaultValue: "",
-    },
-    {
-      name: "submitError",
-      type: "text",
-      localized: true,
-      defaultValue: "",
-    },
-    {
-      name: "successMessge",
-      type: "text",
-      localized: true,
-      defaultValue: "",
-    },
+    { name: "emailError", type: "text", localized: true, defaultValue: "" },
+    { name: "submitError", type: "text", localized: true, defaultValue: "" },
+    { name: "successMessge", type: "text", localized: true, defaultValue: "" },
   ],
 };
 
@@ -940,26 +790,11 @@ export const TrustbarConfig = {
     {
       name: "logos",
       type: "list",
-      defaultValue: [
-        {
-          alt: "",
-        },
-      ],
+      defaultValue: [{ alt: "" }],
       subFields: [
-        {
-          name: "src",
-          type: "file",
-        },
-        {
-          name: "alt",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
-        {
-          name: "url",
-          type: "text",
-        },
+        { name: "src", type: "file" },
+        { name: "alt", type: "text", localized: true, defaultValue: "" },
+        { name: "url", type: "text" },
       ],
     },
   ],
@@ -985,50 +820,24 @@ export const QuoteConfig = {
       name: "author",
       type: "object",
       subFields: [
-        {
-          name: "name",
-          type: "text",
-        },
-        {
-          name: "role",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
-        {
-          name: "company",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "name", type: "text" },
+        { name: "role", type: "text", localized: true, defaultValue: "" },
+        { name: "company", type: "text", localized: true, defaultValue: "" },
         {
           name: "thumbnail",
           type: "object",
           subFields: [
-            {
-              name: "src",
-              type: "file",
-            },
-            {
-              name: "alt",
-              type: "text",
-              localized: true,
-              defaultValue: "",
-            },
+            { name: "src", type: "file" },
+            { name: "alt", type: "text", localized: true, defaultValue: "" },
           ],
-          defaultValue: {
-            alt: "",
-          },
+          defaultValue: { alt: "" },
         },
       ],
       defaultValue: {
         name: "",
         role: "",
         company: "",
-        thumbnail: {
-          src: "",
-          alt: "",
-        },
+        thumbnail: { src: "", alt: "" },
       },
     },
     {
@@ -1040,17 +849,9 @@ export const QuoteConfig = {
           type: "file",
           allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
         },
-        {
-          name: "alt",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "alt", type: "text", localized: true, defaultValue: "" },
       ],
-      defaultValue: {
-        src: "",
-        alt: "",
-      },
+      defaultValue: { src: "", alt: "" },
     },
   ],
 };
@@ -1073,10 +874,7 @@ export const QuoteSliderConfig = {
 
             company: "Web3 Company",
 
-            thumbnail: {
-              src: "",
-              alt: "",
-            },
+            thumbnail: { src: "", alt: "" },
           },
         },
       ],
@@ -1098,11 +896,7 @@ export const QuoteSliderConfig = {
           name: "author",
           type: "object",
           subFields: [
-            {
-              name: "name",
-              type: "text",
-              defaultValue: "Kelly Williams",
-            },
+            { name: "name", type: "text", defaultValue: "Kelly Williams" },
             {
               name: "role",
               type: "text",
@@ -1171,11 +965,7 @@ export const ConversionPanelConfig = {
       localized: true,
       defaultValue: "Conversion panel body",
     },
-    {
-      name: "buttons",
-      type: "list",
-      subFields: ButtonConfig.inputs,
-    },
+    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
     {
       name: "mobileImage",
       type: "object",
@@ -1200,30 +990,15 @@ export const ConversionPanelConfig = {
       ],
       showIf: (options) => options.get("variant") === "offset",
     },
-    {
-      name: "showLogos",
-      type: "boolean",
-    },
+    { name: "showLogos", type: "boolean" },
     {
       name: "logos",
       type: "list",
       subFields: [
-        {
-          name: "src",
-          type: "file",
-        },
-        {
-          name: "alt",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "src", type: "file" },
+        { name: "alt", type: "text", localized: true, defaultValue: "" },
       ],
-      defaultValue: [
-        {
-          alt: "",
-        },
-      ],
+      defaultValue: [{ alt: "" }],
     },
     {
       name: "listItems",
@@ -1309,27 +1084,15 @@ export const HeroConfig = {
       defaultValue:
         "<p>Bring blockchain to the people. Solana supports experiences for power users, new consumers, and everyone in between.</p>",
     },
-    {
-      name: "buttons",
-      type: "list",
-      subFields: ButtonConfig.inputs,
-    },
-    {
-      name: "newsLetter",
-      type: "boolean",
-      defaultValue: false,
-    },
+    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
+    { name: "newsLetter", type: "boolean", defaultValue: false },
     {
       name: "formId",
       type: "text",
       helperText: "Required for Form to render.",
       showIf: (options) => options.get("newsLetter") === true,
     },
-    {
-      name: "centered",
-      type: "boolean",
-      defaultValue: false,
-    },
+    { name: "centered", type: "boolean", defaultValue: false },
     {
       name: "image",
       type: "object",
@@ -1339,16 +1102,9 @@ export const HeroConfig = {
           type: "file",
           allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
         },
-        {
-          name: "alt",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "alt", type: "text", localized: true, defaultValue: "" },
       ],
-      defaultValue: {
-        alt: "",
-      },
+      defaultValue: { alt: "" },
       showIf: (options) => options.get("centered") === false,
       helperText:
         "Will only showcase if the value of the centered field is set to true",
@@ -1362,16 +1118,9 @@ export const HeroConfig = {
           type: "file",
           allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
         },
-        {
-          name: "alt",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "alt", type: "text", localized: true, defaultValue: "" },
       ],
-      defaultValue: {
-        alt: "",
-      },
+      defaultValue: { alt: "" },
       showIf: (options) => options.get("centered") === true,
       helperText:
         "Will only showcase if the value of the centered field is set to true. Make sure leftImage fields are left empty.",
@@ -1385,38 +1134,21 @@ export const HeroConfig = {
           type: "file",
           allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
         },
-        {
-          name: "alt",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "alt", type: "text", localized: true, defaultValue: "" },
       ],
-      defaultValue: {
-        alt: "",
-      },
+      defaultValue: { alt: "" },
       showIf: (options) => options.get("centered") === true,
       helperText:
         "Will only showcase if the value of the centered field is set to true. Make sure rightImage fields are left empty.",
     },
   ],
-  defaults: {
-    responsiveStyles: {
-      large: {
-        overflowX: "hidden",
-      },
-    },
-  },
+  defaults: { responsiveStyles: { large: { overflowX: "hidden" } } },
 };
 
 export const CommunityGalleryConfig = {
   name: "CommunityGallery",
   inputs: [
-    {
-      name: "square",
-      type: "boolean",
-      defaultValue: false,
-    },
+    { name: "square", type: "boolean", defaultValue: false },
     {
       name: "cards",
       type: "list",
@@ -1424,11 +1156,7 @@ export const CommunityGalleryConfig = {
       helperText:
         "When a cardType stat or cardType image card with a small size is chosen, the subsequent card should be a stat card or a small image card. This helps avoid any layout gaps and ensures a seamless display. ",
       subFields: [
-        {
-          name: "cardType",
-          type: "text",
-          enum: ["image", "stat"],
-        },
+        { name: "cardType", type: "text", enum: ["image", "stat"] },
         {
           name: "heading",
           type: "text",
@@ -1453,19 +1181,12 @@ export const CommunityGalleryConfig = {
 
           showIf: "options.get('cardType') === 'stat'",
         },
-        {
-          name: "body",
-          type: "text",
-          localized: true,
-          defaultValue: "",
-        },
+        { name: "body", type: "text", localized: true, defaultValue: "" },
         {
           name: "button",
           type: "object",
           subFields: ButtonConfig.inputs,
-          defaultValue: {
-            label: "Button CTA",
-          },
+          defaultValue: { label: "Button CTA" },
         },
         {
           name: "size",
@@ -1482,16 +1203,9 @@ export const CommunityGalleryConfig = {
               type: "file",
               allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
             },
-            {
-              name: "alt",
-              type: "text",
-              localized: true,
-              defaultValue: "",
-            },
+            { name: "alt", type: "text", localized: true, defaultValue: "" },
           ],
-          defaultValue: {
-            alt: "",
-          },
+          defaultValue: { alt: "" },
           showIf: "options.get('cardType') === 'image'",
         },
       ],
@@ -1508,11 +1222,7 @@ export const SwitcherConfig = {
       localized: true,
       defaultValue: "Build for growth.",
     },
-    {
-      name: "headingAs",
-      type: "text",
-      enum: ["h2", "h3", "h4", "h5", "h6"],
-    },
+    { name: "headingAs", type: "text", enum: ["h2", "h3", "h4", "h5", "h6"] },
     {
       name: "eyebrow",
       type: "text",
@@ -1552,9 +1262,7 @@ export const SwitcherConfig = {
           name: "button",
           type: "object",
           subFields: ButtonConfig.inputs,
-          defaultValue: {
-            label: "Button CTA",
-          },
+          defaultValue: { label: "Button CTA" },
         },
         {
           name: "image",
@@ -1565,32 +1273,21 @@ export const SwitcherConfig = {
               type: "file",
               allowedFileTypes: ["jpeg", "jpg", "png", "svg"],
             },
-            {
-              name: "alt",
-              type: "text",
-              localized: true,
-              defaultValue: "",
-            },
+            { name: "alt", type: "text", localized: true, defaultValue: "" },
           ],
-          defaultValue: {
-            alt: "",
-          },
+          defaultValue: { alt: "" },
         },
         {
           name: "featuredCompany",
           type: "object",
           subFields: featuredCompany.inputs,
-          defaultValue: {
-            name: "Solana",
-          },
+          defaultValue: { name: "Solana" },
         },
         {
           name: "companies",
           type: "list",
           subFields: featuredCompany.inputs,
-          defaultValue: {
-            name: "Solana",
-          },
+          defaultValue: { name: "Solana" },
         },
       ],
       defaultValue: [
@@ -1598,9 +1295,7 @@ export const SwitcherConfig = {
           category: "Gaming",
           eyebrow: "",
           description: "",
-          button: {
-            label: "Button CTA",
-          },
+          button: { label: "Button CTA" },
         },
       ],
     },
@@ -1610,11 +1305,7 @@ export const SwitcherConfig = {
 export const SwitchbackChainConfig = {
   name: "Switchback Chain",
   inputs: [
-    {
-      name: "hideBackground",
-      type: "boolean",
-      defaultValue: true,
-    },
+    { name: "hideBackground", type: "boolean", defaultValue: true },
     {
       name: "switchbacks",
       type: "list",
@@ -1666,9 +1357,7 @@ export const ContentEditorConfig = {
           name: "button",
           type: "object",
           subFields: ButtonConfig.inputs,
-          defaultValue: {
-            label: "Button CTA",
-          },
+          defaultValue: { label: "Button CTA" },
         },
       ],
       defaultValue: {
@@ -1678,9 +1367,7 @@ export const ContentEditorConfig = {
 
         description: "Description Text goes here",
 
-        button: {
-          label: "Button CTA",
-        },
+        button: { label: "Button CTA" },
       },
     },
   ],
@@ -1695,10 +1382,7 @@ export const SectionConfig = {
       enum: ["noPaddingY", "none"],
       defaultValue: "none",
     },
-    {
-      name: "sectionId",
-      type: "text",
-    },
+    { name: "sectionId", type: "text" },
   ],
 };
 
@@ -1717,12 +1401,7 @@ export const HtmlParserConfig = {
 export const TipConfig = {
   name: "Tip",
   inputs: [
-    {
-      name: "tip",
-      type: "text",
-      localized: true,
-      defaultValue: "Hot Tip",
-    },
+    { name: "tip", type: "text", localized: true, defaultValue: "Hot Tip" },
     {
       name: "title",
       type: "text",
@@ -1759,11 +1438,7 @@ export const RichTextQuoteConfig = {
       name: "author",
       type: "object",
       subFields: [
-        {
-          name: "name",
-          type: "text",
-          defaultValue: "Cliff Hutchinson",
-        },
+        { name: "name", type: "text", defaultValue: "Cliff Hutchinson" },
         {
           name: "role",
           type: "text",
@@ -1882,14 +1557,8 @@ export const DetailsHeroConfig = {
       name: "breadCrumbs",
       type: "list",
       subFields: [
-        {
-          name: "label",
-          type: "text",
-        },
-        {
-          name: "link",
-          type: "url",
-        },
+        { name: "label", type: "text" },
+        { name: "link", type: "url" },
       ],
       helperText:
         "The breadcrumbs for the hero section. The LAST one will not be clickable.",
@@ -1956,12 +1625,7 @@ export const BreakpointTitleConfig = {
 export const BreakpointHeroConfig = {
   name: "Breakpoint Hero",
   inputs: [
-    {
-      name: "title",
-      type: "text",
-      defaultValue: "Title",
-      localized: true,
-    },
+    { name: "title", type: "text", defaultValue: "Title", localized: true },
     {
       name: "subtitle",
       type: "text",
@@ -2004,11 +1668,7 @@ export const BreakpointCardConfig = {
       defaultValue: "<p>Content</p>",
       localized: true,
     },
-    {
-      name: "buttons",
-      type: "list",
-      subFields: ButtonConfig.inputs,
-    },
+    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
   ],
 };
 
@@ -2019,16 +1679,8 @@ export const BreakpointSpeakersConfig = {
       name: "speakers",
       type: "list",
       subFields: [
-        {
-          name: "speakerName",
-          type: "string",
-          defaultValue: "",
-        },
-        {
-          name: "title",
-          type: "string",
-          defaultValue: "",
-        },
+        { name: "speakerName", type: "string", defaultValue: "" },
+        { name: "title", type: "string", defaultValue: "" },
         {
           name: "image",
           type: "file",
@@ -2068,12 +1720,7 @@ export const AccelerateTitleConfig = {
 export const AccelerateHeroConfig = {
   name: "Accelerate Hero",
   inputs: [
-    {
-      name: "title",
-      type: "text",
-      defaultValue: "Title",
-      localized: true,
-    },
+    { name: "title", type: "text", defaultValue: "Title", localized: true },
     {
       name: "subtitle",
       type: "text",
@@ -2110,11 +1757,67 @@ export const AccelerateCardConfig = {
       defaultValue: "<p>Content</p>",
       localized: true,
     },
+    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
+  ],
+};
+
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
+export const AccelerateApplyButtonConfig = {
+  name: "Accelerate Apply Button",
+  noWrap: true,
+  inputs: [
     {
-      name: "buttons",
-      type: "list",
-      subFields: ButtonConfig.inputs,
+      name: "label",
+      type: "string",
+      defaultValue: "Apply here",
+      localized: true,
+      required: true,
     },
+    { name: "url", type: "url", required: true },
+  ],
+};
+
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
+export const AccelerateInfoItemConfig = {
+  name: "Info Item",
+  noWrap: true,
+  inputs: [
+    { name: "term", type: "string", localized: true, required: true },
+    { name: "value", type: "string", localized: true, required: true },
+    { name: "subtitle", type: "string", localized: true },
+    { name: "padSubtitle", type: "boolean", defaultValue: false },
+  ],
+};
+
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
+export const AccelerateInfoSectionConfig = {
+  name: "Info Section",
+  canHaveChildren: true,
+  inputs: [
+    { name: "label", type: "string", localized: true, required: true },
+    { name: "subtitle", type: "string", localized: true, required: true },
+    { name: "url", type: "url", required: true },
+    {
+      name: "variant",
+      type: "string",
+      enum: ["ship", "scale"],
+      required: true,
+    },
+  ],
+};
+
+export const AccelerateAttendanceConfig = {
+  name: "Attendance",
+  inputs: [
+    { name: "label", type: "string", localized: true, required: true },
+    { name: "note", type: "string", localized: true, required: true },
+    { name: "subnote", type: "string", localized: true },
   ],
 };
 
@@ -2125,16 +1828,8 @@ export const AccelerateSpeakersConfig = {
       name: "speakers",
       type: "list",
       subFields: [
-        {
-          name: "speakerName",
-          type: "string",
-          defaultValue: "",
-        },
-        {
-          name: "title",
-          type: "string",
-          defaultValue: "",
-        },
+        { name: "speakerName", type: "string", defaultValue: "" },
+        { name: "title", type: "string", defaultValue: "" },
         {
           name: "image",
           type: "file",
@@ -2172,18 +1867,9 @@ export const NewsletterFormConfig = {
       type: "text",
       helperText: "Placeholder text for the input field",
     },
-    {
-      name: "emailError",
-      type: "text",
-    },
-    {
-      name: "submitError",
-      type: "text",
-    },
-    {
-      name: "successMessage",
-      type: "text",
-    },
+    { name: "emailError", type: "text" },
+    { name: "submitError", type: "text" },
+    { name: "successMessage", type: "text" },
   ],
 };
 
@@ -2227,12 +1913,7 @@ export const NewsletterMultipleListsFormConfig = {
     {
       name: "newsletterOption",
       type: "list",
-      defaultValue: [
-        {
-          listName: "Newsletter",
-          formId: "form-id",
-        },
-      ],
+      defaultValue: [{ listName: "Newsletter", formId: "form-id" }],
       subFields: [
         {
           name: "listName",

@@ -12,6 +12,8 @@ import {
   AccelerateTitleConfig,
   AccelerateHeroConfig,
   AccelerateCardConfig,
+  AccelerateApplyButtonConfig,
+  AccelerateInfoItemConfig,
   ButtonConfig,
   CardDeckConfig,
   CarouselConfig,
@@ -39,6 +41,8 @@ import {
   YoutubeConfig,
   CodeBlockConfig,
   DetailsHeroConfig,
+  AccelerateInfoSectionConfig,
+  AccelerateAttendanceConfig,
 } from "./builderConfigs";
 
 export const richTextDataModels = [
@@ -145,6 +149,40 @@ const accelerateDataModels = [
       import("@solana-foundation/solana-lib").then((lib) => lib.AccelerateCard),
     ),
     config: AccelerateCardConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateApplyButton").then(
+        (lib) => lib.AccelerateApplyButton,
+      ),
+    ),
+    config: AccelerateApplyButtonConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateInfoItem").then(
+        (lib) => lib.AccelerateInfoItem,
+      ),
+    ),
+    config: AccelerateInfoItemConfig,
+  },
+  {
+    component: withChildren(
+      dynamic(() =>
+        import("../components/accelerate/AccelerateInfoSection").then(
+          (lib) => lib.AccelerateInfoSection,
+        ),
+      ),
+    ),
+    config: AccelerateInfoSectionConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateAttendance").then(
+        (lib) => lib.AccelerateAttendance,
+      ),
+    ),
+    config: AccelerateAttendanceConfig,
   },
 ];
 
