@@ -653,19 +653,23 @@ export default {
     },
     {
       source: "/developers/guides/hello-world-in-your-browser",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solana-playground",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solang/solang-getting-started",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solang-getting-started",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
+    },
+    {
+      source: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/local-rust-hello-world",
@@ -692,24 +696,28 @@ export default {
       destination: "/developers/guides/advanced/exchange",
     },
     {
-      source: "/docs/terminology",
-      destination: "/docs/references/terminology",
+      source: "/developers/guides/getstarted/intro-to-native-rust",
+      destination: "/docs/programs/rust",
     },
     {
-      source: "/docs/core/clusters",
-      destination: "/docs/references/clusters",
+      source: "/docs/clients/javascript-reference",
+      destination: "/developers/cookbook",
     },
     {
-      source: "/docs/clients/:path*",
-      destination: "/docs/references/clients/:path*",
+      source: "/docs/programs/anchor/:path*",
+      destination: "https://www.anchor-lang.com/docs",
     },
     {
-      source: "/docs/economics/:path*",
-      destination: "/docs/references/economics/:path*",
+      source: "/docs/intro/dev",
+      destination: "/docs",
     },
     {
-      source: "/docs/advanced/:path*",
-      destination: "/developers/guides/advanced/:path*",
+      source: "/docs/intro/wallets",
+      destination: "/wallets",
+    },
+    {
+      source: "/developers/resources",
+      destination: "/docs",
     },
   ],
 };
