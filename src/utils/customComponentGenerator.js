@@ -45,6 +45,8 @@ import {
   AccelerateAttendanceConfig,
 } from "./builderConfigs";
 
+import * as configs from "./builderConfigs";
+
 export const richTextDataModels = [
   {
     component: dynamic(() =>
@@ -183,6 +185,14 @@ const accelerateDataModels = [
       ),
     ),
     config: AccelerateAttendanceConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateLearnMoreButton").then(
+        (lib) => lib.AccelerateLearnMoreButton,
+      ),
+    ),
+    config: configs.AccelerateLearnMoreButtonConfig,
   },
 ];
 

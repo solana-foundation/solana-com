@@ -1812,12 +1812,33 @@ export const AccelerateInfoSectionConfig = {
   ],
 };
 
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
 export const AccelerateAttendanceConfig = {
   name: "Attendance",
   inputs: [
     { name: "label", type: "string", localized: true, required: true },
     { name: "note", type: "string", localized: true, required: true },
     { name: "subnote", type: "string", localized: true },
+  ],
+};
+
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
+export const AccelerateLearnMoreButtonConfig = {
+  name: "Learn More",
+  noWrap: true,
+  inputs: [
+    {
+      name: "label",
+      type: "string",
+      defaultValue: "Learn more",
+      localized: true,
+      required: true,
+    },
+    { name: "url", type: "url", required: true },
   ],
 };
 
