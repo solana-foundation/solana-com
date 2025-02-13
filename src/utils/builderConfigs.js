@@ -1717,28 +1717,15 @@ export const AccelerateTitleConfig = {
   ],
 };
 
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
 export const AccelerateHeroConfig = {
   name: "Accelerate Hero",
+  noWrap: true,
+  canHaveChildren: true,
   inputs: [
-    { name: "title", type: "text", defaultValue: "Title", localized: true },
-    {
-      name: "subtitle",
-      type: "text",
-      defaultValue: "Subtitle",
-      localized: true,
-    },
-    {
-      name: "description",
-      type: "richText",
-      defaultValue: "<p>Description</p>",
-      localized: true,
-    },
-    {
-      name: "logo",
-      type: "file",
-      allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
-      required: true,
-    },
+    { name: "variant", type: "string", enum: ["none", "ship", "scale"] },
   ],
 };
 
@@ -1839,6 +1826,22 @@ export const AccelerateLearnMoreButtonConfig = {
       required: true,
     },
     { name: "url", type: "url", required: true },
+  ],
+};
+
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
+export const AccelerateEventDescriptionConfig = {
+  name: "Event description",
+  noWrap: true,
+  inputs: [
+    {
+      name: "content",
+      type: "string",
+      localized: true,
+      required: true,
+    },
   ],
 };
 

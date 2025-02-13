@@ -141,8 +141,12 @@ const accelerateDataModels = [
     config: AccelerateTitleConfig,
   },
   {
-    component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then((lib) => lib.AccelerateHero),
+    component: withChildren(
+      dynamic(() =>
+        import("../components/accelerate/AccelerateHero").then(
+          (lib) => lib.AccelerateHero,
+        ),
+      ),
     ),
     config: AccelerateHeroConfig,
   },
@@ -193,6 +197,14 @@ const accelerateDataModels = [
       ),
     ),
     config: configs.AccelerateLearnMoreButtonConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateEventDescription").then(
+        (lib) => lib.AccelerateEventDescription,
+      ),
+    ),
+    config: configs.AccelerateEventDescriptionConfig,
   },
 ];
 
