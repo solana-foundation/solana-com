@@ -15,13 +15,13 @@ export default async function Page(props: Props) {
     params.locale,
   );
   if (!page) notFound();
-  const MDX = page.data.body;
+  const { body: MDX, toc } = await page.data.load();
 
   const course = coursesSource.getPage([params.course], params.locale);
   const tree = coursesSource.pageTree[params.locale];
   return (
     <BlogPage
-      toc={page.data.toc}
+      toc={toc}
       title={page.data.h1 || page.data.title}
       baseHref="/developers/courses"
       breadcrumb={[
