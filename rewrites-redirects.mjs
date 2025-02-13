@@ -719,5 +719,21 @@ export default {
       source: "/developers/resources",
       destination: "/docs",
     },
+    {
+      source: "/docs/core/clusters",
+      destination: "/docs/references/clusters",
+    },
+    {
+      source: "/docs/clients/:path*",
+      destination: "/docs/references/clients/:path*",
+    },
+    {
+      source: "/docs/economics/:path*",
+      destination: "/docs/references/economics/:path*",
+    },
+    {
+      source: "/docs/advanced/:path*",
+      destination: "/developers/guides/advanced/:path*",
+    },
   ],
 };
