@@ -20,7 +20,7 @@ export const AccelerateInfoItem: FC<{
   return (
     <div {...attributes} className={styles.root}>
       <p className={styles.term}>
-        <small>{term}:</small>
+        <small>{term}</small>
       </p>
       <p className={styles.value}>
         <strong>{value}</strong>
