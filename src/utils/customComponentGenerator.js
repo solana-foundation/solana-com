@@ -192,11 +192,11 @@ const accelerateDataModels = [
   },
   {
     component: dynamic(() =>
-      import("../components/accelerate/AccelerateLearnMoreButton").then(
-        (lib) => lib.AccelerateLearnMoreButton,
+      import("../components/accelerate/AccelerateSecondaryButton").then(
+        (lib) => lib.AccelerateSecondaryButton,
       ),
     ),
-    config: configs.AccelerateLearnMoreButtonConfig,
+    config: configs.AccelerateSecondaryButtonConfig,
   },
   {
     component: dynamic(() =>

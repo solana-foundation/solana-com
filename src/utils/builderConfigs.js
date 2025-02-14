@@ -1814,18 +1814,20 @@ export const AccelerateAttendanceConfig = {
 /**
  * @type {import('@builder.io/react').RegisteredComponent}
  */
-export const AccelerateLearnMoreButtonConfig = {
-  name: "Learn More",
+export const AccelerateSecondaryButtonConfig = {
+  name: "Secondary button",
   noWrap: true,
   inputs: [
     {
       name: "label",
       type: "string",
-      defaultValue: "Learn more",
+      defaultValue: "Secondary",
       localized: true,
       required: true,
     },
     { name: "url", type: "url", required: true },
+    { name: "capitalize", type: "boolean", defaultValue: true },
+    { name: "inverted", type: "boolean", defaultValue: false },
   ],
 };
 
