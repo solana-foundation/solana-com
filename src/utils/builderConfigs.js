@@ -1844,6 +1844,12 @@ export const AccelerateEventDescriptionConfig = {
       localized: true,
       required: true,
     },
+    {
+      name: "variant",
+      type: "string",
+      enum: ["scale", "ship"],
+      required: true,
+    },
   ],
 };
 
