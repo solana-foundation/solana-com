@@ -1,6 +1,5 @@
 import React, { FC, ReactNode } from "react";
 import styles from "./AccelerateHero.module.scss";
-import classNames from "classnames";
 
 interface AccelerateHeroProps {
   variant: "none" | "scale" | "ship";
