@@ -5,7 +5,7 @@ export const AccelerateApplyButton: FC<{
   label: string;
   url: string;
   attributes: any;
-}> = ({ label, url, attributes }) => {
+}> = ({ label, url = "", attributes }) => {
   return (
     <a href={url} target="_blank" {...attributes}>
       <button className={styles.btn}>
