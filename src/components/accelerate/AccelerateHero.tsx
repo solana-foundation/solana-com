@@ -14,8 +14,8 @@ export const AccelerateHero: FC<AccelerateHeroProps> = ({
 }) => {
   return (
     <div {...attributes}>
-      <section className={styles["hero"]} data-variant={variant}>
-        <div className="">{children}</div>
+      <section className={styles.hero} data-variant={variant}>
+        <div className={styles.inner}>{children}</div>
       </section>
     </div>
   );
