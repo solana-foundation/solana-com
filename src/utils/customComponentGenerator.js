@@ -206,6 +206,24 @@ const accelerateDataModels = [
     ),
     config: configs.AccelerateEventDescriptionConfig,
   },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AcceleratePricing").then(
+        (lib) => lib.AcceleratePricing,
+      ),
+    ),
+    config: configs.AcceleratePricingConfig,
+  },
+  {
+    component: withChildren(
+      dynamic(() =>
+        import("../components/accelerate/AccelerateStarContainer").then(
+          (lib) => lib.AccelerateStarContainer,
+        ),
+      ),
+    ),
+    config: configs.AccelerateStarContainerConfig,
+  },
 ];
 
 const componentDataModel = [

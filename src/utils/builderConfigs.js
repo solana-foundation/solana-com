@@ -1853,6 +1853,26 @@ export const AccelerateEventDescriptionConfig = {
   ],
 };
 
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
+export const AcceleratePricingConfig = {
+  name: "Pricing",
+  noWrap: true,
+  inputs: [
+    { name: "label", type: "string", required: true, defaultValue: "Label" },
+    { name: "price", type: "number", required: true, defaultValue: 0 },
+  ],
+};
+
+/**
+ * @type {import('@builder.io/react').RegisteredComponent}
+ */
+export const AccelerateStarContainerConfig = {
+  name: "Star Container",
+  noWrap: true,
+};
+
 export const AccelerateSpeakersConfig = {
   name: "Accelerate Speakers",
   inputs: [
