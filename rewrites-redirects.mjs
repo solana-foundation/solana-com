@@ -724,16 +724,16 @@ export default {
       destination: "/docs/references/clusters",
     },
     {
-      source: "/docs/clients/:path*",
-      destination: "/docs/references/clients/:path*",
-    },
-    {
       source: "/docs/economics/:path*",
       destination: "/docs/references/economics/:path*",
     },
     {
       source: "/docs/advanced/:path*",
       destination: "/developers/guides/advanced/:path*",
+    },
+    {
+      source: "/docs/references/economics/staking/:path*",
+      destination: "/staking",
     },
   ],
 };
