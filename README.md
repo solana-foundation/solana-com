@@ -24,4 +24,5 @@ Repository for [https://solana.com](https://solana.com).
 
 ## Maintainers
 
-The solana.com website is managed and maintained by the Solana Foundation. Read more on [how to contribute](CONTRIBUTING.md).
+The solana.com website is managed and maintained by the Solana Foundation. Read
+more on [how to contribute](CONTRIBUTING.md).

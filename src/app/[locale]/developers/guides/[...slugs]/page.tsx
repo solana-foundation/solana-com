@@ -13,10 +13,10 @@ export default async function Page(props: Props) {
   const { slugs, locale } = await props.params;
   const page = guidesSource.getPage(slugs, locale);
   if (!page) notFound();
-  const MDX = page.data.body;
+  const { body: MDX, toc } = await page.data.load();
   return (
     <BlogPage
-      toc={page.data.toc}
+      toc={toc}
       title={page.data.h1 || page.data.title}
       filePath={page.file.path}
       href={page.url}

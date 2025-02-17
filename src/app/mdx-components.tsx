@@ -24,7 +24,7 @@ export const mdxComponents = {
       <Pre className="max-h-none">{props.children}</Pre>
     </CodeBlock>
   ),
-  img: ({ src, alt }) => <Image src={src} alt={alt} />,
+  img: (props: ImgHTMLAttributes<HTMLImageElement>) => <Image {...props} />,
 };
 
 function Image(props: ImgHTMLAttributes<HTMLImageElement>) {

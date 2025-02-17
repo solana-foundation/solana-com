@@ -2,7 +2,9 @@
 slug: "payments"
 topic: "blockchain payments"
 title: "There are no bad questions about..."
-description: "If you’re new to the blockchain, here’s everything you need to know to get started."
+description:
+  "If you’re new to the blockchain, here’s everything you need to know to get
+  started."
 query: "payment"
 prevSlug: "blockchain-basics"
 prevTopic: "blockchain basics"
@@ -13,9 +15,9 @@ nextTopic: "DAOs"
 _Welcome to No Bad Questions, a series that helps answer some basic questions
 about blockchain, crypto, and web3._
 
-Earlier this year, the Solana Labs team
-announced [Solana Pay](https://solana.com/news/solana-pay-announcement), a new
-protocol for payments on Solana. It’s exciting news!
+Earlier this year, the Solana Labs team announced
+[Solana Pay](https://solana.com/news/solana-pay-announcement), a new protocol
+for payments on Solana. It’s exciting news!
 
 ... unless you’re one of the many, many people who have no idea what it means.
 For merchants and consumers alike, that announcement might as well be another
@@ -48,8 +50,8 @@ of it.
 
 Some of these tokens that are built on Solana, like USDC or USDT, are linked to
 the US dollar. They’re called _stablecoins_, and being linked to the dollar
-allows them to remain stable against fluctuations. That way you don’t
-spend [10,000 BTC on a pizza](https://www.coindesk.com/markets/2020/05/22/10-years-after-laszlo-hanyecz-bought-pizza-with-10k-bitcoin-he-has-no-regrets/)
+allows them to remain stable against fluctuations. That way you don’t spend
+[10,000 BTC on a pizza](https://www.coindesk.com/markets/2020/05/22/10-years-after-laszlo-hanyecz-bought-pizza-with-10k-bitcoin-he-has-no-regrets/)
 , only for it to become much more valuable a decade later!
 
 ## How is this different from traditional digital payment systems, like Venmo or a credit card?
@@ -104,5 +106,5 @@ If you’re a customer, all you have to do is download a wallet and find a store
 or merchant that accepts Solana Pay!
 
 If you’re a merchant who wants to start accepting Solana Pay, you’ll need the
-help of a developer, but it’s very easy — and free — to set
-up. [Learn more here.](https://solanapay.com/)
+help of a developer, but it’s very easy — and free — to set up.
+[Learn more here.](https://solanapay.com/)

@@ -1,12 +1,14 @@
 export default {
   rewrites: [
+    //
+  ],
+
+  redirects: [
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     { source: "/upgrade", destination: "/news/solana-network-upgrades" },
     { source: "/upgrades", destination: "/news/solana-network-upgrades" },
-  ],
 
-  redirects: [
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
     {
@@ -651,19 +653,23 @@ export default {
     },
     {
       source: "/developers/guides/hello-world-in-your-browser",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solana-playground",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solang/solang-getting-started",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/solang-getting-started",
-      destination: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
+    },
+    {
+      source: "/developers/guides/getstarted/hello-world-in-your-browser",
+      destination: "/docs/intro/quick-start",
     },
     {
       source: "/developers/guides/local-rust-hello-world",
@@ -704,6 +710,30 @@ export default {
     {
       source: "/docs/intro/dev",
       destination: "/docs",
+    },
+    {
+      source: "/docs/intro/wallets",
+      destination: "/wallets",
+    },
+    {
+      source: "/developers/resources",
+      destination: "/docs",
+    },
+    {
+      source: "/docs/core/clusters",
+      destination: "/docs/references/clusters",
+    },
+    {
+      source: "/docs/economics/:path*",
+      destination: "/docs/references/economics/:path*",
+    },
+    {
+      source: "/docs/advanced/:path*",
+      destination: "/developers/guides/advanced/:path*",
+    },
+    {
+      source: "/docs/references/economics/staking/:path*",
+      destination: "/staking",
     },
   ],
 };

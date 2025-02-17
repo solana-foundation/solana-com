@@ -5,7 +5,7 @@
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
 import { builder } from "@builder.io/sdk";
-import { createMDX } from "fumadocs-mdx/next";
+import { createMDX } from "fs-mdx/next";
 
 const securityHeaders = [
   {

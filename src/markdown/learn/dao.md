@@ -2,7 +2,9 @@
 slug: "dao"
 topic: "DAOs"
 title: "There are no bad questions about..."
-description: "If you’re new to the blockchain, here’s everything you need to know to get started."
+description:
+  "If you’re new to the blockchain, here’s everything you need to know to get
+  started."
 query: "dao"
 prevSlug: "payments"
 prevTopic: "blockchain payments"
@@ -36,8 +38,8 @@ Assets can actually be pretty broad here, according to TK TITLE Sebastian Bors
 at Solana Labs. “An asset,” he says, “can be anything.”
 
 Some of the more notable examples of assets include the attempt by a DAO to
-purchase an original copy of the Constitution to a DAO
-that [managed donations to Ukraine](https://solana.com/news/monthly-community-update-february-2022)
+purchase an original copy of the Constitution to a DAO that
+[managed donations to Ukraine](https://solana.com/news/monthly-community-update-february-2022)
 , but an asset can also be something a little bit more abstract. An asset can be
 the rules of a community, or the direction of a video game metaverse.
 
