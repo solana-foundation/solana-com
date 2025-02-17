@@ -8,8 +8,8 @@ export const AccelerateEventDescription: FC<{
   attributes: any;
 }> = ({ content, variant, attributes }) => {
   return (
-    <p {...attributes} className={styles.root} data-variant={variant}>
+    <div {...attributes} className={styles.root} data-variant={variant}>
       <HtmlParser rawHtml={content} />
-    </p>
+    </div>
   );
 };
