@@ -1,5 +1,6 @@
 import { FC } from "react";
 import styles from "./AccelerateEventDescription.module.scss";
+import { HtmlParser } from "@solana-foundation/solana-lib";
 
 export const AccelerateEventDescription: FC<{
   content: string;
@@ -8,7 +9,7 @@ export const AccelerateEventDescription: FC<{
 }> = ({ content, variant, attributes }) => {
   return (
     <p {...attributes} className={styles.root} data-variant={variant}>
-      {content}
+      <HtmlParser rawHtml={content} />
     </p>
   );
 };

@@ -1840,7 +1840,7 @@ export const AccelerateEventDescriptionConfig = {
   inputs: [
     {
       name: "content",
-      type: "string",
+      type: "richText",
       localized: true,
       required: true,
     },
