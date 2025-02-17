@@ -1,5 +1,4 @@
 import defaultMdxComponents from "fumadocs-ui/mdx";
-import { Pre, CodeBlock } from "fumadocs-ui/components/codeblock";
 import NextImage from "next/image";
 import type { ImageProps } from "next/image";
 import { ImgHTMLAttributes } from "react";
@@ -8,6 +7,7 @@ import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { MarkdownEmbed } from "@/components/shared/MarkdownRenderer/components/MarkdownEmbed";
+import { Code } from "@/app/components/code/code";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -19,12 +19,8 @@ export const mdxComponents = {
   Accordions,
   Tab,
   Tabs,
-  pre: ({ ref: _ref, ...props }) => (
-    <CodeBlock {...props} allowCopy>
-      <Pre className="max-h-none">{props.children}</Pre>
-    </CodeBlock>
-  ),
   img: (props: ImgHTMLAttributes<HTMLImageElement>) => <Image {...props} />,
+  Code,
 };
 
 function Image(props: ImgHTMLAttributes<HTMLImageElement>) {
