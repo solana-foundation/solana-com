@@ -15,16 +15,6 @@ const HeaderListBuild = () => {
         </div>
         <div>
           <Link
-            to="/developers"
-            className="nav-link nav-link--secondary"
-            activeClassName="active"
-          >
-            <strong className="d-block text-white">
-              {t("nav.developers.items.hub.title")}
-            </strong>
-            {t("nav.developers.items.hub.description")}
-          </Link>
-          <Link
             to="/docs"
             className="nav-link nav-link--secondary"
             partiallyActive
@@ -56,14 +46,14 @@ const HeaderListBuild = () => {
             {t("nav.developers.items.cookbook.description")}
           </Link>
           <Link
-            to="/developers/resources"
+            to="/developers"
             className="nav-link nav-link--secondary"
             activeClassName="active"
           >
             <strong className="d-block text-white">
-              {t("nav.developers.items.resources.title")}
+              {t("nav.developers.items.hub.title")}
             </strong>
-            {t("nav.developers.items.resources.description")}
+            {t("nav.developers.items.hub.description")}
           </Link>
         </div>
       </div>
@@ -77,7 +67,7 @@ const HeaderListBuild = () => {
         </div>
         <div>
           <Link
-            to="/developers/guides/getstarted/hello-world-in-your-browser"
+            to="/docs/intro/quick-start"
             className="nav-link nav-link--secondary d-block text-white fw-bold"
             activeClassName="active"
           >
@@ -96,13 +86,6 @@ const HeaderListBuild = () => {
             activeClassName="active font-weight-bold"
           >
             {t("nav.developers.tutorials.evm-to-svm")}
-          </Link>
-          <Link
-            to="/developers/guides"
-            className="nav-link nav-link--secondary text-white d-block fw-bold"
-            activeClassName="active font-weight-bold"
-          >
-            {t("nav.developers.tutorials.all-guides")}
           </Link>
         </div>
       </div>

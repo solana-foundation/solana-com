@@ -30,17 +30,18 @@ export async function RpcDocsPage({
 }) {
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
-  const MDX = page.data.body;
+  const { body: MDX, toc } = await page.data.load();
 
   return (
     <DocsPage
-      toc={page.data.toc}
+      toc={toc}
       full={page.data.full}
       title={page.data.h1 || page.data.title}
       filePath={page.file.path}
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
+      locale={locale}
     >
       <MDX components={{ ...mdxComponents, ...rpcMDXComponents }} />
     </DocsPage>

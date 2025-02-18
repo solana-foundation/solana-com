@@ -9,8 +9,8 @@ import Button from "@/components/shared/Button";
 
 export default function DevelopersResourcesSection({
   items,
-  baseHref = "/developers/resources",
-  translationKey = "resources",
+  baseHref = "/developers/guides",
+  translationKey = "guides",
 }) {
   const { t } = useTranslation();
 

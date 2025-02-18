@@ -27,6 +27,7 @@ import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
 import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
+import guardaIcon from "../../../assets/wallets/icons/guarda.png";
 
 export const walletData = [
   {
@@ -202,7 +203,7 @@ export const walletData = [
     body: "Your portal to Web3. Access 100+ decentralized networks with many more on the way.",
     website: "https://www.okx.com/web3",
     additionalInfo:
-      "Custodial • Token Extensions • Acttions & Blinks • Buy Crypto • Sell Crypto • Nold NFTs • Social recovery • Staking",
+      "Custodial • Token Extensions • Actions & Blinks • Buy Crypto • Sell Crypto • Hold NFTs • Social recovery • Staking",
     icon: okxIcon,
     custodial: true,
     non_custodial: false,
@@ -298,7 +299,7 @@ export const walletData = [
     body: "Circle: Built for Developers — Create the next revolutionary app powered by Circle digital currency and Web3 wallets.",
     website: "https://www.circle.com/programmable-wallets",
     additionalInfo:
-      "Non-Custodial/Self Custodial • Token Extentions • Hold NFTs • Gas abstraction",
+      "Non-Custodial/Self Custodial • Token Extensions • Hold NFTs • Gas abstraction",
     icon: circleIcon,
     custodial: false,
     non_custodial: true,
@@ -795,6 +796,31 @@ export const walletData = [
     hardware: false,
     private_key_infrastructure: false,
   },
+  {
+    name: "Guarda Wallet",
+    body: "One secure multi crypto wallet, all assets in. Swap and store crypto across 70+ networks.",
+    website: "https://guarda.com/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Exchange Crypto • Staking",
+    icon: guardaIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: true,
+    spending_limits: false,
+    open_source: false,
+    hardware: false,
+    private_key_infrastructure: true,
+  },
+
   // {
   //   name: "Passkeys.Foundation",
   //   body: "Binance Web3 wallet is a keyless, seedless, multi-chain, semi-custody wallet designed for DeFi.",

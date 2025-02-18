@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { getMdxMetadata } from "@/app/metadata";
 
-export function MainDocsPage({
+export async function MainDocsPage({
   slug,
   locale,
 }: {
@@ -14,11 +14,11 @@ export function MainDocsPage({
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
 
-  const MDX = page.data.body;
+  const { body: MDX, toc } = await page.data.load();
 
   return (
     <DocsPage
-      toc={page.data.toc}
+      toc={toc}
       full={page.data.full}
       title={page.data.h1 || page.data.title}
       filePath={page.file.path}
@@ -26,6 +26,7 @@ export function MainDocsPage({
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
       lastModified={page.data.lastModified}
+      locale={locale}
     >
       <MDX components={mdxComponents} />
     </DocsPage>
