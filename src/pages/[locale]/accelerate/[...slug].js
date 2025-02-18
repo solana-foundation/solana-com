@@ -1,15 +1,15 @@
 import { builder, BuilderComponent, useIsPreviewing } from "@builder.io/react";
 import NotFoundPage from "../404";
 import customComponentsRegistration from "@/utils/customComponentGenerator";
-import BreakpointLayout from "@/components/breakpoint/BreakpointLayout";
+import AccelerateLayout from "@/components/accelerate/AccelerateLayout";
 import { getAllCustomSlugs, getCustomPage } from "@/lib/builder/api";
-import { BREAKPOINT_BUILDER_CONFIG } from "@/lib/builder/breakpoint/constants";
+import { ACCELERATE_BUILDER_CONFIG } from "@/lib/builder/accelerate/constants";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import HTMLHead from "@/components/builder/HTMLHead";
-import SimpleHero from "@/components/breakpoint/BreakpointSimpleHero";
+import SimpleHero from "@/components/accelerate/AccelerateSimpleHero";
 import { slugWithLocales } from "@/i18n/routing";
 
-builder.init(BREAKPOINT_BUILDER_CONFIG.apiKey);
+builder.init(ACCELERATE_BUILDER_CONFIG.apiKey);
 builder.apiVersion = "v3";
 customComponentsRegistration();
 
@@ -19,7 +19,7 @@ customComponentsRegistration();
  * This file renders a single page and loads all the content.
  *
  */
-const Page = ({ builderLocale, page }) => {
+const AcceleratePage = ({ builderLocale, page }) => {
   const isPreviewing = useIsPreviewing();
   const { showHeader, showDefaultHero, showFooter } = page?.data || false;
 
@@ -33,25 +33,25 @@ const Page = ({ builderLocale, page }) => {
         openGraph={page?.data?.openGraph}
         twitterMeta={page?.data?.openGraph}
       />
-      <BreakpointLayout data={{ showHeader, showFooter }}>
+      <AccelerateLayout data={{ showHeader, showFooter }}>
         {showDefaultHero && <SimpleHero title={page?.data?.heroTitle} />}
         <article>
           <BuilderComponent
             options={{ includeRefs: true }}
-            model={BREAKPOINT_BUILDER_CONFIG.model}
+            model={ACCELERATE_BUILDER_CONFIG.model}
             content={page}
             locale={builderLocale || "Default"}
           />
         </article>
-      </BreakpointLayout>
+      </AccelerateLayout>
     </>
   );
 };
 
 export async function getStaticPaths() {
   const allPages = await getAllCustomSlugs(
-    "/breakpoint",
-    BREAKPOINT_BUILDER_CONFIG.model,
+    "/accelerate",
+    ACCELERATE_BUILDER_CONFIG.model,
   );
   return {
     paths: slugWithLocales(allPages || []),
@@ -63,7 +63,6 @@ export const getStaticProps = async ({ params }) => {
   const { locale = "en" } = params;
   try {
     let slug = params?.slug || "";
-
     const isDefaultLocale = locale === "en";
     const builderLocale = isDefaultLocale ? "Default" : locale;
 
@@ -79,7 +78,7 @@ export const getStaticProps = async ({ params }) => {
     }
 
     let { page } = await getCustomPage(
-      BREAKPOINT_BUILDER_CONFIG.model,
+      ACCELERATE_BUILDER_CONFIG.model,
       slug,
       builderLocale,
     );
@@ -100,4 +99,4 @@ export const getStaticProps = async ({ params }) => {
   }
 };
 
-export default Page;
+export default AcceleratePage;

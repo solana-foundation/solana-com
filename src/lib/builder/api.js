@@ -293,7 +293,7 @@ export async function getAuthor(id) {
   return author.data || null;
 }
 
-export async function getBreakpointPage(builderModel, slug, locale) {
+export async function getCustomPage(builderModel, slug, locale) {
   const page = await getPost(
     {
       "data.slug": { $eq: slug },
@@ -307,13 +307,13 @@ export async function getBreakpointPage(builderModel, slug, locale) {
   };
 }
 
-export async function getAllBreakpointSlugs() {
+export async function getAllCustomSlugs(path) {
   let postCount = 0;
   let Post = [];
 
   const getAllPosts = async (offset = 0, builderModel) => {
     const posts = (await getPostSlugs(offset, builderModel))?.map(
-      (p) => `/breakpoint/${p?.data?.slug}`,
+      (p) => `${path}/${p?.data?.slug}`,
     );
 
     Post = Post.concat(posts);
