@@ -85,8 +85,8 @@ export async function getStaticProps({ params }) {
     period: "future",
   });
 
-  // HH calendar
-  let hhEvents = await fetchCalendarEvents("cal-dLrjJu0Dqay3WBe", {
+  // Skyline calendar
+  let skylineEvents = await fetchCalendarEvents("cal-xIDT6vXOhDyC4FM", {
     period: "future",
   });
 
@@ -103,7 +103,7 @@ export async function getStaticProps({ params }) {
   const sortInstructions = [[(x) => x.schedule.from], ["asc"]];
 
   // sorted and unique main events
-  let sorted = orderBy([...mainEvents, ...hhEvents], ...sortInstructions);
+  let sorted = orderBy([...mainEvents, ...skylineEvents], ...sortInstructions);
   let unique = uniqBy(sorted, "key");
 
   // sorted community events
@@ -116,8 +116,8 @@ export async function getStaticProps({ params }) {
   unique.map((el) => {
     if (el.key == "https://solana.com/breakpoint") {
       el.img.primary = breakpointImg;
-      el.schedule.from = "2024-09-20T01:00:00.000Z";
-      el.schedule.to = "2024-09-21T01:00:00.000Z";
+      el.schedule.from = "2025-12-11T01:00:00.000Z";
+      el.schedule.to = "2025-12-13T01:00:00.000Z";
     }
     return el;
   });
