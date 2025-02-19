@@ -116,8 +116,8 @@ export async function getStaticProps({ params }) {
   unique.map((el) => {
     if (el.key == "https://solana.com/breakpoint") {
       el.img.primary = breakpointImg;
-      el.schedule.from = "2024-09-20T01:00:00.000Z";
-      el.schedule.to = "2024-09-21T01:00:00.000Z";
+      el.schedule.from = "2025-12-11T01:00:00.000Z";
+      el.schedule.to = "2025-12-13T01:00:00.000Z";
     }
     return el;
   });
