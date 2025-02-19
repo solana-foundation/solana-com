@@ -85,8 +85,8 @@ export async function getStaticProps({ params }) {
     period: "future",
   });
 
-  // HH calendar
-  let hhEvents = await fetchCalendarEvents("cal-dLrjJu0Dqay3WBe", {
+  // Skyline calendar
+  let skylineEvents = await fetchCalendarEvents("cal-xIDT6vXOhDyC4FM", {
     period: "future",
   });
 
@@ -103,7 +103,7 @@ export async function getStaticProps({ params }) {
   const sortInstructions = [[(x) => x.schedule.from], ["asc"]];
 
   // sorted and unique main events
-  let sorted = orderBy([...mainEvents, ...hhEvents], ...sortInstructions);
+  let sorted = orderBy([...mainEvents, ...skylineEvents], ...sortInstructions);
   let unique = uniqBy(sorted, "key");
 
   // sorted community events
