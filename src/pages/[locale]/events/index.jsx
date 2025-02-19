@@ -9,6 +9,8 @@ import EventsHeroSection from "@/components/events/EventsHeroSection";
 import EventsDetailSection from "@/components/events/EventsDetailSection";
 import EventsList from "@/components/events/EventsList";
 import breakpointImg from "@/../assets/events/breakpoint.jpg";
+import shipordieImg from "@/../assets/events/shipordie.jpg";
+import scaleordieImg from "@/../assets/events/scaleordie.jpg";
 import Button from "@/components/shared/Button";
 import Divider from "@/components/shared/Divider";
 import { InlineLink } from "@/utils/Link";
@@ -114,10 +116,18 @@ export async function getStaticProps({ params }) {
 
   // Add custom img to Breakpoint to avoid the fallback
   unique.map((el) => {
-    if (el.key == "https://solana.com/breakpoint") {
+    if (el.key === "https://solana.com/breakpoint") {
       el.img.primary = breakpointImg;
       el.schedule.from = "2025-12-11T01:00:00.000Z";
       el.schedule.to = "2025-12-13T01:00:00.000Z";
+    } else if (el.key === "https://solana.com/accelerate/ship-or-die") {
+      el.img.primary = shipordieImg;
+      el.schedule.from = "2025-05-22T01:00:00.000Z";
+      el.schedule.to = "2025-05-23T01:00:00.000Z";
+    } else if (el.key === "https://solana.com/accelerate/scale-or-die") {
+      el.img.primary = scaleordieImg;
+      el.schedule.from = "2025-05-19T01:00:00.000Z";
+      el.schedule.to = "2025-05-20T01:00:00.000Z";
     }
     return el;
   });
