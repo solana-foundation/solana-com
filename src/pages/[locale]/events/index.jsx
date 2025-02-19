@@ -118,16 +118,16 @@ export async function getStaticProps({ params }) {
   unique.map((el) => {
     if (el.key === "https://solana.com/breakpoint") {
       el.img.primary = breakpointImg;
-      el.schedule.from = "2025-12-11T01:00:00.000Z";
-      el.schedule.to = "2025-12-13T01:00:00.000Z";
+      el.schedule.timezone = "Asia/Dubai";
+      el.schedule.to = "2025-12-13T23:59:59+04:00";
     } else if (el.key === "https://solana.com/accelerate/ship-or-die") {
       el.img.primary = shipordieImg;
-      el.schedule.from = "2025-05-22T01:00:00.000Z";
-      el.schedule.to = "2025-05-23T01:00:00.000Z";
+      el.schedule.timezone = "America/New_York";
+      el.schedule.to = "2025-05-23T23:59:59-04:00";
     } else if (el.key === "https://solana.com/accelerate/scale-or-die") {
       el.img.primary = scaleordieImg;
-      el.schedule.from = "2025-05-19T01:00:00.000Z";
-      el.schedule.to = "2025-05-20T01:00:00.000Z";
+      el.schedule.timezone = "America/New_York";
+      el.schedule.to = "2025-05-20T23:59:59-04:00";
     }
     return el;
   });
