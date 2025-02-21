@@ -9,6 +9,8 @@ import EventsHeroSection from "@/components/events/EventsHeroSection";
 import EventsDetailSection from "@/components/events/EventsDetailSection";
 import EventsList from "@/components/events/EventsList";
 import breakpointImg from "@/../assets/events/breakpoint.jpg";
+import shipordieImg from "@/../assets/events/shipordie.jpg";
+import scaleordieImg from "@/../assets/events/scaleordie.jpg";
 import Button from "@/components/shared/Button";
 import Divider from "@/components/shared/Divider";
 import { InlineLink } from "@/utils/Link";
@@ -85,8 +87,8 @@ export async function getStaticProps({ params }) {
     period: "future",
   });
 
-  // HH calendar
-  let hhEvents = await fetchCalendarEvents("cal-dLrjJu0Dqay3WBe", {
+  // Skyline calendar
+  let skylineEvents = await fetchCalendarEvents("cal-xIDT6vXOhDyC4FM", {
     period: "future",
   });
 
@@ -103,7 +105,7 @@ export async function getStaticProps({ params }) {
   const sortInstructions = [[(x) => x.schedule.from], ["asc"]];
 
   // sorted and unique main events
-  let sorted = orderBy([...mainEvents, ...hhEvents], ...sortInstructions);
+  let sorted = orderBy([...mainEvents, ...skylineEvents], ...sortInstructions);
   let unique = uniqBy(sorted, "key");
 
   // sorted community events
@@ -114,10 +116,18 @@ export async function getStaticProps({ params }) {
 
   // Add custom img to Breakpoint to avoid the fallback
   unique.map((el) => {
-    if (el.key == "https://solana.com/breakpoint") {
+    if (el.key === "https://solana.com/breakpoint") {
       el.img.primary = breakpointImg;
-      el.schedule.from = "2024-09-20T01:00:00.000Z";
-      el.schedule.to = "2024-09-21T01:00:00.000Z";
+      el.schedule.timezone = "Asia/Dubai";
+      el.schedule.to = "2025-12-13T23:59:59+04:00";
+    } else if (el.key === "https://solana.com/accelerate/ship-or-die") {
+      el.img.primary = shipordieImg;
+      el.schedule.timezone = "America/New_York";
+      el.schedule.to = "2025-05-23T23:59:59-04:00";
+    } else if (el.key === "https://solana.com/accelerate/scale-or-die") {
+      el.img.primary = scaleordieImg;
+      el.schedule.timezone = "America/New_York";
+      el.schedule.to = "2025-05-20T23:59:59-04:00";
     }
     return el;
   });
