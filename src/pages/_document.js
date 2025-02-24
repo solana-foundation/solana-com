@@ -8,15 +8,19 @@ class MyDocument extends Document {
     const originalRenderPage = ctx.renderPage;
 
     try {
+      let locale = null;
       ctx.renderPage = () =>
         originalRenderPage({
-          enhanceApp: (App) => (props) =>
-            sheet.collectStyles(<App {...props} />),
+          enhanceApp: (App) => (props) => {
+            locale = props.pageProps?.locale;
+            return sheet.collectStyles(<App {...props} />);
+          },
         });
 
       const initialProps = await Document.getInitialProps(ctx);
       return {
         ...initialProps,
+        locale,
         styles: (
           <>
             {initialProps.styles}
@@ -31,9 +35,10 @@ class MyDocument extends Document {
 
   render() {
     const id = config.siteMetadata.googleTagManagerID;
+    const { locale } = this.props;
 
     return (
-      <Html>
+      <Html lang={locale || "en"}>
         <Head />
         <body>
           {/* Google Tag Manager (noscript) */}
