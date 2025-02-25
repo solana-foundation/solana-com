@@ -138,8 +138,9 @@ function getHandlers(options: CodeGroup["options"]) {
 function extractFlags(codeblock: RawCode) {
   const flags =
     codeblock.meta.split(" ").filter((flag) => flag.startsWith("-"))[0] ?? "";
-  const metaWithoutFlags =
-    codeblock.meta === flags
+  const metaWithoutFlags = !flags
+    ? codeblock.meta
+    : codeblock.meta === flags
       ? ""
       : codeblock.meta.replace(" " + flags, "").trim();
   const title = getTitle(metaWithoutFlags);
