@@ -3,10 +3,9 @@ import { Hero } from "@solana-foundation/solana-lib";
 import onOffRampHeroImage from "../../../assets/onofframp/on-off-ramp-hero-img.png";
 import { useTranslation } from "next-i18next";
 import WalletFilters from "./WalletFilters";
-import { walletData } from "../../data/wallets/wallet-data";
 import { walletFiltersData } from "../../data/wallets/wallet-filters";
 
-const WalletsLayout = () => {
+const WalletsLayout = ({ walletData }) => {
   const { t } = useTranslation();
 
   const [filters, setFilters] = useState({});

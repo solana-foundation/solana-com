@@ -11,15 +11,12 @@ export default async function Layout({
 }) {
   const { locale } = await params;
   const tree = docsSource.pageTree[locale];
-  const pageTree = {
-    ...tree,
-    children: tree.children.filter(
-      (child) =>
-        typeof child.name !== "string" ||
-        (!child.name.startsWith("Solana RPC Methods") &&
-          !child.name.startsWith("The Solana Toolkit")),
-    ),
-  };
+  const toolkitFolder = tree.children.find(
+    (child) =>
+      typeof child.name === "string" &&
+      child.name.startsWith("The Solana Toolkit"),
+  );
+  const pageTree = { ...tree, children: [toolkitFolder] };
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}
