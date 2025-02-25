@@ -26,11 +26,9 @@ export function CodeIcon({
     );
   }
 
-  let filename = title || "x";
-  if (!filename.includes(".")) {
-    const ext = lang === "rust" ? "rs" : lang === "typescript" ? "ts" : lang;
-    filename += "." + ext;
-  }
+  const ext = lang === "rust" ? "rs" : lang === "typescript" ? "ts" : lang;
+  const filename = "x." + ext;
+
   const { svg, color } = getIcon(filename);
   const __html = svg.replace(
     /svg/,
