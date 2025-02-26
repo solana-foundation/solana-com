@@ -1847,7 +1847,7 @@ export const AccelerateEventDescriptionConfig = {
     {
       name: "variant",
       type: "string",
-      enum: ["scale", "ship"],
+      enum: ["none", "scale", "ship"],
       required: true,
     },
   ],
