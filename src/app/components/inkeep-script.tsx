@@ -93,11 +93,11 @@ export function InkeepScript() {
             },
           },
         };
-        window.Inkeep().embed({
-          componentType: "SearchBar",
-          targetElement: "#inkeepSearchBar",
-          ...config,
-        });
+        // window.Inkeep().embed({
+        //   componentType: "SearchBar",
+        //   targetElement: "#inkeepSearchBar",
+        //   ...config,
+        // });
         window.Inkeep().embed({
           componentType: "ChatButton",
           ...config,
