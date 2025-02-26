@@ -25,7 +25,6 @@ export async function CookbookPage({
       hideTableOfContents={true}
       pageTree={cookbookSource.pageTree[locale]}
       href={page.url}
-      locale={locale}
     >
       <MDX components={mdxComponents} />
     </DocsPage>
