@@ -4,7 +4,7 @@ import { HtmlParser } from "@solana-foundation/solana-lib";
 
 export const AccelerateEventDescription: FC<{
   content: string;
-  variant: "scale" | "ship";
+  variant: "none" | "scale" | "ship";
   attributes: any;
 }> = ({ content, variant, attributes }) => {
   return (

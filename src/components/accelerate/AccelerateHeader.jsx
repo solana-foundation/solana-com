@@ -51,10 +51,10 @@ const Header = () => {
               <Link
                 className="nav-link nav-link--primary"
                 activeClassName="active"
-                to="/accelerate/scale-or-die"
+                to="/accelerate/ship-or-die"
               >
-                <AccelerateButton variant="scale">
-                  {t("accelerate.header.scale")}
+                <AccelerateButton variant="ship">
+                  {t("accelerate.header.ship")}
                 </AccelerateButton>
               </Link>
             </li>
@@ -62,10 +62,10 @@ const Header = () => {
               <Link
                 className="nav-link nav-link--primary"
                 activeClassName="active"
-                to="/accelerate/ship-or-die"
+                to="/accelerate/scale-or-die"
               >
-                <AccelerateButton variant="ship">
-                  {t("accelerate.header.ship")}
+                <AccelerateButton variant="scale">
+                  {t("accelerate.header.scale")}
                 </AccelerateButton>
               </Link>
             </li>
