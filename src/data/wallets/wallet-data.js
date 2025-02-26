@@ -28,6 +28,7 @@ import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
 import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
 import guardaIcon from "../../../assets/wallets/icons/guarda.png";
+import cakewalletIcon from "../../../assets/wallets/icons/cakewallet.png";
 
 export const walletData = [
   {
@@ -817,6 +818,30 @@ export const walletData = [
     staking: true,
     spending_limits: false,
     open_source: false,
+    hardware: false,
+    private_key_infrastructure: true,
+  },
+  {
+    name: "Cake Wallet",
+    body: "Your keys, your coins. Securely store, send and exchange your crypto with ease.",
+    website: "https://cakewallet.com/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Exchange Crypto • Open Source",
+    icon: cakewalletIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: false,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
     hardware: false,
     private_key_infrastructure: true,
   },
