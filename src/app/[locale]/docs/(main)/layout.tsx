@@ -1,6 +1,7 @@
 import { docsSource } from "@/app/sources/docs";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@/app/components/docs-layout";
+import { InkeepScript } from "@/app/components/inkeep-script";
 
 export default async function Layout({
   children,
@@ -23,6 +24,7 @@ export default async function Layout({
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}
+      <InkeepScript />
     </DocsLayout>
   );
 }
