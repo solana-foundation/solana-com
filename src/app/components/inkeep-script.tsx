@@ -40,7 +40,6 @@ export function InkeepScript() {
                     },
                   },
                   searchTabLabel: "Solana Docs",
-                  shouldOpenLinksInNewTab: false,
                 },
                 {
                   filters: {
@@ -50,7 +49,6 @@ export function InkeepScript() {
                     },
                   },
                   searchTabLabel: "Anchor Docs",
-                  shouldOpenLinksInNewTab: true,
                 },
                 {
                   filters: {
@@ -86,7 +84,7 @@ export function InkeepScript() {
                 },
               ],
               quickQuestions: [
-                "How to set up local environment for Solana development?",
+                "How to quickly install Solana dependencies for local development?",
                 "What is the Solana Account Model?",
                 "How to build a Solana Program?",
               ],

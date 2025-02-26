@@ -12,7 +12,6 @@ import Footer from "@/components/Footer";
 import { staticLocales } from "@/i18n/config.cjs";
 import { Metadata } from "next";
 import { getBaseMetadata } from "@/app/metadata";
-import { InkeepScript } from "@/app/components/inkeep-script";
 
 const namespaces = ["common"];
 
@@ -53,7 +52,6 @@ export default async function RootLayout({ children, params }: Props) {
             <Footer />
           </ThemeProvider>
         </I18nProvider>
-        <InkeepScript />
       </body>
     </html>
   );
