@@ -24,7 +24,6 @@ export async function ToolkitDocsPage({
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
-      locale={locale}
     >
       <MDX components={{ ...mdxComponents }} />
     </DocsPage>
