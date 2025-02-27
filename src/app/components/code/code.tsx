@@ -9,14 +9,12 @@ import { fold } from "./fold";
 import { mention } from "./mentions";
 import { callout } from "./callout";
 import { CodeGroup } from "./code-group";
-import { flagsToOptions } from "./code-group";
+import { flagsToOptions, theme } from "./code-group";
 import { diff } from "./diff";
 import { wordWrap } from "./word-wrap";
 import { MultiCode } from "./code.client";
 import { tooltip } from "./tooltip";
 import { tokenTransitions } from "./token-transitions";
-
-const theme = "github-from-css";
 
 export async function Code(props: {
   codeblocks: RawCode[];

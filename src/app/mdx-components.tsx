@@ -16,6 +16,8 @@ import { Block, CodeBlock } from "codehike/blocks";
 import { RawCode } from "codehike/code";
 import { NoteTooltip } from "./components/code/notes.tooltip";
 import { InlineCode } from "./components/code/inline-code";
+import { Terminal } from "./components/code/terminal";
+import { Download, Rocket } from "lucide-react";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -34,14 +36,18 @@ export const mdxComponents = {
   InlineCode,
   Code: DocsKitCode,
   CodeTabs,
+  TerminalPicker,
+  // Icons
+  Download,
+  Rocket,
 };
 
 function DocsKitCode(props: { codeblock: RawCode }) {
   const { codeblock, ...rest } = props;
 
-  // if (codeblock.lang == "terminal") {
-  //   return <Terminal codeblocks={[codeblock]} />;
-  // }
+  if (codeblock.lang == "terminal") {
+    return <Terminal codeblocks={[codeblock]} />;
+  }
 
   return <Code {...rest} codeblocks={[codeblock]} />;
 }
@@ -94,6 +100,20 @@ function CodeTabs(props: unknown) {
   const { code, flags, storage } = data;
 
   return <Code codeblocks={code} flags={flags} storage={storage} />;
+}
+
+function TerminalPicker(props: unknown) {
+  const { data, error } = Block.extend({
+    code: z.array(CodeBlock),
+    storage: z.string().optional(),
+  }).safeParse(props);
+
+  if (error) {
+    throw betterError(error, "TerminalPicker");
+  }
+
+  const { code, storage } = data;
+  return <Terminal codeblocks={code} storage={storage} />;
 }
 
 function betterError(error: z.ZodError, componentName: string) {
