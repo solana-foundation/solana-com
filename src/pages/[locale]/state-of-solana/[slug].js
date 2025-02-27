@@ -10,27 +10,19 @@ import Tabs from "@/components/Tabs";
 import bgImage from "../../../../assets/state-of-solana/solana-bg.webp";
 import styles from "./state-of-solana.module.scss";
 import Image from "next/image";
+import classNames from "classnames";
+import Header from "../../../components/Header";
 
 const pageTitle = "State of Solana";
-const pageDescription =
-  "Explore the latest insights and analytics on the Solana blockchain. Discover the current state of Solana's ecosystem, DEXs, NFTs, and more.";
 
-const TLDashboards = dynamic(
-  async () => {
-    const DashboardModule = await import("tl-dashboards");
-    console.log("DashboardModule", DashboardModule);
-
-    return DashboardModule;
-  },
-  {
-    loading: () => (
-      <div className={styles.dashboardLoader}>
-        <Loader />
-      </div>
-    ),
-    ssr: false,
-  },
-);
+const TLDashboards = dynamic(async () => import("tl-dashboards"), {
+  loading: () => (
+    <div className={styles.dashboardLoader}>
+      <Loader />
+    </div>
+  ),
+  ssr: false,
+});
 
 const userWalletDashboards = {
   overview: {
@@ -40,32 +32,32 @@ const userWalletDashboards = {
     org_slug: "solana",
     api_key: "AXa6aNn8xxDCpyOXBx0cnRsKeh1HrBHNBZJcu6Ey",
   },
-  dex: {
-    id: 2,
-    title: "DEX",
-    slug: "dex",
-    org_slug: "tl",
-    api_key: "Jix7XZI0p41oMZ7pEVhcW1vCydMvgIsdy5Q7ma4D",
-  },
-  rev: {
-    id: 3,
-    title: "REV",
-    slug: "rev",
-    org_slug: "tl",
-    api_key: "0Cm9R8K8xu4vq93Ljb88UJDtWr6jwTM1V9AGMQQo",
-  },
-  "block-rewards": {
-    id: 4,
-    title: "Block Rewards",
-    slug: "block-rewards",
-    org_slug: "tl",
-    api_key: "JHrjYsFXzCEcSgpBS6RCCpZqV6dQMCKyn3sgGJon",
-  },
+  // dex: {
+  //   id: 2,
+  //   title: "DEX",
+  //   slug: "dex",
+  //   org_slug: "tl",
+  //   api_key: "Jix7XZI0p41oMZ7pEVhcW1vCydMvgIsdy5Q7ma4D",
+  // },
+  // rev: {
+  //   id: 3,
+  //   title: "REV",
+  //   slug: "rev",
+  //   org_slug: "tl",
+  //   api_key: "0Cm9R8K8xu4vq93Ljb88UJDtWr6jwTM1V9AGMQQo",
+  // },
+  // "block-rewards": {
+  //   id: 4,
+  //   title: "Block Rewards",
+  //   slug: "block-rewards",
+  //   org_slug: "tl",
+  //   api_key: "JHrjYsFXzCEcSgpBS6RCCpZqV6dQMCKyn3sgGJon",
+  // },
 };
 
 const defaultTheme = "dark";
 
-const StateOfSolana = ({ slug = "", locale = "en" }) => {
+const StateOfSolana = ({ slug = "overview", locale = "en" }) => {
   const [theme] = useState(defaultTheme);
   const [loading, setLoading] = useState({});
   const router = useRouter();
@@ -89,9 +81,9 @@ const StateOfSolana = ({ slug = "", locale = "en" }) => {
   }, [theme]);
 
   return (
-    <Layout theme={theme} footer={false} header={false}>
-      <Head></Head>
-      <div className={styles.dashboardSection}>
+    <>
+      <Header />
+      <div className={classNames(styles.dashboardSection, "container-xl")}>
         <Image className={styles.dashboardBg} src={bgImage} alt="" fill />
         <h1 className={styles.pageTitle}>{pageTitle}</h1>
         <Tabs
@@ -135,7 +127,7 @@ const StateOfSolana = ({ slug = "", locale = "en" }) => {
           ))}
         </Tabs>
       </div>
-    </Layout>
+    </>
   );
 };
 
