@@ -20,7 +20,7 @@ export default {
         "ch-selection": "var(--ch-20)", // editor.selectionBackground
         "ch-tab-active-foreground": "var(--ch-4)", // tab.activeForeground
         "ch-tab-inactive-foreground": "var(--ch-15)", // tab.inactiveForeground
-        "ch-line-number": "var(--ch-26)", // editorLineNumber.foreground
+        "ch-line-number": "var(--ch-24)", // editorLineNumber.foreground
         "ch-tabs-background": "hsl(var(--fd-muted))", // editorGroupHeader.tabsBackground
         "ch-active-border": "var(--ch-3)", // tab.activeBorderTop
       },

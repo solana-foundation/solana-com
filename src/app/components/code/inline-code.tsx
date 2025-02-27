@@ -1,7 +1,6 @@
 import { highlight, Inline, RawCode } from "codehike/code";
 import React from "react";
-
-const theme = "github-from-css";
+import { theme } from "./code-group";
 
 export async function InlineCode({ codeblock }: { codeblock: RawCode }) {
   const highlighted = await highlight(codeblock, theme);

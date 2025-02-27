@@ -18,6 +18,8 @@ export type CodeGroup = {
   }[];
 };
 
+export const theme = "github-from-css";
+
 /**
  * Convert flags string to options object.
  *
