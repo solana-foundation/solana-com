@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import Head from "next/head";
 import Loader from "@/components/Loader";
-import Layout from "@/components/layout";
 
 import Tabs from "@/components/Tabs";
 import bgImage from "../../../../assets/state-of-solana/solana-bg.webp";
