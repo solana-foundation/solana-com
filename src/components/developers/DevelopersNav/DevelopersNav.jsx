@@ -18,7 +18,7 @@ export default function DevelopersNav({ containerClassName }) {
             <Link
               partiallyActive
               to="/docs"
-              partiallyActiveIgnore={["/docs/rpc"]}
+              partiallyActiveIgnore={["/docs/rpc", "/docs/toolkit"]}
               activeClassName="active"
             >
               <DocsIcon height="16" width="16" className="me-2" />
