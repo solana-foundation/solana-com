@@ -733,7 +733,7 @@ export default {
     },
     {
       source: "/docs/references/economics/staking/:path*",
-      destination: "/staking",
+      destination: "/docs/references/staking/:path*",
     },
   ],
 };
