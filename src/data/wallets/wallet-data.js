@@ -843,7 +843,7 @@ export const walletData = [
     spending_limits: false,
     open_source: true,
     hardware: false,
-    private_key_infrastructure: true,
+    private_key_infrastructure: false,
   },
 
   // {
