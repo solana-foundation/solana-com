@@ -731,9 +731,5 @@ export default {
       source: "/docs/advanced/:path*",
       destination: "/developers/guides/advanced/:path*",
     },
-    {
-      source: "/docs/references/economics/staking/:path*",
-      destination: "/staking",
-    },
   ],
 };
