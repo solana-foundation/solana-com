@@ -6,9 +6,12 @@ description: "Learn how to load a keypair from file."
 When running your local project you probably want to use a file json keypair.
 This can be very useful for all the cookbook examples as well. You can grind
 yourself a keypair using `solana-keygen grind --starts-with a23:1` and then load
-and use this one for your projects using the `loadKeypairFromFile` function.
+and use this one for your projects using the `loadKeypairFromFile` function. The keypair
+loaded by default is the `~/.config/solana/id.json`
 
-```typescript title="load-keypair-from-file.ts"
+<CodeTabs storage="cookbook">
+
+```typescript title="Kit"
 import {
   airdropFactory,
   createKeyPairSignerFromBytes,
@@ -17,12 +20,13 @@ import {
   devnet,
   generateKeyPair,
   getAddressFromPublicKey,
-  KeyPairSigner,
+ 	type KeyPairSigner,
   lamports,
 } from "@solana/web3.js";
 import fs from "fs";
 import path from "path";
 import os from "os";
+// !collapse(1:14) collapsed
 
 // The new library takes a brand-new approach to Solana key pairs and addresses,
 // which will feel quite different from the classes PublicKey and Keypair from version 1.x.
@@ -80,6 +84,162 @@ export async function loadKeypairFromFile(
   const keypairSigner = await createKeyPairSignerFromBytes(loadedKeyBytes);
   return keypairSigner;
 }
-
-createKeypair();
 ```
+
+```typescript title="Legacy"
+
+import {
+	Cluster,
+	clusterApiUrl,
+	Connection,
+	Keypair,
+	LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
+import { readFileSync } from "fs";
+import { homedir } from "os";
+import path from "path";
+// !collapse(1:11) collapsed
+
+export async function loadDefaultKeypairWithAirdrop(
+	cluster: Cluster
+): Promise<Keypair> {
+	const keypair = await loadDefaultKeypair();
+	const connection = new Connection(clusterApiUrl(cluster), "finalized");
+
+	try {
+		const balance = await connection.getBalance(keypair.publicKey);
+
+		// 1 LAMPORTS_PER_SOL === 1 SOL
+		console.log(`Balance: ${balance} lamports`);
+		if (balance < 0.05 * LAMPORTS_PER_SOL) {
+			console.log(`Balance low requesting airdrop`);
+			await connection.requestAirdrop(keypair.publicKey, 1_000_000_000);
+		}
+	} catch (err) {
+		console.error("Error fetching balance:", err);
+	}
+	return keypair;
+}
+
+export async function loadDefaultKeypair(): Promise<Keypair> {
+	return await loadKeypairFromFile("~/.config/solana/id.json");
+}
+
+export async function loadKeypairFromFile(filePath: string): Promise<Keypair> {
+	const resolvedPath = path.resolve(
+		filePath.startsWith("~") ? filePath.replace("~", homedir()) : filePath
+	);
+	const loadedKeyBytes = Uint8Array.from(
+		JSON.parse(readFileSync(resolvedPath, "utf8"))
+	);
+	return await Keypair.fromSecretKey(loadedKeyBytes);
+}
+```
+
+```rs !! title="Rust"
+// !collapse(1:9) collapsed
+
+use anyhow::Result;
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Keypair,
+    signer::Signer,
+};
+use std::{env, fs, path};
+
+fn load_default_keypair() -> Result<Keypair> {
+    let home_path = env::var_os("HOME").unwrap();
+    let default_keypair_path = ".config/solana/id.json"; // ! update if you want to use a different path
+    let default_keypair_path = path::PathBuf::from(home_path).join(default_keypair_path);
+
+    let keypair_file = fs::read_to_string(default_keypair_path)?;
+    let keypair_bytes: Vec<u8> = serde_json::from_str(&keypair_file)?;
+    let default_keypair = Keypair::from_bytes(&keypair_bytes)?;
+    println!("loaded keypair address -> {:?}", default_keypair.pubkey()); // ! debug
+
+    Ok(default_keypair)
+}
+
+fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let my_keypair = load_default_keypair()?;
+    let transaction_signature =
+        client.request_airdrop(&my_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)?;
+    // !collapse(1:16) collapsed
+
+    loop {
+        if client.confirm_transaction(&transaction_signature)? {
+            break;
+        }
+    }
+
+    let balance = client.get_balance(&my_keypair.pubkey())?;
+    println!("Account Balance: {}", balance / LAMPORTS_PER_SOL);
+    println!(
+        "Transaction Signature: https://explorer.solana.com/tx/{}?cluster=custom",
+        transaction_signature
+    );
+
+    Ok(())
+}
+```
+
+```rs !! title="Rust Async"
+// !collapse(1:9) collapsed
+
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Keypair,
+    signer::Signer,
+};
+use std::{env, fs, path};
+
+fn load_default_keypair() -> Result<Keypair> {
+    let home_path = env::var_os("HOME").unwrap();
+    let default_keypair_path = ".config/solana/id.json"; // ! update if you want to use a different path
+    let default_keypair_path = path::PathBuf::from(home_path).join(default_keypair_path);
+
+    let keypair_file = fs::read_to_string(default_keypair_path)?;
+    let keypair_bytes: Vec<u8> = serde_json::from_str(&keypair_file)?;
+    let default_keypair = Keypair::from_bytes(&keypair_bytes)?;
+    println!("loaded keypair address -> {:?}", default_keypair.pubkey()); // ! debug
+
+    Ok(default_keypair)
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let wallet = load_default_keypair()?;
+    let transaction_signature = client
+        .request_airdrop(&wallet.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await?;
+    // !collapse(1:16) collapsed
+
+    loop {
+        if client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    let balance = client.get_balance(&wallet.pubkey()).await?;
+    println!("Account Balance: {}", balance / LAMPORTS_PER_SOL);
+    println!(
+        "Transaction Signature: https://explorer.solana.com/tx/{}?cluster=custom",
+        transaction_signature
+    );
+
+    Ok(())
+}
+```
+
+</CodeTabs>
