@@ -217,7 +217,6 @@ async function logFeedbackToInkeep(
     }
 
     const result = await response.json();
-    console.log("Feedback logged successfully:", result);
 
     return result;
   } catch (error) {
