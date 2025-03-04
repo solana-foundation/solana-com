@@ -9,6 +9,8 @@ import { ScrollToTop } from "./scroll-to-top";
 import { EditOnGithub } from "./edit-page";
 import { DocsFooter } from "./docs-footer";
 import { findNeighbour } from "fumadocs-core/server";
+import { Rate } from "./rate";
+import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
 
 export function DocsPage(props: {
@@ -59,6 +61,7 @@ export function DocsPage(props: {
         </Link>
       </DocsTitle>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
+      <Rate onRateAction={onRateAction} />
     </FumaDocsPage>
   );
 }
