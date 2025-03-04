@@ -70,13 +70,15 @@ export async function onRateAction(
           controller.enqueue(chunk);
         }
 
-        // Step 2: Log the conversation
-        logFeedbackToAnalytics(url, feedback, fullResponse).catch((error) =>
-          console.error("Analytics logging failed:", error),
-        );
-
-        // Step 3: Close the stream
+        // Step 2: Close the stream
         controller.close();
+
+        // Step 3: Log the conversation
+        try {
+          await logFeedbackToAnalytics(url, feedback, fullResponse);
+        } catch (error) {
+          console.error("Analytics logging failed:", error);
+        }
       } catch (error) {
         console.error("Error processing stream:", error);
         // If streaming fails, ensure we still close properly with a message
@@ -102,7 +104,6 @@ async function logFeedbackToAnalytics(
       feedback,
       aiResponse,
     );
-    console.log("conversationResult", conversationResult);
     if (!conversationResult) {
       console.error("Skipping feedback logging as conversation logging failed");
       return;
@@ -170,7 +171,6 @@ async function logConversationToInkeep(
     }
 
     const result = await response.json();
-    console.log("conversation result", result);
 
     return result;
   } catch (error) {
@@ -219,7 +219,7 @@ async function logFeedbackToInkeep(
     }
 
     const result = await response.json();
-    console.log("feedback result", result);
+    console.log("Inkeep ID:", result.id);
 
     return result;
   } catch (error) {
