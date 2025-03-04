@@ -102,6 +102,7 @@ async function logFeedbackToAnalytics(
       feedback,
       aiResponse,
     );
+    console.log("conversationResult", conversationResult);
     if (!conversationResult) {
       console.error("Skipping feedback logging as conversation logging failed");
       return;
@@ -169,6 +170,7 @@ async function logConversationToInkeep(
     }
 
     const result = await response.json();
+    console.log("conversation result", result);
 
     return result;
   } catch (error) {
@@ -217,6 +219,7 @@ async function logFeedbackToInkeep(
     }
 
     const result = await response.json();
+    console.log("feedback result", result);
 
     return result;
   } catch (error) {
