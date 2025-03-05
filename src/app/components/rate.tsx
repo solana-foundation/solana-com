@@ -1,8 +1,8 @@
 "use client";
 import { cn } from "./utils";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
-import { ThumbsDown, ThumbsUp } from "lucide-react";
-import { useState, FormEvent } from "react";
+import { ThumbsDown, ThumbsUp, Loader2 } from "lucide-react";
+import { useState, FormEvent, useMemo } from "react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -11,7 +11,18 @@ import { cva } from "class-variance-authority";
 import { usePathname } from "next/navigation";
 import { ReadableStream } from "stream/web";
 import ReactMarkdown from "react-markdown";
-import { Loader2 } from "lucide-react";
+
+const rateButtonVariants = cva(
+  "inline-flex items-center gap-2 px-3 py-2 rounded-full font-medium border text-sm [&_svg]:size-4 disabled:cursor-not-allowed",
+  {
+    variants: {
+      active: {
+        true: "bg-fd-accent text-fd-accent-foreground [&_svg]:fill-current",
+        false: "text-fd-muted-foreground",
+      },
+    },
+  },
+);
 
 export interface Feedback {
   opinion: "positive" | "negative";
@@ -27,29 +38,25 @@ export function Rate({
   ) => Promise<ReadableStream<string>>;
 }) {
   const pathname = usePathname();
-  const [userFeedback, setUserFeedback] = useState<Feedback | null>(null);
   const [opinion, setOpinion] = useState<"positive" | "negative" | null>(null);
   const [message, setMessage] = useState("");
   const [response, setResponse] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [showResponseView, setShowResponseView] = useState(false);
 
-  async function submit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
     // Don't submit if message is empty
     if (!message.trim()) return;
 
-    setUserFeedback({
-      opinion: opinion!,
-      message,
-    });
-
+    // Always start generating immediately on submit
     setIsStreaming(true);
     setResponse("");
 
     try {
       const stream = await onRateAction(pathname, {
-        opinion: opinion!,
+        opinion: opinion,
         message,
       });
 
@@ -75,10 +82,16 @@ export function Rate({
     }
   }
 
+  const handleReset = () => {
+    setShowResponseView(false);
+    setMessage("");
+    setResponse("");
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <Collapsible
-        open={opinion !== null || userFeedback !== null}
+        open={opinion !== null || response !== ""}
         onOpenChange={(v) => {
           if (!v) setOpinion(null);
         }}
@@ -86,28 +99,24 @@ export function Rate({
       >
         <FeedbackRatingButtons
           opinion={opinion}
-          userFeedback={userFeedback}
+          isDisabled={response !== ""}
           onSetOpinion={setOpinion}
         />
 
         <CollapsibleContent className="mt-3">
-          {userFeedback ? (
-            // Feedback submitted view
+          {showResponseView ? (
             <FeedbackResponseView
-              isStreaming={isStreaming}
               response={response}
-              onMoreFeedback={() => {
-                setOpinion(userFeedback?.opinion);
-                setUserFeedback(null);
-                setMessage("");
-              }}
+              onMoreFeedback={handleReset}
             />
           ) : (
-            // Feedback form view
             <FeedbackForm
               message={message}
+              hasContent={response !== ""}
+              isStreaming={isStreaming}
               setMessage={setMessage}
-              onSubmit={submit}
+              onSubmit={handleSubmit}
+              onViewResponse={() => setShowResponseView(true)}
             />
           )}
         </CollapsibleContent>
@@ -116,35 +125,24 @@ export function Rate({
   );
 }
 
-const rateButtonVariants = cva(
-  "inline-flex items-center gap-2 px-3 py-2 rounded-full font-medium border text-sm [&_svg]:size-4 disabled:cursor-not-allowed",
-  {
-    variants: {
-      active: {
-        true: "bg-fd-accent text-fd-accent-foreground [&_svg]:fill-current",
-        false: "text-fd-muted-foreground",
-      },
-    },
-  },
-);
-
+// Rating buttons component
 function FeedbackRatingButtons({
   opinion,
-  userFeedback,
+  isDisabled,
   onSetOpinion,
 }: {
   opinion: "positive" | "negative" | null;
-  userFeedback: Feedback | null;
+  isDisabled: boolean;
   onSetOpinion: (_value: "positive" | "negative") => void;
 }) {
   return (
     <div className="flex flex-row items-center gap-2">
       <p className="text-sm font-medium pe-2">Is this page helpful?</p>
       <button
-        disabled={userFeedback !== null}
+        disabled={isDisabled}
         className={cn(
           rateButtonVariants({
-            active: (userFeedback?.opinion ?? opinion) === "positive",
+            active: opinion === "positive",
           }),
         )}
         onClick={() => onSetOpinion("positive")}
@@ -152,10 +150,10 @@ function FeedbackRatingButtons({
         <ThumbsUp />
       </button>
       <button
-        disabled={userFeedback !== null}
+        disabled={isDisabled}
         className={cn(
           rateButtonVariants({
-            active: (userFeedback?.opinion ?? opinion) === "negative",
+            active: opinion === "negative",
           }),
         )}
         onClick={() => onSetOpinion("negative")}
@@ -166,15 +164,59 @@ function FeedbackRatingButtons({
   );
 }
 
+// Form component for feedback input
 function FeedbackForm({
   message,
+  hasContent,
+  isStreaming,
   setMessage,
   onSubmit,
+  onViewResponse,
 }: {
   message: string;
+  hasContent: boolean;
+  isStreaming: boolean;
   setMessage: (_value: string) => void;
   onSubmit: (_e: FormEvent) => void;
+  onViewResponse: () => void;
 }) {
+  // Compute button props based on current state
+  const buttonProps = useMemo(() => {
+    const baseButtonProps = {
+      className: cn(buttonVariants({ color: "outline" }), "w-fit px-3"),
+    };
+
+    if (isStreaming) {
+      return {
+        ...baseButtonProps,
+        type: "button" as const,
+        disabled: true,
+        children: (
+          <span className="flex items-center justify-center">
+            <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+            Searching for additional resources you might find helpful...
+          </span>
+        ),
+      };
+    }
+
+    if (hasContent) {
+      return {
+        ...baseButtonProps,
+        type: "button" as const,
+        onClick: onViewResponse,
+        children: "View Response",
+      };
+    }
+
+    return {
+      ...baseButtonProps,
+      type: "submit" as const,
+      disabled: !message.trim(),
+      children: "Submit",
+    };
+  }, [hasContent, isStreaming, message, onViewResponse]);
+
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <textarea
@@ -189,68 +231,42 @@ function FeedbackForm({
           }
         }}
       />
-      <button
-        type="submit"
-        className={cn(buttonVariants({ color: "outline" }), "w-fit px-3")}
-        disabled={!message.trim()}
-      >
-        Submit
-      </button>
+      <div className="flex gap-2 items-center">
+        <button {...buttonProps} />
+      </div>
     </form>
   );
 }
 
+// Component to display feedback response
 function FeedbackResponseView({
-  isStreaming,
   response,
   onMoreFeedback,
 }: {
-  isStreaming: boolean;
   response: string;
   onMoreFeedback: () => void;
 }) {
+  const buttonClasses = cn(
+    buttonVariants({
+      color: "secondary",
+    }),
+    "text-xs",
+  );
+
   return (
     <div className="px-3 py-6 flex flex-col items-center gap-3 bg-fd-card text-sm text-center rounded-xl">
-      <button
-        className={cn(
-          buttonVariants({
-            color: "secondary",
-          }),
-          "text-xs",
-        )}
-        onClick={onMoreFeedback}
-      >
+      <button className={buttonClasses} onClick={onMoreFeedback}>
         Have more feedback?
       </button>
-
-      <div className="w-full p-3 bg-fd-secondary/30">
-        {isStreaming ? (
-          <LoadingIndicator />
-        ) : response ? (
-          <MarkdownResponse response={response} />
-        ) : null}
-      </div>
+      <MarkdownResponse response={response} />
     </div>
   );
 }
 
-function LoadingIndicator() {
-  return (
-    <div className="flex items-center justify-center py-4 w-full">
-      <Loader2
-        className="h-5 w-5 text-fd-muted-foreground"
-        style={{ animation: "spin 0.5s linear infinite" }}
-      />
-      <span className="ml-2 text-fd-muted-foreground">
-        Generating response...
-      </span>
-    </div>
-  );
-}
-
+// Component to render markdown response
 function MarkdownResponse({ response }: { response: string }) {
   return (
-    <div className="text-left w-full prose prose-sm max-w-none dark:prose-invert">
+    <div className="px-2 text-left prose prose-sm max-w-none dark:prose-invert">
       <ReactMarkdown
         components={{
           a: ({ ...props }) => (
