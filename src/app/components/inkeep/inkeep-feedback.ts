@@ -131,7 +131,7 @@ async function logConversationToInkeep(
 ) {
   try {
     // Only log this data to Inkeep Analytics
-    const logMessage = `• ${feedback.opinion.toUpperCase()} \n• URL: ${url}\n• INFO: ${feedback.message}`;
+    const logMessage = `• ${feedback.opinion.toUpperCase()} \n• URL: ${url}\n• Message: ${feedback.message}`;
 
     const conversationData = {
       type: "openai",
