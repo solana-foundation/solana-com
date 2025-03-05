@@ -70,15 +70,15 @@ export async function onRateAction(
           controller.enqueue(chunk);
         }
 
-        // Step 2: Close the stream
-        controller.close();
-
-        // Step 3: Log the conversation
+        // Step 2: Log the conversation
         try {
           await logFeedbackToAnalytics(url, feedback, fullResponse);
         } catch (error) {
           console.error("Analytics logging failed:", error);
         }
+
+        // Step 3: Close the stream
+        controller.close();
       } catch (error) {
         console.error("Error processing stream:", error);
         // If streaming fails, ensure we still close properly with a message
