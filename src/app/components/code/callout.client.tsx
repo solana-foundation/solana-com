@@ -19,7 +19,7 @@ export function CalloutContent({ query }: { query: string }) {
       style={
         {
           // editorBackground
-          "--ch-16": "trasparent",
+          "--ch-16": "transparent",
         } as any
       }
     >
