@@ -5,16 +5,11 @@ import { locales, defaultLocale } from "@/i18n/config.cjs";
 
 const handleI18nRouting = createMiddleware(routing);
 
-const getUrlLocale = (pathname) =>
-  locales.find(
-    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`,
-  );
-
 export default async function middleware(req) {
   // Handle lowercase redirects
   if (req.nextUrl.pathname !== req.nextUrl.pathname.toLowerCase()) {
     return NextResponse.redirect(
-      `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}`,
+      `${req.nextUrl.origin}${req.nextUrl.pathname.toLowerCase()}`,
     );
   }
 
@@ -26,13 +21,21 @@ export default async function middleware(req) {
   }
 
   const response = await handleI18nRouting(req);
-
-  // Sync cookie with URL locale for better consistency
-  response.cookies.set(
-    "NEXT_LOCALE",
-    getUrlLocale(req.nextUrl.pathname) || defaultLocale,
+  const urlLocale = locales.find((locale) =>
+    req.nextUrl.pathname.startsWith(`/${locale}`),
   );
 
+  // Sync cookie with URL locale for better consistency
+  if (req.headers.get("referer")) {
+    const cookieLocale = req.cookies.get("NEXT_LOCALE")?.value;
+    if (cookieLocale && cookieLocale !== defaultLocale && !urlLocale) {
+      return NextResponse.redirect(
+        `${req.nextUrl.origin}/${cookieLocale}${req.nextUrl.pathname}`,
+      );
+    }
+  }
+
+  response.cookies.set("NEXT_LOCALE", urlLocale || defaultLocale);
   return response;
 }
 
