@@ -29,11 +29,22 @@ export async function Code(props: {
   );
 }
 
-function SingleCode({ group }: { group: CodeGroup }) {
+export function SingleCode({
+  group,
+  className,
+}: {
+  group: CodeGroup;
+  className?: string;
+}) {
   const { pre, title, code, icon } = group.tabs[0];
 
   return (
-    <div className="border rounded border-ch-border overflow-hidden my-4 relative">
+    <div
+      className={cn(
+        "tw-border rounded overflow-hidden my-4 relative border-ch-border",
+        className,
+      )}
+    >
       {title ? (
         <div
           className={cn(
