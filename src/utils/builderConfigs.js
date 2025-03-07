@@ -1726,7 +1726,7 @@ export const AccelerateApplyButtonConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateInfoItemConfig = {
-  name: "Accelerate Info Item",
+  name: "Info Item",
   noWrap: true,
   inputs: [
     { name: "term", type: "string", localized: true, required: true },
@@ -1740,7 +1740,7 @@ export const AccelerateInfoItemConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateInfoSectionConfig = {
-  name: "Accelerate Info Section",
+  name: "Info Section",
   canHaveChildren: true,
   inputs: [
     { name: "label", type: "string", localized: true, required: true },
@@ -1759,7 +1759,7 @@ export const AccelerateInfoSectionConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateAttendanceConfig = {
-  name: "Accelerate Attendance",
+  name: "Attendance",
   inputs: [
     { name: "label", type: "string", localized: true, required: true },
     { name: "note", type: "string", localized: true, required: true },
@@ -1771,7 +1771,7 @@ export const AccelerateAttendanceConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateSecondaryButtonConfig = {
-  name: "Accelerate Secondary Button",
+  name: "Secondary button",
   noWrap: true,
   inputs: [
     {
@@ -1791,7 +1791,7 @@ export const AccelerateSecondaryButtonConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateEventDescriptionConfig = {
-  name: "Accelerate Event Description",
+  name: "Event description",
   noWrap: true,
   inputs: [
     {
@@ -1813,7 +1813,7 @@ export const AccelerateEventDescriptionConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AcceleratePricingConfig = {
-  name: "Accelerate Pricing",
+  name: "Pricing",
   noWrap: true,
   inputs: [
     { name: "label", type: "string", required: true, defaultValue: "Label" },
@@ -1825,7 +1825,7 @@ export const AcceleratePricingConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateStarContainerConfig = {
-  name: "Accelerate Star Container",
+  name: "Star Container",
   noWrap: true,
 };
 
