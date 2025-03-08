@@ -1692,31 +1692,6 @@ export const BreakpointSpeakersConfig = {
   ],
 };
 
-export const AccelerateTitleConfig = {
-  name: "Accelerate Title",
-  inputs: [
-    {
-      name: "title",
-      type: "text",
-      required: true,
-      defaultValue: "Title",
-      localized: true,
-    },
-    {
-      name: "image",
-      type: "file",
-      allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
-    },
-    {
-      name: "modifier",
-      type: "text",
-      enum: ["start", "end"],
-      defaultValue: "start",
-      helperText: "Background position to determine the node orientation",
-    },
-  ],
-};
-
 /**
  * @type {import('@builder.io/react').RegisteredComponent}
  */
@@ -1726,25 +1701,6 @@ export const AccelerateHeroConfig = {
   canHaveChildren: true,
   inputs: [
     { name: "variant", type: "string", enum: ["none", "ship", "scale"] },
-  ],
-};
-
-export const AccelerateCardConfig = {
-  name: "Accelerate Card",
-  inputs: [
-    {
-      name: "heading",
-      type: "string",
-      defaultValue: "Heading",
-      localized: true,
-    },
-    {
-      name: "content",
-      type: "richText",
-      defaultValue: "<p>Content</p>",
-      localized: true,
-    },
-    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
   ],
 };
 
@@ -1770,7 +1726,7 @@ export const AccelerateApplyButtonConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateInfoItemConfig = {
-  name: "Info Item",
+  name: "Accelerate Info Item",
   noWrap: true,
   inputs: [
     { name: "term", type: "string", localized: true, required: true },
@@ -1784,7 +1740,7 @@ export const AccelerateInfoItemConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateInfoSectionConfig = {
-  name: "Info Section",
+  name: "Accelerate Info Section",
   canHaveChildren: true,
   inputs: [
     { name: "label", type: "string", localized: true, required: true },
@@ -1803,7 +1759,7 @@ export const AccelerateInfoSectionConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateAttendanceConfig = {
-  name: "Attendance",
+  name: "Accelerate Attendance",
   inputs: [
     { name: "label", type: "string", localized: true, required: true },
     { name: "note", type: "string", localized: true, required: true },
@@ -1815,7 +1771,7 @@ export const AccelerateAttendanceConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateSecondaryButtonConfig = {
-  name: "Secondary button",
+  name: "Accelerate Secondary Button",
   noWrap: true,
   inputs: [
     {
@@ -1835,7 +1791,7 @@ export const AccelerateSecondaryButtonConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateEventDescriptionConfig = {
-  name: "Event description",
+  name: "Accelerate Event Description",
   noWrap: true,
   inputs: [
     {
@@ -1857,7 +1813,7 @@ export const AccelerateEventDescriptionConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AcceleratePricingConfig = {
-  name: "Pricing",
+  name: "Accelerate Pricing",
   noWrap: true,
   inputs: [
     { name: "label", type: "string", required: true, defaultValue: "Label" },
@@ -1869,7 +1825,7 @@ export const AcceleratePricingConfig = {
  * @type {import('@builder.io/react').RegisteredComponent}
  */
 export const AccelerateStarContainerConfig = {
-  name: "Star Container",
+  name: "Accelerate Star Container",
   noWrap: true,
 };
 
