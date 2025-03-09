@@ -21,9 +21,7 @@ const SideEvents = ({
         description={t("breakpoint.page.side-events.description")}
         socialShare="https://solana.com/social/breakpoint.jpg"
       />
-      <SimpleHero
-        frontmatter={{ title: t("breakpoint.page.side-events.title") }}
-      />
+      <SimpleHero title={t("breakpoint.page.side-events.title")} />
       <div className="container ">
         <div className="my-8">
           <p>{t("breakpoint.page.side-events.intro")}</p>
