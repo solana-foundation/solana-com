@@ -51,7 +51,7 @@ const collapseTrigger: AnnotationHandler = {
     const icon = props.data?.icon as React.ReactNode;
     return (
       <div className="table-row">
-        <span className="w-4 text-center table-cell">{icon}</span>
+        <span className="w-4 min-w-4 text-center table-cell">{icon}</span>
         <div className="table-cell">
           <InnerLine merge={props} />
         </div>

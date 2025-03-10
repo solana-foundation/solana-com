@@ -11,6 +11,7 @@ import {
 import { DocsPage } from "@/app/components/docs-page";
 import { mdxComponents } from "@/app/mdx-components";
 import { getMdxMetadata } from "@/app/metadata";
+import { HTTPMethod } from "@/app/components/http-method";
 
 const rpcMDXComponents = {
   DocSideBySide,
@@ -19,6 +20,7 @@ const rpcMDXComponents = {
   Field,
   Values,
   DocRightSide,
+  HTTPMethod,
 };
 
 export async function RpcDocsPage({
