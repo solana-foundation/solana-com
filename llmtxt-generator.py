@@ -86,7 +86,26 @@ def get_relative_url(file_path):
     if not rel_path.startswith('/'):
         rel_path = '/' + rel_path
     
-    return "https://solana.com" + rel_path
+    # Map courses to /developers path
+    if '/courses/' in rel_path:
+        rel_path = rel_path.replace('/courses/', '/developers/courses/')
+    if '/guides/' in rel_path:
+        rel_path = rel_path.replace('/guides/', '/developers/guides/')
+    
+    # Base URL
+    base_url = "https://solana.com" + rel_path
+    
+    # Add UTM parameters for GA4 tracking (shorter version)
+    utm_params = {
+        'utm_source': 'llms',
+        'utm_medium': 'ai',
+        'utm_campaign': 'txt'
+    }
+    
+    # Construct URL with UTM parameters
+    tracking_url = base_url + '?' + '&'.join([f"{k}={v}" for k, v in utm_params.items()])
+    
+    return tracking_url
 
 def scan_directory():
     """Scan the content directory for .mdx files and organize them by section"""
