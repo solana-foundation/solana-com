@@ -1692,31 +1692,6 @@ export const BreakpointSpeakersConfig = {
   ],
 };
 
-export const AccelerateTitleConfig = {
-  name: "Accelerate Title",
-  inputs: [
-    {
-      name: "title",
-      type: "text",
-      required: true,
-      defaultValue: "Title",
-      localized: true,
-    },
-    {
-      name: "image",
-      type: "file",
-      allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
-    },
-    {
-      name: "modifier",
-      type: "text",
-      enum: ["start", "end"],
-      defaultValue: "start",
-      helperText: "Background position to determine the node orientation",
-    },
-  ],
-};
-
 /**
  * @type {import('@builder.io/react').RegisteredComponent}
  */
@@ -1726,25 +1701,6 @@ export const AccelerateHeroConfig = {
   canHaveChildren: true,
   inputs: [
     { name: "variant", type: "string", enum: ["none", "ship", "scale"] },
-  ],
-};
-
-export const AccelerateCardConfig = {
-  name: "Accelerate Card",
-  inputs: [
-    {
-      name: "heading",
-      type: "string",
-      defaultValue: "Heading",
-      localized: true,
-    },
-    {
-      name: "content",
-      type: "richText",
-      defaultValue: "<p>Content</p>",
-      localized: true,
-    },
-    { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
   ],
 };
 
