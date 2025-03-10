@@ -3,10 +3,7 @@
 import Navbar from "react-bootstrap/Navbar";
 import { useRouter } from "@/hooks/useRouter";
 import { Link } from "../utils/Link";
-import {
-  useEffect,
-  useState
-} from "react";
+import { useEffect, useState } from "react";
 import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
 import Moon from "../../public/src/img/icons/Moon.inline.svg";
 import Sun from "../../public/src/img/icons/Sun.inline.svg";
@@ -36,11 +33,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
         navbar.classList.add("navbar-dark");
       }
     }
-  }, [
-    t,
-    theme,
-    isThemePage,
-  ]);
+  }, [t, theme, isThemePage]);
 
   return (
     <>
