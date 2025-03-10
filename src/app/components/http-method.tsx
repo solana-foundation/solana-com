@@ -19,94 +19,193 @@ import {
 import { theme } from "./code/code-group";
 import { CodeIcon } from "./code/code-icon";
 import { mark } from "./code/mark";
+import { collapse } from "./code/collapse";
+import {
+  Selection,
+  Selectable,
+  SelectionProvider,
+} from "codehike/utils/selection";
+import { tokenTransitions } from "./code/token-transitions";
 
-const ParamSchema = Block.extend({
+const BaseParamSchema = Block.extend({
   type: z.string(),
   required: z.optional(z.string()).transform((val) => val != null),
-  blocks: z.lazy(() => z.array(ParamSchema)).optional(),
+  values: z.optional(z.string()).transform((val) => val?.split(/\s+/)),
+  default: z.string().optional(),
+});
+const ParamSchema = Block.extend({
+  blocks: z.lazy(() => ParamSchema.array()).optional(),
+});
+
+const ResultSchema = ParamSchema.extend({
+  response: CodeBlock.optional(),
 });
 
 const MethodSchema = Block.extend({
   request: CodeBlock.optional(),
-  response: CodeBlock.optional(),
   params: Block.extend({
     blocks: z.array(ParamSchema).optional(),
   }),
-  result: ParamSchema.optional(),
+  result: z.array(ResultSchema),
 });
 
 export function HTTPMethod(props: unknown) {
   const method = parseProps(props, MethodSchema);
+  const paramsSection = <ParamsSection params={method.params?.blocks} />;
+  const resultHeader = (
+    <div className="flex items-center gap-2">
+      <h4 className="my-2 font-mono">result</h4>
+      <div className="ml-auto flex gap-1">
+        {method.result?.map((result, i) => (
+          <Selectable
+            key={i}
+            index={i}
+            selectOn={["click"]}
+            className="rounded px-2 data-[selected=true]:bg-ch-tabs-background hover:bg-ch-tabs-background cursor-pointer hover:opacity-80 transition-opacity duration-300 font-light"
+            aria-label={`Select ${result.title} response`}
+          >
+            {result.title}
+          </Selectable>
+        ))}
+      </div>
+    </div>
+  );
+  const resultSection = (
+    <Selection
+      // eslint-disable-next-line react/jsx-key
+      from={method.result?.map((result) => <ResultSection result={result} />)}
+    />
+  );
+  const requestSection = <RequestBlock codeblock={method.request} />;
+  const responseSection = (
+    <Selection
+      from={method.result?.map((result) => (
+        // eslint-disable-next-line react/jsx-key
+        <ResponseBlock codeblock={result.response} />
+      ))}
+    />
+  );
+  return (
+    <>
+      <div className="hidden md:block">
+        <BigLayout
+          paramsSection={paramsSection}
+          resultHeader={resultHeader}
+          resultSection={resultSection}
+          requestSection={requestSection}
+          responseSection={responseSection}
+        />
+      </div>
+      <div className="md:hidden">
+        <SmallLayout
+          paramsSection={paramsSection}
+          resultHeader={resultHeader}
+          resultSection={resultSection}
+          requestSection={requestSection}
+          responseSection={responseSection}
+        />
+      </div>
+    </>
+  );
+}
+
+function BigLayout({
+  paramsSection,
+  resultHeader,
+  resultSection,
+  requestSection,
+  responseSection,
+}: {
+  paramsSection: React.ReactNode;
+  resultHeader: React.ReactNode;
+  resultSection: React.ReactNode;
+  requestSection: React.ReactNode;
+  responseSection: React.ReactNode;
+}) {
   return (
     <HoverProvider>
-      <div className="flex flex-row gap-2 w-full text-base">
-        <div className="w-1/2">
-          <h4 className="mt-0 mb-2 font-mono">params</h4>
-          <div className="flex flex-col gap-2">
-            {method.params?.blocks?.map((param, i) => (
-              <Hoverable
-                key={i}
-                name={param.title}
-                className="tw-border border-ch-border p-2 rounded bg-ch-background data-[hovered=true]:border-sky-500/40  transition-colors duration-300"
-              >
-                <div className="[&>p]:inline">
-                  <Pill
-                    value={param.type}
-                    color="var(--ch-6)"
-                    className="mr-1"
-                  />
-                  <Pill
-                    value={param.required ? "required" : "optional"}
-                    color="var(--ch-8)"
-                    className="mr-1"
-                  />
-                  {param.children}
-                </div>
-                {param.blocks && (
-                  <div className="flex flex-col gap-2 mt-2">
-                    {param.blocks.map((block, i) => (
-                      <ObjectParam key={i} block={block} />
-                    ))}
-                  </div>
-                )}
-              </Hoverable>
-            ))}
+      <SelectionProvider>
+        <div className="flex flex-row gap-2 w-full text-base">
+          <div className="w-1/2">
+            {paramsSection}
+            {resultHeader}
+            {resultSection}
           </div>
-          <h4 className="my-2 font-mono">result</h4>
+          <div
+            className="w-1/2 flex flex-col gap-2 sticky h-fit"
+            style={{ maxHeight: `calc(100vh - 80px)`, top: `78px` }}
+          >
+            {requestSection}
+            {responseSection}
+          </div>
+        </div>
+      </SelectionProvider>
+    </HoverProvider>
+  );
+}
+
+function SmallLayout({
+  paramsSection,
+  resultHeader,
+  resultSection,
+  requestSection,
+  responseSection,
+}: {
+  paramsSection: React.ReactNode;
+  resultHeader: React.ReactNode;
+  resultSection: React.ReactNode;
+  requestSection: React.ReactNode;
+  responseSection: React.ReactNode;
+}) {
+  return (
+    <SelectionProvider className="flex flex-col gap-2 text-base">
+      {requestSection}
+      {paramsSection}
+      {resultHeader}
+      {responseSection}
+      {resultSection}
+    </SelectionProvider>
+  );
+}
+
+type ParamBlock = z.infer<typeof BaseParamSchema> & {
+  blocks?: ParamBlock[];
+};
+function ParamsSection({ params }: { params: ParamBlock[] }) {
+  return (
+    <>
+      <h4 className="mt-0 mb-2 font-mono">params</h4>
+      {!params?.length && <span>None</span>}
+      <div className="flex flex-col gap-2">
+        {params?.map((param, i) => (
           <Hoverable
-            name="result"
+            key={i}
+            name={param.title}
             className="tw-border border-ch-border p-2 rounded bg-ch-background data-[hovered=true]:border-sky-500/40  transition-colors duration-300"
           >
             <div className="[&>p]:inline">
+              <Pill value={param.type} color="var(--ch-6)" className="mr-1" />
               <Pill
-                value={method.result?.type}
-                color="var(--ch-6)"
+                value={param.required ? "required" : "optional"}
+                color="var(--ch-8)"
                 className="mr-1"
               />
-              {method.result?.children}
+              {param.children}
             </div>
-            {method.result?.blocks && (
+            {param.blocks && (
               <div className="flex flex-col gap-2 mt-2">
-                {method.result?.blocks.map((block, i) => (
+                {param.blocks.map((block, i) => (
                   <ObjectParam key={i} block={block} />
                 ))}
               </div>
             )}
           </Hoverable>
-        </div>
-        <div
-          className="w-1/2 flex flex-col gap-2 sticky h-fit"
-          style={{ maxHeight: `calc(100vh - 78px)`, top: `78px` }}
-        >
-          <CurlBlock codeblock={method.request} />
-          <ResponseBlock codeblock={method.response} />
-        </div>
+        ))}
       </div>
-    </HoverProvider>
+    </>
   );
 }
 
-type ParamBlock = z.infer<typeof ParamSchema>;
 function ObjectParam({ block }: { block: ParamBlock }) {
   const isEmpty = !(block.children as any)?.props.children;
   return (
@@ -116,7 +215,8 @@ function ObjectParam({ block }: { block: ParamBlock }) {
         disabled={isEmpty}
       >
         <CollapsibleTrigger className="p-2 gap-2 w-full justify-between items-center flex">
-          <span className="font-mono">{block.title}</span>
+          <span className="font-mono truncate">{block.title}</span>
+
           <Pill
             className="ml-auto mr-1"
             value={block.type}
@@ -127,72 +227,90 @@ function ObjectParam({ block }: { block: ParamBlock }) {
             style={{ opacity: isEmpty ? 0.3 : 1 }}
           />
         </CollapsibleTrigger>
-        <CollapsibleContent className="p-2 pb-4 prose-no-margin">
-          {block.children}
+        <CollapsibleContent>
+          {block.values && <ValuesTable block={block} />}
+          <div className="p-2 pb-4 prose-no-margin">{block.children}</div>
         </CollapsibleContent>
       </Collapsible>
     </Hoverable>
   );
 }
 
-const requestHandler: AnnotationHandler = {
+function ValuesTable({ block }: { block: ParamBlock }) {
+  return (
+    <table className="not-prose bg-fd-card w-full">
+      <thead>
+        <tr className="text-fd-muted-foreground text-sm">
+          <th className="py-2 px-2">Values</th>
+          <th className="py-2 px-2">Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td className="pb-3 px-2">
+            <span className="flex flex-wrap gap-1">
+              {block.values.map((value) => (
+                <Pill key={value} value={value} color="var(--ch-2)" />
+              ))}
+            </span>
+          </td>
+          <td className="pb-3 px-2">
+            <span className="flex flex-wrap gap-1">
+              {block.default && (
+                <Pill value={block.default} color="var(--ch-2)" />
+              )}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+type Result = ParamBlock & {
+  response?: RawCode;
+};
+function ResultSection({ result }: { result: Result }) {
+  return (
+    <Hoverable
+      name="result"
+      className="tw-border border-ch-border p-2 rounded bg-ch-background data-[hovered=true]:border-sky-500/40  transition-colors duration-300"
+    >
+      <div className="[&>p]:inline">
+        <Pill value={result?.type} color="var(--ch-6)" className="mr-1" />
+        {result?.children}
+      </div>
+      {result?.blocks && (
+        <div className="flex flex-col gap-2 mt-2">
+          {result?.blocks.map((block, i) => (
+            <ObjectParam key={i} block={block} />
+          ))}
+        </div>
+      )}
+    </Hoverable>
+  );
+}
+
+const hover: AnnotationHandler = {
   name: "hover",
   Block: HoverBlock,
+};
+
+const curlHandler: AnnotationHandler = {
+  name: "curl",
   Line: ({ annotation: _, ...props }) => {
-    const opacity =
-      props.lineNumber < 5 || props.lineNumber >= props.totalLines - 1
-        ? 0.6
-        : 1;
     if (props.lineNumber == 1) {
       return (
-        <InnerLine merge={props} style={{ opacity }}>
+        <InnerLine merge={props}>
           <span className="select-none">$</span> {props.children}
         </InnerLine>
       );
     }
-    return <InnerLine merge={props} style={{ opacity }} />;
+    return <InnerLine merge={props} />;
   },
 };
 
-const responseHandler: AnnotationHandler = {
-  name: "hover",
-  Block: HoverBlock,
-  Line: ({ annotation: _, ...props }) => {
-    const opacity =
-      props.lineNumber < 3 || props.lineNumber >= props.totalLines - 1
-        ? 0.6
-        : 1;
-    return <InnerLine merge={props} style={{ opacity }} />;
-  },
-};
-
-async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {
-  const highlighted = await highlight(codeblock, theme);
-  const handlers = [mark, responseHandler];
-  const codeGroup = {
-    options: {},
-    title: "Response",
-    style: highlighted.style,
-    code: highlighted.code,
-    icon: <CodeIcon title="Response" lang={"json"} />,
-    pre: (
-      <Pre
-        code={highlighted}
-        className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm "
-        handlers={handlers}
-      />
-    ),
-  };
-
-  return (
-    <SingleCode
-      group={{ tabs: [codeGroup], options: {} }}
-      className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0"
-    />
-  );
-}
-
-async function CurlBlock({ codeblock }: { codeblock: RawCode }) {
+async function RequestBlock({ codeblock }: { codeblock: RawCode }) {
   const highlighted = await highlight(
     {
       ...codeblock,
@@ -203,7 +321,7 @@ async function CurlBlock({ codeblock }: { codeblock: RawCode }) {
     },
     theme,
   );
-  const handlers = [mark, requestHandler];
+  const handlers = [mark, ...collapse, hover, curlHandler];
   const prefix = `curl https://api.devnet.solana.com -s -X POST -H "Content-Type: application/json" -d ' \n`;
   const suffix = `\n'`;
   highlighted.tokens.unshift(prefix);
@@ -225,6 +343,32 @@ async function CurlBlock({ codeblock }: { codeblock: RawCode }) {
     pre: (
       <Pre
         code={highlighted}
+        className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
+        handlers={handlers}
+      />
+    ),
+  };
+
+  return (
+    <SingleCode
+      group={{ tabs: [codeGroup], options: {} }}
+      className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0"
+    />
+  );
+}
+
+async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {
+  const highlighted = await highlight(codeblock, theme);
+  const handlers = [mark, tokenTransitions, hover, ...collapse];
+  const codeGroup = {
+    options: {},
+    title: "Response",
+    style: highlighted.style,
+    code: highlighted.code,
+    icon: <CodeIcon title="Response" lang={"json"} />,
+    pre: (
+      <Pre
+        code={highlighted}
         className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm "
         handlers={handlers}
       />
@@ -234,7 +378,7 @@ async function CurlBlock({ codeblock }: { codeblock: RawCode }) {
   return (
     <SingleCode
       group={{ tabs: [codeGroup], options: {} }}
-      className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0"
+      className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0"
     />
   );
 }

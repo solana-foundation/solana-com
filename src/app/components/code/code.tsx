@@ -41,7 +41,7 @@ export function SingleCode({
   return (
     <div
       className={cn(
-        "tw-border rounded overflow-hidden my-4 relative border-ch-border",
+        "tw-border rounded overflow-hidden my-4 relative border-ch-border flex flex-col",
         className,
       )}
     >
@@ -49,7 +49,7 @@ export function SingleCode({
         <div
           className={cn(
             "border-b-[1px] border-ch-border bg-ch-tabs-background px-3 py-0",
-            "w-full h-9 flex items-center justify-between",
+            "w-full h-9 flex items-center justify-between shrink-0",
             "text-ch-tab-inactive-foreground text-sm font-mono",
           )}
         >
