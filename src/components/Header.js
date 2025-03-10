@@ -61,7 +61,6 @@ const Header = ({ className = "", containerClassName = "" }) => {
               <Navbar.Collapse id="navbarCollapse">
                 <HeaderList />
               </Navbar.Collapse>
-
               <DocSearch
                 // note: these values are safe to be published and are NOT secrets
                 apiKey={"011e01358301f5023b02da5db6af7f4d"}
