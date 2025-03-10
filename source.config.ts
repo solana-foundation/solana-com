@@ -13,6 +13,7 @@ const schema = z.custom<{
   tags?: string[];
   date?: string;
   difficulty?: string;
+  index?: boolean;
 }>();
 
 const docsData = defineDocs({

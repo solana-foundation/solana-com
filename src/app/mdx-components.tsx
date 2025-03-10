@@ -17,7 +17,7 @@ import { RawCode } from "codehike/code";
 import { NoteTooltip } from "./components/code/notes.tooltip";
 import { InlineCode } from "./components/code/inline-code";
 import { Terminal } from "./components/code/terminal";
-import { Download, Rocket } from "lucide-react";
+import { Download, Rocket, Coins } from "lucide-react";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -40,6 +40,7 @@ export const mdxComponents = {
   // Icons
   Download,
   Rocket,
+  Coins,
 };
 
 function DocsKitCode(props: { codeblock: RawCode }) {
