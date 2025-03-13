@@ -54,6 +54,7 @@ const baseSettings: InkeepBaseSettings = {
     const urlPatterns = {
       docs: "solana.com",
       anchorLang: "https://www.anchor-lang.com/docs",
+      anzaDocs: "https://docs.anza.xyz/",
       stackExchange: "https://solana.stackexchange.com/",
       github: "github.com",
     } as const;
@@ -67,6 +68,12 @@ const baseSettings: InkeepBaseSettings = {
       },
       [urlPatterns.anchorLang]: {
         tab: "Anchor Docs",
+        icon: undefined,
+        shouldOpenInNewTab: true,
+        getBreadcrumbs: (crumbs: string[]) => crumbs,
+      },
+      [urlPatterns.anzaDocs]: {
+        tab: "Anza Docs",
         icon: undefined,
         shouldOpenInNewTab: true,
         getBreadcrumbs: (crumbs: string[]) => crumbs,
@@ -134,15 +141,27 @@ const baseSettings: InkeepBaseSettings = {
 
 const searchSettings: InkeepSearchSettings = {
   placeholder: "Search",
-  tabs: ["All", "Solana Docs", "Anchor Docs", "Stack Exchange", "GitHub"],
+  tabs: [
+    "All",
+    "Solana Docs",
+    "Anchor Docs",
+    "Anza Docs",
+    "Stack Exchange",
+    "GitHub",
+  ],
 };
 
 const aiChatSettings: InkeepAIChatSettings = {
   chatSubjectName: "Solana",
+  introMessage:
+    "I'm an AI assistant trained on documentation, github repos, and other content. Ask me anything about `Solana`.",
   aiAssistantAvatar: "https://solana.com/favicon.png",
   disclaimerSettings: {
     isEnabled: true,
     label: "",
+  },
+  toolbarButtonLabels: {
+    getHelp: "Get Support",
   },
   getHelpOptions: [
     {
@@ -159,7 +178,7 @@ const aiChatSettings: InkeepAIChatSettings = {
   exampleQuestions: [
     "How to quickly install Solana dependencies for local development?",
     "What is the Solana Account Model?",
-    "How to build a Solana Program?",
+    "What is a Solana Token?",
   ],
 };
 
