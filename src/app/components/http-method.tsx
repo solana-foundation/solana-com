@@ -26,6 +26,7 @@ import {
   SelectionProvider,
 } from "codehike/utils/selection";
 import { tokenTransitions } from "./code/token-transitions";
+import { RequestClient } from "./request-client";
 
 const BaseParamSchema = Block.extend({
   type: z.string(),
@@ -87,7 +88,7 @@ export function HTTPMethod(props: unknown) {
   );
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden md:block group">
         <BigLayout
           paramsSection={paramsSection}
           resultHeader={resultHeader}
@@ -302,11 +303,17 @@ const curlHandler: AnnotationHandler = {
     if (props.lineNumber == 1) {
       return (
         <InnerLine merge={props}>
-          <span className="select-none">$</span> {props.children}
+          <span className="select-none text-ch-line-number">$</span>{" "}
+          {props.children}
         </InnerLine>
       );
     }
-    return <InnerLine merge={props} />;
+    return (
+      <InnerLine merge={props}>
+        <span className="select-none text-ch-line-number">{">"}</span>{" "}
+        {props.children}
+      </InnerLine>
+    );
   },
 };
 
@@ -322,16 +329,17 @@ async function RequestBlock({ codeblock }: { codeblock: RawCode }) {
     theme,
   );
   const handlers = [mark, ...collapse, hover, curlHandler];
-  const prefix = `curl https://api.devnet.solana.com -s -X POST -H "Content-Type: application/json" -d ' \n`;
+  const prefix = `curl https://api.devnet.solana.com -s -X \\\n  POST -H "Content-Type: application/json" -d ' \n`;
   const suffix = `\n'`;
   highlighted.tokens.unshift(prefix);
   highlighted.tokens.push(suffix);
   highlighted.annotations.forEach((annotation) => {
     if ("fromLineNumber" in annotation) {
-      annotation.fromLineNumber += 1;
-      annotation.toLineNumber += 1;
+      annotation.fromLineNumber += 2;
+      annotation.toLineNumber += 2;
     }
   });
+  const json = highlighted.code;
   highlighted.code = prefix + highlighted.code + suffix;
 
   const codeGroup = {
@@ -341,11 +349,14 @@ async function RequestBlock({ codeblock }: { codeblock: RawCode }) {
     code: highlighted.code,
     icon: <CodeIcon title="Request" lang={"sh"} />,
     pre: (
-      <Pre
-        code={highlighted}
-        className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
-        handlers={handlers}
-      />
+      <>
+        <Pre
+          code={highlighted}
+          className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
+          handlers={handlers}
+        />
+        <RequestClient json={json} />
+      </>
     ),
   };
 
@@ -378,7 +389,7 @@ async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {
   return (
     <SingleCode
       group={{ tabs: [codeGroup], options: {} }}
-      className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0"
+      className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0 group-has-[[data-playground=true]]:hidden"
     />
   );
 }
