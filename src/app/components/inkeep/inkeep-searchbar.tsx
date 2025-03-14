@@ -1,8 +1,15 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { InkeepModalSearchAndChat } from "@inkeep/cxkit-react";
 import { useInkeepConfig } from "./useInkeepConfig";
+import dynamic from "next/dynamic";
+const InkeepModalSearchAndChat = dynamic(
+  () =>
+    import("@inkeep/cxkit-react").then((mod) => mod.InkeepModalSearchAndChat),
+  {
+    ssr: false,
+  },
+);
 
 export function InkeepSearchBar() {
   const [isOpen, setIsOpen] = useState(false);
