@@ -20,7 +20,12 @@ import {
   fetchCalendarRiverEvents,
 } from "@/lib/events/fetchCalendarEvents";
 
-const EventsLandingPage = ({ events, communityEvents, featuredEvent }) => {
+const EventsLandingPage = ({
+  events,
+  communityEvents,
+  featuredEvent,
+  usEvents,
+}) => {
   const { t } = useTranslation();
 
   return (
@@ -35,6 +40,9 @@ const EventsLandingPage = ({ events, communityEvents, featuredEvent }) => {
           <div className="container">
             <EventsDetailSection event={featuredEvent} />
             <EventsList list={events} />
+
+            <h2>Solanamerica</h2>
+            <EventsList list={usEvents} />
 
             <h2>{t("events.community.heading")}</h2>
             <ul>
@@ -87,8 +95,8 @@ export async function getStaticProps({ params }) {
     period: "future",
   });
 
-  // Skyline calendar
-  let skylineEvents = await fetchCalendarEvents("cal-xIDT6vXOhDyC4FM", {
+  // Solanamerica calendar
+  let usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
     period: "future",
   });
 
@@ -105,7 +113,7 @@ export async function getStaticProps({ params }) {
   const sortInstructions = [[(x) => x.schedule.from], ["asc"]];
 
   // sorted and unique main events
-  let sorted = orderBy([...mainEvents, ...skylineEvents], ...sortInstructions);
+  let sorted = orderBy([...mainEvents], ...sortInstructions);
   let unique = uniqBy(sorted, "key");
 
   // sorted community events
@@ -154,6 +162,7 @@ export async function getStaticProps({ params }) {
       locale,
       events: JSON.parse(JSON.stringify(remainingEvents)),
       communityEvents: JSON.parse(JSON.stringify(sortedCommunity)),
+      usEvents: JSON.parse(JSON.stringify(usEvents)),
       featuredEvent: JSON.parse(JSON.stringify(featuredEvent)),
       ...(await serverSideTranslations(locale, ["common"])),
     },
