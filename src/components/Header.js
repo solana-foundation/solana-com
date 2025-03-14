@@ -67,23 +67,6 @@ const Header = ({ className = "", containerClassName = "" }) => {
                 <HeaderList />
               </Navbar.Collapse>
 
-              {/* <DocSearch
-                // note: these values are safe to be published and are NOT secrets
-                apiKey={"011e01358301f5023b02da5db6af7f4d"}
-                appId={"FQ12ISJR4B"}
-                indexName={"solana-com"}
-                placeholder={searchText}
-                searchParameters={{
-                  facetFilters: [`language:${router?.locale || "en"}`],
-                }}
-                translations={{
-                  button: {
-                    buttonText: searchText,
-                    buttonAriaLabel: searchText,
-                  },
-                }}
-              /> */}
-
               {isDocsOrDevelopers ? (
                 <InkeepSearchBar />
               ) : (
