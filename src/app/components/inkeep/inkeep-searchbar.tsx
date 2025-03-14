@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useCallback } from "react";
 import { InkeepModalSearchAndChat } from "@inkeep/cxkit-react";
 import { useInkeepConfig } from "./useInkeepConfig";
