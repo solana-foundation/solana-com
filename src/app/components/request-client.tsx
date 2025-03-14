@@ -24,7 +24,7 @@ const servers = [
 
 export function RequestClient({ json }: { json: string }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [response, setResponse] = useState<string | null>(null);
+  const [response, setResponse] = useState<string | null>("");
   const [server, setServer] = useState(servers[0]);
 
   const sendRequest = async () => {
@@ -46,7 +46,7 @@ export function RequestClient({ json }: { json: string }) {
       className="bg-ch-tabs-background"
     >
       <CollapsibleTrigger className="p-2 gap-2 w-full justify-between items-center flex">
-        <div className="h-5">Try it</div>
+        <div className="h-5 shrink-0">Try it</div>
         <ChevronDown className={`size-4 ${isOpen ? "rotate-180" : ""}`} />
       </CollapsibleTrigger>
       <CollapsibleContent>

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseProps, Block, CodeBlock } from "codehike/blocks";
-import { SingleCode } from "@/app/components/code/code";
+import { SingleCode, toCodeGroup } from "@/app/components/code/code";
 import { cn } from "@/app/components/utils";
 import {
   Collapsible,
@@ -27,6 +27,7 @@ import {
 } from "codehike/utils/selection";
 import { tokenTransitions } from "./code/token-transitions";
 import { RequestClient } from "./request-client";
+import { MultiCode } from "./code/code.client";
 
 const BaseParamSchema = Block.extend({
   type: z.string(),
@@ -43,7 +44,7 @@ const ResultSchema = ParamSchema.extend({
 });
 
 const MethodSchema = Block.extend({
-  request: CodeBlock.optional(),
+  request: CodeBlock.array(),
   params: Block.extend({
     blocks: z.array(ParamSchema).optional(),
   }),
@@ -77,7 +78,7 @@ export function HTTPMethod(props: unknown) {
       from={method.result?.map((result) => <ResultSection result={result} />)}
     />
   );
-  const requestSection = <RequestBlock codeblock={method.request} />;
+  const requestSection = <RequestBlock codeblocks={method.request} />;
   const responseSection = (
     <Selection
       from={method.result?.map((result) => (
@@ -317,7 +318,9 @@ const curlHandler: AnnotationHandler = {
   },
 };
 
-async function RequestBlock({ codeblock }: { codeblock: RawCode }) {
+async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
+  const [codeblock, ...rest] = codeblocks;
+
   const highlighted = await highlight(
     {
       ...codeblock,
@@ -342,9 +345,9 @@ async function RequestBlock({ codeblock }: { codeblock: RawCode }) {
   const json = highlighted.code;
   highlighted.code = prefix + highlighted.code + suffix;
 
-  const codeGroup = {
+  const curlTab = {
     options: {},
-    title: "Request",
+    title: rest.length ? "cURL" : "Request",
     style: highlighted.style,
     code: highlighted.code,
     icon: <CodeIcon title="Request" lang={"sh"} />,
@@ -360,12 +363,18 @@ async function RequestBlock({ codeblock }: { codeblock: RawCode }) {
     ),
   };
 
-  return (
-    <SingleCode
-      group={{ tabs: [codeGroup], options: {} }}
-      className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0"
-    />
-  );
+  if (!rest.length) {
+    return (
+      <SingleCode
+        group={{ tabs: [curlTab], options: {} }}
+        className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0"
+      />
+    );
+  }
+
+  const group = await toCodeGroup({ codeblocks: rest });
+  group.tabs.unshift(curlTab);
+  return <MultiCode group={group} className="flex-1 min-h-0 my-0" />;
 }
 
 async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {

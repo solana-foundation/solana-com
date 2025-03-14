@@ -102,7 +102,7 @@ export async function toCodeGroup(props: {
         pre: (
           <Pre
             code={highlighted}
-            className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
+            className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono"
             style={highlighted.style}
             handlers={handlers}
           />
