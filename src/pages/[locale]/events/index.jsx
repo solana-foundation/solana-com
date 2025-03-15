@@ -41,8 +41,11 @@ const EventsLandingPage = ({
             <EventsDetailSection event={featuredEvent} />
             <EventsList list={events} />
 
-            <h2>Solanamerica</h2>
-            <EventsList list={usEvents} />
+            <div className="my-10">
+              <h2>{t("events.us.heading")}</h2>
+              <p>{t("events.us.description")}</p>
+              <EventsList list={usEvents} isCompact />
+            </div>
 
             <h2>{t("events.community.heading")}</h2>
             <ul>
