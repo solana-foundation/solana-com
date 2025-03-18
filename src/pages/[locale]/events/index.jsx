@@ -20,7 +20,12 @@ import {
   fetchCalendarRiverEvents,
 } from "@/lib/events/fetchCalendarEvents";
 
-const EventsLandingPage = ({ events, communityEvents }) => {
+const EventsLandingPage = ({
+  events,
+  communityEvents,
+  featuredEvent,
+  usEvents,
+}) => {
   const { t } = useTranslation();
 
   return (
@@ -33,8 +38,14 @@ const EventsLandingPage = ({ events, communityEvents }) => {
         <div className="overflow-hidden">
           <EventsHeroSection />
           <div className="container">
-            <EventsDetailSection event={events[0]} />
-            <EventsList list={events.slice(1)} />
+            <EventsDetailSection event={featuredEvent} />
+            <EventsList list={events} />
+
+            <div className="my-10">
+              <h2>{t("events.us.heading")}</h2>
+              <p>{t("events.us.description")}</p>
+              <EventsList list={usEvents} isCompact />
+            </div>
 
             <h2>{t("events.community.heading")}</h2>
             <ul>
@@ -87,8 +98,8 @@ export async function getStaticProps({ params }) {
     period: "future",
   });
 
-  // Skyline calendar
-  let skylineEvents = await fetchCalendarEvents("cal-xIDT6vXOhDyC4FM", {
+  // Solanamerica calendar
+  let usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
     period: "future",
   });
 
@@ -105,7 +116,7 @@ export async function getStaticProps({ params }) {
   const sortInstructions = [[(x) => x.schedule.from], ["asc"]];
 
   // sorted and unique main events
-  let sorted = orderBy([...mainEvents, ...skylineEvents], ...sortInstructions);
+  let sorted = orderBy([...mainEvents], ...sortInstructions);
   let unique = uniqBy(sorted, "key");
 
   // sorted community events
@@ -132,11 +143,30 @@ export async function getStaticProps({ params }) {
     return el;
   });
 
+  // Specific event or first event as featured
+  let featuredEvent = unique[0];
+  let remainingEvents = [...unique];
+
+  // Search for the specific event
+  const specificEventUrl = "https://lu.ma/apex-cape-town";
+  const specificEventIndex = unique.findIndex(
+    (event) =>
+      event.rsvp === specificEventUrl || event.key === specificEventUrl,
+  );
+
+  // If found, set it as the featured event and remove it from the list
+  if (specificEventIndex !== -1) {
+    featuredEvent = unique[specificEventIndex];
+    remainingEvents = unique.filter((_, index) => index !== specificEventIndex);
+  }
+
   return {
     props: {
       locale,
-      events: JSON.parse(JSON.stringify(unique)),
+      events: JSON.parse(JSON.stringify(remainingEvents)),
       communityEvents: JSON.parse(JSON.stringify(sortedCommunity)),
+      usEvents: JSON.parse(JSON.stringify(usEvents)),
+      featuredEvent: JSON.parse(JSON.stringify(featuredEvent)),
       ...(await serverSideTranslations(locale, ["common"])),
     },
     revalidate: 60,

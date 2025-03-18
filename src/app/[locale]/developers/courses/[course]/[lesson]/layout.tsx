@@ -1,7 +1,7 @@
 import { coursesSource } from "@/app/sources/courses";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@/app/components/docs-layout";
-import { InkeepScript } from "@/app/components/inkeep/inkeep-script";
+import { InkeepChatButton } from "@/app/components/inkeep/inkeep-chat-button";
 type Props = {
   children: ReactNode;
   params: Promise<{ locale: string }>;
@@ -16,7 +16,7 @@ export default async function Layout(props: Props) {
       locale={locale}
     >
       {props.children}
-      <InkeepScript />
+      <InkeepChatButton />
     </DocsLayout>
   );
 }
