@@ -1,8 +1,8 @@
 module.exports = {
   siteUrl: "https://solana.com/",
   transform: (config, path) => {
-    // remove the "en" locale from the path
-    const loc = path == "/en" ? "/" : path.replace("/en/", "/");
+    // Remove the "en" locale from the path
+    const loc = path.startsWith("/en/") ? path.replace("/en/", "/") : path === "/en" ? "/" : path;
     return {
       loc,
       changefreq: config.changefreq,
