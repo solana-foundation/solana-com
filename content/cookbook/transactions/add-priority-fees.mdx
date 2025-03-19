@@ -28,129 +28,67 @@ compute budget. The value provided will replace the default value. Transactions
 should request the minimum amount of CU required for execution to maximize
 throughput, or minimize fees.
 
-<Tabs groupId="language" items={['web3.js v2', 'web3.js v1']}>
+<CodeTabs storage="cookbook">
 
-<Tab value="web3.js v2">
-
-```typescript title="add-priority-fees.ts" {61-72} {37-38} {77-87}
+```typescript !! title="gill"
 import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  devnet,
-  generateKeyPairSigner,
-  getComputeUnitEstimateForTransactionMessageFactory,
+  getExplorerLink,
+  createTransaction,
+  createSolanaClient,
   getSignatureFromTransaction,
-  lamports,
-  pipe,
-  prependTransactionMessageInstructions,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
-} from "@solana/web3.js";
+} from "gill";
+import { loadKeypairSignerFromFile } from "gill/node";
 import {
-  getSetComputeUnitLimitInstruction,
+  getAddMemoInstruction,
   getSetComputeUnitPriceInstruction,
-} from "@solana-program/compute-budget";
-import { getAddMemoInstruction } from "@solana-program/memo";
+} from "gill/programs";
 
-async function writeMemoWithPriorityFees(message: string) {
-  // Create an RPC.
-  const CLUSTER = "devnet";
-  const rpc = createSolanaRpc(devnet(`https://api.${CLUSTER}.solana.com`));
-  const rpcSubscriptions = createSolanaRpcSubscriptions(
-    devnet(`wss://api.${CLUSTER}.solana.com`),
-  );
+const { rpc, sendAndConfirmTransaction } = createSolanaClient({
+  urlOrMoniker: "devnet", // or `mainnet`, `localnet`, etc
+});
 
-  // Create an airdrop function.
-  const airdrop = airdropFactory({ rpc, rpcSubscriptions });
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 
-  // Create a utility that estimates a transaction message's compute consumption.
-  const getComputeUnitEstimate =
-    getComputeUnitEstimateForTransactionMessageFactory({ rpc });
+// load a Signer from the default Solana CLI keypair file
+const signer = await loadKeypairSignerFromFile();
 
-  // Create a transaction sending function.
-  const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
-    rpc,
-    rpcSubscriptions,
-  });
+// provide the `computeUnitPrice` value to set a priority fee
+const transaction = createTransaction({
+  version: "legacy",
+  feePayer: signer,
+  instructions: [
+    getAddMemoInstruction({ memo: "Memo message to send in this transaction" }),
+  ],
+  latestBlockhash,
+  computeUnitPrice: 10_000, // set compute unit price of 10k micro-lamports per CU
+});
 
-  // Create and fund an account.
-  const keypairSigner = await generateKeyPairSigner();
-  console.log("Created an account with address", keypairSigner.address);
-  console.log("Requesting airdrop");
-  await airdrop({
-    commitment: "confirmed",
-    lamports: lamports(1000_000n),
-    recipientAddress: keypairSigner.address,
-  });
-  console.log("Airdrop confirmed");
+// or you can manually add the compute unit price instruction to set a priority fee
+const transaction2 = createTransaction({
+  version: "legacy",
+  feePayer: signer,
+  instructions: [
+    getAddMemoInstruction({ memo: "Memo message to send in this transaction" }),
+    getSetComputeUnitPriceInstruction({ microLamports: 10_000 }), // set compute unit price of 10k micro-lamports per CU
+  ],
+  latestBlockhash,
+});
 
-  // Create a memo transaction.
-  console.log("Creating a memo transaction");
-  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-  const transactionMessage = pipe(
-    createTransactionMessage({ version: "legacy" }),
-    m => setTransactionMessageFeePayerSigner(keypairSigner, m),
-    m => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
-    m =>
-      appendTransactionMessageInstructions(
-        [
-          getSetComputeUnitPriceInstruction({ microLamports: 5000n }),
-          getAddMemoInstruction({ memo: message }),
-        ],
-        m,
-      ),
-  );
+const signedTransaction = await signTransactionMessageWithSigners(transaction);
 
-  // Figure out how many compute units to budget for this transaction
-  // so that you can right-size the compute budget to maximize the
-  // chance that it will be selected for inclusion into a block.
-  console.log("Estimating the compute consumption of the transaction");
-  var estimatedComputeUnits = await getComputeUnitEstimate(transactionMessage);
-  // While these estimates are quite accurate they are not perfect. So you may want to add a
-  // buffer if you expect that the transaction may consume more compute units than estimated.
-  // Its not possible to exactly know what the transaction will consume when
-  // you send it in the future. The state may change. You can add a buffer to the estimate to account for this.
-  // estimatedComputeUnits += 1000;
-  // estimatedComputeUnits *= 1.1;
-  // You can read more about the issue here: https://github.com/solana-labs/solana-web3.js/tree/master/packages/library#getcomputeunitestimatefortransactionmessagefactoryrpc
+console.log(
+  "Sending transaction:",
+  getExplorerLink({
+    cluster: "devnet",
+    transaction: getSignatureFromTransaction(signedTransaction),
+  }),
+);
 
-  console.log(
-    `Transaction is estimated to consume ${estimatedComputeUnits} compute units`,
-  );
-  const budgetedTransactionMessage = prependTransactionMessageInstructions(
-    [getSetComputeUnitLimitInstruction({ units: estimatedComputeUnits })],
-    transactionMessage,
-  );
-
-  // Sign and send the transaction.
-  console.log("Signing and sending the transaction");
-  const signedTx = await signTransactionMessageWithSigners(
-    budgetedTransactionMessage,
-  );
-  const signature = getSignatureFromTransaction(signedTx);
-  console.log(
-    "Sending transaction https://explorer.solana.com/tx/" +
-      signature +
-      "/?cluster=" +
-      CLUSTER,
-  );
-  await sendAndConfirmTransaction(signedTx, { commitment: "confirmed" });
-  console.log("Transaction confirmed");
-}
-
-writeMemoWithPriorityFees("Hello, priority fees!");
+await sendAndConfirmTransaction(signedTransaction);
 ```
 
-</Tab>
-
-<Tab value="web3.js v1">
-
-```typescript title="add-priority-fees.ts" {25-28, 30-33}
+```typescript !! title="web3.js"
 import { BN } from "@coral-xyz/anchor";
 import {
   Keypair,
@@ -207,6 +145,4 @@ import {
 })();
 ```
 
-</Tab>
-
-</Tabs>
+</CodeTabs>
