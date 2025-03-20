@@ -648,6 +648,10 @@ export default {
       destination: "/developers/cookbook/tokens/create-mint-account",
     },
     {
+      source: "/developers/cookbook/transactions/send-tokens",
+      destination: "developers/cookbook/tokens/transfer-tokens",
+    },
+    {
       source: "/developers/guides/introduction-to-durable-nonces",
       destination: "/developers/guides/advanced/introduction-to-durable-nonces",
     },
