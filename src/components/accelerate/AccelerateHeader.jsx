@@ -74,7 +74,8 @@ const Header = () => {
                 href="https://lu.ma/accelerate2025"
                 className={styles["cta"]}
               >
-                Get tickets
+                {t("accelerate.header.get-tickets")}
+                <span>{t("accelerate.header.get-tickets")}</span>
               </Link>
             </li>
           </ul>
