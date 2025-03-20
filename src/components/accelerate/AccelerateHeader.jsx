@@ -69,6 +69,14 @@ const Header = () => {
                 </AccelerateButton>
               </Link>
             </li>
+            <li className="nav-item">
+              <Link
+                href="https://lu.ma/accelerate2025"
+                className={styles["cta"]}
+              >
+                Get tickets
+              </Link>
+            </li>
           </ul>
         </Navbar.Collapse>
       </div>
