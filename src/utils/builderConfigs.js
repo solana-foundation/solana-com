@@ -1829,6 +1829,19 @@ export const AccelerateStarContainerConfig = {
   noWrap: true,
 };
 
+export const AccelerateAccordionConfig = {
+  name: "Accelerate Accordion",
+  inputs: [
+    {
+      name: "items",
+      type: "list",
+      subFields: [
+        { name: "question", type: "string", defaultValue: "" },
+        { name: "answer", type: "richText", defaultValue: "" },
+      ],
+    },
+  ],
+};
 export const AccelerateSpeakersConfig = {
   name: "Accelerate Speakers",
   inputs: [

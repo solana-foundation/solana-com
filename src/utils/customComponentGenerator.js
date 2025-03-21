@@ -9,6 +9,7 @@ import {
   BreakpointSpeakersConfig,
   BreakpointTitleConfig,
   AccelerateSpeakersConfig,
+  AccelerateAccordionConfig,
   AccelerateHeroConfig,
   AccelerateApplyButtonConfig,
   AccelerateInfoItemConfig,
@@ -122,6 +123,14 @@ const breakpointDataModels = [
 ];
 
 const accelerateDataModels = [
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateAccordion").then(
+        (lib) => lib.AccelerateAccordion,
+      ),
+    ),
+    config: AccelerateAccordionConfig,
+  },
   {
     component: dynamic(() =>
       import("../components/accelerate/AccelerateSpeakers").then(
