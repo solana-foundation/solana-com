@@ -9,6 +9,7 @@ import {
   BreakpointSpeakersConfig,
   BreakpointTitleConfig,
   AccelerateSpeakersConfig,
+  AccelerateSponsorsConfig,
   AccelerateHeroConfig,
   AccelerateApplyButtonConfig,
   AccelerateInfoItemConfig,
@@ -129,6 +130,14 @@ const accelerateDataModels = [
       ),
     ),
     config: AccelerateSpeakersConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateSponsors").then(
+        (lib) => lib.AccelerateSponsors,
+      ),
+    ),
+    config: AccelerateSponsorsConfig,
   },
   {
     component: withChildren(
