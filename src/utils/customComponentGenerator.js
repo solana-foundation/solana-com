@@ -10,6 +10,7 @@ import {
   BreakpointTitleConfig,
   AccelerateSpeakersConfig,
   AccelerateSponsorsConfig,
+  AccelerateAccordionConfig,
   AccelerateHeroConfig,
   AccelerateApplyButtonConfig,
   AccelerateInfoItemConfig,
@@ -130,6 +131,14 @@ const accelerateDataModels = [
       ),
     ),
     config: AccelerateSponsorsConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateAccordion").then(
+        (lib) => lib.AccelerateAccordion,
+      ),
+    ),
+    config: AccelerateAccordionConfig,
   },
   {
     component: dynamic(() =>
