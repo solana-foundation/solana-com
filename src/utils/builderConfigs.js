@@ -1848,6 +1848,24 @@ export const AccelerateSpeakersConfig = {
     },
   ],
 };
+export const AccelerateSponsorsConfig = {
+  name: "Accelerate Sponsors",
+  inputs: [
+    {
+      name: "sponsors",
+      type: "list",
+      subFields: [
+        { name: "name", type: "string", defaultValue: "" },
+        {
+          name: "image",
+          type: "file",
+          allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
+          required: true,
+        },
+      ],
+    },
+  ],
+};
 
 export const NewsletterFormConfig = {
   name: "Newsletter Form",
