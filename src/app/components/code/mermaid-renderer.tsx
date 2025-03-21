@@ -29,7 +29,15 @@ function useIsVisible(ref: RefObject<HTMLElement>) {
   return isIntersecting;
 }
 
-export function MermaidRenderer({ content }: { content: string }) {
+export function MermaidRenderer({
+  content,
+  isModal = false,
+  zoomLevel = 1,
+}: {
+  content: string;
+  isModal?: boolean;
+  zoomLevel?: number;
+}) {
   const id = useId();
   const [svg, setSvg] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -76,7 +84,42 @@ export function MermaidRenderer({ content }: { content: string }) {
             containerRef.current,
           );
 
-          setSvg(svg);
+          // Extract viewBox values to handle dimensions properly
+          const viewBoxMatch = svg.match(/viewBox="([^"]+)"/);
+          let viewBoxValues = [];
+
+          if (viewBoxMatch && viewBoxMatch[1]) {
+            viewBoxValues = viewBoxMatch[1].split(" ").map(Number);
+          }
+
+          // Calculate aspect ratio if viewBox is available
+          const aspectRatio =
+            viewBoxValues.length === 4
+              ? (viewBoxValues[2] / viewBoxValues[3]).toFixed(2)
+              : 1;
+
+          // Process the SVG - note we're only removing height from the main svg tag
+          // and preserving height attributes on internal elements
+          let processedSvg = svg
+            .replace(/width="[^"]*"/, 'width="100%"')
+            .replace(
+              /style="max-width:[^"]*"/,
+              `style="width:100%;aspect-ratio:${aspectRatio}"`,
+            )
+            .replace(/<svg/, '<svg preserveAspectRatio="xMinYMin meet"');
+
+          // Remove height only from the main SVG element, not from rect elements
+          const svgHeightMatch = processedSvg.match(
+            /<svg[^>]*height="([^"]*)"[^>]*>/,
+          );
+          if (svgHeightMatch) {
+            processedSvg = processedSvg.replace(
+              /<svg([^>]*)height="[^"]*"([^>]*)>/,
+              "<svg$1$2>",
+            );
+          }
+
+          setSvg(processedSvg);
         }
       } catch (error) {
         console.error("Error while rendering mermaid", error);
@@ -85,13 +128,22 @@ export function MermaidRenderer({ content }: { content: string }) {
         `);
       }
     }
-  }, [content, id, isVisible]);
+  }, [content, id, isVisible, isModal]);
 
   return (
     <div
       ref={containerRef}
       dangerouslySetInnerHTML={{ __html: svg }}
-      className="flex justify-center my-2 overflow-auto"
+      className="w-full"
+      style={{
+        transform: `scale(${zoomLevel})`,
+        transformOrigin: "top left",
+        transition: "transform 0.2s ease-in-out",
+        maxHeight: isModal ? "none" : "auto",
+        width: "100%",
+        overflow: "visible",
+        height: "fit-content",
+      }}
     />
   );
 }
