@@ -11,6 +11,7 @@ import EventsList from "@/components/events/EventsList";
 import breakpointImg from "@/../assets/events/breakpoint.jpg";
 import shipordieImg from "@/../assets/events/shipordie.jpg";
 import scaleordieImg from "@/../assets/events/scaleordie.jpg";
+import crossroadsImg from "@/../assets/events/crossroads.jpg";
 import Button from "@/components/shared/Button";
 import Divider from "@/components/shared/Divider";
 import { InlineLink } from "@/utils/Link";
@@ -139,6 +140,10 @@ export async function getStaticProps({ params }) {
       el.img.primary = scaleordieImg;
       el.schedule.timezone = "America/New_York";
       el.schedule.to = "2025-05-20T23:59:59-04:00";
+    } else if (el.key === "https://www.solanacrossroads.com/") {
+      el.img.primary = crossroadsImg;
+      el.schedule.timezone = "Europe/Istanbul";
+      el.schedule.to = "2025-04-26T23:59:59+03:00";
     }
     return el;
   });
