@@ -3,6 +3,7 @@
 
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import type { MermaidConfig } from "mermaid";
+import { Loader2 } from "lucide-react";
 
 function useIsVisible(ref: RefObject<HTMLElement>) {
   const [isIntersecting, setIsIntersecting] = useState(false);
@@ -40,10 +41,14 @@ export function MermaidRenderer({
 }) {
   const id = useId();
   const [svg, setSvg] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const isVisible = useIsVisible(containerRef);
 
   useEffect(() => {
+    // Reset loading state when content changes
+    setIsLoading(true);
+
     // Fix when inside element with `display: hidden`
     if (!isVisible) {
       return;
@@ -60,6 +65,8 @@ export function MermaidRenderer({
 
     // Handle theme switching
     async function renderChart() {
+      setIsLoading(true);
+
       const isDarkTheme =
         htmlElement.classList.contains("dark") ||
         htmlElement.attributes.getNamedItem("data-theme")?.value === "dark";
@@ -120,30 +127,39 @@ export function MermaidRenderer({
           }
 
           setSvg(processedSvg);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Error while rendering mermaid", error);
         setSvg(`
             <pre class="mt-2 p-2 bg-gray-100 text-xs overflow-auto">${content}</pre>
         `);
+        setIsLoading(false);
       }
     }
   }, [content, id, isVisible, isModal]);
 
   return (
-    <div
-      ref={containerRef}
-      dangerouslySetInnerHTML={{ __html: svg }}
-      className="w-full"
-      style={{
-        transform: `scale(${zoomLevel})`,
-        transformOrigin: "top left",
-        transition: "transform 0.2s ease-in-out",
-        maxHeight: isModal ? "none" : "auto",
-        width: "100%",
-        overflow: "visible",
-        height: "fit-content",
-      }}
-    />
+    <div className="relative w-full">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-ch-background/80">
+          <Loader2 className="w-8 h-8 text-ch-tab-active-foreground animate-spin" />
+        </div>
+      )}
+      <div
+        ref={containerRef}
+        dangerouslySetInnerHTML={{ __html: svg }}
+        className="w-full"
+        style={{
+          transform: `scale(${zoomLevel})`,
+          transformOrigin: "top left",
+          transition: "transform 0.2s ease-in-out",
+          maxHeight: isModal ? "none" : "auto",
+          width: "100%",
+          overflow: "visible",
+          height: "fit-content",
+        }}
+      />
+    </div>
   );
 }
