@@ -42,11 +42,13 @@ const EventsLandingPage = ({
             <EventsDetailSection event={featuredEvent} />
             <EventsList list={events} />
 
-            <div className="my-10">
-              <h2>{t("events.us.heading")}</h2>
-              <p>{t("events.us.description")}</p>
-              <EventsList list={usEvents} isCompact />
-            </div>
+            {usEvents.length > 0 && (
+              <div className="my-10">
+                <h2>{t("events.us.heading")}</h2>
+                <p>{t("events.us.description")}</p>
+                <EventsList list={usEvents} isCompact />
+              </div>
+            )}
 
             <h2>{t("events.community.heading")}</h2>
             <ul>
