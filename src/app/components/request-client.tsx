@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, Play } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -45,14 +45,19 @@ export function RequestClient({ json }: { json: string }) {
       data-playground={isOpen}
       className="bg-ch-tabs-background"
     >
-      <CollapsibleTrigger className="p-2 gap-2 w-full justify-between items-center flex">
-        <div className="h-5 shrink-0">Try it</div>
-        <ChevronDown className={`size-4 ${isOpen ? "rotate-180" : ""}`} />
+      <CollapsibleTrigger className="p-2 gap-2 w-full justify-between items-center flex cursor-pointer text-ch-tab-inactive-foreground hover:text-ch-tab-active-foreground transition-colors duration-200">
+        <div className="h-5 shrink-0 font-medium flex items-center gap-2">
+          <Play className="size-3" fill="currentColor" />
+          <span className="text-ch-tab-active-foreground">Try it</span>
+        </div>
+        <ChevronDown
+          className={`size-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+        />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="p-2 gap-2 flex">
           <Select value={server} onValueChange={setServer}>
-            <SelectTrigger>
+            <SelectTrigger className="min-w-0">
               <SelectValue placeholder="Select a server" />
             </SelectTrigger>
             <SelectContent>
