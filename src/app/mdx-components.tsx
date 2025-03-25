@@ -17,6 +17,7 @@ import { RawCode } from "codehike/code";
 import { NoteTooltip } from "./components/code/notes.tooltip";
 import { InlineCode } from "./components/code/inline-code";
 import { Terminal } from "./components/code/terminal";
+import { Mermaid } from "./components/code/mermaid";
 import { Download, Rocket, Coins } from "lucide-react";
 
 export const mdxComponents = {
@@ -50,6 +51,10 @@ function DocsKitCode(props: { codeblock: RawCode }) {
     return <Terminal codeblocks={[codeblock]} />;
   }
 
+  if (codeblock.lang == "mermaid") {
+    return <Mermaid codeblocks={[codeblock]} />;
+  }
+
   return <Code {...rest} codeblocks={[codeblock]} />;
 }
 
@@ -66,8 +71,8 @@ function Image(props: ImgHTMLAttributes<HTMLImageElement>) {
   if (typeof props.src === "string" && props.src.endsWith(".svg")) {
     return (
       <span className="block">
-        <img {...props} className="rounded-lg mb-4 w-full" />
-        <span className="text-center text-sm text-fd-muted-foreground block">
+        <img {...props} className="w-full mb-4 rounded-lg" />
+        <span className="block text-sm text-center text-fd-muted-foreground">
           {props.alt}
         </span>
       </span>
@@ -78,9 +83,9 @@ function Image(props: ImgHTMLAttributes<HTMLImageElement>) {
       <NextImage
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 900px"
         {...(props as ImageProps)}
-        className="rounded-lg mb-4"
+        className="mb-4 rounded-lg"
       />
-      <span className="text-center text-sm text-fd-muted-foreground block">
+      <span className="block text-sm text-center text-fd-muted-foreground">
         {props.alt}
       </span>
     </span>
