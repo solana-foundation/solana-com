@@ -35,7 +35,7 @@ const BaseParamSchema = Block.extend({
   values: z.optional(z.string()).transform((val) => val?.split(/\s+/)),
   default: z.string().optional(),
 });
-const ParamSchema = Block.extend({
+const ParamSchema = BaseParamSchema.extend({
   blocks: z.lazy(() => ParamSchema.array()).optional(),
 });
 
