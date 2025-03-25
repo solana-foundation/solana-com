@@ -8,6 +8,7 @@ import styles from "./tickets.module.scss";
 import MapSVG from "../../../../../assets/accelerate/map.svg";
 import ShipTicket from "../../../../../assets/accelerate/ship.png";
 import ScaleTicket from "../../../../../assets/accelerate/scale.png";
+import AccLogo from "../../../../../assets/accelerate/acc-logo.svg";
 
 export default function TicketsPage() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -64,9 +65,6 @@ export default function TicketsPage() {
     };
   }, [showShipModal]);
 
-  // Define logo path
-  const accLogoPath = "/assets/accelerate/acc-logo.svg";
-
   return (
     <>
       <Head>
@@ -112,13 +110,14 @@ export default function TicketsPage() {
           className={`${styles.header} ${isScrolled ? styles.scrolled : ""}`}
         >
           <div className={styles.logo}>
-            <Link href="/accelerate-n">
-              <img
-                src={accLogoPath}
-                alt="Accelerate Logo"
-                className={styles.logoImg}
-              />
-            </Link>
+            <Image
+              src={AccLogo}
+              alt="Accelerate Logo"
+              className={styles.logoImg}
+              width={120}
+              height={30}
+              priority
+            />
           </div>
           <nav className={styles.nav}>
             <Link href="/accelerate-n#sponsors">SPONSORS</Link>
@@ -215,16 +214,13 @@ export default function TicketsPage() {
           <div className={styles.footerContent}>
             <div className={styles.footerRow}>
               <div className={styles.footerLogo}>
-                <Link href="/accelerate-n">
-                  <img
-                    src={accLogoPath}
-                    alt="Accelerate Logo"
-                    className={styles.footerLogoImg}
-                    width="120"
-                    height="30"
-                    style={{ width: "120px", height: "auto" }}
-                  />
-                </Link>
+                <Image
+                  src={AccLogo}
+                  alt="Accelerate Logo"
+                  className={styles.footerLogoImg}
+                  width={120}
+                  height={30}
+                />
               </div>
               <nav className={styles.footerNav}>
                 <Link href="/accelerate-n#sponsors">SPONSORS</Link>

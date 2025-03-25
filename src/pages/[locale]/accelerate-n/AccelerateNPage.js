@@ -15,6 +15,7 @@ import GovtImage from "../../../../assets/accelerate/govt.png";
 import ThumbnailImage from "../../../../assets/accelerate/thumbnail.png";
 import LibertyDotImage from "../../../../assets/accelerate/liberty-dot.png";
 import FreeTicketImage from "../../../../assets/accelerate/free.png";
+import AccLogo from "../../../../assets/accelerate/acc-logo.svg";
 
 // Import speaker images
 import EmmettImage from "../../../../assets/accelerate/speakers/emmett.png";
@@ -229,9 +230,6 @@ export default function AccelerateNPage() {
   const heroDescription =
     "Accelerate is a high-conviction summit for people building the next chapter of America. From AI to crypto, defense to finance—if you&apos;re not in the room, you&apos;re already behind.";
 
-  // Define logo paths directly
-  const accLogoPath = "/assets/accelerate/acc-logo.svg";
-
   // YouTube video ID
   const youtubeVideoId = "_pF34DUWYSY";
 
@@ -277,10 +275,13 @@ export default function AccelerateNPage() {
           className={`${styles.header} ${isScrolled ? styles.scrolled : ""}`}
         >
           <div className={styles.logo}>
-            <img
-              src={accLogoPath}
+            <Image
+              src={AccLogo}
               alt="Accelerate Logo"
               className={styles.logoImg}
+              width={120}
+              height={30}
+              priority
             />
           </div>
           <nav className={styles.nav}>
@@ -331,10 +332,13 @@ export default function AccelerateNPage() {
 
           <div className={styles.heroContent}>
             <div className={styles.heroLogo}>
-              <img
-                src={accLogoPath}
+              <Image
+                src={AccLogo}
                 alt="Accelerate Logo"
                 className={styles.heroLogoImg}
+                width={120}
+                height={30}
+                priority
               />
             </div>
 
@@ -1012,13 +1016,12 @@ export default function AccelerateNPage() {
           <div className={styles.footerContent}>
             <div className={styles.footerRow}>
               <div className={styles.footerLogo}>
-                <img
-                  src={accLogoPath}
+                <Image
+                  src={AccLogo}
                   alt="Accelerate Logo"
                   className={styles.footerLogoImg}
-                  width="120"
-                  height="30"
-                  style={{ width: "120px", height: "auto" }}
+                  width={120}
+                  height={30}
                 />
               </div>
               <nav className={styles.footerNav}>
