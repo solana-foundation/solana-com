@@ -79,6 +79,7 @@ export async function toCodeGroup(props: {
   codeblocks: RawCode[];
   flags?: string;
   storage?: string;
+  handlers?: AnnotationHandler[];
 }): Promise<CodeGroup> {
   const groupOptions = flagsToOptions(props.flags);
   groupOptions.copyButton = true;
@@ -93,6 +94,9 @@ export async function toCodeGroup(props: {
         theme,
       );
       const handlers = getHandlers(options);
+      if (props.handlers) {
+        handlers.push(...props.handlers);
+      }
       return {
         options,
         title,

@@ -372,7 +372,7 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
     );
   }
 
-  const group = await toCodeGroup({ codeblocks: rest });
+  const group = await toCodeGroup({ codeblocks: rest, handlers: [hover] });
   group.tabs.unshift(curlTab);
   return <MultiCode group={group} className="flex-1 min-h-0 my-0" />;
 }
