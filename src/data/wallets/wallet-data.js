@@ -29,6 +29,7 @@ import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
 import guardaIcon from "../../../assets/wallets/icons/guarda.png";
 import cakewalletIcon from "../../../assets/wallets/icons/cakewallet.png";
+import tokenPocketIcon from "../../../assets/wallets/icons/tokenpocket.png";
 
 export const walletData = [
   {
@@ -843,6 +844,30 @@ export const walletData = [
     spending_limits: false,
     open_source: true,
     hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "TokenPocket",
+    body: "TokenPocket is a multi-chain self-custodial wallet with over 30 million users worldwide, offering a product lineup that includes a Mobile Wallet, Chrome Extension Wallet, and KeyPal Hardware Wallet.",
+    website: "https://tokenpocket.pro/",
+    additionalInfo:
+      "Hardware • Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Exchange Crypto • Hold NFTs • Staking",
+    icon: tokenPocketIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: true,
+    spending_limits: false,
+    open_source: false,
+    hardware: true,
     private_key_infrastructure: false,
   },
 

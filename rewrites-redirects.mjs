@@ -24,6 +24,10 @@ export default {
       source: "/discord",
       destination: "https://discord.gg/kBbATFA7PW",
     },
+    {
+      source: "/skyline",
+      destination: "https://lu.ma/solana-nyc",
+    },
     { source: "/blog", destination: "/news" },
     {
       source: "/news/solana-scaffold-part-1-wallet-adapter",
@@ -644,6 +648,10 @@ export default {
       destination: "/developers/cookbook/tokens/create-mint-account",
     },
     {
+      source: "/developers/cookbook/transactions/send-tokens",
+      destination: "developers/cookbook/tokens/transfer-tokens",
+    },
+    {
       source: "/developers/guides/introduction-to-durable-nonces",
       destination: "/developers/guides/advanced/introduction-to-durable-nonces",
     },
@@ -730,6 +738,10 @@ export default {
     {
       source: "/docs/advanced/:path*",
       destination: "/developers/guides/advanced/:path*",
+    },
+    {
+      source: "/developers/guides/games/game-sdks",
+      destination: "/docs/clients/game-sdks",
     },
   ],
 };
