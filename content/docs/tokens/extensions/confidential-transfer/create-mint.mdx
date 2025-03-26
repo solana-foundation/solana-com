@@ -4,7 +4,11 @@ description:
   Learn how to create a token mint with the Confidential Transfer extension.
 ---
 
-## Create a mint with Confidential Transfer extension
+## How to create a mint with Confidential Transfer extension
+
+The Confidential Transfer extension enables private token transfers by adding
+extra state to the mint account. This section explains how to create a token
+mint with this extension enabled.
 
 ```mermaid title="Create Mint with Confidential Transfer Extension"
 sequenceDiagram
@@ -12,11 +16,85 @@ sequenceDiagram
     participant Token22 as Token Extensions Program
     participant Mint as Mint Account
 
-    Payer->>Token22: create_mint (with Confidential Transfer Extension)
+    Payer->>Token22: create_mint <br>(with Confidential Transfer Extension)
     activate Token22
     Token22-->>Mint: Initialize mint with extension data
     deactivate Token22
 ```
+
+### Confidential Transfer Mint State
+
+The extension adds the
+[ConfidentialTransferMint](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/mod.rs#L48-L69)
+state to the mint account:
+
+```rust title="Confidential Mint State"
+/// Confidential transfer mint configuration
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Pod, Zeroable)]
+pub struct ConfidentialTransferMint {
+    /// Authority to modify the `ConfidentialTransferMint` configuration and to
+    /// approve new accounts (if `auto_approve_new_accounts` is true)
+    ///
+    /// The legacy Token Multisig account is not supported as the authority
+    pub authority: OptionalNonZeroPubkey,
+
+    /// Indicate if newly configured accounts must be approved by the
+    /// `authority` before they may be used by the user.
+    ///
+    /// * If `true`, no approval is required and new accounts may be used
+    ///   immediately
+    /// * If `false`, the authority must approve newly configured accounts (see
+    ///   `ConfidentialTransferInstruction::ConfigureAccount`)
+    pub auto_approve_new_accounts: PodBool,
+
+    /// Authority to decode any transfer amount in a confidential transfer.
+    pub auditor_elgamal_pubkey: OptionalNonZeroElGamalPubkey,
+}
+```
+
+The _rs`ConfidentialTransferMint`_ contains three configuration fields:
+
+- **authority**: The account that has permission to modify confidential transfer
+  settings for the mint and approve new confidential accounts if auto-approval
+  is disabled.
+
+- **auto_approve_new_accounts**: When set to true, users can create token
+  accounts with confidential transfers enabled by default. When false, the
+  authority must manually approve each new token account before it can be used
+  for confidential transfers.
+
+- **auditor_elgamal_pubkey**: An optional auditor that can decrypt transfer
+  amounts in confidential transactions, providing a compliance mechanism while
+  maintaining privacy from the general public.
+
+### Required Transaction Instructions
+
+Creating a mint with Confidential Transfer enabled requires three instructions
+in a single transaction:
+
+1. **Create the Mint Account**: Invoke the System Program's `CreateAccount`
+   instruction to create the mint account.
+
+2. **Initialize Confidential Transfer Extension**: Invoke the Token Extension
+   Program's
+   [ConfidentialTransferInstruction::InitializeMint](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/processor.rs#L48)
+   instruction to configure the _rs`ConfidentialTransferMint`_ state for the
+   mint.
+
+3. **Initialize Base Mint**: Invoke the Token Extension Program's
+   `Instruction::InitializeMint` instruction to initialize the standard mint
+   state.
+
+While you could implement these instructions manually, the `spl_token_client`
+crate provides a `create_mint` method that builds and sends a transaction with
+all three instructions in a single function call, as demonstrated in the example
+below.
+
+### Example
+
+The following code demonstrates how to create a mint with the Confidential
+Transfer extension:
 
 ```rust title="Rust"
 use anyhow::{Context, Result};
@@ -97,6 +175,7 @@ async fn main() -> Result<()> {
 
 // Load the keypair from the default Solana CLI keypair path (~/.config/solana/id.json)
 // This enables using the same wallet as the Solana CLI tools
+// !collapse(1:20) collapsed
 fn load_keypair() -> Result<Keypair> {
     // Get the default keypair path
     let keypair_path = dirs::home_dir()
