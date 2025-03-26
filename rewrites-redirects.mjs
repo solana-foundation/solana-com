@@ -743,5 +743,13 @@ export default {
       source: "/developers/guides/games/game-sdks",
       destination: "/docs/clients/game-sdks",
     },
+    {
+      source: "/accelerate/scale-or-die",
+      destination: "/accelerate",
+    },
+    {
+      source: "/accelerate/ship-or-die",
+      destination: "/accelerate",
+    },
   ],
 };
