@@ -31,7 +31,10 @@ export async function getMirrorInstance(): Promise<{
 
   const mirrorApiKey = process.env.MIRROR_API_KEY;
   if (!mirrorApiKey) {
-    throw new Error("No Mirror API Key");
+    return {
+      mirrorUrl: "http://localhost:8899",
+      wsMirrorUrl: "ws://localhost:8900",
+    };
   }
   // get the user_id from the users cookies
 
