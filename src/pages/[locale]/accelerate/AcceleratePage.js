@@ -537,7 +537,7 @@ export default function AcceleratePage() {
   }, [stickyVisible]);
 
   // These could be moved to translation files in a real implementation
-  const heroTitle = "Tech, Finance, and Policy are Changing.";
+  const heroTitle = "Tech, Finance, and Policy are Changing";
   const heroDescription =
     "Accelerate is a high-conviction summit for people building the next chapter of America. From AI to crypto, defense to finance—if you&apos;re not in the room, you&apos;re already behind.";
 
@@ -711,7 +711,7 @@ export default function AcceleratePage() {
           <div className={styles.attendingContent}>
             <h2 className={styles.attendingTitle}>
               <span className={styles.slashes}>{"//"}</span>
-              {" Who&apos;s attending?"}
+              {" Who's attending?"}
             </h2>
 
             <div className={styles.attendingCards}>
