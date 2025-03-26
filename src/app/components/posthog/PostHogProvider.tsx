@@ -7,13 +7,24 @@ import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+
   useEffect(() => {
-    posthog.init("phc_SameWTU8ZxznYk7GOvEBmWCfNKhU06FXDLylCYTaVqB", {
+    if (!apiKey) {
+      console.debug("PostHog analytics disabled");
+      return;
+    }
+
+    posthog.init(apiKey, {
       api_host: "https://us.i.posthog.com",
       capture_pageview: false,
       capture_pageleave: true,
     });
-  }, []);
+  }, [apiKey]);
+
+  if (!apiKey) {
+    return children;
+  }
 
   return (
     <PHProvider client={posthog}>
