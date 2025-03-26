@@ -3,6 +3,7 @@ type CodeOptions = {
   lineNumbers?: boolean;
   wordWrap?: boolean;
   animate?: boolean;
+  runable?: boolean;
 };
 
 export type CodeGroup = {
@@ -34,6 +35,7 @@ export function flagsToOptions(flags: string = "") {
     n: "lineNumbers",
     w: "wordWrap",
     a: "animate",
+    r: "runable",
   } as const;
   flags.split("").forEach((flag) => {
     if (flag in map) {
