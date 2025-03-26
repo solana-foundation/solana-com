@@ -15,6 +15,8 @@ import { wordWrap } from "./word-wrap";
 import { MultiCode } from "./code.client";
 import { tooltip } from "./tooltip";
 import { tokenTransitions } from "./token-transitions";
+import { getMirrorInstance } from "@/utils/mirror";
+import { RunableCode } from "./code.runable";
 
 export async function Code(props: {
   codeblocks: RawCode[];
@@ -33,34 +35,46 @@ function SingleCode({ group }: { group: CodeGroup }) {
   const { pre, title, code, icon } = group.tabs[0];
 
   return (
-    <div className="border rounded border-ch-border overflow-hidden my-4 relative">
-      {title ? (
-        <div
-          className={cn(
-            "border-b-[1px] border-ch-border bg-ch-tabs-background px-3 py-0",
-            "w-full h-9 flex items-center justify-between",
-            "text-ch-tab-inactive-foreground text-sm font-mono",
-          )}
-        >
-          <div className="flex items-center gap-2 w-full h-5">
-            <div className="size-4">{icon}</div>
-            <span className="leading-none">{title}</span>
-            <div className="ml-auto mr-1 items-center">
-              <CopyButton
-                text={code}
-                className="text-ch-tab-inactive-foreground"
-              />
+    <>
+      <div className="border rounded border-ch-border overflow-hidden my-4 relative">
+        {title ? (
+          <div
+            className={cn(
+              "border-b-[1px] border-ch-border bg-ch-tabs-background px-3 py-0",
+              "w-full h-9 flex items-center justify-between",
+              "text-ch-tab-inactive-foreground text-sm font-mono",
+            )}
+          >
+            <div className="flex items-center gap-2 w-full h-5">
+              <div className="size-4">{icon}</div>
+              <span className="leading-none">{title}</span>
+              <div className={cn("ml-auto mr-3 items-center flex")}>
+                {group.options.runable && (
+                  <a
+                    href="https://mirror.ad"
+                    target="_blank"
+                    className="mr-2 text-blue-500 font-mono text-sm"
+                  >
+                    Powered by Mirror
+                  </a>
+                )}
+                <CopyButton
+                  text={code}
+                  className="text-ch-tab-inactive-foreground"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <CopyButton
-          text={code}
-          className="absolute right-3 my-0 top-2.5 text-ch-tab-inactive-foreground bg-ch-background/90"
-        />
-      )}
-      {pre}
-    </div>
+        ) : (
+          <CopyButton
+            text={code}
+            className="absolute right-3 my-0 top-2.5 text-ch-tab-inactive-foreground bg-ch-background/90"
+          />
+        )}
+        {pre}
+      </div>
+      {group.options.runable && <RunableCode code={code} />}
+    </>
   );
 }
 
@@ -77,6 +91,27 @@ export async function toCodeGroup(props: {
       const { flags, title } = extractFlags(tab);
       const tabOptions = flagsToOptions(flags);
       const options = { ...groupOptions, ...tabOptions };
+      // get the user_id from the users cookies
+
+      if (groupOptions.runable) {
+        const { mirrorUrl, wsMirrorUrl } = await getMirrorInstance();
+        tab.value = tab.value.replace(
+          /clusterApiUrl\([^)]*\)/g,
+          `"${mirrorUrl}"`,
+        );
+        tab.value = tab.value.replace(
+          /Create Connection, local validator in this example/g,
+          "This Mirror instance lasts for 1 hour. You can create your own at https://mirror.ad",
+        );
+        tab.value = tab.value.replace(/http:\/\/127\.0\.0\.1:8899/g, mirrorUrl);
+        tab.value = tab.value.replace(/ws:\/\/127\.0\.0\.1:8900/g, wsMirrorUrl);
+        tab.value = tab.value.replace(
+          /https:\/\/api\.devnet\.solana\.com/g,
+          mirrorUrl,
+        );
+        tab.value = tab.value.replace(/"devnet"/g, `"${mirrorUrl}"`);
+        tab.value = tab.value.replace(/"wsDevnet"/g, `"${wsMirrorUrl}"`);
+      }
       const highlighted = await highlight(
         { ...tab, lang: tab.lang || "txt" },
         theme,
