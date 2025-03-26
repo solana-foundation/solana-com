@@ -1,9 +1,9 @@
-import AcceleratePage from "./AcceleratePage";
+import TicketsPage from "./tickets.js";
 import { withLocales } from "@/i18n/routing";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 
 export default function Page(props) {
-  return <AcceleratePage {...props} />;
+  return <TicketsPage {...props} />;
 }
 
 export async function getStaticProps({ params }) {
