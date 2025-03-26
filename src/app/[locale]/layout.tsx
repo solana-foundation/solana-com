@@ -1,17 +1,19 @@
 import "@/scss/index.scss";
 import "@/app/globals.css";
-import { ThemeProvider } from "@/themecontext";
-import initTranslations from "@/i18n/translation";
-import I18nProvider from "@/i18n/I18nProvider";
+
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
-import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
-import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
-import { config } from "@/config";
-import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { staticLocales } from "@/i18n/config.cjs";
+import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
+import Header from "@/components/Header";
+import I18nProvider from "@/i18n/I18nProvider";
 import { Metadata } from "next";
+import { PostHogProvider } from "@/app/components/posthog/PostHogProvider";
+import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
+import { ThemeProvider } from "@/themecontext";
+import { config } from "@/config";
 import { getBaseMetadata } from "@/app/metadata";
+import initTranslations from "@/i18n/translation";
+import { staticLocales } from "@/i18n/config.cjs";
 
 const namespaces = ["common"];
 
@@ -43,14 +45,16 @@ export default async function RootLayout({ children, params }: Props) {
           locale={locale}
           resources={resources}
         >
-          <ThemeProvider>
-            <GTMTrackingSnippet />
-            <SitewideTopAlert locale={builderLocale} />
-            <CookieConsent />
-            <Header />
-            {children}
-            <Footer />
-          </ThemeProvider>
+          <PostHogProvider>
+            <ThemeProvider>
+              <GTMTrackingSnippet />
+              <SitewideTopAlert locale={builderLocale} />
+              <CookieConsent />
+              <Header />
+              {children}
+              <Footer />
+            </ThemeProvider>
+          </PostHogProvider>
         </I18nProvider>
       </body>
     </html>
