@@ -29,16 +29,27 @@ export async function Code(props: {
   );
 }
 
-function SingleCode({ group }: { group: CodeGroup }) {
+export function SingleCode({
+  group,
+  className,
+}: {
+  group: CodeGroup;
+  className?: string;
+}) {
   const { pre, title, code, icon } = group.tabs[0];
 
   return (
-    <div className="border rounded border-ch-border overflow-hidden my-4 relative">
+    <div
+      className={cn(
+        "tw-border rounded overflow-hidden my-4 relative border-ch-border flex flex-col",
+        className,
+      )}
+    >
       {title ? (
         <div
           className={cn(
             "border-b-[1px] border-ch-border bg-ch-tabs-background px-3 py-0",
-            "w-full h-9 flex items-center justify-between",
+            "w-full h-9 flex items-center justify-between shrink-0",
             "text-ch-tab-inactive-foreground text-sm font-mono",
           )}
         >
@@ -68,6 +79,7 @@ export async function toCodeGroup(props: {
   codeblocks: RawCode[];
   flags?: string;
   storage?: string;
+  handlers?: AnnotationHandler[];
 }): Promise<CodeGroup> {
   const groupOptions = flagsToOptions(props.flags);
   groupOptions.copyButton = true;
@@ -82,6 +94,9 @@ export async function toCodeGroup(props: {
         theme,
       );
       const handlers = getHandlers(options);
+      if (props.handlers) {
+        handlers.push(...props.handlers);
+      }
       return {
         options,
         title,
@@ -91,7 +106,7 @@ export async function toCodeGroup(props: {
         pre: (
           <Pre
             code={highlighted}
-            className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
+            className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono"
             style={highlighted.style}
             handlers={handlers}
           />
