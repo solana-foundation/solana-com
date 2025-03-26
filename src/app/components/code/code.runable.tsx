@@ -4,6 +4,7 @@ import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { Button } from "@solana-foundation/solana-lib";
 import { useState } from "react";
 import { CodeRun } from "@/utils/mirror";
+import { Callout } from "fumadocs-ui/components/callout";
 
 export function RunableCode({ code }: { code: string }) {
   const [running, setRunning] = useState(false);
@@ -36,6 +37,11 @@ export function RunableCode({ code }: { code: string }) {
       <Button onClick={handleRun} disabled={running}>
         {running ? "Running..." : "Run"}
       </Button>
+      <Callout type="info">
+        Note: Output logs are clickable. You must have{" "}
+        <span>Enable Custom URL Param</span> set to true in the explorer. If
+        not, the link will default to <span>localhost:8899</span>
+      </Callout>
       <Accordions type="single" className="mt-4">
         <Accordion title="Output (powered by Mirror.ad)">
           {result ? (
