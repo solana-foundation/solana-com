@@ -26,6 +26,10 @@ import LilyImage from "../../../../assets/accelerate/speakers/lily.png";
 import RogerImage from "../../../../assets/accelerate/speakers/roger.png";
 import DavidImage from "../../../../assets/accelerate/speakers/david.png";
 import BrandonImage from "../../../../assets/accelerate/speakers/brandon.png";
+import LucaImage from "../../../../assets/accelerate/speakers/luca.png";
+import RobertImage from "../../../../assets/accelerate/speakers/robert.png";
+import TaylorImage from "../../../../assets/accelerate/speakers/taylor.png";
+import KashImage from "../../../../assets/accelerate/speakers/kash.png";
 
 // Import sponsor logos
 import CubeSVG from "../../../../assets/accelerate/sponsors/cube.svg";
@@ -96,56 +100,345 @@ const useCounterAnimation = (end, duration = 2000, startDelay = 0) => {
   return [count, countRef];
 };
 
+// Create a component for the hotel information
+const HotelInfoTable = () => (
+  <>
+    <p>
+      The Solana Foundation has worked with multiple hotels in New York City to
+      set up discounted rates during Ship or Die.
+    </p>
+    <table
+      style={{ width: "100%", borderCollapse: "collapse", marginTop: "1rem" }}
+    >
+      <thead>
+        <tr>
+          <th
+            style={{
+              textAlign: "left",
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Hotel
+          </th>
+          <th
+            style={{
+              textAlign: "left",
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Rate (May 17-24)
+          </th>
+          <th
+            style={{
+              textAlign: "left",
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Booking Info
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <a
+              href="https://www.google.com/maps/place/Hotel+Indigo+NYC+Financial+District"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.emailLink}
+            >
+              Hotel Indigo NYC Financial District
+            </a>
+          </td>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Starting at $269
+          </td>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <a
+              href="https://www.ihg.com/hotelindigo/hotels/us/en/find-hotels/select-roomrate?fromRedirect=true&qSrt=sBR&qIta=99801505&icdv=99801505&qSlH=NYCWL&qCiD=17&qCiMy=042025&qCoD=24&qCoMy=042025&qGrpCd=SLN&qAAR=6CBARC&qRtP=6CBARC&setPMCookies=true&qSHBrC=IN&qDest=50%20Trinity%20Place,%20New%20York,%20NY,%20US&srb_u=1&qRmFltr="
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.emailLink}
+            >
+              Book Now
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <a
+              href="https://www.google.com/maps/place/Moxy+NYC+Downtown"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.emailLink}
+            >
+              Moxy NYC Downtown
+            </a>
+          </td>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Starting at $329
+          </td>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <a
+              href="https://www.marriott.com/event-reservations/reservation-link.mi?id=1733952806965&key=GRP&guestreslink2=true&app=resvlink"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.emailLink}
+            >
+              Book Now
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <a
+              href="https://www.google.com/maps/place/New+York+Marriott+Downtown"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.emailLink}
+            >
+              New York Marriott Downtown
+            </a>
+          </td>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Starting at $399
+          </td>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <a
+              href="https://book.passkey.com/gt/220513367?gtid=f7b00f615a2c48c96440d4375b8c1a20"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.emailLink}
+            >
+              Book Now
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <a
+              href="https://www.google.com/maps/place/The+Washington+by+LuxUrban"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.emailLink}
+            >
+              The Washington by LuxUrban
+            </a>
+          </td>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Starting at $314
+          </td>
+          <td
+            style={{
+              padding: "8px",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <a
+              href="https://hotels.cloudbeds.com/en/reservation/pIsUES/?currency=usd"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.emailLink}
+            >
+              Book Now
+            </a>{" "}
+            (Promo code: <code>B965776</code>)
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </>
+);
+
+// Custom components for FAQ answers
+const FAQAnswers = {
+  whereIsAccelerate: () => (
+    <p>
+      Accelerate will be spread across New York City, the crypto capital of the
+      United States. Ship or Die will be at Pier 36 in Manhattan underneath the
+      iconic Manhattan Bridge. Scale or Die will be located at a to-be-announced
+      venue in Lower Manhattan.
+    </p>
+  ),
+  whichTicket: () => (
+    <p>
+      Tickets are event-specific; please choose the ticket that aligns with your
+      eligibility. Ship or Die is open to everyone. Scale or Die is exclusively
+      for developers and by application only. For other events, it&apos;s a case
+      by case basis — check the listing for more details.
+    </p>
+  ),
+  canIGetTicketToEverything: () => (
+    <p>
+      All applicants who are approved for Scale or Die will be automatically
+      issued tickets to both Ship or Die and Scale or Die. You can only get
+      these tickets if you are approved for Scale or Die.
+    </p>
+  ),
+  howDoISponsor: () => (
+    <p>
+      There are many sponsorship opportunities available for Accelerate events.
+      Please fill out the form{" "}
+      <a
+        href="https://solanafoundation.typeform.com/sponsorform?typeform-source=solana.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.emailLink}
+      >
+        here
+      </a>
+      .
+    </p>
+  ),
+  areTravelAndAccommodation: () => (
+    <p>
+      Attendees are responsible for making their own travel and accommodation as
+      part of their ticket. See below for hotel discounts!
+    </p>
+  ),
+  whatHotelShouldIStayAt: () => <HotelInfoTable />,
+  howDoIGetInvitationLetter: () => (
+    <p>
+      Attendees are responsible for getting their own visas. If you need a
+      letter of invitation for your visa, you can submit your request{" "}
+      <a
+        href="https://solanafoundation.typeform.com/invite-letter?typeform-source=solana.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.emailLink}
+      >
+        here
+      </a>
+      . Letters should arrive within 5 business days of your request, but may
+      take longer.
+    </p>
+  ),
+  arePressPassesAvailable: () => (
+    <p>
+      Press passes are only available for Ship or Die, and by application only.
+      Please contact{" "}
+      <a href="mailto:press@solana.org" className={styles.emailLink}>
+        press@solana.org
+      </a>
+      .
+    </p>
+  ),
+  howDoIGetToVenues: () => (
+    <p>
+      There&apos;s plenty of ways to get around New York! We suggest using the
+      subway, taxis, Citibike, or rideshare apps. Please note that there is no
+      parking onsite at any venue.
+    </p>
+  ),
+  iHaveAnotherQuestion: () => (
+    <p>
+      Reach out to{" "}
+      <a href="mailto:accelerate@solana.org" className={styles.emailLink}>
+        accelerate@solana.org
+      </a>
+      .
+    </p>
+  ),
+};
+
 const FAQs = [
   {
     question: "Where is Accelerate?",
-    answer:
-      "Accelerate will be spread across New York City, the crypto capital of the U.S. Ship or Die will be at Pier 36 in Manhattan underneath the iconic Manhattan Bridge. Scale or Die will be located at a to-be-announced venue in Lower Manhattan.",
+    answerComponent: FAQAnswers.whereIsAccelerate,
   },
   {
     question: "Which ticket should I get?",
-    answer:
-      "Tickets are event-specific; please choose the ticket that aligns with your eligibility. Ship or Die is open to everyone. Scale or Die is exclusively for developers and by application only. For other events, it's a case by case basis — check the listing for more details.",
+    answerComponent: FAQAnswers.whichTicket,
   },
   {
     question: "Can I get a ticket to everything?",
-    answer:
-      "All applicants who are approved for Scale or Die will be automatically issued tickets to both Ship or Die and Scale or Die. You can only get these tickets if you are approved for Scale or Die.",
+    answerComponent: FAQAnswers.canIGetTicketToEverything,
   },
   {
     question: "How do I sponsor Accelerate?",
-    answer:
-      "There are many sponsorship opportunities available for Accelerate events. Please fill out the form here.",
+    answerComponent: FAQAnswers.howDoISponsor,
   },
   {
     question: "Are travel and accommodation part of my ticket?",
-    answer:
-      "Attendees are responsible for making their own travel and accommodation as part of their ticket. See below for hotel discounts!",
+    answerComponent: FAQAnswers.areTravelAndAccommodation,
   },
   {
     question: "What hotel should I stay at?",
-    answer:
-      "The Solana Foundation has worked with multiple hotels in New York City to set up discounted rates during Ship or Die.",
+    answerComponent: FAQAnswers.whatHotelShouldIStayAt,
   },
   {
     question: "How do I get an invitation letter?",
-    answer:
-      "Attendees are responsible for getting their own visas. If you need a letter of invitation for your visa, you can submit your request here. Letters should arrive within 5 business days of your request, but may take longer.",
+    answerComponent: FAQAnswers.howDoIGetInvitationLetter,
   },
   {
     question: "Are press passes available?",
-    answer:
-      "Press passes are only available for Ship or Die, and by application only. Please contact <a href='mailto:press@solana.org' className={styles.emailLink}>press@solana.org</a>.",
+    answerComponent: FAQAnswers.arePressPassesAvailable,
   },
   {
     question: "How do I get to the venues?",
-    answer:
-      "There's plenty of ways to get around New York! We suggest using the subway, taxis, Citibike, or rideshare apps. Please note that there is no parking onsite at any venue.",
+    answerComponent: FAQAnswers.howDoIGetToVenues,
   },
   {
     question: "I have another question!",
-    answer:
-      "Reach out to <a href='mailto:accelerate@solana.org' className={styles.emailLink}>accelerate@solana.org</a>.",
+    answerComponent: FAQAnswers.iHaveAnotherQuestion,
   },
 ];
 
@@ -162,8 +455,8 @@ export default function AccelerateNPage() {
     2000,
     200,
   );
-  const [policyCount, policyCountRef] = useCounterAnimation(50, 2000, 400);
-  const [touristsCount, touristsCountRef] = useCounterAnimation(250, 1000, 600);
+  const [policyCount, policyCountRef] = useCounterAnimation(20, 2000, 400);
+  const [touristsCount, touristsCountRef] = useCounterAnimation(50, 1000, 600);
 
   // Handle video lightbox
   const openVideoLightbox = () => {
@@ -256,6 +549,28 @@ export default function AccelerateNPage() {
       <Head>
         <title>Accelerate - {heroTitle}</title>
         <meta name="description" content={heroDescription} />
+
+        {/* Open Graph / Social Media Meta Tags */}
+        <meta property="og:title" content={`Accelerate - ${heroTitle}`} />
+        <meta property="og:description" content={heroDescription} />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://solana.com/accelerate-n" />
+        <meta
+          property="og:image"
+          content="https://solana.com/social/accelerate.jpg"
+        />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+
+        {/* Twitter Card Meta Tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`Accelerate - ${heroTitle}`} />
+        <meta name="twitter:description" content={heroDescription} />
+        <meta
+          name="twitter:image"
+          content="https://solana.com/social/accelerate.jpg"
+        />
+
         <style>
           {`
             /* ABC Diatype font-face declaration */
@@ -296,9 +611,9 @@ export default function AccelerateNPage() {
             />
           </div>
           <nav className={styles.nav}>
-            <Link href="#sponsors">SPONSORS</Link>
-            <Link href="#speakers">SPEAKERS</Link>
-            <Link href="#faq">FAQ</Link>
+            <a href="#sponsors">SPONSORS</a>
+            <a href="#speakers">SPEAKERS</a>
+            <a href="#faq">FAQ</a>
             <Link href="/accelerate-n/tickets" className={styles.ticketsButton}>
               GET TICKETS
             </Link>
@@ -396,7 +711,7 @@ export default function AccelerateNPage() {
           <div className={styles.attendingContent}>
             <h2 className={styles.attendingTitle}>
               <span className={styles.slashes}>{"//"}</span>
-              {" Who's attending?"}
+              {" Who&apos;s attending?"}
             </h2>
 
             <div className={styles.attendingCards}>
@@ -415,7 +730,7 @@ export default function AccelerateNPage() {
                   className={styles.cardDescription}
                   style={{ textAlign: "left" }}
                 >
-                  High energy executives from Tech
+                  Builders, Executives, and Attendees
                 </p>
                 <img
                   src={PeopleImage.src}
@@ -448,7 +763,7 @@ export default function AccelerateNPage() {
                   className={styles.cardDescription}
                   style={{ textAlign: "left" }}
                 >
-                  Top fintech companies and founders
+                  Fintech and Tech Companies
                 </p>
                 {/* <img
                   src={CompaniesImage.src}
@@ -481,7 +796,7 @@ export default function AccelerateNPage() {
                   className={styles.cardDescription}
                   style={{ textAlign: "left" }}
                 >
-                  Policy makers from Capitol Hill
+                  Policymakers
                 </p>
                 <img
                   src={GovtImage.src}
@@ -514,7 +829,7 @@ export default function AccelerateNPage() {
                   className={styles.cardDescription}
                   style={{ textAlign: "left" }}
                 >
-                  Disruptive Crypto Companies
+                  Disruptive Crypto Startups
                 </p>
               </div>
             </div>
@@ -629,8 +944,8 @@ export default function AccelerateNPage() {
                   Buy 1 Ticket, Get 1 Free
                 </h2>
                 <p className={styles.freeTicketDescription}>
-                  Purchase a ticket and receive a second, so you can bring a
-                  fellow builder, founder, or friend.
+                  From now till March 31, get a second ticket with your purchase
+                  to bring a fellow builder, founder, or friend.
                 </p>
                 <Link
                   href="/accelerate-n/tickets"
@@ -777,7 +1092,7 @@ export default function AccelerateNPage() {
                   />
                 </div>
                 <h3 className={styles.speakerName}>David Pakman</h3>
-                <p className={styles.speakerCompany}>Coinfund • Ship or Die</p>
+                <p className={styles.speakerCompany}>CoinFund • Ship or Die</p>
               </div>
 
               <div className={styles.speakerCard}>
@@ -793,6 +1108,72 @@ export default function AccelerateNPage() {
                 </div>
                 <h3 className={styles.speakerName}>Brandon Millman</h3>
                 <p className={styles.speakerCompany}>Phantom • Ship or Die</p>
+              </div>
+
+              <div className={styles.speakerCard}>
+                <div className={styles.speakerImageWrapper}>
+                  <Image
+                    src={LucaImage}
+                    alt="Luca Netz"
+                    width={300}
+                    height={300}
+                    style={{ width: "100%", height: "auto" }}
+                    className={styles.speakerImage}
+                  />
+                </div>
+                <h3 className={styles.speakerName}>Luca Netz</h3>
+                <p className={styles.speakerCompany}>
+                  Pudgy Penguins • Ship or Die
+                </p>
+              </div>
+
+              <div className={styles.speakerCard}>
+                <div className={styles.speakerImageWrapper}>
+                  <Image
+                    src={RobertImage}
+                    alt="Robert Leshner"
+                    width={300}
+                    height={300}
+                    style={{ width: "100%", height: "auto" }}
+                    className={styles.speakerImage}
+                  />
+                </div>
+                <h3 className={styles.speakerName}>Robert Leshner</h3>
+                <p className={styles.speakerCompany}>
+                  Superstate • Ship or Die
+                </p>
+              </div>
+
+              <div className={styles.speakerCard}>
+                <div className={styles.speakerImageWrapper}>
+                  <Image
+                    src={TaylorImage}
+                    alt="Taylor Johnson"
+                    width={300}
+                    height={300}
+                    style={{ width: "100%", height: "auto" }}
+                    className={styles.speakerImage}
+                  />
+                </div>
+                <h3 className={styles.speakerName}>Taylor Johnson</h3>
+                <p className={styles.speakerCompany}>
+                  Exo Technologies • Ship or Die
+                </p>
+              </div>
+
+              <div className={styles.speakerCard}>
+                <div className={styles.speakerImageWrapper}>
+                  <Image
+                    src={KashImage}
+                    alt="Kash Dhanda"
+                    width={300}
+                    height={300}
+                    style={{ width: "100%", height: "auto" }}
+                    className={styles.speakerImage}
+                  />
+                </div>
+                <h3 className={styles.speakerName}>Kash Dhanda</h3>
+                <p className={styles.speakerCompany}>Jupiter • Ship or Die</p>
               </div>
             </div>
           </div>
@@ -826,55 +1207,71 @@ export default function AccelerateNPage() {
             <div className={styles.sponsorsHR}></div>
 
             <div className={styles.sponsorsGrid}>
-              <div className={styles.sponsorLogo}>
-                <Image
-                  src={WormholeSVG}
-                  alt="Wormhole"
-                  width={150}
-                  height={50}
-                />
+              <div className={styles.titleSponsorSection}>
+                <p className={styles.sponsorTierLabel}>HEADLINE SPONSORS</p>
+                <div className={styles.titleSponsorsGrid}>
+                  <div className={styles.titleSponsorLogo}>
+                    <Image
+                      src={WormholeSVG}
+                      alt="Wormhole"
+                      width={400}
+                      height={127}
+                    />
+                  </div>
+                  <div className={styles.titleSponsorLogo}>
+                    <Image
+                      src={SolflareSVG}
+                      alt="Solflare"
+                      width={180}
+                      height={60}
+                    />
+                  </div>
+                  <div className={styles.titleSponsorLogo}>
+                    <Image
+                      src={SolanaMobileSVG}
+                      alt="Solana Mobile"
+                      width={225}
+                      height={75}
+                    />
+                  </div>
+                  <div className={styles.titleSponsorLogo}>
+                    <Image src={JitoSVG} alt="Jito" width={120} height={40} />
+                  </div>
+                </div>
               </div>
-              <div className={styles.sponsorLogo}>
-                <Image
-                  src={SolflareSVG}
-                  alt="Solflare"
-                  width={120}
-                  height={40}
-                />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image
-                  src={SolanaMobileSVG}
-                  alt="Solana Mobile"
-                  width={150}
-                  height={50}
-                />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image src={JitoSVG} alt="Jito" width={85} height={28} />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image src={PhantomSVG} alt="Phantom" width={150} height={50} />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image src={ZeusSVG} alt="Zeus" width={120} height={40} />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image src={HelioSVG} alt="Helio" width={120} height={40} />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image src={MagnaSVG} alt="Magna" width={120} height={40} />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image src={CubeSVG} alt="Cube" width={35} height={12} />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image
-                  src={RockawaySVG}
-                  alt="Rockaway"
-                  width={150}
-                  height={50}
-                />
+
+              <div className={styles.goldSponsorsSection}>
+                <p className={styles.sponsorTierLabel}>SUPPORTING SPONSORS</p>
+                <div className={styles.goldSponsorsGrid}>
+                  <div className={styles.sponsorLogo}>
+                    <Image
+                      src={PhantomSVG}
+                      alt="Phantom"
+                      width={150}
+                      height={50}
+                    />
+                  </div>
+                  <div className={styles.sponsorLogo}>
+                    <Image src={ZeusSVG} alt="Zeus" width={120} height={40} />
+                  </div>
+                  <div className={styles.sponsorLogo}>
+                    <Image src={HelioSVG} alt="Helio" width={120} height={40} />
+                  </div>
+                  <div className={styles.sponsorLogo}>
+                    <Image src={MagnaSVG} alt="Magna" width={120} height={40} />
+                  </div>
+                  <div className={styles.sponsorLogo}>
+                    <Image src={CubeSVG} alt="Cube" width={35} height={12} />
+                  </div>
+                  <div className={styles.sponsorLogo}>
+                    <Image
+                      src={RockawaySVG}
+                      alt="Rockaway"
+                      width={150}
+                      height={50}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -908,7 +1305,7 @@ export default function AccelerateNPage() {
                     </svg>
                   </summary>
                   <div className={styles.faqAnswer}>
-                    <p dangerouslySetInnerHTML={{ __html: faq.answer }}></p>
+                    {faq.answerComponent && <faq.answerComponent />}
                   </div>
                 </details>
               ))}
@@ -968,9 +1365,9 @@ export default function AccelerateNPage() {
                 />
               </div>
               <nav className={styles.footerNav}>
-                <Link href="#sponsors">SPONSORS</Link>
-                <Link href="#speakers">SPEAKERS</Link>
-                <Link href="#faq">FAQ</Link>
+                <a href="#sponsors">SPONSORS</a>
+                <a href="#speakers">SPEAKERS</a>
+                <a href="#faq">FAQ</a>
               </nav>
               <p className={styles.copyright}>© Solana Foundation 2025</p>
             </div>
@@ -994,4 +1391,4 @@ export default function AccelerateNPage() {
 }
 
 // Add layout property
-AccelerateNPage.layout = 'AccelerateLayout';
+AccelerateNPage.layout = "AccelerateLayout";

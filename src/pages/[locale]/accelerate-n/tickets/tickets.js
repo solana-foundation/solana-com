@@ -10,7 +10,7 @@ import ShipTicket from "../../../../../assets/accelerate/ship.png";
 import ScaleTicket from "../../../../../assets/accelerate/scale.png";
 import AccLogo from "../../../../../assets/accelerate/acc-logo.svg";
 
-export default function TicketsPage() {
+function TicketsPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showShipModal, setShowShipModal] = useState(false);
 
@@ -30,8 +30,12 @@ export default function TicketsPage() {
     // Initial check in case page loads with scroll
     handleScroll();
 
+    // Add a class to the body to hide global header
+    document.body.classList.add("accelerate-tickets-page");
+
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      document.body.classList.remove("accelerate-tickets-page");
     };
   }, []);
 
@@ -71,6 +75,13 @@ export default function TicketsPage() {
         />
         <style>
           {`
+            /* Hide global header via direct CSS */
+            header.global-header, 
+            header.position-sticky, 
+            header[class*="Header_header"] {
+              display: none !important;
+            }
+
             /* ABC Diatype font-face declaration */
             @font-face {
               font-family: 'ABC Diatype';
@@ -104,8 +115,8 @@ export default function TicketsPage() {
                 src={AccLogo}
                 alt="Accelerate Logo"
                 className={styles.logoImg}
-                width={120}
-                height={30}
+                width={245}
+                height={58}
                 priority
               />
             </Link>
@@ -155,8 +166,10 @@ export default function TicketsPage() {
                   <h2 className={styles.ticketTitle}>Attend Ship or Die</h2>
                   <p className={styles.ticketDescription}>
                     Open to all, this event will introduce the Solana ecosystem
-                    – and the crypto world at large
+                    – and the crypto world at large – to the deep innovation
+                    happening in the U.S.
                   </p>
+                  <div className={styles.ticketPrice}>$400</div>
                   <a
                     href="#"
                     onClick={openShipModal}
@@ -186,6 +199,7 @@ export default function TicketsPage() {
                     A dev-only, workshop-driven conference for deep tech that
                     moves data at the speed of light.
                   </p>
+                  <div className={styles.ticketPrice}>$200</div>
                   <a
                     href="https://solanafoundation.typeform.com/scaleordie?typeform-source=solana.com"
                     target="_blank"
@@ -200,6 +214,21 @@ export default function TicketsPage() {
           </div>
         </section>
 
+        {/* Student discount link */}
+        <div className={styles.studentLinkContainer}>
+          <span className={styles.studentText}>
+            Student? Apply to get a subsidized ticket&nbsp;
+          </span>
+          <a
+            href="https://solanafoundation.typeform.com/SOD-student?typeform-source=solana.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.studentLink}
+          >
+            here
+          </a>
+        </div>
+
         {/* Footer */}
         <footer className={styles.footer}>
           <div className={styles.footerContent}>
@@ -212,6 +241,7 @@ export default function TicketsPage() {
                     className={styles.footerLogoImg}
                     width={120}
                     height={30}
+                    priority
                   />
                 </Link>
               </div>
@@ -261,5 +291,5 @@ export default function TicketsPage() {
   );
 }
 
-// Add layout property at the end of the file
-TicketsPage.layout = 'AccelerateLayout';
+export { TicketsPage };
+export default TicketsPage;
