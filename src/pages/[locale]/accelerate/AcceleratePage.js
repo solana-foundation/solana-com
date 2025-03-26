@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
-import styles from "./accelerate-n.module.scss";
+import styles from "./accelerate.module.scss";
 
 // Import images
 import MapSVG from "../../../../assets/accelerate/map.svg";
@@ -442,7 +442,7 @@ const FAQs = [
   },
 ];
 
-export default function AccelerateNPage() {
+export default function AcceleratePage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showVideoLightbox, setShowVideoLightbox] = useState(false);
   const [stickyVisible, setStickyVisible] = useState(false);
@@ -528,11 +528,11 @@ export default function AccelerateNPage() {
     handleScroll();
 
     // Add a class to the body to hide global header
-    document.body.classList.add("accelerate-n-page");
+    document.body.classList.add("accelerate-page");
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      document.body.classList.remove("accelerate-n-page");
+      document.body.classList.remove("accelerate-page");
     };
   }, [stickyVisible]);
 
@@ -554,7 +554,7 @@ export default function AccelerateNPage() {
         <meta property="og:title" content={`Accelerate - ${heroTitle}`} />
         <meta property="og:description" content={heroDescription} />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://solana.com/accelerate-n" />
+        <meta property="og:url" content="https://solana.com/accelerate" />
         <meta
           property="og:image"
           content="https://solana.com/social/accelerate.jpg"
@@ -614,7 +614,7 @@ export default function AccelerateNPage() {
             <a href="#sponsors">SPONSORS</a>
             <a href="#speakers">SPEAKERS</a>
             <a href="#faq">FAQ</a>
-            <Link href="/accelerate-n/tickets" className={styles.ticketsButton}>
+            <Link href="/accelerate/tickets" className={styles.ticketsButton}>
               GET TICKETS
             </Link>
           </nav>
@@ -671,7 +671,7 @@ export default function AccelerateNPage() {
               collaborate to write the next chapter of blockchain in America.
             </p>
             <Link
-              href="/accelerate-n/tickets"
+              href="/accelerate/tickets"
               className={styles.getTicketsButton}
             >
               Get Tickets →
@@ -874,7 +874,7 @@ export default function AccelerateNPage() {
                 </p>
               </div>
               <Link
-                href="/accelerate-n/tickets"
+                href="/accelerate/tickets"
                 className={styles.videoTicketsButton}
               >
                 {/* Get Tickets button */}
@@ -948,7 +948,7 @@ export default function AccelerateNPage() {
                   to bring a fellow builder, founder, or friend.
                 </p>
                 <Link
-                  href="/accelerate-n/tickets"
+                  href="/accelerate/tickets"
                   className={styles.freeTicketButton}
                 >
                   Get Tickets
@@ -966,7 +966,7 @@ export default function AccelerateNPage() {
           <div className={styles.speakersContent}>
             <div className={styles.speakersTitleRow}>
               <h2 className={styles.speakersTitle}>Speakers</h2>
-              <Link href="/accelerate-n/tickets" className={styles.speakersCTA}>
+              <Link href="/accelerate/tickets" className={styles.speakersCTA}>
                 Get Tickets
                 <svg
                   width="24"
@@ -1187,7 +1187,7 @@ export default function AccelerateNPage() {
           <div className={styles.sponsorsContent}>
             <div className={styles.sponsorsTitleRow}>
               <h2 className={styles.sponsorsTitle}>Sponsors</h2>
-              <Link href="/accelerate-n/tickets" className={styles.sponsorsCTA}>
+              <Link href="/accelerate/tickets" className={styles.sponsorsCTA}>
                 Get Tickets
                 <svg
                   width="24"
@@ -1330,7 +1330,7 @@ export default function AccelerateNPage() {
                   chapter of American tech.
                 </p>
                 <Link
-                  href="/accelerate-n/tickets"
+                  href="/accelerate/tickets"
                   className={styles.nycCtaButton}
                 >
                   Get Tickets
@@ -1379,7 +1379,7 @@ export default function AccelerateNPage() {
           className={`${styles.stickyBottomBar} ${stickyVisible ? styles.visible : ""}`}
         >
           <Link
-            href="/accelerate-n/tickets"
+            href="/accelerate/tickets"
             className={styles.stickyBottomButton}
           >
             Get Tickets
@@ -1391,4 +1391,4 @@ export default function AccelerateNPage() {
 }
 
 // Add layout property
-AccelerateNPage.layout = "AccelerateLayout";
+AcceleratePage.layout = "AccelerateLayout";

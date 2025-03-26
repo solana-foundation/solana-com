@@ -110,7 +110,7 @@ function TicketsPage() {
           className={`${styles.header} ${isScrolled ? styles.scrolled : ""}`}
         >
           <div className={styles.logo}>
-            <Link href="/accelerate-n">
+            <Link href="/accelerate">
               <Image
                 src={AccLogo}
                 alt="Accelerate Logo"
@@ -122,10 +122,10 @@ function TicketsPage() {
             </Link>
           </div>
           <nav className={styles.nav}>
-            <Link href="/accelerate-n#sponsors">SPONSORS</Link>
-            <Link href="/accelerate-n#speakers">SPEAKERS</Link>
-            <Link href="/accelerate-n#faq">FAQ</Link>
-            <Link href="/accelerate-n" className={styles.backButton}>
+            <Link href="/accelerate#sponsors">SPONSORS</Link>
+            <Link href="/accelerate#speakers">SPEAKERS</Link>
+            <Link href="/accelerate#faq">FAQ</Link>
+            <Link href="/accelerate" className={styles.backButton}>
               BACK TO EVENT
             </Link>
           </nav>
@@ -177,6 +177,19 @@ function TicketsPage() {
                   >
                     Get Tickets
                   </a>
+                  <div className={styles.studentLinkInline}>
+                    <span className={styles.studentText}>
+                      Student? Apply to get a subsidized ticket&nbsp;
+                    </span>
+                    <a
+                      href="https://solanafoundation.typeform.com/SOD-student?typeform-source=solana.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.studentLink}
+                    >
+                      here
+                    </a>
+                  </div>
                 </div>
               </div>
 
@@ -214,27 +227,12 @@ function TicketsPage() {
           </div>
         </section>
 
-        {/* Student discount link */}
-        <div className={styles.studentLinkContainer}>
-          <span className={styles.studentText}>
-            Student? Apply to get a subsidized ticket&nbsp;
-          </span>
-          <a
-            href="https://solanafoundation.typeform.com/SOD-student?typeform-source=solana.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.studentLink}
-          >
-            here
-          </a>
-        </div>
-
         {/* Footer */}
         <footer className={styles.footer}>
           <div className={styles.footerContent}>
             <div className={styles.footerRow}>
               <div className={styles.footerLogo}>
-                <Link href="/accelerate-n">
+                <Link href="/accelerate">
                   <Image
                     src={AccLogo}
                     alt="Accelerate Logo"
@@ -246,9 +244,9 @@ function TicketsPage() {
                 </Link>
               </div>
               <nav className={styles.footerNav}>
-                <Link href="/accelerate-n#sponsors">SPONSORS</Link>
-                <Link href="/accelerate-n#speakers">SPEAKERS</Link>
-                <Link href="/accelerate-n#faq">FAQ</Link>
+                <Link href="/accelerate#sponsors">SPONSORS</Link>
+                <Link href="/accelerate#speakers">SPEAKERS</Link>
+                <Link href="/accelerate#faq">FAQ</Link>
               </nav>
               <p className={styles.copyright}>© Solana Foundation 2025</p>
             </div>
