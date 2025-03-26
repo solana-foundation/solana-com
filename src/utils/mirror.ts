@@ -1,4 +1,3 @@
-"use server";
 import { v4 as uuidv4 } from "uuid";
 import { cookies } from "next/headers";
 
@@ -6,6 +5,7 @@ export async function getMirrorInstance(): Promise<{
   mirrorUrl: string;
   wsMirrorUrl: string;
 }> {
+  "use server";
   let c = await cookies();
   let userId = c.get("user_id")?.value;
   if (!userId) {
