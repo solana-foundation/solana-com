@@ -1,3 +1,4 @@
+"use server"
 import { AnnotationHandler, Pre, RawCode, highlight } from "codehike/code";
 
 import { mark } from "./mark";
