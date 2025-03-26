@@ -30,12 +30,8 @@ export default function TicketsPage() {
     // Initial check in case page loads with scroll
     handleScroll();
 
-    // Add a class to the body to hide global header
-    document.body.classList.add("accelerate-tickets-page");
-
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      document.body.classList.remove("accelerate-tickets-page");
     };
   }, []);
 
@@ -75,13 +71,6 @@ export default function TicketsPage() {
         />
         <style>
           {`
-            /* Hide global header via direct CSS */
-            header.global-header, 
-            header.position-sticky, 
-            header[class*="Header_header"] {
-              display: none !important;
-            }
-
             /* ABC Diatype font-face declaration */
             @font-face {
               font-family: 'ABC Diatype';
@@ -110,14 +99,16 @@ export default function TicketsPage() {
           className={`${styles.header} ${isScrolled ? styles.scrolled : ""}`}
         >
           <div className={styles.logo}>
-            <Image
-              src={AccLogo}
-              alt="Accelerate Logo"
-              className={styles.logoImg}
-              width={120}
-              height={30}
-              priority
-            />
+            <Link href="/accelerate-n">
+              <Image
+                src={AccLogo}
+                alt="Accelerate Logo"
+                className={styles.logoImg}
+                width={120}
+                height={30}
+                priority
+              />
+            </Link>
           </div>
           <nav className={styles.nav}>
             <Link href="/accelerate-n#sponsors">SPONSORS</Link>
@@ -214,13 +205,15 @@ export default function TicketsPage() {
           <div className={styles.footerContent}>
             <div className={styles.footerRow}>
               <div className={styles.footerLogo}>
-                <Image
-                  src={AccLogo}
-                  alt="Accelerate Logo"
-                  className={styles.footerLogoImg}
-                  width={120}
-                  height={30}
-                />
+                <Link href="/accelerate-n">
+                  <Image
+                    src={AccLogo}
+                    alt="Accelerate Logo"
+                    className={styles.footerLogoImg}
+                    width={120}
+                    height={30}
+                  />
+                </Link>
               </div>
               <nav className={styles.footerNav}>
                 <Link href="/accelerate-n#sponsors">SPONSORS</Link>
@@ -267,3 +260,6 @@ export default function TicketsPage() {
     </>
   );
 }
+
+// Add layout property at the end of the file
+TicketsPage.layout = 'AccelerateLayout';

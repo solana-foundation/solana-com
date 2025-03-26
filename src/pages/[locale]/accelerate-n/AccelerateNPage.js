@@ -18,18 +18,14 @@ import FreeTicketImage from "../../../../assets/accelerate/free.png";
 import AccLogo from "../../../../assets/accelerate/acc-logo.svg";
 
 // Import speaker images
-import EmmettImage from "../../../../assets/accelerate/speakers/emmett.png";
-import LucaImage from "../../../../assets/accelerate/speakers/luca.png";
+import AnatolyImage from "../../../../assets/accelerate/speakers/anatoly.png";
 import AustinImage from "../../../../assets/accelerate/speakers/austin.png";
 import SummerImage from "../../../../assets/accelerate/speakers/summer.png";
-import TaylorImage from "../../../../assets/accelerate/speakers/taylor.png";
-import ArielImage from "../../../../assets/accelerate/speakers/ariel.png";
-import RobertImage from "../../../../assets/accelerate/speakers/robert.png";
-import ArmaniImage from "../../../../assets/accelerate/speakers/armani.png";
-import BrandonImage from "../../../../assets/accelerate/speakers/brandon.png";
-import SantiagoImage from "../../../../assets/accelerate/speakers/santiago.png";
-import KashImage from "../../../../assets/accelerate/speakers/kash.png";
+import DanImage from "../../../../assets/accelerate/speakers/dan.png";
+import LilyImage from "../../../../assets/accelerate/speakers/lily.png";
+import RogerImage from "../../../../assets/accelerate/speakers/roger.png";
 import DavidImage from "../../../../assets/accelerate/speakers/david.png";
+import BrandonImage from "../../../../assets/accelerate/speakers/brandon.png";
 
 // Import sponsor logos
 import CubeSVG from "../../../../assets/accelerate/sponsors/cube.svg";
@@ -102,22 +98,44 @@ const useCounterAnimation = (end, duration = 2000, startDelay = 0) => {
 
 const FAQs = [
   {
-    question: "Which ticket do I need?",
+    question: "Where is Accelerate?",
     answer:
-      "Tickets are purchases by event, and you should get the ticket that best first your eligibility. " +
-      "Ship or Die is open to everyone. " +
-      "Scale or Die is exclusively for developers and by application only. " +
-      "For other events, it's a case by case basis — check the listing for more details.",
+      "Accelerate will be spread across New York City, the crypto capital of the U.S. Ship or Die will be at Pier 36 in Manhattan underneath the iconic Manhattan Bridge. Scale or Die will be located at a to-be-announced venue in Lower Manhattan.",
+  },
+  {
+    question: "Which ticket should I get?",
+    answer:
+      "Tickets are event-specific; please choose the ticket that aligns with your eligibility. Ship or Die is open to everyone. Scale or Die is exclusively for developers and by application only. For other events, it's a case by case basis — check the listing for more details.",
+  },
+  {
+    question: "Can I get a ticket to everything?",
+    answer:
+      "All applicants who are approved for Scale or Die will be automatically issued tickets to both Ship or Die and Scale or Die. You can only get these tickets if you are approved for Scale or Die.",
+  },
+  {
+    question: "How do I sponsor Accelerate?",
+    answer:
+      "There are many sponsorship opportunities available for Accelerate events. Please fill out the form here.",
   },
   {
     question: "Are travel and accommodation part of my ticket?",
     answer:
-      'Attendees are responsible for making their own travel and accommodation — but there are plenty of hotels in New York! The Solana Foundation <a href="https://solanafoundation.notion.site/Accelerate-Travel-1c1d36dad52d801ea92ad3e495c1a36a" target="_blank" rel="noopener noreferrer">has worked with</a> multiple hotels in New York to offer discounted rates on hotels during Ship or Die.',
+      "Attendees are responsible for making their own travel and accommodation as part of their ticket. See below for hotel discounts!",
   },
   {
-    question: "I can no longer attend. Can I get a refund?",
+    question: "What hotel should I stay at?",
     answer:
-      'We&apos;re sorry to hear that! Tickets are non-refundable, but are transferable. Please email <a href="mailto:accelerate@solana.org" className={styles.emailLink}>accelerate@solana.org</a> to transfer your ticket. For more information on how to book, check out the travel section.',
+      "The Solana Foundation has worked with multiple hotels in New York City to set up discounted rates during Ship or Die.",
+  },
+  {
+    question: "How do I get an invitation letter?",
+    answer:
+      "Attendees are responsible for getting their own visas. If you need a letter of invitation for your visa, you can submit your request here. Letters should arrive within 5 business days of your request, but may take longer.",
+  },
+  {
+    question: "Are press passes available?",
+    answer:
+      "Press passes are only available for Ship or Die, and by application only. Please contact <a href='mailto:press@solana.org' className={styles.emailLink}>press@solana.org</a>.",
   },
   {
     question: "How do I get to the venues?",
@@ -125,9 +143,9 @@ const FAQs = [
       "There's plenty of ways to get around New York! We suggest using the subway, taxis, Citibike, or rideshare apps. Please note that there is no parking onsite at any venue.",
   },
   {
-    question: "Additional Questions/Enquires?",
+    question: "I have another question!",
     answer:
-      'Please email <a href="mailto:accelerate@solana.org" className={styles.emailLink}>accelerate@solana.org</a> | <a href="mailto:press@solana.org" className={styles.emailLink}>press@solana.org</a>',
+      "Reach out to <a href='mailto:accelerate@solana.org' className={styles.emailLink}>accelerate@solana.org</a>.",
   },
 ];
 
@@ -140,7 +158,7 @@ export default function AccelerateNPage() {
   // Counter animations
   const [peopleCount, peopleCountRef] = useCounterAnimation(3000, 2000, 0);
   const [companiesCount, companiesCountRef] = useCounterAnimation(
-    1.5,
+    100,
     2000,
     200,
   );
@@ -226,7 +244,7 @@ export default function AccelerateNPage() {
   }, [stickyVisible]);
 
   // These could be moved to translation files in a real implementation
-  const heroTitle = "Tech, Finance and Policy meet crypto";
+  const heroTitle = "Tech, Finance, and Policy are Changing.";
   const heroDescription =
     "Accelerate is a high-conviction summit for people building the next chapter of America. From AI to crypto, defense to finance—if you&apos;re not in the room, you&apos;re already behind.";
 
@@ -240,13 +258,6 @@ export default function AccelerateNPage() {
         <meta name="description" content={heroDescription} />
         <style>
           {`
-            /* Hide global header via direct CSS */
-            header.global-header, 
-            header.position-sticky, 
-            header[class*="Header_header"] {
-              display: none !important;
-            }
-
             /* ABC Diatype font-face declaration */
             @font-face {
               font-family: 'ABC Diatype';
@@ -332,21 +343,17 @@ export default function AccelerateNPage() {
 
           <div className={styles.heroContent}>
             <div className={styles.heroLogo}>
-              <Image
+              <img
                 src={AccLogo}
                 alt="Accelerate Logo"
                 className={styles.heroLogoImg}
-                width={120}
-                height={30}
-                priority
               />
             </div>
 
-            <h1>Tech, Finance and Policy meet crypto</h1>
+            <h1>Tech, Finance, and Policy are Changing.</h1>
             <p className={styles.heroDescription}>
-              Accelerate is a conference for builders shaping crypto&apos;s next
-              chapter in America. Crypto is transforming tech, policy, and
-              finance—join us!
+              Accelerate is an event where business, policy, and crypto leaders
+              collaborate to write the next chapter of blockchain in America.
             </p>
             <Link
               href="/accelerate-n/tickets"
@@ -408,7 +415,7 @@ export default function AccelerateNPage() {
                   className={styles.cardDescription}
                   style={{ textAlign: "left" }}
                 >
-                  Executives from Fintech, AI and startups
+                  High energy executives from Tech
                 </p>
                 <img
                   src={PeopleImage.src}
@@ -435,13 +442,13 @@ export default function AccelerateNPage() {
                   ref={companiesCountRef}
                   style={{ textAlign: "left" }}
                 >
-                  ${companiesCount}T
+                  {companiesCount}+
                 </h3>
                 <p
                   className={styles.cardDescription}
                   style={{ textAlign: "left" }}
                 >
-                  Combined value of public and private companies
+                  Top fintech companies and founders
                 </p>
                 {/* <img
                   src={CompaniesImage.src}
@@ -507,7 +514,7 @@ export default function AccelerateNPage() {
                   className={styles.cardDescription}
                   style={{ textAlign: "left" }}
                 >
-                  Crypto Projects
+                  Disruptive Crypto Companies
                 </p>
               </div>
             </div>
@@ -538,18 +545,17 @@ export default function AccelerateNPage() {
               <h2 className={styles.videoTitle}>Scale. Ship. Accelerate.</h2>
               <div className={styles.videoDescription}>
                 <p>
-                  Solana needs to keep up with the increasing global demand for
-                  blockspace. Scale or die is a developers-only conference to
-                  explore the future of Solana scaling.
+                  Choose your path. Accelerate is a week packed with two
+                  conferences and dozens of summits, workshops, dinners, and
+                  more.
                 </p>
                 <p>
-                  Ship or die is a conference hosting leaders from tech, finance
-                  and policy to accelerate the adoption of crypto in these
-                  areas.
+                  Ship or Die will host leaders from tech, finance, and policy
+                  to accelerate the future of crypto in the United States.
                 </p>
                 <p>
-                  Accelerate is a week packed with two conferences, tens of side
-                  events, workshops and dinners in NYC.
+                  Scale or Die is a developer-only conference to dig into the
+                  deep tech behind scaling the global demand for blockspace.
                 </p>
               </div>
               <Link
@@ -666,33 +672,18 @@ export default function AccelerateNPage() {
               <div className={styles.speakerCard}>
                 <div className={styles.speakerImageWrapper}>
                   <Image
-                    src={EmmettImage}
-                    alt="Emmett Hollyer"
+                    src={AnatolyImage}
+                    alt="Anatoly Yakovenko"
                     width={300}
                     height={300}
                     style={{ width: "100%", height: "auto" }}
                     className={styles.speakerImage}
                   />
                 </div>
-                <h3 className={styles.speakerName}>Emmett Hollyer</h3>
+                <h3 className={styles.speakerName}>Anatoly Yakovenko</h3>
                 <p className={styles.speakerCompany}>
-                  General Manager • Solana Mobile
+                  Solana Labs • Scale or Die
                 </p>
-              </div>
-
-              <div className={styles.speakerCard}>
-                <div className={styles.speakerImageWrapper}>
-                  <Image
-                    src={LucaImage}
-                    alt="Luca Netz"
-                    width={300}
-                    height={300}
-                    style={{ width: "100%", height: "auto" }}
-                    className={styles.speakerImage}
-                  />
-                </div>
-                <h3 className={styles.speakerName}>Luca Netz</h3>
-                <p className={styles.speakerCompany}>CEO • Pudgy Penguins</p>
               </div>
 
               <div className={styles.speakerCard}>
@@ -707,7 +698,7 @@ export default function AccelerateNPage() {
                   />
                 </div>
                 <h3 className={styles.speakerName}>Austin Hurwitz</h3>
-                <p className={styles.speakerCompany}>Head of BD • Doodles</p>
+                <p className={styles.speakerCompany}>Doodles • Ship or Die</p>
               </div>
 
               <div className={styles.speakerCard}>
@@ -722,118 +713,56 @@ export default function AccelerateNPage() {
                   />
                 </div>
                 <h3 className={styles.speakerName}>Summer Mersinger</h3>
-                <p className={styles.speakerCompany}>Commissioner • CFTC</p>
+                <p className={styles.speakerCompany}>CFTC • Ship or Die</p>
               </div>
 
               <div className={styles.speakerCard}>
                 <div className={styles.speakerImageWrapper}>
                   <Image
-                    src={TaylorImage}
-                    alt="Taylor Johnson"
+                    src={DanImage}
+                    alt="Dan Albert"
                     width={300}
                     height={300}
                     style={{ width: "100%", height: "auto" }}
                     className={styles.speakerImage}
                   />
                 </div>
-                <h3 className={styles.speakerName}>Taylor Johnson</h3>
+                <h3 className={styles.speakerName}>Dan Albert</h3>
                 <p className={styles.speakerCompany}>
-                  Founder • Exo Technologies
+                  Solana Foundation • Scale or Die
                 </p>
               </div>
 
               <div className={styles.speakerCard}>
                 <div className={styles.speakerImageWrapper}>
                   <Image
-                    src={ArielImage}
-                    alt="Ariel Seidman"
+                    src={LilyImage}
+                    alt="Lily Liu"
                     width={300}
                     height={300}
                     style={{ width: "100%", height: "auto" }}
                     className={styles.speakerImage}
                   />
                 </div>
-                <h3 className={styles.speakerName}>Ariel Seidman</h3>
+                <h3 className={styles.speakerName}>Lily Liu</h3>
                 <p className={styles.speakerCompany}>
-                  CEO & Co-Founder • Hivemapper
+                  Solana Foundation • Ship or Die
                 </p>
               </div>
 
               <div className={styles.speakerCard}>
                 <div className={styles.speakerImageWrapper}>
                   <Image
-                    src={RobertImage}
-                    alt="Robert Leshner"
+                    src={RogerImage}
+                    alt="Roger Wattenhofer"
                     width={300}
                     height={300}
                     style={{ width: "100%", height: "auto" }}
                     className={styles.speakerImage}
                   />
                 </div>
-                <h3 className={styles.speakerName}>Robert Leshner</h3>
-                <p className={styles.speakerCompany}>
-                  CEO & Co-founder • Superstate
-                </p>
-              </div>
-
-              <div className={styles.speakerCard}>
-                <div className={styles.speakerImageWrapper}>
-                  <Image
-                    src={ArmaniImage}
-                    alt="Armani Ferrante"
-                    width={300}
-                    height={300}
-                    style={{ width: "100%", height: "auto" }}
-                    className={styles.speakerImage}
-                  />
-                </div>
-                <h3 className={styles.speakerName}>Armani Ferrante</h3>
-                <p className={styles.speakerCompany}>CEO • Backpack</p>
-              </div>
-
-              <div className={styles.speakerCard}>
-                <div className={styles.speakerImageWrapper}>
-                  <Image
-                    src={BrandonImage}
-                    alt="Brandon Millman"
-                    width={300}
-                    height={300}
-                    style={{ width: "100%", height: "auto" }}
-                    className={styles.speakerImage}
-                  />
-                </div>
-                <h3 className={styles.speakerName}>Brandon Millman</h3>
-                <p className={styles.speakerCompany}>CEO • Phantom</p>
-              </div>
-
-              <div className={styles.speakerCard}>
-                <div className={styles.speakerImageWrapper}>
-                  <Image
-                    src={SantiagoImage}
-                    alt="Santiago Roel Santos"
-                    width={300}
-                    height={300}
-                    style={{ width: "100%", height: "auto" }}
-                    className={styles.speakerImage}
-                  />
-                </div>
-                <h3 className={styles.speakerName}>Santiago Roel Santos</h3>
-                <p className={styles.speakerCompany}>Founder • Inversion</p>
-              </div>
-
-              <div className={styles.speakerCard}>
-                <div className={styles.speakerImageWrapper}>
-                  <Image
-                    src={KashImage}
-                    alt="Kash Dhanda"
-                    width={300}
-                    height={300}
-                    style={{ width: "100%", height: "auto" }}
-                    className={styles.speakerImage}
-                  />
-                </div>
-                <h3 className={styles.speakerName}>Kash Dhanda</h3>
-                <p className={styles.speakerCompany}>Cat-Herder • Jupiter</p>
+                <h3 className={styles.speakerName}>Roger Wattenhofer</h3>
+                <p className={styles.speakerCompany}>Anza • Scale or Die</p>
               </div>
 
               <div className={styles.speakerCard}>
@@ -848,9 +777,22 @@ export default function AccelerateNPage() {
                   />
                 </div>
                 <h3 className={styles.speakerName}>David Pakman</h3>
-                <p className={styles.speakerCompany}>
-                  Managing Partner • CoinFund
-                </p>
+                <p className={styles.speakerCompany}>Coinfund • Ship or Die</p>
+              </div>
+
+              <div className={styles.speakerCard}>
+                <div className={styles.speakerImageWrapper}>
+                  <Image
+                    src={BrandonImage}
+                    alt="Brandon Millman"
+                    width={300}
+                    height={300}
+                    style={{ width: "100%", height: "auto" }}
+                    className={styles.speakerImage}
+                  />
+                </div>
+                <h3 className={styles.speakerName}>Brandon Millman</h3>
+                <p className={styles.speakerCompany}>Phantom • Ship or Die</p>
               </div>
             </div>
           </div>
@@ -893,7 +835,12 @@ export default function AccelerateNPage() {
                 />
               </div>
               <div className={styles.sponsorLogo}>
-                <Image src={PhantomSVG} alt="Phantom" width={150} height={50} />
+                <Image
+                  src={SolflareSVG}
+                  alt="Solflare"
+                  width={120}
+                  height={40}
+                />
               </div>
               <div className={styles.sponsorLogo}>
                 <Image
@@ -904,21 +851,16 @@ export default function AccelerateNPage() {
                 />
               </div>
               <div className={styles.sponsorLogo}>
-                <Image
-                  src={SolflareSVG}
-                  alt="Solflare"
-                  width={120}
-                  height={40}
-                />
+                <Image src={JitoSVG} alt="Jito" width={85} height={28} />
+              </div>
+              <div className={styles.sponsorLogo}>
+                <Image src={PhantomSVG} alt="Phantom" width={150} height={50} />
               </div>
               <div className={styles.sponsorLogo}>
                 <Image src={ZeusSVG} alt="Zeus" width={120} height={40} />
               </div>
               <div className={styles.sponsorLogo}>
                 <Image src={HelioSVG} alt="Helio" width={120} height={40} />
-              </div>
-              <div className={styles.sponsorLogo}>
-                <Image src={JitoSVG} alt="Jito" width={85} height={28} />
               </div>
               <div className={styles.sponsorLogo}>
                 <Image src={MagnaSVG} alt="Magna" width={120} height={40} />
@@ -1022,6 +964,7 @@ export default function AccelerateNPage() {
                   className={styles.footerLogoImg}
                   width={120}
                   height={30}
+                  priority
                 />
               </div>
               <nav className={styles.footerNav}>
@@ -1049,3 +992,6 @@ export default function AccelerateNPage() {
     </>
   );
 }
+
+// Add layout property
+AccelerateNPage.layout = 'AccelerateLayout';
