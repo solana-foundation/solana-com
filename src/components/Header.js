@@ -14,6 +14,7 @@ import { useTheme } from "@/themecontext";
 import { useTranslation } from "react-i18next";
 import DevelopersNav from "./developers/DevelopersNav/DevelopersNav";
 import styles from "./Header.module.scss";
+import { setUserID } from "@/utils/mirror";
 
 const Header = ({ className = "", containerClassName = "" }) => {
   const router = useRouter();
@@ -39,6 +40,10 @@ const Header = ({ className = "", containerClassName = "" }) => {
   // Check if current path is /docs or /developers to show the Inkeep search bar
   const isDocsOrDevelopers =
     router.asPath.includes("/docs") || router.asPath.includes("/developers");
+
+  useEffect(() => {
+    setUserID();
+  }, []);
 
   return (
     <>

@@ -1,10 +1,8 @@
+"use server";
 import { v4 as uuidv4 } from "uuid";
 import { cookies } from "next/headers";
 
-export async function getMirrorInstance(): Promise<{
-  mirrorUrl: string;
-  wsMirrorUrl: string;
-}> {
+export async function setUserID() {
   "use server";
   let c = await cookies();
   let userId = c.get("user_id")?.value;
@@ -15,6 +13,20 @@ export async function getMirrorInstance(): Promise<{
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 365, // 1 year
     });
+  }
+}
+
+export async function getMirrorInstance(): Promise<{
+  mirrorUrl: string;
+  wsMirrorUrl: string;
+}> {
+  let c = await cookies();
+  let userId = c.get("user_id")?.value;
+  if (!userId) {
+    return {
+      mirrorUrl: "http://localhost:8899",
+      wsMirrorUrl: "ws://localhost:8900",
+    };
   }
 
   const mirrorApiKey = process.env.MIRROR_API_KEY;
