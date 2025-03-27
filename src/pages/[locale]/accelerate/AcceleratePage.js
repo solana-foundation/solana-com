@@ -547,7 +547,7 @@ export default function AcceleratePage() {
   return (
     <>
       <Head>
-        <title>Accelerate - {heroTitle}</title>
+        <title>Accelerate | Solana</title>
         <meta name="description" content={heroDescription} />
 
         {/* Open Graph / Social Media Meta Tags */}
@@ -665,7 +665,7 @@ export default function AcceleratePage() {
               />
             </div>
 
-            <h1>Tech, Finance, and Policy are Changing.</h1>
+            <h1>Tech, Finance, and Policy are Changing</h1>
             <p className={styles.heroDescription}>
               Accelerate is an event where business, policy, and crypto leaders
               collaborate to write the next chapter of blockchain in America.
@@ -944,8 +944,9 @@ export default function AcceleratePage() {
                   Buy 1 Ticket, Get 1 Free
                 </h2>
                 <p className={styles.freeTicketDescription}>
-                  From now till March 31, get a second ticket with your purchase
-                  to bring a fellow builder, founder, or friend.
+                  From now till March 31, purchase a Ship or Die ticket and get
+                  a second ticket free to bring a fellow builder, founder, or
+                  friend.
                 </p>
                 <Link
                   href="/accelerate/tickets"
