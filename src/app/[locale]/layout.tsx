@@ -12,6 +12,7 @@ import Footer from "@/components/Footer";
 import { staticLocales } from "@/i18n/config.cjs";
 import { Metadata } from "next";
 import { getBaseMetadata } from "@/app/metadata";
+import { setUserID } from "@/utils/mirror";
 
 const namespaces = ["common"];
 
@@ -25,6 +26,7 @@ export default async function RootLayout({ children, params }: Props) {
   const { resources } = await initTranslations(locale, namespaces);
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
   const builderLocale = locale == "en" ? "Default" : locale;
+  setUserID();
   return (
     <html lang={locale} suppressHydrationWarning>
       <body suppressHydrationWarning>
