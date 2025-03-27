@@ -751,5 +751,13 @@ export default {
       source: "/accelerate/ship-or-die",
       destination: "/accelerate",
     },
+    {
+      source: "/accelerate/ship-or-die",
+      destination: "/accelerate",
+    },
+    {
+      source: "/docs/terminology",
+      destination: "/docs/references/terminology",
+    },
   ],
 };
