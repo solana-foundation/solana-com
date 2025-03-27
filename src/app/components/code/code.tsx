@@ -32,7 +32,7 @@ export async function Code(props: {
 }
 
 function SingleCode({ group }: { group: CodeGroup }) {
-  const { pre, title, code, icon } = group.tabs[0];
+  const { pre, title, code, icon, lang } = group.tabs[0];
 
   return (
     <>
@@ -73,7 +73,7 @@ function SingleCode({ group }: { group: CodeGroup }) {
         )}
         {pre}
       </div>
-      {group.options.runable && <RunableCode code={code} />}
+      {group.options.runable && <RunableCode code={code} language={lang} />}
     </>
   );
 }
@@ -123,6 +123,7 @@ export async function toCodeGroup(props: {
         style: highlighted.style,
         code: highlighted.code,
         icon: <CodeIcon title={title} lang={tab.lang} />,
+        lang: tab.lang,
         pre: (
           <Pre
             code={highlighted}

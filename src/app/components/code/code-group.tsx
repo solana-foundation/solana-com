@@ -16,6 +16,7 @@ export type CodeGroup = {
     code: string;
     pre: React.ReactNode;
     icon: React.ReactNode;
+    lang: string;
   }[];
 };
 

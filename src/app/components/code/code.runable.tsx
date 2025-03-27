@@ -6,7 +6,13 @@ import { useState } from "react";
 import { CodeRun } from "@/utils/mirror";
 import { Callout } from "fumadocs-ui/components/callout";
 
-export function RunableCode({ code }: { code: string }) {
+export function RunableCode({
+  code,
+  language,
+}: {
+  code: string;
+  language: string;
+}) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<CodeRun | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +22,7 @@ export function RunableCode({ code }: { code: string }) {
     setResult(null);
     const res = await fetch("/docs/api", {
       method: "POST",
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, language }),
     });
     setRunning(false);
     if (!res.ok) {

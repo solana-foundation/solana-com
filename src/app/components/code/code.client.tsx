@@ -73,7 +73,9 @@ export function MultiCode({ group }: { group: CodeGroup }) {
           {current.pre}
         </TabsContent>
       </Tabs>
-      {current.options.runable && <RunableCode code={current.code} />}
+      {current.options.runable && (
+        <RunableCode code={current.code} language={current.lang} />
+      )}
     </>
   );
 }

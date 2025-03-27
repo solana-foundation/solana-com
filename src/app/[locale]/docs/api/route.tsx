@@ -7,14 +7,24 @@ export async function POST(req: Request) {
   //   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   // }
 
-  //parse json body
-  const { code } = await req.json();
+  const { code, language } = await req.json();
+  let url;
+  switch (language) {
+    case "rust":
+      url = "http://localhost:8080/code-exec/rust";
+      break;
+    case "typescript":
+      url = "http://localhost:8080/code-exec/typescript";
+      break;
+    default:
+      return NextResponse.json({ error: "Invalid language" }, { status: 400 });
+  }
 
   const mirrorApiKey = process.env.MIRROR_API_KEY;
   if (!mirrorApiKey) {
     return NextResponse.json({ error: "No Mirror API Key" }, { status: 500 });
   }
-  const response = await fetch("https://api.mirror.ad/code-exec/typescript", {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
