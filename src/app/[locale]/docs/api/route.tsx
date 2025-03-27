@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const maxDuration = 60; // Timeout in seconds
+
 export async function POST(req: Request) {
   // const allowedOrigin = "https://solana.com";
   // const origin = req.headers.get("origin") || req.headers.get("referer");
@@ -11,10 +13,10 @@ export async function POST(req: Request) {
   let url;
   switch (language) {
     case "rust":
-      url = "https://api.mirror.ad/code-exec/rust";
+      url = "http://localhost:8080/code-exec/rust";
       break;
     case "typescript":
-      url = "https://api.mirror.ad/code-exec/typescript";
+      url = "http://localhost:8080/code-exec/typescript";
       break;
     default:
       return NextResponse.json({ error: "Invalid language" }, { status: 400 });
