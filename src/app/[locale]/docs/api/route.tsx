@@ -11,10 +11,10 @@ export async function POST(req: Request) {
   let url;
   switch (language) {
     case "rust":
-      url = "http://localhost:8080/code-exec/rust";
+      url = "https://api.mirror.ad/code-exec/rust";
       break;
     case "typescript":
-      url = "http://localhost:8080/code-exec/typescript";
+      url = "https://api.mirror.ad/code-exec/typescript";
       break;
     default:
       return NextResponse.json({ error: "Invalid language" }, { status: 400 });
