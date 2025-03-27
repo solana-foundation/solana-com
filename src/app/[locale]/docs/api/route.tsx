@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const maxDuration = 60; // Timeout in seconds
-
 export async function POST(req: Request) {
   // const allowedOrigin = "https://solana.com";
   // const origin = req.headers.get("origin") || req.headers.get("referer");
