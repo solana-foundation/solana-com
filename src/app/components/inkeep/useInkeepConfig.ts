@@ -15,7 +15,7 @@ const baseSettings: InkeepBaseSettings = {
         type: "style",
         value: `
         #inkeep-widget-root {
-          font-size: 1rem; 
+          font-size: 1rem;
         }
         .ikp-search-bar__container {
           margin: 0 0 0 16px;
@@ -31,7 +31,7 @@ const baseSettings: InkeepBaseSettings = {
         @media (max-width: 768px) {
           .ikp-search-bar__icon {
             font-size: 24px;
-            color: var(--docsearch-text-color);
+            color: #f5f6f7;
           }
           .ikp-search-bar__button {
             border-color: transparent;

@@ -3,12 +3,11 @@
 import Navbar from "react-bootstrap/Navbar";
 import { useRouter } from "@/hooks/useRouter";
 import { Link } from "../utils/Link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
 import Moon from "../../public/src/img/icons/Moon.inline.svg";
 import Sun from "../../public/src/img/icons/Sun.inline.svg";
 import HeaderList from "./header/HeaderList";
-import { DocSearch } from "@docsearch/react";
 import { InkeepSearchBar } from "@/app/components/inkeep/inkeep-searchbar";
 import { useTheme } from "@/themecontext";
 import { useTranslation } from "react-i18next";
@@ -20,11 +19,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
   const { theme, toggleTheme, isThemePage } = useTheme();
   const { t } = useTranslation();
 
-  const [searchText, setSearchText] = useState("Search");
-
   useEffect(() => {
-    setSearchText(t("commands.search"));
-
     const navbar = document.getElementById("navbar");
     if (navbar) {
       if (isThemePage) {
@@ -35,10 +30,6 @@ const Header = ({ className = "", containerClassName = "" }) => {
       }
     }
   }, [t, theme, isThemePage]);
-
-  // Check if current path is /docs or /developers to show the Inkeep search bar
-  const isDocsOrDevelopers =
-    router.asPath.includes("/docs") || router.asPath.includes("/developers");
 
   return (
     <>
@@ -66,28 +57,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
               <Navbar.Collapse id="navbarCollapse">
                 <HeaderList />
               </Navbar.Collapse>
-
-              {isDocsOrDevelopers ? (
-                <InkeepSearchBar />
-              ) : (
-                <DocSearch
-                  // note: these values are safe to be published and are NOT secrets
-                  apiKey={"011e01358301f5023b02da5db6af7f4d"}
-                  appId={"FQ12ISJR4B"}
-                  indexName={"solana-com"}
-                  placeholder={searchText}
-                  searchParameters={{
-                    facetFilters: [`language:${router?.locale || "en"}`],
-                  }}
-                  translations={{
-                    button: {
-                      buttonText: searchText,
-                      buttonAriaLabel: searchText,
-                    },
-                  }}
-                />
-              )}
-
+              <InkeepSearchBar />
               {isThemePage && (
                 <button
                   className={styles.header__toggle}

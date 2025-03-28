@@ -71,16 +71,10 @@ export default function HTMLHead({
   }
 
   // always add these metatags to the start of the array
-  meta.unshift(
-    {
-      name: "docsearch:language",
-      content: locale,
-    },
-    {
-      name: "language",
-      content: locale,
-    },
-  );
+  meta.unshift({
+    name: "language",
+    content: locale,
+  });
 
   return (
     <>
