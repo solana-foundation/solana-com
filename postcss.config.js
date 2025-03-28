@@ -44,7 +44,6 @@ module.exports = {
             /^slick-/,
             /^react-datetimerange-picker/,
             /^react-calendar/,
-            /DocSearch-/,
 
             // Tailwind
             /tw-/,
