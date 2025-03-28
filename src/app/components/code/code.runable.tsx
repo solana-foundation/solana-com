@@ -20,6 +20,7 @@ export function RunableCode({
   const handleRun = async () => {
     setRunning(true);
     setResult(null);
+    setError(null);
     const res = await fetch("/docs/api", {
       method: "POST",
       body: JSON.stringify({ code, language }),
