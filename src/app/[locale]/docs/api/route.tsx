@@ -16,6 +16,9 @@ export async function POST(req: Request) {
     case "typescript":
       url = "https://api.mirror.ad/code-exec/typescript";
       break;
+    case "ts":
+      url = "https://api.mirror.ad/code-exec/typescript";
+      break;
     default:
       return NextResponse.json({ error: "Invalid language" }, { status: 400 });
   }
