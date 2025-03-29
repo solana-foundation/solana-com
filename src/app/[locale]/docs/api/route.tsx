@@ -1,3 +1,4 @@
+import { getMirrorInstance } from "@/utils/mirror";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -7,8 +8,21 @@ export async function POST(req: Request) {
   //   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   // }
 
-  const { code, language } = await req.json();
-  let url;
+  var { code, language } = await req.json();
+
+  const { mirrorUrl, wsMirrorUrl } = await getMirrorInstance();
+  code = code.replace(/clusterApiUrl\([^)]*\)/g, `"${mirrorUrl}"`);
+  code = code.replace(
+    /Create Connection, local validator in this example/g,
+    "This Mirror instance lasts for 1 hour. You can create your own at https://mirror.ad",
+  );
+  code = code.replace(/http:\/\/127\.0\.0\.1:8899/g, mirrorUrl);
+  code = code.replace(/ws:\/\/127\.0\.0\.1:8900/g, wsMirrorUrl);
+  code = code.replace(/https:\/\/api\.devnet\.solana\.com/g, mirrorUrl);
+  code = code.replace(/"devnet"/g, `"${mirrorUrl}"`);
+  code = code.replace(/"wsDevnet"/g, `"${wsMirrorUrl}"`);
+
+  let url: string;
   switch (language) {
     case "rust":
       url = "https://api.mirror.ad/code-exec/rust";

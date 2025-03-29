@@ -15,7 +15,6 @@ import { wordWrap } from "./word-wrap";
 import { MultiCode } from "./code.client";
 import { tooltip } from "./tooltip";
 import { tokenTransitions } from "./token-transitions";
-import { getMirrorInstance } from "@/utils/mirror";
 import { RunableCode } from "./code.runable";
 
 export async function Code(props: {
@@ -93,25 +92,6 @@ export async function toCodeGroup(props: {
       const options = { ...groupOptions, ...tabOptions };
       // get the user_id from the users cookies
 
-      if (groupOptions.runable) {
-        const { mirrorUrl, wsMirrorUrl } = await getMirrorInstance();
-        tab.value = tab.value.replace(
-          /clusterApiUrl\([^)]*\)/g,
-          `"${mirrorUrl}"`,
-        );
-        tab.value = tab.value.replace(
-          /Create Connection, local validator in this example/g,
-          "This Mirror instance lasts for 1 hour. You can create your own at https://mirror.ad",
-        );
-        tab.value = tab.value.replace(/http:\/\/127\.0\.0\.1:8899/g, mirrorUrl);
-        tab.value = tab.value.replace(/ws:\/\/127\.0\.0\.1:8900/g, wsMirrorUrl);
-        tab.value = tab.value.replace(
-          /https:\/\/api\.devnet\.solana\.com/g,
-          mirrorUrl,
-        );
-        tab.value = tab.value.replace(/"devnet"/g, `"${mirrorUrl}"`);
-        tab.value = tab.value.replace(/"wsDevnet"/g, `"${wsMirrorUrl}"`);
-      }
       const highlighted = await highlight(
         { ...tab, lang: tab.lang || "txt" },
         theme,
