@@ -4,7 +4,14 @@ description:
   Learn how to create a token account with the Confidential Transfer extension.
 ---
 
-## Create a token account with Confidential Transfer extension
+## How to create a token account with the Confidential Transfer extension
+
+The Confidential Transfer extension enables private token transfers by adding
+extra state to the token account. This section explains how to create a token
+account with this extension enabled.
+
+The following diagram shows the steps involved in creating a token account with
+the Confidential Transfer extension:
 
 ```mermaid title="Create Token Account with Confidential Transfer Extension"
 sequenceDiagram
@@ -33,6 +40,131 @@ sequenceDiagram
     Token22-->>TokenAccount: Configure for confidential transfers
     deactivate Token22
 ```
+
+### Confidential Transfer Token Account State
+
+The extension adds the
+[ConfidentialTransferAccount](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/mod.rs#L75-L122)
+state to the token account:
+
+```rust title="Confidential Token Account State"
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Pod, Zeroable)]
+pub struct ConfidentialTransferAccount {
+    /// `true` if this account has been approved for use. All confidential
+    /// transfer operations for the account will fail until approval is
+    /// granted.
+    pub approved: PodBool,
+
+    /// The public key associated with ElGamal encryption
+    pub elgamal_pubkey: PodElGamalPubkey,
+
+    /// The low 16 bits of the pending balance (encrypted by `elgamal_pubkey`)
+    pub pending_balance_lo: EncryptedBalance,
+
+    /// The high 48 bits of the pending balance (encrypted by `elgamal_pubkey`)
+    pub pending_balance_hi: EncryptedBalance,
+
+    /// The available balance (encrypted by `encryption_pubkey`)
+    pub available_balance: EncryptedBalance,
+
+    /// The decryptable available balance
+    pub decryptable_available_balance: DecryptableBalance,
+
+    /// If `false`, the extended account rejects any incoming confidential
+    /// transfers
+    pub allow_confidential_credits: PodBool,
+
+    /// If `false`, the base account rejects any incoming transfers
+    pub allow_non_confidential_credits: PodBool,
+
+    /// The total number of `Deposit` and `Transfer` instructions that have
+    /// credited `pending_balance`
+    pub pending_balance_credit_counter: PodU64,
+
+    /// The maximum number of `Deposit` and `Transfer` instructions that can
+    /// credit `pending_balance` before the `ApplyPendingBalance`
+    /// instruction is executed
+    pub maximum_pending_balance_credit_counter: PodU64,
+
+    /// The `expected_pending_balance_credit_counter` value that was included in
+    /// the last `ApplyPendingBalance` instruction
+    pub expected_pending_balance_credit_counter: PodU64,
+
+    /// The actual `pending_balance_credit_counter` when the last
+    /// `ApplyPendingBalance` instruction was executed
+    pub actual_pending_balance_credit_counter: PodU64,
+}
+```
+
+The _rs`ConfidentialTransferAccount`_ contains multiple fields to manage
+confidential transfers:
+
+- **approved**: Indicates if the account has been approved for confidential
+  transfers. This is set to true automatically if the mint has auto-approval
+  enabled.
+
+- **elgamal_pubkey**: The ElGamal public key used to encrypt balances and
+  transfer amounts.
+
+- **pending_balance_lo**: The encrypted lower 16 bits of the pending balance.
+  The balance is split into high and low parts for efficient decryption.
+
+- **pending_balance_hi**: The encrypted higher 48 bits of the pending balance.
+  The balance is split into high and low parts for efficient decryption.
+
+- **available_balance**: The encrypted balance that is available for transfers.
+
+- **decryptable_available_balance**: The available balance encrypted with a
+  symmetric key for efficient decryption by the account owner.
+
+- **allow_confidential_credits**: If true, allows incoming confidential
+  transfers.
+
+- **allow_non_confidential_credits**: If true, allows incoming non-confidential
+  transfers.
+
+- **pending_balance_credit_counter**: Counts incoming pending balance credits.
+
+- **maximum_pending_balance_credit_counter**: The maximum number of pending
+  credits before requiring balance application.
+
+- **expected_pending_balance_credit_counter**: The counter value that was
+  included in the last `ApplyPendingBalance` instruction, used to prevent replay
+  attacks.
+
+- **actual_pending_balance_credit_counter**: The actual counter value when the
+  last `ApplyPendingBalance` instruction was executed, used to track the state
+  of applied pending balances.
+
+### Required Transaction Instructions
+
+Creating a token account with the Confidential Transfer extension requires three
+instructions:
+
+1. **Create the Token Account**: Invoke the Associated Token Program's
+   _rs`AssociatedTokenAccountInstruction:Create`_ instruction to create the
+   token account.
+
+2. **Reallocate Account Space**: Invoke the Token Extension Program's
+   _rs`TokenInstruction::Reallocate`_ instruction to add space for the
+   _rs`ConfidentialTransferAccount`_ extension.
+
+3. **Configure Confidential Transfers**: Invoke the Token Extension Program's
+   [ConfidentialTransferInstruction::ConfigureAccount](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/processor.rs#L201)
+   instruction to initialize the confidential transfer state and provide the
+   ElGamal public key and zero-knowledge proof of its validity.
+
+The reallocation and configuration instruction can be submitted in a separate
+transaction from the token account creation.
+
+The configure account instruction requires client-side generation of
+cryptographic keys and proof data to ensure secure confidential transfers.
+
+### Example
+
+The following code demonstrates how to create an Associated Token Account with
+the Confidential Transfer extension:
 
 ```rust title="Rust"
 use anyhow::{Context, Result};
