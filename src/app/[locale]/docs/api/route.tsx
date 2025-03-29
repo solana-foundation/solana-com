@@ -21,6 +21,14 @@ export async function POST(req: Request) {
   code = code.replace(/https:\/\/api\.devnet\.solana\.com/g, mirrorUrl);
   code = code.replace(/"devnet"/g, `"${mirrorUrl}"`);
   code = code.replace(/"wsDevnet"/g, `"${wsMirrorUrl}"`);
+  code = code.replace(
+    /https:\/\/engine\.mirror\.ad\/rpc\/<mirror-id>/g,
+    mirrorUrl,
+  );
+  code = code.replace(
+    /wss:\/\/engine\.mirror\.ad\/rpc\/<mirror-id>/g,
+    wsMirrorUrl,
+  );
 
   let url: string;
   switch (language) {
