@@ -345,6 +345,8 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
   const json = highlighted.code;
   highlighted.code = prefix + highlighted.code + suffix;
 
+  const withClient = highlighted.meta.includes("with-client");
+
   const curlTab = {
     options: {},
     title: rest.length ? "cURL" : "Request",
@@ -358,7 +360,7 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
           className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
           handlers={handlers}
         />
-        <RequestClient json={json} />
+        {withClient && <RequestClient json={json} />}
       </>
     ),
   };
