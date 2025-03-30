@@ -51,7 +51,7 @@ const MethodSchema = Block.extend({
   result: z.array(ResultSchema),
 });
 
-export function HTTPMethod(props: unknown) {
+export function APIMethod(props: unknown) {
   const method = parseProps(props, MethodSchema);
   const paramsSection = <ParamsSection params={method.params?.blocks} />;
   const resultHeader = (
