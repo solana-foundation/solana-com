@@ -1,90 +1,205 @@
 ---
-title: How to Transfer Tokens
-description: "Transfer tokens between Solana accounts"
+title: How to Send Tokens
+description:
+  "Using tokens is common within any application on Solana. Learn how to send
+  tokens to on Solana and create the Associated Token Account (ATA)."
 ---
 
-You can transfer tokens from one token account to another token account.
+Use the [Token Program][1] or the [Token Extensions Program][2] (aka Token22) to
+transfer SPL Tokens. In order to send a SPL token, you need to know its
+Associated Token Account (ATA) address, which is derived from:
 
-```typescript title="transfer-token.ts"
+- the destination wallet
+- the token mint address
+- the token program used to create the mint
+
+You can both get the token account's address and send tokens to it with the
+following examples:
+
+<CodeTabs storage="cookbook">
+
+```typescript !! title="gill"
 import {
-  clusterApiUrl,
+  address,
+  createSolanaClient,
+  createTransaction,
+  getExplorerLink,
+  getSignatureFromTransaction,
+  signTransactionMessageWithSigners,
+} from "gill";
+import { loadKeypairSignerFromFile } from "gill/node";
+import {
+  getAssociatedTokenAccountAddress,
+  getCreateAssociatedTokenIdempotentInstruction,
+  getTransferInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  getTransferTokensInstructions,
+  buildTransferTokensTransaction,
+} from "gill/programs/token";
+
+const signer = await loadKeypairSignerFromFile();
+
+const { rpc, sendAndConfirmTransaction } = createSolanaClient({
+  urlOrMoniker: "devnet",
+});
+
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const mint = address("HwxZNMkZbZMeiu9Xnmc6Rg8jYgNsJB47jwabHGUebW4F");
+const tokenProgram = TOKEN_PROGRAM_ADDRESS; // use the correct program for the `mint`
+
+const destination = address("7sZoCrE3cGgEpNgxcPnGffDeWfTewKnk6wWdLxmYA7Cy");
+const destinationAta = await getAssociatedTokenAccountAddress(
+  mint,
+  destination,
+  tokenProgram,
+);
+
+const source = address("nick6zJc6HpW3kfBm4xS2dmbuVRyb5F3AnUvj5ymzR5");
+const sourceAta = await getAssociatedTokenAccountAddress(
+  mint,
+  source,
+  tokenProgram,
+);
+
+/**
+ * instead of manually crafting the two instructions below, and deriving the ata's above:
+ * you could use the `getTransferTokensInstructions()` function to simplify this code
+ */
+const transaction = createTransaction({
+  feePayer: signer,
+  version: "legacy",
+  instructions: [
+    // create idempotent will gracefully fail if the ata already exists. this is the gold standard!
+    getCreateAssociatedTokenIdempotentInstruction({
+      mint,
+      payer: signer,
+      tokenProgram,
+      owner: destination,
+      ata: destinationAta,
+    }),
+    getTransferInstruction(
+      {
+        source: sourceAta,
+        authority: signer,
+        destination: destinationAta,
+        amount: 1_000_000,
+      },
+      { programAddress: tokenProgram },
+    ),
+  ],
+  latestBlockhash,
+});
+
+// instead of the above, you can also simplify with `buildTransferTokensTransaction()`
+const transaction2 = await buildTransferTokensTransaction({
+  feePayer: signer,
+  version: "legacy",
+  latestBlockhash,
+  amount: 1_000_000,
+  authority: signer,
+  destination: destination,
+  mint,
+  tokenProgram,
+});
+
+const signedTransaction = await signTransactionMessageWithSigners(transaction);
+
+console.log(
+  "Explorer:",
+  getExplorerLink({
+    cluster: "devnet",
+    transaction: getSignatureFromTransaction(signedTransaction),
+  }),
+);
+
+await sendAndConfirmTransaction(signedTransaction);
+```
+
+```typescript !! title="web3.js"
+import {
   Connection,
-  PublicKey,
+  clusterApiUrl,
   Keypair,
+  LAMPORTS_PER_SOL,
   Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
-  createTransferCheckedInstruction,
-  TOKEN_PROGRAM_ID,
-  transferChecked,
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  createTransferInstruction,
 } from "@solana/spl-token";
-import bs58 from "bs58";
 
 (async () => {
-  // connection
+  // Connect to cluster
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-  // 5YNmS1R9nNSCDzb5a7mMJ1dwK9uHeAAF4CmPEwKgVWr8
-  const feePayer = Keypair.fromSecretKey(
-    bs58.decode(
-      "588FU4PktJWfGfxtzpAAXywSNt74AvtroVzGfKkVN1LwRuvHwKGr851uH8czM5qm4iqLbs1kKoMKtMJG4ATR7Ld2",
+  // Generate a new wallet keypair and airdrop SOL
+  const fromWallet = Keypair.generate();
+  const fromAirdropSignature = await connection.requestAirdrop(
+    fromWallet.publicKey,
+    LAMPORTS_PER_SOL,
+  );
+  // Wait for airdrop confirmation
+  await connection.confirmTransaction(fromAirdropSignature);
+
+  // Generate a new wallet to receive newly minted token
+  const toWallet = Keypair.generate();
+
+  // Create new token mint
+  const mint = await createMint(
+    connection,
+    fromWallet,
+    fromWallet.publicKey,
+    null,
+    9,
+  );
+
+  // Get the token account of the fromWallet Solana address, if it does not exist, create it
+  const fromTokenAccount = await getOrCreateAssociatedTokenAccount(
+    connection,
+    fromWallet,
+    mint,
+    fromWallet.publicKey,
+  );
+
+  //get the token account of the toWallet Solana address, if it does not exist, create it
+  const toTokenAccount = await getOrCreateAssociatedTokenAccount(
+    connection,
+    fromWallet,
+    mint,
+    toWallet.publicKey,
+  );
+
+  // Minting 1 new token to the "fromTokenAccount" account we just returned/created
+  await mintTo(
+    connection,
+    fromWallet,
+    mint,
+    fromTokenAccount.address,
+    fromWallet.publicKey,
+    1000000000, // it's 1 token, but in lamports
+    [],
+  );
+
+  // Add token transfer instructions to transaction
+  const transaction = new Transaction().add(
+    createTransferInstruction(
+      fromTokenAccount.address,
+      toTokenAccount.address,
+      fromWallet.publicKey,
+      1,
     ),
   );
 
-  // G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
-  const alice = Keypair.fromSecretKey(
-    bs58.decode(
-      "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp",
-    ),
-  );
-
-  const mintPubkey = new PublicKey(
-    "8mAKLjGGmjKTnmcXeyr3pr7iX13xXVjJJiL6RujDbSPV",
-  );
-
-  const tokenAccountXPubkey = new PublicKey(
-    "2XYiFjmU1pCXmC2QfEAghk6S7UADseupkNQdnRBXszD5",
-  );
-  const tokenAccountYPubkey = new PublicKey(
-    "GMxZfDmpR1b3vdJYXHzdF5noVLQogZuUAsDHHQ3ytPfV",
-  );
-
-  // 1) use build-in function
-  {
-    let txhash = await transferChecked(
-      connection, // connection
-      feePayer, // payer
-      tokenAccountXPubkey, // from (should be a token account)
-      mintPubkey, // mint
-      tokenAccountYPubkey, // to (should be a token account)
-      alice, // from's owner
-      1e8, // amount, if your decimals is 8, send 10^8 for 1 token
-      8, // decimals
-    );
-    console.log(`txhash: ${txhash}`);
-  }
-
-  // or
-
-  // 2) compose by yourself
-  {
-    let tx = new Transaction().add(
-      createTransferCheckedInstruction(
-        tokenAccountXPubkey, // from (should be a token account)
-        mintPubkey, // mint
-        tokenAccountYPubkey, // to (should be a token account)
-        alice.publicKey, // from's owner
-        1e8, // amount, if your decimals is 8, send 10^8 for 1 token
-        8, // decimals
-      ),
-    );
-    console.log(
-      `txhash: ${await sendAndConfirmTransaction(connection, tx, [
-        feePayer,
-        alice /* fee payer + owner */,
-      ])}`,
-    );
-  }
+  // Sign transaction, broadcast, and confirm
+  await sendAndConfirmTransaction(connection, transaction, [fromWallet]);
 })();
 ```
+
+</CodeTabs>
+
+[1]: https://spl.solana.com/token
+[2]: https://spl.solana.com/token-2022

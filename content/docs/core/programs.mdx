@@ -86,3 +86,268 @@ files contain Solana's custom version of
 [eBPF](https://en.wikipedia.org/wiki/EBPF) bytecode, called "Solana Bytecode
 Format" (sBPF). The ELF file contains the program's binary and is stored
 on-chain in an executable account when the program is deployed.
+
+## Built-in Programs
+
+### Loader Programs
+
+Every program itself is owned by another program, which is its loader. There
+are currently five loaders:
+
+1. native loader:
+
+  - Program id: `NativeLoader1111111111111111111111111111111`
+  - Owns the other four loaders
+
+2. loader-v1:
+
+  - Program id: `BPFLoader1111111111111111111111111111111111`
+  - Management instructions are disabled, but programs still execute
+
+3. loader-v2:
+
+  - Program id: `BPFLoader2111111111111111111111111111111111`
+  - [Instructions](https://docs.rs/solana-loader-v2-interface/latest/solana_loader_v2_interface/enum.LoaderInstruction.html)
+  - Management instructions are disabled, but programs still execute
+
+4. loader-v3:
+
+  - Program id: `BPFLoaderUpgradeab1e11111111111111111111111`
+  - [Instructions](https://docs.rs/solana-loader-v3-interface/latest/solana_loader_v3_interface/instruction/enum.UpgradeableLoaderInstruction.html)
+  - Is being phased out
+
+5. loader-v4:
+
+  - Program id: `LoaderV411111111111111111111111111111111111`
+  - [Instructions](https://docs.rs/solana-loader-v4-interface/latest/solana_loader_v4_interface/instruction/enum.LoaderV4Instruction.html)
+  - Will become the standard loader
+
+These loaders are necessary to create and manage custom programs:
+
+- Deploy a new program or buffer
+- Close a program or buffer
+- Redeploy / upgrade an existing program
+- Transfer the authority over a program
+- Finalize a program
+
+Loader-v3 and loader-v4 support modifications to programs after their initial
+deployment. Permission to do so is regulated by the authority of a program
+because the account ownership of each program resides with the loader.
+
+### Precompile Programs
+
+#### Ed25519 Program
+
+The program for verifying ed25519 signatures. It takes an ed25519 signature, a public key, and a message.
+Multiple signatures can be verified. If any of the signatures fail to verify, an error is returned.
+
+- Program id: `Ed25519SigVerify111111111111111111111111111`
+- [Instructions](https://docs.rs/solana-ed25519-program/latest/solana_ed25519_program/index.html)
+
+The ed25519 program processes an instruction. The first `u8` is a count of the number of
+signatures to check, which is followed by a single byte padding. After that, the
+following struct is serialized, one for each signature to check.
+
+```
+struct Ed25519SignatureOffsets {
+    signature_offset: u16,             // offset to ed25519 signature of 64 bytes
+    signature_instruction_index: u16,  // instruction index to find signature
+    public_key_offset: u16,            // offset to public key of 32 bytes
+    public_key_instruction_index: u16, // instruction index to find public key
+    message_data_offset: u16,          // offset to start of message data
+    message_data_size: u16,            // size of message data
+    message_instruction_index: u16,    // index of instruction data to get message data
+}
+```
+
+The pseudo code of the signature verification:
+
+```
+process_instruction() {
+    for i in 0..count {
+        // i'th index values referenced:
+        instructions = &transaction.message().instructions
+        instruction_index = ed25519_signature_instruction_index != u16::MAX ? ed25519_signature_instruction_index : current_instruction;
+        signature = instructions[instruction_index].data[ed25519_signature_offset..ed25519_signature_offset + 64]
+        instruction_index = ed25519_pubkey_instruction_index != u16::MAX ? ed25519_pubkey_instruction_index : current_instruction;
+        pubkey = instructions[instruction_index].data[ed25519_pubkey_offset..ed25519_pubkey_offset + 32]
+        instruction_index = ed25519_message_instruction_index != u16::MAX ? ed25519_message_instruction_index : current_instruction;
+        message = instructions[instruction_index].data[ed25519_message_data_offset..ed25519_message_data_offset + ed25519_message_data_size]
+        if pubkey.verify(signature, message) != Success {
+            return Error
+        }
+    }
+    return Success
+}
+```
+
+#### Secp256k1 Program
+
+Verify secp256k1 public key recovery operations (ecrecover).
+
+- Program id: `KeccakSecp256k11111111111111111111111111111`
+- [Instructions](https://docs.rs/solana-secp256k1-program/latest/solana_secp256k1_program/index.html)
+
+The secp256k1 program processes an instruction which takes in as the first byte
+a count of the following struct serialized in the instruction data:
+
+```
+struct Secp256k1SignatureOffsets {
+    secp_signature_offset: u16,            // offset to [signature,recovery_id] of 64+1 bytes
+    secp_signature_instruction_index: u8,  // instruction index to find signature
+    secp_pubkey_offset: u16,               // offset to ethereum_address pubkey of 20 bytes
+    secp_pubkey_instruction_index: u8,     // instruction index to find pubkey
+    secp_message_data_offset: u16,         // offset to start of message data
+    secp_message_data_size: u16,           // size of message data
+    secp_message_instruction_index: u8,    // instruction index to find message data
+}
+```
+
+The pseudo code of the recovery verification:
+
+```
+process_instruction() {
+  for i in 0..count {
+      // i'th index values referenced:
+      instructions = &transaction.message().instructions
+      signature = instructions[secp_signature_instruction_index].data[secp_signature_offset..secp_signature_offset + 64]
+      recovery_id = instructions[secp_signature_instruction_index].data[secp_signature_offset + 64]
+      ref_eth_pubkey = instructions[secp_pubkey_instruction_index].data[secp_pubkey_offset..secp_pubkey_offset + 20]
+      message_hash = keccak256(instructions[secp_message_instruction_index].data[secp_message_data_offset..secp_message_data_offset + secp_message_data_size])
+      pubkey = ecrecover(signature, recovery_id, message_hash)
+      eth_pubkey = keccak256(pubkey[1..])[12..]
+      if eth_pubkey != ref_eth_pubkey {
+          return Error
+      }
+  }
+  return Success
+}
+```
+
+This allows the user to specify any instruction data in the transaction for
+signature and message data. By specifying a special instructions sysvar, one can
+also receive data from the transaction itself.
+
+Cost of the transaction will count the number of signatures to verify multiplied
+by the signature cost verify multiplier.
+
+#### Secp256r1 Program
+
+The program for verifying secp256r1 signatures. It takes a secp256r1 signature,
+a public key, and a message. Up to 8 signatures can be verified. If any of the
+signatures fail to verify, an error is returned.
+
+- Program id: `Secp256r1SigVerify1111111111111111111111111`
+- [Instructions](https://docs.rs/solana-secp256k1-recover/latest/solana_secp256k1_recover/index.html)
+
+The secp256r1 program processes an instruction. The first `u8` is a count of the number of signatures to check, followed by a single byte padding. After that, the following struct is serialized, one for each signature to check:
+
+```rust
+struct Secp256r1SignatureOffsets {
+    signature_offset: u16,             // offset to compact secp256r1 signature of 64 bytes
+    signature_instruction_index: u16,  // instruction index to find signature
+    public_key_offset: u16,            // offset to compressed public key of 33 bytes
+    public_key_instruction_index: u16, // instruction index to find public key
+    message_data_offset: u16,          // offset to start of message data
+    message_data_size: u16,            // size of message data
+    message_instruction_index: u16,    // index of instruction data to get message data
+}
+
+```
+
+The pseudo code of the signature verification:
+```
+process_instruction() {
+    if data.len() < SIGNATURE_OFFSETS_START {
+        return Error
+    }
+
+    num_signatures = data[0] as usize
+    if num_signatures == 0 || num_signatures > 8 {
+        return Error
+    }
+
+    expected_data_size = num_signatures * SIGNATURE_OFFSETS_SERIALIZED_SIZE + SIGNATURE_OFFSETS_START
+    if data.len() < expected_data_size {
+        return Error
+    }
+
+    for i in 0..num_signatures {
+        offsets = parse_signature_offsets(data, i)
+
+        signature = get_data_slice(data, instruction_datas, offsets.signature_instruction_index, offsets.signature_offset, SIGNATURE_SERIALIZED_SIZE)
+
+        if s > half_curve_order {
+            return Error
+        }
+
+        pubkey = get_data_slice(data, instruction_datas, offsets.public_key_instruction_index, offsets.public_key_offset, COMPRESSED_PUBKEY_SERIALIZED_SIZE)
+
+        message = get_data_slice(data, instruction_datas, offsets.message_instruction_index, offsets.message_data_offset, offsets.message_data_size)
+
+        if !verify_signature(signature, pubkey, message) {
+            return Error
+        }
+    }
+
+    return Success
+}
+```
+Note: Low S values are enforced for all signatures to avoid accidental signature
+malleability.
+
+### Core Programs
+
+The Solana cluster genesis includes a list of special programs that provide
+various core functionalities for the network. Historically these were referred
+to as "native" programs and they used to be distributed together with the
+validator code.
+
+1. System Program
+
+- Program id: `11111111111111111111111111111111`
+- [Instructions](https://docs.rs/solana-program/latest/solana_program/system_instruction/enum.SystemInstruction.html)
+- Create new accounts, allocate account data, assign accounts to owning
+programs, transfer lamports from System Program owned accounts and pay
+transaction fees.
+
+2. Vote Program
+
+- Program id: `Vote111111111111111111111111111111111111111`
+- [Instructions](https://docs.rs/solana-vote-program/latest/solana_vote_program/vote_instruction/enum.VoteInstruction.html)
+- Create and manage accounts that track validator voting state and rewards.
+
+3. Stake Program
+
+- Program id: `Stake11111111111111111111111111111111111111`
+- [Instructions](https://docs.rs/solana-sdk/latest/solana_sdk/stake/instruction/enum.StakeInstruction.html)
+- Create and manage accounts representing stake and rewards for delegations to
+validators.
+
+4. Config Program
+
+- Program id: `Config1111111111111111111111111111111111111`
+- [Instructions](https://docs.rs/solana-config-program/latest/solana_config_program/config_instruction/index.html)
+- Add configuration data to the chain, followed by the list of public keys that
+are allowed to modify it. Unlike the other programs, the Config program does
+not define any individual instructions. It has just one implicit instruction:
+"store". Its instruction data is a set of keys that gate access to the account
+and the data to store inside of it.
+
+5. Compute Budget Program
+
+- Program id: `ComputeBudget111111111111111111111111111111`
+- [Instructions](https://docs.rs/solana-compute-budget-interface/latest/solana_compute_budget_interface/enum.ComputeBudgetInstruction.html)
+
+6. Address Lookup Table Program
+
+- Program id: `AddressLookupTab1e1111111111111111111111111`
+- [Instructions](https://docs.rs/solana-sdk/latest/solana_sdk/address_lookup_table/instruction/enum.ProgramInstruction.html)
+
+7. Zk Token Proof Program
+
+- Program id: `ZkTokenProof1111111111111111111111111111111`
+
+8. Zk Elgamal Proof Program
+
+- Program id: `ZkE1Gama1Proof11111111111111111111111111111`

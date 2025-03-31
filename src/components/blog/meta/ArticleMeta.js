@@ -116,7 +116,6 @@ const ArticleMetaBuilder = ({
           }
         />
         <meta property="language" content={locale} />
-        <meta property="docsearch:language" content={locale} />
 
         <meta property="og:site_name" content={`Solana`} />
         <meta property="og:type" content="article" />
