@@ -334,6 +334,7 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
   );
 
   const handlers = [mark, ...collapse, hover];
+  const json = highlighted.code;
   if (withClient) {
     handlers.push(curlHandler);
     const prefix = `curl https://api.devnet.solana.com -s -X \\\n  POST -H "Content-Type: application/json" -d ' \n`;
@@ -362,7 +363,7 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
           className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
           handlers={handlers}
         />
-        {withClient && <RequestClient json={highlighted.code} />}
+        {withClient && <RequestClient json={json} />}
       </>
     ),
   };
