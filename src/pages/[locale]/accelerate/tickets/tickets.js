@@ -206,7 +206,7 @@ function TicketsPage() {
                   />
                 </div>
                 <div className={styles.ticketInfo}>
-                  <div className={styles.ticketDate}>MAY 19-22 • NYC</div>
+                  <div className={styles.ticketDate}>MAY 19-20 • NYC</div>
                   <h2 className={styles.ticketTitle}>Attend Scale or Die</h2>
                   <p className={styles.ticketDescription}>
                     A dev-only, workshop-driven conference for deep tech that

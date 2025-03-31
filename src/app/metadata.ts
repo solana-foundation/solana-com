@@ -7,7 +7,6 @@ export function getBaseMetadata(locale: string) {
   const { siteMetadata, siteUrl } = config;
   return {
     other: {
-      "docsearch:language": locale,
       language: locale,
     },
     title: {

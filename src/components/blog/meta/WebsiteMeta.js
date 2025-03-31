@@ -68,7 +68,6 @@ const WebsiteMeta = ({
       <Head>
         <title>{title}</title>
         <meta property="language" content={locale} />
-        <meta property="docsearch:language" content={locale} />
         <meta name="description" content={description} />
         <link rel="canonical" href={canonical} />
         <meta property="og:site_name" content={settings.title} />
