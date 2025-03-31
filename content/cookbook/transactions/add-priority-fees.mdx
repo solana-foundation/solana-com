@@ -37,7 +37,6 @@ import {
   createSolanaRpc,
   createSolanaRpcSubscriptions,
   createTransactionMessage,
-  devnet,
   generateKeyPairSigner,
   getComputeUnitEstimateForTransactionMessageFactory,
   getSignatureFromTransaction,
@@ -48,157 +47,139 @@ import {
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
-} from "@solana/web3.js";
+} from "@solana/kit";
 import {
   getSetComputeUnitLimitInstruction,
   getSetComputeUnitPriceInstruction,
 } from "@solana-program/compute-budget";
+
 import { getAddMemoInstruction } from "@solana-program/memo";
 
-async function writeMemoWithPriorityFees(message: string) {
-  // Create an RPC.
-  const CLUSTER = "devnet";
-  const rpc = createSolanaRpc(devnet(`https://api.${CLUSTER}.solana.com`));
-  const rpcSubscriptions = createSolanaRpcSubscriptions(
-    devnet(`wss://api.${CLUSTER}.solana.com`),
-  );
+// Create an RPC
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
 
-  // Create an airdrop function.
-  const airdrop = airdropFactory({ rpc, rpcSubscriptions });
+// Create utility functions
+const airdrop = airdropFactory({ rpc, rpcSubscriptions });
+const getComputeUnitEstimate =
+  getComputeUnitEstimateForTransactionMessageFactory({ rpc });
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions,
+});
 
-  // Create a utility that estimates a transaction message's compute consumption.
-  const getComputeUnitEstimate =
-    getComputeUnitEstimateForTransactionMessageFactory({ rpc });
+// Create and fund an account
+const keypairSigner = await generateKeyPairSigner();
 
-  // Create a transaction sending function.
-  const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
-    rpc,
-    rpcSubscriptions,
-  });
+await airdrop({
+  commitment: "confirmed",
+  lamports: lamports(1000_000n),
+  recipientAddress: keypairSigner.address,
+});
 
-  // Create and fund an account.
-  const keypairSigner = await generateKeyPairSigner();
-  console.log("Created an account with address", keypairSigner.address);
-  console.log("Requesting airdrop");
-  await airdrop({
-    commitment: "confirmed",
-    lamports: lamports(1000_000n),
-    recipientAddress: keypairSigner.address,
-  });
-  console.log("Airdrop confirmed");
+// Create a memo transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const transactionMessage = pipe(
+  createTransactionMessage({ version: "legacy" }),
+  (m) => setTransactionMessageFeePayerSigner(keypairSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) =>
+    appendTransactionMessageInstructions(
+      [
+        getSetComputeUnitPriceInstruction({ microLamports: 5000n }),
+        getAddMemoInstruction({ memo: "Hello, world!" }),
+      ],
+      m,
+    ),
+);
 
-  // Create a memo transaction.
-  console.log("Creating a memo transaction");
-  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-  const transactionMessage = pipe(
-    createTransactionMessage({ version: "legacy" }),
-    m => setTransactionMessageFeePayerSigner(keypairSigner, m),
-    m => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
-    m =>
-      appendTransactionMessageInstructions(
-        [
-          getSetComputeUnitPriceInstruction({ microLamports: 5000n }),
-          getAddMemoInstruction({ memo: message }),
-        ],
-        m,
-      ),
-  );
+// Estimate compute units for this transaction
+const estimatedComputeUnits = await getComputeUnitEstimate(transactionMessage);
+console.log(
+  `Transaction is estimated to consume ${estimatedComputeUnits} compute units`,
+);
 
-  // Figure out how many compute units to budget for this transaction
-  // so that you can right-size the compute budget to maximize the
-  // chance that it will be selected for inclusion into a block.
-  console.log("Estimating the compute consumption of the transaction");
-  var estimatedComputeUnits = await getComputeUnitEstimate(transactionMessage);
-  // While these estimates are quite accurate they are not perfect. So you may want to add a
-  // buffer if you expect that the transaction may consume more compute units than estimated.
-  // Its not possible to exactly know what the transaction will consume when
-  // you send it in the future. The state may change. You can add a buffer to the estimate to account for this.
-  // estimatedComputeUnits += 1000;
-  // estimatedComputeUnits *= 1.1;
-  // You can read more about the issue here: https://github.com/solana-labs/solana-web3.js/tree/master/packages/library#getcomputeunitestimatefortransactionmessagefactoryrpc
+// Add compute unit limit instruction to the transaction
+const budgetedTransactionMessage = prependTransactionMessageInstructions(
+  [getSetComputeUnitLimitInstruction({ units: estimatedComputeUnits })],
+  transactionMessage,
+);
 
-  console.log(
-    `Transaction is estimated to consume ${estimatedComputeUnits} compute units`,
-  );
-  const budgetedTransactionMessage = prependTransactionMessageInstructions(
-    [getSetComputeUnitLimitInstruction({ units: estimatedComputeUnits })],
-    transactionMessage,
-  );
-
-  // Sign and send the transaction.
-  console.log("Signing and sending the transaction");
-  const signedTx = await signTransactionMessageWithSigners(
-    budgetedTransactionMessage,
-  );
-  const signature = getSignatureFromTransaction(signedTx);
-  console.log(
-    "Sending transaction https://explorer.solana.com/tx/" +
-      signature +
-      "/?cluster=" +
-      CLUSTER,
-  );
-  await sendAndConfirmTransaction(signedTx, { commitment: "confirmed" });
-  console.log("Transaction confirmed");
-}
-
-writeMemoWithPriorityFees("Hello, priority fees!");
+// Sign and send the transaction
+const signedTx = await signTransactionMessageWithSigners(
+  budgetedTransactionMessage,
+);
+const transactionSignature = getSignatureFromTransaction(signedTx);
+await sendAndConfirmTransaction(signedTx, { commitment: "confirmed" });
+console.log(`Transaction Signature: ${transactionSignature}`);
 ```
 
 ```typescript !! title="Legacy"
-import { BN } from "@coral-xyz/anchor";
 import {
-  Keypair,
-  Connection,
-  LAMPORTS_PER_SOL,
-  sendAndConfirmTransaction,
   ComputeBudgetProgram,
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
   SystemProgram,
-  Transaction,
+  TransactionMessage,
+  VersionedTransaction,
 } from "@solana/web3.js";
 
-(async () => {
-  const payer = Keypair.generate();
-  const toAccount = Keypair.generate().publicKey;
+// Create connection
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
 
-  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+// Generate keypairs
+const sender = Keypair.generate();
+const recipient = Keypair.generate();
 
-  const airdropSignature = await connection.requestAirdrop(
-    payer.publicKey,
-    LAMPORTS_PER_SOL,
-  );
+// Request and confirm airdrop
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL,
+);
 
-  await connection.confirmTransaction(airdropSignature);
+const { blockhash, lastValidBlockHeight } =
+  await connection.getLatestBlockhash();
+await connection.confirmTransaction({
+  signature: airdropSignature,
+  blockhash,
+  lastValidBlockHeight,
+});
 
-  // request a specific compute unit budget
-  const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+// Create instructions
+const instructions = [
+  // Set compute unit limit (1M units)
+  ComputeBudgetProgram.setComputeUnitLimit({
     units: 1000000,
-  });
-
-  // set the desired priority fee
-  const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+  }),
+  // Set priority fee (1 microLamports per compute unit)
+  ComputeBudgetProgram.setComputeUnitPrice({
     microLamports: 1,
-  });
+  }),
+  // Transfer 0.01 SOL
+  SystemProgram.transfer({
+    fromPubkey: sender.publicKey,
+    toPubkey: recipient.publicKey,
+    lamports: 10000000,
+  }),
+];
 
-  // Total fee will be 5,001 Lamports for 1M CU
-  const transaction = new Transaction()
-    .add(modifyComputeUnits)
-    .add(addPriorityFee)
-    .add(
-      SystemProgram.transfer({
-        fromPubkey: payer.publicKey,
-        toPubkey: toAccount,
-        lamports: 10000000,
-      }),
-    );
+// Get latest blockhash for transaction
+const latestBlockhash = await connection.getLatestBlockhash();
 
-  const signature = await sendAndConfirmTransaction(connection, transaction, [
-    payer,
-  ]);
-  console.log(signature);
+// Create transaction using modern VersionedTransaction
+const messageV0 = new TransactionMessage({
+  payerKey: sender.publicKey,
+  recentBlockhash: latestBlockhash.blockhash,
+  instructions,
+}).compileToV0Message();
 
-  const result = await connection.getParsedTransaction(signature);
-  console.log(result);
-})();
+const transaction = new VersionedTransaction(messageV0);
+transaction.sign([sender]);
+
+// Send and confirm transaction
+const transactionSignature = await connection.sendTransaction(transaction);
+console.log(`Transaction Signature: ${transactionSignature}`);
 ```
 
 ```rust !! title="Rust"
