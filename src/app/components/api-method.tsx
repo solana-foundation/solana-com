@@ -73,10 +73,8 @@ export function APIMethod(props: unknown) {
     </div>
   );
   const resultSection = (
-    <Selection
-      // eslint-disable-next-line react/jsx-key
-      from={method.result?.map((result) => <ResultSection result={result} />)}
-    />
+    // eslint-disable-next-line react/jsx-key
+    <Selection from={method.result?.map((r) => <ResultSection result={r} />)} />
   );
   const requestSection = <RequestBlock codeblocks={method.request} />;
   const responseSection = (
@@ -320,32 +318,36 @@ const curlHandler: AnnotationHandler = {
 
 async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
   const [codeblock, ...rest] = codeblocks;
+  const withClient = codeblock.meta.includes("with-client");
 
   const highlighted = await highlight(
-    {
-      ...codeblock,
-      value: codeblock.value
-        .split("\n")
-        .map((line) => "  " + line)
-        .join("\n"),
-    },
+    withClient
+      ? {
+          ...codeblock,
+          value: codeblock.value
+            .split("\n")
+            .map((line) => "  " + line)
+            .join("\n"),
+        }
+      : codeblock,
     theme,
   );
-  const handlers = [mark, ...collapse, hover, curlHandler];
-  const prefix = `curl https://api.devnet.solana.com -s -X \\\n  POST -H "Content-Type: application/json" -d ' \n`;
-  const suffix = `\n'`;
-  highlighted.tokens.unshift(prefix);
-  highlighted.tokens.push(suffix);
-  highlighted.annotations.forEach((annotation) => {
-    if ("fromLineNumber" in annotation) {
-      annotation.fromLineNumber += 2;
-      annotation.toLineNumber += 2;
-    }
-  });
-  const json = highlighted.code;
-  highlighted.code = prefix + highlighted.code + suffix;
 
-  const withClient = highlighted.meta.includes("with-client");
+  const handlers = [mark, ...collapse, hover];
+  if (withClient) {
+    handlers.push(curlHandler);
+    const prefix = `curl https://api.devnet.solana.com -s -X \\\n  POST -H "Content-Type: application/json" -d ' \n`;
+    const suffix = `\n'`;
+    highlighted.tokens.unshift(prefix);
+    highlighted.tokens.push(suffix);
+    highlighted.annotations.forEach((annotation) => {
+      if ("fromLineNumber" in annotation) {
+        annotation.fromLineNumber += 2;
+        annotation.toLineNumber += 2;
+      }
+    });
+    highlighted.code = prefix + highlighted.code + suffix;
+  }
 
   const curlTab = {
     options: {},
@@ -360,7 +362,7 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
           className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
           handlers={handlers}
         />
-        {withClient && <RequestClient json={json} />}
+        {withClient && <RequestClient json={highlighted.code} />}
       </>
     ),
   };
