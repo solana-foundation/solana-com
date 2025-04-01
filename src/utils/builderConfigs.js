@@ -1739,6 +1739,7 @@ export const AccelerateApplyButtonConfig = {
       required: true,
     },
     { name: "url", type: "url", required: true },
+    { name: "newTab", type: "boolean", defaultValue: false },
   ],
 };
 

@@ -7,9 +7,10 @@ export const AccelerateApplyButton: FC<{
   type: "mix" | "blue" | "red";
   url: string;
   attributes: any;
-}> = ({ label, url = "", attributes, type = "mix" }) => {
+  newTab: boolean;
+}> = ({ label, url = "", attributes, type = "mix", newTab }) => {
   return (
-    <a href={url} {...attributes}>
+    <a href={url} target={newTab && "_blank"} {...attributes}>
       <button className={`${styles.btn} ${styles[type]}`}>
         <span>
           {label}

@@ -8,7 +8,7 @@ export const AccelerateLinkButton: FC<{
   attributes: any;
 }> = ({ label, url = "", attributes }) => {
   return (
-    <a href={url} {...attributes}>
+    <a href={url} target="_blank" {...attributes}>
       <button className={styles.btn}>
         <span>
           {label}
