@@ -1721,6 +1721,29 @@ export const AccelerateApplyButtonConfig = {
     { name: "url", type: "url", required: true },
   ],
 };
+export const AccelerateAccordionConfig = {
+  name: "Accelerate Accordion",
+  inputs: [
+    {
+      name: "items",
+      type: "list",
+      subFields: [
+        {
+          name: "title",
+          type: "string",
+          localized: true,
+          defaultValue: "Accordion Title",
+        },
+        {
+          name: "content",
+          type: "richText",
+          localized: true,
+          defaultValue: "Accordion Content",
+        },
+      ],
+    },
+  ],
+};
 
 /**
  * @type {import('@builder.io/react').RegisteredComponent}
