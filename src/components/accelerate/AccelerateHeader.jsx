@@ -7,7 +7,6 @@ import Dots from "../../../public/img/mobile-dots.svg";
 import Image from "next/image";
 import { ArrowUpRight, Menu, Ticket, X } from "lucide-react";
 import { useState } from "react";
-import { AccelerateApplyButton } from "./AccelerateApplyButton";
 
 const Header = () => {
   const { t } = useTranslation();
@@ -16,107 +15,44 @@ const Header = () => {
     setIsOpen(!isOpen);
   };
   return (
-    // 1020 is a z-index value similar to main Header's one
-    // that prevents stacking issues as e.g. modal underneath the main menu
-    //  <Navbar
-    //    sticky="top"
-    //    id="navbar"
-    //    expand="lg"
-    //    variant=""
-    //    className={classNames("navbar-dark", styles["accelerate-navbar"])}
-    //    style={{ zIndex: 1020 }}
-    //  >
-    //    <div className="container-xl">
-    //      <Link to="/" className="d-flex" aria-label="Solana">
-    //        <SolanaLogo
-    //          style={{ color: "var(--body-text)" }}
-    //          width={149}
-    //          height={22}
-    //        />
-    //      </Link>
-
-    //      <Navbar.Toggle aria-controls="navbarCollapse" as="button" type="button">
-    //        <span className="bar"></span>
-    //        <span className="bar"></span>
-    //        <span className="bar"></span>
-    //      </Navbar.Toggle>
-    //      <Navbar.Collapse id="navbarCollapse">
-    //        <ul className="navbar-nav align-items-lg-center ms-auto">
-    //          <li className="nav-item">
-    //            <Link
-    //              className="nav-link nav-link--primary"
-    //              activeClassName="active"
-    //              to="/accelerate"
-    //            >
-    //              <AccelerateButton>
-    //                {t("accelerate.header.home")}
-    //              </AccelerateButton>
-    //            </Link>
-    //          </li>
-    //          <li className="nav-item">
-    //            <Link
-    //              className="nav-link nav-link--primary"
-    //              activeClassName="active"
-    //              to="/accelerate/ship-or-die"
-    //            >
-    //              <AccelerateButton variant="ship">
-    //                {t("accelerate.header.ship")}
-    //              </AccelerateButton>
-    //            </Link>
-    //          </li>
-    //          <li className="nav-item">
-    //            <Link
-    //              className="nav-link nav-link--primary"
-    //              activeClassName="active"
-    //              to="/accelerate/scale-or-die"
-    //            >
-    //              <AccelerateButton variant="scale">
-    //                {t("accelerate.header.scale")}
-    //              </AccelerateButton>
-    //            </Link>
-    //          </li>
-    //          <li className="nav-item">
-    //            <Link
-    //              href="https://lu.ma/accelerate2025"
-    //              className={styles["cta"]}
-    //            >
-    //              {t("accelerate.header.get-tickets")}
-    //              <span>{t("accelerate.header.get-tickets")}</span>
-    //            </Link>
-    //          </li>
-    //        </ul>
-    //      </Navbar.Collapse>
-    //    </div>
-    //  </Navbar>
     <>
       <div className={styles.header}>
         <div className={styles.container}>
           <div className={styles.col}>
-            <Image src={SolanaMark} alt="Solana mark" width={32} height={27} />
-            <Image
-              src={SolanaWordMark}
-              alt="Solana mark word"
-              width={143}
-              height={20}
-              className={styles.logoWord}
-            />
+            <a href="https://solana.com" className={styles.solanaLink}>
+              <Image
+                src={SolanaMark}
+                alt="Solana mark"
+                width={32}
+                height={27}
+              />
+              <Image
+                src={SolanaWordMark}
+                alt="Solana mark word"
+                width={143}
+                height={20}
+                className={styles.logoWord}
+              />
+            </a>
           </div>
 
-          <Image
-            src={AccelerateLogo}
-            alt="Accelerate logo"
-            width={200}
-            height={73}
-            className={styles.logo}
-          />
+          <a href="#">
+            <Image
+              src={AccelerateLogo}
+              alt="Accelerate logo"
+              width={200}
+              height={73}
+              className={styles.logo}
+            />
+          </a>
 
           <div className={styles.col}>
-            <a href="#speakers">Speakers</a>
-            <a href="#sponsors">Sponsors</a>
-            <a href="#faq">FAQ</a>
+            <a href="#speakers">{t("accelerate.header.speakers")}</a>
+            <a href="#sponsors">{t("accelerate.header.sponsors")}</a>
+            <a href="#faq">{t("accelerate.header.faq")}</a>
             <a className={styles.cta} href="#tickets">
               <span>
-                Get tickets <ArrowUpRight />
+                {t("accelerate.header.get-tickets")} <ArrowUpRight />
               </span>
             </a>
             <div className={styles.menuIcon}>
@@ -151,7 +87,7 @@ const Header = () => {
                 ?.scrollIntoView({ behavior: "smooth" });
             }}
           >
-            Speakers
+            {t("accelerate.header.speakers")}
           </a>
           <a
             href="#sponsors"
@@ -163,7 +99,7 @@ const Header = () => {
                 ?.scrollIntoView({ behavior: "smooth" });
             }}
           >
-            Sponsors
+            {t("accelerate.header.sponsors")}
           </a>
           <a
             href="#faq"
@@ -175,7 +111,7 @@ const Header = () => {
                 ?.scrollIntoView({ behavior: "smooth" });
             }}
           >
-            FAQ
+            {t("accelerate.header.faq")}
           </a>
         </div>
 
@@ -190,7 +126,7 @@ const Header = () => {
           }}
           className={styles.mobileCta}
         >
-          Get tickets <Ticket size={24} />
+          {t("accelerate.header.get-tickets")} <Ticket size={24} />
         </a>
       </div>
     </>
