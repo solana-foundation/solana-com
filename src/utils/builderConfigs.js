@@ -1695,6 +1695,17 @@ export const BreakpointSpeakersConfig = {
 /**
  * @type {import('@builder.io/react').RegisteredComponent}
  */
+export const AccelerateStoriesConfig = {
+  name: "Accelerate Stories",
+  noWrap: true,
+  inputs: [
+    {
+      name: "urls",
+      type: "list",
+      subFields: [{ name: "url", type: "string" }],
+    },
+  ],
+};
 export const AccelerateHeroConfig = {
   name: "Accelerate Hero",
   noWrap: true,
