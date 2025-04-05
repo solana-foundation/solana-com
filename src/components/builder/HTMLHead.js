@@ -39,7 +39,6 @@ const HTMLHead = ({ seo = {}, openGraph = {}, twitterMeta = {} }) => {
         {description && <meta name="description" content={description} />}
         <meta name="application-name" content={title} />
         <meta property="language" content={locale} />
-        <meta property="docsearch:language" content={locale} />
         <meta
           name="robots"
           content={`${noIndex ? "no" : ""}index, ${noFollow ? "no" : ""}follow`}

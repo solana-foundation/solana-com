@@ -648,6 +648,10 @@ export default {
       destination: "/developers/cookbook/tokens/create-mint-account",
     },
     {
+      source: "/developers/cookbook/transactions/send-tokens",
+      destination: "developers/cookbook/tokens/transfer-tokens",
+    },
+    {
       source: "/developers/guides/introduction-to-durable-nonces",
       destination: "/developers/guides/advanced/introduction-to-durable-nonces",
     },
@@ -738,6 +742,22 @@ export default {
     {
       source: "/developers/guides/games/game-sdks",
       destination: "/docs/clients/game-sdks",
+    },
+    {
+      source: "/accelerate/scale-or-die",
+      destination: "/accelerate",
+    },
+    {
+      source: "/accelerate/ship-or-die",
+      destination: "/accelerate",
+    },
+    {
+      source: "/accelerate/ship-or-die",
+      destination: "/accelerate",
+    },
+    {
+      source: "/docs/terminology",
+      destination: "/docs/references/terminology",
     },
   ],
 };

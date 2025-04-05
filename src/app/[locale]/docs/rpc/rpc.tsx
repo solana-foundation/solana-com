@@ -1,24 +1,12 @@
 import { docsSource } from "@/app/sources/docs";
 import { notFound } from "next/navigation";
-import {
-  DocSideBySide,
-  DocLeftSide,
-  Parameter,
-  Field,
-  Values,
-  DocRightSide,
-} from "@/components/shared/MarkdownRenderer/DocSideBySide";
 import { DocsPage } from "@/app/components/docs-page";
 import { mdxComponents } from "@/app/mdx-components";
 import { getMdxMetadata } from "@/app/metadata";
+import { APIMethod } from "@/app/components/api-method";
 
 const rpcMDXComponents = {
-  DocSideBySide,
-  DocLeftSide,
-  Parameter,
-  Field,
-  Values,
-  DocRightSide,
+  APIMethod,
 };
 
 export async function RpcDocsPage({

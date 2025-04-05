@@ -9,9 +9,7 @@ import {
   BreakpointSpeakersConfig,
   BreakpointTitleConfig,
   AccelerateSpeakersConfig,
-  AccelerateTitleConfig,
   AccelerateHeroConfig,
-  AccelerateCardConfig,
   AccelerateApplyButtonConfig,
   AccelerateInfoItemConfig,
   ButtonConfig,
@@ -126,19 +124,11 @@ const breakpointDataModels = [
 const accelerateDataModels = [
   {
     component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then(
+      import("../components/accelerate/AccelerateSpeakers").then(
         (lib) => lib.AccelerateSpeakers,
       ),
     ),
     config: AccelerateSpeakersConfig,
-  },
-  {
-    component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then(
-        (lib) => lib.AccelerateTitle,
-      ),
-    ),
-    config: AccelerateTitleConfig,
   },
   {
     component: withChildren(
@@ -149,12 +139,6 @@ const accelerateDataModels = [
       ),
     ),
     config: AccelerateHeroConfig,
-  },
-  {
-    component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then((lib) => lib.AccelerateCard),
-    ),
-    config: AccelerateCardConfig,
   },
   {
     component: dynamic(() =>
