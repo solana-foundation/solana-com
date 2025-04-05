@@ -22,8 +22,11 @@ sequenceDiagram
 
     Payer->>ATA: create_associated_token_account()
     activate ATA
-    ATA-->>TokenAccount: Create token account at deterministic address
+    ATA->>Token22: Create token account <br> at deterministic address
     deactivate ATA
+    activate Token22
+    Token22-->>TokenAccount: Initialize Token Account
+    deactivate Token22
 
     Payer->>Token22: reallocate() for ConfidentialTransferAccount extension
     activate Token22
@@ -97,12 +100,12 @@ pub struct ConfidentialTransferAccount {
 }
 ```
 
-The _rs`ConfidentialTransferAccount`_ contains multiple fields to manage
+The _rs`ConfidentialTransferAccount`_ contains several fields to manage
 confidential transfers:
 
-- **approved**: Indicates if the account has been approved for confidential
-  transfers. This is set to true automatically if the mint has auto-approval
-  enabled.
+- **approved**: The account's approval status for confidential transfers. If the
+  mint account's `auto_approve_new_accounts` is `true`, all token accounts are
+  automatically approved for confidential transfers.
 
 - **elgamal_pubkey**: The ElGamal public key used to encrypt balances and
   transfer amounts.
@@ -113,10 +116,11 @@ confidential transfers:
 - **pending_balance_hi**: The encrypted higher 48 bits of the pending balance.
   The balance is split into high and low parts for efficient decryption.
 
-- **available_balance**: The encrypted balance that is available for transfers.
+- **available_balance**: The encrypted balance available for transfers.
 
-- **decryptable_available_balance**: The available balance encrypted with a
-  symmetric key for efficient decryption by the account owner.
+- **decryptable_available_balance**: The available balance encrypted with an
+  Advanced Encryption Standard (AES) key for efficient decryption by the account
+  owner.
 
 - **allow_confidential_credits**: If true, allows incoming confidential
   transfers.
@@ -126,15 +130,82 @@ confidential transfers:
 
 - **pending_balance_credit_counter**: Counts incoming pending balance credits.
 
-- **maximum_pending_balance_credit_counter**: The maximum number of pending
-  credits before requiring balance application.
+- **maximum_pending_balance_credit_counter**: The count limit of pending credits
+  before requiring an `ApplyPendingBalance` instruction to convert the pending
+  balance to the available balance.
 
-- **expected_pending_balance_credit_counter**: The pending counter value that
-  was included in the instruction data of the last `ApplyPendingBalance`
-  instruction.
+- **expected_pending_balance_credit_counter**: The
+  `pending_balance_credit_counter` value provided by the client through the
+  instruction data the last time the `ApplyPendingBalance` instruction was
+  processed.
 
-- **actual_pending_balance_credit_counter**: The actual pending counter value
-  when the last `ApplyPendingBalance` instruction was executed.
+- **actual_pending_balance_credit_counter**: The
+  `pending_balance_credit_counter` value on the token account at the time the
+  last `ApplyPendingBalance` instruction was processed.
+
+<Callout type="info">
+  **Pending vs Available Balance**
+
+Confidential balances are separated into pending and available balances
+toprevent DoS attacks. Without this separation, an attacker could repeatedly
+send tokens to a token account, blocking the token account owner's ability to
+transfer tokens. The token account owner would be unable to transfer tokens
+because the encrypted balance would change between when the transaction is
+submitted and when it is processed, resulting in a failed transaction.
+
+All deposits and transfer amounts are initially added to the pending balance.
+Token account owners must use the `ApplyPendingBalance` instruction to move
+funds from pending to available balance. Incoming transfers or deposits don't
+affect a token account's available balance.
+
+</Callout>
+
+<Callout type="info">
+  **Pending Balance High/Low Split**
+
+The confidential pending balance is split into `pending_balance_lo` and
+`pending_balance_hi` because ElGamal decryption requires more computation for
+larger numbers. You can find the ciphertext arithmetic implementation
+[here](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/confidential-transfer/ciphertext-arithmetic/src/lib.rs#L54).
+
+</Callout>
+
+<Callout type="info">
+  **Pending Balance Credit Counters**
+
+When calling the `ApplyPendingBalance` instruction to convert the pending
+balance to the available balance:
+
+1. The client looks up current pending and available balances, encrypts the sum,
+   and provides a `decryptable_available_balance` encrypted using the token
+   account owner's AES key.
+
+2. Two pending credit counters track changes between instruction creation and
+   processing:
+   - `expected_pending_balance_credit_counter`: The
+     `pending_balance_credit_counter` value when the client creates the
+     instruction
+   - `actual_pending_balance_credit_counter`: The
+     `pending_balance_credit_counter` value on the token account at the time the
+     `ApplyPendingBalance` instruction is processed
+
+Matching counters indicate the `decryptable_available_balance` matches the
+`available_balance`. Different values require the client to look up recent
+deposit/transfer instructions matching the counter difference to calculate the
+correct balance.
+
+**Balance Reconciliation Process**
+
+When the expected and actual pending balance counters differ, follow these steps
+to reconcile the `decryptable_available_balance`:
+
+1. Start with the `decryptable_available_balance` from the token account
+2. Fetch the most recent transactions including deposit and transfer
+   instructions up to the counter difference (actual - expected):
+   - Add public amounts from deposit transactions
+   - Decrypt and add destination ciphertext amounts from transfer transactions
+
+</Callout>
 
 ### Required Instructions
 
@@ -147,7 +218,7 @@ instructions:
 
 2. **Reallocate Account Space**: Invoke the Token Extension Program's
    _rs`TokenInstruction::Reallocate`_ instruction to add space for the
-   _rs`ConfidentialTransferAccount`_ extension.
+   _rs`ConfidentialTransferAccount`_ state.
 
 3. **Configure Confidential Transfers**: Invoke the Token Extension Program's
    [ConfidentialTransferInstruction::ConfigureAccount](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/processor.rs#L201)
@@ -155,7 +226,7 @@ instructions:
 
 <Callout type="info">
 
-**Only the token account owner can configure the account for confidential
+**Only the token account owner can configure a token account for confidential
 transfers**.
 
 The _rs`ConfigureAccount`_ instruction requires client-side generation of
@@ -177,7 +248,15 @@ installed to start the local validator.
 $ solana-test-validator --clone-upgradeable-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --url https://api.mainnet-beta.solana.com -r
 ```
 
-```rust title="Rust"
+<Callout type="info">
+  At the time of writing, the Confidential Transfers isn't enabled on the
+  default local validator. You must clone the mainnet Token Extension Program to
+  run the example code.
+</Callout>
+
+<CodeTabs>
+
+```rust !! title="main.rs"
 use anyhow::{Context, Result};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
@@ -206,8 +285,7 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create connection to Solana devnet
-    // Wrap in Arc from the beginning so we can share it
+    // Create connection to local test validator
     let rpc_client = Arc::new(RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
@@ -224,7 +302,6 @@ async fn main() -> Result<()> {
     println!("Mint keypair generated: {}", mint.pubkey());
 
     // Set up program client for Token client
-    // This wraps the RPC client with token program-specific functionality
     let program_client = ProgramRpcClient::new(rpc_client.clone(), ProgramRpcClientSendTransaction);
 
     // Number of decimals for the mint
@@ -260,7 +337,6 @@ async fn main() -> Result<()> {
         )
         .await?;
 
-    // Print results for user verification
     println!("Mint Address: {}", mint.pubkey());
     println!(
         "Mint Creation Transaction Signature: {}",
@@ -268,7 +344,7 @@ async fn main() -> Result<()> {
     );
 
     // ===== Create and configure token account for confidential transfers =====
-    println!("\nSetting up token account with confidential transfer capability...");
+    println!("\nCreate and configure token account for confidential transfers");
 
     // Get the associated token account address for the owner
     let token_account_pubkey = get_associated_token_address_with_program_id(
@@ -298,9 +374,9 @@ async fn main() -> Result<()> {
 
     // Step 3: Generate the ElGamal keypair and AES key for token account
     let elgamal_keypair = ElGamalKeypair::new_from_signer(&payer, &token_account_pubkey.to_bytes())
-        .expect("Failed to create ElGamal keypair"); // For public-key cryptography (encryption, decryption, and ZK proofs)
+        .expect("Failed to create ElGamal keypair");
     let aes_key = AeKey::new_from_signer(&payer, &token_account_pubkey.to_bytes())
-        .expect("Failed to create AES key"); // For encryption of balance and transfer amounts
+        .expect("Failed to create AES key");
 
     // The maximum number of Deposit and Transfer instructions that can
     // credit pending_balance before the ApplyPendingBalance instruction is executed
@@ -341,16 +417,16 @@ async fn main() -> Result<()> {
     let transaction = Transaction::new_signed_with_payer(
         &instructions,
         Some(&payer.pubkey()),
-        &[&*payer],
+        &[&payer],
         recent_blockhash,
     );
 
-    let setup_signature = rpc_client
+    let transaction_signature = rpc_client
         .send_and_confirm_transaction(&transaction)
         .await?;
     println!(
-        "Token Account Setup Transaction Signature: {}",
-        setup_signature
+        "Create Token Account Transaction Signature: {}",
+        transaction_signature
     );
 
     Ok(())
@@ -376,3 +452,28 @@ fn load_keypair() -> Result<Keypair> {
     Ok(keypair)
 }
 ```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "confidential-transfer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-client = "2.2.2"
+solana-sdk = "2.2.2"
+solana-zk-sdk = "2.2.2"
+
+spl-associated-token-account = "6.0.0"
+spl-token-2022 = "7.0.0"
+spl-token-client = "0.14.0"
+spl-token-confidential-transfer-proof-extraction = "0.2.1"
+spl-token-confidential-transfer-proof-generation = "0.3.0"
+
+anyhow = "1.0.95"
+dirs = "6.0.0"
+serde_json = "1.0.135"
+tokio = { version = "1.43.0", features = ["full"] }
+```
+
+</CodeTabs>

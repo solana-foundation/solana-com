@@ -4,39 +4,37 @@ description:
   Learn how to transfer tokens privately from one token account to another.
 ---
 
-## Transfer tokens privately from one token account to another
+## How to confidentially transfer tokens from one token account to another
 
 To confidentially transfer tokens from one token account to another, both the
-sender and recipient must have token accounts initialized with the
-_rs`ConfidentialTransferAccount`_ extension state and approved for confidential
-transfers. The sender's token account must also have an available confidential
-balance to transfer from.
+sender and recipient must have token accounts configured with the
+_rs`ConfidentialTransferAccount`_ state and approved for confidential transfers.
+The sender's token account must also have an available confidential balance to
+transfer from.
 
 To transfer tokens confidentially:
 
 1. Create the necessary proofs on the client side:
 
-   - **Equality Proof**: Verifies that the ciphertexts encrypting the transfer
-     amount, which are encrypted separately under the sender's and receiver's
-     encryption keys, encrypt the same value.
-   - **Ciphertext Validity Proof**: Verifies that the ciphertext representing
-     the transfer amount are properly generated according to the encryption
-     scheme.
-   - **Range Proof**: Verifies that the transfer amount falls within a valid
-     range and is a non-negative value.
+   - **Equality Proof**: Verifies that the encrypted transfer amounts under the
+     sender's and receiver's encryption keys encrypt the same value.
+   - **Ciphertext Validity Proof**: Verifies that the ciphertexts of the
+     transfer amount are properly generated according to the encryption scheme.
+   - **Range Proof**: Verifies that the encrypted transfer amount falls within a
+     valid range and is a non-negative value.
 
 2. For each proof:
 
-   - Invoke the ZK ElGamal proof program to verify the proof data.
-   - The proof program stores metadata specific to each type of proof in a
-     corresponding proof “context state” account for use in subsequent
-     instructions.
+   - Invoke the Zero-Knowledge ElGamal proof program to verify the proof data.
+   - Store the proof-specific metadata in a proof "context state" account to use
+     in other instructions.
 
 3. Invoke the
    [ConfidentialTransferInstruction::Transfer](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/processor.rs#L604)
-   instruction, providing the proof accounts.
+   instruction, providing the proof context state accounts.
 
-4. Close the proof accounts to recover the SOL used for account rent
+4. Close the proof context state accounts to recover the SOL used to create
+   them.
 
 The following diagram shows the steps involved in transferring tokens from a
 sender's token account to a recipient's token account.
@@ -102,7 +100,15 @@ installed to start the local validator.
 $ solana-test-validator --clone-upgradeable-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --url https://api.mainnet-beta.solana.com -r
 ```
 
-```rust title="Rust"
+<Callout type="info">
+  At the time of writing, the Confidential Transfers isn't enabled on the
+  default local validator. You must clone the mainnet Token Extension Program to
+  run the example code.
+</Callout>
+
+<CodeTabs>
+
+```rust !! title="main.rs"
 use anyhow::{Context, Result};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
@@ -132,8 +138,7 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create connection to Solana devnet
-    // Wrap in Arc from the beginning so we can share it
+    // Create connection to local test validator
     let rpc_client = Arc::new(RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
@@ -142,15 +147,14 @@ async fn main() -> Result<()> {
     // Load the default Solana CLI keypair to use as the fee payer
     // This will be the wallet paying for the transaction fees
     // Use Arc to prevent multiple clones of the keypair
-    let payer = Arc::new(load_keypair()?);
-    println!("Using payer: {}", payer.pubkey());
+    let sender = Arc::new(load_keypair()?);
+    println!("Sender: {}", sender.pubkey());
 
     // Generate a new keypair to use as the address of the token mint
     let mint = Keypair::new();
     println!("Mint keypair generated: {}", mint.pubkey());
 
     // Set up program client for Token client
-    // This wraps the RPC client with token program-specific functionality
     let program_client = ProgramRpcClient::new(rpc_client.clone(), ProgramRpcClientSendTransaction);
 
     // Number of decimals for the mint
@@ -163,51 +167,50 @@ async fn main() -> Result<()> {
         &token_2022_program_id(), // Use the Token-2022 program (newer version with extensions)
         &mint.pubkey(),           // Address of the new token mint
         Some(decimals),           // Number of decimal places
-        payer.clone(),            // Fee payer for transactions (cloning Arc, not keypair)
+        sender.clone(),            // Fee payer for transactions
     );
 
     // Create extension initialization parameters for the mint
     // The ConfidentialTransferMint extension enables confidential (private) transfers of tokens
     let extension_initialization_params =
         vec![ExtensionInitializationParams::ConfidentialTransferMint {
-            authority: Some(payer.pubkey()), // Authority that can modify confidential transfer settings
+            authority: Some(sender.pubkey()), // Authority that can modify confidential transfer settings
             auto_approve_new_accounts: true, // Automatically approve new confidential accounts
-            auditor_elgamal_pubkey: None,    // Optional auditor ElGamal public key
+            auditor_elgamal_pubkey: None,    // None if no auditor
         }];
 
     // Create and initialize the mint with the ConfidentialTransferMint extension
     // This sends a transaction to create the new token mint
     let transaction_signature = token
         .create_mint(
-            &payer.pubkey(),                 // Mint authority - can mint new tokens
-            Some(&payer.pubkey()),           // Freeze authority - can freeze token accounts
+            &sender.pubkey(),                 // Mint authority - can mint new tokens
+            Some(&sender.pubkey()),           // Freeze authority - can freeze token accounts
             extension_initialization_params, // Add the ConfidentialTransferMint extension
             &[&mint],                        // Mint keypair needed as signer
         )
         .await?;
 
-    // Print results for user verification
     println!("Mint Address: {}", mint.pubkey());
     println!(
-        "Mint Creation Transaction Signature: {}",
+        "Create Mint Transaction Signature: {}",
         transaction_signature
     );
 
     // ===== Create and configure token account for confidential transfers =====
-    println!("\nSetting up token account with confidential transfer capability...");
+    println!("\nCreate and Configure Sender Token Account");
 
     // Get the associated token account address for the owner
-    let token_account_pubkey = get_associated_token_address_with_program_id(
-        &payer.pubkey(),          // Token account owner
+    let sender_token_account_pubkey = get_associated_token_address_with_program_id(
+        &sender.pubkey(),          // Token account owner
         &mint.pubkey(),           // Mint
         &token_2022_program_id(), // Token program ID
     );
-    println!("Token Account Address: {}", token_account_pubkey);
+    println!("Sender Token Account Address: {}", sender_token_account_pubkey);
 
     // Step 1: Create the associated token account
     let create_associated_token_account_instruction = create_associated_token_account(
-        &payer.pubkey(),          // Funding account
-        &payer.pubkey(),          // Token account owner
+        &sender.pubkey(),          // Funding account
+        &sender.pubkey(),          // Token account owner
         &mint.pubkey(),           // Mint
         &token_2022_program_id(), // Token program ID
     );
@@ -215,28 +218,28 @@ async fn main() -> Result<()> {
     // Step 2: Reallocate the token account to include space for the ConfidentialTransferAccount extension
     let reallocate_instruction = reallocate(
         &token_2022_program_id(),                      // Token program ID
-        &token_account_pubkey,                         // Token account
-        &payer.pubkey(),                               // Payer
-        &payer.pubkey(),                               // Token account owner
-        &[&payer.pubkey()],                            // Signers
+        &sender_token_account_pubkey,                         // Token account
+        &sender.pubkey(),                               // Payer
+        &sender.pubkey(),                               // Token account owner
+        &[&sender.pubkey()],                            // Signers
         &[ExtensionType::ConfidentialTransferAccount], // Extension to reallocate space for
     )?;
 
     // Step 3: Generate the ElGamal keypair and AES key for token account
-    let elgamal_keypair = ElGamalKeypair::new_from_signer(&payer, &token_account_pubkey.to_bytes())
+    let sender_elgamal_keypair = ElGamalKeypair::new_from_signer(&sender, &sender_token_account_pubkey.to_bytes())
         .expect("Failed to create ElGamal keypair");
-    let aes_key = AeKey::new_from_signer(&payer, &token_account_pubkey.to_bytes())
+    let sender_aes_key = AeKey::new_from_signer(&sender, &sender_token_account_pubkey.to_bytes())
         .expect("Failed to create AES key");
 
     // The maximum number of Deposit and Transfer instructions that can
-    // credit pending_balance before the ApplyPendingBalance instruction is executed
+    // credit pending_balance before the ApplyPendingBalance instruction must be executed
     let maximum_pending_balance_credit_counter = 65536;
 
     // Initial token balance is 0
-    let decryptable_balance = aes_key.encrypt(0);
+    let sender_decryptable_balance = sender_aes_key.encrypt(0);
 
     // Generate the proof data client-side
-    let proof_data = PubkeyValidityProofData::new(&elgamal_keypair)
+    let proof_data = PubkeyValidityProofData::new(&sender_elgamal_keypair)
         .map_err(|_| anyhow::anyhow!("Failed to generate proof data"))?;
 
     // Indicate that proof is included in the same transaction
@@ -246,11 +249,11 @@ async fn main() -> Result<()> {
     // Step 4: Create instructions to configure the account for confidential transfers
     let configure_account_instructions = configure_account(
         &token_2022_program_id(),               // Program ID
-        &token_account_pubkey,                  // Token account
+        &sender_token_account_pubkey,                  // Token account
         &mint.pubkey(),                         // Mint
-        &decryptable_balance.into(),            // Initial balance
+        &sender_decryptable_balance.into(),            // Initial balance
         maximum_pending_balance_credit_counter, // Maximum pending balance credit counter
-        &payer.pubkey(),                        // Token Account Owner
+        &sender.pubkey(),                        // Token Account Owner
         &[],                                    // Additional signers
         proof_location,                         // Proof location
     )?;
@@ -266,42 +269,42 @@ async fn main() -> Result<()> {
     let recent_blockhash = rpc_client.get_latest_blockhash().await?;
     let transaction = Transaction::new_signed_with_payer(
         &instructions,
-        Some(&payer.pubkey()),
-        &[&*payer],
+        Some(&sender.pubkey()),
+        &[&sender],
         recent_blockhash,
     );
 
-    let setup_signature = rpc_client
+    let transaction_signature = rpc_client
         .send_and_confirm_transaction(&transaction)
         .await?;
     println!(
-        "Token Account Setup Transaction Signature: {}",
-        setup_signature
+        "Create Sender Token Account Transaction Signature: {}",
+        transaction_signature
     );
 
     // Mint some tokens to the newly created token account
     // This gives the account some tokens to work with
     let mint_signature = token
         .mint_to(
-            &token_account_pubkey,            // Destination account
-            &payer.pubkey(),                  // Mint authority
-            100 * 10u64.pow(decimals as u32), // Amount (100 tokens with decimal precision)
-            &[&payer],                        // Signers
+            &sender_token_account_pubkey,            // Destination account
+            &sender.pubkey(),                  // Mint authority
+            100 * 10u64.pow(decimals as u32), // Amount (100 tokens)
+            &[&sender],                        // Signers
         )
         .await?;
 
-    println!("Token Minting Transaction Signature: {}", mint_signature);
+    println!("Mint Tokens to Sender Token Account Transaction Signature: {}", mint_signature);
 
     // Deposit the tokens to confidential state
-    // This converts regular tokens to confidential tokens
-    println!("Depositing tokens to confidential state...");
+    // This converts public tokens balance to confidential pending balance
+    println!("Deposit tokens to confidential state pending balance");
     let deposit_signature = token
         .confidential_transfer_deposit(
-            &token_account_pubkey,            // The token account
-            &payer.pubkey(),                  // Authority (owner) of the account
+            &sender_token_account_pubkey,            // The token account
+            &sender.pubkey(),                  // Authority (owner) of the account
             100 * 10u64.pow(decimals as u32), // Amount to deposit (100 tokens)
             decimals,                         // Decimals of the token
-            &[&payer],                        // Signers (owner must sign)
+            &[&sender],                        // Signers (owner must sign)
         )
         .await?;
 
@@ -310,29 +313,29 @@ async fn main() -> Result<()> {
         deposit_signature
     );
 
-    // Apply the pending balance to make funds available
-    println!("Applying pending balance...");
+    // Apply the pending balance to available balance
+    println!("Apply pending balance to available balance");
     let apply_signature = token
         .confidential_transfer_apply_pending_balance(
-            &token_account_pubkey,    // The token account
-            &payer.pubkey(),          // Authority (owner) of the account
-            None,                     // Optional new decryptable available balance
-            elgamal_keypair.secret(), // ElGamal secret key for decryption
-            &aes_key,                 // AES key for encryption of balance and transfer amounts
-            &[&payer],                // Signers (owner must sign)
+            &sender_token_account_pubkey,    // The token account
+            &sender.pubkey(),          // Authority (owner) of the account
+            None,                     // Optional ApplyPendingBalanceAccountInfo, generated if not provided
+            sender_elgamal_keypair.secret(), // ElGamal secret k    ey for decryption
+            &sender_aes_key,                 // AES key for encryption of balance and transfer amounts
+            &[&sender],                // Signers (owner must sign)
         )
         .await?;
 
     println!("Apply Pending Balance Signature: {}", apply_signature);
 
-    // ===== Withdraw half of the tokens from confidential state =====
-    println!("\nWithdrawing tokens from confidential state...");
+    // ===== Withdraw half of the tokens from confidential available balance =====
+    println!("\nWithdraw tokens from confidential available balance to public balance");
 
     // Calculate the withdraw amount (half of the deposited amount)
     let withdraw_amount = 50 * 10u64.pow(decimals as u32); // Half of the 100 tokens deposited
 
     // Get the token account data to access the confidential transfer extension
-    let token_account = token.get_account_info(&token_account_pubkey).await?;
+    let token_account = token.get_account_info(&sender_token_account_pubkey).await?;
 
     // Unpack the ConfidentialTransferAccount extension portion of the token account data
     let extension_data = token_account.get_extension::<spl_token_2022::extension::confidential_transfer::ConfidentialTransferAccount>()?;
@@ -354,9 +357,9 @@ async fn main() -> Result<()> {
         equality_proof_data,
         range_proof_data,
     } = withdraw_account_info.generate_proof_data(
-        withdraw_amount,  // Amount to withdraw from confidential state
-        &elgamal_keypair, // ElGamal keypair for public-key cryptography (decryption and ZK proofs)
-        &aes_key,         // AES key for encryption of balance and transfer amounts
+        withdraw_amount,  // Amount to withdraw from confidential available balance
+        &sender_elgamal_keypair, // ElGamal keypair for encryption
+        &sender_aes_key,         // AES key for encryption
     )?;
 
     // Generate the equality proof account
@@ -364,7 +367,7 @@ async fn main() -> Result<()> {
     let equality_proof_signature = token
         .confidential_transfer_create_context_state_account(
             &equality_proof_context_state_pubkey, // Public key of the new equality proof context state account
-            &payer.pubkey(), // Authority that can close the context state account
+            &sender.pubkey(), // Authority that can close the context state account
             &equality_proof_data, // Proof data for the equality proof verification
             false, // False: combine account creation and proof verification in one transaction
             &[&equality_proof_context_state_keypair], // Signer for the new account
@@ -380,7 +383,7 @@ async fn main() -> Result<()> {
     let range_proof_signature = token
         .confidential_transfer_create_context_state_account(
             &range_proof_context_state_pubkey, // Public key of the new range proof context state account
-            &payer.pubkey(),                   // Authority that can close the context state account
+            &sender.pubkey(),                   // Authority that can close the context state account
             &range_proof_data,                 // Proof data for the range proof verification
             true, // True: split account creation and proof verification into separate transactions (for large proofs)
             &[&range_proof_context_state_keypair], // Signer for the new account
@@ -395,20 +398,20 @@ async fn main() -> Result<()> {
     println!("Executing withdrawal transaction...");
     let withdraw_signature = token
         .confidential_transfer_withdraw(
-            &token_account_pubkey, // Token account to withdraw from
-            &payer.pubkey(),       // Owner of the token account
+            &sender_token_account_pubkey, // Token account to withdraw from
+            &sender.pubkey(),       // Owner of the token account
             Some(&spl_token_client::token::ProofAccount::ContextAccount(
                 equality_proof_context_state_pubkey, // Reference to the equality proof account
             )),
             Some(&spl_token_client::token::ProofAccount::ContextAccount(
                 range_proof_context_state_pubkey, // Reference to the range proof account
             )),
-            withdraw_amount,             // Amount to withdraw from confidential state
+            withdraw_amount,             // Amount to withdraw from confidential available balance
             decimals,                    // Decimal precision of the token
             Some(withdraw_account_info), // Data from confidential transfer extension for proof verification
-            &elgamal_keypair, // ElGamal keypair for public-key cryptography (decryption and ZK proofs)
-            &aes_key,         // AES key for encryption of balance and transfer amounts
-            &[&payer],        // Owner must sign the transaction
+            &sender_elgamal_keypair, // ElGamal keypair for encryption
+            &sender_aes_key,         // AES key for encryption
+            &[&sender],        // Owner must sign the transaction
         )
         .await?;
     println!("Withdraw Transaction Signature: {}", withdraw_signature);
@@ -418,9 +421,9 @@ async fn main() -> Result<()> {
     let close_equality_signature = token
         .confidential_transfer_close_context_state_account(
             &equality_proof_context_state_pubkey, // Equality proof context state account to close
-            &token_account_pubkey,                // Account that will receive the lamports
-            &payer.pubkey(),                      // Authority allowed to close the account
-            &[&payer],                            // Authority must sign
+            &sender_token_account_pubkey,                // Account that will receive the lamports
+            &sender.pubkey(),                      // Authority allowed to close the account
+            &[&sender],                            // Authority must sign
         )
         .await?;
     println!(
@@ -432,9 +435,9 @@ async fn main() -> Result<()> {
     let close_range_signature = token
         .confidential_transfer_close_context_state_account(
             &range_proof_context_state_pubkey, // Range proof context state account to close
-            &token_account_pubkey,             // Account that will receive the lamports
-            &payer.pubkey(),                   // Authority allowed to close the account
-            &[&payer],                         // Authority must sign
+            &sender_token_account_pubkey,             // Account that will receive the lamports
+            &sender.pubkey(),                   // Authority allowed to close the account
+            &[&sender],                         // Authority must sign
         )
         .await?;
     println!(
@@ -442,43 +445,43 @@ async fn main() -> Result<()> {
         close_range_signature
     );
 
-    // ===== Create a second token account for confidential transfers =====
-    println!("\nCreating second token account for confidential transfers...");
+    // ===== Create a recipient token account for confidential transfers =====
+    println!("\nCreate Recipient Token Account");
 
-    // Create a new keypair to use as the second account owner
-    let second_owner = Keypair::new();
-    println!("Second account owner: {}", second_owner.pubkey());
+    // Create a new keypair to use as the recipient account owner
+    let recipient = Keypair::new();
+    println!("Recipient: {}", recipient.pubkey());
 
-    // Fund the second owner account with SOL for transaction fees
+    // Fund the recipient account with SOL for transaction fees
     let fund_signature = rpc_client
         .send_and_confirm_transaction(&Transaction::new_signed_with_payer(
             &[solana_sdk::system_instruction::transfer(
-                &payer.pubkey(),
-                &second_owner.pubkey(),
+                &sender.pubkey(),
+                &recipient.pubkey(),
                 1_000_000_000, // 1 SOL
             )],
-            Some(&payer.pubkey()),
-            &[&*payer],
+            Some(&sender.pubkey()),
+            &[&sender],
             rpc_client.get_latest_blockhash().await?,
         ))
         .await?;
-    println!("Fund Second Owner Signature: {}", fund_signature);
+    println!("Fund Recipient Signature: {}", fund_signature);
 
-    // Get the associated token account address for the second owner
-    let second_token_account_pubkey = get_associated_token_address_with_program_id(
-        &second_owner.pubkey(),   // Token account owner
+    // Get the associated token account address for the recipient owner
+    let recipient_token_account_pubkey = get_associated_token_address_with_program_id(
+        &recipient.pubkey(),   // Token account owner
         &mint.pubkey(),           // Same mint as before
         &token_2022_program_id(), // Token program ID
     );
     println!(
-        "Second Token Account Address: {}",
-        second_token_account_pubkey
+        "Recipient Token Account Address: {}",
+        recipient_token_account_pubkey
     );
 
     // Step 1: Create the associated token account
     let create_associated_token_account_instruction = create_associated_token_account(
-        &payer.pubkey(),          // Funding account
-        &second_owner.pubkey(),   // Token account owner
+        &recipient.pubkey(),          // Funding account
+        &recipient.pubkey(),   // Token account owner
         &mint.pubkey(),           // Mint
         &token_2022_program_id(), // Token program ID
     );
@@ -486,30 +489,30 @@ async fn main() -> Result<()> {
     // Step 2: Reallocate the token account to include space for the ConfidentialTransferAccount extension
     let reallocate_instruction = reallocate(
         &token_2022_program_id(),                      // Token program ID
-        &second_token_account_pubkey,                  // Token account
-        &payer.pubkey(),                               // Payer
-        &second_owner.pubkey(),                        // Token account owner
-        &[&second_owner.pubkey()],                     // Signers
+        &recipient_token_account_pubkey,                  // Token account
+        &recipient.pubkey(),                               // Payer
+        &recipient.pubkey(),                        // Token account owner
+        &[&recipient.pubkey()],                     // Signers
         &[ExtensionType::ConfidentialTransferAccount], // Extension to reallocate space for
     )?;
 
-    // Step 3: Generate the ElGamal keypair and AES key for second token account
-    let second_elgamal_keypair =
-        ElGamalKeypair::new_from_signer(&second_owner, &second_token_account_pubkey.to_bytes())
+    // Step 3: Generate the ElGamal keypair and AES key for recipient token account
+    let recipient_elgamal_keypair =
+        ElGamalKeypair::new_from_signer(&recipient, &recipient_token_account_pubkey.to_bytes())
             .expect("Failed to create ElGamal keypair");
 
-    let second_aes_key =
-        AeKey::new_from_signer(&second_owner, &second_token_account_pubkey.to_bytes())
+    let recipient_aes_key =
+        AeKey::new_from_signer(&recipient, &recipient_token_account_pubkey.to_bytes())
             .expect("Failed to create AES key");
 
     // Maximum pending balance credit counter, same as before
     let maximum_pending_balance_credit_counter = 65536;
 
     // Initial token balance is 0
-    let decryptable_balance = second_aes_key.encrypt(0);
+    let decryptable_balance = recipient_aes_key.encrypt(0);
 
     // Generate the proof data client-side
-    let proof_data = PubkeyValidityProofData::new(&second_elgamal_keypair)
+    let proof_data = PubkeyValidityProofData::new(&recipient_elgamal_keypair)
         .map_err(|_| anyhow::anyhow!("Failed to generate proof data"))?;
 
     // Indicate that proof is included in the same transaction
@@ -519,11 +522,11 @@ async fn main() -> Result<()> {
     // Step 4: Create instructions to configure the account for confidential transfers
     let configure_account_instructions = configure_account(
         &token_2022_program_id(),               // Program ID
-        &second_token_account_pubkey,           // Token account
+        &recipient_token_account_pubkey,           // Token account
         &mint.pubkey(),                         // Mint
         &decryptable_balance.into(),            // Initial balance
         maximum_pending_balance_credit_counter, // Maximum pending balance credit counter
-        &second_owner.pubkey(),                 // Token Account Owner
+        &recipient.pubkey(),                 // Token Account Owner
         &[],                                    // Additional signers
         proof_location,                         // Proof location
     )?;
@@ -539,28 +542,26 @@ async fn main() -> Result<()> {
     let recent_blockhash = rpc_client.get_latest_blockhash().await?;
     let transaction = Transaction::new_signed_with_payer(
         &instructions,
-        Some(&payer.pubkey()),
-        &[&*payer, &second_owner],
+        Some(&recipient.pubkey()),
+        &[&recipient],
         recent_blockhash,
     );
 
-    let setup_signature = rpc_client
+    let transaction_signature = rpc_client
         .send_and_confirm_transaction(&transaction)
         .await?;
     println!(
-        "Second Token Account Setup Transaction Signature: {}",
-        setup_signature
+        "Create Recipient Token Account Transaction Signature: {}",
+        transaction_signature
     );
 
-    // ===== Perform a confidential transfer from first account to second account =====
-    println!("\nPerforming confidential transfer between accounts...");
+    // ===== Perform a confidential transfer from sender account to recipient account =====
+    println!("\nPerform Confidential Transfer");
 
-    // We still have 50 tokens in the first account after the withdrawal
     let transfer_amount = 25 * 10u64.pow(decimals as u32); // Transfer 25 tokens
 
-    // Create a transfer proof data for verifying the transaction
-    // Get the token account data to access the confidential transfer extension
-    let token_account = token.get_account_info(&token_account_pubkey).await?;
+    // Get the token account data to access the confidential transfer extension state
+    let token_account = token.get_account_info(&sender_token_account_pubkey).await?;
     let extension_data = token_account.get_extension::<spl_token_2022::extension::confidential_transfer::ConfidentialTransferAccount>()?;
 
     // Create TransferAccountInfo from the extension data
@@ -572,10 +573,10 @@ async fn main() -> Result<()> {
     // Generate the proof data for the transfer
     let transfer_proof_data = transfer_account_info.generate_split_transfer_proof_data(
         transfer_amount,
-        &elgamal_keypair,
-        &aes_key,
-        second_elgamal_keypair.pubkey(),
-        None, // auditor ElGamal public key (optional)
+        &sender_elgamal_keypair,
+        &sender_aes_key,
+        recipient_elgamal_keypair.pubkey(),
+        None, // auditor ElGamal public key (none if no auditor)
     )?;
 
     // Create proof context accounts
@@ -594,7 +595,7 @@ async fn main() -> Result<()> {
     let equality_proof_signature = token
         .confidential_transfer_create_context_state_account(
             &equality_proof_context_state_pubkey, // Public key of the new equality proof context state account
-            &payer.pubkey(), // Authority that can close the context state account
+            &sender.pubkey(), // Authority that can close the context state account
             &transfer_proof_data.equality_proof_data, // Proof data for the equality proof verification
             false, // False: combine account creation and proof verification in one transaction
             &[&equality_proof_context_state_keypair], // Signer for the new account
@@ -610,7 +611,7 @@ async fn main() -> Result<()> {
     let ciphertext_proof_signature = token
         .confidential_transfer_create_context_state_account(
             &ciphertext_validity_proof_context_state_pubkey, // Public key of the new ciphertext validity proof context state account
-            &payer.pubkey(), // Authority that can close the context state account
+            &sender.pubkey(), // Authority that can close the context state account
             &transfer_proof_data
                 .ciphertext_validity_proof_data_with_ciphertext
                 .proof_data, // Proof data for the ciphertext validity proof verification
@@ -628,7 +629,7 @@ async fn main() -> Result<()> {
     let range_proof_signature = token
         .confidential_transfer_create_context_state_account(
             &range_proof_context_state_pubkey, // Public key of the new range proof context state account
-            &payer.pubkey(),                   // Authority that can close the context state account
+            &sender.pubkey(),                   // Authority that can close the context state account
             &transfer_proof_data.range_proof_data, // Proof data for the range proof verification
             true, // True: split account creation and proof verification into separate transactions (for large proofs)
             &[&range_proof_context_state_keypair], // Signer for the new account
@@ -654,9 +655,9 @@ async fn main() -> Result<()> {
 
     let transfer_signature = token
         .confidential_transfer_transfer(
-            &token_account_pubkey,        // Source account
-            &second_token_account_pubkey, // Destination account
-            &payer.pubkey(),              // Authority (owner) of source account
+            &sender_token_account_pubkey,        // Source account
+            &recipient_token_account_pubkey, // Destination account
+            &sender.pubkey(),              // Authority (owner) of source account
             Some(&spl_token_client::token::ProofAccount::ContextAccount(
                 equality_proof_context_state_pubkey, // Reference to the equality proof account
             )),
@@ -666,29 +667,29 @@ async fn main() -> Result<()> {
             )),
             transfer_amount,                 // Amount to transfer
             None,                            // Custom data for verification (optional)
-            &elgamal_keypair,                // ElGamal keypair for source account
-            &aes_key,                        // AES key for source account
-            second_elgamal_keypair.pubkey(), // ElGamal public key of destination account
-            None,                            // Auditor ElGamal public key (optional)
-            &[&payer],                       // Signers
+            &sender_elgamal_keypair,                // ElGamal keypair for source account
+            &sender_aes_key,                        // AES key for source account
+            recipient_elgamal_keypair.pubkey(), // ElGamal public key of destination account
+            None,                            // Auditor ElGamal public key (none if no auditor)
+            &[&sender],                       // Signers
         )
         .await?;
     println!("Confidential Transfer Signature: {}", transfer_signature);
 
-    // Apply pending balance on the second account to make transferred funds available
-    println!("Applying pending balance on second account...");
+    // Apply pending balance on the recipient account to make transferred funds available
+    println!("Applying pending balance on recipient account...");
     let apply_signature = token
         .confidential_transfer_apply_pending_balance(
-            &second_token_account_pubkey,    // The token account
-            &second_owner.pubkey(),          // Authority (owner) of the account
+            &recipient_token_account_pubkey,    // The token account
+            &recipient.pubkey(),          // Authority (owner) of the account
             None,                            // Optional new decryptable available balance
-            second_elgamal_keypair.secret(), // ElGamal secret key for decryption
-            &second_aes_key,                 // AES key for encryption
-            &[&second_owner],                // Signers (owner must sign)
+            recipient_elgamal_keypair.secret(), // ElGamal secret key for encryption
+            &recipient_aes_key,                 // AES key for encryption
+            &[&recipient],                // Signers (owner must sign)
         )
         .await?;
     println!(
-        "Second Account Apply Pending Balance Signature: {}",
+        "Recipient Account Apply Pending Balance Signature: {}",
         apply_signature
     );
 
@@ -697,9 +698,9 @@ async fn main() -> Result<()> {
     let close_equality_signature = token
         .confidential_transfer_close_context_state_account(
             &equality_proof_context_state_pubkey, // Equality proof context state account to close
-            &token_account_pubkey,                // Account that will receive the lamports
-            &payer.pubkey(),                      // Authority allowed to close the account
-            &[&payer],                            // Authority must sign
+            &sender_token_account_pubkey,                // Account that will receive the lamports
+            &sender.pubkey(),                      // Authority allowed to close the account
+            &[&sender],                            // Authority must sign
         )
         .await?;
     println!(
@@ -711,9 +712,9 @@ async fn main() -> Result<()> {
     let close_ciphertext_signature = token
         .confidential_transfer_close_context_state_account(
             &ciphertext_validity_proof_context_state_pubkey, // Ciphertext validity proof context state account to close
-            &token_account_pubkey, // Account that will receive the lamports
-            &payer.pubkey(),       // Authority allowed to close the account
-            &[&payer],             // Authority must sign
+            &sender_token_account_pubkey, // Account that will receive the lamports
+            &sender.pubkey(),       // Authority allowed to close the account
+            &[&sender],             // Authority must sign
         )
         .await?;
     println!(
@@ -725,9 +726,9 @@ async fn main() -> Result<()> {
     let close_range_signature = token
         .confidential_transfer_close_context_state_account(
             &range_proof_context_state_pubkey, // Range proof context state account to close
-            &token_account_pubkey,             // Account that will receive the lamports
-            &payer.pubkey(),                   // Authority allowed to close the account
-            &[&payer],                         // Authority must sign
+            &sender_token_account_pubkey,             // Account that will receive the lamports
+            &sender.pubkey(),                   // Authority allowed to close the account
+            &[&sender],                         // Authority must sign
         )
         .await?;
     println!(
@@ -736,10 +737,10 @@ async fn main() -> Result<()> {
     );
 
     println!("\nConfidential transfer completed successfully!");
-    println!("First Account (post-transfer): {}", token_account_pubkey);
+    println!("Sender Token Account: {}", sender_token_account_pubkey);
     println!(
-        "Second Account (post-transfer): {}",
-        second_token_account_pubkey
+        "Recipient Token Account: {}",
+        recipient_token_account_pubkey
     );
 
     Ok(())
@@ -765,3 +766,28 @@ fn load_keypair() -> Result<Keypair> {
     Ok(keypair)
 }
 ```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "confidential-transfer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-client = "2.2.2"
+solana-sdk = "2.2.2"
+solana-zk-sdk = "2.2.2"
+
+spl-associated-token-account = "6.0.0"
+spl-token-2022 = "7.0.0"
+spl-token-client = "0.14.0"
+spl-token-confidential-transfer-proof-extraction = "0.2.1"
+spl-token-confidential-transfer-proof-generation = "0.3.0"
+
+anyhow = "1.0.95"
+dirs = "6.0.0"
+serde_json = "1.0.135"
+tokio = { version = "1.43.0", features = ["full"] }
+```
+
+</CodeTabs>

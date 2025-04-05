@@ -17,15 +17,15 @@ To withdraw tokens from confidential available balance to public balance:
 
 2. For each proof:
 
-   - Invoke the ZK ElGamal proof program to verify the proof data
-   - The ZK ElGamal proof program then stores metadata specific to each type of
-     proof in a proof "context state" account to use in subsequent instructions
+   - Invoke the ZK ElGamal proof program to verify the proof data.
+   - Store the proof-specific metadata in a proof "context state" account to use
+     in other instructions.
 
 3. Invoke the
    [ConfidentialTransferInstruction::Withdraw](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/processor.rs#L493)
    instruction providing the two proof accounts.
 
-4. Close the proof accounts to recover the SOL used for account rent
+4. Close the proof accounts to recover the SOL used to create them.
 
 The following diagram shows the steps involved in withdrawing tokens from
 confidential available balance to public balance:
@@ -91,7 +91,15 @@ installed to start the local validator.
 $ solana-test-validator --clone-upgradeable-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --url https://api.mainnet-beta.solana.com -r
 ```
 
-```rust title="Rust"
+<Callout type="info">
+  At the time of writing, the Confidential Transfers isn't enabled on the
+  default local validator. You must clone the mainnet Token Extension Program to
+  run the example code.
+</Callout>
+
+<CodeTabs>
+
+```rust !! title="main.rs"
 use anyhow::{Context, Result};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
@@ -121,8 +129,7 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create connection to Solana devnet
-    // Wrap in Arc from the beginning so we can share it
+    // Create connection to local test validator
     let rpc_client = Arc::new(RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
@@ -139,7 +146,6 @@ async fn main() -> Result<()> {
     println!("Mint keypair generated: {}", mint.pubkey());
 
     // Set up program client for Token client
-    // This wraps the RPC client with token program-specific functionality
     let program_client = ProgramRpcClient::new(rpc_client.clone(), ProgramRpcClientSendTransaction);
 
     // Number of decimals for the mint
@@ -152,7 +158,7 @@ async fn main() -> Result<()> {
         &token_2022_program_id(), // Use the Token-2022 program (newer version with extensions)
         &mint.pubkey(),           // Address of the new token mint
         Some(decimals),           // Number of decimal places
-        payer.clone(),            // Fee payer for transactions (cloning Arc, not keypair)
+        payer.clone(),            // Fee payer for transactions
     );
 
     // Create extension initialization parameters for the mint
@@ -183,7 +189,7 @@ async fn main() -> Result<()> {
     );
 
     // ===== Create and configure token account for confidential transfers =====
-    println!("\nSetting up token account with confidential transfer capability...");
+    println!("\nCreate and configure token account for confidential transfers");
 
     // Get the associated token account address for the owner
     let token_account_pubkey = get_associated_token_address_with_program_id(
@@ -218,7 +224,7 @@ async fn main() -> Result<()> {
         .expect("Failed to create AES key");
 
     // The maximum number of Deposit and Transfer instructions that can
-    // credit pending_balance before the ApplyPendingBalance instruction is executed
+    // credit pending_balance before the ApplyPendingBalance instruction must be executed
     let maximum_pending_balance_credit_counter = 65536;
 
     // Initial token balance is 0
@@ -283,7 +289,7 @@ async fn main() -> Result<()> {
 
     // Deposit the tokens to confidential state
     // This converts regular tokens to confidential tokens
-    println!("Depositing tokens to confidential state...");
+    println!("Deposit tokens to confidential state pending balance");
     let deposit_signature = token
         .confidential_transfer_deposit(
             &token_account_pubkey,            // The token account
@@ -300,14 +306,14 @@ async fn main() -> Result<()> {
     );
 
     // Apply the pending balance to make funds available
-    println!("Applying pending balance...");
+    println!("Apply pending balance to available balance");
     let apply_signature = token
         .confidential_transfer_apply_pending_balance(
             &token_account_pubkey,    // The token account
             &payer.pubkey(),          // Authority (owner) of the account
             None,                     // Optional new decryptable available balance
-            elgamal_keypair.secret(), // ElGamal secret key for decryption
-            &aes_key,                 // AES key for encryption of balance and transfer amounts
+            elgamal_keypair.secret(), // ElGamal secret key encryption
+            &aes_key,                 // AES key for encryption
             &[&payer],                // Signers (owner must sign)
         )
         .await?;
@@ -315,7 +321,7 @@ async fn main() -> Result<()> {
     println!("Apply Pending Balance Signature: {}", apply_signature);
 
     // ===== Withdraw half of the tokens from confidential state =====
-    println!("\nWithdrawing tokens from confidential state...");
+    println!("\nWithdraw tokens from confidential available balance");
 
     // Calculate the withdraw amount (half of the deposited amount)
     let withdraw_amount = 50 * 10u64.pow(decimals as u32); // Half of the 100 tokens deposited
@@ -344,12 +350,12 @@ async fn main() -> Result<()> {
         range_proof_data,
     } = withdraw_account_info.generate_proof_data(
         withdraw_amount,  // Amount to withdraw from confidential state
-        &elgamal_keypair, // ElGamal keypair for public-key cryptography (decryption and ZK proofs)
-        &aes_key,         // AES key for encryption of balance and transfer amounts
+        &elgamal_keypair, // ElGamal keypair for encryption
+        &aes_key,         // AES key for encryption
     )?;
 
     // Generate the equality proof account
-    println!("Creating equality proof context state account...");
+    println!("Create equality proof context state account");
     let equality_proof_signature = token
         .confidential_transfer_create_context_state_account(
             &equality_proof_context_state_pubkey, // Public key of the new equality proof context state account
@@ -365,7 +371,7 @@ async fn main() -> Result<()> {
     );
 
     // Generate the range proof account
-    println!("Creating range proof context state account...");
+    println!("Create range proof context state account");
     let range_proof_signature = token
         .confidential_transfer_create_context_state_account(
             &range_proof_context_state_pubkey, // Public key of the new range proof context state account
@@ -381,7 +387,7 @@ async fn main() -> Result<()> {
     );
 
     // Perform the withdrawal
-    println!("Executing withdrawal transaction...");
+    println!("Execute withdrawal transaction");
     let withdraw_signature = token
         .confidential_transfer_withdraw(
             &token_account_pubkey, // Token account to withdraw from
@@ -395,15 +401,15 @@ async fn main() -> Result<()> {
             withdraw_amount,             // Amount to withdraw from confidential state
             decimals,                    // Decimal precision of the token
             Some(withdraw_account_info), // Data from confidential transfer extension for proof verification
-            &elgamal_keypair, // ElGamal keypair for public-key cryptography (decryption and ZK proofs)
-            &aes_key,         // AES key for encryption of balance and transfer amounts
+            &elgamal_keypair, // ElGamal keypair for encryption
+            &aes_key,         // AES key for encryption
             &[&payer],        // Owner must sign the transaction
         )
         .await?;
     println!("Withdraw Transaction Signature: {}", withdraw_signature);
 
     // Close the context state accounts to recover rent
-    println!("Closing equality proof context state account...");
+    println!("Close equality proof context state account");
     let close_equality_signature = token
         .confidential_transfer_close_context_state_account(
             &equality_proof_context_state_pubkey, // Equality proof context state account to close
@@ -417,7 +423,7 @@ async fn main() -> Result<()> {
         close_equality_signature
     );
 
-    println!("Closing range proof context state account...");
+    println!("Close range proof context state account");
     let close_range_signature = token
         .confidential_transfer_close_context_state_account(
             &range_proof_context_state_pubkey, // Range proof context state account to close
@@ -453,3 +459,28 @@ fn load_keypair() -> Result<Keypair> {
     Ok(keypair)
 }
 ```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "confidential-transfer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-client = "2.2.2"
+solana-sdk = "2.2.2"
+solana-zk-sdk = "2.2.2"
+
+spl-associated-token-account = "6.0.0"
+spl-token-2022 = "7.0.0"
+spl-token-client = "0.14.0"
+spl-token-confidential-transfer-proof-extraction = "0.2.1"
+spl-token-confidential-transfer-proof-generation = "0.3.0"
+
+anyhow = "1.0.95"
+dirs = "6.0.0"
+serde_json = "1.0.135"
+tokio = { version = "1.43.0", features = ["full"] }
+```
+
+</CodeTabs>

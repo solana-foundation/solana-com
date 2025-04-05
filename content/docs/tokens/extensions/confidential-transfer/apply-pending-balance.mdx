@@ -88,7 +88,15 @@ installed to start the local validator.
 $ solana-test-validator --clone-upgradeable-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --url https://api.mainnet-beta.solana.com -r
 ```
 
-```rust title="Rust"
+<Callout type="info">
+  At the time of writing, the Confidential Transfers isn't enabled on the
+  default local validator. You must clone the mainnet Token Extension Program to
+  run the example code.
+</Callout>
+
+<CodeTabs>
+
+```rust !! title="main.rs"
 use anyhow::{Context, Result};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
@@ -117,8 +125,7 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Create connection to Solana devnet
-    // Wrap in Arc from the beginning so we can share it
+    // Create connection to local test validator
     let rpc_client = Arc::new(RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
@@ -135,7 +142,6 @@ async fn main() -> Result<()> {
     println!("Mint keypair generated: {}", mint.pubkey());
 
     // Set up program client for Token client
-    // This wraps the RPC client with token program-specific functionality
     let program_client = ProgramRpcClient::new(rpc_client.clone(), ProgramRpcClientSendTransaction);
 
     // Number of decimals for the mint
@@ -148,7 +154,7 @@ async fn main() -> Result<()> {
         &token_2022_program_id(), // Use the Token-2022 program (newer version with extensions)
         &mint.pubkey(),           // Address of the new token mint
         Some(decimals),           // Number of decimal places
-        payer.clone(),            // Fee payer for transactions (cloning Arc, not keypair)
+        payer.clone(),            // Fee payer for transactions
     );
 
     // Create extension initialization parameters for the mint
@@ -179,7 +185,7 @@ async fn main() -> Result<()> {
     );
 
     // ===== Create and configure token account for confidential transfers =====
-    println!("\nSetting up token account with confidential transfer capability...");
+    println!("\nCreate and configure token account for confidential transfers");
 
     // Get the associated token account address for the owner
     let token_account_pubkey = get_associated_token_address_with_program_id(
@@ -209,9 +215,9 @@ async fn main() -> Result<()> {
 
     // Step 3: Generate the ElGamal keypair and AES key for token account
     let elgamal_keypair = ElGamalKeypair::new_from_signer(&payer, &token_account_pubkey.to_bytes())
-        .expect("Failed to create ElGamal keypair"); // For public-key cryptography (encryption, decryption, and ZK proofs)
+        .expect("Failed to create ElGamal keypair");
     let aes_key = AeKey::new_from_signer(&payer, &token_account_pubkey.to_bytes())
-        .expect("Failed to create AES key"); // For encryption of balance and transfer amounts
+        .expect("Failed to create AES key");
 
     // The maximum number of Deposit and Transfer instructions that can
     // credit pending_balance before the ApplyPendingBalance instruction is executed
@@ -252,16 +258,16 @@ async fn main() -> Result<()> {
     let transaction = Transaction::new_signed_with_payer(
         &instructions,
         Some(&payer.pubkey()),
-        &[&*payer],
+        &[&payer],
         recent_blockhash,
     );
 
-    let setup_signature = rpc_client
+    let transaction_signature = rpc_client
         .send_and_confirm_transaction(&transaction)
         .await?;
     println!(
-        "Token Account Setup Transaction Signature: {}",
-        setup_signature
+        "Create Token Account Transaction Signature: {}",
+        transaction_signature
     );
 
     // Mint some tokens to the newly created token account
@@ -275,11 +281,11 @@ async fn main() -> Result<()> {
         )
         .await?;
 
-    println!("Token Minting Transaction Signature: {}", mint_signature);
+    println!("Mint Tokens Transaction Signature: {}", mint_signature);
 
     // Deposit the tokens to confidential state
     // This converts regular tokens to confidential tokens
-    println!("Depositing tokens to confidential state...");
+    println!("Deposit tokens to confidential state pending balance");
     let deposit_signature = token
         .confidential_transfer_deposit(
             &token_account_pubkey,            // The token account
@@ -296,7 +302,7 @@ async fn main() -> Result<()> {
     );
 
     // Apply the pending balance to make funds available
-    println!("Applying pending balance...");
+    println!("Apply pending balance to available balance");
     let apply_signature = token
         .confidential_transfer_apply_pending_balance(
             &token_account_pubkey,    // The token account
@@ -310,7 +316,7 @@ async fn main() -> Result<()> {
 
     println!("Apply Pending Balance Signature: {}", apply_signature);
 
-    println!("Confidential transfer setup complete. Tokens are now in confidential state.");
+    println!("Confidential transfer setup complete. Tokens are now in available balance.");
     println!(
         "Associated Token Account with confidential transfers: {}",
         token_account_pubkey
@@ -339,3 +345,28 @@ fn load_keypair() -> Result<Keypair> {
     Ok(keypair)
 }
 ```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "confidential-transfer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-client = "2.2.2"
+solana-sdk = "2.2.2"
+solana-zk-sdk = "2.2.2"
+
+spl-associated-token-account = "6.0.0"
+spl-token-2022 = "7.0.0"
+spl-token-client = "0.14.0"
+spl-token-confidential-transfer-proof-extraction = "0.2.1"
+spl-token-confidential-transfer-proof-generation = "0.3.0"
+
+anyhow = "1.0.95"
+dirs = "6.0.0"
+serde_json = "1.0.135"
+tokio = { version = "1.43.0", features = ["full"] }
+```
+
+</CodeTabs>
