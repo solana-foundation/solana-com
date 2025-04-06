@@ -33,17 +33,51 @@ function useIsVisible(ref: RefObject<HTMLElement>) {
 export function MermaidRenderer({
   content,
   isModal = false,
-  zoomLevel = 1,
 }: {
   content: string;
   isModal?: boolean;
-  zoomLevel?: number;
 }) {
   const id = useId();
   const [svg, setSvg] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const isVisible = useIsVisible(containerRef);
+  const svgPanZoomInstance = useRef<SvgPanZoom.Instance | null>(null);
+
+  useEffect(() => {
+    if (isModal && containerRef.current) {
+      const svgElement = containerRef.current.querySelector("svg");
+      if (svgElement) {
+        const initializePanZoom = async () => {
+          try {
+            const svgPanZoom = (await import("svg-pan-zoom")).default;
+            if (svgPanZoomInstance.current) {
+              svgPanZoomInstance.current.destroy();
+            }
+            svgPanZoomInstance.current = svgPanZoom(svgElement, {
+              zoomEnabled: true,
+              controlIconsEnabled: true,
+              fit: true,
+              center: true,
+              minZoom: 0.1,
+              maxZoom: 10,
+              zoomScaleSensitivity: 0.3,
+            });
+          } catch (error) {
+            console.error("Failed to load svg-pan-zoom:", error);
+          }
+        };
+        void initializePanZoom();
+      }
+    }
+
+    return () => {
+      if (svgPanZoomInstance.current) {
+        svgPanZoomInstance.current.destroy();
+        svgPanZoomInstance.current = null;
+      }
+    };
+  }, [isModal, svg]);
 
   useEffect(() => {
     // Reset loading state when content changes
@@ -75,7 +109,7 @@ export function MermaidRenderer({
         startOnLoad: false,
         securityLevel: "loose",
         fontFamily: "inherit",
-        themeCSS: "margin: 1.5rem auto 0;",
+        themeCSS: "margin: 0;",
         theme: isDarkTheme ? "dark" : "neutral",
       };
 
@@ -91,29 +125,15 @@ export function MermaidRenderer({
             containerRef.current,
           );
 
-          // Extract viewBox values to handle dimensions properly
-          const viewBoxMatch = svg.match(/viewBox="([^"]+)"/);
-          let viewBoxValues = [];
-
-          if (viewBoxMatch && viewBoxMatch[1]) {
-            viewBoxValues = viewBoxMatch[1].split(" ").map(Number);
-          }
-
-          // Calculate aspect ratio if viewBox is available
-          const aspectRatio =
-            viewBoxValues.length === 4
-              ? (viewBoxValues[2] / viewBoxValues[3]).toFixed(2)
-              : 1;
-
           // Process the SVG - note we're only removing height from the main svg tag
           // and preserving height attributes on internal elements
           let processedSvg = svg
             .replace(/width="[^"]*"/, 'width="100%"')
             .replace(
-              /style="max-width:[^"]*"/,
-              `style="width:100%;aspect-ratio:${aspectRatio}"`,
+              /style="[^"]*"/,
+              `style="width:100%;height:100%;max-height:${isModal ? "calc(100vh - 140px)" : "auto"};${isModal ? "position:relative;" : ""}"`,
             )
-            .replace(/<svg/, '<svg preserveAspectRatio="xMinYMin meet"');
+            .replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet"');
 
           // Remove height only from the main SVG element, not from rect elements
           const svgHeightMatch = processedSvg.match(
@@ -140,7 +160,7 @@ export function MermaidRenderer({
   }, [content, id, isVisible, isModal]);
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full h-full">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-ch-background/80">
           <Loader2 className="w-8 h-8 text-ch-tab-active-foreground animate-spin" />
@@ -149,15 +169,13 @@ export function MermaidRenderer({
       <div
         ref={containerRef}
         dangerouslySetInnerHTML={{ __html: svg }}
-        className="w-full"
+        className="w-full h-full"
         style={{
-          transform: `scale(${zoomLevel})`,
-          transformOrigin: "top left",
-          transition: "transform 0.2s ease-in-out",
-          maxHeight: isModal ? "none" : "auto",
+          position: "relative",
+          maxHeight: isModal ? "calc(100vh - 140px)" : "auto",
           width: "100%",
           overflow: "visible",
-          height: "fit-content",
+          padding: "0",
         }}
       />
     </div>

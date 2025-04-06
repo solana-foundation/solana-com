@@ -58,7 +58,7 @@ export function Mermaid(props: { codeblocks: RawCode[] }) {
           </div>
         )}
         <div className="p-4 bg-ch-background">
-          <MermaidRenderer content={content} zoomLevel={1} />
+          <MermaidRenderer content={content} />
         </div>
       </div>
 
