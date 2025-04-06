@@ -14,18 +14,31 @@ transfer from.
 
 To transfer tokens confidentially:
 
-1. Create the necessary proofs on the client side:
+1. Create
+   [three proofs](https://github.com/solana-program/token-2022/blob/d073cb89dbcd430387b5c6fb4b7157911351e4a3/confidential-transfer/proof-generation/src/transfer.rs#L35)
+   client side:
 
-   - **Equality Proof**: Verifies that the encrypted transfer amounts under the
-     sender's and receiver's encryption keys encrypt the same value.
-   - **Ciphertext Validity Proof**: Verifies that the ciphertexts of the
-     transfer amount are properly generated according to the encryption scheme.
-   - **Range Proof**: Verifies that the encrypted transfer amount falls within a
-     valid range and is a non-negative value.
+   **Equality Proof
+   ([CiphertextCommitmentEqualityProofData](https://github.com/anza-xyz/agave/blob/8b33d6d311c95780362a7d235919e7b8d2345939/zk-token-sdk/src/instruction/ciphertext_commitment_equality.rs#L56))**:
+   Verifies that the new available balance ciphertext after the transfer matches
+   its corresponding Pedersen commitment, ensuring the source account's new
+   available balance is correctly computed as
+   `new_balance = current_balance - transfer_amount`.
+
+   **Ciphertext Validity Proof
+   ([BatchedGroupedCiphertext3HandlesValidityProofData](https://github.com/anza-xyz/agave/blob/8b33d6d311c95780362a7d235919e7b8d2345939/zk-token-sdk/src/instruction/batched_grouped_ciphertext_validity/handles_3.rs#L63))**:
+   Verifies that the transfer amount ciphertexts are properly generated for all
+   three parties (source, destination, and auditor), ensuring the transfer
+   amount is correctly encrypted under each party's public key.
+
+   **Range Proof
+   ([BatchedRangeProofU128Data](https://github.com/anza-xyz/agave/blob/8b33d6d311c95780362a7d235919e7b8d2345939/zk-token-sdk/src/instruction/batched_range_proof/batched_range_proof_u128.rs#L37))**:
+   Verifies that the new available balance and transfer amount (split into
+   low/high bits) are all non-negative and within a specified range.
 
 2. For each proof:
 
-   - Invoke the Zero-Knowledge ElGamal proof program to verify the proof data.
+   - Invoke the ZK ElGamal proof program to verify the proof data.
    - Store the proof-specific metadata in a proof "context state" account to use
      in other instructions.
 
@@ -123,7 +136,11 @@ use spl_token_client::{
     client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
     spl_token_2022::{
         extension::{
-            confidential_transfer::instruction::{configure_account, PubkeyValidityProofData},
+            confidential_transfer::{
+                account_info::{TransferAccountInfo, WithdrawAccountInfo},
+                instruction::{configure_account, PubkeyValidityProofData},
+                ConfidentialTransferAccount,
+            },
             BaseStateWithExtensions, ExtensionType,
         },
         id as token_2022_program_id,
@@ -338,13 +355,10 @@ async fn main() -> Result<()> {
     let token_account = token.get_account_info(&sender_token_account_pubkey).await?;
 
     // Unpack the ConfidentialTransferAccount extension portion of the token account data
-    let extension_data = token_account.get_extension::<spl_token_2022::extension::confidential_transfer::ConfidentialTransferAccount>()?;
+    let extension_data = token_account.get_extension::<ConfidentialTransferAccount>()?;
 
     // Confidential Transfer extension information needed to construct a `Withdraw` instruction
-    let withdraw_account_info =
-        spl_token_2022::extension::confidential_transfer::account_info::WithdrawAccountInfo::new(
-            extension_data,
-        );
+    let withdraw_account_info = WithdrawAccountInfo::new(extension_data);
 
     // Create keypairs for the proof accounts
     let equality_proof_context_state_keypair = Keypair::new();
@@ -562,13 +576,10 @@ async fn main() -> Result<()> {
 
     // Get the token account data to access the confidential transfer extension state
     let token_account = token.get_account_info(&sender_token_account_pubkey).await?;
-    let extension_data = token_account.get_extension::<spl_token_2022::extension::confidential_transfer::ConfidentialTransferAccount>()?;
+    let extension_data = token_account.get_extension::<ConfidentialTransferAccount>()?;
 
     // Create TransferAccountInfo from the extension data
-    let transfer_account_info =
-        spl_token_2022::extension::confidential_transfer::account_info::TransferAccountInfo::new(
-            extension_data,
-        );
+    let transfer_account_info = TransferAccountInfo::new(extension_data);
 
     // Generate the proof data for the transfer
     let transfer_proof_data = transfer_account_info.generate_split_transfer_proof_data(
@@ -776,10 +787,7 @@ edition = "2021"
 [dependencies]
 solana-client = "2.2.2"
 solana-sdk = "2.2.2"
-solana-zk-sdk = "2.2.2"
-
 spl-associated-token-account = "6.0.0"
-spl-token-2022 = "7.0.0"
 spl-token-client = "0.14.0"
 spl-token-confidential-transfer-proof-extraction = "0.2.1"
 spl-token-confidential-transfer-proof-generation = "0.3.0"
@@ -787,7 +795,7 @@ spl-token-confidential-transfer-proof-generation = "0.3.0"
 anyhow = "1.0.95"
 dirs = "6.0.0"
 serde_json = "1.0.135"
-tokio = { version = "1.43.0", features = ["full"] }
+tokio = { version = "1.44.2", features = ["full"] }
 ```
 
 </CodeTabs>
