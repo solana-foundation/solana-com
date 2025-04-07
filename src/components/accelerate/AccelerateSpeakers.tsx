@@ -29,6 +29,7 @@ export const AccelerateSpeakers: FC<AccelerateSpeakersProps> = ({
     dots: false,
     infinite: false,
     speed: 500,
+    className: styles.slider,
     slidesToShow: 3.5,
     slidesToScroll: 1,
     prevArrow: <CustomPrevArrow />,
@@ -69,16 +70,18 @@ export const AccelerateSpeakers: FC<AccelerateSpeakersProps> = ({
                   <span>{speaker.speakerName.split(" ")[0]}</span>
                   <span>{speaker.speakerName.split(" ")[1]}</span>
                 </h3>
-                <p className={styles.company}>{speaker.company}</p>
-                <div className={styles.socialWrapper}>
-                  <p className={styles.title}>{speaker.title}</p>
-                  <a
-                    className={styles.social}
-                    href={speaker.socialLink}
-                    target="_blank"
-                  >
-                    <TwitterIcon width="16" height="16" />
-                  </a>
+                <div className={styles.companyWrapper}>
+                  <p className={styles.company}>{speaker.company}</p>
+                  <div className={styles.socialWrapper}>
+                    <p className={styles.title}>{speaker.title}</p>
+                    <a
+                      className={styles.social}
+                      href={speaker.socialLink}
+                      target="_blank"
+                    >
+                      <TwitterIcon width="16" height="16" />
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
