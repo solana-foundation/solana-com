@@ -1860,7 +1860,14 @@ export const AccelerateSpeakersConfig = {
       name: "speakers",
       type: "list",
       subFields: [
+        {
+          name: "event",
+          type: "enum",
+          enum: ["ship", "scale"],
+          defaultValue: "ship",
+        },
         { name: "speakerName", type: "string", defaultValue: "" },
+        { name: "company", type: "string", defaultValue: "" },
         { name: "title", type: "string", defaultValue: "" },
         {
           name: "image",
@@ -1868,8 +1875,10 @@ export const AccelerateSpeakersConfig = {
           allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
           required: true,
         },
+        { name: "socialLink", type: "string", defaultValue: "" },
       ],
     },
+    { name: "heading", type: "string", defaultValue: "" },
   ],
 };
 export const AccelerateSponsorsConfig = {
