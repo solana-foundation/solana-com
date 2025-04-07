@@ -13,7 +13,9 @@ import {
   AccelerateAccordionConfig,
   AccelerateHeroConfig,
   AccelerateApplyButtonConfig,
+  AccelerateLinkButtonConfig,
   AccelerateInfoItemConfig,
+  AccelerateStoriesConfig,
   ButtonConfig,
   CardDeckConfig,
   CarouselConfig,
@@ -142,6 +144,14 @@ const accelerateDataModels = [
   },
   {
     component: dynamic(() =>
+      import("../components/accelerate/AccelerateStories").then(
+        (lib) => lib.AccelerateStories,
+      ),
+    ),
+    config: AccelerateStoriesConfig,
+  },
+  {
+    component: dynamic(() =>
       import("../components/accelerate/AccelerateSpeakers").then(
         (lib) => lib.AccelerateSpeakers,
       ),
@@ -165,6 +175,14 @@ const accelerateDataModels = [
       ),
     ),
     config: AccelerateApplyButtonConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateLinkButton").then(
+        (lib) => lib.AccelerateLinkButton,
+      ),
+    ),
+    config: AccelerateLinkButtonConfig,
   },
   {
     component: dynamic(() =>
