@@ -14,6 +14,7 @@ import {
   AccelerateHeroConfig,
   AccelerateApplyButtonConfig,
   AccelerateInfoItemConfig,
+  AccelerateStoriesConfig,
   ButtonConfig,
   CardDeckConfig,
   CarouselConfig,
@@ -139,6 +140,14 @@ const accelerateDataModels = [
       ),
     ),
     config: AccelerateAccordionConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateStories").then(
+        (lib) => lib.AccelerateStories,
+      ),
+    ),
+    config: AccelerateStoriesConfig,
   },
   {
     component: dynamic(() =>
