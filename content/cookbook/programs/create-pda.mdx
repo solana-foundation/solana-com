@@ -5,11 +5,11 @@ description:
 ---
 
 A Program Derived Address is simply an account owned by the program, but has
-no  
+no
 private key. Instead it's signature is obtained by a set of seeds and a bump
-(a  
+(a
 nonce which makes sure it's 'off curve', i.e. not a valid public key).
-"**Generating**" a Program Address is  
+"**Generating**" a Program Address is
 different from "**creating**" it. One can generate a PDA using
 `Pubkey::find_program_address`. Creating a PDA essentially means to initialize
 the address with space and set the state to it. A normal Keypair account can be
@@ -105,76 +105,139 @@ pub fn process_instruction(
 
 One can send the required accounts via client as follows
 
-```typescript title="create-pda-client.ts"
+
+<CodeTabs storage="cookbook">
+
+```typescript !! title="Legacy"
 import {
-  clusterApiUrl,
-  Connection,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  sendAndConfirmTransaction,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
+	Connection,
+	Keypair,
+	LAMPORTS_PER_SOL,
+	PublicKey,
+	sendAndConfirmTransaction,
+	SystemProgram,
+	Transaction,
+	TransactionInstruction,
 } from "@solana/web3.js";
 
 const PAYER_KEYPAIR = Keypair.generate();
 
 (async () => {
-  const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
-  const latestBlockHash = await connection.getLatestBlockhash();
-  const programId = new PublicKey(
-    "6eW5nnSosr2LpkUGCdznsjRGDhVb26tLmiM1P8RV1QQp",
-  );
+	const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+	const latestBlockHash = await connection.getLatestBlockhash();
+	const programId = new PublicKey(
+		"7TCCYPav7ZRkom8SqrG5jKFb2SXpxvaaHrLstF6o9aF5"
+	);
 
-  // Airdrop to Payer
-  await connection.confirmTransaction(
-    {
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: await connection.requestAirdrop(
-        PAYER_KEYPAIR.publicKey,
-        LAMPORTS_PER_SOL,
-      ),
-    },
-    "confirmed",
-  );
+	// Airdrop to Payer
+	await connection.confirmTransaction(
+		{
+			blockhash: latestBlockHash.blockhash,
+			lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+			signature: await connection.requestAirdrop(
+				PAYER_KEYPAIR.publicKey,
+				LAMPORTS_PER_SOL
+			),
+		},
+		"confirmed"
+	);
 
-  const [pda, bump] = await PublicKey.findProgramAddress(
-    [Buffer.from("customaddress"), PAYER_KEYPAIR.publicKey.toBuffer()],
-    programId,
-  );
+	const [pda, bump] = PublicKey.findProgramAddressSync(
+		[Buffer.from("customaddress"), PAYER_KEYPAIR.publicKey.toBuffer()],
+		programId
+	);
 
-  console.log(`PDA Pubkey: ${pda.toString()}`);
+	console.log(`PDA Pubkey: ${pda.toString()}`);
 
-  const createPDAIx = new TransactionInstruction({
-    programId: programId,
-    data: Buffer.from(Uint8Array.of(bump)),
-    keys: [
-      {
-        isSigner: true,
-        isWritable: true,
-        pubkey: PAYER_KEYPAIR.publicKey,
-      },
-      {
-        isSigner: false,
-        isWritable: true,
-        pubkey: pda,
-      },
-      {
-        isSigner: false,
-        isWritable: false,
-        pubkey: SystemProgram.programId,
-      },
-    ],
-  });
+	const createPDAIx = new TransactionInstruction({
+		programId: programId,
+		data: Buffer.from(Uint8Array.of(bump)),
+		keys: [
+			{
+				isSigner: true,
+				isWritable: true,
+				pubkey: PAYER_KEYPAIR.publicKey,
+			},
+			{
+				isSigner: false,
+				isWritable: true,
+				pubkey: pda,
+			},
+			{
+				isSigner: false,
+				isWritable: false,
+				pubkey: SystemProgram.programId,
+			},
+		],
+	});
 
-  const transaction = new Transaction();
-  transaction.add(createPDAIx);
+	const transaction = new Transaction();
+	transaction.add(createPDAIx);
 
-  const txHash = await sendAndConfirmTransaction(connection, transaction, [
-    PAYER_KEYPAIR,
-  ]);
-  console.log(`Created PDA successfully. Tx Hash: ${txHash}`);
+	const txHash = await sendAndConfirmTransaction(connection, transaction, [
+		PAYER_KEYPAIR,
+	]);
+	console.log(`Created PDA successfully. Tx Hash: ${txHash}`);
 })();
 ```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    instruction::{AccountMeta, Instruction},
+    native_token::LAMPORTS_PER_SOL,
+    pubkey,
+    pubkey::Pubkey,
+    signature::Keypair,
+    signer::Signer,
+    system_program::ID as SYSTEM_PROGRAM_ID,
+    transaction::Transaction,
+};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let program_id = pubkey!("7TCCYPav7ZRkom8SqrG5jKFb2SXpxvaaHrLstF6o9aF5");
+    let payer_keypair = Keypair::new();
+    let (pda, bump) = Pubkey::find_program_address(
+        &[b"customaddress", &payer_keypair.pubkey().to_bytes()],
+        &program_id,
+    );
+
+    let ix_data = vec![bump];
+    let accounts = vec![
+        AccountMeta::new(payer_keypair.pubkey(), true),
+        AccountMeta::new(pda, false),
+        AccountMeta::new(SYSTEM_PROGRAM_ID, false),
+    ];
+    let create_pda_ix = Instruction::new_with_bytes(program_id, &ix_data, accounts);
+
+    let transaction_signature = client
+        .request_airdrop(&payer_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        if client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    let mut transaction =
+        Transaction::new_with_payer(&[create_pda_ix], Some(&payer_keypair.pubkey()));
+
+    transaction.sign(&[&payer_keypair], client.get_latest_blockhash().await?);
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error sending transaction: {}", err),
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
