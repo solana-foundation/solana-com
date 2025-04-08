@@ -120,181 +120,178 @@ and token creation instructions, please refer to the full code nearby.
 
 ```typescript !! title="Legacy"
 import {
-  clusterApiUrl,
-  Connection,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-  sendAndConfirmTransaction
-  Transaction,
-  TransactionInstruction,
-} from "@solana/web3.js";
-import {
-  AccountLayout,
-  MintLayout,
-  Token,
-  TOKEN_PROGRAM_ID,
-  u64,
+	AccountLayout,
+	createInitializeAccount3Instruction,
+	createInitializeMint2Instruction,
+	createMintToInstruction,
+	MintLayout,
+	TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import {
+	Connection,
+	Keypair,
+	LAMPORTS_PER_SOL,
+	PublicKey,
+	sendAndConfirmTransaction,
+	SystemProgram,
+	Transaction,
+	TransactionInstruction,
+} from "@solana/web3.js";
 
-import * as BN from "bn.js";
+import BN from "bn.js";
 
 // Users
-const PAYER_KEYPAIR = Keypair.generate();
-const RECEIVER_KEYPAIR = Keypair.generate().publicKey;
+const SOURCE_KEYPAIR = Keypair.generate();
+const DESTINATION_KEYPAIR = Keypair.generate();
 
 // Mint and token accounts
-const TOKEN_MINT_ACCOUNT = Keypair.generate();
+const MINT_ACCOUNT = Keypair.generate();
 const SOURCE_TOKEN_ACCOUNT = Keypair.generate();
 const DESTINATION_TOKEN_ACCOUNT = Keypair.generate();
 
 // Numbers
-const DEFAULT_DECIMALS_COUNT = 9;
-const TOKEN_TRANSFER_AMOUNT = 50 * 10 ** DEFAULT_DECIMALS_COUNT;
+const DEFAULT_TOKEN_DECIMALS = 9;
+const TOKEN_TRANSFER_AMOUNT = BigInt(50 * 10 ** DEFAULT_TOKEN_DECIMALS);
 const TOKEN_TRANSFER_AMOUNT_BUFFER = Buffer.from(
-  Uint8Array.of(...new BN(TOKEN_TRANSFER_AMOUNT).toArray("le", 8))
+	Uint8Array.from(new BN(TOKEN_TRANSFER_AMOUNT.toString()).toArray("le", 8))
 );
 
 (async () => {
-  const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
-  const programId = new PublicKey(
-    "EfYK91eN3AqTwY1C34W6a33qGAtQ8HJYVhNv7cV4uMZj"
-  );
+	const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+	const programId = new PublicKey(
+		"7D5qGZWHHfnE1A2SfXu3hEKd46cmBCg2N2ro6f1797mJ"
+	);
 
-  const mintDataSpace = MintLayout.span;
-  const mintRentRequired = await connection.getMinimumBalanceForRentExemption(
-    mintDataSpace
-  );
+	const mintDataSpace = MintLayout.span;
+	const mintRentRequired = await connection.getMinimumBalanceForRentExemption(
+		mintDataSpace
+	);
 
-  const tokenDataSpace = AccountLayout.span;
-  const tokenRentRequired = await connection.getMinimumBalanceForRentExemption(
-    tokenDataSpace
-  );
+	const tokenDataSpace = AccountLayout.span;
+	const tokenRentRequired =
+		await connection.getMinimumBalanceForRentExemption(tokenDataSpace);
 
-  // Airdropping 1 SOL
-  const feePayer = Keypair.generate();
-  await connection.confirmTransaction({
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: await connection.requestAirdrop(feePayer.publicKey, LAMPORTS_PER_SOL),
-    },
-    'confirmed',
-  );
+	const latestBlockHash = await connection.getLatestBlockhash();
+	await connection.confirmTransaction(
+		{
+			blockhash: latestBlockHash.blockhash,
+			lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+			signature: await connection.requestAirdrop(
+				SOURCE_KEYPAIR.publicKey,
+				5 * LAMPORTS_PER_SOL
+			),
+		},
+		"confirmed"
+	);
 
+	// Allocating space and rent for mint account
+	const createMintAccountIx = SystemProgram.createAccount({
+		fromPubkey: SOURCE_KEYPAIR.publicKey,
+		lamports: mintRentRequired,
+		newAccountPubkey: MINT_ACCOUNT.publicKey,
+		programId: TOKEN_PROGRAM_ID,
+		space: mintDataSpace,
+	});
 
-  // Allocating space and rent for mint account
-  const createMintAccountIx = SystemProgram.createAccount({
-    fromPubkey: PAYER_KEYPAIR.publicKey,
-    lamports: mintRentRequired,
-    newAccountPubkey: TOKEN_MINT_ACCOUNT.publicKey,
-    programId: TOKEN_PROGRAM_ID,
-    space: mintDataSpace,
-  });
+	// Initializing mint with decimals and authority
+	const initializeMintIx = createInitializeMint2Instruction(
+		MINT_ACCOUNT.publicKey,
+		DEFAULT_TOKEN_DECIMALS,
+		SOURCE_KEYPAIR.publicKey,
+		SOURCE_KEYPAIR.publicKey,
+		TOKEN_PROGRAM_ID
+	);
 
-  // Initializing mint with decimals and authority
-  const initializeMintIx = Token.createInitMintInstruction(
-    TOKEN_PROGRAM_ID,
-    TOKEN_MINT_ACCOUNT.publicKey,
-    DEFAULT_DECIMALS_COUNT,
-    PAYER_KEYPAIR.publicKey, // mintAuthority
-    PAYER_KEYPAIR.publicKey // freezeAuthority
-  );
+	// Allocating space and rent for source token account
+	const createSourceTokenAccountIx = SystemProgram.createAccount({
+		fromPubkey: SOURCE_KEYPAIR.publicKey,
+		newAccountPubkey: SOURCE_TOKEN_ACCOUNT.publicKey,
+		lamports: tokenRentRequired,
+		programId: TOKEN_PROGRAM_ID,
+		space: tokenDataSpace,
+	});
 
-  // Allocating space and rent for source token account
-  const createSourceTokenAccountIx = SystemProgram.createAccount({
-    fromPubkey: PAYER_KEYPAIR.publicKey,
-    newAccountPubkey: SOURCE_TOKEN_ACCOUNT.publicKey,
-    lamports: tokenRentRequired,
-    programId: TOKEN_PROGRAM_ID,
-    space: tokenDataSpace,
-  });
+	// Initializing token account with mint and owner
+	const initializeSourceTokenAccountIx = createInitializeAccount3Instruction(
+		SOURCE_TOKEN_ACCOUNT.publicKey,
+		MINT_ACCOUNT.publicKey,
+		SOURCE_KEYPAIR.publicKey
+	);
 
-  // Initializing token account with mint and owner
-  const initializeSourceTokenAccountIx = Token.createInitAccountInstruction(
-    TOKEN_PROGRAM_ID,
-    TOKEN_MINT_ACCOUNT.publicKey,
-    SOURCE_TOKEN_ACCOUNT.publicKey,
-    PAYER_KEYPAIR.publicKey
-  );
+	// Minting tokens to the source token account for transferring later to destination account
+	const mintTokensIx = createMintToInstruction(
+		MINT_ACCOUNT.publicKey,
+		SOURCE_TOKEN_ACCOUNT.publicKey,
+		SOURCE_KEYPAIR.publicKey,
+		TOKEN_TRANSFER_AMOUNT
+	);
 
-  // Minting tokens to the source token account for transferring later to destination account
-  const mintTokensIx = Token.createMintToInstruction(
-    TOKEN_PROGRAM_ID,
-    TOKEN_MINT_ACCOUNT.publicKey,
-    SOURCE_TOKEN_ACCOUNT.publicKey,
-    PAYER_KEYPAIR.publicKey,
-    [PAYER_KEYPAIR],
-    TOKEN_TRANSFER_AMOUNT
-  );
+	// Allocating space and rent for destination token account
+	const createDestinationTokenAccountIx = SystemProgram.createAccount({
+		fromPubkey: SOURCE_KEYPAIR.publicKey, // we are using the source keypair to pay for the acc creation costs
+		newAccountPubkey: DESTINATION_TOKEN_ACCOUNT.publicKey,
+		lamports: tokenRentRequired,
+		programId: TOKEN_PROGRAM_ID,
+		space: tokenDataSpace,
+	});
 
-  // Allocating space and rent for destination token account
-  const createDestinationTokenAccountIx = SystemProgram.createAccount({
-    fromPubkey: PAYER_KEYPAIR.publicKey,
-    newAccountPubkey: DESTINATION_TOKEN_ACCOUNT.publicKey,
-    lamports: tokenRentRequired,
-    programId: TOKEN_PROGRAM_ID,
-    space: tokenDataSpace,
-  });
+	// Initializing token account with mint and owner
+	const initializeDestinationTokenAccountIx =
+		createInitializeAccount3Instruction(
+			DESTINATION_TOKEN_ACCOUNT.publicKey,
+			MINT_ACCOUNT.publicKey,
+			DESTINATION_KEYPAIR.publicKey
+		);
 
-  // Initializing token account with mint and owner
-  const initializeDestinationTokenAccountIx =
-    Token.createInitAccountInstruction(
-      TOKEN_PROGRAM_ID,
-      TOKEN_MINT_ACCOUNT.publicKey,
-      DESTINATION_TOKEN_ACCOUNT.publicKey,
-      RECEIVER_KEYPAIR
-    );
+	// Our program's CPI instruction (transfer)
+	const transferTokensIx = new TransactionInstruction({
+		programId: programId,
+		data: TOKEN_TRANSFER_AMOUNT_BUFFER,
+		keys: [
+			{
+				isSigner: false,
+				isWritable: true,
+				pubkey: SOURCE_TOKEN_ACCOUNT.publicKey,
+			},
+			{
+				isSigner: false,
+				isWritable: true,
+				pubkey: DESTINATION_TOKEN_ACCOUNT.publicKey,
+			},
+			{
+				isSigner: true,
+				isWritable: true,
+				pubkey: SOURCE_KEYPAIR.publicKey,
+			},
+			{
+				isSigner: false,
+				isWritable: false,
+				pubkey: TOKEN_PROGRAM_ID,
+			},
+		],
+	});
 
-  // Our program's CPI instruction (transfer)
-  const transferTokensIx = new TransactionInstruction({
-    programId: programId,
-    data: TOKEN_TRANSFER_AMOUNT_BUFFER,
-    keys: [
-      {
-        isSigner: false,
-        isWritable: true,
-        pubkey: SOURCE_TOKEN_ACCOUNT.publicKey,
-      },
-      {
-        isSigner: false,
-        isWritable: true,
-        pubkey: DESTINATION_TOKEN_ACCOUNT.publicKey,
-      },
-      {
-        isSigner: true,
-        isWritable: true,
-        pubkey: PAYER_KEYPAIR.publicKey,
-      },
-      {
-        isSigner: false,
-        isWritable: false,
-        pubkey: TOKEN_PROGRAM_ID,
-      },
-    ],
-  });
+	const transaction = new Transaction();
+	// Adding up all the above instructions
+	transaction.add(
+		createMintAccountIx,
+		initializeMintIx,
+		createSourceTokenAccountIx,
+		initializeSourceTokenAccountIx,
+		mintTokensIx,
+		createDestinationTokenAccountIx,
+		initializeDestinationTokenAccountIx,
+		transferTokensIx
+	);
 
-  const transaction = new Transaction();
-  // Adding up all the above instructions
-  transaction.add(
-    createMintAccountIx,
-    initializeMintIx,
-    createSourceTokenAccountIx,
-    initializeSourceTokenAccountIx,
-    mintTokensIx,
-    createDestinationTokenAccountIx,
-    initializeDestinationTokenAccountIx,
-    transferTokensIx
-  );
+	const txHash = await sendAndConfirmTransaction(connection, transaction, [
+		SOURCE_KEYPAIR,
+		MINT_ACCOUNT,
+		SOURCE_TOKEN_ACCOUNT,
+		DESTINATION_TOKEN_ACCOUNT,
+	]);
 
-  const txHash = await sendAndConfirmTransaction(connection, transaction, [
-    PAYER_KEYPAIR,
-    TOKEN_MINT_ACCOUNT,
-    SOURCE_TOKEN_ACCOUNT,
-    DESTINATION_TOKEN_ACCOUNT,
-  ]);
-
-  console.log(`Token transfer CPI success: ${txHash}`);
+	console.log(`Token transfer CPI success: ${txHash}`);
 })();
 ```
 
@@ -572,78 +569,79 @@ The respective client side code will look as follows
 <CodeTabs storage="cookbook">
 
 ```typescript !! title="Legacy"
-import { clusterApiUrl, Connection, Keypair } from "@solana/web3.js";
-import { LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
 import {
-  Transaction,
-  TransactionInstruction,
-  sendAndConfirmTransaction,
+	Connection,
+	Keypair,
+	LAMPORTS_PER_SOL,
+	PublicKey,
+	sendAndConfirmTransaction,
+	SystemProgram,
+	Transaction,
+	TransactionInstruction,
 } from "@solana/web3.js";
 
-import * as BN from "bn.js";
+import BN from "bn.js";
 
 // Users
 const PAYER_KEYPAIR = Keypair.generate();
 const GENERAL_STATE_KEYPAIR = Keypair.generate();
 
 const ACCOUNT_SPACE_BUFFER = Buffer.from(
-  Uint8Array.of(...new BN(100).toArray("le", 8)),
+	Uint8Array.of(...new BN(100).toArray("le", 8))
 );
 
 (async () => {
-  const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
-  const latestBlockHash = await connection.getLatestBlockhash();
-  const programId = new PublicKey(
-    "DkuQ5wsndkzXfgqDB6Lgf4sDjBi4gkLSak1dM5Mn2RuQ",
-  );
+	const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+	const latestBlockHash = await connection.getLatestBlockhash();
+	const programId = new PublicKey(
+		"EWLkGVb9JLKFQjp7iuDQysyaaC3C4F1t2Kfd7EVekuMX"
+	);
 
-  // Airdropping 1 SOL
-  const feePayer = Keypair.generate();
-  await connection.confirmTransaction(
-    {
-      blockhash: latestBlockHash.blockhash,
-      lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
-      signature: await connection.requestAirdrop(
-        feePayer.publicKey,
-        LAMPORTS_PER_SOL,
-      ),
-    },
-    "confirmed",
-  );
+	await connection.confirmTransaction(
+		{
+			blockhash: latestBlockHash.blockhash,
+			lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
+			signature: await connection.requestAirdrop(
+				PAYER_KEYPAIR.publicKey,
+				LAMPORTS_PER_SOL
+			),
+		},
+		"confirmed"
+	);
 
-  // Our program's CPI instruction (create_account)
-  const createAccountIx = new TransactionInstruction({
-    programId: programId,
-    data: ACCOUNT_SPACE_BUFFER,
-    keys: [
-      {
-        isSigner: true,
-        isWritable: true,
-        pubkey: PAYER_KEYPAIR.publicKey,
-      },
-      {
-        isSigner: true,
-        isWritable: true,
-        pubkey: GENERAL_STATE_KEYPAIR.publicKey,
-      },
-      {
-        isSigner: false,
-        isWritable: false,
-        pubkey: SystemProgram.programId,
-      },
-    ],
-  });
+	// Our program's CPI instruction (create_account)
+	const createAccountIx = new TransactionInstruction({
+		programId: programId,
+		data: ACCOUNT_SPACE_BUFFER,
+		keys: [
+			{
+				isSigner: true,
+				isWritable: true,
+				pubkey: PAYER_KEYPAIR.publicKey,
+			},
+			{
+				isSigner: true,
+				isWritable: true,
+				pubkey: GENERAL_STATE_KEYPAIR.publicKey,
+			},
+			{
+				isSigner: false,
+				isWritable: false,
+				pubkey: SystemProgram.programId,
+			},
+		],
+	});
 
-  const transaction = new Transaction();
-  // Adding up all the above instructions
-  transaction.add(createAccountIx);
+	const transaction = new Transaction();
+	// Adding up all the above instructions
+	transaction.add(createAccountIx);
 
-  const txHash = await sendAndConfirmTransaction(connection, transaction, [
-    PAYER_KEYPAIR,
-    GENERAL_STATE_KEYPAIR,
-  ]);
+	const txHash = await sendAndConfirmTransaction(connection, transaction, [
+		PAYER_KEYPAIR,
+		GENERAL_STATE_KEYPAIR,
+	]);
 
-  console.log(`Create Account CPI Success: ${txHash}`);
+	console.log(`Create Account CPI Success: ${txHash}`);
 })();
 ```
 
@@ -667,7 +665,7 @@ async fn main() -> anyhow::Result<()> {
         CommitmentConfig::confirmed(),
     );
 
-    let program_id = pubkey!("7D5qGZWHHfnE1A2SfXu3hEKd46cmBCg2N2ro6f1797mJ");
+    let program_id = pubkey!("EWLkGVb9JLKFQjp7iuDQysyaaC3C4F1t2Kfd7EVekuMX");
 
     let payer_keypair = Keypair::new();
     let general_state_keypair = Keypair::new();
