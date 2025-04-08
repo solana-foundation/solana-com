@@ -115,7 +115,10 @@ pub fn process_instruction(
 The corresponding client instruction would be as follows. For knowing the mint
 and token creation instructions, please refer to the full code nearby.
 
-```typescript title="cpi-transfer-client.ts"
+
+<CodeTabs storage="cookbook">
+
+```typescript !! title="Legacy"
 import {
   clusterApiUrl,
   Connection,
@@ -295,6 +298,171 @@ const TOKEN_TRANSFER_AMOUNT_BUFFER = Buffer.from(
 })();
 ```
 
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    instruction::{AccountMeta, Instruction},
+    native_token::LAMPORTS_PER_SOL,
+    program_pack::Pack,
+    pubkey,
+    signature::Keypair,
+    signer::Signer,
+    system_instruction::create_account,
+    transaction::Transaction,
+};
+use spl_token::{
+    instruction::{initialize_account3, initialize_mint2, mint_to},
+    state::{Account as TokenAccunt, Mint},
+    ID as TOKEN_PROGRAM_ID,
+};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let program_id = pubkey!("7D5qGZWHHfnE1A2SfXu3hEKd46cmBCg2N2ro6f1797mJ");
+
+    // users
+    let source_keypair = Keypair::new();
+    let destination_keypair = Keypair::new();
+
+    // mint and token accounts
+    let mint_account = Keypair::new();
+    let source_token_account = Keypair::new();
+    let destination_token_account = Keypair::new();
+
+    // numbers
+    let default_token_decimals: u8 = 9;
+    let token_transfer_amount: u64 = 50
+        * 10_u64
+            .checked_pow(default_token_decimals as u32)
+            .unwrap_or_default();
+
+    let mint_account_len = Mint::LEN;
+    let mint_account_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_account_len)
+        .await?;
+
+    let token_account_len = TokenAccunt::LEN;
+    let token_account_rent = client
+        .get_minimum_balance_for_rent_exemption(token_account_len)
+        .await?;
+
+    // ixs
+    let create_mint_ix = create_account(
+        &source_keypair.pubkey(),
+        &mint_account.pubkey(),
+        mint_account_rent,
+        mint_account_len as u64,
+        &TOKEN_PROGRAM_ID,
+    );
+
+    let initialize_mint_ix = initialize_mint2(
+        &TOKEN_PROGRAM_ID,
+        &mint_account.pubkey(),
+        &source_keypair.pubkey(),
+        Some(&source_keypair.pubkey()),
+        default_token_decimals,
+    )?;
+
+    let create_source_token_account_ix = create_account(
+        &source_keypair.pubkey(),
+        &source_token_account.pubkey(),
+        token_account_rent,
+        token_account_len as u64,
+        &TOKEN_PROGRAM_ID,
+    );
+
+    let initiliaze_source_token_account_ix = initialize_account3(
+        &TOKEN_PROGRAM_ID,
+        &source_token_account.pubkey(),
+        &mint_account.pubkey(),
+        &source_keypair.pubkey(),
+    )?;
+
+    let mint_tokens_ix = mint_to(
+        &TOKEN_PROGRAM_ID,
+        &mint_account.pubkey(),
+        &source_token_account.pubkey(),
+        &source_keypair.pubkey(),
+        &[&source_keypair.pubkey(), &mint_account.pubkey()],
+        token_transfer_amount,
+    )?;
+
+    let create_destination_token_account_ix = create_account(
+        &source_keypair.pubkey(), // source keypair is being used to pay the fees for the acc creation
+        &destination_token_account.pubkey(),
+        token_account_rent,
+        token_account_len as u64,
+        &TOKEN_PROGRAM_ID,
+    );
+
+    let initiliaze_destination_token_account_ix = initialize_account3(
+        &TOKEN_PROGRAM_ID,
+        &destination_token_account.pubkey(),
+        &mint_account.pubkey(),
+        &destination_keypair.pubkey(),
+    )?;
+
+    // Our program's CPI instruction (transfer)
+    let ix_data = token_transfer_amount.to_le_bytes();
+    let accounts = vec![
+        AccountMeta::new(source_token_account.pubkey(), false),
+        AccountMeta::new(destination_token_account.pubkey(), false),
+        AccountMeta::new(source_keypair.pubkey(), true),
+        AccountMeta::new(TOKEN_PROGRAM_ID, false),
+    ];
+
+    let transfer_tokens_ix = Instruction::new_with_bytes(program_id, &ix_data, accounts);
+
+    let transaction_signature = client
+        .request_airdrop(&source_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        if client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    let mut transaction = Transaction::new_with_payer(
+        &[
+            create_mint_ix,
+            initialize_mint_ix,
+            create_source_token_account_ix,
+            initiliaze_source_token_account_ix,
+            mint_tokens_ix,
+            create_destination_token_account_ix,
+            initiliaze_destination_token_account_ix,
+            transfer_tokens_ix,
+        ],
+        Some(&source_keypair.pubkey()),
+    );
+
+    transaction.sign(
+        &[
+            &source_keypair,
+            &mint_account,
+            &source_token_account,
+            &destination_token_account,
+        ],
+        client.get_latest_blockhash().await?,
+    );
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error sending transaction: {}", err),
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
 Now let's take a look at another example, which is
 `System Program's create_account` instruction. There is a slight difference
 between the above mentioned instruction and this. There, we never had to pass
@@ -401,7 +569,9 @@ pub fn process_instruction(
 
 The respective client side code will look as follows
 
-```typescript title="cpi-create-account-client.ts"
+<CodeTabs storage="cookbook">
+
+```typescript !! title="Legacy"
 import { clusterApiUrl, Connection, Keypair } from "@solana/web3.js";
 import { LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
 import {
@@ -476,3 +646,66 @@ const ACCOUNT_SPACE_BUFFER = Buffer.from(
   console.log(`Create Account CPI Success: ${txHash}`);
 })();
 ```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    instruction::{AccountMeta, Instruction},
+    native_token::LAMPORTS_PER_SOL,
+    pubkey,
+    signature::Keypair,
+    signer::Signer,
+    system_program::ID as SYSTEM_PROGRAM_ID,
+    transaction::Transaction,
+};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let program_id = pubkey!("7D5qGZWHHfnE1A2SfXu3hEKd46cmBCg2N2ro6f1797mJ");
+
+    let payer_keypair = Keypair::new();
+    let general_state_keypair = Keypair::new();
+    let general_state_account_length = 100_u64;
+
+    let ix_data = general_state_account_length.to_le_bytes();
+    let accounts = vec![
+        AccountMeta::new(payer_keypair.pubkey(), true),
+        AccountMeta::new(general_state_keypair.pubkey(), true),
+        AccountMeta::new(SYSTEM_PROGRAM_ID, false),
+    ];
+
+    let create_account_ix = Instruction::new_with_bytes(program_id, &ix_data, accounts);
+
+    let transaction_signature = client
+        .request_airdrop(&payer_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        if client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    let mut transaction =
+        Transaction::new_with_payer(&[create_account_ix], Some(&payer_keypair.pubkey()));
+
+    transaction.sign(
+        &[&payer_keypair, &general_state_keypair],
+        client.get_latest_blockhash().await?,
+    );
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error sending transaction: {}", err),
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
