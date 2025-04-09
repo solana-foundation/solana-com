@@ -340,10 +340,13 @@ async function getCurlTab(codeblock: RawCode) {
   );
   const json = highlighted.code;
 
-  // extract the params from annotated lines
+  // add any single line hover as a request param option
   const lines = highlighted.code.split(/\r?\n/);
   const params = highlighted.annotations
-    .filter((a) => a.name == "param")
+    .filter(
+      (a: BlockAnnotation) =>
+        a.name == "hover" && a.fromLineNumber === a.toLineNumber,
+    )
     .map((a: BlockAnnotation) => {
       let line = lines[a.fromLineNumber - 1];
       // remove potential trailing commas
@@ -352,6 +355,15 @@ async function getCurlTab(codeblock: RawCode) {
       a.data = { name: param.name };
       return param;
     });
+  params.forEach((param) => {
+    highlighted.annotations.push({
+      name: "param",
+      query: "",
+      fromLineNumber: param.lineNumber,
+      toLineNumber: param.lineNumber,
+      data: { name: param.name },
+    });
+  });
 
   // add the cURL command
   const prefix = [

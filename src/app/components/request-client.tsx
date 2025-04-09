@@ -101,7 +101,11 @@ function ParamInput({
   const [text, setText] = useState(value);
   return (
     <div className="flex items-center gap-4">
-      <Label htmlFor={param.name} className="w-[80px]">
+      <Label
+        htmlFor={param.name}
+        className="w-[100px] truncate"
+        title={param.name}
+      >
         {param.name}
       </Label>
       <Input
