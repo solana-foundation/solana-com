@@ -6,7 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -15,6 +15,22 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { CustomTokenWithAnnotation, InnerToken } from "codehike/code";
+
+type Param = {
+  name: string;
+  value: string;
+  type: string;
+  lineNumber: number;
+};
+
+type RequestClientContextType = {
+  values: Record<string, string>;
+  params: Param[];
+  setValue: (_name: string, _value: string) => void;
+};
 
 const servers = [
   "https://api.devnet.solana.com",
@@ -22,17 +38,97 @@ const servers = [
   "https://api.mainnet-beta.solana.com",
 ];
 
-export function RequestClient({ json }: { json: string }) {
+const RequestClientContext = createContext<
+  RequestClientContextType | undefined
+>(undefined);
+
+export function RequestClientProvider({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Param[];
+}) {
+  const [values, setValues] = useState<Record<string, string>>(
+    Object.fromEntries(params.map((p) => [p.name, String(p.value)])),
+  );
+
+  function setValue(name: string, value: string) {
+    setValues((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  }
+
+  return (
+    <RequestClientContext.Provider value={{ values, setValue, params }}>
+      {children}
+    </RequestClientContext.Provider>
+  );
+}
+
+function useRequestClient() {
+  const context = useContext(RequestClientContext);
+  if (context === undefined) {
+    throw new Error(
+      "useRequestClient must be used within a RequestClientProvider",
+    );
+  }
+  return context;
+}
+
+export function useRequestParam(name: string): { param: Param; value: string } {
+  const { values, params } = useRequestClient();
+  const param = params.find((p) => p.name === name);
+  if (!param) {
+    throw new Error(`Parameter ${name} not found in RequestClientProvider`);
+  }
+  return {
+    param,
+    value: values[name],
+  };
+}
+
+function ParamInput({
+  param,
+  value,
+  onChange,
+}: {
+  param: Param;
+  value: string;
+  onChange: (_: string) => void;
+}) {
+  const [text, setText] = useState(value);
+  return (
+    <div className="flex items-center gap-4">
+      <Label htmlFor={param.name} className="w-[80px]">
+        {param.name}
+      </Label>
+      <Input
+        id={param.name}
+        type={param.type === "number" ? "number" : "text"}
+        value={param.type === "number" ? Number(text) : text}
+        className="flex-1 max-w-lg h-8"
+        onChange={(e) => setText(e.target.value)}
+        onBlur={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+export function RequestClientContent({ json }: { json: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [response, setResponse] = useState<string | null>("");
-  const [server, setServer] = useState(servers[0]);
+
+  const { values, setValue, params } = useRequestClient();
 
   const sendRequest = async () => {
+    let body = fillParamsInJSON(json, params, values);
     setResponse(null);
-    const response = await fetch(server, {
+    const response = await fetch(values["SERVER"], {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: json,
+      body,
     });
     const data = await response.json();
     setResponse(JSON.stringify(data, null, 2));
@@ -55,8 +151,23 @@ export function RequestClient({ json }: { json: string }) {
         />
       </CollapsibleTrigger>
       <CollapsibleContent>
+        <div className="grid gap-2 px-4 [&:not(:empty)]:py-2">
+          {params
+            .filter((p) => p.name !== "SERVER")
+            .map((param) => (
+              <ParamInput
+                key={param.name}
+                param={param}
+                value={values[param.name]}
+                onChange={(value) => setValue(param.name, value)}
+              />
+            ))}
+        </div>
         <div className="p-2 gap-2 flex">
-          <Select value={server} onValueChange={setServer}>
+          <Select
+            value={values["SERVER"]}
+            onValueChange={(value) => setValue("SERVER", value)}
+          >
             <SelectTrigger className="min-w-0">
               <SelectValue placeholder="Select a server" />
             </SelectTrigger>
@@ -92,4 +203,39 @@ export function RequestClient({ json }: { json: string }) {
       </CollapsibleContent>
     </Collapsible>
   );
+}
+
+export const ParamToken: CustomTokenWithAnnotation = ({
+  annotation,
+  ...props
+}) => {
+  const paramName = annotation.data.name;
+  const { param, value } = useRequestParam(paramName);
+  const matches = props.value.match(/^(['"]?)(.+?)\1$/);
+  const quote = matches?.[1] || "";
+  const tokenValue = matches?.[2] || props.value;
+  const defaultValue = String(param.value);
+  const currentValue = String(value);
+  const showValue =
+    tokenValue === defaultValue
+      ? `${quote}${currentValue}${quote}`
+      : props.value;
+  return <InnerToken merge={{ ...props, value: showValue }} />;
+};
+
+function fillParamsInJSON(
+  json: string,
+  params: Param[],
+  values: Record<string, string>,
+) {
+  const lines = json.split("\n");
+  params
+    .filter((p) => p.name !== "SERVER")
+    .forEach((param) => {
+      lines[param.lineNumber - 1] = lines[param.lineNumber - 1].replace(
+        `${param.value}`,
+        values[param.name],
+      );
+    });
+  return lines.join("\n");
 }

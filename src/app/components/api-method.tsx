@@ -11,12 +11,14 @@ import { ChevronDown } from "lucide-react";
 import { Hoverable, HoverBlock, HoverProvider } from "./code/hover.client";
 import {
   AnnotationHandler,
+  BlockAnnotation,
   highlight,
   InnerLine,
   Pre,
   RawCode,
+  Token,
 } from "codehike/code";
-import { theme } from "./code/code-group";
+import { CodeGroup, theme } from "./code/code-group";
 import { CodeIcon } from "./code/code-icon";
 import { mark } from "./code/mark";
 import { collapse } from "./code/collapse";
@@ -26,7 +28,11 @@ import {
   SelectionProvider,
 } from "codehike/utils/selection";
 import { tokenTransitions } from "./code/token-transitions";
-import { RequestClient } from "./request-client";
+import {
+  ParamToken,
+  RequestClientContent,
+  RequestClientProvider,
+} from "./request-client";
 import { MultiCode } from "./code/code.client";
 
 const BaseParamSchema = Block.extend({
@@ -296,6 +302,7 @@ const hover: AnnotationHandler = {
   Block: HoverBlock,
 };
 
+// add $ and > to the start of the lines
 const curlHandler: AnnotationHandler = {
   name: "curl",
   Line: ({ annotation: _, ...props }) => {
@@ -316,69 +323,111 @@ const curlHandler: AnnotationHandler = {
   },
 };
 
+const paramHandler: AnnotationHandler = {
+  name: "param",
+  AnnotatedToken: ParamToken,
+};
+
+async function getCurlTab(codeblock: RawCode) {
+  // highlight the JSON object
+  const indentedValue = codeblock.value
+    .split("\n")
+    .map((line) => "  " + line)
+    .join("\n");
+  const highlighted = await highlight(
+    { ...codeblock, value: indentedValue },
+    theme,
+  );
+  const json = highlighted.code;
+
+  // extract the params from annotated lines
+  const lines = highlighted.code.split(/\r?\n/);
+  const params = highlighted.annotations
+    .filter((a) => a.name == "param")
+    .map((a: BlockAnnotation) => {
+      let line = lines[a.fromLineNumber - 1];
+      // remove potential trailing commas
+      line = line.trim().replace(/,$/, "");
+      const param = parseLineToParam(line, a);
+      a.data = { name: param.name };
+      return param;
+    });
+
+  // add the cURL command
+  const prefix = [
+    `curl `,
+    [`https://api.devnet.solana.com`],
+    ` -s -X \\\n  POST -H "Content-Type: application/json" -d ' `,
+    `\n`,
+  ] as Token[];
+  const suffix = `\n'`;
+  highlighted.code = prefix.join("") + highlighted.code + suffix;
+  highlighted.tokens = [...prefix, ...highlighted.tokens, suffix];
+  highlighted.annotations.forEach((annotation) => {
+    if ("fromLineNumber" in annotation) {
+      annotation.fromLineNumber += 2;
+      annotation.toLineNumber += 2;
+    }
+  });
+
+  // add the SERVER param and annotation
+  highlighted.annotations.unshift({
+    name: "param",
+    query: "SERVER",
+    fromLineNumber: 1,
+    toLineNumber: 1,
+    data: { name: "SERVER" },
+  });
+  params.push({
+    name: "SERVER",
+    value: "https://api.devnet.solana.com",
+    type: "string",
+    lineNumber: 1,
+  });
+
+  const handlers = [mark, ...collapse, hover, curlHandler, paramHandler];
+  return {
+    options: {},
+    title: "cURL",
+    style: highlighted.style,
+    code: highlighted.code,
+    icon: <CodeIcon title="Request" lang="sh" />,
+    pre: (
+      <RequestClientProvider params={params}>
+        <Pre
+          code={highlighted}
+          className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono text-sm"
+          handlers={handlers}
+        />
+        <RequestClientContent json={json} />
+      </RequestClientProvider>
+    ),
+  };
+}
+
 async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
   const [codeblock, ...rest] = codeblocks;
   const withClient = codeblock.meta.includes("with-client");
 
-  const highlighted = await highlight(
-    withClient
-      ? {
-          ...codeblock,
-          value: codeblock.value
-            .split("\n")
-            .map((line) => "  " + line)
-            .join("\n"),
-        }
-      : codeblock,
-    theme,
-  );
+  let group: CodeGroup | null = null;
 
-  const handlers = [mark, ...collapse, hover];
-  const json = highlighted.code;
   if (withClient) {
-    handlers.push(curlHandler);
-    const prefix = `curl https://api.devnet.solana.com -s -X \\\n  POST -H "Content-Type: application/json" -d ' \n`;
-    const suffix = `\n'`;
-    highlighted.tokens.unshift(prefix);
-    highlighted.tokens.push(suffix);
-    highlighted.annotations.forEach((annotation) => {
-      if ("fromLineNumber" in annotation) {
-        annotation.fromLineNumber += 2;
-        annotation.toLineNumber += 2;
-      }
-    });
-    highlighted.code = prefix + highlighted.code + suffix;
+    group = await toCodeGroup({ codeblocks: rest, handlers: [hover] });
+    const curlTab = await getCurlTab(codeblock);
+    group.tabs.unshift(curlTab);
+  } else {
+    group = await toCodeGroup({ codeblocks, handlers: [hover] });
   }
-
-  const curlTab = {
-    options: {},
-    title: rest.length ? "cURL" : "Request",
-    style: highlighted.style,
-    code: highlighted.code,
-    icon: <CodeIcon title="Request" lang={"sh"} />,
-    pre: (
-      <>
-        <Pre
-          code={highlighted}
-          className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
-          handlers={handlers}
-        />
-        {withClient && <RequestClient json={json} />}
-      </>
-    ),
-  };
 
   if (!rest.length) {
     return (
       <SingleCode
-        group={{ tabs: [curlTab], options: {} }}
+        group={group}
         className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0"
       />
     );
   }
 
-  const group = await toCodeGroup({ codeblocks: rest, handlers: [hover] });
-  group.tabs.unshift(curlTab);
   return <MultiCode group={group} className="flex-1 min-h-0 my-0" />;
 }
 
@@ -429,4 +478,23 @@ function Pill({
       {value}
     </span>
   );
+}
+
+// turns an annotated line of JSON into a Param
+function parseLineToParam(line: string, annotation: BlockAnnotation) {
+  let value = null;
+  let name = annotation.query;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    const obj = JSON.parse(`{${line}}`);
+    name = Object.keys(obj)[0];
+    value = obj[name];
+  }
+  return {
+    name,
+    value,
+    type: typeof value,
+    lineNumber: annotation.fromLineNumber,
+  };
 }
