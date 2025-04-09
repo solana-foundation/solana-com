@@ -407,7 +407,7 @@ async function getCurlTab(codeblock: RawCode) {
 
 async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
   const [codeblock, ...rest] = codeblocks;
-  const withClient = codeblock.meta.includes("with-client");
+  const withClient = codeblock.meta.includes("curl");
 
   let group: CodeGroup | null = null;
 
