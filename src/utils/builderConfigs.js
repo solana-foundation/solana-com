@@ -1707,10 +1707,30 @@ export const AccelerateHeroConfig = {
 /**
  * @type {import('@builder.io/react').RegisteredComponent}
  */
+export const AccelerateLinkButtonConfig = {
+  name: "Accelerate Link Button",
+  noWrap: true,
+  inputs: [
+    {
+      name: "label",
+      type: "string",
+      defaultValue: "Link",
+      localized: true,
+      required: true,
+    },
+    { name: "url", type: "url", required: true },
+  ],
+};
 export const AccelerateApplyButtonConfig = {
   name: "Accelerate Apply Button",
   noWrap: true,
   inputs: [
+    {
+      name: "type",
+      type: "enum",
+      required: true,
+      enum: ["mix", "red", "blue"],
+    },
     {
       name: "label",
       type: "string",
@@ -1719,6 +1739,7 @@ export const AccelerateApplyButtonConfig = {
       required: true,
     },
     { name: "url", type: "url", required: true },
+    { name: "newTab", type: "boolean", defaultValue: false },
   ],
 };
 
