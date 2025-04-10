@@ -31,7 +31,6 @@ export const AccelerateStories: FC<{ urls: { url: string }[] }> = ({
       },
     ],
   };
-  console.log(urls);
 
   return (
     <div className={styles.container}>
