@@ -11,6 +11,8 @@ import {
   AccelerateSpeakersConfig,
   AccelerateHeroConfig,
   AccelerateApplyButtonConfig,
+  AccelerateAccordionConfig,
+  AccelerateLinkButtonConfig,
   AccelerateInfoItemConfig,
   AccelerateStoriesConfig,
   ButtonConfig,
@@ -131,6 +133,14 @@ const accelerateDataModels = [
     ),
     config: AccelerateStoriesConfig,
   },
+  {    
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateAccordion").then(
+        (lib) => lib.AccelerateAccordion,
+      ),
+    ),
+    config: AccelerateAccordionConfig,
+  },
   {
     component: dynamic(() =>
       import("../components/accelerate/AccelerateSpeakers").then(
@@ -156,6 +166,14 @@ const accelerateDataModels = [
       ),
     ),
     config: AccelerateApplyButtonConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateLinkButton").then(
+        (lib) => lib.AccelerateLinkButton,
+      ),
+    ),
+    config: AccelerateLinkButtonConfig,
   },
   {
     component: dynamic(() =>
