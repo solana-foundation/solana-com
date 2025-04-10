@@ -30,6 +30,7 @@ type RequestClientContextType = {
   values: Record<string, string>;
   params: Param[];
   setValue: (_name: string, _value: string) => void;
+  body: string;
 };
 
 const servers = [
@@ -45,9 +46,11 @@ const RequestClientContext = createContext<
 export function RequestClientProvider({
   children,
   params,
+  json,
 }: {
   children: React.ReactNode;
   params: Param[];
+  json: string;
 }) {
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(params.map((p) => [p.name, String(p.value)])),
@@ -60,8 +63,10 @@ export function RequestClientProvider({
     }));
   }
 
+  const body = fillParamsInJSON(json, params, values);
+
   return (
-    <RequestClientContext.Provider value={{ values, setValue, params }}>
+    <RequestClientContext.Provider value={{ values, setValue, params, body }}>
       {children}
     </RequestClientContext.Provider>
   );
@@ -120,14 +125,13 @@ function ParamInput({
   );
 }
 
-export function RequestClientContent({ json }: { json: string }) {
+export function RequestClientContent() {
   const [isOpen, setIsOpen] = useState(false);
   const [response, setResponse] = useState<string | null>("");
 
-  const { values, setValue, params } = useRequestClient();
+  const { values, setValue, params, body } = useRequestClient();
 
   const sendRequest = async () => {
-    let body = fillParamsInJSON(json, params, values);
     setResponse(null);
     const response = await fetch(values["SERVER"], {
       method: "POST",

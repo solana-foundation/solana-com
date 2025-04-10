@@ -302,7 +302,7 @@ const hover: AnnotationHandler = {
   Block: HoverBlock,
 };
 
-// add $ and > to the start of the lines
+// add $ and > to the start of the lines to make it look like a shell command
 const curlHandler: AnnotationHandler = {
   name: "curl",
   Line: ({ annotation: _, ...props }) => {
@@ -405,13 +405,13 @@ async function getCurlTab(codeblock: RawCode) {
     code: highlighted.code,
     icon: <CodeIcon title="Request" lang="sh" />,
     pre: (
-      <RequestClientProvider params={params}>
+      <RequestClientProvider params={params} json={json}>
         <Pre
           code={highlighted}
           className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono text-sm"
           handlers={handlers}
         />
-        <RequestClientContent json={json} />
+        <RequestClientContent />
       </RequestClientProvider>
     ),
   };
