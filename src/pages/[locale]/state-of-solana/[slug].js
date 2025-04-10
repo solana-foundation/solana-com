@@ -10,10 +10,11 @@ import styles from "./state-of-solana.module.scss";
 import Image from "next/image";
 import classNames from "classnames";
 import Header from "../../../components/Header";
+import Head from "next/head";
 
 const pageTitle = "State of Solana";
 
-const TLDashboards = dynamic(async () => import("tl-dashboards"), {
+const TLDashboards = dynamic(() => import("tl-dashboards"), {
   loading: () => (
     <div className={styles.dashboardLoader}>
       <Loader />
