@@ -12,6 +12,7 @@ import {
   AccelerateHeroConfig,
   AccelerateApplyButtonConfig,
   AccelerateAccordionConfig,
+  AccelerateLinkButtonConfig,
   AccelerateInfoItemConfig,
   ButtonConfig,
   CardDeckConfig,
@@ -156,6 +157,14 @@ const accelerateDataModels = [
       ),
     ),
     config: AccelerateApplyButtonConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateLinkButton").then(
+        (lib) => lib.AccelerateLinkButton,
+      ),
+    ),
+    config: AccelerateLinkButtonConfig,
   },
   {
     component: dynamic(() =>
