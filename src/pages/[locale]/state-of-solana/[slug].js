@@ -10,7 +10,6 @@ import styles from "./state-of-solana.module.scss";
 import Image from "next/image";
 import classNames from "classnames";
 import Header from "../../../components/Header";
-import Head from "next/head";
 
 const pageTitle = "State of Solana";
 
