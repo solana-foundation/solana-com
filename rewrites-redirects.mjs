@@ -759,5 +759,9 @@ export default {
       source: "/docs/terminology",
       destination: "/docs/references/terminology",
     },
+    {
+      source: "/docs/core/tokens",
+      destination: "/docs/tokens",
+    },
   ],
 };
