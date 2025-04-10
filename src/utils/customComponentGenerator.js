@@ -133,7 +133,7 @@ const accelerateDataModels = [
     ),
     config: AccelerateStoriesConfig,
   },
-  {    
+  {
     component: dynamic(() =>
       import("../components/accelerate/AccelerateAccordion").then(
         (lib) => lib.AccelerateAccordion,
