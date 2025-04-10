@@ -1,6 +1,7 @@
 import { defineConfig, defineDocs } from "fs-mdx/config";
+import { recmaCodeHike, remarkCodeHike } from "codehike/mdx";
+
 import { z } from "zod";
-import { remarkCodeHike, recmaCodeHike } from "codehike/mdx";
 
 const schema = z.custom<{
   title: string;
