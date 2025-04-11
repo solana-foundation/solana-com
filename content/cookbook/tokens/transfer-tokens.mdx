@@ -199,6 +199,93 @@ import {
 })();
 ```
 
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, instruction::Instruction, pubkey, pubkey::Pubkey,
+    signature::Keypair, signer::Signer, transaction::Transaction,
+};
+use spl_associated_token_account::{
+    get_associated_token_address, instruction::create_associated_token_account_idempotent,
+};
+use spl_token::{instruction::transfer_checked as spl_transfer_checked, ID as TOKEN_PROGRAM_ID};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("https://api.devnet.solana.com"),
+        CommitmentConfig::confirmed(),
+    );
+
+    // G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
+    let authority_keypair = Keypair::from_base58_string(
+        "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp",
+    );
+    let receiver_keypair = Keypair::new();
+
+    let mint_address = pubkey!("2SKpuBU9ksneBZD4nqbZkw75NE11HsSHsGRtW2BZh5aQ");
+    let authority_token_acc =
+        get_associated_token_address(&authority_keypair.pubkey(), &mint_address);
+    let receiver_token_acc =
+        get_associated_token_address(&receiver_keypair.pubkey(), &mint_address);
+
+    let mint_decimals = client
+        .get_token_account_balance(&authority_token_acc)
+        .await?
+        .decimals;
+    let amount_to_transfer = 1 * 10_u64.checked_pow(mint_decimals as u32).unwrap(); // 1 token
+
+    let create_ata_ix = create_token_account_if_not_exist_ix(
+        &receiver_keypair.pubkey(),
+        &mint_address,
+        &Some(&authority_keypair.pubkey()),
+    )
+    .await?;
+
+    let transfer_ix = spl_transfer_checked(
+        &TOKEN_PROGRAM_ID,
+        &authority_token_acc,
+        &mint_address,
+        &receiver_token_acc,
+        &authority_keypair.pubkey(),
+        &[&authority_keypair.pubkey()],
+        amount_to_transfer,
+        mint_decimals,
+    )?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[create_ata_ix, transfer_ix],
+        Some(&authority_keypair.pubkey()),
+    );
+
+    transaction.sign(&[&authority_keypair], client.get_latest_blockhash().await?);
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error sending transaction: {}", err),
+    }
+
+    Ok(())
+}
+
+async fn create_token_account_if_not_exist_ix(
+    authority: &Pubkey,
+    mint: &Pubkey,
+    payer: &Option<&Pubkey>,
+) -> anyhow::Result<Instruction> {
+    let payer = payer.unwrap_or(authority);
+
+    let create_ata_ix = create_associated_token_account_idempotent(
+        payer, // payer
+        authority,
+        mint,
+        &TOKEN_PROGRAM_ID,
+    );
+
+    Ok(create_ata_ix)
+}
+```
+
 </CodeTabs>
 
 [1]: https://spl.solana.com/token
