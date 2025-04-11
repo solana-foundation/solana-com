@@ -75,7 +75,7 @@ const Pagination = ({
   const firstIndex = 1 + (humanPageNumber - 1) * postsPerPage;
   const lastIndex = postsInThisPage + (humanPageNumber - 1) * postsPerPage;
 
-  const seperatorClassname = disableSeperatorMargin
+  const separatorClassname = disableSeperatorMargin
     ? "separator"
     : "seperator mt-10";
 
@@ -83,7 +83,7 @@ const Pagination = ({
 
   return (
     <StyledPagination>
-      <div role="separator" className={seperatorClassname} />
+      <div role="separator" className={separatorClassname} />
       <nav
         className="d-md-flex justify-content-between pt-4 pb-10 text-white"
         role="navigation"

@@ -4,13 +4,14 @@ import {
   DocsTitle,
   DocsPageProps,
 } from "fumadocs-ui/page";
-import { JSX, ReactNode } from "react";
+import { ReactNode } from "react";
 import { ScrollToTop } from "./scroll-to-top";
 import { EditOnGithub } from "./edit-page";
 import { DocsFooter } from "./docs-footer";
 import { findNeighbour } from "fumadocs-core/server";
+import { Rate } from "./rate";
+import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
-import GiscusWidget from "./giscus";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -22,7 +23,6 @@ export function DocsPage(props: {
   pageTree?: any;
   href: string;
   lastModified?: Date;
-  locale: string;
 }) {
   const path = props.filePath;
   const href = `https://github.com/solana-foundation/solana-com/blob/main/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
@@ -48,13 +48,7 @@ export function DocsPage(props: {
         enabled: !props.hideTableOfContents,
       }}
       footer={{
-        component: (
-          <Footer
-            pageUrl={props.href}
-            pageTree={props.pageTree}
-            locale={props.locale}
-          />
-        ),
+        component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
       }}
       lastUpdate={props.lastModified}
     >
@@ -67,25 +61,13 @@ export function DocsPage(props: {
         </Link>
       </DocsTitle>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
+      <Rate onRateAction={onRateAction} />
     </FumaDocsPage>
   );
 }
 
-function Footer({
-  pageUrl,
-  pageTree,
-  locale,
-}: {
-  pageUrl: string;
-  pageTree: any;
-  locale: string;
-}) {
+function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
   let { next, previous } = findNeighbour(pageTree, pageUrl);
-  let docsFooter: JSX.Element | null;
-
-  // Remove the locale from the page URL
-  // Prevents giscus from creating a separate discussion for each locale
-  const discussionKey = removeLocale(pageUrl, locale);
 
   if (!previous && !next) {
     // we are at the root (which isn't part of the page tree)
@@ -94,26 +76,7 @@ function Footer({
       firstPage = firstPage.index || firstPage.children[0];
     }
     if (!firstPage) return null;
-    docsFooter = <DocsFooter next={firstPage} previous={undefined} />;
-  } else {
-    docsFooter = <DocsFooter previous={previous} next={next} />;
+    return <DocsFooter next={firstPage} previous={undefined} />;
   }
-
-  return (
-    <>
-      {!(
-        pageUrl.includes("/docs/rpc") ||
-        pageUrl.includes("/developers/cookbook")
-      ) && <GiscusWidget discussionKey={discussionKey} />}
-      {docsFooter}
-    </>
-  );
-}
-
-// Remove locale and leading '/' from the path
-// Example:
-// From: "/en/docs"
-// To: "docs"
-function removeLocale(path: string, locale: string): string {
-  return path.replace(new RegExp(`^\\/?(?:${locale}(?:\\/)?){0,1}`), "");
+  return <DocsFooter previous={previous} next={next} />;
 }

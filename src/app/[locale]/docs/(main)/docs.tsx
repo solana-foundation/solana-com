@@ -3,6 +3,7 @@ import { DocsPage } from "@/app/components/docs-page";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/app/mdx-components";
 import { getMdxMetadata } from "@/app/metadata";
+import { DocsCategory } from "fumadocs-ui/page";
 
 export async function MainDocsPage({
   slug,
@@ -26,9 +27,11 @@ export async function MainDocsPage({
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
       lastModified={page.data.lastModified}
-      locale={locale}
     >
       <MDX components={mdxComponents} />
+      {page.data.index ? (
+        <DocsCategory page={page} from={docsSource as any} />
+      ) : null}
     </DocsPage>
   );
 }

@@ -1,4 +1,6 @@
 import { defineConfig, defineDocs } from "fs-mdx/config";
+import { recmaCodeHike, remarkCodeHike } from "codehike/mdx";
+
 import { z } from "zod";
 
 const schema = z.custom<{
@@ -12,6 +14,7 @@ const schema = z.custom<{
   tags?: string[];
   date?: string;
   difficulty?: string;
+  index?: boolean;
 }>();
 
 const docsData = defineDocs({
@@ -50,6 +53,15 @@ const guidesData = defineDocs({
 export const guides = guidesData.docs;
 export const guidesMeta = guidesData.meta;
 
+const chConfig = {
+  components: { code: "Code", inlineCode: "InlineCode" },
+};
 export default defineConfig({
   lastModifiedTime: "git",
+  mdxOptions: {
+    recmaPlugins: [[recmaCodeHike, chConfig]],
+    remarkPlugins: (v) => [[remarkCodeHike, chConfig], ...v],
+    // remove fumadocs rehype plugins
+    rehypePlugins: (v) => [],
+  },
 });

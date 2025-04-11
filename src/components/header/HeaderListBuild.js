@@ -17,7 +17,6 @@ const HeaderListBuild = () => {
           <Link
             to="/docs"
             className="nav-link nav-link--secondary"
-            partiallyActive
             activeClassName="active"
           >
             <strong className="d-block text-white">
@@ -26,14 +25,14 @@ const HeaderListBuild = () => {
             {t("nav.developers.items.docs.description")}
           </Link>
           <Link
-            to="/developers/courses"
+            to="/docs/rpc"
             className="nav-link nav-link--secondary"
             activeClassName="active"
           >
             <strong className="d-block text-white">
-              {t("nav.developers.items.courses.title")}
+              {t("nav.developers.items.api.title")}
             </strong>
-            {t("nav.developers.items.courses.description")}
+            {t("nav.developers.items.api.description")}
           </Link>
           <Link
             to="/developers/cookbook"

@@ -11,93 +11,58 @@ access to write to its data or transfer lamports. When creating an account, we
 have to preallocate a fixed storage space in bytes (space) and enough lamports
 to cover the rent.
 
-<Tabs groupId="language" items={['web3.js v2', 'web3.js v1']}>
+<CodeTabs storage="cookbook">
 
-<Tab value="web3.js v2">
-
-```typescript title="create-account.ts"
+```typescript !! title="gill"
 import {
-  pipe,
-  createSolanaRpc,
-  appendTransactionMessageInstructions,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
+  createTransaction,
+  createSolanaClient,
   signTransactionMessageWithSigners,
-} from "@solana/web3.js";
-import { getSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+  getMinimumBalanceForRentExemption,
+  generateKeyPairSigner,
+} from "gill";
+import { loadKeypairSignerFromFile } from "gill/node";
 import {
   getCreateAccountInstruction,
   SYSTEM_PROGRAM_ADDRESS,
-} from "@solana-program/system";
+} from "gill/programs";
 
-const rpc = createSolanaRpc("https://api.devnet.solana.com");
-const rpcSubscriptions = createSolanaRpcSubscriptions(
-  "wss://api.devnet.solana.com",
-);
-
-const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
-  rpc,
-  rpcSubscriptions,
+const { rpc, sendAndConfirmTransaction } = createSolanaClient({
+  urlOrMoniker: "devnet",
 });
-
-const space = 0n; // any extra space in the account
-const rentLamports = await rpc.getMinimumBalanceForRentExemption(space).send();
-console.log("Minimum balance for rent exception:", rentLamports);
-
-// todo: load your own signer with SOL
-const signer = await generateKeyPairSigner();
-
-// generate a new keypair and address to create
-const newAccountKeypair = await generateKeyPairSigner();
-console.log("New account address:", newAccountKeypair.address);
 
 const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 
-const transactionMessage = pipe(
-  createTransactionMessage({ version: "legacy" }),
-  tx => setTransactionMessageFeePayerSigner(signer, tx),
-  tx => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  tx =>
-    appendTransactionMessageInstructions(
-      [
-        // add a priority fee
-        getSetComputeUnitPriceInstruction({
-          microLamports: 200_000,
-        }),
-        // create the new account
-        getCreateAccountInstruction({
-          lamports: rentLamports,
-          newAccount: newAccountKeypair,
-          payer: signer,
-          space: space,
-          // "wallet" accounts are owned by the system program
-          programAddress: SYSTEM_PROGRAM_ADDRESS,
-        }),
-      ],
-      tx,
-    ),
-);
+const signer = await loadKeypairSignerFromFile();
 
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-const signature = getSignatureFromTransaction(signedTransaction);
+const newAccount = await generateKeyPairSigner();
 
-await sendAndConfirmTransaction(signedTransaction, {
-  commitment: "confirmed",
+const space = 0n; // any extra space in the account
+
+const rentLamports = getMinimumBalanceForRentExemption(space);
+// const rentLamports = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+const tx = createTransaction({
+  version: "legacy",
+  feePayer: signer,
+  instructions: [
+    getCreateAccountInstruction({
+      lamports: rentLamports,
+      newAccount: newAccount,
+      payer: signer,
+      space: space,
+      // "wallet" accounts are owned by the system program
+      programAddress: SYSTEM_PROGRAM_ADDRESS,
+    }),
+  ],
+  latestBlockhash,
 });
-console.log("Signature:", signature);
+
+const signedTransaction = await signTransactionMessageWithSigners(tx);
+await sendAndConfirmTransaction(signedTransaction);
 ```
 
-</Tab>
-
-<Tab value="web3.js v1">
-
-```typescript title="create-account.ts"
+```typescript !! title="Legacy"
 import {
   SystemProgram,
   Keypair,
@@ -109,11 +74,13 @@ import {
 } from "@solana/web3.js";
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
-const fromPubkey = Keypair.generate();
+
+const fromKeypair = Keypair.generate();
+const newAccount = Keypair.generate();
 
 // Airdrop SOL for transferring lamports to the created account
 const airdropSignature = await connection.requestAirdrop(
-  fromPubkey.publicKey,
+  fromKeypair.publicKey,
   LAMPORTS_PER_SOL,
 );
 await connection.confirmTransaction(airdropSignature);
@@ -122,28 +89,82 @@ await connection.confirmTransaction(airdropSignature);
 const space = 0;
 
 // Seed the created account with lamports for rent exemption
-const rentExemptionAmount =
-  await connection.getMinimumBalanceForRentExemption(space);
-
-const newAccountPubkey = Keypair.generate();
-const createAccountParams = {
-  fromPubkey: fromPubkey.publicKey,
-  newAccountPubkey: newAccountPubkey.publicKey,
-  lamports: rentExemptionAmount,
-  space,
-  programId: SystemProgram.programId,
-};
+const rentLamports = await connection.getMinimumBalanceForRentExemption(space);
 
 const createAccountTransaction = new Transaction().add(
-  SystemProgram.createAccount(createAccountParams),
+  SystemProgram.createAccount({
+    fromPubkey: fromKeypair.publicKey,
+    newAccountPubkey: newAccount.publicKey,
+    lamports: rentLamports,
+    space,
+    programId: SystemProgram.programId,
+  }),
 );
 
 await sendAndConfirmTransaction(connection, createAccountTransaction, [
-  fromPubkey,
-  newAccountPubkey,
+  fromKeypair,
+  newAccount,
 ]);
 ```
 
-</Tab>
+```rust  !! title="Rust"
 
-</Tabs>
+// !collapse(1:9) collapsed
+
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Keypair,
+    signer::Signer, system_instruction::create_account as create_account_ix,
+    system_program::ID as SYSTEM_PROGRAM_ID, transaction::Transaction,
+};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let from_keypair = Keypair::new(); // payer
+    let new_account_keypair = Keypair::new();
+    let data_len = 0;
+    let rent_exemption_amount = client
+        .get_minimum_balance_for_rent_exemption(data_len)
+        .await?;
+
+    let create_acc_ix = create_account_ix(
+        &from_keypair.pubkey(),        // payer
+        &new_account_keypair.pubkey(), // new account
+        rent_exemption_amount,         // rent exemption fee
+        data_len as u64,               // space reseved for new account
+        &SYSTEM_PROGRAM_ID,            //assigned program address
+    );
+
+// !collapse(1:9) collapsed
+
+    let transaction_signature = client
+        .request_airdrop(&from_keypair.pubkey(), 1 * LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        if client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    let mut transaction =
+        Transaction::new_with_payer(&[create_acc_ix], Some(&from_keypair.pubkey()));
+    transaction.sign(
+        &[&from_keypair, &new_account_keypair],
+        client.get_latest_blockhash().await?,
+    );
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error sending transaction: {}", err),
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>

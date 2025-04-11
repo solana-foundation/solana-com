@@ -4,10 +4,17 @@ import dynamic from "next/dynamic";
 import {
   AccordionConfig,
   AnnouncementBarConfig,
-  BreakpointCard,
-  BreakpointHero,
+  BreakpointCardConfig,
+  BreakpointHeroConfig,
   BreakpointSpeakersConfig,
   BreakpointTitleConfig,
+  AccelerateSpeakersConfig,
+  AccelerateHeroConfig,
+  AccelerateApplyButtonConfig,
+  AccelerateAccordionConfig,
+  AccelerateLinkButtonConfig,
+  AccelerateInfoItemConfig,
+  AccelerateStoriesConfig,
   ButtonConfig,
   CardDeckConfig,
   CarouselConfig,
@@ -18,8 +25,8 @@ import {
   HeadingConfig,
   HeroConfig,
   HtmlParserConfig,
-  NewsletterForm,
-  NewsletterMultipleListsForm,
+  NewsletterFormConfig,
+  NewsletterMultipleListsFormConfig,
   RichTextQuoteConfig,
   RichStatsConfig,
   SectionConfig,
@@ -35,7 +42,11 @@ import {
   YoutubeConfig,
   CodeBlockConfig,
   DetailsHeroConfig,
+  AccelerateInfoSectionConfig,
+  AccelerateAttendanceConfig,
 } from "./builderConfigs";
+
+import * as configs from "./builderConfigs";
 
 export const richTextDataModels = [
   {
@@ -85,7 +96,9 @@ export const richTextDataModels = [
 const breakpointDataModels = [
   {
     component: dynamic(() =>
-      import("@solana-foundation/solana-lib").then((lib) => lib.Speakers),
+      import("@solana-foundation/solana-lib").then(
+        (lib) => lib.BreakpointSpeakers,
+      ),
     ),
     config: BreakpointSpeakersConfig,
   },
@@ -101,13 +114,126 @@ const breakpointDataModels = [
     component: dynamic(() =>
       import("@solana-foundation/solana-lib").then((lib) => lib.BreakpointHero),
     ),
-    config: BreakpointHero,
+    config: BreakpointHeroConfig,
   },
   {
     component: dynamic(() =>
       import("@solana-foundation/solana-lib").then((lib) => lib.BreakpointCard),
     ),
-    config: BreakpointCard,
+    config: BreakpointCardConfig,
+  },
+];
+
+const accelerateDataModels = [
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateStories").then(
+        (lib) => lib.AccelerateStories,
+      ),
+    ),
+    config: AccelerateStoriesConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateAccordion").then(
+        (lib) => lib.AccelerateAccordion,
+      ),
+    ),
+    config: AccelerateAccordionConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateSpeakers").then(
+        (lib) => lib.AccelerateSpeakers,
+      ),
+    ),
+    config: AccelerateSpeakersConfig,
+  },
+  {
+    component: withChildren(
+      dynamic(() =>
+        import("../components/accelerate/AccelerateHero").then(
+          (lib) => lib.AccelerateHero,
+        ),
+      ),
+    ),
+    config: AccelerateHeroConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateApplyButton").then(
+        (lib) => lib.AccelerateApplyButton,
+      ),
+    ),
+    config: AccelerateApplyButtonConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateLinkButton").then(
+        (lib) => lib.AccelerateLinkButton,
+      ),
+    ),
+    config: AccelerateLinkButtonConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateInfoItem").then(
+        (lib) => lib.AccelerateInfoItem,
+      ),
+    ),
+    config: AccelerateInfoItemConfig,
+  },
+  {
+    component: withChildren(
+      dynamic(() =>
+        import("../components/accelerate/AccelerateInfoSection").then(
+          (lib) => lib.AccelerateInfoSection,
+        ),
+      ),
+    ),
+    config: AccelerateInfoSectionConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateAttendance").then(
+        (lib) => lib.AccelerateAttendance,
+      ),
+    ),
+    config: AccelerateAttendanceConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateSecondaryButton").then(
+        (lib) => lib.AccelerateSecondaryButton,
+      ),
+    ),
+    config: configs.AccelerateSecondaryButtonConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AccelerateEventDescription").then(
+        (lib) => lib.AccelerateEventDescription,
+      ),
+    ),
+    config: configs.AccelerateEventDescriptionConfig,
+  },
+  {
+    component: dynamic(() =>
+      import("../components/accelerate/AcceleratePricing").then(
+        (lib) => lib.AcceleratePricing,
+      ),
+    ),
+    config: configs.AcceleratePricingConfig,
+  },
+  {
+    component: withChildren(
+      dynamic(() =>
+        import("../components/accelerate/AccelerateStarContainer").then(
+          (lib) => lib.AccelerateStarContainer,
+        ),
+      ),
+    ),
+    config: configs.AccelerateStarContainerConfig,
   },
 ];
 
@@ -196,7 +322,7 @@ const componentDataModel = [
     component: dynamic(() =>
       import("@solana-foundation/solana-lib").then((lib) => lib.NewsletterForm),
     ),
-    config: NewsletterForm,
+    config: NewsletterFormConfig,
   },
   {
     component: dynamic(() =>
@@ -204,7 +330,7 @@ const componentDataModel = [
         (lib) => lib.NewsletterMultipleListsForm,
       ),
     ),
-    config: NewsletterMultipleListsForm,
+    config: NewsletterMultipleListsFormConfig,
   },
   {
     component: dynamic(() =>
@@ -264,6 +390,7 @@ const componentDataModel = [
   },
   ...richTextDataModels,
   ...breakpointDataModels,
+  ...accelerateDataModels,
 ];
 
 const customComponentsRegistration = () => {
@@ -279,6 +406,11 @@ const customComponentsRegistration = () => {
   Builder.register("insertMenu", {
     name: "Breakpoint Components",
     items: breakpointDataModels.map((model) => ({ name: model.config.name })),
+  });
+
+  Builder.register("insertMenu", {
+    name: "Accelerate Components",
+    items: accelerateDataModels.map((model) => ({ name: model.config.name })),
   });
 };
 
