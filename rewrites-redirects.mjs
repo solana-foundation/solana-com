@@ -763,5 +763,13 @@ export default {
       source: "/docs/core/tokens",
       destination: "/docs/tokens",
     },
+    {
+      source: "/developers/guides/getstarted/how-to-cpi",
+      destination: "/docs/core/cpi",
+    },
+    {
+      source: "/developers/guides/getstarted/how-to-cpi-with-signer",
+      destination: "/docs/core/cpi",
+    },
   ],
 };
