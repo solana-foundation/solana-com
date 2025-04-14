@@ -77,11 +77,18 @@ import bs58 from "bs58";
 ```rust !! title="Rust"
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, pubkey,
-    signature::Keypair, signer::Signer, transaction::Transaction,
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, program_pack::Pack,
+    signature::Keypair, signer::Signer, system_instruction::create_account,
+    transaction::Transaction,
 };
-use spl_associated_token_account::get_associated_token_address;
-use spl_token::{instruction::revoke, ID as TOKEN_PROGRAM_ID};
+use spl_associated_token_account::{
+    get_associated_token_address, instruction::create_associated_token_account_idempotent,
+};
+use spl_token::{
+    instruction::{initialize_mint2, revoke},
+    state::Mint,
+    ID as TOKEN_PROGRAM_ID,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -90,21 +97,40 @@ async fn main() -> anyhow::Result<()> {
         CommitmentConfig::confirmed(),
     );
 
-    // G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
-    let authority_keypair = Keypair::from_base58_string(
-        "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp",
-    );
+    let authority_keypair = Keypair::new(); // will also act as tx fee payer
+    let mint_account = Keypair::new();
+    let associated_token_account =
+        get_associated_token_address(&authority_keypair.pubkey(), &mint_account.pubkey());
 
-    let mint_address = pubkey!("5JgqqJ4FzvEdCAL3pek8Ycoa7eKTSrsWdNiwsiqURaty"); // replace with mint address
-    let ata_address = get_associated_token_address(&authority_keypair.pubkey(), &mint_address);
+    // Airdrop authority, create the mint account and ATA
+    setup(&client, &authority_keypair, &mint_account).await?;
 
     let revoke_delegate_ix = revoke(
         &TOKEN_PROGRAM_ID,
-        &ata_address,
+        &associated_token_account,
         &authority_keypair.pubkey(),
         &[&authority_keypair.pubkey()],
     )?;
 
+    let mut transaction =
+        Transaction::new_with_payer(&[revoke_delegate_ix], Some(&authority_keypair.pubkey()));
+
+    transaction.sign(&[&authority_keypair], client.get_latest_blockhash().await?);
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error approving delegate: {}", err),
+    }
+
+    Ok(())
+}
+
+// Helper function to airdrop, create the mint account and ATA
+async fn setup(
+    client: &RpcClient,
+    authority_keypair: &Keypair,
+    mint_account: &Keypair,
+) -> anyhow::Result<()> {
     let transaction_signature = client
         .request_airdrop(&authority_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
         .await?;
@@ -114,16 +140,47 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut transaction =
-        Transaction::new_with_payer(&[revoke_delegate_ix], Some(&authority_keypair.pubkey()));
+    let decimals = 9;
+    let mint_account_len = Mint::LEN;
+    let mint_account_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_account_len)
+        .await?;
 
-    transaction.sign(&[&authority_keypair], client.get_latest_blockhash().await?);
+    let create_mint_account_ix = create_account(
+        &authority_keypair.pubkey(),
+        &mint_account.pubkey(),
+        mint_account_rent,
+        mint_account_len as u64,
+        &TOKEN_PROGRAM_ID,
+    );
 
-    match client.send_and_confirm_transaction(&transaction).await {
-        Ok(signature) => println!("Transaction Signature: {}", signature),
-        Err(err) => eprintln!("Error sending transaction: {}", err),
-    }
+    let initialize_mint_ix = initialize_mint2(
+        &TOKEN_PROGRAM_ID,
+        &mint_account.pubkey(),
+        &authority_keypair.pubkey(),
+        Some(&authority_keypair.pubkey()),
+        decimals,
+    )?;
 
+    // Create ATA instruction
+    let create_ata_ix = create_associated_token_account_idempotent(
+        &authority_keypair.pubkey(), // payer
+        &authority_keypair.pubkey(), // wallet address
+        &mint_account.pubkey(),      // mint address
+        &TOKEN_PROGRAM_ID,
+    );
+
+    let mut transaction = Transaction::new_with_payer(
+        &[create_mint_account_ix, initialize_mint_ix, create_ata_ix],
+        Some(&authority_keypair.pubkey()),
+    );
+
+    transaction.sign(
+        &[authority_keypair, mint_account],
+        client.get_latest_blockhash().await?,
+    );
+
+    client.send_and_confirm_transaction(&transaction).await?;
     Ok(())
 }
 ```
