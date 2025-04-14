@@ -87,9 +87,8 @@ import bs58 from "bs58";
 ```rust !! title="Rust"
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig, instruction::Instruction, native_token::LAMPORTS_PER_SOL,
-    pubkey::Pubkey, signature::Keypair, signer::Signer,
-    system_instruction::transfer as sol_transfer, transaction::Transaction,
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Keypair,
+    signer::Signer, system_instruction::transfer as sol_transfer, transaction::Transaction,
 };
 use spl_associated_token_account::{
     get_associated_token_address, instruction::create_associated_token_account_idempotent,
@@ -105,24 +104,20 @@ async fn main() -> anyhow::Result<()> {
         CommitmentConfig::confirmed(),
     );
 
-    // G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
-    let authority_keypair = Keypair::from_base58_string(
-        "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp",
-    );
-
+    let authority_keypair = Keypair::new();
     let ata_address = get_associated_token_address(&authority_keypair.pubkey(), &NATIVE_MINT_ID);
-    let amount = 1 * 10_u64.checked_pow(9).unwrap_or_default(); /* Wrapped SOL's decimals is 9, hence amt to wrap is 1 SOL */
+    let amount = 1 * 10_u64.pow(9); /* Wrapped SOL's decimals is 9, hence amount to wrap is 1 SOL */
+
+    // create token account for wrapped sol
+    let create_ata_ix = create_associated_token_account_idempotent(
+        &authority_keypair.pubkey(),
+        &authority_keypair.pubkey(),
+        &NATIVE_MINT_ID,
+        &TOKEN_PROGRAM_ID,
+    );
 
     let transfer_ix = sol_transfer(&authority_keypair.pubkey(), &ata_address, amount);
     let sync_native_ix = sync_native(&TOKEN_PROGRAM_ID, &ata_address)?;
-
-    // create ATA incase it doesn't exist
-    let create_ata_ix = create_token_account_if_not_exist_ix(
-        &authority_keypair.pubkey(),
-        &NATIVE_MINT_ID,
-        Some(&authority_keypair.pubkey()),
-    )
-    .await?;
 
     let transaction_signature = client
         .request_airdrop(&authority_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
@@ -146,23 +141,6 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-async fn create_token_account_if_not_exist_ix(
-    authority: &Pubkey,
-    mint: &Pubkey,
-    payer: Option<&Pubkey>,
-) -> anyhow::Result<Instruction> {
-    let payer = payer.unwrap_or(authority);
-
-    let create_ata_ix = create_associated_token_account_idempotent(
-        payer, // payer
-        authority,
-        mint,
-        &TOKEN_PROGRAM_ID,
-    );
-
-    Ok(create_ata_ix)
 }
 ```
 
@@ -265,14 +243,18 @@ import bs58 from "bs58";
 ```rust !! title="Rust"
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Keypair,
-    signer::Signer, system_instruction::transfer as sol_transfer, transaction::Transaction,
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, program_pack::Pack,
+    signature::Keypair, signer::Signer, system_instruction::create_account,
+    transaction::Transaction,
 };
 use spl_associated_token_account::{
     get_associated_token_address, instruction::create_associated_token_account_idempotent,
 };
 use spl_token::{
-    instruction::sync_native, native_mint::ID as NATIVE_MINT_ID, ID as TOKEN_PROGRAM_ID,
+    instruction::{close_account, initialize_account3, transfer_checked},
+    native_mint::ID as NATIVE_MINT_ID,
+    state::Account,
+    ID as TOKEN_PROGRAM_ID,
 };
 
 #[tokio::main]
@@ -282,23 +264,67 @@ async fn main() -> anyhow::Result<()> {
         CommitmentConfig::confirmed(),
     );
 
-    let authority_keypair = Keypair::new();
-    let ata_address = get_associated_token_address(&authority_keypair.pubkey(), &NATIVE_MINT_ID);
+    let sender = Keypair::new();
+    let sender_temporary_token_account = Keypair::new();
+
+    let recipient = Keypair::new();
+    let recipient_ata = get_associated_token_address(&recipient.pubkey(), &NATIVE_MINT_ID);
     let amount = 1 * 10_u64.pow(9); /* Wrapped SOL's decimals is 9, hence amount to wrap is 1 SOL */
 
-    // create token account for wrapped sol
-    let create_ata_ix = create_associated_token_account_idempotent(
-        &authority_keypair.pubkey(),
-        &authority_keypair.pubkey(),
+    let token_account_len = Account::LEN;
+    let token_account_rent = client
+        .get_minimum_balance_for_rent_exemption(token_account_len)
+        .await?;
+
+    // create temporary token account
+    // adds extra transfer amount lamports to token account
+    let create_account_ix = create_account(
+        &sender.pubkey(),
+        &sender_temporary_token_account.pubkey(),
+        token_account_rent + amount,
+        token_account_len as u64,
+        &TOKEN_PROGRAM_ID,
+    );
+
+    // initialize temporary token account
+    let init_account_ix = initialize_account3(
+        &TOKEN_PROGRAM_ID,
+        &sender_temporary_token_account.pubkey(),
+        &NATIVE_MINT_ID,
+        &sender.pubkey(),
+    )?;
+
+    // create recipient wrapped sol token account
+    let create_recipient_ata_ix = create_associated_token_account_idempotent(
+        &sender.pubkey(),
+        &recipient.pubkey(),
         &NATIVE_MINT_ID,
         &TOKEN_PROGRAM_ID,
     );
 
-    let transfer_ix = sol_transfer(&authority_keypair.pubkey(), &ata_address, amount);
-    let sync_native_ix = sync_native(&TOKEN_PROGRAM_ID, &ata_address)?;
+    // transfer WSOL
+    let transfer_tokens_ix = transfer_checked(
+        &TOKEN_PROGRAM_ID,
+        &sender_temporary_token_account.pubkey(),
+        &NATIVE_MINT_ID,
+        &recipient_ata,
+        &sender.pubkey(),
+        &[&sender.pubkey()],
+        amount,
+        9,
+    )?;
+
+    // close temporary token account
+    let close_token_account_ix = close_account(
+        &TOKEN_PROGRAM_ID,
+        &sender_temporary_token_account.pubkey(),
+        &sender.pubkey(),
+        &sender.pubkey(),
+        &[&sender.pubkey()],
+    )?;
 
     let transaction_signature = client
-        .request_airdrop(&authority_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .request_airdrop(&sender.pubkey(), 5 * LAMPORTS_PER_SOL)
         .await?;
     loop {
         if client.confirm_transaction(&transaction_signature).await? {
@@ -307,11 +333,20 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let mut transaction = Transaction::new_with_payer(
-        &[create_ata_ix, transfer_ix, sync_native_ix],
-        Some(&authority_keypair.pubkey()),
+        &[
+            create_recipient_ata_ix,
+            create_account_ix,
+            init_account_ix,
+            transfer_tokens_ix,
+            close_token_account_ix,
+        ],
+        Some(&sender.pubkey()),
     );
 
-    transaction.sign(&[&authority_keypair], client.get_latest_blockhash().await?);
+    transaction.sign(
+        &[&sender, &sender_temporary_token_account],
+        client.get_latest_blockhash().await?,
+    );
 
     match client.send_and_confirm_transaction(&transaction).await {
         Ok(signature) => println!("Transaction Signature: {}", signature),
