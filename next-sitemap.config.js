@@ -1,3 +1,5 @@
+const { getBuilderUrls } = require("./src/lib/builder/getUrls");
+
 module.exports = {
   siteUrl: "https://solana.com/",
   transform: (config, path) => {
@@ -9,5 +11,8 @@ module.exports = {
       priority: config.priority,
       lastmod: config.autoLastmod ? new Date().toISOString() : undefined,
     };
+  },
+  additionalPaths: async () => {
+    return await getBuilderUrls();
   },
 };

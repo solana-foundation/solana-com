@@ -743,5 +743,33 @@ export default {
       source: "/developers/guides/games/game-sdks",
       destination: "/docs/clients/game-sdks",
     },
+    {
+      source: "/accelerate/scale-or-die",
+      destination: "/accelerate",
+    },
+    {
+      source: "/accelerate/ship-or-die",
+      destination: "/accelerate",
+    },
+    {
+      source: "/accelerate/ship-or-die",
+      destination: "/accelerate",
+    },
+    {
+      source: "/docs/terminology",
+      destination: "/docs/references/terminology",
+    },
+    {
+      source: "/docs/core/tokens",
+      destination: "/docs/tokens",
+    },
+    {
+      source: "/developers/guides/getstarted/how-to-cpi",
+      destination: "/docs/core/cpi",
+    },
+    {
+      source: "/developers/guides/getstarted/how-to-cpi-with-signer",
+      destination: "/docs/core/cpi",
+    },
   ],
 };

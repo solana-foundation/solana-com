@@ -1695,6 +1695,17 @@ export const BreakpointSpeakersConfig = {
 /**
  * @type {import('@builder.io/react').RegisteredComponent}
  */
+export const AccelerateStoriesConfig = {
+  name: "Accelerate Stories",
+  noWrap: true,
+  inputs: [
+    {
+      name: "urls",
+      type: "list",
+      subFields: [{ name: "url", type: "string" }],
+    },
+  ],
+};
 export const AccelerateHeroConfig = {
   name: "Accelerate Hero",
   noWrap: true,
@@ -1707,10 +1718,30 @@ export const AccelerateHeroConfig = {
 /**
  * @type {import('@builder.io/react').RegisteredComponent}
  */
+export const AccelerateLinkButtonConfig = {
+  name: "Accelerate Link Button",
+  noWrap: true,
+  inputs: [
+    {
+      name: "label",
+      type: "string",
+      defaultValue: "Link",
+      localized: true,
+      required: true,
+    },
+    { name: "url", type: "url", required: true },
+  ],
+};
 export const AccelerateApplyButtonConfig = {
   name: "Accelerate Apply Button",
   noWrap: true,
   inputs: [
+    {
+      name: "type",
+      type: "enum",
+      required: true,
+      enum: ["mix", "red", "blue"],
+    },
     {
       name: "label",
       type: "string",
@@ -1719,6 +1750,30 @@ export const AccelerateApplyButtonConfig = {
       required: true,
     },
     { name: "url", type: "url", required: true },
+    { name: "newTab", type: "boolean", defaultValue: false },
+  ],
+};
+export const AccelerateAccordionConfig = {
+  name: "Accelerate Accordion",
+  inputs: [
+    {
+      name: "items",
+      type: "list",
+      subFields: [
+        {
+          name: "title",
+          type: "string",
+          localized: true,
+          defaultValue: "Accordion Title",
+        },
+        {
+          name: "content",
+          type: "richText",
+          localized: true,
+          defaultValue: "Accordion Content",
+        },
+      ],
+    },
   ],
 };
 
@@ -1836,7 +1891,14 @@ export const AccelerateSpeakersConfig = {
       name: "speakers",
       type: "list",
       subFields: [
+        {
+          name: "event",
+          type: "enum",
+          enum: ["ship", "scale"],
+          defaultValue: "ship",
+        },
         { name: "speakerName", type: "string", defaultValue: "" },
+        { name: "company", type: "string", defaultValue: "" },
         { name: "title", type: "string", defaultValue: "" },
         {
           name: "image",
@@ -1844,8 +1906,10 @@ export const AccelerateSpeakersConfig = {
           allowedFileTypes: ["jpeg", "jpg", "png", "svg", "webp"],
           required: true,
         },
+        { name: "socialLink", type: "string", defaultValue: "" },
       ],
     },
+    { name: "heading", type: "string", defaultValue: "" },
   ],
 };
 
