@@ -1,0 +1,453 @@
+---
+title: "交易和指令"
+description:
+  了解 Solana 交易和指令 - 与 Solana 区块链交互的基本构建块。
+  理解交易结构和指令组成，并通过实际示例进行说明。
+---
+
+在 Solana 上，我们发送 [交易](/docs/core/transactions#transaction) 来
+与网络交互。交易包括一个或多个
+[指令](/docs/core/transactions#instruction)，指定要处理的操作。
+指令的执行逻辑存储在部署到 Solana 网络的
+[程序](/docs/core/programs) 中，每个程序定义自己的一组指令。
+
+以下是关于交易处理的关键细节：
+
+- 如果交易包含多个指令，则指令按添加到交易的顺序执行。
+- 交易是“原子”的 - 要么所有指令成功处理，要么整个交易失败，且不进行任何更改。
+
+为了简单起见，可以将交易视为处理一个或多个指令的请求。
+
+![交易简化](/assets/docs/core/transactions/transaction-simple.svg)
+
+将交易视为一个包含表单的信封。每个表单都是一个
+指令，告诉网络我们请求做什么。当您发送
+交易时，就像将信封邮寄出去以处理表单。
+
+## 关键点
+
+- Solana 交易包括请求在网络上调用程序的指令。
+- 交易是 **原子** 的 - 如果任何指令失败，整个交易
+  失败且不发生任何更改。
+- 交易中的指令是 **按顺序处理** 的。
+- 交易的最大大小为
+  [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+  字节。
+- 每个指令需要 3 个信息：
+  1. 要调用的程序的地址
+  2. 指令将读取或写入的账户
+  3. 指令所需的任何附加数据（例如，函数参数）
+
+## 基本示例
+
+以下是一个图示，表示一个包含单个指令的交易，
+用于将 SOL 从发送者转移到接收者。
+
+在 Solana 上，我们称之为“钱包”的账户由
+[系统程序](/docs/core/accounts#system-program) 所拥有。只有程序所有者可以
+修改账户的数据，因此转移 SOL 需要发送交易以
+调用系统程序。
+
+![SOL 转移](/assets/docs/core/transactions/sol-transfer.svg)
+
+发送者账户必须签署（`is_signer`）交易以授权
+扣除其 lamport 余额。发送者和接收者账户都需要标记为可写（`is_writable`），因为这些账户上的 lamport 余额将会更改。
+
+一旦交易被发送，系统程序将被调用以处理
+转移指令。系统程序随后相应地更新发送者和接收者账户的 lamport 余额。
+
+![SOL 转移过程](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+### 转移 SOL
+
+以下是一个 [Solana Playground](https://beta.solpg.io/656a0ea7fb53fa325bfd0c3e)
+示例，展示如何使用 `SystemProgram.transfer` 方法构建一个 SOL 转移指令：
+
+```typescript title="转移 SOL"
+// 定义要转移的金额
+const transferAmount = 0.01; // 0.01 SOL
+
+// 创建一个用于从 wallet_1 转移到 wallet_2 的转移指令
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL, // 将 transferAmount 转换为 lamports
+});
+
+// 将转移指令添加到一个新交易中
+const transaction = new Transaction().add(transferInstruction);
+```
+
+通过在 Playground 终端中使用 `run` 命令或
+点击“运行”按钮来运行示例。
+
+<Callout type="info">
+
+确保您的 Playground 钱包中有 devnet SOL。从
+[Solana 水龙头](https://faucet.solana.com/) 获取 devnet SOL。
+
+</Callout>
+
+在下面的部分中，我们将详细介绍交易和
+指令的细节。
+
+## 交易
+
+一个 Solana
+[交易](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+由以下部分组成：
+
+1. [签名](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)：
+   包含在交易中的签名数组。
+2. [消息](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)：
+   要原子处理的指令列表。
+
+```rust title="交易"
+pub struct Transaction {
+    #[wasm_bindgen(skip)]
+    #[serde(with = "short_vec")]
+    pub signatures: Vec<Signature>,
+
+    #[wasm_bindgen(skip)]
+    pub message: Message,
+}
+```
+
+![交易格式](/assets/docs/core/transactions/tx_format.png)
+
+交易消息的结构包括：
+
+- [消息头](/docs/core/transactions#message-header)：指定签名者和只读账户的数量。
+- [账户地址](/docs/core/transactions#array-of-account-addresses)：交易中指令所需的账户地址数组。
+- [最近区块哈希](/docs/core/transactions#recent-blockhash)：作为交易的时间戳。
+- [指令](/docs/core/transactions#array-of-instructions)：要执行的指令数组。
+
+```rust title="消息"
+pub struct Message {
+    /// 消息头，标识签名和只读 `account_keys`。
+    pub header: MessageHeader,
+
+    /// 此交易使用的所有账户密钥。
+    #[serde(with = "short_vec")]
+    pub account_keys: Vec<Pubkey>,
+
+    /// 最近账本条目的 ID。
+    pub recent_blockhash: Hash,
+
+    /// 如果所有成功，将按顺序执行并在一个原子交易中提交的程序。
+    #[serde(with = "short_vec")]
+    pub instructions: Vec<CompiledInstruction>,
+}
+```
+
+![交易消息](/assets/docs/core/transactions/legacy_message.png)
+
+### 交易大小
+
+Solana 交易的大小限制为
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+字节。此限制来自于 IPv6 MTU 大小为 1280 字节，减去 48 字节的网络头（40 字节 IPv6 + 8 字节片头）。
+
+交易的总大小（签名和消息）必须保持在此限制之下，包含：
+
+- 签名：每个 64 字节
+- 消息：头（3 字节），账户密钥（每个 32 字节），最近区块哈希（32 字节），和指令
+
+![交易格式](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+### 消息头
+
+[消息头](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
+使用三个字节来定义账户权限：
+
+1. 所需的签名和
+   [消息版本](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/versions/mod.rs#L220-L231)
+   （例如，遗留与 v0）
+2. 只读签名账户的数量
+3. 只读未签名账户的数量
+
+```rust title="消息头"
+pub struct MessageHeader {
+    /// 使此消息被视为有效所需的签名数量。那些签名者的签名必须与
+    /// [`Message::account_keys`] 的前 `num_required_signatures` 匹配。
+    pub num_required_signatures: u8,
+
+    /// 签名密钥的最后 `num_readonly_signed_accounts` 是只读
+    /// 账户。
+    pub num_readonly_signed_accounts: u8,
+
+    /// 未签名密钥的最后 `num_readonly_unsigned_accounts` 是
+    /// 只读账户。
+    pub num_readonly_unsigned_accounts: u8,
+}
+```
+
+![消息头](/assets/docs/core/transactions/message_header.png)
+
+### 紧凑数组格式
+
+交易消息中的紧凑数组指的是以以下格式序列化的数组：
+
+1. 数组长度（编码为
+   [compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs)）
+2. 一个接一个列出的数组项
+
+![紧凑数组格式](/assets/docs/core/transactions/compact_array_format.png)
+
+此格式用于编码交易消息中
+[账户地址](/docs/core/transactions#array-of-account-addresses) 和
+[指令](/docs/core/transactions#array-of-instructions) 数组的长度。
+
+### 账户地址数组
+
+交易消息包含一个
+[账户地址](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+数组，指令所需。数组以一个
+[compact-u16](/docs/core/transactions#compact-array-format) 数字开头，指示
+它包含多少个地址。然后根据它们的权限对地址进行排序，这由消息头决定。
+
+- 可写且为签名者的账户
+- 只读且为签名者的账户
+- 可写且不是签名者的账户
+- 只读且不是签名者的账户
+
+![紧凑账户地址数组](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### 最近区块哈希
+
+每个交易都需要一个
+[最近区块哈希](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L141)
+，具有两个目的：
+
+1. 作为时间戳
+2. 防止重复交易
+
+区块哈希在
+[150](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)
+个区块后过期（假设 400ms 的区块时间约为 1 分钟），之后交易将无法处理。
+
+您可以使用 [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC
+方法获取当前区块哈希和区块哈希有效的最后区块高度。以下是一个在
+[Solana Playground](https://beta.solpg.io/661a06e1cffcf4b13384d046) 的示例。
+
+### 指令数组
+
+交易消息包含一个
+[指令](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+数组，类型为
+[CompiledInstruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)。指令在添加到交易时转换为此类型。
+
+与消息中的账户地址数组一样，它以一个
+[compact-u16](/docs/core/transactions#compact-array-format) 长度开头，后跟指令数据。每个指令包含：
+
+1. 程序 ID 索引：一个 u8 索引，指向账户地址数组中程序的地址。此索引指定将处理指令的程序。
+2. 账户索引：一个 u8 索引数组，指向此指令所需的账户地址。
+3. 指令数据：一个字节数组，指定要在程序上调用的指令和指令所需的任何附加数据（例如，函数参数）。
+
+```rust title="编译指令"
+pub struct CompiledInstruction {
+    /// 指向执行此指令的程序账户的交易密钥数组中的索引。
+    pub program_id_index: u8,
+    /// 指向交易密钥数组中指示要传递给程序的账户的有序索引。
+    #[serde(with = "short_vec")]
+    pub accounts: Vec<u8>,
+    /// 程序输入数据。
+    #[serde(with = "short_vec")]
+    pub data: Vec<u8>,
+}
+```
+
+![紧凑指令数组](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+### 示例交易结构
+
+以下是一个示例交易，包括一个单一的
+[SOL 转移](/docs/core/transactions#basic-example) 指令。交易的组成部分包括：
+
+- `header`：指定 `accountKeys` 数组中地址的读/写和签名者权限
+
+- `accountKeys`：交易指令中使用的所有账户地址数组
+
+- `recentBlockhash`：用于时间戳交易的区块哈希
+
+- `instructions`：要执行的指令数组。每个指令中的 `account` 和 `programIdIndex` 通过索引引用 `accountKeys` 数组。
+
+- `signatures`：包含所有指令所需作为签名者的账户的签名的数组。签名是通过使用相应账户的私钥对交易消息进行签名来创建的。
+
+```json
+"transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+        "5snoUseZG8s8CDFHrXY2ZHaCrJYsW457piktDmhyb5Jd",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "DzfXchZJoLMG3cNftcf2sw7qatkkuwQf4xH15N5wkKAb",
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1
+          ],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "5LrcE2f6uvydKRquEJ8xp19heGxSvqsVbcqUeFoiWbXe8JNip7ftPQNTAVPyTK7ijVdpkzmKKaAQR7MWMmujAhXD"
+    ]
+  }
+```
+
+## 指令
+
+一个
+[指令](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
+在部署的 [程序](/docs/core/accounts#program-account) 上可以被视为任何人使用 Solana 网络调用的公共函数。
+
+调用程序的指令需要提供三条关键信息：
+
+- 程序 ID：要执行指令的程序
+- 账户：指令所需的账户列表
+- 指令数据：字节数组，指定要在程序上调用的指令和指令所需的任何函数参数
+
+```rust title="指令"
+pub struct Instruction {
+    /// 执行此指令的程序的公钥。
+    pub program_id: Pubkey,
+    /// 描述应传递给程序的账户的元数据。
+    pub accounts: Vec<AccountMeta>,
+    /// 传递给程序以供其自身解释的任意数据。
+    pub data: Vec<u8>,
+}
+```
+
+![交易指令](/assets/docs/core/transactions/instruction.svg)
+
+### AccountMeta
+
+每个指令所需的账户必须作为
+[AccountMeta](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25)
+提供，包含：
+
+- `pubkey`：账户的地址
+- `is_signer`：账户是否必须签署交易
+- `is_writable`：指令是否会修改账户的数据
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// 账户的公钥。
+    pub pubkey: Pubkey,
+    /// 如果 `Instruction` 需要与 `pubkey` 匹配的 `Transaction` 签名，则为真。
+    pub is_signer: bool,
+    /// 如果在程序执行期间可能会修改账户数据或元数据，则为真。
+    pub is_writable: bool,
+}
+```
+
+![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+
+通过提前指定指令将读取或写入的账户，
+不修改相同账户的交易可以并行处理。
+
+### 示例指令结构
+
+以下是一个简单示例，展示了 SOL 转移指令的结构：
+
+- `keys`：包括每个指令所需的 `AccountMeta`。
+- `programId`：包含执行逻辑的程序的地址
+- `data`：指令的数据，作为字节缓冲区
+
+```json
+{
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  "programId": "11111111111111111111111111111111",
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+## 扩展示例
+
+构建程序指令的细节通常被客户端库抽象掉。
+然而，如果没有可用的库，您总是可以手动构建指令。
+
+### 转移 SOL
+
+以下是一个 [Solana Playground](https://beta.solpg.io/656a102efb53fa325bfd0c3f)
+示例，展示如何手动构建一个 SOL 转移指令。
+
+在底层，使用 `SystemProgram.transfer` 方法的
+[简单示例](/docs/core/transactions#simple-sol-transfer) 在功能上等同于下面更详细的示例。`SystemProgram.transfer` 方法简单地抽象了创建指令数据缓冲区和每个指令所需的 `AccountMeta` 的细节。
+
+下面两个标签中的代码片段在功能上是等效的。
+
+<Tabs items={['手动构建指令', '使用库']}>
+<Tab value="手动构建指令">
+
+```typescript
+// 定义要转移的金额
+const transferAmount = 0.01; // 0.01 SOL
+
+// 系统程序转移指令的指令索引
+const transferInstructionIndex = 2;
+
+// 创建一个缓冲区，用于传递给转移指令的数据
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+// 将指令索引写入缓冲区
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+// 将转移金额写入缓冲区
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// 手动创建一个转移指令，用于将 SOL 从发送者转移到接收者
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true },
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true },
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData,
+});
+
+// 将转移指令添加到一个新交易中
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Tab>
+<Tab value="使用库">
+
+```typescript
+// 定义要转移的金额
+const transferAmount = 0.01; // 0.01 SOL
+
+// 创建一个用于从 wallet_1 转移到 wallet_2 的转移指令
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL, // 将 transferAmount 转换为 lamports
+});
+
+// 将转移指令添加到一个新交易中
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Tab>
+</Tabs>

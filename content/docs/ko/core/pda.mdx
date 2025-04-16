@@ -1,0 +1,317 @@
+---
+title: 프로그램 유도 주소
+description:
+  솔라나의 프로그램 유도 주소(PDA)에 대해 알아보세요 - 안전한 프로그램 서명을 가능하게 하는
+  결정론적 계정 주소입니다. PDA 유도, 정규 범프 및 PDA 계정을 생성하는 방법을 이해하세요.
+h1: 프로그램 유도 주소 (PDA)
+---
+
+프로그램 유도 주소(PDAs)는 솔라나의 개발자에게 두 가지 주요 사용 사례를 제공합니다:
+
+- **결정론적 계정 주소**: PDAs는 선택적 "시드"(미리 정의된 입력)와 특정 프로그램 ID의 조합을 사용하여
+  주소를 결정론적으로 유도하는 메커니즘을 제공합니다.
+- **프로그램 서명 가능**: 솔라나 런타임은 프로그램이 자신의 프로그램 ID에서 유도된 PDA를 위해 "서명"할 수 있도록 합니다.
+
+PDAs는 미리 정의된 입력 집합(예: 문자열, 숫자 및 기타 계정 주소)에서 체인 상에 해시맵과 유사한 구조를 생성하는 방법으로 생각할 수 있습니다.
+
+이 접근 방식의 장점은 정확한 주소를 추적할 필요가 없다는 것입니다. 대신, 유도에 사용된 특정 입력을 기억하기만 하면 됩니다.
+
+![프로그램 유도 주소](/assets/docs/core/pda/pda.svg)
+
+단순히 프로그램 유도 주소(PDA)를 유도하는 것만으로는 해당 주소에 체인 상의 계정이 자동으로 생성되지 않는다는 점을 이해하는 것이 중요합니다.
+PDA를 체인 상의 주소로 사용하는 계정은 주소를 유도하는 데 사용된 프로그램을 통해 명시적으로 생성되어야 합니다. PDA를 유도하는 것을 지도에서 주소를 찾는 것과 같다고 생각할 수 있습니다. 주소가 있다고 해서 그 위치에 무언가가 구축되어 있다는 의미는 아닙니다.
+
+> 이 섹션에서는 PDA 유도의 세부 사항을 다룰 것입니다. 프로그램이 서명을 위해 PDA를 사용하는 방법에 대한 세부 사항은
+> [교차 프로그램 호출(CPIs)](/docs/core/cpi) 섹션에서 다룰 것이며, 두 개념 모두에 대한 맥락이 필요합니다.
+
+## 주요 사항
+
+- PDAs는 사용자 정의 시드, 범프 시드 및 프로그램 ID의 조합을 사용하여 **결정론적으로 유도된** 주소입니다.
+- PDAs는 Ed25519 곡선에서 떨어진 주소이며 **상응하는 개인 키가 없습니다**.
+- 솔라나 프로그램은 **자신의 프로그램 ID를 사용하여 유도된 PDA를 대신하여 서명할 수 있습니다**.
+- PDA를 유도한다고 해서 자동으로 체인 상의 계정이 생성되는 것은 아닙니다.
+- PDA를 주소로 사용하는 계정은 솔라나 프로그램 내의 전용 명령을 통해 명시적으로 생성되어야 합니다.
+
+## PDA란 무엇인가
+
+PDA는 결정론적으로 유도된 주소로, 표준 공개 키처럼 보이지만 관련된 개인 키가 없습니다. 이는 외부 사용자가 해당 주소에 대한 유효한 서명을 생성할 수 없음을 의미합니다. 그러나 솔라나 런타임은 프로그램이 개인 키 없이 PDA를 프로그래밍 방식으로 "서명"할 수 있도록 합니다.
+
+맥락을 위해, 솔라나의
+[키 쌍](https://github.com/solana-labs/solana/blob/27eff8408b7223bb3c4ab70523f8a8dca3ca6645/sdk/src/signer/keypair.rs#L25)
+은 공개 키와 해당하는 개인 키를 가진 Ed25519 곡선의 점입니다. 우리는 종종 공개 키를 새로운 체인 상의 계정에 대한 고유 ID로 사용하고, 개인 키는 서명에 사용합니다.
+
+![곡선 위의 주소](/assets/docs/core/pda/address-on-curve.svg)
+
+PDA는 미리 정의된 입력 집합을 사용하여 의도적으로 Ed25519 곡선에서 떨어지도록 유도된 점입니다. Ed25519 곡선에 없는 점은 유효한 상응하는 개인 키가 없으며 암호화 작업(서명)에 사용할 수 없습니다.
+
+PDA는 체인 상의 계정에 대한 주소(고유 식별자)로 사용될 수 있으며, 프로그램 상태를 쉽게 저장, 매핑 및 가져오는 방법을 제공합니다.
+
+![곡선 밖의 주소](/assets/docs/core/pda/address-off-curve.svg)
+
+## PDA 유도 방법
+
+PDA를 유도하려면 3개의 입력이 필요합니다.
+
+- **선택적 시드**: PDA를 유도하는 데 사용되는 미리 정의된 입력(예: 문자열, 숫자, 기타 계정 주소)입니다. 이러한 입력은 바이트 버퍼로 변환됩니다.
+- **범프 시드**: 유효한 PDA(곡선 밖)를 생성하기 위해 사용되는 추가 입력(값은 255-0 사이)입니다. 이 범프 시드(255로 시작)는 PDA를 생성할 때 선택적 시드에 추가되어 Ed25519 곡선에서 점을 "범프"합니다. 범프 시드는 때때로 "논스"라고도 합니다.
+- **프로그램 ID**: PDA가 유도되는 프로그램의 주소입니다. 이는 PDA를 대신하여 "서명"할 수 있는 프로그램이기도 합니다.
+
+![PDA 유도](/assets/docs/core/pda/pda-derivation.svg)
+
+아래의 예제에는 브라우저 내 편집기에서 예제를 실행할 수 있는 솔라나 플레이그라운드 링크가 포함되어 있습니다.
+
+### FindProgramAddress
+
+PDA를 유도하기 위해 우리는
+[`findProgramAddressSync`](https://github.com/solana-labs/solana-web3.js/blob/ca9da583a39cdf8fd874a2e03fccdc849e29de34/packages/library-legacy/src/publickey.ts#L212)
+메서드를 사용할 수 있습니다. 이 함수는 다른 프로그래밍 언어(예: [Rust](https://github.com/solana-labs/solana/blob/27eff8408b7223bb3c4ab70523f8a8dca3ca6645/sdk/program/src/pubkey.rs#L484))에서도 동등한 기능이 있지만, 이 섹션에서는 자바스크립트를 사용한 예제를 살펴보겠습니다.
+
+`findProgramAddressSync` 메서드를 사용할 때 우리는 다음을 전달합니다:
+
+- 바이트 버퍼로 변환된 미리 정의된 선택적 시드, 그리고
+- PDA를 유도하는 데 사용되는 프로그램 ID(주소)
+
+유효한 PDA가 발견되면 `findProgramAddressSync`는 PDA와 PDA를 유도하는 데 사용된 범프 시드를 모두 반환합니다.
+
+아래의 예제는 선택적 시드를 제공하지 않고 PDA를 유도합니다.
+
+```ts /[]/
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+
+const [PDA, bump] = PublicKey.findProgramAddressSync([], programId);
+
+console.log(`PDA: ${PDA}`);
+console.log(`Bump: ${bump}`);
+```
+
+이 예제를
+[솔라나 플레이그라운드](https://beta.solpg.io/66031e5acffcf4b13384cfef)에서 실행할 수 있습니다. PDA와 범프 시드 출력은 항상 동일합니다:
+
+```
+PDA: Cu7NwqCXSmsR5vgGA3Vw9uYVViPi3kQvkbKByVQ8nPY9
+Bump: 255
+```
+
+다음 예제는 선택적 시드 "helloWorld"를 추가합니다.
+
+```ts /string/
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const string = "helloWorld";
+
+const [PDA, bump] = PublicKey.findProgramAddressSync(
+  [Buffer.from(string)],
+  programId,
+);
+
+console.log(`PDA: ${PDA}`);
+console.log(`Bump: ${bump}`);
+```
+
+이 예제도
+[솔라나 플레이그라운드](https://beta.solpg.io/66031ee5cffcf4b13384cff0)에서 실행할 수 있습니다. PDA와 범프 시드 출력은 항상 동일합니다:
+
+```
+PDA: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+Bump: 254
+```
+
+범프 시드가 254임을 주목하세요. 이는 255가 Ed25519 곡선 위의 점을 유도했으며, 유효한 PDA가 아님을 의미합니다.
+
+`findProgramAddressSync`에서 반환된 범프 시드는 주어진 선택적 시드와 프로그램 ID 조합에 대해 유효한 PDA를 유도하는 첫 번째 값(255-0 사이)입니다.
+
+> 이 첫 번째 유효한 범프 시드는 "정규 범프"라고 합니다. 프로그램 보안을 위해, PDA 작업 시 정규 범프만 사용하는 것이 권장됩니다.
+
+### CreateProgramAddress
+
+`findProgramAddressSync`의 내부에서는 선택적 시드 버퍼에 반복적으로 추가 범프 시드(논스)를 추가하고
+[`createProgramAddressSync`](https://github.com/solana-labs/solana-web3.js/blob/ca9da583a39cdf8fd874a2e03fccdc849e29de34/packages/library-legacy/src/publickey.ts#L168)
+메서드를 호출합니다. 범프 시드는 255의 값으로 시작하여 유효한 PDA(곡선 밖)가 발견될 때까지 1씩 감소합니다.
+
+이전 예제를 복제하려면 `createProgramAddressSync`를 사용하고 254의 범프 시드를 명시적으로 전달할 수 있습니다.
+
+```ts /bump/
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const string = "helloWorld";
+const bump = 254;
+
+const PDA = PublicKey.createProgramAddressSync(
+  [Buffer.from(string), Buffer.from([bump])],
+  programId,
+);
+
+console.log(`PDA: ${PDA}`);
+```
+
+위의 예제를
+[솔라나 플레이그라운드](https://beta.solpg.io/66031f8ecffcf4b13384cff1)에서 실행하세요. 동일한 시드와 프로그램 ID를 사용하면 PDA 출력이 이전 것과 일치합니다:
+
+```
+PDA: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+```
+
+### 정규 범프
+
+"정규 범프"는 유효한 PDA를 유도하는 첫 번째 범프 시드(255에서 시작하여 1씩 감소)입니다. 프로그램 보안을 위해, 정규 범프에서 유도된 PDA만 사용하는 것이 권장됩니다.
+
+이전 예제를 참조하여, 아래 예제는 255-0의 모든 범프 시드를 사용하여 PDA를 유도하려고 시도합니다.
+
+```ts
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const string = "helloWorld";
+
+// 시연을 위한 모든 범프 시드를 반복합니다.
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(string), Buffer.from([bump])],
+      programId,
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+이 예제를
+[솔라나 플레이그라운드](https://beta.solpg.io/66032009cffcf4b13384cff2)에서 실행하면 다음과 같은 출력을 확인할 수 있습니다:
+
+```
+bump 255: 오류: 잘못된 시드, 주소는 곡선에서 떨어져야 합니다.
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: 오류: 잘못된 시드, 주소는 곡선에서 떨어져야 합니다.
+...
+// 나머지 범프 출력
+```
+
+예상대로, 범프 시드 255는 오류를 발생시키고 유효한 PDA를 유도하는 첫 번째 범프 시드는 254입니다.
+
+그러나 범프 시드 253-251은 모두 서로 다른 주소로 유효한 PDA를 유도합니다. 이는 동일한 선택적 시드와 `programId`를 주어도 다른 값을 가진 범프 시드가 여전히 유효한 PDA를 유도할 수 있음을 의미합니다.
+
+<Callout type="warn">
+  솔라나 프로그램을 구축할 때, 프로그램에 전달된 PDA가 정규 범프를 사용하여 유도되었는지 확인하는 보안 검사를 포함하는 것이 권장됩니다.
+  이를 실패하면 프로그램에 예상치 못한 계정이 제공될 수 있는 취약점이 발생할 수 있습니다.
+</Callout>
+
+## PDA 계정 생성
+
+이 예제 프로그램은
+[솔라나 플레이그라운드](https://beta.solpg.io/github.com/ZYJLiu/doc-examples/tree/main/pda-account)
+에서 PDA를 새 계정의 주소로 사용하여 계정을 생성하는 방법을 보여줍니다. 예제 프로그램은 앵커 프레임워크를 사용하여 작성되었습니다.
+
+`lib.rs` 파일에는 PDA를 주소로 사용하여 새 계정을 생성하는 단일 명령이 포함된 다음과 같은 프로그램이 있습니다. 새 계정은 `user`의 주소와 PDA를 유도하는 데 사용된 `bump` 시드를 저장합니다.
+
+```rust title="lib.rs" {11-14,26-29}
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // `user`의 주소를 저장합니다.
+        account_data.user = *ctx.accounts.user.key;
+        // 정규 범프를 저장합니다.
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // PDA를 유도하기 위한 시드를 설정합니다.
+        seeds = [b"data", user.key().as_ref()],
+        // 정규 범프를 사용합니다.
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+
+#[derive(InitSpace)]
+pub struct DataAccount {
+    pub user: Pubkey,
+    pub bump: u8,
+}
+```
+
+PDA를 유도하는 데 사용되는 시드는 하드코딩된 문자열 `data`와 명령에서 제공된 `user` 계정의 주소를 포함합니다. 앵커 프레임워크는 정규 `bump` 시드를 자동으로 유도합니다.
+
+```rust /data/ /user.key()/ /bump/
+#[account(
+    init,
+    seeds = [b"data", user.key().as_ref()],
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+`init` 제약 조건은 앵커에게 PDA를 주소로 사용하여 새 계정을 생성하기 위해 시스템 프로그램을 호출하도록 지시합니다. 내부적으로 이는 [CPI](/docs/core/cpi)를 통해 수행됩니다.
+
+```rust /init/
+#[account(
+    init,
+    seeds = [b"data", user.key().as_ref()],
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+제공된 솔라나 플레이그라운드 링크에 있는 테스트 파일(`pda-account.test.ts`)에서는 PDA를 유도하는 자바스크립트 동등한 코드를 찾을 수 있습니다.
+
+```ts /data/ /user.publicKey/
+const [PDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("data"), user.publicKey.toBuffer()],
+  program.programId,
+);
+```
+
+그런 다음 트랜잭션이 전송되어 PDA를 주소로 사용하여 새 체인 상의 계정을 생성하는 `initialize` 명령을 호출합니다. 트랜잭션이 전송되면 PDA를 사용하여 해당 주소에서 생성된 체인 상의 계정을 가져옵니다.
+
+```ts /initialize()/ /PDA/  {14}
+it("초기화되었습니다!", async () => {
+  const transactionSignature = await program.methods
+    .initialize()
+    .accounts({
+      user: user.publicKey,
+      pdaAccount: PDA,
+    })
+    .rpc();
+
+  console.log("트랜잭션 서명:", transactionSignature);
+});
+
+it("계정 가져오기", async () => {
+  const pdaAccount = await program.account.dataAccount.fetch(PDA);
+  console.log(JSON.stringify(pdaAccount, null, 2));
+});
+```
+
+동일한 `user` 주소를 시드로 사용하여 `initialize` 명령을 여러 번 호출하면 트랜잭션이 실패합니다. 이는 유도된 주소에 이미 계정이 존재하기 때문입니다.

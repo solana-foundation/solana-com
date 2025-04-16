@@ -1,0 +1,448 @@
+---
+title: "거래 및 지침"
+description:
+  솔라나 거래 및 지침에 대해 알아보세요 - 솔라나 블록체인과 상호작용하기 위한 기본 구성 요소입니다.
+  거래 구조 및 지침 구성에 대해 실용적인 예제를 통해 이해하세요.
+---
+
+솔라나에서는 [거래](/docs/core/transactions#transaction)를 보내어
+네트워크와 상호작용합니다. 거래에는 처리할 작업을 지정하는 하나 이상의
+[지침](/docs/core/transactions#instruction)이 포함됩니다. 지침의 실행 논리는
+솔라나 네트워크에 배포된 [프로그램](/docs/core/programs)에 저장되며,
+각 프로그램은 자체 지침 집합을 정의합니다.
+
+아래는 거래가 처리되는 방식에 대한 주요 세부정보입니다:
+
+- 거래에 여러 지침이 포함된 경우, 지침은 거래에 추가된 순서대로 실행됩니다.
+- 거래는 "원자적"입니다 - 모든 지침이 성공적으로 처리되거나,
+  전체 거래가 실패하고 변경 사항이 없습니다.
+
+간단히 말해, 거래는 하나 또는 여러 지침을 처리하기 위한 요청으로 생각할 수 있습니다.
+
+![거래 간소화](/assets/docs/core/transactions/transaction-simple.svg)
+
+거래를 양식이 포함된 봉투로 생각해 보세요. 각 양식은 네트워크에 우리가 요청하는 작업을
+알려주는 지침입니다. 거래를 보낼 때, 이는 양식을 처리하기 위해 봉투를 우편으로 보내는 것과 같습니다.
+
+## 주요 사항
+
+- 솔라나 거래에는 네트워크에서 프로그램을 호출하기 위한 요청인 지침이 포함됩니다.
+- 거래는 **원자적**입니다 - 어떤 지침이 실패하면 전체 거래가 실패하고 변경 사항이 발생하지 않습니다.
+- 거래의 지침은 **순차적으로 처리됩니다**.
+- 거래의 최대 크기는
+  [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+  바이트입니다.
+- 각 지침은 3개의 정보 조각을 요구합니다:
+  1. 호출할 프로그램의 주소
+  2. 지침이 읽거나 쓸 계정
+  3. 지침에서 요구하는 추가 데이터(예: 함수 인수)
+
+## 기본 예제
+
+아래는 송신자에서 수신자로 SOL을 전송하는 단일 지침을 포함하는 거래를 나타내는 다이어그램입니다.
+
+솔라나에서 "지갑"이라고 부르는 계정은
+[시스템 프로그램](/docs/core/accounts#system-program)에 의해 소유됩니다. 프로그램 소유자만이
+계정의 데이터를 수정할 수 있으므로 SOL을 전송하려면 시스템 프로그램을 호출하기 위해 거래를 보내야 합니다.
+
+![SOL 전송](/assets/docs/core/transactions/sol-transfer.svg)
+
+송신자 계정은 거래에서 자신의 램포트 잔액을 차감하도록 승인하기 위해 서명(`is_signer`)해야 합니다.
+송신자와 수신자 계정 모두 램포트 잔액이 변경될 것이므로 쓰기 가능(`is_writable`)로 표시되어야 합니다.
+
+거래가 전송되면 시스템 프로그램이 호출되어 전송 지침을 처리합니다. 시스템 프로그램은
+송신자와 수신자 계정의 램포트 잔액을 적절히 업데이트합니다.
+
+![SOL 전송 프로세스](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+### SOL 전송
+
+다음은 `SystemProgram.transfer` 메서드를 사용하여 SOL 전송 지침을 구축하는 방법에 대한
+[솔라나 플레이그라운드](https://beta.solpg.io/656a0ea7fb53fa325bfd0c3e) 예제입니다:
+
+```typescript title="SOL 전송"
+// 전송할 금액 정의
+const transferAmount = 0.01; // 0.01 SOL
+
+// wallet_1에서 wallet_2로 SOL을 전송하기 위한 전송 지침 생성
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL, // transferAmount를 램포트로 변환
+});
+
+// 새 거래에 전송 지침 추가
+const transaction = new Transaction().add(transferInstruction);
+```
+
+플레이그라운드 터미널에서 `run` 명령을 사용하거나 "실행" 버튼을 클릭하여 예제를 실행하세요.
+
+<Callout type="info">
+
+플레이그라운드 지갑에 devnet SOL이 있는지 확인하세요. [솔라나 수도꼭지](https://faucet.solana.com/)에서 devnet SOL을 받으세요.
+
+</Callout>
+
+아래 섹션에서는 거래 및 지침의 세부정보를 살펴보겠습니다.
+
+## 거래
+
+솔라나
+[거래](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+구성 요소:
+
+1. [서명](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30):
+   거래에 포함된 서명의 배열입니다.
+2. [메시지](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131):
+   원자적으로 처리될 지침 목록입니다.
+
+```rust title="거래"
+pub struct Transaction {
+    #[wasm_bindgen(skip)]
+    #[serde(with = "short_vec")]
+    pub signatures: Vec<Signature>,
+
+    #[wasm_bindgen(skip)]
+    pub message: Message,
+}
+```
+
+![거래 형식](/assets/docs/core/transactions/tx_format.png)
+
+거래 메시지의 구조는 다음과 같습니다:
+
+- [메시지 헤더](/docs/core/transactions#message-header): 서명자 및 읽기 전용 계정의 수를 지정합니다.
+- [계정 주소](/docs/core/transactions#array-of-account-addresses): 거래의 지침에 필요한 계정 주소 배열입니다.
+- [최근 블록 해시](/docs/core/transactions#recent-blockhash): 거래의 타임스탬프 역할을 합니다.
+- [지침](/docs/core/transactions#array-of-instructions): 실행될 지침의 배열입니다.
+
+```rust title="메시지"
+pub struct Message {
+    /// 서명된 및 읽기 전용 `account_keys`를 식별하는 메시지 헤더입니다.
+    pub header: MessageHeader,
+
+    /// 이 거래에서 사용되는 모든 계정 키입니다.
+    #[serde(with = "short_vec")]
+    pub account_keys: Vec<Pubkey>,
+
+    /// 최근 원장 항목의 ID입니다.
+    pub recent_blockhash: Hash,
+
+    /// 모든 프로그램이 성공할 경우 순차적으로 실행되고 하나의 원자 거래로 커밋됩니다.
+    #[serde(with = "short_vec")]
+    pub instructions: Vec<CompiledInstruction>,
+}
+```
+
+![거래 메시지](/assets/docs/core/transactions/legacy_message.png)
+
+### 거래 크기
+
+솔라나 거래는
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+바이트로 제한됩니다. 이 제한은 1280 바이트의 IPv6 MTU 크기에서 네트워크 헤더(40 바이트 IPv6 + 8 바이트 조각 헤더)를 제외한 것입니다.
+
+거래의 총 크기(서명 및 메시지)는 이 제한을 초과하지 않아야 하며 다음으로 구성됩니다:
+
+- 서명: 각 64 바이트
+- 메시지: 헤더(3 바이트), 계정 키(각 32 바이트), 최근 블록 해시(32 바이트), 및 지침
+
+![거래 형식](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+### 메시지 헤더
+
+[메시지 헤더](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
+에서는 계정 권한을 정의하기 위해 세 바이트를 사용합니다:
+
+1. 필요한 서명 및
+   [메시지 버전](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/versions/mod.rs#L220-L231)
+   (예: 레거시 vs v0)
+2. 읽기 전용 서명된 계정의 수
+3. 읽기 전용 비서명 계정의 수
+
+```rust title="메시지 헤더"
+pub struct MessageHeader {
+    /// 이 메시지가 유효하다고 간주되기 위해 필요한 서명의 수입니다.
+    /// 해당 서명의 서명자는 [`Message::account_keys`]의 첫 번째
+    /// `num_required_signatures`와 일치해야 합니다.
+    pub num_required_signatures: u8,
+
+    /// 서명된 키의 마지막 `num_readonly_signed_accounts`는 읽기 전용
+    /// 계정입니다.
+    pub num_readonly_signed_accounts: u8,
+
+    /// 서명되지 않은 키의 마지막 `num_readonly_unsigned_accounts`는
+    /// 읽기 전용 계정입니다.
+    pub num_readonly_unsigned_accounts: u8,
+}
+```
+
+![메시지 헤더](/assets/docs/core/transactions/message_header.png)
+
+### 압축 배열 형식
+
+거래 메시지의 압축 배열은 다음 형식으로 직렬화된 배열을 의미합니다:
+
+1. 배열 길이(압축된
+   [compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs)로 인코딩됨)
+2. 배열 항목이 차례로 나열됨
+
+![압축 배열 형식](/assets/docs/core/transactions/compact_array_format.png)
+
+이 형식은 거래 메시지의
+[계정 주소](/docs/core/transactions#array-of-account-addresses) 및
+[지침](/docs/core/transactions#array-of-instructions) 배열의 길이를 인코딩하는 데 사용됩니다.
+
+### 계정 주소 배열
+
+거래 메시지에는 지침에서 요구하는
+[계정 주소](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+배열이 포함됩니다. 배열은 포함된 주소 수를 나타내는
+[compact-u16](/docs/core/transactions#compact-array-format) 숫자로 시작합니다. 주소는 메시지 헤더에 의해 결정된 권한에 따라 정렬됩니다.
+
+- 쓰기 가능하고 서명된 계정
+- 읽기 전용이고 서명된 계정
+- 쓰기 가능하고 서명되지 않은 계정
+- 읽기 전용이고 서명되지 않은 계정
+
+![압축 계정 주소 배열](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### 최근 블록 해시
+
+모든 거래에는 두 가지 용도로 사용되는
+[최근 블록 해시](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L141)
+가 필요합니다:
+
+1. 타임스탬프 역할
+2. 중복 거래 방지
+
+블록 해시는
+[150](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)
+블록 후에 만료됩니다(약 1분, 400ms 블록 시간 가정). 그 이후에는 거래를 처리할 수 없습니다.
+
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC
+메서드를 사용하여 현재 블록 해시와 블록 해시가 유효할 마지막 블록 높이를 얻을 수 있습니다. 다음은
+[솔라나 플레이그라운드](https://beta.solpg.io/661a06e1cffcf4b13384d046)에서의 예입니다.
+
+### 지침 배열
+
+거래 메시지에는
+[instructions](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+배열이 포함되어 있으며,
+[CompiledInstruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+형식입니다. 지침은 거래에 추가될 때 이 형식으로 변환됩니다.
+
+메시지의 계정 주소 배열과 마찬가지로,
+[compact-u16](/docs/core/transactions#compact-array-format) 길이로 시작하여 지침 데이터가 뒤따릅니다. 각 지침은 다음을 포함합니다:
+
+1. 프로그램 ID 인덱스: 계정 주소 배열에서 프로그램의 주소를 가리키는 u8 인덱스입니다. 이는 지침을 처리할 프로그램을 지정합니다.
+2. 계정 인덱스: 이 지침에 필요한 계정 주소를 가리키는 u8 인덱스 배열입니다.
+3. 지침 데이터: 프로그램에서 호출할 지침과 지침에서 요구하는 추가 데이터를 지정하는 바이트 배열입니다(예: 함수 인수).
+
+```rust title="CompiledInstruction"
+pub struct CompiledInstruction {
+    /// 이 지침을 실행하는 프로그램 계정을 나타내는 거래 키 배열의 인덱스입니다.
+    pub program_id_index: u8,
+    /// 프로그램에 전달할 계정을 나타내는 거래 키 배열의 순서화된 인덱스입니다.
+    #[serde(with = "short_vec")]
+    pub accounts: Vec<u8>,
+    /// 프로그램 입력 데이터입니다.
+    #[serde(with = "short_vec")]
+    pub data: Vec<u8>,
+}
+```
+
+![압축 지침 배열](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+### 예제 거래 구조
+
+아래는 단일
+[SOL 전송](/docs/core/transactions#basic-example) 지침을 포함하는 예제 거래입니다. 거래의 구성 요소는 다음과 같습니다:
+
+- `header`: `accountKeys` 배열의 주소에 대한 읽기/쓰기 및 서명자 권한을 지정합니다.
+
+- `accountKeys`: 거래의 지침에서 사용되는 모든 계정 주소의 배열입니다.
+
+- `recentBlockhash`: 거래의 타임스탬프에 사용되는 블록 해시입니다.
+
+- `instructions`: 실행할 지침의 배열입니다. 각 지침의 `account` 및 `programIdIndex`는 인덱스별로 `accountKeys` 배열을 참조합니다.
+
+- `signatures`: 거래의 지침에서 서명자로 요구되는 모든 계정의 서명을 포함하는 배열입니다. 서명은 해당 계정의 개인 키를 사용하여 거래 메시지에 서명하여 생성됩니다.
+
+```json
+"transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+        "5snoUseZG8s8CDFHrXY2ZHaCrJYsW457piktDmhyb5Jd",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "DzfXchZJoLMG3cNftcf2sw7qatkkuwQf4xH15N5wkKAb",
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1
+          ],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "5LrcE2f6uvydKRquEJ8xp19heGxSvqsVbcqUeFoiWbXe8JNip7ftPQNTAVPyTK7ijVdpkzmKKaAQR7MWMmujAhXD"
+    ]
+  }
+```
+
+## 지침
+
+배포된 [프로그램](/docs/core/accounts#program-account)의
+[지침](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
+은 솔라나 네트워크를 사용하는 누구나 호출할 수 있는 공개 함수로 생각할 수 있습니다.
+
+프로그램의 지침을 호출하려면 세 가지 주요 정보를 제공해야 합니다:
+
+- 프로그램 ID: 지침을 실행하기 위해 호출되는 프로그램
+- 계정: 지침에서 요구하는 계정 목록
+- 지침 데이터: 호출할 프로그램의 지침을 지정하고 지침에서 요구하는 함수 인수를 포함하는 바이트 배열
+
+```rust title="지침"
+pub struct Instruction {
+    /// 이 지침을 실행하는 프로그램의 Pubkey입니다.
+    pub program_id: Pubkey,
+    /// 프로그램에 전달해야 하는 계정에 대한 메타데이터입니다.
+    pub accounts: Vec<AccountMeta>,
+    /// 프로그램에서 자체 해석을 위해 전달되는 불투명 데이터입니다.
+    pub data: Vec<u8>,
+}
+```
+
+![거래 지침](/assets/docs/core/transactions/instruction.svg)
+
+### AccountMeta
+
+지침에서 요구하는 각 계정은 다음을 포함하는
+[AccountMeta](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25)
+로 제공되어야 합니다:
+
+- `pubkey`: 계정의 주소
+- `is_signer`: 계정이 거래에 서명해야 하는지 여부
+- `is_writable`: 지침이 계정의 데이터를 수정할 것인지 여부
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// 계정의 공개 키입니다.
+    pub pubkey: Pubkey,
+    /// `Instruction`이 `pubkey`와 일치하는 `Transaction` 서명을 요구하는 경우 true입니다.
+    pub is_signer: bool,
+    /// 프로그램 실행 중에 계정 데이터 또는 메타데이터가 변경될 수 있는 경우 true입니다.
+    pub is_writable: bool,
+}
+```
+
+![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+
+지침이 읽거나 쓸 계정을 미리 지정함으로써,
+같은 계정을 수정하지 않는 거래는 병렬로 처리될 수 있습니다.
+
+### 지침 구조 예제
+
+아래는 SOL 전송 지침의 구조를 보여주는 간단한 예제입니다:
+
+- `keys`: 지침에서 요구하는 각 계정에 대한 `AccountMeta`를 포함합니다.
+- `programId`: 호출된 지침의 실행 논리를 포함하는 프로그램의 주소입니다.
+- `data`: 바이트 버퍼로서 지침의 지침 데이터입니다.
+
+```json
+{
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  "programId": "11111111111111111111111111111111",
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+## 확장 예제
+
+프로그램 지침을 구축하는 세부정보는 종종 클라이언트 라이브러리에 의해 추상화됩니다. 그러나 사용 가능한 라이브러리가 없는 경우,
+지침을 수동으로 구축할 수 있습니다.
+
+### SOL 전송
+
+다음은 SOL 전송 지침을 수동으로 구축하는 방법에 대한
+[솔라나 플레이그라운드](https://beta.solpg.io/656a102efb53fa325bfd0c3f) 예제입니다.
+
+기본적으로 `SystemProgram.transfer` 메서드를 사용하는
+[간단한 예제](/docs/core/transactions#simple-sol-transfer)는 아래의 더 장황한 예제와 기능적으로 동일합니다. `SystemProgram.transfer` 메서드는 지침 데이터 버퍼 및 각 계정에 대한 `AccountMeta`를 생성하는 세부정보를 단순화합니다.
+
+아래 두 탭의 코드 스니펫은 기능적으로 동일합니다.
+
+<Tabs items={['지침 수동 구축', '라이브러리 사용']}>
+<Tab value="지침 수동 구축">
+
+```typescript
+// 전송할 금액 정의
+const transferAmount = 0.01; // 0.01 SOL
+
+// 시스템 프로그램 전송 지침의 지침 인덱스
+const transferInstructionIndex = 2;
+
+// 전송 지침에 전달할 데이터 버퍼 생성
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+// 버퍼에 지침 인덱스 작성
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+// 버퍼에 전송 금액 작성
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// 송신자에서 수신자로 SOL을 전송하기 위한 전송 지침 수동 생성
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true },
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true },
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData,
+});
+
+// 새 거래에 전송 지침 추가
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Tab>
+<Tab value="라이브러리 사용">
+
+```typescript
+// 전송할 금액 정의
+const transferAmount = 0.01; // 0.01 SOL
+
+// wallet_1에서 wallet_2로 SOL을 전송하기 위한 전송 지침 생성
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL, // transferAmount를 램포트로 변환
+});
+
+// 새 거래에 전송 지침 추가
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Tab>
+</Tabs>

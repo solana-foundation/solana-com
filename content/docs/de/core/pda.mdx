@@ -1,0 +1,384 @@
+---
+title: Programm-abgeleitete Adresse
+description:
+  Erfahren Sie mehr über Programm-abgeleitete Adressen (PDAs) auf Solana - deterministische Kontoadressen,
+  die eine sichere Programmunterschrift ermöglichen. Verstehen Sie die Ableitung von PDAs,
+  kanonische Bumps und wie man PDA-Konten erstellt.
+h1: Programm-abgeleitete Adresse (PDA)
+---
+
+Programm-abgeleitete Adressen (PDAs) bieten Entwicklern auf Solana zwei Hauptanwendungsfälle:
+
+- **Deterministische Kontoadressen**: PDAs bieten einen Mechanismus,
+  um eine Adresse deterministisch aus einer Kombination von optionalen "Seeds"
+  (vordefinierten Eingaben) und einer spezifischen Programm-ID abzuleiten.
+- **Ermöglichen Sie Programmunterschriften**: Die Solana-Laufzeit ermöglicht es Programmen, für
+  PDAs zu "unterzeichnen", die aus ihrer Programm-ID abgeleitet sind.
+
+Sie können sich PDAs als eine Möglichkeit vorstellen, hashmap-ähnliche Strukturen on-chain aus einem
+vordefinierten Satz von Eingaben (z. B. Zeichenfolgen, Zahlen und andere Kontoadressen) zu erstellen.
+
+Der Vorteil dieses Ansatzes besteht darin, dass es nicht erforderlich ist, eine
+exakte Adresse im Auge zu behalten. Stattdessen müssen Sie sich einfach an die spezifischen Eingaben erinnern,
+ die für die Ableitung verwendet wurden.
+
+![Programm-abgeleitete Adresse](/assets/docs/core/pda/pda.svg)
+
+Es ist wichtig zu verstehen, dass das bloße Ableiten einer Programm-abgeleiteten Adresse
+(PDA) nicht automatisch ein On-Chain-Konto an dieser Adresse erstellt.
+Konten mit einer PDA als On-Chain-Adresse müssen ausdrücklich durch
+das Programm erstellt werden, das zur Ableitung der Adresse verwendet wurde. Sie können sich die Ableitung einer PDA wie
+ das Finden einer Adresse auf einer Karte vorstellen. Nur weil Sie eine Adresse haben, bedeutet das nicht,
+dass an diesem Standort etwas gebaut wurde.
+
+> In diesem Abschnitt werden die Einzelheiten zur Ableitung von PDAs behandelt. Die Einzelheiten, wie
+> Programme PDAs für die Unterschrift verwenden, werden im Abschnitt über
+> [Cross Program Invocations (CPIs)](/docs/core/cpi) behandelt, da dies Kontext für
+> beide Konzepte erfordert.
+
+## Wichtige Punkte
+
+- PDAs sind Adressen, die **deterministisch abgeleitet** werden, indem eine Kombination von
+  benutzerdefinierten Seeds, einem Bump-Seed und der ID eines Programms verwendet wird.
+- PDAs sind Adressen, die von der Ed25519-Kurve abfallen und **keinen entsprechenden
+  privaten Schlüssel haben**.
+- Solana-Programme können **im Namen von PDAs, die mit ihrer Programm-ID abgeleitet wurden, unterschreiben**.
+- Das Ableiten einer PDA erstellt nicht automatisch ein On-Chain-Konto.
+- Ein Konto, das eine PDA als Adresse verwendet, muss ausdrücklich durch eine
+  spezielle Anweisung innerhalb eines Solana-Programms erstellt werden.
+
+## Was ist eine PDA
+
+PDAs sind Adressen, die deterministisch abgeleitet werden und wie Standard-
+öffentliche Schlüssel aussehen, aber keine zugehörigen privaten Schlüssel haben. Das bedeutet, dass kein externer
+Benutzer eine gültige Unterschrift für die Adresse generieren kann. Die Solana-Laufzeit
+ermöglicht es Programmen jedoch, programmgesteuert für PDAs zu "unterzeichnen", ohne einen privaten
+Schlüssel zu benötigen.
+
+Zur Einordnung sind Solana
+[Schlüsselpaare](https://github.com/solana-labs/solana/blob/27eff8408b7223bb3c4ab70523f8a8dca3ca6645/sdk/src/signer/keypair.rs#L25)
+Punkte auf der Ed25519-Kurve (elliptische Kurven-Kryptographie), die einen
+öffentlichen Schlüssel und den entsprechenden privaten Schlüssel haben. Wir verwenden häufig öffentliche Schlüssel als die eindeutigen
+IDs für neue On-Chain-Konten und private Schlüssel zum Unterzeichnen.
+
+![Auf der Kurve Adresse](/assets/docs/core/pda/address-on-curve.svg)
+
+Eine PDA ist ein Punkt, der absichtlich abgeleitet wurde, um von der Ed25519-Kurve
+abzufallen, indem ein vordefinierter Satz von Eingaben verwendet wird. Ein Punkt, der nicht auf der Ed25519-Kurve liegt, hat
+keinen gültigen entsprechenden privaten Schlüssel und kann nicht für kryptografische
+Operationen (Unterzeichnung) verwendet werden.
+
+Eine PDA kann dann als Adresse (eindeutiger Identifikator) für ein On-Chain-Konto verwendet werden,
+was eine Methode bietet, um den Programmstatus einfach zu speichern, zuzuordnen und abzurufen.
+
+![Abseits der Kurve Adresse](/assets/docs/core/pda/address-off-curve.svg)
+
+## Wie man eine PDA ableitet
+
+Die Ableitung einer PDA erfordert 3 Eingaben.
+
+- **Optionale Seeds**: Vordefinierte Eingaben (z. B. Zeichenfolge, Zahl, andere Kontoadressen),
+  die zur Ableitung einer PDA verwendet werden. Diese Eingaben werden in einen Puffer von
+  Bytes umgewandelt.
+- **Bump-Seed**: Eine zusätzliche Eingabe (mit einem Wert zwischen 255-0), die verwendet wird,
+  um sicherzustellen, dass eine gültige PDA (abseits der Kurve) generiert wird. Dieser Bump-Seed
+  (beginnend mit 255) wird an die optionalen Seeds angehängt, wenn eine PDA generiert wird, um
+  den Punkt von der Ed25519-Kurve "abzustoßen". Der Bump-Seed wird manchmal als "Nonce" bezeichnet.
+- **Programm-ID**: Die Adresse des Programms, von dem die PDA abgeleitet wird. Dies ist
+  auch das Programm, das im Namen der PDA "unterzeichnen" kann.
+
+![PDA-Ableitung](/assets/docs/core/pda/pda-derivation.svg)
+
+Die folgenden Beispiele enthalten Links zu Solana Playground, wo Sie die
+Beispiele in einem Editor im Browser ausführen können.
+
+### FindProgramAddress
+
+Um eine PDA abzuleiten, können wir die
+[`findProgramAddressSync`](https://github.com/solana-labs/solana-web3.js/blob/ca9da583a39cdf8fd874a2e03fccdc849e29de34/packages/library-legacy/src/publickey.ts#L212)
+Methode von [`@solana/web3.js`](https://www.npmjs.com/package/@solana/web3.js) verwenden.
+Es gibt Äquivalente dieser Funktion in anderen Programmiersprachen (z. B.
+[Rust](https://github.com/solana-labs/solana/blob/27eff8408b7223bb3c4ab70523f8a8dca3ca6645/sdk/program/src/pubkey.rs#L484)),
+aber in diesem Abschnitt werden wir Beispiele mit Javascript durchgehen.
+
+Wenn wir die Methode `findProgramAddressSync` verwenden, übergeben wir:
+
+- die vordefinierten optionalen Seeds, die in einen Puffer von Bytes umgewandelt wurden, und
+- die Programm-ID (Adresse), die zur Ableitung der PDA verwendet wird.
+
+Sobald eine gültige PDA gefunden wurde, gibt `findProgramAddressSync` sowohl die Adresse
+(PDA) als auch den Bump-Seed zurück, der zur Ableitung der PDA verwendet wurde.
+
+Das folgende Beispiel leitet eine PDA ab, ohne optionale Seeds bereitzustellen.
+
+```ts /[]/
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+
+const [PDA, bump] = PublicKey.findProgramAddressSync([], programId);
+
+console.log(`PDA: ${PDA}`);
+console.log(`Bump: ${bump}`);
+```
+
+Sie können dieses Beispiel auf
+[Solana Playground](https://beta.solpg.io/66031e5acffcf4b13384cfef) ausführen. Die PDA und
+Bump-Seed-Ausgabe wird immer gleich sein:
+
+```
+PDA: Cu7NwqCXSmsR5vgGA3Vw9uYVViPi3kQvkbKByVQ8nPY9
+Bump: 255
+```
+
+Das nächste Beispiel fügt einen optionalen Seed "helloWorld" hinzu.
+
+```ts /string/
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const string = "helloWorld";
+
+const [PDA, bump] = PublicKey.findProgramAddressSync(
+  [Buffer.from(string)],
+  programId,
+);
+
+console.log(`PDA: ${PDA}`);
+console.log(`Bump: ${bump}`);
+```
+
+Sie können dieses Beispiel auch auf
+[Solana Playground](https://beta.solpg.io/66031ee5cffcf4b13384cff0) ausführen. Die PDA und
+Bump-Seed-Ausgabe wird immer gleich sein:
+
+```
+PDA: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+Bump: 254
+```
+
+Beachten Sie, dass der Bump-Seed 254 beträgt. Das bedeutet, dass 255 einen Punkt auf der
+Ed25519-Kurve abgeleitet hat und kein gültiger PDA ist.
+
+Der von `findProgramAddressSync` zurückgegebene Bump-Seed ist der erste Wert (zwischen
+255-0) für die gegebene Kombination von optionalen Seeds und Programm-ID, der eine
+gültige PDA ableitet.
+
+> Dieser erste gültige Bump-Seed wird als "kanonischer Bump" bezeichnet. Aus Gründen der Programmsicherheit
+> wird empfohlen, nur den kanonischen Bump zu verwenden, wenn Sie mit PDAs arbeiten.
+
+### CreateProgramAddress
+
+Im Hintergrund wird `findProgramAddressSync` iterativ einen zusätzlichen
+Bump-Seed (Nonce) an den Seeds-Puffer anhängen und die
+[`createProgramAddressSync`](https://github.com/solana-labs/solana-web3.js/blob/ca9da583a39cdf8fd874a2e03fccdc849e29de34/packages/library-legacy/src/publickey.ts#L168)
+Methode aufrufen. Der Bump-Seed beginnt mit einem Wert von 255 und wird um 1 verringert,
+bis eine gültige PDA (abseits der Kurve) gefunden wird.
+
+Sie können das vorherige Beispiel replizieren, indem Sie `createProgramAddressSync` verwenden und
+explizit den Bump-Seed von 254 übergeben.
+
+```ts /bump/
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const string = "helloWorld";
+const bump = 254;
+
+const PDA = PublicKey.createProgramAddressSync(
+  [Buffer.from(string), Buffer.from([bump])],
+  programId,
+);
+
+console.log(`PDA: ${PDA}`);
+```
+
+Führen Sie dieses Beispiel oben auf
+[Solana Playground](https://beta.solpg.io/66031f8ecffcf4b13384cff1) aus. Bei den
+gleichen Seeds und der Programm-ID wird die PDA-Ausgabe mit der vorherigen übereinstimmen:
+
+```
+PDA: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+```
+
+### Kanonischer Bump
+
+Der "kanonische Bump" bezieht sich auf den ersten Bump-Seed (beginnend bei 255 und
+um 1 verringert), der eine gültige PDA ableitet. Aus Gründen der Programmsicherheit
+wird empfohlen, nur PDAs zu verwenden, die aus einem kanonischen Bump abgeleitet sind.
+
+Unter Verwendung des vorherigen Beispiels als Referenz versucht das folgende Beispiel,
+eine PDA mit jedem Bump-Seed von 255-0 abzuleiten.
+
+```ts
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const string = "helloWorld";
+
+// Schleife durch alle Bump-Seeds zur Demonstration
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(string), Buffer.from([bump])],
+      programId,
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+Führen Sie das Beispiel auf
+[Solana Playground](https://beta.solpg.io/66032009cffcf4b13384cff2) aus und Sie
+sollten die folgende Ausgabe sehen:
+
+```
+bump 255: Fehler: Ungültige Seeds, Adresse muss von der Kurve abfallen
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Fehler: Ungültige Seeds, Adresse muss von der Kurve abfallen
+...
+// verbleibende Bump-Ausgaben
+```
+
+Wie erwartet, wirft der Bump-Seed 255 einen Fehler und der erste Bump-Seed, der eine gültige PDA ableitet, ist 254.
+
+Beachten Sie jedoch, dass die Bump-Seeds 253-251 alle gültige PDAs mit unterschiedlichen
+Adressen ableiten. Das bedeutet, dass bei den gleichen optionalen Seeds und `programId` ein Bump-Seed mit einem anderen Wert
+immer noch eine gültige PDA ableiten kann.
+
+<Callout type="warn">
+  Beim Erstellen von Solana-Programmen wird empfohlen, Sicherheitsprüfungen einzuführen,
+die validieren, dass eine PDA, die an das Programm übergeben wird, mit dem kanonischen Bump abgeleitet wurde.
+  Wenn dies nicht erfolgt, können Schwachstellen entstehen, die es ermöglichen, unerwartete
+  Konten an ein Programm zu übergeben.
+</Callout>
+
+## PDA-Konten erstellen
+
+Dieses Beispielprogramm auf
+[Solana Playground](https://beta.solpg.io/github.com/ZYJLiu/doc-examples/tree/main/pda-account)
+zeigt, wie man ein Konto erstellt, das eine PDA als Adresse des neuen
+Kontos verwendet. Das Beispielprogramm ist mit dem Anchor-Framework geschrieben.
+
+In der Datei `lib.rs` finden Sie das folgende Programm, das eine
+einzelne Anweisung enthält, um ein neues Konto mit einer PDA als Adresse des
+Kontos zu erstellen. Das neue Konto speichert die Adresse des `Benutzers` und den `Bump`-Seed,
+ der zur Ableitung der PDA verwendet wurde.
+
+```rust title="lib.rs" {11-14,26-29}
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // speichere die Adresse des `Benutzers`
+        account_data.user = *ctx.accounts.user.key;
+        // speichere den kanonischen Bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // setze die Seeds zur Ableitung der PDA
+        seeds = [b"data", user.key().as_ref()],
+        // verwende den kanonischen Bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+
+#[derive(InitSpace)]
+pub struct DataAccount {
+    pub user: Pubkey,
+    pub bump: u8,
+}
+```
+
+Die Seeds, die zur Ableitung der PDA verwendet werden, umfassen die fest codierte Zeichenfolge `data` und die
+Adresse des `Benutzers`, die in der Anweisung bereitgestellt wird. Das Anchor-Framework
+leitet automatisch den kanonischen `Bump`-Seed ab.
+
+```rust /data/ /user.key()/ /bump/
+#[account(
+    init,
+    seeds = [b"data", user.key().as_ref()],
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+Die `init`-Bedingung weist Anchor an, das Systemprogramm aufzurufen, um ein
+neues Konto mit der PDA als Adresse zu erstellen. Im Hintergrund geschieht dies durch ein
+[CPI](/docs/core/cpi).
+
+```rust /init/
+#[account(
+    init,
+    seeds = [b"data", user.key().as_ref()],
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+In der Testdatei (`pda-account.test.ts`), die sich im Solana Playground
+Link oben befindet, finden Sie das Javascript-Äquivalent zur Ableitung der PDA.
+
+```ts /data/ /user.publicKey/
+const [PDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("data"), user.publicKey.toBuffer()],
+  program.programId,
+);
+```
+
+Eine Transaktion wird dann gesendet, um die `initialize`-Anweisung aufzurufen, um ein
+neues On-Chain-Konto mit der PDA als Adresse zu erstellen. Sobald die Transaktion gesendet wird,
+ wird die PDA verwendet, um das On-Chain-Konto abzurufen, das an der Adresse erstellt wurde.
+
+```ts /initialize()/ /PDA/  {14}
+it("Ist initialisiert!", async () => {
+  const transactionSignature = await program.methods
+    .initialize()
+    .accounts({
+      user: user.publicKey,
+      pdaAccount: PDA,
+    })
+    .rpc();
+
+  console.log("Transaktionssignatur:", transactionSignature);
+});
+
+it("Konto abrufen", async () => {
+  const pdaAccount = await program.account.dataAccount.fetch(PDA);
+  console.log(JSON.stringify(pdaAccount, null, 2));
+});
+```
+
+Beachten Sie, dass wenn Sie die `initialize`-Anweisung mehr als einmal mit der
+ gleichen `Benutzer`-Adresse als Seed aufrufen, die Transaktion fehlschlagen wird. Dies liegt daran,
+dass bereits ein Konto an der abgeleiteten Adresse existiert.

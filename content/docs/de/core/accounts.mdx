@@ -1,0 +1,211 @@
+---
+title: Solana Kontomodell
+description:
+  Erfahren Sie mehr über das Kontomodell von Solana, einschließlich wie Konten Daten und
+  Programme speichern, Mietmechanismen, Kontoeigentum und die Beziehung zwischen
+  Programmen und Datenkonten. Verstehen Sie die Kernkonzepte von Solanas Schlüssel-Wert-
+  Speichersystem.
+---
+
+Auf Solana sind alle Daten in dem, was wir "Konten" nennen, enthalten. Sie können sich
+Daten auf Solana als eine öffentliche Datenbank mit einer einzigen "Konten"-Tabelle
+vorstellen, in der jeder Eintrag in dieser Tabelle ein individuelles Konto mit dem
+selben Basis-
+[Kontotyp](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60)
+ist.
+
+![Konten](/assets/docs/core/accounts/accounts.png)
+
+## Wichtige Punkte
+
+- Konten können bis zu
+  [10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+  an Daten speichern, die entweder ausführbaren Programmcode oder Programmzustand
+  enthalten.
+- Konten benötigen eine
+  [Mietkaution](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+  in Lamports (SOL), die proportional zur Menge der gespeicherten Daten ist und
+  vollständig rückerstattbar ist, wenn das Konto geschlossen wird.
+- Jedes Konto hat einen Programm-
+  [Eigentümer](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L55).
+  Nur das Programm, das ein Konto besitzt, kann dessen Daten ändern oder den
+  Lamport-Saldo abziehen. Jeder kann jedoch das Guthaben erhöhen.
+- **Sysvar-Konten** sind spezielle Konten, die den Zustand des Netzwerkclusters speichern.
+- **Programmkonten** speichern den ausführbaren Code von Smart Contracts.
+- **Datenkonten** werden von Programmen erstellt, um den Programmzustand zu speichern und
+  zu verwalten.
+
+## Konto
+
+Jedes Konto auf Solana ist durch eine eindeutige 32-Byte-Adresse identifizierbar, die
+allgemein als eine base58-kodierte Zeichenfolge angezeigt wird (z. B.
+`14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5`).
+
+Die Beziehung zwischen dem Konto und seiner Adresse kann als ein
+Schlüssel-Wert-Paar betrachtet werden, wobei die Adresse als Schlüssel dient, um die
+entsprechenden On-Chain-Daten des Kontos zu lokalisieren.
+
+![Kontoadresse](/assets/docs/core/accounts/account-address.svg)
+
+Die meisten Solana-Konten verwenden einen [Ed25519](https://ed25519.cr.yp.to/) öffentlichen
+Schlüssel als ihre Adresse.
+
+Während öffentliche Schlüssel häufig als Kontoadressen verwendet werden, unterstützt
+Solana auch eine Funktion namens Programmabgeleitete Adressen (PDAs). PDAs sind spezielle
+Adressen, die deterministisch aus einer Programm-ID und optionalen Eingaben (Seeds)
+abgeleitet werden. Die Einzelheiten sind auf der Seite [Programmabgeleitete Adresse](/docs/core/pda)
+zu finden.
+
+### Kontotyp
+
+Konten haben eine maximale Größe von
+[10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+und jedes Konto auf Solana hat den gleichen Basis-
+[Kontotyp](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60).
+
+![Kontotyp](/assets/docs/core/accounts/account-type.svg)
+
+Jedes Konto auf Solana hat die folgenden Felder:
+
+- `data`: Ein Byte-Array, das beliebige Daten für ein Konto speichert. Für
+  nicht ausführbare Konten speichert dies in der Regel einen Zustand, der nur zum
+  Lesen bestimmt ist. Für Programmkonten (Smart Contracts) enthält dies den
+  ausführbaren Programmcode. Das Datenfeld wird häufig als "Kontodaten"
+  bezeichnet.
+- `executable`: Dieses boolesche Flag wird verwendet, um anzuzeigen, ob ein Konto ein
+  Programm war.
+- `lamports`: Der Kontostand in Lamports, die kleinste Einheit von SOL (1 SOL
+  = 1 Milliarde Lamports).
+- `owner`: Die Programm-ID (öffentlicher Schlüssel) des Programms, das dieses Konto
+  besitzt. Nur das Eigentümerprogramm kann die Daten des Kontos ändern oder den
+  Lamport-Saldo abziehen.
+- `rent_epoch`: Ein veraltetes Feld aus der Zeit, als Solana einen Mechanismus hatte,
+  der regelmäßig Lamports von Konten abgezogen hat. Obwohl dieses Feld im
+  Kontotyp weiterhin existiert, wird es nicht mehr verwendet, da die
+  Mietkassierung eingestellt wurde.
+
+```rust title="Basis-Kontotyp"
+pub struct Account {
+    /// Lamports im Konto
+    pub lamports: u64,
+    /// Daten, die in diesem Konto gehalten werden
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// das Programm, das dieses Konto besitzt. Wenn ausführbar, das Programm, das dieses Konto lädt.
+    pub owner: Pubkey,
+    /// die Daten dieses Kontos enthalten ein geladenes Programm (und sind jetzt schreibgeschützt)
+    pub executable: bool,
+    /// die Epoche, in der dieses Konto das nächste Mal Miete schulden wird
+    pub rent_epoch: Epoch,
+}
+```
+
+### Miete
+
+Um Daten on-chain zu speichern, müssen Konten auch einen Mindestlamport (SOL)
+Saldo aufrechterhalten, der proportional zur Menge der auf dem Konto gespeicherten
+Daten (in Bytes) ist. Dieser Mindestsaldo wird als "Miete" bezeichnet, obwohl er
+mehr wie eine Kaution funktioniert, da der volle Betrag zurückgefordert werden kann,
+wenn ein Konto geschlossen wird. Sie können die Berechnung
+[hier](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+unter Verwendung dieser
+[Konstanten](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70)
+finden.
+
+Der Begriff "Miete" stammt von einem veralteten Mechanismus, der regelmäßig
+Lamports von Konten abgezogen hat, die unter die Mietschwelle fielen. Dieser
+Mechanismus ist nicht mehr aktiv.
+
+### Programmeigentümer
+
+Auf Solana werden "Smart Contracts" als [Programme](/docs/core/programs) bezeichnet.
+Das Programmeigentum ist ein Schlüsselaspekt des Solana Kontomodells. Jedes Konto hat
+ein bestimmtes Programm als Eigentümer. Nur das Eigentümerprogramm kann:
+
+- Das `data`-Feld des Kontos ändern
+- Lamports vom Kontostand des Kontos abziehen
+
+## Systemprogramm
+
+Standardmäßig werden alle neuen Konten vom
+[Systemprogramm](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/system/src)
+besessen. Das Systemprogramm führt mehrere wichtige Aufgaben aus:
+
+- [Neuer Kontoerstellung](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L146):
+  Nur das Systemprogramm kann neue Konten erstellen.
+- [Speicherzuweisung](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L71):
+  Legt die Byte-Kapazität für das Datenfeld jedes Kontos fest.
+- [Übertragung / Zuweisung des Programmeigentums](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L113):
+  Sobald das Systemprogramm ein Konto erstellt, kann es den bestimmten
+  Programmeigentümer auf ein anderes Programmkonto umschreiben. So übernehmen
+  benutzerdefinierte Programme das Eigentum an neuen Konten, die vom Systemprogramm
+  erstellt wurden.
+
+Alle "Wallet"-Konten auf Solana sind einfach Konten, die vom Systemprogramm
+besessen werden. Der Lamport-Saldo, der in diesen Konten gespeichert ist, stellt die
+Menge an SOL dar, die der Wallet gehört. Nur Konten, die vom Systemprogramm
+besessen werden, können als Zahler von Transaktionsgebühren verwendet werden.
+
+![Systemkonto](/assets/docs/core/accounts/system-account.svg)
+
+## Sysvar-Konten
+
+Sysvar-Konten sind spezielle Konten, die sich an vordefinierten Adressen befinden und
+Zugriff auf Clusterzustandsdaten bieten. Diese Konten werden dynamisch mit Daten über
+den Netzwerkcluster aktualisiert. Sie finden die vollständige Liste der Sysvar-Konten
+[hier](https://docs.anza.xyz/runtime/sysvars).
+
+## Programmkonto
+
+Mit Ausnahme von loader-v3 speichern alle Loader den ausführbaren Code der Programme,
+ die sie verwalten, in einem sogenannten Programmkonto:
+![Programmkonto](/assets/docs/core/accounts/program-account-simple.svg)
+
+Zur Vereinfachung können Sie das Programmkonto als das Programm selbst betrachten. Bei
+Aufruf der Anweisungen eines Programms geben Sie die Adresse des Programmkontos an
+(gewöhnlich als "Programm-ID" bezeichnet).
+
+### Buffer-Konto
+
+Loader-v3 hat einen speziellen Kontotyp für die vorübergehende Bereitstellung des Uploads
+ eines Programms während der Bereitstellung oder Wiederbereitstellung / Upgrades. In
+loader-v4 gibt es immer noch Buffer, jedoch sind sie einfach normale Programmkonten.
+
+### Programmdatenkonto
+
+Loader-v3 funktioniert anders als alle anderen Loader, da es eine Indirektion für jedes
+Programm hat. Das Programmkonto enthält nur die Adresse des Programmdatenkontos, das
+ dann den tatsächlichen ausführbaren Code enthält:
+![Programmdatenkonto](/assets/docs/core/accounts/program-account-expanded.svg)
+
+Diese Programmdatenkonten sind nicht mit den Datenkonten von Programmen zu verwechseln
+( siehe unten).
+
+## Datenkonto
+
+Auf Solana wird der ausführbare Code eines Programms in einem anderen Konto gespeichert
+als der Zustand des Programms. Dies ist vergleichbar damit, wie Betriebssysteme
+gewöhnlich separate Dateien für Programme selbst und deren Daten haben.
+
+Um den Zustand aufrechtzuerhalten, definieren Programme Anweisungen zur Erstellung
+separater Konten, die im Besitz des Programms sind. Jedes dieser Konten hat seine
+ eigene eindeutige Adresse und kann beliebige Daten speichern, die vom Programm
+definiert werden.
+
+![Datenkonto](/assets/docs/core/accounts/data-account.svg)
+
+Beachten Sie, dass nur das [Systemprogramm](/docs/core/accounts#system-program)
+neue Konten erstellen kann. Sobald das Systemprogramm ein Konto erstellt, kann es
+anschließend das Eigentum des neuen Kontos an ein anderes Programm übertragen /
+zuweisen.
+
+Mit anderen Worten, die Erstellung eines Datenkontos für ein benutzerdefiniertes Programm
+erfordert zwei Schritte:
+
+1. Rufen Sie das Systemprogramm auf, um ein Konto zu erstellen, das dann das
+   Eigentum an das benutzerdefinierte Programm überträgt
+2. Rufen Sie das benutzerdefinierte Programm auf, das jetzt das Konto besitzt, um
+   die Kontodaten gemäß der Anweisung des Programms zu initialisieren
+
+Dieser Kontoerstellungsprozess wird oft als ein einzelner Schritt abstrahiert, aber es
+ist hilfreich, den zugrunde liegenden Prozess zu verstehen.
