@@ -404,6 +404,7 @@ async function getCurlTab(codeblock: RawCode) {
     style: highlighted.style,
     code: highlighted.code,
     icon: <CodeIcon title="Request" lang="sh" />,
+    lang: "sh",
     pre: (
       <RequestClientProvider params={params} json={json}>
         <Pre
@@ -448,6 +449,7 @@ async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {
   const handlers = [mark, tokenTransitions, hover, ...collapse];
   const codeGroup = {
     options: {},
+    lang: "json",
     title: "Response",
     style: highlighted.style,
     code: highlighted.code,

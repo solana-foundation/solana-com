@@ -13,7 +13,13 @@ import { useStateOrLocalStorage } from "@/hooks/useLocalStorage";
 import { CodeGroup } from "@/app/components/code/code-group";
 import { RunableCode } from "./code.runable";
 
-export function MultiCode({ group }: { group: CodeGroup }) {
+export function MultiCode({
+  group,
+  className,
+}: {
+  group: CodeGroup;
+  className?: string;
+}) {
   const [currentTitle, setCurrentTitle] = useStateOrLocalStorage(
     group.storage,
     group.tabs[0].title,
@@ -28,11 +34,14 @@ export function MultiCode({ group }: { group: CodeGroup }) {
       <Tabs
         value={currentTitle}
         onValueChange={setCurrentTitle}
-        className="border rounded selection:bg-ch-selection border-ch-border overflow-hidden my-4 relative"
+        className={cn(
+          "border rounded selection:bg-ch-selection border-ch-border overflow-hidden my-4 relative flex flex-col",
+          className,
+        )}
       >
         <TabsList
           className={cn(
-            "border-b-[1px] border-ch-border bg-ch-tabs-background px-2 py-1 w-full h-9 ",
+            "border-b-[1px] border-ch-border bg-ch-tabs-background px-2 py-1 w-full h-9 min-h-9 shrink-0",
             "rounded-none p-0 m-0 justify-start items-stretch !pt-0",
           )}
         >
