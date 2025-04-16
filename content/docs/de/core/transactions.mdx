@@ -1,0 +1,537 @@
+---
+title: Transaktionen und Anweisungen
+description:
+  Erfahren Sie mehr über Solana-Transaktionen und -Anweisungen - die
+  grundlegenden Bausteine für die Interaktion mit der Solana-Blockchain.
+  Verstehen Sie Transaktionsstruktur und Anweisungszusammensetzung anhand
+  praktischer Beispiele.
+---
+
+Auf Solana senden wir [Transaktionen](/docs/core/transactions#transaction), um
+mit dem Netzwerk zu interagieren. Transaktionen enthalten eine oder mehrere
+[Anweisungen](/docs/core/transactions#instruction), die auszuführende
+Operationen spezifizieren. Die Ausführungslogik für Anweisungen ist in
+[Programmen](/docs/core/programs) gespeichert, die im Solana-Netzwerk
+bereitgestellt werden, wobei jedes Programm seinen eigenen Satz von Anweisungen
+definiert.
+
+Nachfolgend sind wichtige Details zur Verarbeitung von Transaktionen aufgeführt:
+
+- Wenn eine Transaktion mehrere Anweisungen enthält, werden diese in der
+  Reihenfolge ausgeführt, in der sie zur Transaktion hinzugefügt wurden
+- Transaktionen sind "atomar" - entweder werden alle Anweisungen erfolgreich
+  verarbeitet, oder die gesamte Transaktion schlägt fehl und es werden keine
+  Änderungen vorgenommen.
+
+Der Einfachheit halber kann eine Transaktion als Anfrage zur Verarbeitung einer
+oder mehrerer Anweisungen betrachtet werden.
+
+![Vereinfachte Transaktion](/assets/docs/core/transactions/transaction-simple.svg)
+
+Stellen Sie sich eine Transaktion wie einen Umschlag mit Formularen vor. Jedes
+Formular ist eine Anweisung, die dem Netzwerk mitteilt, was wir tun möchten.
+Wenn Sie die Transaktion senden, ist es, als würden Sie den Umschlag abschicken,
+damit die Formulare verarbeitet werden.
+
+## Kernpunkte
+
+- Solana-Transaktionen enthalten Anweisungen, die Anfragen zum Aufrufen von
+  Programmen im Netzwerk darstellen.
+- Transaktionen sind **atomar** - wenn eine Anweisung fehlschlägt, schlägt die
+  gesamte Transaktion fehl und es treten keine Änderungen auf.
+- Anweisungen in einer Transaktion werden **in sequentieller Reihenfolge
+  verarbeitet**.
+- Die maximale Größe einer Transaktion beträgt
+  [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+  Bytes.
+- Jede Anweisung erfordert 3 Informationen:
+  1. Die Adresse des aufzurufenden Programms
+  2. Die Konten, von denen die Anweisung lesen oder in die sie schreiben wird
+  3. Alle zusätzlichen Daten, die für die Anweisung erforderlich sind (z.B.
+     Funktionsargumente)
+
+## Einfaches Beispiel
+
+Unten ist ein Diagramm, das eine Transaktion mit einer einzelnen Anweisung zur
+Übertragung von SOL von einem Sender zu einem Empfänger darstellt.
+
+Auf Solana gehören Konten, die wir als "Wallets" bezeichnen, dem
+[System-Programm](/docs/core/accounts#system-program). Nur der
+Programmeigentümer kann die Daten eines Kontos ändern, daher erfordert die
+Übertragung von SOL das Senden einer Transaktion, um das System-Programm
+aufzurufen.
+
+![SOL Transfer](/assets/docs/core/transactions/sol-transfer.svg)
+
+Das Senderkonto muss die Transaktion signieren (`is_signer`), um die Reduzierung
+seines Lamport-Guthabens zu autorisieren. Sowohl Sender- als auch Empfängerkonto
+müssen als beschreibbar (`is_writable`) markiert werden, da sich die
+Lamport-Guthaben auf diesen Konten ändern werden.
+
+Sobald die Transaktion gesendet wird, wird das System-Programm aufgerufen, um
+die Überweisungsanweisung zu verarbeiten. Das System-Programm aktualisiert dann
+entsprechend die Lamport-Guthaben sowohl des Sender- als auch des
+Empfängerkontos.
+
+![SOL Übertragungsprozess](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+### SOL übertragen
+
+Hier ist ein [Solana Playground](https://beta.solpg.io/656a0ea7fb53fa325bfd0c3e)
+Beispiel, wie man eine SOL-Überweisungsanweisung mit der Methode
+`SystemProgram.transfer` erstellt:
+
+```typescript title="SOL übertragen"
+// Definiere den zu überweisenden Betrag
+const transferAmount = 0.01; // 0.01 SOL
+
+// Erstelle eine Überweisungsanweisung für die Übertragung von SOL von wallet_1 zu wallet_2
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Konvertiere transferAmount in Lamports
+});
+
+// Füge die Überweisungsanweisung zu einer neuen Transaktion hinzu
+const transaction = new Transaction().add(transferInstruction);
+```
+
+Führe das Beispiel aus, indem du den Befehl `run` im Playground-Terminal
+verwendest oder auf die Schaltfläche "Run" klickst.
+
+<Callout type="info">
+
+Stelle sicher, dass dein Playground-Wallet über Devnet-SOL verfügt. Hol dir
+Devnet-SOL vom [Solana Faucet](https://faucet.solana.com/).
+
+</Callout>
+
+In den folgenden Abschnitten werden wir die Details von Transaktionen und
+Anweisungen durchgehen.
+
+## Transaktion
+
+Eine Solana
+
+[Transaktion](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+
+besteht aus:
+
+1. [Signaturen](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30):
+   Ein Array von Signaturen, die in der Transaktion enthalten sind.
+2. [Nachricht](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131):
+   Liste von Anweisungen, die atomar verarbeitet werden sollen.
+
+```rust title="Transaktion"
+pub struct Transaction {
+    #[wasm_bindgen(skip)]
+    #[serde(with = "short_vec")]
+    pub signatures: Vec<Signature>,
+
+    #[wasm_bindgen(skip)]
+    pub message: Message,
+}
+```
+
+![Transaktionsformat](/assets/docs/core/transactions/tx_format.png)
+
+Die Struktur einer Transaktionsnachricht besteht aus:
+
+- [Nachrichtenkopf](/docs/core/transactions#message-header): Gibt die Anzahl der
+  Unterzeichner und schreibgeschützten Konten an.
+- [Kontoadressen](/docs/core/transactions#array-of-account-addresses): Ein Array
+  von Kontoadressen, die von den Anweisungen in der Transaktion benötigt werden.
+- [Aktueller Blockhash](/docs/core/transactions#recent-blockhash): Fungiert als
+  Zeitstempel für die Transaktion.
+- [Anweisungen](/docs/core/transactions#array-of-instructions): Ein Array von
+  auszuführenden Anweisungen.
+
+```rust title="Nachricht"
+pub struct Message {
+    /// Der Nachrichtenkopf, der signierte und schreibgeschützte `account_keys` identifiziert.
+    pub header: MessageHeader,
+
+    /// Alle Kontoschlüssel, die von dieser Transaktion verwendet werden.
+    #[serde(with = "short_vec")]
+    pub account_keys: Vec<Pubkey>,
+
+    /// Die ID eines kürzlich erstellten Ledger-Eintrags.
+    pub recent_blockhash: Hash,
+
+    /// Programme, die nacheinander ausgeführt und in
+    /// einer atomaren Transaktion festgeschrieben werden, wenn alle erfolgreich sind.
+    #[serde(with = "short_vec")]
+    pub instructions: Vec<CompiledInstruction>,
+}
+```
+
+![Transaktionsnachricht](/assets/docs/core/transactions/legacy_message.png)
+
+### Transaktionsgröße
+
+Solana-Transaktionen sind begrenzt auf
+
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+
+Bytes. Diese Begrenzung stammt von der IPv6 MTU-Größe von 1280 Bytes, abzüglich
+48 Bytes für Netzwerk-Header (40 Bytes IPv6 + 8 Bytes Fragment-Header).
+
+Die Gesamtgröße einer Transaktion (Signaturen und Nachricht) muss unter dieser
+Grenze bleiben und besteht aus:
+
+- Signaturen: jeweils 64 Bytes
+- Nachricht: Header (3 Bytes), Account-Schlüssel (jeweils 32 Bytes), aktueller
+  Blockhash (32 Bytes) und Anweisungen
+
+![Transaktionsformat](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+### Nachrichtenheader
+
+Der
+
+[Nachrichtenheader](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
+
+verwendet drei Bytes, um Kontoprivilegien zu definieren:
+
+1. Erforderliche Signaturen und
+   [Nachrichtenversion](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/versions/mod.rs#L220-L231)
+   (z.B. legacy vs v0)
+2. Anzahl der schreibgeschützten signierten Konten
+3. Anzahl der schreibgeschützten unsignierten Konten
+
+```rust title="MessageHeader"
+pub struct MessageHeader {
+    /// The number of signatures required for this message to be considered
+    /// valid. The signers of those signatures must match the first
+    /// `num_required_signatures` of [`Message::account_keys`].
+    pub num_required_signatures: u8,
+
+    /// The last `num_readonly_signed_accounts` of the signed keys are read-only
+    /// accounts.
+    pub num_readonly_signed_accounts: u8,
+
+    /// The last `num_readonly_unsigned_accounts` of the unsigned keys are
+    /// read-only accounts.
+    pub num_readonly_unsigned_accounts: u8,
+}
+```
+
+![Nachrichtenheader](/assets/docs/core/transactions/message_header.png)
+
+### Kompakt-Array-Format
+
+Ein kompaktes Array in einer Transaktionsnachricht bezieht sich auf ein Array,
+das im folgenden Format serialisiert ist:
+
+1. Die Array-Länge (kodiert als
+   [compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs))
+2. Die Array-Elemente, eines nach dem anderen aufgelistet
+
+![Kompaktes Array-Format](/assets/docs/core/transactions/compact_array_format.png)
+
+Dieses Format wird verwendet, um die Längen der
+[Kontoadressen](/docs/core/transactions#array-of-account-addresses) und
+[Anweisungen](/docs/core/transactions#array-of-instructions) Arrays in
+Transaktionsnachrichten zu kodieren.
+
+### Array von Kontoadressen
+
+Eine Transaktionsnachricht enthält ein Array von
+
+[Kontoadressen](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+
+die von ihren Anweisungen benötigt werden. Das Array beginnt mit einer
+[compact-u16](/docs/core/transactions#compact-array-format) Zahl, die angibt,
+wie viele Adressen es enthält. Die Adressen werden dann basierend auf ihren
+Privilegien geordnet, was durch den Nachrichtenheader bestimmt wird.
+
+- Konten, die beschreibbar und Unterzeichner sind
+- Konten, die schreibgeschützt und Unterzeichner sind
+- Konten, die beschreibbar und keine Unterzeichner sind
+- Konten, die schreibgeschützt und keine Unterzeichner sind
+
+![Kompaktes Array von Kontoadressen](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### Aktueller Blockhash
+
+Jede Transaktion benötigt einen
+
+[aktuellen Blockhash](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L141)
+
+der zwei Zwecken dient:
+
+1. Fungiert als Zeitstempel
+2. Verhindert doppelte Transaktionen
+
+Ein Blockhash läuft nach
+
+[150](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)
+
+Blöcken ab (etwa 1 Minute bei angenommenen 400ms Blockzeiten), danach kann die
+Transaktion nicht mehr verarbeitet werden.
+
+Sie können die [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC-
+Methode verwenden, um den aktuellen Blockhash und die letzte Blockhöhe zu
+erhalten, bei der der Blockhash gültig sein wird. Hier ist ein Beispiel auf
+[Solana Playground](https://beta.solpg.io/661a06e1cffcf4b13384d046).
+
+### Array von Anweisungen
+
+Eine Transaktionsnachricht enthält ein Array von
+
+[Anweisungen](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+
+im
+
+[CompiledInstruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+
+Typ. Anweisungen werden in diesen Typ umgewandelt, wenn sie einer Transaktion
+hinzugefügt werden.
+
+Wie das Array der Kontoadressen in der Nachricht beginnt es mit einer
+[compact-u16](/docs/core/transactions#compact-array-format) Länge, gefolgt von
+den Anweisungsdaten. Jede Anweisung enthält:
+
+1. Program ID Index: Ein u8-Index, der auf die Adresse des Programms im Array
+   der Kontoadressen verweist. Dies gibt das Programm an, das die Anweisung
+   verarbeiten wird.
+2. Account Indexes: Ein Array von u8-Indizes, die auf die für diese Anweisung
+   erforderlichen Kontoadressen verweisen.
+3. Anweisungsdaten: Ein Byte-Array, das angibt, welche Anweisung im Programm
+   aufgerufen werden soll und alle zusätzlichen Daten, die für die Anweisung
+   erforderlich sind (z.B. Funktionsargumente).
+
+```rust title="CompiledInstruction"
+pub struct CompiledInstruction {
+    /// Index into the transaction keys array indicating the program account that executes this instruction.
+    pub program_id_index: u8,
+    /// Ordered indices into the transaction keys array indicating which accounts to pass to the program.
+    #[serde(with = "short_vec")]
+    pub accounts: Vec<u8>,
+    /// The program input data.
+    #[serde(with = "short_vec")]
+    pub data: Vec<u8>,
+}
+```
+
+![Kompaktes Array von Anweisungen](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+### Beispiel einer Transaktionsstruktur
+
+Nachfolgend ist ein Beispiel einer Transaktion mit einer einzelnen
+[SOL-Überweisung](/docs/core/transactions#basic-example) Anweisung. Die
+Komponenten der Transaktion umfassen:
+
+- `header`: Legt Lese-/Schreibrechte und Signaturberechtigungen für Adressen im
+  `accountKeys`-Array fest
+
+- `accountKeys`: Array aller Kontoadressen, die in den Anweisungen der
+  Transaktion verwendet werden
+
+- `recentBlockhash`: Blockhash, der zur Zeitstempelung der Transaktion verwendet
+  wird
+
+- `instructions`: Array von auszuführenden Anweisungen. Jeder `account` und
+  `programIdIndex` in einer Anweisung verweist per Index auf das
+  `accountKeys`-Array.
+
+- `signatures`: Array mit Signaturen für alle Konten, die von den Anweisungen
+  der Transaktion als Unterzeichner benötigt werden. Eine Signatur wird
+  erstellt, indem die Transaktionsnachricht mit dem entsprechenden privaten
+  Schlüssel eines Kontos signiert wird.
+
+```json
+"transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+        "5snoUseZG8s8CDFHrXY2ZHaCrJYsW457piktDmhyb5Jd",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "DzfXchZJoLMG3cNftcf2sw7qatkkuwQf4xH15N5wkKAb",
+      "instructions": [
+        {
+          "accounts": [
+            0,
+            1
+          ],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "5LrcE2f6uvydKRquEJ8xp19heGxSvqsVbcqUeFoiWbXe8JNip7ftPQNTAVPyTK7ijVdpkzmKKaAQR7MWMmujAhXD"
+    ]
+  }
+```
+
+## Anweisung
+
+Eine
+
+[Anweisung](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
+
+auf einem bereitgestellten [Programm](/docs/core/accounts#program-account) kann
+als öffentliche Funktion betrachtet werden, die von jedem über das
+Solana-Netzwerk aufgerufen werden kann.
+
+Das Aufrufen einer Programmanweisung erfordert die Bereitstellung von drei
+wichtigen Informationen:
+
+- Programm-ID: Das Programm, das zur Ausführung der Anweisung aufgerufen wird
+- Konten: Liste der Konten, die die Anweisung benötigt
+- Anweisungsdaten: Byte-Array, das die auszuführende Anweisung im Programm und
+  alle von der Anweisung benötigten Funktionsargumente spezifiziert
+
+```rust title="Instruction"
+pub struct Instruction {
+    /// Pubkey des Programms, das diese Anweisung ausführt.
+    pub program_id: Pubkey,
+    /// Metadaten, die die Konten beschreiben, die an das Programm übergeben werden sollten.
+    pub accounts: Vec<AccountMeta>,
+    /// Undurchsichtige Daten, die an das Programm zur eigenen Interpretation übergeben werden.
+    pub data: Vec<u8>,
+}
+```
+
+![Transaktionsanweisung](/assets/docs/core/transactions/instruction.svg)
+
+### AccountMeta
+
+Jedes von einer Anweisung benötigte Konto muss als
+
+[AccountMeta](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25)
+
+bereitgestellt werden, das Folgendes enthält:
+
+- `pubkey`: Adresse des Kontos
+- `is_signer`: Ob das Konto die Transaktion signieren muss
+- `is_writable`: Ob die Anweisung die Daten des Kontos ändern wird
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// Der öffentliche Schlüssel eines Kontos.
+    pub pubkey: Pubkey,
+    /// True, wenn eine `Instruction` eine `Transaction`-Signatur erfordert, die mit `pubkey` übereinstimmt.
+    pub is_signer: bool,
+    /// True, wenn die Kontodaten oder Metadaten während der Programmausführung verändert werden können.
+    pub is_writable: bool,
+}
+```
+
+![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+
+Durch die vorherige Angabe, von welchen Konten eine Anweisung lesen oder in
+welche sie schreiben wird, können Transaktionen, die nicht dieselben Konten
+ändern, parallel verarbeitet werden.
+
+### Beispiel für eine Anweisungsstruktur
+
+Nachfolgend ist ein einfaches Beispiel für die Struktur einer
+SOL-Überweisungsanweisung:
+
+- `keys`: Enthält die `AccountMeta` für jedes von einer Anweisung benötigte
+  Konto.
+- `programId`: Die Adresse des Programms, das die Ausführungslogik für die
+  aufgerufene Anweisung enthält.
+- `data`: Die Anweisungsdaten für die Anweisung als Byte-Puffer
+
+```json
+{
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  "programId": "11111111111111111111111111111111",
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+## Erweitertes Beispiel
+
+Die Details zum Erstellen von Programmanweisungen werden oft durch
+Client-Bibliotheken abstrahiert. Wenn jedoch keine verfügbar ist, können Sie
+immer auf die manuelle Erstellung der Anweisung zurückgreifen.
+
+### SOL überweisen
+
+Hier ist ein
+[Solana Playground](https://beta.solpg.io/656a102efb53fa325bfd0c3f)-Beispiel,
+wie man manuell eine SOL-Überweisungsanweisung erstellt.
+
+Unter der Haube ist das
+[einfache Beispiel](/docs/core/transactions#simple-sol-transfer) mit der Methode
+`SystemProgram.transfer` funktional äquivalent zu dem ausführlicheren Beispiel
+unten. Die Methode `SystemProgram.transfer` abstrahiert einfach die Details der
+Erstellung des Anweisungsdatenpuffers und `AccountMeta` für jedes von der
+Anweisung benötigte Konto.
+
+Die Codeausschnitte in den beiden Tabs unten sind funktional gleichwertig.
+
+<Tabs items={['Anweisung manuell erstellen', 'Bibliothek verwenden']}>
+<Tab value="Build Instruction Manually">
+
+```typescript
+// Definiere den zu überweisenden Betrag
+const transferAmount = 0.01; // 0.01 SOL
+
+// Anweisungsindex für die SystemProgram-Überweisungsanweisung
+const transferInstructionIndex = 2;
+
+// Erstelle einen Puffer für die Daten, die an die Überweisungsanweisung übergeben werden sollen
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+// Schreibe den Anweisungsindex in den Puffer
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+// Schreibe den Überweisungsbetrag in den Puffer
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// Erstelle manuell eine Überweisungsanweisung für die Überweisung von SOL vom Sender zum Empfänger
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true },
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true }
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+
+// Füge die Überweisungsanweisung zu einer neuen Transaktion hinzu
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Tab>
+<Tab value="Use Library">
+
+```typescript
+// Definiere den zu überweisenden Betrag
+const transferAmount = 0.01; // 0.01 SOL
+
+// Erstelle eine Überweisungsanweisung für die Überweisung von SOL von wallet_1 zu wallet_2
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Konvertiere transferAmount in Lamports
+});
+
+// Füge die Überweisungsanweisung zu einer neuen Transaktion hinzu
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Tab>
+</Tabs>

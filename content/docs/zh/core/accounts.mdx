@@ -1,0 +1,145 @@
+---
+title: Solana账户模型
+description: 了解Solana的账户模型，包括账户如何存储数据和程序、租金机制、账户所有权以及程序与数据账户之间的关系。理解Solana键值存储系统的核心概念。
+---
+
+在 Solana 上，所有数据都包含在我们称为"账户"的结构中。你可以将 Solana 上的数据视为一个公共数据库，其中有一个单一的"账户"表，该表中的每个条目都是具有相同基本[账户类型](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60)的独立账户。
+
+![账户](/assets/docs/core/accounts/accounts.png)
+
+## 要点
+
+- 账户最多可以存储
+  [10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+  的数据，这些数据可以包含可执行程序代码或程序状态。
+- 账户需要一笔与存储数据量成比例的
+  [租金押金](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)（以 lamports 即 SOL 计），当账户关闭时，这笔押金可全额退还。
+- 每个账户都有一个程序
+  [所有者](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L55)。只有拥有该账户的程序才能修改其数据或扣除其 lamport 余额。但是，任何人都可以增加余额。
+- **系统变量账户（Sysvar accounts）**是存储网络集群状态的特殊账户。
+- **程序账户（Program accounts）**存储智能合约的可执行代码。
+- **数据账户（Data accounts）**由程序创建，用于存储和管理程序状态。
+
+## 账户
+
+Solana 上的每个账户都由一个唯一的 32 字节地址标识，这通常显示为 base58 编码的字符串（例如
+`14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5`）。
+
+账户与其地址之间的关系可以被视为一个键值对，其中地址作为键，用于定位账户对应的链上数据。
+
+![账户地址](/assets/docs/core/accounts/account-address.svg)
+
+大多数 Solana 账户使用 [Ed25519](https://ed25519.cr.yp.to/) 公钥作为其地址。
+
+虽然公钥通常用作账户地址，但 Solana 还支持一种称为程序派生地址（Program Derived
+Addresses，PDAs）的功能。PDAs 是从程序 ID 和可选输入（种子）确定性派生的特殊地址。详细信息在[程序派生地址](/docs/core/pda)页面中介绍。
+
+### 账户类型
+
+账户的最大容量为
+
+[10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+
+并且Solana上的每个账户都具有相同的基本
+
+[Account](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60)
+
+类型。
+
+![账户类型](/assets/docs/core/accounts/account-type.svg)
+
+Solana上的每个账户都有以下字段：
+
+- `data`：存储账户任意数据的字节数组。对于非可执行账户，这通常存储旨在只读的状态数据。对于程序账户（智能合约），这包含可执行的程序代码。数据字段通常被称为"账户数据"。
+- `executable`：这个布尔标志用于指示账户是否为程序。
+- `lamports`：账户余额，以lamports为单位，lamports是SOL的最小单位（1 SOL =
+  10亿lamports）。
+- `owner`：拥有此账户的程序ID（公钥）。只有所有者程序可以修改账户的数据或扣除其lamports余额。
+- `rent_epoch`：这是一个遗留字段，来自Solana曾经有一种定期从账户中扣除lamports的机制。虽然这个字段仍然存在于Account类型中，但自从租金收取被弃用后，它已不再使用。
+
+```rust title="基本账户类型"
+pub struct Account {
+    /// 账户中的lamports
+    pub lamports: u64,
+    /// 此账户中持有的数据
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// 拥有此账户的程序。如果可执行，则为加载此账户的程序。
+    pub owner: Pubkey,
+    /// 此账户的数据包含已加载的程序（现在为只读）
+    pub executable: bool,
+    /// 此账户下一次需要支付租金的epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+### 租金
+
+要在链上存储数据，账户还必须维持一个最低的lamport（SOL）余额，该余额与账户存储的数据量（以字节为单位）成比例。这个最低余额被称为"租金"，尽管它的功能更像是一种押金，因为当账户关闭时，全部金额可以被收回。你可以在这里找到计算方法
+
+[这里](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+
+使用这些
+[常量](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70)。
+
+"租金"一词源于一种已弃用的机制，该机制会定期从低于租金阈值的账户中扣除lamports。这种机制现在已不再活跃。
+
+### 程序所有者
+
+在Solana上，"智能合约"被称为[程序](/docs/core/programs)。程序所有权是Solana账户模型的关键方面。每个账户都有一个指定的程序作为其所有者。只有所有者程序可以：
+
+- 修改账户的`data`字段
+- 从账户余额中扣除lamports
+
+## 系统程序
+
+默认情况下，所有新账户都由[系统程序](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/system/src)拥有。系统程序执行几项关键任务：
+
+- [新账户创建](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L146)：只有系统程序可以创建新账户。
+- [空间分配](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L71)：为每个账户的数据字段设置字节容量。
+- [转移/分配程序所有权](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L113)：一旦系统程序创建了一个账户，它可以将指定的程序所有者重新分配给不同的程序账户。这就是自定义程序如何获得系统程序创建的新账户的所有权。
+
+Solana上的所有"钱包"账户实际上都是由系统程序拥有的账户。存储在这些账户中的lamport余额代表钱包拥有的SOL数量。只有由系统程序拥有的账户才能用作交易费用支付者。
+
+![系统账户](/assets/docs/core/accounts/system-account.svg)
+
+## 系统变量账户
+
+系统变量账户是位于预定义地址的特殊账户，提供对集群状态数据的访问。这些账户会随着网络集群的数据动态更新。您可以在[这里](https://docs.anza.xyz/runtime/sysvars)找到系统变量账户的完整列表。
+
+## 程序账户
+
+除了loader-v3之外，所有加载器都将它们管理的程序的可执行代码存储在所谓的程序账户中：
+
+![程序账户](/assets/docs/core/accounts/program-account-simple.svg)
+
+简单来说，您可以将程序账户视为程序本身。在调用程序的指令时，您需要指定程序账户的地址（通常称为"程序ID"）。
+
+### 缓冲区账户
+
+Loader-v3有一种特殊的账户类型，用于在部署或重新部署/升级期间临时暂存程序的上传。在loader-v4中仍然存在缓冲区，但它们只是普通的程序账户。
+
+### 程序数据账户
+
+Loader-v3的工作方式与所有其他加载器不同，因为它为每个程序提供了一个间接层。程序账户只包含程序数据账户的地址，而程序数据账户则保存实际的可执行代码：
+
+![程序数据账户](/assets/docs/core/accounts/program-account-expanded.svg)
+
+这些程序数据账户不应与程序的数据账户（见下文）混淆。
+
+## 数据账户
+
+在Solana上，程序的可执行代码存储在与程序状态不同的账户中。这类似于操作系统通常为程序本身及其数据使用单独文件的方式。
+
+为了维护状态，程序定义了创建由程序拥有的单独账户的指令。每个这样的账户都有自己唯一的地址，并且可以存储程序定义的任何任意数据。
+
+![数据账户](/assets/docs/core/accounts/data-account.svg)
+
+请注意，只有[系统程序](/docs/core/accounts#system-program)可以创建新账户。一旦系统程序创建了账户，它就可以将新账户的所有权转移/分配给另一个程序。
+
+换句话说，为自定义程序创建数据账户需要两个步骤：
+
+1. 调用系统程序创建账户，然后将所有权转移给自定义程序
+2. 调用现在拥有该账户的自定义程序，然后按照程序指令中定义的方式初始化账户数据
+
+这个账户创建过程通常被抽象为单个步骤，但了解底层过程是很有帮助的。
