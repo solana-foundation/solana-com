@@ -12,91 +12,89 @@ You can set/update authority. There are 4 types:
 3. AccountOwner (token account)
 4. CloseAccount (token account)
 
-<CodeTabs storage="cookbook">
+<CodeTabs >
 
 ```typescript !! title="Legacy"
-import {
-  clusterApiUrl,
-  Connection,
-  PublicKey,
-  Keypair,
-  Transaction,
-  sendAndConfirmTransaction,
-} from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   AuthorityType,
-  createSetAuthorityInstruction,
   setAuthority,
+  createMint,
+  getOrCreateAssociatedTokenAccount
 } from "@solana/spl-token";
-import bs58 from "bs58";
 
 (async () => {
-  // connection
-  const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
 
-  // 5YNmS1R9nNSCDzb5a7mMJ1dwK9uHeAAF4CmPEwKgVWr8
-  const feePayer = Keypair.fromSecretKey(
-    bs58.decode(
-      "588FU4PktJWfGfxtzpAAXywSNt74AvtroVzGfKkVN1LwRuvHwKGr851uH8czM5qm4iqLbs1kKoMKtMJG4ATR7Ld2",
-    ),
+  // Setup fee payer
+  const feePayer = Keypair.generate();
+
+  const airdropSignature = await connection.requestAirdrop(
+    feePayer.publicKey,
+    LAMPORTS_PER_SOL
   );
+  await connection.confirmTransaction(airdropSignature);
 
-  // G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
-  const alice = Keypair.fromSecretKey(
-    bs58.decode(
-      "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp",
-    ),
+  // Create a new random authority
+  const newAuthority = Keypair.generate();
+  console.log(`New Authority Public Key: ${newAuthority.publicKey.toBase58()}`);
+
+  // Create a new mint
+  console.log("Creating new mint...");
+  const mint = await createMint(
+    connection,
+    feePayer,
+    feePayer.publicKey,
+    feePayer.publicKey,
+    9
   );
+  console.log(`Mint created: ${mint.toBase58()}`);
 
-  const randomGuy = Keypair.generate();
-  console.log(`random guy: ${randomGuy.publicKey.toBase58()}`);
-
-  const mintPubkey = new PublicKey(
-    "8mAKLjGGmjKTnmcXeyr3pr7iX13xXVjJJiL6RujDbSPV",
+  // Create token account
+  console.log("Creating token account...");
+  const tokenAccount = await getOrCreateAssociatedTokenAccount(
+    connection,
+    feePayer,
+    mint,
+    feePayer.publicKey
   );
+  console.log(`Token account created: ${tokenAccount.address.toBase58()}`);
 
-  // authority type
+  // 1. Change Mint Authority (MintTokens)
+  console.log("\n1. Changing Mint Authority...");
+  const mintAuthTx = await setAuthority(
+    connection,
+    feePayer,
+    mint,
+    feePayer,
+    AuthorityType.MintTokens,
+    newAuthority.publicKey // Set to null to permanently disable minting
+  );
+  console.log(`Mint authority changed. Tx: ${mintAuthTx}`);
 
-  // 1) for mint account
-  // AuthorityType.MintTokens
-  // AuthorityType.FreezeAccount
+  // 2. Change Freeze Authority
+  console.log("\n2. Changing Freeze Authority...");
+  const freezeAuthTx = await setAuthority(
+    connection,
+    feePayer,
+    mint,
+    feePayer,
+    AuthorityType.FreezeAccount,
+    newAuthority.publicKey // Set to null to permanently disable freezing
+  );
+  console.log(`Freeze authority changed. Tx: ${freezeAuthTx}`);
 
-  // 2) for token account
-  // AuthorityType.AccountOwner
-  // AuthorityType.CloseAccount
-
-  // 1) use build-in function
-  {
-    let txhash = await setAuthority(
-      connection, // connection
-      feePayer, // payer
-      mintPubkey, // mint account || token account
-      alice, // current authority
-      AuthorityType.MintTokens, // authority type
-      randomGuy.publicKey, // new authority (you can pass `null` to revoke it)
-    );
-    console.log(`txhash: ${txhash}`);
-  }
-
-  // or
-
-  // 2) compose by yourself
-  {
-    let tx = new Transaction().add(
-      createSetAuthorityInstruction(
-        mintPubkey, // mint account || token account
-        alice.publicKey, // current auth
-        AuthorityType.MintTokens, // authority type
-        feePayer.publicKey, // new auth (you can pass `null` to revoke it)
-      ),
-    );
-    console.log(
-      `txhash: ${await sendAndConfirmTransaction(connection, tx, [
-        feePayer,
-        alice /* fee payer + origin auth */,
-      ])}`,
-    );
-  }
+  // Example of revoking authority (setting to null)
+  console.log("\n3. Revoking Mint Authority...");
+  const revokeMintAuthTx = await setAuthority(
+    connection,
+    feePayer,
+    mint,
+    newAuthority, // must be signed by current authority
+    AuthorityType.MintTokens,
+    null // Setting to null revokes the authority
+  );
+  console.log(`Mint authority revoked. Tx: ${revokeMintAuthTx}`);
 })();
 ```
 
@@ -116,7 +114,7 @@ use spl_token::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let client = RpcClient::new_with_commitment(
-        String::from("https://engine.mirror.ad/rpc/<mirror-id>"),
+        String::from("http://127.0.0.1:8899"),
         CommitmentConfig::confirmed(),
     );
 
