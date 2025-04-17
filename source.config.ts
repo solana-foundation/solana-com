@@ -19,6 +19,7 @@ const schema = z.custom<{
 
 const docsData = defineDocs({
   dir: "content/docs",
+  localized: true,
   docs: { schema, async: true },
   output: "docs",
 });
