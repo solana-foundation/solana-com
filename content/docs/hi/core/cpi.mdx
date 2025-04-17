@@ -831,3 +831,165 @@ test("sol transfer cpi with pda signer", () => {
 ```
 
 </CodeTabs>
+
+### नेटिव रस्ट
+
+निम्नलिखित उदाहरण दिखाता है कि नेटिव रस्ट में लिखे गए प्रोग्राम से PDA साइनर्स
+के साथ CPI कैसे बनाया जाए। प्रोग्राम में एक सिंगल इंस्ट्रक्शन शामिल है जो PDA
+द्वारा हस्ताक्षरित CPI का उपयोग करके PDA से प्राप्तकर्ता अकाउंट में SOL ट्रांसफर
+करता है। टेस्ट फाइल प्रोग्राम का परीक्षण करने के लिए
+[LiteSVM](https://github.com/LiteSVM/litesvm) का उपयोग करती है।
+
+<CodeTabs>
+
+```rs !! title="Example"
+use borsh::BorshDeserialize;
+use solana_program::{
+    account_info::AccountInfo,
+    entrypoint,
+    entrypoint::ProgramResult,
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+};
+
+// Declare program entrypoint
+entrypoint!(process_instruction);
+
+// Define program instructions
+#[derive(BorshDeserialize)]
+enum ProgramInstruction {
+    SolTransfer { amount: u64 },
+}
+
+impl ProgramInstruction {
+    fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
+        Self::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)
+    }
+}
+
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Deserialize instruction data
+    let instruction = ProgramInstruction::unpack(instruction_data)?;
+
+    // Process instruction
+    match instruction {
+        ProgramInstruction::SolTransfer { amount } => {
+            // Parse accounts
+            let [pda_account_info, recipient_info, system_program_info] = accounts else {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            };
+
+            // Derive PDA and verify it matches the account provided by client
+            let recipient_pubkey = recipient_info.key;
+            let seeds = &[b"pda", recipient_pubkey.as_ref()];
+            let (expected_pda, bump_seed) = Pubkey::find_program_address(seeds, program_id);
+
+            if expected_pda != *pda_account_info.key {
+                return Err(ProgramError::InvalidArgument);
+            }
+
+            // Create the transfer instruction
+            let transfer_ix = system_instruction::transfer(
+                pda_account_info.key,
+                recipient_info.key,
+                amount,
+            );
+
+            // Create signer seeds for PDA
+            let signer_seeds: &[&[&[u8]]] = &[&[b"pda", recipient_pubkey.as_ref(), &[bump_seed]]];
+
+            // Invoke the transfer instruction with PDA as signer
+            invoke_signed(
+                &transfer_ix,
+                &[
+                    pda_account_info.clone(),
+                    recipient_info.clone(),
+                    system_program_info.clone(),
+                ],
+                signer_seeds,
+            )?;
+
+            Ok(())
+        }
+    }
+}
+```
+
+```ts !! title="Test"
+import * as path from "path";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction
+} from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
+
+test("sol transfer cpi with pda signer", () => {
+  const svm = new LiteSVM();
+
+  const programId = PublicKey.unique();
+  const programPath = path.join(__dirname, "program.so");
+  svm.addProgramFromFile(programId, programPath);
+
+  // Create recipient
+  const recipient = new Keypair();
+
+  // Derive PDA that will hold and send funds
+  const [pdaAddress] = PublicKey.findProgramAddressSync(
+    [Buffer.from("pda"), recipient.publicKey.toBuffer()],
+    programId
+  );
+
+  // Fund accounts
+  const amount = BigInt(LAMPORTS_PER_SOL);
+  svm.airdrop(recipient.publicKey, amount); // 1 SOL
+  svm.airdrop(pdaAddress, amount); // 1 SOL
+
+  // Create instruction data buffer
+  const transferAmount = amount / BigInt(2); // 0.5 SOL
+  const instructionIndex = 0; // instruction index 0 for SolTransfer enum
+
+  const data = Buffer.alloc(9); // 1 byte for instruction enum + 8 bytes for u64
+  data.writeUInt8(instructionIndex, 0); // first byte identifies the instruction
+  data.writeBigUInt64LE(transferAmount, 1); // remaining bytes are instruction arguments
+
+  // Create instruction
+  const instruction = new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: pdaAddress, isSigner: false, isWritable: true },
+      { pubkey: recipient.publicKey, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+    ],
+    data
+  });
+
+  // Create and send transaction
+  const transaction = new Transaction().add(instruction);
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(recipient);
+
+  svm.sendTransaction(transaction);
+
+  // Check balances
+  const recipientBalance = svm.getBalance(recipient.publicKey);
+  const pdaBalance = svm.getBalance(pdaAddress);
+
+  const transactionFee = BigInt(5000);
+  // Recipient starts with 1 SOL, receives 0.5 SOL, pays tx fee
+  expect(recipientBalance).toBe(amount + transferAmount - transactionFee);
+  // PDA starts with 1 SOL, sends 0.5 SOL
+  expect(pdaBalance).toBe(amount - transferAmount);
+});
+```
+
+</CodeTabs>

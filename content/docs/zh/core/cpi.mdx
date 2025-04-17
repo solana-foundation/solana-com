@@ -780,3 +780,162 @@ test("sol transfer cpi with pda signer", () => {
 ```
 
 </CodeTabs>
+
+### 原生 Rust
+
+以下示例展示了如何从用原生 Rust 编写的程序中使用 PDA 签名者进行 CPI（跨程序调用）。该程序包含一个指令，通过 PDA 签名的 CPI 将 SOL 从 PDA 账户转移到接收者账户。测试文件使用
+[LiteSVM](https://github.com/LiteSVM/litesvm) 来测试程序。
+
+<CodeTabs>
+
+```rs !! title="示例"
+use borsh::BorshDeserialize;
+use solana_program::{
+    account_info::AccountInfo,
+    entrypoint,
+    entrypoint::ProgramResult,
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+};
+
+// 声明程序入口点
+entrypoint!(process_instruction);
+
+// 定义程序指令
+#[derive(BorshDeserialize)]
+enum ProgramInstruction {
+    SolTransfer { amount: u64 },
+}
+
+impl ProgramInstruction {
+    fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
+        Self::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)
+    }
+}
+
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // 反序列化指令数据
+    let instruction = ProgramInstruction::unpack(instruction_data)?;
+
+    // 处理指令
+    match instruction {
+        ProgramInstruction::SolTransfer { amount } => {
+            // 解析账户
+            let [pda_account_info, recipient_info, system_program_info] = accounts else {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            };
+
+            // 派生 PDA 并验证它与客户端提供的账户匹配
+            let recipient_pubkey = recipient_info.key;
+            let seeds = &[b"pda", recipient_pubkey.as_ref()];
+            let (expected_pda, bump_seed) = Pubkey::find_program_address(seeds, program_id);
+
+            if expected_pda != *pda_account_info.key {
+                return Err(ProgramError::InvalidArgument);
+            }
+
+            // 创建转账指令
+            let transfer_ix = system_instruction::transfer(
+                pda_account_info.key,
+                recipient_info.key,
+                amount,
+            );
+
+            // 为 PDA 创建签名种子
+            let signer_seeds: &[&[&[u8]]] = &[&[b"pda", recipient_pubkey.as_ref(), &[bump_seed]]];
+
+            // 调用带有 PDA 作为签名者的转账指令
+            invoke_signed(
+                &transfer_ix,
+                &[
+                    pda_account_info.clone(),
+                    recipient_info.clone(),
+                    system_program_info.clone(),
+                ],
+                signer_seeds,
+            )?;
+
+            Ok(())
+        }
+    }
+}
+```
+
+```ts !! title="测试"
+import * as path from "path";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction
+} from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
+
+test("sol transfer cpi with pda signer", () => {
+  const svm = new LiteSVM();
+
+  const programId = PublicKey.unique();
+  const programPath = path.join(__dirname, "program.so");
+  svm.addProgramFromFile(programId, programPath);
+
+  // 创建接收者
+  const recipient = new Keypair();
+
+  // 派生将持有并发送资金的 PDA
+  const [pdaAddress] = PublicKey.findProgramAddressSync(
+    [Buffer.from("pda"), recipient.publicKey.toBuffer()],
+    programId
+  );
+
+  // 为账户提供资金
+  const amount = BigInt(LAMPORTS_PER_SOL);
+  svm.airdrop(recipient.publicKey, amount); // 1 SOL
+  svm.airdrop(pdaAddress, amount); // 1 SOL
+
+  // 创建指令数据缓冲区
+  const transferAmount = amount / BigInt(2); // 0.5 SOL
+  const instructionIndex = 0; // SolTransfer 枚举的指令索引为 0
+
+  const data = Buffer.alloc(9); // 1 字节用于指令枚举 + 8 字节用于 u64
+  data.writeUInt8(instructionIndex, 0); // 第一个字节标识指令
+  data.writeBigUInt64LE(transferAmount, 1); // 剩余字节是指令参数
+
+  // 创建指令
+  const instruction = new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: pdaAddress, isSigner: false, isWritable: true },
+      { pubkey: recipient.publicKey, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+    ],
+    data
+  });
+
+  // 创建并发送交易
+  const transaction = new Transaction().add(instruction);
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(recipient);
+
+  svm.sendTransaction(transaction);
+
+  // 检查余额
+  const recipientBalance = svm.getBalance(recipient.publicKey);
+  const pdaBalance = svm.getBalance(pdaAddress);
+
+  const transactionFee = BigInt(5000);
+  // 接收者开始有 1 SOL，收到 0.5 SOL，支付交易费
+  expect(recipientBalance).toBe(amount + transferAmount - transactionFee);
+  // PDA 开始有 1 SOL，发送 0.5 SOL
+  expect(pdaBalance).toBe(amount - transferAmount);
+});
+```
+
+</CodeTabs>
