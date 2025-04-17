@@ -731,7 +731,7 @@ export const SwitchbackConfig = {
       type: "richText",
       localized: true,
       defaultValue:
-        "<p>Lorem ipsum dolor sit amet consectetur. Ipsum nunc quam tellus tincidunt egestas pharetra nibh. Pharetra et felis imperdiet eget in pharetra interdum malesuada. A tortor massa morbi sed purus vitae elit nullam porta. In amet pharetra orci cras sit sit massa dignissim.</p>",
+        "<p>Lorem ipsum dolor sit amet consectetur. Ipsum nunc quam tellus tincidunt egestas pharetra nibh. Pharetra et felis imperdiet eget in pharetra interdum malesuada. A tortor massa morbi sed purus vitae elit nullam porta. In amet pharetra orci cras sit massa dignissim.</p>",
     },
     { name: "buttons", type: "list", subFields: ButtonConfig.inputs },
     {
