@@ -18,7 +18,6 @@ export async function POST(req: Request) {
   );
   code = code.replace(/http:\/\/127\.0\.0\.1:8899/g, mirrorUrl);
   code = code.replace(/ws:\/\/127\.0\.0\.1:8900/g, wsMirrorUrl);
-  code = code.replace(/https:\/\/api\.devnet\.solana\.com/g, mirrorUrl);
   code = code.replace(/"devnet"/g, `"${mirrorUrl}"`);
   code = code.replace(/"wsDevnet"/g, `"${wsMirrorUrl}"`);
   code = code.replace(
