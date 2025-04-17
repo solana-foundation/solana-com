@@ -7,68 +7,191 @@ description:
 
 Revoke will set delegate to null and set delegated amount to 0.
 
-<CodeTabs storage="cookbook">
+<CodeTabs >
 
 ```typescript !! title="Legacy"
 import {
-  clusterApiUrl,
   Connection,
-  PublicKey,
   Keypair,
   Transaction,
   sendAndConfirmTransaction,
+  SystemProgram,
+  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
-import { createRevokeInstruction, revoke } from "@solana/spl-token";
-import bs58 from "bs58";
+import {
+  approveChecked,
+  createApproveCheckedInstruction,
+  revoke,
+  createRevokeInstruction,
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  createInitializeMintInstruction,
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddress,
+  MINT_SIZE,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
 
 (async () => {
-  // connection
-  const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
 
-  // 5YNmS1R9nNSCDzb5a7mMJ1dwK9uHeAAF4CmPEwKgVWr8
-  const feePayer = Keypair.fromSecretKey(
-    bs58.decode(
-      "588FU4PktJWfGfxtzpAAXywSNt74AvtroVzGfKkVN1LwRuvHwKGr851uH8czM5qm4iqLbs1kKoMKtMJG4ATR7Ld2",
-    ),
+  const tokenOwner = Keypair.generate();
+  const airdropSignature = await connection.requestAirdrop(
+    tokenOwner.publicKey,
+    LAMPORTS_PER_SOL
+  );
+  await connection.confirmTransaction(airdropSignature);
+
+  // Create delegate address
+  const delegate = Keypair.generate();
+  console.log(`Delegate pubkey: ${delegate.publicKey.toBase58()}`);
+
+  // 1) Create mint using build-in function
+  console.log("\n1. Creating mint using build-in function...");
+  const mint = await createMint(
+    connection,
+    tokenOwner,
+    tokenOwner.publicKey, // mint authority
+    tokenOwner.publicKey, // freeze authority
+    9 // decimals
+  );
+  console.log(`Mint created: ${mint.toBase58()}`);
+
+  // 2) Create mint by composing transaction
+  console.log("\n2. Creating mint by composing transaction...");
+  const mintKeypair = Keypair.generate();
+  const mintRent =
+    await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
+
+  const createMintTx = new Transaction().add(
+    // Create account for mint
+    SystemProgram.createAccount({
+      fromPubkey: tokenOwner.publicKey,
+      newAccountPubkey: mintKeypair.publicKey,
+      space: MINT_SIZE,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID
+    }),
+    // Initialize mint
+    createInitializeMintInstruction(
+      mintKeypair.publicKey,
+      9, // decimals
+      tokenOwner.publicKey, // mint authority
+      tokenOwner.publicKey // freeze authority
+    )
   );
 
-  // G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
-  const alice = Keypair.fromSecretKey(
-    bs58.decode(
-      "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp",
-    ),
+  console.log(
+    `Create mint txhash: ${await sendAndConfirmTransaction(
+      connection,
+      createMintTx,
+      [tokenOwner, mintKeypair]
+    )}`
   );
 
-  const tokenAccountPubkey = new PublicKey(
-    "DRS5CSgPQp4uvPPcUA34tckfYFNUPNBJi77fVbnSfQHr",
+  // 3) Create token account using build-in function
+  console.log("\n3. Creating token account using build-in function...");
+  const tokenAccount = await getOrCreateAssociatedTokenAccount(
+    connection,
+    tokenOwner,
+    mint, // mint
+    tokenOwner.publicKey // owner
+  );
+  console.log(`Token account created: ${tokenAccount.address.toBase58()}`);
+
+  // 4) Create token account by composing transaction
+  console.log("\n4. Creating token account by composing transaction...");
+  const associatedTokenAddress = await getAssociatedTokenAddress(
+    mintKeypair.publicKey, // mint
+    tokenOwner.publicKey // owner
   );
 
-  // 1) use build-in function
+  const createTokenAccountTx = new Transaction().add(
+    createAssociatedTokenAccountInstruction(
+      tokenOwner.publicKey, // payer
+      associatedTokenAddress, // token address
+      tokenOwner.publicKey, // owner
+      mintKeypair.publicKey // mint
+    )
+  );
+
+  console.log(
+    `Create token account txhash: ${await sendAndConfirmTransaction(
+      connection,
+      createTokenAccountTx,
+      [tokenOwner]
+    )}`
+  );
+
+  // Use the created mint and token account for delegation
+  const mintPubkey = mint;
+  const tokenAccountPubkey = tokenAccount.address;
+
+  // 5) Approve delegation using build-in function
   {
-    let txhash = await revoke(
-      connection, // connection
-      feePayer, // payer
-      tokenAccountPubkey, // token account
-      alice, // owner of token account
+    console.log("\n5. Approving delegation with specific amount...");
+    const txhash = await approveChecked(
+      connection,
+      tokenOwner,
+      mintPubkey,
+      tokenAccountPubkey,
+      delegate.publicKey,
+      tokenOwner,
+      500000000,
+      9
     );
-    console.log(`txhash: ${txhash}`);
+    console.log(`Approve delegation txhash: ${txhash}`);
   }
 
-  // or
-
-  // 2) compose by yourself
+  // 6) Approve delegation by composing transaction
   {
-    let tx = new Transaction().add(
-      createRevokeInstruction(
+    console.log("\n6. Approving delegation by composing transaction...");
+    const tx = new Transaction().add(
+      createApproveCheckedInstruction(
         tokenAccountPubkey, // token account
-        alice.publicKey, // owner of token account
-      ),
+        mintPubkey, // mint
+        delegate.publicKey, // delegate
+        tokenOwner.publicKey, // owner of token account
+        500000000, // amount, if your decimals is 9, 0.5 tokens
+        9 // decimals
+      )
     );
     console.log(
-      `txhash: ${await sendAndConfirmTransaction(connection, tx, [
-        feePayer,
-        alice /* fee payer + origin auth */,
-      ])}`,
+      `Approve delegation txhash: ${await sendAndConfirmTransaction(
+        connection,
+        tx,
+        [tokenOwner]
+      )}`
+    );
+  }
+
+  // 7) Revoke delegation using build-in function
+  {
+    console.log("\n7. Revoking delegation...");
+    const revokeTxhash = await revoke(
+      connection,
+      tokenOwner,
+      tokenAccountPubkey,
+      tokenOwner
+    );
+    console.log(`Revoke delegation txhash: ${revokeTxhash}`);
+  }
+
+  // 8) Revoke delegation by composing transaction
+  {
+    console.log("\n8. Revoking delegation by composing transaction...");
+    const revokeTx = new Transaction().add(
+      createRevokeInstruction(
+        tokenAccountPubkey, // token account
+        tokenOwner.publicKey // owner of token account
+      )
+    );
+    console.log(
+      `Revoke delegation txhash: ${await sendAndConfirmTransaction(
+        connection,
+        revokeTx,
+        [tokenOwner]
+      )}`
     );
   }
 })();
