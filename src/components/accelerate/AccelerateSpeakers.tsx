@@ -27,24 +27,25 @@ export const AccelerateSpeakers: FC<AccelerateSpeakersProps> = ({
 }) => {
   var settings = {
     dots: false,
-    infinite: false,
     speed: 500,
     className: styles.slider,
-    slidesToShow: 3.5,
+    slidesToShow: 3,
     slidesToScroll: 1,
+    autoplay: true,
+    infinite: true,
     prevArrow: <CustomPrevArrow />,
     nextArrow: <CustomNextArrow />,
     responsive: [
       {
         breakpoint: 1245,
         settings: {
-          slidesToShow: 2.5,
+          slidesToShow: 2,
         },
       },
       {
         breakpoint: 800,
         settings: {
-          slidesToShow: 1.5,
+          slidesToShow: 1,
         },
       },
     ],
