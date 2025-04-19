@@ -34,6 +34,9 @@ export async function POST(req: Request) {
     case "rust":
       url = "https://api.mirror.ad/code-exec/rust";
       break;
+    case "rs":
+      url = "https://api.mirror.ad/code-exec/rust";
+      break;
     case "typescript":
       url = "https://api.mirror.ad/code-exec/typescript";
       break;
