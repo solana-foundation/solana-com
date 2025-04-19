@@ -5,6 +5,7 @@ import { useState } from "react";
 import { CodeRun } from "@/utils/mirror";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Loader2 } from "lucide-react";
+import React from "react";
 
 export function RunableCode({
   code,
@@ -100,15 +101,115 @@ export function RunableCode({
               {result.logs.length > 0 && (
                 <div>
                   <h4>Program Logs</h4>
-                  <ol>
-                    {result.logs.map((log: any) => (
-                      <li key={log.id}>
-                        <a href={log.url} target="_blank">
-                          {log.log}
-                        </a>
-                      </li>
-                    ))}
-                  </ol>
+                  <div className="pl-6 list-decimal">
+                    {(() => {
+                      // Group logs by URL
+                      const logsByUrl = result.logs.reduce(
+                        (acc: Record<string, any[]>, log) => {
+                          if (!acc[log.url]) {
+                            acc[log.url] = [];
+                          }
+                          acc[log.url].push(log);
+                          return acc;
+                        },
+                        {},
+                      );
+
+                      // Create numbered list with grouped logs
+                      return Object.entries(logsByUrl).map(
+                        ([url, logs], groupIndex) => (
+                          <div key={url} className="mb-4">
+                            <div className="mb-1 font-medium">
+                              <a href={url} target="_blank">
+                                Solana Explorer: Transaction {groupIndex + 1}
+                              </a>
+                            </div>
+                            <div className="pl-4">
+                              {(() => {
+                                // Process logs to add indentation for instructions
+                                const processedLogs: {
+                                  text: string;
+                                  level: number;
+                                  isInvoke: boolean;
+                                  isTopLevelInvoke: boolean;
+                                }[] = [];
+
+                                logs.forEach((log: any) => {
+                                  const logText = log.log;
+
+                                  // Parse indentation level
+                                  let level = 0;
+                                  let isInvoke = false;
+                                  let isTopLevelInvoke = false;
+
+                                  // Check for invoke pattern with regex
+                                  const invokeMatch =
+                                    logText.match(/invoke \[(\d+)\]/);
+                                  if (invokeMatch) {
+                                    level = parseInt(invokeMatch[1]);
+                                    isInvoke = true;
+                                    if (level === 1) {
+                                      isTopLevelInvoke = true;
+                                    }
+                                  } else {
+                                    // For non-invoke logs, use the level of the most recent invoke
+                                    for (
+                                      let i = processedLogs.length - 1;
+                                      i >= 0;
+                                      i--
+                                    ) {
+                                      if (processedLogs[i].isInvoke) {
+                                        level = processedLogs[i].level;
+                                        break;
+                                      }
+                                    }
+                                  }
+
+                                  processedLogs.push({
+                                    text: logText,
+                                    level,
+                                    isInvoke,
+                                    isTopLevelInvoke,
+                                  });
+                                });
+
+                                // Count top-level invokes for instruction numbering
+                                let instructionCount = 0;
+
+                                // Render logs with indentation and instruction labels
+                                return processedLogs.map((log, index) => {
+                                  // Calculate indent based on nesting level
+                                  const indent = `pl-${Math.min(log.level * 4, 16)}`;
+
+                                  // For top-level invokes, increment the instruction counter
+                                  let instructionLabel = null;
+                                  if (log.isTopLevelInvoke) {
+                                    instructionCount++;
+                                    instructionLabel = (
+                                      <div className="mt-4 mb-1 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                                        Instruction {instructionCount}
+                                      </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <React.Fragment key={index}>
+                                      {instructionLabel}
+                                      <div
+                                        className={`${indent} ${log.isInvoke && log.level === 1 ? "mt-1 pt-1 border-t border-gray-200 dark:border-gray-700" : ""}`}
+                                      >
+                                        {log.text}
+                                      </div>
+                                    </React.Fragment>
+                                  );
+                                });
+                              })()}
+                            </div>
+                          </div>
+                        ),
+                      );
+                    })()}
+                  </div>
                 </div>
               )}
             </>
