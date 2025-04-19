@@ -256,7 +256,8 @@ export function RunableCode({
           {result ? (
             <>
               <pre>{result.output}</pre>
-              {result.logs.length > 0 && (
+              {result.message && <pre>{result.message}</pre>}
+              {result.logs?.length > 0 && (
                 <div>
                   <h4>Program Logs</h4>
                   <div className="pl-4 overflow-x-auto">
