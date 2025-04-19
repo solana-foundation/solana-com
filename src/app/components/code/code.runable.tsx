@@ -381,10 +381,10 @@ export function RunableCode({
                                         <div className="whitespace-nowrap">
                                           {instruction.invokedProgram && (
                                             <div className="mb-1 text-blue-600 whitespace-nowrap dark:text-blue-400">
-                                              Program:{" "}
                                               {mapProgramAddressToName(
                                                 instruction.invokedProgram,
-                                              )}
+                                              )}{" "}
+                                              Instruction
                                             </div>
                                           )}
                                           {instruction.logs.map(
