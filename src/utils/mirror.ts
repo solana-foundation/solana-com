@@ -66,7 +66,8 @@ export async function getMirrorInstance(): Promise<{
 
 export type CodeRun = {
   output: string;
-  logs: {
+  message?: string;
+  logs?: {
     id: string;
     created_at: string;
     url: string;

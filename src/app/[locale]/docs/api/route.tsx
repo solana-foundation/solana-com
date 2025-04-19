@@ -28,8 +28,26 @@ export async function POST(req: Request) {
     /wss:\/\/engine\.mirror\.ad\/rpc\/<mirror-id>/g,
     wsMirrorUrl,
   );
+  const uuidRegex = /\/rpc\/([a-f0-9\-]{36})/;
+  const blockchainMatch = mirrorUrl.match(uuidRegex);
+  const blockchainId = blockchainMatch ? blockchainMatch[1] : undefined;
+
+  const anchorProgramRegex = /declare_id!\("([^"]+)"\)/;
+  const anchorMatch = code.match(anchorProgramRegex);
+  const anchorProgramId = anchorMatch ? anchorMatch[1] : undefined;
+  if (anchorProgramId) {
+    language = "anchor";
+  }
 
   let url: string;
+  var body: {
+    code: string;
+    program_id?: string;
+    blockchain_id?: string;
+  } = {
+    code: code,
+  };
+
   switch (language) {
     case "rust":
       url = "https://api.mirror.ad/code-exec/rust";
@@ -42,6 +60,11 @@ export async function POST(req: Request) {
       break;
     case "ts":
       url = "https://api.mirror.ad/code-exec/typescript";
+      break;
+    case "anchor":
+      url = "https://api.mirror.ad/code-exec/programs/anchor";
+      body.program_id = anchorProgramId;
+      body.blockchain_id = blockchainId;
       break;
     default:
       return NextResponse.json({ error: "Invalid language" }, { status: 400 });
@@ -57,9 +80,7 @@ export async function POST(req: Request) {
       "Content-Type": "application/json",
       api_key: mirrorApiKey,
     },
-    body: JSON.stringify({
-      code,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
