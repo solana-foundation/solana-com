@@ -6,74 +6,78 @@ description:
   structure and instruction composition with practical examples.
 ---
 
-On Solana, we send [transactions](/docs/core/transactions#transaction) to
-interact with the network. Transactions include one or more
+On Solana, users send [transactions](/docs/core/transactions#transaction) to
+interact with the network. Transactions contain one or more
 [instructions](/docs/core/transactions#instruction) that specify operations to
-be processed. The execution logic for instructions are stored on
+process. The execution logic for instructions are stored on
 [programs](/docs/core/programs) deployed to the Solana network, where each
 program defines its own set of instructions.
 
-Below are key details about how transactions are processed:
+Below are key details about Solana transaction processing:
 
 - If a transaction includes multiple instructions, the instructions execute in
-  the order they are added to the transaction
-- Transactions are "atomic" - either all instructions process successfully, or
-  the entire transaction fails and no changes are made.
+  the order added to the transaction.
+- Transactions are "atomic" - all instructions must process successfully, or the
+  entire transaction fails and no changes occur.
 
-For simplicity, a transaction can be thought of as a request to process one or
-multiple instructions.
+A transaction is essentially a request to process one or more instructions.
 
 ![Transaction Simplified](/assets/docs/core/transactions/transaction-simple.svg)
 
-Think of a transaction like an envelope containing forms. Each form is an
-instruction that tells the network what we are requesting to do. When you send
-the transaction, it's like mailing the envelope to get the forms processed.
+A transaction is like an envelope containing forms. Each form is an instruction
+that tells the network what to do. Sending the transaction is like mailing the
+envelope to get the forms processed.
 
 ## Key Points
 
-- Solana transactions include instructions that are requests to invoke programs
-  on the network.
+- Solana transactions include instructions that invoke programs on the network.
 - Transactions are **atomic** - if any instruction fails, the entire transaction
   fails and no changes occur.
-- Instructions on a transaction are **processed in sequential order**.
-- The maximum size of a transaction is
+- Instructions on a transaction execute in sequential order.
+- The transaction size limit is
   [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
   bytes.
-- Each instruction requires 3 pieces of information:
+- Each instruction requires three pieces of information:
   1. The address of the program to invoke
-  2. The accounts the instruction will read from or write to
-  3. Any additional data required by the instruction (e.g. function arguments)
+  2. The accounts the instruction reads from or writes to
+  3. Any extra data required by the instruction (e.g., function arguments)
 
-## Basic Example
+## SOL Transfer Example
 
-Below is a diagram representing a transaction with a single instruction to
-transfer SOL from a sender to a receiver.
+The diagram below represents a transaction with a single instruction to transfer
+SOL from a sender to a receiver.
 
-On Solana, accounts we refer to as "wallets" are owned by the
+On Solana, "wallets" are accounts owned by the
 [System Program](/docs/core/accounts#system-program). Only the program owner can
-modify an account's data, so transferring SOL requires sending a transaction to
+change an account's data, so transferring SOL requires sending a transaction to
 invoke the System Program.
 
 ![SOL Transfer](/assets/docs/core/transactions/sol-transfer.svg)
 
-The sender account must sign (`is_signer`) the transaction to authorize
-deducting its lamport balance. Both sender and recipient accounts need to be
-marked as writable (`is_writable`) since the lamport balances on these accounts
-will change.
+The sender account must sign (`is_signer`) the transaction to let the System
+Program deduct its lamport balance. The sender and recipient accounts must be
+writable (`is_writable`) since their lamport balances change.
 
-Once the transaction is sent, the System Program is invoked to process the
-transfer instruction. The System Program then updates the lamport balances of
-both the sender and recipient accounts accordingly.
+After sending the transaction, the System Program processes the transfer
+instruction. The System Program then updates the lamport balances of both the
+sender and recipient accounts.
 
 ![SOL Transfer Process](/assets/docs/core/transactions/sol-transfer-process.svg)
 
-### Transfer SOL
+The examples below show how to send a transaction with an instruction to
+transfer SOL from one account to another.
 
-Here is a [Solana Playground](https://beta.solpg.io/656a0ea7fb53fa325bfd0c3e)
-example of how to build a SOL transfer instruction using the
-`SystemProgram.transfer` method:
+Client libraries often abstract the details for building program instructions.
+If a library isn't available, you can manually build the instruction.
 
-```typescript title="Transfer SOL"
+The two examples below are functionally equivalent. Example 1 uses the
+`SystemProgram.transfer` method, which abstracts the details of creating the
+instruction data buffer and `AccountMeta` for each account required by the
+instruction.
+
+<CodeTabs storage="sol-transfer">
+
+```typescript !! title="Example 1"
 // Define the amount to transfer
 const transferAmount = 0.01; // 0.01 SOL
 
@@ -81,27 +85,296 @@ const transferAmount = 0.01; // 0.01 SOL
 const transferInstruction = SystemProgram.transfer({
   fromPubkey: sender.publicKey,
   toPubkey: receiver.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL, // Convert transferAmount to lamports
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
 });
 
 // Add the transfer instruction to a new transaction
 const transaction = new Transaction().add(transferInstruction);
 ```
 
-Run the example by using the `run` command in the Playground terminal or
-clicking the "Run" button.
+```typescript !! title="Example 2"
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
 
-<Callout type="info">
+// Instruction index for the SystemProgram transfer instruction
+const transferInstructionIndex = 2;
 
-Ensure your Playground wallet has devnet SOL. Get devnet SOL from the
-[Solana Faucet](https://faucet.solana.com/).
+// Create a buffer for the data to be passed to the transfer instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+// Write the instruction index to the buffer
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+// Write the transfer amount to the buffer
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
 
-</Callout>
+// Manually create a transfer instruction for transferring SOL from sender to receiver
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true },
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true }
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+
+// Add the transfer instruction to a new transaction
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</CodeTabs>
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Example 1"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+// Use devnet cluster connection
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Fund sender with airdrop
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Check balance before transfer
+const preBalance1 = await connection.getBalance(sender.publicKey);
+const preBalance2 = await connection.getBalance(recipient.publicKey);
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+// Add the transfer instruction to a new transaction
+const transaction = new Transaction().add(transferInstruction);
+
+// Send the transaction to the network
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender] // signer
+);
+
+// Check balance after transfer
+const postBalance1 = await connection.getBalance(sender.publicKey);
+const postBalance2 = await connection.getBalance(recipient.publicKey);
+
+console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
+console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```ts !! title="Example 2"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  TransactionInstruction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Fund sender with airdrop
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Check balance before transfer
+const preBalance1 = await connection.getBalance(sender.publicKey);
+const preBalance2 = await connection.getBalance(recipient.publicKey);
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the SystemProgram transfer instruction
+const transferInstructionIndex = 2;
+
+// Create a buffer for the data to be passed to the transfer instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+// Write the instruction index to the buffer
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+// Write the transfer amount to the buffer
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// Manually create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true },
+    { pubkey: recipient.publicKey, isSigner: false, isWritable: true }
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+
+// Add the transfer instruction to a new transaction
+const transaction = new Transaction().add(transferInstruction);
+
+// Send the transaction to the network
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender] // signer
+);
+
+// Check balance after transfer
+const postBalance1 = await connection.getBalance(sender.publicKey);
+const postBalance2 = await connection.getBalance(recipient.publicKey);
+
+console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
+console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+</CodeTabs>
 
 In the sections below, we'll walk through the details of transactions and
 instructions.
 
-## Transaction
+## Instructions
+
+An
+[instruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
+on a Solana [program](/docs/core/accounts#program-account) can be thought of as
+a public function that can be called by anyone using the Solana network.
+
+Invoking a program's instruction requires three key pieces of information:
+
+- Program ID: The program with the execution logic for the instruction
+- Accounts: List of accounts the instruction needs
+- Instruction Data: Byte array specifying the instruction to invoke on the
+  program and any arguments required by the instruction
+
+```rust title="Instruction"
+pub struct Instruction {
+    /// Pubkey of the program that executes this instruction.
+    pub program_id: Pubkey,
+    /// Metadata describing accounts that should be passed to the program.
+    pub accounts: Vec<AccountMeta>,
+    /// Opaque data passed to the program for its own interpretation.
+    pub data: Vec<u8>,
+}
+```
+
+![Transaction Instruction](/assets/docs/core/transactions/instruction.svg)
+
+### AccountMeta
+
+Each account required by an instruction must be provided as an
+[AccountMeta](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25)
+that contains:
+
+- `pubkey`: Account's address
+- `is_signer`: Whether the account must sign the transaction
+- `is_writable`: Whether the instruction modifies the account's data
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// An account's public key.
+    pub pubkey: Pubkey,
+    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
+    pub is_signer: bool,
+    /// True if the account data or metadata may be mutated during program execution.
+    pub is_writable: bool,
+}
+```
+
+![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+
+By specifying up front which accounts an instruction reads or writes,
+transactions that don't modify the same accounts can execute in parallel.
+
+### Example Instruction Structure
+
+The example below shows the structure of a SOL transfer instruction.
+
+- `keys`: Includes the `AccountMeta` for each account required by an
+  instruction.
+- `programId`: The address of the program with the execution logic for the
+  instruction.
+- `data`: The instruction data for the instruction as a buffer of bytes
+
+```json title="SOL Transfer Instruction"
+{
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  "programId": "11111111111111111111111111111111",
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+<CodeTabs flags="r">
+
+```ts !! title="Example"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+</CodeTabs>
+
+## Transactions
 
 A Solana
 [transaction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
@@ -159,13 +432,14 @@ pub struct Message {
 
 ### Transaction Size
 
-Solana transactions are limited to
+Solana transactions have a size limit of
 [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-bytes. This limit comes from the IPv6 MTU size of 1280 bytes, minus 48 bytes for
-network headers (40 bytes IPv6 + 8 bytes fragment header).
+bytes. This limit comes from the IPv6 Maximum Transmission Unit (MTU) size of
+1280 bytes, minus 48 bytes for network headers (40 bytes IPv6 + 8 bytes fragment
+header).
 
 A transaction's total size (signatures and message) must stay under this limit
-and consists of:
+and includes:
 
 - Signatures: 64 bytes each
 - Message: Header (3 bytes), account keys (32 bytes each), recent blockhash (32
@@ -177,11 +451,9 @@ and consists of:
 
 The
 [message header](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
-uses three bytes to define account privileges:
+uses three bytes to define account privileges.
 
-1. Required signatures and
-   [message version](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/versions/mod.rs#L220-L231)
-   (eg. legacy vs v0)
+1. Required signatures
 2. Number of read-only signed accounts
 3. Number of read-only unsigned accounts
 
@@ -206,8 +478,8 @@ pub struct MessageHeader {
 
 ### Compact-Array Format
 
-A compact array in a transaction message refers to an array serialized in the
-following format:
+A compact array in a transaction message is an array serialized in the following
+format:
 
 1. The array length (encoded as
    [compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs))
@@ -224,10 +496,10 @@ transaction messages.
 
 A transaction message contains an array of
 [account addresses](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
-required by its instructions. The array begins with a
+required by its instructions. The array starts with a
 [compact-u16](/docs/core/transactions#compact-array-format) number indicating
-how many addresses it contains. The addresses are then ordered based on their
-privileges, which is determined by the message header.
+how many addresses it contains. The addresses are then ordered by their
+privileges, as determined by the message header.
 
 - Accounts that are writable and signers
 - Accounts that are read-only and signers
@@ -293,9 +565,81 @@ pub struct CompiledInstruction {
 
 ### Example Transaction Structure
 
-Below is an example transaction including a single
-[SOL transfer](/docs/core/transactions#basic-example) instruction. The
-transaction's components include:
+The example below shows the structure of a transaction with a single SOL
+transfer instruction before it has been sent to the network.
+
+```json title="Transaction Data"
+{
+  "recentBlockhash": "BVSg5fnMhWXHtAV5631CMCkvAsqkJWd5ESCqxuEd6M3a",
+  "feePayer": "J3YyEVXxQNU24C3cSRm4tY1GuWAxYmpSbTCAuxSTQY1Y",
+  "nonceInfo": null,
+  "instructions": [
+    {
+      "keys": [
+        {
+          "pubkey": "J3YyEVXxQNU24C3cSRm4tY1GuWAxYmpSbTCAuxSTQY1Y",
+          "isSigner": true,
+          "isWritable": true
+        },
+        {
+          "pubkey": "AxrbyGTXVLx265cdf2jHmLduVU5uf3V1bNdQfAKeP1BZ",
+          "isSigner": false,
+          "isWritable": true
+        }
+      ],
+      "programId": "11111111111111111111111111111111",
+      "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+    }
+  ],
+  "signers": ["J3YyEVXxQNU24C3cSRm4tY1GuWAxYmpSbTCAuxSTQY1Y"]
+}
+```
+
+<CodeTabs flags="r">
+
+```ts !! title="Example"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+const { blockhash, lastValidBlockHeight } =
+  await connection.getLatestBlockhash();
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+const transaction = new Transaction({
+  blockhash,
+  lastValidBlockHeight,
+  feePayer: sender.publicKey
+}).add(transferInstruction);
+transaction.sign(sender);
+
+console.log(JSON.stringify(transaction, null, 2));
+```
+
+</CodeTabs>
+
+When you fetch a transaction using its signature after sending it to the
+network, you'll receive a response with the following structure.
+
+The `message` field contains the following fields:
 
 - `header`: Specifies read/write and signer privileges for addresses in the
   `accountKeys` array
@@ -313,8 +657,33 @@ transaction's components include:
   by the instructions on the transaction. A signature is created by signing the
   transaction message using the corresponding private key for an account.
 
-```json
-"transaction": {
+```json title="Transaction Data"
+{
+  "blockTime": 1745196488,
+  "meta": {
+    "computeUnitsConsumed": 150,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success"
+    ],
+    "postBalances": [989995000, 10000000, 1],
+    "postTokenBalances": [],
+    "preBalances": [1000000000, 0, 1],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 13049,
+  "transaction": {
     "message": {
       "header": {
         "numReadonlySignedAccounts": 0,
@@ -322,17 +691,14 @@ transaction's components include:
         "numRequiredSignatures": 1
       },
       "accountKeys": [
-        "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
-        "5snoUseZG8s8CDFHrXY2ZHaCrJYsW457piktDmhyb5Jd",
+        "8PLdpLxkuv9Nt8w3XcGXvNa663LXDjSrSNon4EK7QSjQ",
+        "7GLg7bqgLBv1HVWXKgWAm6YoPf1LoWnyWGABbgk487Ma",
         "11111111111111111111111111111111"
       ],
-      "recentBlockhash": "DzfXchZJoLMG3cNftcf2sw7qatkkuwQf4xH15N5wkKAb",
+      "recentBlockhash": "7ZCxc2SDhzV2bYgEQqdxTpweYJkpwshVSDtXuY7uPtjf",
       "instructions": [
         {
-          "accounts": [
-            0,
-            1
-          ],
+          "accounts": [0, 1],
           "data": "3Bxs4NN8M2Yn4TLb",
           "programIdIndex": 2,
           "stackHeight": null
@@ -341,162 +707,9 @@ transaction's components include:
       "indexToProgramIds": {}
     },
     "signatures": [
-      "5LrcE2f6uvydKRquEJ8xp19heGxSvqsVbcqUeFoiWbXe8JNip7ftPQNTAVPyTK7ijVdpkzmKKaAQR7MWMmujAhXD"
+      "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX"
     ]
-  }
-```
-
-## Instruction
-
-An
-[instruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
-on a deployed [program](/docs/core/accounts#program-account) can be thought of
-as a public function that can be called by anyone using the Solana network.
-
-Invoking a program's instruction requires providing three key pieces of
-information:
-
-- Program ID: The program being invoked to execute the instruction
-- Accounts: List of accounts the instruction requires
-- Instruction Data: Byte array specifying the instruction on the program to
-  invoke and any function arguments required by the instruction
-
-```rust title="Instruction"
-pub struct Instruction {
-    /// Pubkey of the program that executes this instruction.
-    pub program_id: Pubkey,
-    /// Metadata describing accounts that should be passed to the program.
-    pub accounts: Vec<AccountMeta>,
-    /// Opaque data passed to the program for its own interpretation.
-    pub data: Vec<u8>,
+  },
+  "version": "legacy"
 }
 ```
-
-![Transaction Instruction](/assets/docs/core/transactions/instruction.svg)
-
-### AccountMeta
-
-Each account required by an instruction must be provided as an
-[AccountMeta](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25)
-that contains:
-
-- `pubkey`: Account's address
-- `is_signer`: Whether the account must sign the transaction
-- `is_writable`: Whether the instruction will modify the account's data
-
-```rust title="AccountMeta"
-pub struct AccountMeta {
-    /// An account's public key.
-    pub pubkey: Pubkey,
-    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
-    pub is_signer: bool,
-    /// True if the account data or metadata may be mutated during program execution.
-    pub is_writable: bool,
-}
-```
-
-![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
-
-By specifying up front which accounts an instruction will read from or write to,
-transactions that do not modify the same accounts can be processed in parallel.
-
-### Example Instruction Structure
-
-Below is a simple example showing the structure of a SOL transfer instruction:
-
-- `keys`: Includes the `AccountMeta` for each account required by an
-  instruction.
-- `programId`: The address of the program which contains the execution logic for
-  the instruction invoked.
-- `data`: The instruction data for the instruction as a buffer of bytes
-
-```json
-{
-  "keys": [
-    {
-      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
-      "isSigner": true,
-      "isWritable": true
-    },
-    {
-      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
-      "isSigner": false,
-      "isWritable": true
-    }
-  ],
-  "programId": "11111111111111111111111111111111",
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-## Expanded Example
-
-The details for building program instructions are often abstracted away by
-client libraries. However, if one is not available, you can always fall back to
-manually building the instruction.
-
-### Transfer SOL
-
-Here is a [Solana Playground](https://beta.solpg.io/656a102efb53fa325bfd0c3f)
-example of how to manually build a SOL transfer instruction.
-
-Under the hood, the
-[simple example](/docs/core/transactions#simple-sol-transfer) using the
-`SystemProgram.transfer` method is functionally equivalent to the more verbose
-example below. The `SystemProgram.transfer` method simply abstracts away the
-details of creating the instruction data buffer and `AccountMeta` for each
-account required by the instruction.
-
-The snippets in the two tabs below are functionally equivalent.
-
-<Tabs items={['Build Instruction Manually', 'Use Library']}>
-<Tab value="Build Instruction Manually">
-
-```typescript
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the SystemProgram transfer instruction
-const transferInstructionIndex = 2;
-
-// Create a buffer for the data to be passed to the transfer instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-// Write the instruction index to the buffer
-instructionData.writeUInt32LE(transferInstructionIndex, 0);
-// Write the transfer amount to the buffer
-instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
-
-// Manually create a transfer instruction for transferring SOL from sender to receiver
-const transferInstruction = new TransactionInstruction({
-  keys: [
-    { pubkey: sender.publicKey, isSigner: true, isWritable: true },
-    { pubkey: receiver.publicKey, isSigner: false, isWritable: true },
-  ],
-  programId: SystemProgram.programId,
-  data: instructionData,
-});
-
-// Add the transfer instruction to a new transaction
-const transaction = new Transaction().add(transferInstruction);
-```
-
-</Tab>
-<Tab value="Use Library">
-
-```typescript
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from wallet_1 to wallet_2
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL, // Convert transferAmount to lamports
-});
-
-// Add the transfer instruction to a new transaction
-const transaction = new Transaction().add(transferInstruction);
-```
-
-</Tab>
-</Tabs>
