@@ -547,8 +547,8 @@ export function RunnableLayout({
         className,
       )}
     >
-      <div className="w-1/2 min-h-0">{children}</div>
-      <div className="w-1/2 flex flex-col gap-1 min-h-0">
+      <div className="w-1/2 min-h-0 min-w-0">{children}</div>
+      <div className="w-1/2 flex flex-col gap-1 min-h-0 min-w-0">
         <div className="rounded bg-ch-background border border-ch-border flex flex-col overflow-hidden">
           <div className="flex items-center justify-between gap-2 border-b-[1px] border-ch-border px-2 py-1 bg-ch-tabs-background h-9 min-h-9 shrink-0 text-sm text-ch-tab-active-foreground">
             <span>Console</span>
