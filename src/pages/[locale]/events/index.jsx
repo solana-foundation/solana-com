@@ -128,7 +128,7 @@ export async function getStaticProps({ params }) {
     ...sortInstructions,
   );
 
-  // Add custom img to Breakpoint to avoid the fallback
+  // Add custom img and timezone overrides
   unique.map((el) => {
     if (el.key === "https://solana.com/breakpoint") {
       el.img.primary = breakpointImg;
@@ -146,26 +146,23 @@ export async function getStaticProps({ params }) {
       el.img.primary = crossroadsImg;
       el.schedule.timezone = "Europe/Istanbul";
       el.schedule.to = "2025-04-26T23:59:59+03:00";
+    } else if (el.rsvp === "https://lu.ma/solana-summit-apac-2025") {
+      el.schedule.timezone = "Asia/Ho_Chi_Minh";
+      el.schedule.to = "2025-04-26T23:59:59+07:00";
     }
     return el;
   });
 
-  // Specific event or first event as featured
-  let featuredEvent = unique[0];
-  let remainingEvents = [...unique];
+  const subevents = ["https://lu.ma/Mega-mixer-2025"];
 
-  // Search for the specific event
-  const specificEventUrl = "https://lu.ma/apex-cape-town";
-  const specificEventIndex = unique.findIndex(
-    (event) =>
-      event.rsvp === specificEventUrl || event.key === specificEventUrl,
+  // Filter out subevents from being featured
+  const filteredEvents = unique.filter(
+    (event) => !subevents.includes(event.rsvp),
   );
 
-  // If found, set it as the featured event and remove it from the list
-  if (specificEventIndex !== -1) {
-    featuredEvent = unique[specificEventIndex];
-    remainingEvents = unique.filter((_, index) => index !== specificEventIndex);
-  }
+  // Set featured event and remaining events
+  let featuredEvent = filteredEvents[0];
+  let remainingEvents = [...filteredEvents];
 
   return {
     props: {
