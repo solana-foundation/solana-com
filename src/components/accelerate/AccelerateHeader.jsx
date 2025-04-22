@@ -49,6 +49,13 @@ const Header = () => {
           <div className={styles.col}>
             <a href="#speakers">{t("accelerate.header.speakers")}</a>
             <a href="#sponsors">{t("accelerate.header.sponsors")}</a>
+            <a
+              href="https://lu.ma/solana-nyc?tag=accelerate"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Side Events
+            </a>
             <a href="#faq">{t("accelerate.header.faq")}</a>
             <a className={styles.cta} href="#tickets">
               <span>
