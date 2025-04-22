@@ -156,21 +156,21 @@ export async function getStaticProps({ params }) {
   const subevents = ["https://lu.ma/Mega-mixer-2025"];
 
   // Filter out subevents from being featured
-  const filteredEvents = unique.filter(
+  const featuredEvents = unique.filter(
     (event) => !subevents.includes(event.rsvp),
   );
 
-  // Set featured event and remaining events
-  let featuredEvent = filteredEvents[0];
-  let remainingEvents = [...filteredEvents];
+  // Set featured event and keep all events in the regular list
+  let featuredEvent = featuredEvents[0];
+  let events = [...unique];
 
   return {
     props: {
       locale,
-      events: JSON.parse(JSON.stringify(remainingEvents)),
+      events: JSON.parse(JSON.stringify(events)), // all events, including subevents
       communityEvents: JSON.parse(JSON.stringify(sortedCommunity)),
       usEvents: JSON.parse(JSON.stringify(usEvents)),
-      featuredEvent: JSON.parse(JSON.stringify(featuredEvent)),
+      featuredEvent: JSON.parse(JSON.stringify(featuredEvent)), // never a subevent
       ...(await serverSideTranslations(locale, ["common"])),
     },
     revalidate: 60,
