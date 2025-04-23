@@ -16,6 +16,8 @@ export async function POST(req: Request) {
     /Create Connection, local validator in this example/g,
     "This Mirror instance lasts for 1 hour. You can create your own at https://mirror.ad",
   );
+  code = code.replace(/http:\/\/localhost:8899/g, mirrorUrl);
+  code = code.replace(/ws:\/\/localhost:8900/g, wsMirrorUrl);
   code = code.replace(/http:\/\/127\.0\.0\.1:8899/g, mirrorUrl);
   code = code.replace(/ws:\/\/127\.0\.0\.1:8900/g, wsMirrorUrl);
   code = code.replace(/"devnet"/g, `"${mirrorUrl}"`);
