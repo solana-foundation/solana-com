@@ -543,7 +543,7 @@ export function RunnableLayout({
   return (
     <div
       className={cn(
-        "flex gap-1 max-h-[700px] min-h-0 overflow-hidden ",
+        "flex gap-1 max-h-[700px] min-h-0 overflow-hidden wider",
         className,
       )}
     >
