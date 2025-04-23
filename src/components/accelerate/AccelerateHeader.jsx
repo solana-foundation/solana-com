@@ -50,6 +50,13 @@ const Header = () => {
             <a href="#speakers">{t("accelerate.header.speakers")}</a>
             <a href="#sponsors">{t("accelerate.header.sponsors")}</a>
             <a href="#faq">{t("accelerate.header.faq")}</a>
+            <a
+              href="https://lu.ma/solana-nyc?tag=accelerate"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              side events
+            </a>
             <a className={styles.cta} href="#tickets">
               <span>
                 {t("accelerate.header.get-tickets")} <ArrowUpRight />
@@ -112,6 +119,13 @@ const Header = () => {
             }}
           >
             {t("accelerate.header.faq")}
+          </a>
+          <a
+            href="https://lu.ma/solana-nyc?tag=accelerate"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Side Events
           </a>
         </div>
 
