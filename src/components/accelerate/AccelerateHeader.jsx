@@ -50,6 +50,7 @@ const Header = () => {
             <a href="#speakers">{t("accelerate.header.speakers")}</a>
             <a href="#sponsors">{t("accelerate.header.sponsors")}</a>
             <a href="#faq">{t("accelerate.header.faq")}</a>
+            <a href="#">side events</a>
             <a className={styles.cta} href="#tickets">
               <span>
                 {t("accelerate.header.get-tickets")} <ArrowUpRight />
@@ -112,6 +113,18 @@ const Header = () => {
             }}
           >
             {t("accelerate.header.faq")}
+          </a>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handleMenu();
+              document
+                .getElementById("faq")
+                ?.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
+            Side Events
           </a>
         </div>
 
