@@ -15,7 +15,6 @@ import { wordWrap } from "./word-wrap";
 import { MultiCode } from "./code.client";
 import { tooltip } from "./tooltip";
 import { tokenTransitions } from "./token-transitions";
-import { RunableCode } from "./code.runable";
 
 export async function Code(props: {
   codeblocks: RawCode[];
@@ -37,7 +36,7 @@ export function SingleCode({
   group: CodeGroup;
   className?: string;
 }) {
-  const { pre, title, code, icon, lang } = group.tabs[0];
+  const { pre, title, code, icon } = group.tabs[0];
 
   return (
     <>
@@ -59,15 +58,6 @@ export function SingleCode({
               <div className="size-4">{icon}</div>
               <span className="leading-none">{title}</span>
               <div className={cn("ml-auto mr-3 items-center flex")}>
-                {group.options.runable && (
-                  <a
-                    href="https://mirror.ad"
-                    target="_blank"
-                    className="mr-2 text-blue-500 font-mono text-sm"
-                  >
-                    Powered by Mirror
-                  </a>
-                )}
                 <CopyButton
                   text={code}
                   className="text-ch-tab-inactive-foreground"
@@ -83,7 +73,6 @@ export function SingleCode({
         )}
         {pre}
       </div>
-      {group.options.runable && <RunableCode code={code} language={lang} />}
     </>
   );
 }

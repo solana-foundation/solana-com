@@ -1,9 +1,7 @@
 "use client";
 
-import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { useState } from "react";
 import { CodeRun } from "@/utils/mirror";
-import { Callout } from "fumadocs-ui/components/callout";
 import { Info, Loader2, Play } from "lucide-react";
 import React from "react";
 import {
@@ -13,6 +11,11 @@ import {
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
 import { cn } from "../utils";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/app/components/ui/resizable";
 
 type LogMessage = {
   text: string;
@@ -340,19 +343,116 @@ function processLogs(logs: { log: string; url: string }[]) {
   return { txGroups, txToInstructions };
 }
 
-export function RunableCode({
-  code,
-  language,
+function ConsoleHeader({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-2 border-b-[1px] border-ch-border px-2 py-1 bg-ch-tabs-background h-9 min-h-9 shrink-0 text-sm text-ch-tab-active-foreground",
+        className,
+      )}
+    >
+      <span>Console</span>
+      <a
+        href="https://mirror.ad"
+        target="_blank"
+        className="text-sm hover:underline"
+      >
+        Powered by Mirror
+      </a>
+    </div>
+  );
+}
+
+function EmptyConsole({
+  running,
+  error,
+  handleRun,
 }: {
-  code: string;
-  language: string;
+  running: boolean;
+  error: string | null;
+  handleRun: () => void;
 }) {
+  return (
+    <div className="flex flex-col items-center justify-center w-full py-3 gap-2">
+      <span className="h-4" />
+      <button
+        onClick={handleRun}
+        className={`w-28 px-3 py-1 relative z-10 rounded bg-[#9945FF] text-white text-sm font-bold cursor-pointer flex justify-center items-center gap-2 ${running ? "opacity-80" : "hover:bg-[#8838e0]"}`}
+        disabled={running}
+      >
+        {running ? (
+          <>
+            <Loader2 className="inline-block w-4 h-4 animate-spin" />
+            <span>Running</span>
+          </>
+        ) : (
+          <>
+            <Play className="w-4 h-4" />
+            <span>Run</span>
+          </>
+        )}
+      </button>
+      <span
+        className={`text-sm h-4 ${running ? "opacity-0" : "opacity-80"} transition-opacity duration-100 ${error ? "text-red-500" : ""}`}
+      >
+        {!error
+          ? "Click to execute the code."
+          : "There was an error running the code."}
+      </span>
+    </div>
+  );
+}
+
+function OutputHeader() {
+  return (
+    <div className="flex items-center justify-between gap-2 border-b-[1px] border-ch-border px-2 py-1 bg-ch-tabs-background h-9 min-h-9 shrink-0 text-sm text-ch-tab-active-foreground">
+      <span>Output</span>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger>
+            <Info size={18} />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[300px]">
+            <p>
+              <b>Program Logs</b> in the Output are clickable links to Solana
+              Explorer.
+            </p>
+            <p>
+              You must enable the <b>&quot;Enable Custom URL Param&quot;</b>{" "}
+              setting on Solana Explorer. If not enabled, links will default to
+              localhost:8899 instead of the Mirror.ad RPC URL.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+}
+
+function Output({ result }: { result: CodeRun }) {
+  const { txGroups, txToInstructions } = processLogs(result?.logs || []);
+  return (
+    <div className="p-2 flex-1 overflow-auto">
+      {result ? (
+        txGroups.map((group, groupIndex) => (
+          <Transaction
+            key={group.url}
+            group={group}
+            groupIndex={groupIndex}
+            instructions={txToInstructions.get(group.url) || []}
+          />
+        ))
+      ) : (
+        <div className="text-sm opacity-80">No output yet</div>
+      )}
+    </div>
+  );
+}
+
+function useRunnableCode(code: string, language: string) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<CodeRun | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [openAccordion, setOpenAccordion] = useState<string | undefined>(
-    "open",
-  );
 
   const handleRun = async () => {
     setRunning(true);
@@ -382,97 +482,12 @@ export function RunableCode({
     }
   };
 
-  // Custom title component with div that looks like a button to put in the Accordion
-  // Can't have button since Accordion itself is a button and throws a react error
-  const AccordionTitle = (
-    <div className="flex items-center justify-between w-full">
-      <span>
-        Output{" "}
-        <a
-          href="https://mirror.ad"
-          target="_blank"
-          className="!text-[#a257ff] dark:!text-[#00ffbb] hover:!underline"
-        >
-          (Powered by Mirror)
-        </a>
-      </span>
-      <button
-        onClick={handleRun}
-        className={`px-3 py-1 ml-auto relative z-10 rounded bg-[#9945FF] text-white text-sm cursor-pointer ${running ? "opacity-70" : "hover:bg-[#8838e0]"}`}
-        disabled={running}
-      >
-        {running ? (
-          <Loader2 className="inline-block w-4 h-4 animate-spin" />
-        ) : (
-          "Run"
-        )}
-      </button>
-    </div>
-  );
-
-  return (
-    <>
-      <Accordions
-        type="single"
-        className="mt-4"
-        // @ts-ignore - Using value from underlying Radix UI component
-        value={openAccordion}
-        onValueChange={setOpenAccordion}
-      >
-        <Accordion
-          // @ts-ignore - Using React element as title
-          title={AccordionTitle}
-          // @ts-ignore - Using value from underlying Radix UI component
-          value="open"
-        >
-          {result ? (
-            <>
-              <pre>{result.output}</pre>
-              {result.logs.length > 0 && (
-                <div>
-                  <h4>Program Logs</h4>
-                  <div className="pl-4 overflow-x-auto">
-                    {(() => {
-                      const { txGroups, txToInstructions } = processLogs(
-                        result.logs,
-                      );
-                      return txGroups.map((group, groupIndex) => (
-                        <Transaction
-                          key={group.url}
-                          group={group}
-                          groupIndex={groupIndex}
-                          instructions={txToInstructions.get(group.url) || []}
-                        />
-                      ));
-                    })()}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div>
-              {error ||
-                (running ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Running Code...
-                  </div>
-                ) : (
-                  "Click 'Run' to see output."
-                ))}
-            </div>
-          )}
-        </Accordion>
-      </Accordions>
-      <Callout type="info">
-        <b>Program Logs</b> in the Output are clickable links to Solana
-        Explorer.
-        <br></br>You must enable the <b>&quot;Enable Custom URL Param&quot;</b>{" "}
-        setting on Solana Explorer. <br></br>If not enabled, links will default
-        to localhost:8899 instead of the Mirror.ad RPC URL.
-      </Callout>
-    </>
-  );
+  return {
+    running,
+    result,
+    error,
+    handleRun,
+  };
 }
 
 export function RunnableLayout({
@@ -486,142 +501,46 @@ export function RunnableLayout({
   language: string;
   className?: string;
 }) {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<CodeRun | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const isEmpty = !result;
-
-  const handleRun = async () => {
-    setRunning(true);
-    setResult(null);
-    setError(null);
-    try {
-      const res = await fetch("/docs/api", {
-        method: "POST",
-        body: JSON.stringify({ code, language }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(
-          `Error running code: ${data.error || data.details?.error || "Unknown error"}`,
-        );
-        return;
-      }
-
-      setResult(data as CodeRun);
-    } catch (err) {
-      setError(
-        `Error running code: ${err instanceof Error ? err.message : "Unknown error"}`,
-      );
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  const button = (
-    <button
-      onClick={handleRun}
-      className={`w-28 px-3 py-1 relative z-10 rounded bg-[#9945FF] text-white text-sm font-bold cursor-pointer flex justify-center items-center gap-2 ${running ? "opacity-80" : "hover:bg-[#8838e0]"}`}
-      disabled={running}
-    >
-      {running ? (
-        <>
-          <Loader2 className="inline-block w-4 h-4 animate-spin" />
-          <span>Running</span>
-        </>
-      ) : (
-        <>
-          <Play className="w-4 h-4" />
-          <span>Run</span>
-        </>
-      )}
-    </button>
-  );
+  const { running, result, error, handleRun } = useRunnableCode(code, language);
 
   return (
-    <div
-      className={cn(
-        "flex gap-1 max-h-[700px] min-h-0 overflow-hidden wider",
-        className,
-      )}
-    >
-      <div className="w-1/2 min-h-0 min-w-0">{children}</div>
-      <div className="w-1/2 flex flex-col gap-1 min-h-0 min-w-0">
-        <div className="rounded bg-ch-background border border-ch-border flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between gap-2 border-b-[1px] border-ch-border px-2 py-1 bg-ch-tabs-background h-9 min-h-9 shrink-0 text-sm text-ch-tab-active-foreground">
-            <span>Console</span>
-            <a
-              href="https://mirror.ad"
-              target="_blank"
-              className="text-sm hover:underline"
-            >
-              Powered by Mirror
-            </a>
-          </div>
-          {isEmpty ? (
-            <div className="flex flex-col items-center justify-center w-full py-3 gap-2">
-              <span className="h-4" />
-              {button}
-              <span
-                className={`text-sm h-4 ${running ? "opacity-0" : "opacity-80"} transition-opacity duration-100 ${error ? "text-red-500" : ""}`}
-              >
-                {!error
-                  ? "Click to execute the code."
-                  : "There was an error running the code."}
-              </span>
-            </div>
-          ) : (
-            <pre className="p-2 text-sm text-ch-foreground font-mono overflow-auto flex-1">
-              {result?.output}
-            </pre>
-          )}
-        </div>
-        <div className="flex-1 rounded bg-ch-background border border-ch-border flex flex-col min-h-0 overflow-hidden">
-          <div className="flex items-center justify-between gap-2 border-b-[1px] border-ch-border px-2 py-1 bg-ch-tabs-background h-9 min-h-9 shrink-0 text-sm text-ch-tab-active-foreground">
-            <span>Output</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info size={18} />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-[300px]">
-                  <p>
-                    <b>Program Logs</b> in the Output are clickable links to
-                    Solana Explorer.
-                  </p>
-                  <p>
-                    You must enable the{" "}
-                    <b>&quot;Enable Custom URL Param&quot;</b> setting on Solana
-                    Explorer. If not enabled, links will default to
-                    localhost:8899 instead of the Mirror.ad RPC URL.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <div className="p-2 flex-1 overflow-auto">
-            {isEmpty ? (
-              <div className="text-sm opacity-80">No output yet</div>
-            ) : (
-              (() => {
-                const { txGroups, txToInstructions } = processLogs(
-                  result?.logs || [],
-                );
-                return txGroups.map((group, groupIndex) => (
-                  <Transaction
-                    key={group.url}
-                    group={group}
-                    groupIndex={groupIndex}
-                    instructions={txToInstructions.get(group.url) || []}
+    <div className="wider">
+      <ResizablePanelGroup
+        direction="horizontal"
+        className={cn("max-h-[700px] min-h-0 overflow-hidden", className)}
+      >
+        <ResizablePanel defaultSize={50} minSize={30}>
+          <div className="h-full min-h-0 min-w-0">{children}</div>
+        </ResizablePanel>
+        <ResizableHandle withHandle className="bg-transparent w-1" />
+        <ResizablePanel defaultSize={50} minSize={30}>
+          <ResizablePanelGroup direction="vertical">
+            <ResizablePanel defaultSize={30} minSize={10}>
+              <div className="h-full rounded bg-ch-background border border-ch-border flex flex-col overflow-hidden">
+                <ConsoleHeader />
+                {!result ? (
+                  <EmptyConsole
+                    running={running}
+                    error={error}
+                    handleRun={handleRun}
                   />
-                ));
-              })()
-            )}
-          </div>
-        </div>
-      </div>
+                ) : (
+                  <pre className="p-2 text-sm text-ch-foreground font-mono overflow-auto flex-1">
+                    {result?.output}
+                  </pre>
+                )}
+              </div>
+            </ResizablePanel>
+            <ResizableHandle withHandle className="bg-transparent !h-1" />
+            <ResizablePanel defaultSize={70} minSize={20}>
+              <div className="h-full rounded bg-ch-background border border-ch-border flex flex-col min-h-0 overflow-hidden">
+                <OutputHeader />
+                <Output result={result} />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
