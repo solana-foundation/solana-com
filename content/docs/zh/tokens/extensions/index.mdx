@@ -1,0 +1,132 @@
+---
+title: 扩展
+description:
+  了解代币扩展程序（Token 2022）以及如何使用其
+  扩展功能为代币铸造和账户添加可选特性。
+---
+
+## 什么是代币扩展？
+
+代币扩展程序（Token
+2022）通过被称为扩展的额外指令提供更多功能。扩展是您可以添加到代币铸造或代币账户的可选功能。您可以在代币扩展程序中找到这些扩展指令的实现
+[源代码](https://github.com/solana-program/token-2022/tree/main/program/src/extension)。
+
+每个扩展都添加特定的状态，通常在铸造或代币账户创建期间初始化。在初始化任一账户时，您可以同时启用特定扩展以实现不同的功能。大多数扩展在账户初始化后无法添加。这是设计代币时的一个重要考虑因素，因为您需要提前规划希望代币支持的功能。每个扩展的集成指南可在
+[代币扩展开发者文档](/developers/guides/token-extensions/getting-started)中获取。
+
+<Callout type="info">
+  某些扩展彼此不兼容，您无法在同一代币铸造或代币账户上同时启用它们。例如，您不能将*rs`NonTransferable`*&#x6269;展与*rs`TransferFeeConfig`*
+  扩展结合使用，因为它们具有冲突的行为。
+</Callout>
+
+代币扩展程序定义了一个
+[`ExtensionType`](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/mod.rs#L1059)
+枚举，列出了所有可以添加到代币铸造或代币账户的可用扩展。每个变体代表具有独特功能的不同扩展。
+
+*rs`ExtensionType`*&#x679A;举定义如下：
+
+```rust title="Token Extensions"
+/// 可应用于铸造或账户的扩展。铸造扩展必须
+/// 仅应用于铸造账户，而账户扩展必须仅
+/// 应用于持有代币的账户。
+#[repr(u16)]
+#[cfg_attr(feature = "serde-traits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-traits", serde(rename_all = "camelCase"))]
+#[derive(Clone, Copy, Debug, PartialEq, TryFromPrimitive, IntoPrimitive)]
+pub enum ExtensionType {
+    /// 如果账户大小原本为355（与多重签名相同），则用作填充
+    Uninitialized,
+    /// 包括转账费率信息和相应的提取
+    /// 和设置费用的权限
+    TransferFeeConfig,
+    /// 包括预扣的转账费用
+    TransferFeeAmount,
+    /// 包括可选的铸造关闭权限
+    MintCloseAuthority,
+    /// 用于机密转账的审计员配置
+    ConfidentialTransferMint,
+    /// 机密转账的状态
+    ConfidentialTransferAccount,
+    /// 指定新账户的默认Account::state
+    DefaultAccountState,
+    /// 表示账户所有者权限不能更改
+    ImmutableOwner,
+    /// 要求入站转账必须有备忘录
+    MemoTransfer,
+    /// 表示来自此铸造的代币不能转账
+    NonTransferable,
+    /// 代币随时间累积利息
+    InterestBearingConfig,
+    /// 锁定通过CPI发生的特权代币操作
+    CpiGuard,
+    /// 包括可选的永久委托
+    PermanentDelegate,
+    /// 表示此账户中的代币属于不可转账的
+    /// 铸造
+    NonTransferableAccount,
+    /// 铸造需要对实现"转账钩子"的程序进行CPI
+    /// 接口
+    TransferHook,
+    /// 表示此账户中的代币属于带有
+    /// 转账钩子的铸造
+    TransferHookAccount,
+    /// 包括加密的预扣费用和它们所加密的
+    /// 公钥
+    ConfidentialTransferFeeConfig,
+    /// 包括机密预扣转账费用
+    ConfidentialTransferFeeAmount,
+    /// 铸造包含指向另一个持有元数据的账户（或同一账户）的
+    /// 指针
+    MetadataPointer,
+    /// 铸造包含代币元数据
+    TokenMetadata,
+    /// 铸造包含指向另一个持有组配置的账户（或同一账户）的
+    /// 指针
+    GroupPointer,
+    /// 铸造包含代币组配置
+    TokenGroup,
+    /// 铸造包含指向另一个持有组成员配置的账户（或同一账户）的
+    /// 指针
+    GroupMemberPointer,
+    /// 铸造包含代币组成员配置
+    TokenGroupMember,
+    /// 允许铸造和销毁机密代币的铸造
+    ConfidentialMintBurn,
+    /// UI金额按给定数量缩放的代币
+    ScaledUiAmount,
+    /// 可以暂停铸造/销毁/转账的代币
+    Pausable,
+    /// 表示该账户属于可暂停的铸造
+    PausableAccount,
+
+    /// 测试可变长度铸造扩展
+    #[cfg(test)]
+    VariableLenMintTest = u16::MAX - 2,
+    /// 用于使账户恰好为Multisig::LEN的填充扩展，用于
+    /// 测试
+    #[cfg(test)]
+    AccountPaddingTest,
+    /// 用于使铸造恰好为Multisig::LEN的填充扩展，用于
+    /// 测试
+    #[cfg(test)]
+    MintPaddingTest,
+}
+```
+
+每个扩展通过在铸币或代币账户中添加额外状态来增加专门功能。所有扩展特定的状态都存储在
+[`tlv_data`](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/mod.rs#L546)
+字段中，该字段位于基础账户数据类型之后。您必须根据该账户启用的特定扩展类型进一步反序列化
+`tlv_data`（包含扩展状态）。
+
+```rust title="Token Extensions"
+/// 封装不可变的基础状态数据（铸币或账户）及可能的
+/// 扩展，其中基础状态是Pod，用于零拷贝serde。
+#[derive(Debug, PartialEq)]
+pub struct PodStateWithExtensions<'data, S: BaseState + Pod> {
+    /// 解包的基础数据
+    pub base: &'data S,
+    /// 包含所有TLV数据的数据切片，按需反序列化
+    // !mark
+    tlv_data: &'data [u8],
+}
+```

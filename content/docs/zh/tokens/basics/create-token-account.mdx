@@ -1,0 +1,1392 @@
+---
+title: 创建代币账户
+description: 学习如何创建SPL代币账户。
+---
+
+## 什么是代币账户？
+
+代币账户是Solana代币程序中的一种账户类型，用于存储个人对特定代币（铸币）的所有权信息。每个代币账户都与单一铸币关联，并跟踪诸如代币余额和所有者等详细信息。
+
+```rust title="Token Account Type"
+/// 账户数据。
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Account {
+    /// 与此账户关联的铸币
+    pub mint: Pubkey,
+    /// 此账户的所有者。
+    pub owner: Pubkey,
+    /// 此账户持有的代币数量。
+    pub amount: u64,
+    /// 如果`delegate`为`Some`，则`delegated_amount`表示
+    /// 委托授权的数量
+    pub delegate: COption<Pubkey>,
+    /// 账户的状态
+    pub state: AccountState,
+    /// 如果`is_native.is_some`，这是一个原生代币，该值记录了
+    /// 免租金储备。账户需要免租金，所以
+    /// 处理器使用该值确保包装的SOL
+    /// 账户不会低于此阈值。
+    pub is_native: COption<u64>,
+    /// 委托的数量
+    pub delegated_amount: u64,
+    /// 关闭账户的可选权限。
+    pub close_authority: COption<Pubkey>,
+}
+```
+
+<Callout type="info">
+  请注意，在源代码中，开发者将代币账户称为`Account`类型。[代币程序](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108)和[代币扩展程序](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/state.rs#L102-L123)共享相同的代币账户基础实现。
+</Callout>
+
+要持有特定铸币的代币，用户必须首先创建一个代币账户。每个代币账户跟踪：
+
+1. 特定的铸币（代币账户持有单位的代币类型）
+2. 所有者（可以从账户转移代币的权限方）
+
+以下是在Solana上使用美元币(USDC)的示例：
+
+* 美元币铸造地址：`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
+* Circle（美元币发行方）拥有一个代币账户，地址为
+  `3emsAVdmGKERbHjmGfQ6oZ1e35dkf5iYcS6U4CPKFVaa`
+* 该代币账户仅持有美元币代币（铸币）的单位
+* Circle拥有所有者权限，地址为`7VHUFJHWu2CuExkJcJrzhQPJ2oygupTWkL2A2For4BmE`
+  并可以转移这些代币
+
+你可以在
+[Solana浏览器](https://explorer.solana.com/address/3emsAVdmGKERbHjmGfQ6oZ1e35dkf5iYcS6U4CPKFVaa)上查看此代币账户的详细信息。
+
+<Callout type="info">
+  "所有者"一词在两种不同的上下文中使用：
+
+  1. 代币账户的"所有者" - 这是存储在代币账户数据中的地址，作为代币程序定义的
+     [Account](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/state.rs#L106)
+     类型的"所有者"字段。所有者可以从账户转移、销毁或委托代币。这个地址有时被称为代币账户的"权限方"，以区别于程序所有者。
+
+  2. 程序"所有者" - 这指的是在Solana上拥有账户数据的程序。对于代币账户，这始终是代币程序或代币扩展程序，如基本Solana
+     [Account](https://github.com/anza-xyz/solana-sdk/blob/4e30766b8d327f0191df6490e48d9ef521956495/account/src/lib.rs#L51)
+     类型的"所有者"字段中指定的。
+
+  在处理代币账户时，"所有者"通常指的是可以花费代币的权限方，而不是拥有账户的程序。
+</Callout>
+
+## 什么是关联代币账户？
+
+关联代币账户是一种代币账户，其地址是由
+[关联代币程序](https://github.com/solana-program/associated-token-account/tree/main/program)。你可以将关联代币账户视为用户持有特定代币（铸币）单位的默认代币账户。
+
+<Callout type="info">
+  术语"关联代币账户"仅适用于由关联代币程序创建的代币账户。
+</Callout>
+
+关联代币账户提供了一种确定性的方式来查找用户针对任何给定铸币的代币账户。你可以查看该派生实现的细节[这里](https://github.com/solana-program/associated-token-account/blob/c78722ee39ebf6741cdfa81dffd52135370a5015/interface/src/address.rs#L56)。
+
+```rust title="Associated Token Account Address Derivation"
+pub fn get_associated_token_address_and_bump_seed_internal(
+    wallet_address: &Pubkey,
+    token_mint_address: &Pubkey,
+    program_id: &Pubkey,
+    token_program_id: &Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            &wallet_address.to_bytes(), // 所有者的公钥
+            &token_program_id.to_bytes(), // 代币程序或代币扩展程序
+            &token_mint_address.to_bytes(), // 代币铸币地址
+        ],
+        program_id, // 关联代币程序ID
+    )
+}
+```
+
+这种确定性的派生确保了对于钱包地址和代币铸币的任何组合，都只存在一个关联代币账户地址。这种方法使查找用户任何给定代币铸币的代币账户变得简单，消除了单独跟踪代币账户地址的需要。
+
+<Callout type="info">
+  关联代币程序作为一个辅助程序，创建具有确定性地址（PDAs）的代币账户。在创建关联代币账户时，关联代币程序会向代币程序或代币扩展程序发起CPI（跨程序调用）。代币程序拥有创建的账户，该账户具有与代币程序中定义的相同的`Account`类型结构。关联代币程序不维护任何状态
+
+  * 它只是提供了一种标准化的方式，在确定性地址（即PDA）创建代币账户。
+</Callout>
+
+## 如何创建代币账户
+
+要创建代币账户，请调用
+[`InitializeAccount`](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L93)
+指令。您可以在
+[这里](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/processor.rs#L145)找到此指令的实现。
+
+创建代币账户的交易需要两个指令：
+
+1. 调用系统程序创建并分配代币账户空间，并将所有权转移给代币程序。
+2. 调用代币程序初始化代币账户数据。
+
+### Typescript
+
+<CodeTabs storage="token-ts" flags="r">
+  ```ts !! title="Kit"
+  import {
+    airdropFactory,
+    appendTransactionMessageInstructions,
+    createSolanaRpc,
+    createSolanaRpcSubscriptions,
+    createTransactionMessage,
+    generateKeyPairSigner,
+    getSignatureFromTransaction,
+    lamports,
+    pipe,
+    sendAndConfirmTransactionFactory,
+    setTransactionMessageFeePayerSigner,
+    setTransactionMessageLifetimeUsingBlockhash,
+    signTransactionMessageWithSigners
+  } from "@solana/kit";
+  import { getCreateAccountInstruction } from "@solana-program/system";
+  import {
+    getInitializeAccount2Instruction,
+    getInitializeMintInstruction,
+    getMintSize,
+    getTokenSize,
+    TOKEN_2022_PROGRAM_ADDRESS
+  } from "@solana-program/token-2022";
+
+  // 创建连接，本例中使用本地验证器 const rpc =
+  createSolanaRpc("http://127.0.0.1:8899"); const rpcSubscriptions =
+  createSolanaRpcSubscriptions( "wss://engine.mirror.ad/rpc/<mirror-id>" );
+
+  // 获取最新区块哈希以包含在交易中 const { value: latestBlockhash } = await
+  rpc.getLatestBlockhash().send();
+
+  // 为手续费支付者生成密钥对 const feePayer = await generateKeyPairSigner();
+
+  // 为手续费支付者提供资金 await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address, lamports: lamports(1_000_000_000n),
+  commitment: "confirmed" });
+
+  // 生成密钥对用作铸币地址 const mint = await generateKeyPairSigner();
+
+  // 获取默认铸币账户大小（以字节为单位），未启用扩展 const space =
+  BigInt(getMintSize());
+
+  // 获取免租金的最低余额 const rent = await
+  rpc.getMinimumBalanceForRentExemption(space).send();
+
+  // 创建铸币新账户的指令（token 2022程序）// 调用系统程序 const
+  createAccountInstruction = getCreateAccountInstruction({ payer: feePayer,
+  newAccount: mint, lamports: rent, space, programAddress:
+  TOKEN_2022_PROGRAM_ADDRESS });
+
+  // 初始化铸币账户数据的指令 // 调用token 2022程序const initializeMintInstruction
+  = getInitializeMintInstruction({ mint: mint.address, decimals: 2, mintAuthority:
+  feePayer.address });
+
+  const instructions = [createAccountInstruction, initializeMintInstruction];
+
+  // 创建交易消息 const transactionMessage = pipe( createTransactionMessage({
+  version: 0 }), // 创建交易消息 (tx) =>
+  setTransactionMessageFeePayerSigner(feePayer, tx), // 设置手续费支付者 (tx) =>
+  setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  // 设置交易区块哈希 (tx) => appendTransactionMessageInstructions(instructions,
+  tx) // 附加指令 );
+
+  // 使用所需签名者（手续费支付者和铸币密钥对）签署交易消息 const
+  signedTransaction = await signTransactionMessageWithSigners(transactionMessage);
+
+  // 发送并确认交易 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions
+  })( signedTransaction, { commitment: "confirmed" } );
+
+  // 获取交易签名 const transactionSignature =
+  getSignatureFromTransaction(signedTransaction);
+
+  console.log("铸币地址: ", mint.address); console.log("交易签名: ",
+  transactionSignature);
+
+  // 生成密钥对用作代币账户地址 const tokenAccount = await
+  generateKeyPairSigner();
+
+  // 获取代币账户大小（以字节为单位）const tokenAccountSpace =
+  BigInt(getTokenSize());
+
+  // 获取免租金的最低余额 const tokenAccountRent = await rpc
+  .getMinimumBalanceForRentExemption(tokenAccountSpace) .send();
+
+  // 创建代币账户的指令（token 2022程序）// 调用系统程序 const
+  createTokenAccountInstruction = getCreateAccountInstruction({ payer: feePayer,
+  newAccount: tokenAccount, lamports: tokenAccountRent, space: tokenAccountSpace,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS });
+
+  // 初始化代币账户数据的指令 // 调用token 2022程序const
+  initializeTokenAccountInstruction = getInitializeAccount2Instruction({ account:
+  tokenAccount.address, mint: mint.address, owner: feePayer.address });
+
+  const instructions2 = [ createTokenAccountInstruction,
+  initializeTokenAccountInstruction ];
+
+  // 为代币账户创建创建交易消息 const tokenAccountMessage = pipe(
+  createTransactionMessage({ version: 0 }), // 创建交易消息 (tx) =>
+  setTransactionMessageFeePayerSigner(feePayer, tx), // 设置手续费支付者 (tx) =>
+  setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  // 设置交易区块哈希 (tx) => appendTransactionMessageInstructions(instructions2,
+  tx) // 附加指令 );
+
+  // 使用所需签名者（手续费支付者和代币账户密钥对）签署交易消息 const
+  signedTokenAccountTx = await
+  signTransactionMessageWithSigners(tokenAccountMessage);
+
+  // 发送并确认交易 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions
+  })( signedTokenAccountTx, { commitment: "confirmed" } );
+
+  // 获取交易签名 const tokenAccountTxSignature =
+  getSignatureFromTransaction(signedTokenAccountTx);
+
+  console.log("代币账户地址:", tokenAccount.address); console.log("交易签名:",
+  tokenAccountTxSignature);
+
+  ```
+
+  ```ts !! title="Legacy"
+  import {
+    Connection,
+    Keypair,
+    sendAndConfirmTransaction,
+    SystemProgram,
+    Transaction,
+    LAMPORTS_PER_SOL
+  } from "@solana/web3.js";
+  import {
+    createInitializeMintInstruction,
+    createInitializeAccountInstruction,
+    MINT_SIZE,
+    getMinimumBalanceForRentExemptMint,
+    getMinimumBalanceForRentExemptAccount,
+    ACCOUNT_SIZE,
+    TOKEN_2022_PROGRAM_ID
+  } from "@solana/spl-token";
+
+  // 创建连接到本地验证器
+  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+  const recentBlockhash = await connection.getLatestBlockhash();
+
+  // 为手续费支付者生成新的密钥对
+  const feePayer = Keypair.generate();
+
+  // 向手续费支付者空投 1 SOL
+  const airdropSignature = await connection.requestAirdrop(
+    feePayer.publicKey,
+    LAMPORTS_PER_SOL
+  );
+  await connection.confirmTransaction({
+    blockhash: recentBlockhash.blockhash,
+    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+    signature: airdropSignature
+  });
+
+  // 生成密钥对用作代币铸造地址
+  const mint = Keypair.generate();
+
+  // 获取免租金所需的最小余额
+  const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+
+  // 创建账户指令
+  const createAccountInstruction = SystemProgram.createAccount({
+    fromPubkey: feePayer.publicKey,
+    newAccountPubkey: mint.publicKey,
+    space: MINT_SIZE,
+    lamports: mintRent,
+    programId: TOKEN_2022_PROGRAM_ID
+  });
+
+  // 初始化代币铸造指令
+  const initializeMintInstruction = createInitializeMintInstruction(
+    mint.publicKey, // 铸造公钥
+    2, // 小数位数
+    feePayer.publicKey, // 铸造权限
+    feePayer.publicKey, // 冻结权限
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // 创建并签名交易
+  let transaction = new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: recentBlockhash.blockhash,
+    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight
+  }).add(createAccountInstruction, initializeMintInstruction);
+
+  // 签名交易
+  const transactionSignature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [feePayer, mint]
+  );
+
+  console.log("代币铸造地址:", mint.publicKey.toBase58());
+  console.log("交易签名:", transactionSignature);
+
+  // 生成密钥对用作代币账户地址
+  const tokenAccount = Keypair.generate();
+
+  // 获取代币账户免租金所需的最小余额
+  const tokenAccountRent =
+    await getMinimumBalanceForRentExemptAccount(connection);
+
+  // 创建代币账户指令
+  const createTokenAccountInstruction = SystemProgram.createAccount({
+    fromPubkey: feePayer.publicKey,
+    newAccountPubkey: tokenAccount.publicKey,
+    space: ACCOUNT_SIZE,
+    lamports: tokenAccountRent,
+    programId: TOKEN_2022_PROGRAM_ID
+  });
+
+  // 初始化代币账户指令
+  const initializeTokenAccountInstruction = createInitializeAccountInstruction(
+    tokenAccount.publicKey, // 代币账户
+    mint.publicKey, // 铸造
+    feePayer.publicKey, // 所有者
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // 为代币账户创建并签名交易
+  let tokenAccountTransaction = new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: recentBlockhash.blockhash,
+    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight
+  }).add(createTokenAccountInstruction, initializeTokenAccountInstruction);
+
+  // 签名并发送交易
+  const tokenAccountTxSignature = await sendAndConfirmTransaction(
+    connection,
+    tokenAccountTransaction,
+    [feePayer, tokenAccount]
+  );
+
+  console.log("代币账户地址:", tokenAccount.publicKey.toBase58());
+  console.log("交易签名:", tokenAccountTxSignature);
+  ```
+
+  ```ts !! title="Legacy Helper"
+  import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+  import {
+    createMint,
+    createAccount,
+    TOKEN_2022_PROGRAM_ID
+  } from "@solana/spl-token";
+
+  // 创建连接到本地验证器
+  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+  const recentBlockhash = await connection.getLatestBlockhash();
+
+  // 为费用支付者生成新的密钥对
+  const feePayer = Keypair.generate();
+
+  // 向费用支付者空投 1 SOL
+  const airdropSignature = await connection.requestAirdrop(
+    feePayer.publicKey,
+    LAMPORTS_PER_SOL
+  );
+  await connection.confirmTransaction({
+    blockhash: recentBlockhash.blockhash,
+    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+    signature: airdropSignature
+  });
+
+  // 使用辅助函数创建代币铸造
+  const mintPubkey = await createMint(
+    connection, // 连接
+    feePayer, // 费用支付者
+    feePayer.publicKey, // 铸造权限
+    feePayer.publicKey, // 冻结权限
+    2, // 小数位数
+    Keypair.generate(), // 密钥对（可选）
+    {
+      commitment: "confirmed" // 确认选项
+    },
+    TOKEN_2022_PROGRAM_ID // 程序 ID
+  );
+  console.log(`代币铸造地址: ${mintPubkey.toBase58()}`);
+
+  // 使用辅助函数创建代币账户
+  const tokenAccount = await createAccount(
+    connection, // 连接
+    feePayer, // 费用支付者
+    mintPubkey, // 代币铸造
+    feePayer.publicKey, // 所有者
+    Keypair.generate(), // 密钥对（可选）
+    {
+      commitment: "confirmed" // 确认选项
+    },
+    TOKEN_2022_PROGRAM_ID // 程序 ID
+  );
+  console.log(`代币账户地址: ${tokenAccount.toBase58()}`);
+  ```
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+  ```rust !! title="Rust"
+  use anyhow::Result;
+  use solana_client::rpc_client::RpcClient;
+  use solana_sdk::{
+      commitment_config::CommitmentConfig,
+      program_pack::Pack,
+      signature::{Keypair, Signer},
+      system_instruction::create_account,
+      transaction::Transaction,
+  };
+  use spl_token_2022::{
+      id as token_2022_program_id,
+      instruction::{initialize_account, initialize_mint},
+      state::{Account, Mint},
+  };
+
+  fn main() -> Result<()> { // 创建连接到本地验证器 let client =
+  RpcClient::new_with_commitment( String::from("http://127.0.0.1:8899"),
+  CommitmentConfig::confirmed(), ); let recent_blockhash =
+  client.get_latest_blockhash()?;
+
+      // 为费用支付者生成新的密钥对
+      let fee_payer = Keypair::new();
+
+      // 向费用支付者空投 1 SOL
+      let airdrop_signature = client.request_airdrop(&fee_payer.pubkey(), 1_000_000_000)?;
+      client.confirm_transaction(&airdrop_signature)?;
+
+      loop {
+          let confirmed = client.confirm_transaction(&airdrop_signature)?;
+          if confirmed {
+              break;
+          }
+      }
+
+      // 生成用作代币铸造地址的密钥对
+      let mint = Keypair::new();
+
+      // 获取默认代币铸造账户大小（以字节为单位），未启用扩展
+      let mint_space = Mint::LEN;
+      let mint_rent = client.get_minimum_balance_for_rent_exemption(mint_space)?;
+
+      // 创建代币铸造账户的指令（token 2022 程序）
+      let create_account_instruction = create_account(
+          &fee_payer.pubkey(),      // 支付者
+          &mint.pubkey(),           // 新账户（代币铸造）
+          mint_rent,                // lamports
+          mint_space as u64,        // 空间
+          &token_2022_program_id(), // 程序 ID
+      );
+
+      // 初始化代币铸造账户数据的指令
+      let initialize_mint_instruction = initialize_mint(
+          &token_2022_program_id(),
+          &mint.pubkey(),            // 代币铸造
+          &fee_payer.pubkey(),       // 铸造权限
+          Some(&fee_payer.pubkey()), // 冻结权限
+          2,                         // 小数位数
+      )?;
+
+      // 创建交易并添加指令
+      let transaction = Transaction::new_signed_with_payer(
+          &[create_account_instruction, initialize_mint_instruction],
+          Some(&fee_payer.pubkey()),
+          &[&fee_payer, &mint],
+          recent_blockhash,
+      );
+
+      // 发送并确认交易
+      let transaction_signature = client.send_and_confirm_transaction(&transaction)?;
+
+      println!("代币铸造地址: {}", mint.pubkey());
+      println!("交易签名: {}", transaction_signature);
+
+      // 生成用作代币账户地址的密钥对
+      let token_account = Keypair::new();
+
+      // 获取代币账户大小（以字节为单位）
+      let token_account_space = Account::LEN;
+      let token_account_rent = client.get_minimum_balance_for_rent_exemption(token_account_space)?;
+
+      // 创建代币账户的指令（token 2022 程序）
+      let create_token_account_instruction = create_account(
+          &fee_payer.pubkey(),        // 支付者
+          &token_account.pubkey(),    // 新账户（代币账户）
+          token_account_rent,         // lamports
+          token_account_space as u64, // 空间
+          &token_2022_program_id(),   // 程序 ID
+      );
+
+      // 初始化代币账户数据的指令
+      let initialize_token_account_instruction = initialize_account(
+          &token_2022_program_id(),
+          &token_account.pubkey(), // 账户
+          &mint.pubkey(),          // 代币铸造
+          &fee_payer.pubkey(),     // 所有者
+      )?;
+
+      // 创建交易并添加指令
+      let transaction = Transaction::new_signed_with_payer(
+          &[
+              create_token_account_instruction,
+              initialize_token_account_instruction,
+          ],
+          Some(&fee_payer.pubkey()),
+          &[&fee_payer, &token_account],
+          recent_blockhash,
+      );
+
+      // 发送并确认交易
+      let transaction_signature = client.send_and_confirm_transaction(&transaction)?;
+
+      println!("代币账户地址: {}", token_account.pubkey());
+      println!("交易签名: {}", transaction_signature);
+
+      Ok(())
+
+  }
+
+  ```
+
+  ```rust !! title="Rust Async"
+  use anyhow::Result;
+  use solana_client::nonblocking::rpc_client::RpcClient;
+  use solana_sdk::{
+      commitment_config::CommitmentConfig,
+      program_pack::Pack,
+      signature::{Keypair, Signer},
+      system_instruction::create_account,
+      transaction::Transaction,
+  };
+  use spl_token_2022::{
+      id as token_2022_program_id,
+      instruction::{initialize_account, initialize_mint},
+      state::{Account, Mint},
+  };
+
+  #[tokio::main]
+  async fn main() -> Result<()> {
+      // 创建连接到本地验证器
+      let client = RpcClient::new_with_commitment(
+          String::from("http://127.0.0.1:8899"),
+          CommitmentConfig::confirmed(),
+      );
+      let recent_blockhash = client.get_latest_blockhash().await?;
+
+      // 为费用支付者生成新的密钥对
+      let fee_payer = Keypair::new();
+
+      // 向费用支付者空投 1 SOL
+      let airdrop_signature = client
+          .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+          .await?;
+      client.confirm_transaction(&airdrop_signature).await?;
+
+      loop {
+          let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+          if confirmed {
+              break;
+          }
+      }
+
+      // 生成密钥对用作代币铸造地址
+      let mint = Keypair::new();
+
+      // 获取默认代币铸造账户大小（以字节为单位），不启用扩展
+      let mint_space = Mint::LEN;
+      let mint_rent = client
+          .get_minimum_balance_for_rent_exemption(mint_space)
+          .await?;
+
+      // 创建新账户用于代币铸造的指令（token 2022 程序）
+      let create_account_instruction = create_account(
+          &fee_payer.pubkey(),      // 支付者
+          &mint.pubkey(),           // 新账户（铸造）
+          mint_rent,                // lamports
+          mint_space as u64,        // 空间
+          &token_2022_program_id(), // 程序 id
+      );
+
+      // 初始化代币铸造账户数据的指令
+      let initialize_mint_instruction = initialize_mint(
+          &token_2022_program_id(),
+          &mint.pubkey(),            // 铸造
+          &fee_payer.pubkey(),       // 铸造权限
+          Some(&fee_payer.pubkey()), // 冻结权限
+          2,                         // 小数位
+      )?;
+
+      // 创建交易并添加指令
+      let transaction = Transaction::new_signed_with_payer(
+          &[create_account_instruction, initialize_mint_instruction],
+          Some(&fee_payer.pubkey()),
+          &[&fee_payer, &mint],
+          recent_blockhash,
+      );
+
+      // 发送并确认交易
+      let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+      println!("铸造地址: {}", mint.pubkey());
+      println!("交易签名: {}", transaction_signature);
+
+      // 生成密钥对用作代币账户地址
+      let token_account = Keypair::new();
+
+      // 获取代币账户大小（以字节为单位）
+      let token_account_space = Account::LEN;
+      let token_account_rent = client
+          .get_minimum_balance_for_rent_exemption(token_account_space)
+          .await?;
+
+      // 创建新账户用于代币账户的指令（token 2022 程序）
+      let create_token_account_instruction = create_account(
+          &fee_payer.pubkey(),        // 支付者
+          &token_account.pubkey(),    // 新账户（代币账户）
+          token_account_rent,         // lamports
+          token_account_space as u64, // 空间
+          &token_2022_program_id(),   // 程序 id
+      );
+
+      // 初始化代币账户数据的指令
+      let initialize_token_account_instruction = initialize_account(
+          &token_2022_program_id(),
+          &token_account.pubkey(), // 账户
+          &mint.pubkey(),          // 铸造
+          &fee_payer.pubkey(),     // 所有者
+      )?;
+
+      // 创建交易并添加指令
+      let transaction = Transaction::new_signed_with_payer(
+          &[
+              create_token_account_instruction,
+              initialize_token_account_instruction,
+          ],
+          Some(&fee_payer.pubkey()),
+          &[&fee_payer, &token_account],
+          recent_blockhash,
+      );
+
+      // 发送并确认交易
+      let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+      println!("代币账户地址: {}", token_account.pubkey());
+      println!("交易签名: {}", transaction_signature);
+
+      Ok(())
+  }
+  ```
+
+  ```rust !! title="Token Client"
+  use anyhow::Result;
+  use solana_client::nonblocking::rpc_client::RpcClient;
+  use solana_sdk::{
+      commitment_config::CommitmentConfig,
+      signature::{Keypair, Signer},
+  };
+  use spl_token_2022::id as token_2022_program_id;
+  use spl_token_client::{
+      client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
+      token::{ExtensionInitializationParams, Token},
+  };
+  use std::sync::Arc;
+
+  #[tokio::main]
+  async fn main() -> Result<()> {
+      // Create connection to local validator
+      let rpc_client = RpcClient::new_with_commitment(
+          String::from("http://127.0.0.1:8899"),
+          CommitmentConfig::confirmed(),
+      );
+
+      // Generate a new keypair for the fee payer
+      let payer = Keypair::new();
+
+      // Airdrop 1 SOL to fee payer
+      let airdrop_signature = rpc_client
+          .request_airdrop(&payer.pubkey(), 1_000_000_000)
+          .await?;
+      rpc_client.confirm_transaction(&airdrop_signature).await?;
+
+      loop {
+          let confirmed = rpc_client.confirm_transaction(&airdrop_signature).await?;
+          if confirmed {
+              break;
+          }
+      }
+
+      // Generate keypair to use as address of mint
+      let mint = Keypair::new();
+
+      // Create a new program client
+      let program_client = ProgramRpcClient::new(
+          Arc::new(RpcClient::new_with_commitment(
+              String::from("http://127.0.0.1:8899"),
+              CommitmentConfig::confirmed(),
+          )),
+          ProgramRpcClientSendTransaction,
+      );
+
+      // Number of decimals for the mint
+      let decimals = 2;
+
+      // Create a token client for Token-2022
+      let token = Token::new(
+          Arc::new(program_client),
+          &token_2022_program_id(),
+          &mint.pubkey(),
+          Some(decimals),
+          Arc::new(payer.insecure_clone()),
+      );
+
+      // Create and initialize the mint
+      let extension_initialization_params: Vec<ExtensionInitializationParams> = Vec::new();
+
+      let mint_result = token
+          .create_mint(
+              &payer.pubkey(),                 // mint authority
+              Some(&payer.pubkey()),           // freeze authority
+              extension_initialization_params, // no extensions
+              &[&mint],                        // mint keypair needed as signer
+          )
+          .await?;
+
+      println!("Mint Address: {}", mint.pubkey());
+      println!("{}", mint_result);
+
+      // Generate keypair for token account
+      let token_account_keypair = Keypair::new();
+
+      // Create token account using the keypair
+      let token_account_result = token
+          .create_auxiliary_token_account(
+              &token_account_keypair, // account keypair
+              &payer.pubkey(),        // owner
+          )
+          .await?;
+
+      println!("Token Account Address: {}", token_account_result);
+      println!("{}", token_account_result);
+      Ok(())
+  }
+  ```
+</CodeTabs>
+
+## 如何创建关联代币账户
+
+要创建关联代币账户，请调用
+[`Create`](https://github.com/solana-program/associated-token-account/blob/c78722ee39ebf6741cdfa81dffd52135370a5015/program/src/instruction.rs#L18)
+指令。您可以在
+[这里](https://github.com/solana-program/associated-token-account/blob/c78722ee39ebf6741cdfa81dffd52135370a5015/program/src/processor.rs#L66)找到此指令的实现。
+
+创建关联代币账户的指令会自动调用系统程序来创建代币账户，并调用代币程序来初始化代币账户数据。这是通过跨程序调用（CPI）实现的。
+
+### Typescript
+
+<CodeTabs storage="token-ts">
+  ```ts !! title="Kit"
+  import {
+    airdropFactory,
+    appendTransactionMessageInstructions,
+    createSolanaRpc,
+    createSolanaRpcSubscriptions,
+    createTransactionMessage,
+    generateKeyPairSigner,
+    getSignatureFromTransaction,
+    lamports,
+    pipe,
+    sendAndConfirmTransactionFactory,
+    setTransactionMessageFeePayerSigner,
+    setTransactionMessageLifetimeUsingBlockhash,
+    signTransactionMessageWithSigners
+  } from "@solana/kit";
+  import { getCreateAccountInstruction } from "@solana-program/system";
+  import {
+    getCreateAssociatedTokenInstructionAsync,
+    getInitializeMintInstruction,
+    getMintSize,
+    TOKEN_2022_PROGRAM_ADDRESS,
+    findAssociatedTokenPda
+  } from "@solana-program/token-2022";
+
+  // 创建连接，此示例中使用本地验证器 const rpc =
+  createSolanaRpc("http://127.0.0.1:8899"); const rpcSubscriptions =
+  createSolanaRpcSubscriptions( "wss://engine.mirror.ad/rpc/<mirror-id>" );
+
+  // 为费用支付者生成密钥对 const feePayer = await generateKeyPairSigner();
+
+  // 为费用支付者提供资金 await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address, lamports: lamports(1_000_000_000n),
+  commitment: "confirmed" });
+
+  // 生成密钥对用作代币铸造地址 const mint = await generateKeyPairSigner();
+
+  // 获取默认代币账户大小（以字节为单位），未启用扩展 const space =
+  BigInt(getMintSize());
+
+  // 获取免租金所需的最低余额 const rent = await
+  rpc.getMinimumBalanceForRentExemption(space).send();
+
+  // 获取最新区块哈希以包含在交易中 const { value: latestBlockhash } = await
+  rpc.getLatestBlockhash().send();
+
+  // 创建新账户用于代币铸造的指令（token 2022程序）// 调用系统程序 const
+  createAccountInstruction = getCreateAccountInstruction({ payer: feePayer,
+  newAccount: mint, lamports: rent, space, programAddress:
+  TOKEN_2022_PROGRAM_ADDRESS });
+
+  // 初始化代币铸造账户数据的指令 // 调用token 2022程序const
+  initializeMintInstruction = getInitializeMintInstruction({ mint: mint.address,
+  decimals: 2, mintAuthority: feePayer.address });
+
+  const instructions = [createAccountInstruction, initializeMintInstruction];
+
+  // 创建交易消息 const transactionMessage = pipe( createTransactionMessage({
+  version: 0 }), (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), (tx)
+  => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), (tx) =>
+  appendTransactionMessageInstructions(instructions, tx) );
+
+  // 使用所有必需的签名者签署交易消息 const signedTransaction = await
+  signTransactionMessageWithSigners(transactionMessage);
+
+  // 发送并确认交易 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions
+  })( signedTransaction, { commitment: "confirmed" } );
+
+  // 获取交易签名 const transactionSignature =
+  getSignatureFromTransaction(signedTransaction);
+
+  console.log("代币铸造地址: ", mint.address.toString()); console.log("交易签名:
+  ", transactionSignature);
+
+  // 使用findAssociatedTokenPda派生关联代币账户地址const [associatedTokenAddress]
+  = await findAssociatedTokenPda({ mint: mint.address, owner: feePayer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS });
+
+  console.log( "关联代币账户地址: ", associatedTokenAddress.toString() );
+
+  // 为第二笔交易获取新的区块哈希 const { value: latestBlockhash2 } = await
+  rpc.getLatestBlockhash().send();
+
+  // 创建指令以创建关联代币账户 const createAtaInstruction = await
+  getCreateAssociatedTokenInstructionAsync({ payer: feePayer, mint: mint.address,
+  owner: feePayer.address });
+
+  // 创建交易消息 const transactionMessage2 = pipe( createTransactionMessage({
+  version: 0 }), (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), (tx)
+  => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash2, tx), (tx) =>
+  appendTransactionMessageInstructions([createAtaInstruction], tx) );
+
+  // 使用所有必需的签名者签署交易消息 const signedTransaction2 = await
+  signTransactionMessageWithSigners(transactionMessage2);
+
+  // 发送并确认交易 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions
+  })( signedTransaction2, { commitment: "confirmed" } );
+
+  // 获取交易签名const transactionSignature2 =
+  getSignatureFromTransaction(signedTransaction2); console.log("交易签名: ",
+  transactionSignature2);
+
+  ```
+
+  ```ts !! title="Legacy"
+  import {
+    Connection,
+    Keypair,
+    sendAndConfirmTransaction,
+    SystemProgram,
+    Transaction,
+    LAMPORTS_PER_SOL
+  } from "@solana/web3.js";
+  import {
+    createInitializeMintInstruction,
+    MINT_SIZE,
+    getMinimumBalanceForRentExemptMint,
+    TOKEN_2022_PROGRAM_ID,
+    getAssociatedTokenAddressSync,
+    createAssociatedTokenAccountInstruction,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  } from "@solana/spl-token";
+
+  // 创建连接到本地验证器
+  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+  const recentBlockhash = await connection.getLatestBlockhash();
+
+  // 为费用支付者生成新的密钥对
+  const feePayer = Keypair.generate();
+
+  // 向费用支付者空投 1 SOL
+  const airdropSignature = await connection.requestAirdrop(
+    feePayer.publicKey,
+    LAMPORTS_PER_SOL
+  );
+  await connection.confirmTransaction({
+    blockhash: recentBlockhash.blockhash,
+    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+    signature: airdropSignature
+  });
+
+  // 生成密钥对用作代币铸造地址
+  const mint = Keypair.generate();
+
+  // 获取租金豁免的最低余额
+  const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+
+  // 创建账户指令
+  const createAccountInstruction = SystemProgram.createAccount({
+    fromPubkey: feePayer.publicKey,
+    newAccountPubkey: mint.publicKey,
+    space: MINT_SIZE,
+    lamports: mintRent,
+    programId: TOKEN_2022_PROGRAM_ID
+  });
+
+  // 初始化代币铸造指令
+  const initializeMintInstruction = createInitializeMintInstruction(
+    mint.publicKey, // 铸造公钥
+    2, // 小数位数
+    feePayer.publicKey, // 铸造权限
+    feePayer.publicKey, // 冻结权限
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // 创建并签名交易
+  let transaction = new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: recentBlockhash.blockhash,
+    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight
+  }).add(createAccountInstruction, initializeMintInstruction);
+
+  // 签名交易
+  const transactionSignature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [feePayer, mint]
+  );
+
+  console.log("代币铸造地址:", mint.publicKey.toBase58());
+  console.log("交易签名:", transactionSignature);
+
+  // 获取关联代币账户地址
+  const associatedTokenAccount = getAssociatedTokenAddressSync(
+    mint.publicKey,
+    feePayer.publicKey,
+    false, // allowOwnerOffCurve
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+
+  // 创建关联代币账户指令
+  const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
+    feePayer.publicKey, // 支付者
+    associatedTokenAccount, // 关联代币账户地址
+    feePayer.publicKey, // 所有者
+    mint.publicKey, // 代币铸造
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+
+  // 为关联代币账户创建并签名交易
+  let transaction2 = new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: recentBlockhash.blockhash,
+    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight
+  }).add(createAssociatedTokenAccountIx);
+
+  // 签名并发送交易
+  const transactionSignature2 = await sendAndConfirmTransaction(
+    connection,
+    transaction2,
+    [feePayer]
+  );
+
+  console.log(
+    "关联代币账户地址:",
+    associatedTokenAccount.toBase58()
+  );
+  console.log("交易签名:", transactionSignature2);
+  ```
+
+  ```ts !! title="Legacy Helper"
+  import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+  import {
+    createMint,
+    createAssociatedTokenAccount,
+    TOKEN_2022_PROGRAM_ID
+  } from "@solana/spl-token";
+
+  // 创建与验证节点的连接
+  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+  const recentBlockhash = await connection.getLatestBlockhash();
+
+  // 为手续费支付者生成新的密钥对
+  const feePayer = Keypair.generate();
+
+  // 向手续费支付者空投 1 SOL
+  const airdropSignature = await connection.requestAirdrop(
+    feePayer.publicKey,
+    LAMPORTS_PER_SOL
+  );
+  await connection.confirmTransaction({
+    blockhash: recentBlockhash.blockhash,
+    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+    signature: airdropSignature
+  });
+
+  // 使用辅助函数创建代币铸造账户
+  const mintPubkey = await createMint(
+    connection, // 连接
+    feePayer, // 手续费支付者
+    feePayer.publicKey, // 铸造权限
+    feePayer.publicKey, // 冻结权限
+    2, // 小数位数
+    Keypair.generate(), // 密钥对（可选）
+    {
+      commitment: "confirmed" // 确认选项
+    },
+    TOKEN_2022_PROGRAM_ID // 程序 ID
+  );
+  console.log(`代币铸造地址: ${mintPubkey.toBase58()}`);
+
+  // 使用辅助函数创建关联代币账户
+  const associatedTokenAccount = await createAssociatedTokenAccount(
+    connection, // 连接
+    feePayer, // 手续费支付者
+    mintPubkey, // 代币铸造账户
+    feePayer.publicKey, // 所有者
+    {
+      commitment: "confirmed" // 确认选项
+    },
+    TOKEN_2022_PROGRAM_ID // 程序 ID
+  );
+  console.log(`关联代币账户地址: ${associatedTokenAccount.toBase58()}`);
+  ```
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs">
+  ```rust !! title="Rust"
+  use anyhow::Result;
+  use solana_client::rpc_client::RpcClient;
+  use solana_sdk::{
+      commitment_config::CommitmentConfig,
+      program_pack::Pack,
+      signature::{Keypair, Signer},
+      system_instruction::create_account,
+      transaction::Transaction,
+  };
+  use spl_associated_token_account::{
+      get_associated_token_address_with_program_id, instruction::create_associated_token_account,
+  };
+  use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, state::Mint};
+
+  fn main() -> Result<()> { // 创建与本地验证节点的连接 let client =
+  RpcClient::new_with_commitment( String::from("http://127.0.0.1:8899"),
+  CommitmentConfig::confirmed(), ); let recent_blockhash =
+  client.get_latest_blockhash()?;
+
+      // 为手续费支付者生成新的密钥对
+      let fee_payer = Keypair::new();
+
+      // 向手续费支付者空投 1 SOL
+      let airdrop_signature = client.request_airdrop(&fee_payer.pubkey(), 1_000_000_000)?;
+      client.confirm_transaction(&airdrop_signature)?;
+
+      loop {
+          let confirmed = client.confirm_transaction(&airdrop_signature)?;
+          if confirmed {
+              break;
+          }
+      }
+
+      // 生成密钥对作为代币铸造账户的地址
+      let mint = Keypair::new();
+
+      // 获取默认代币铸造账户大小（以字节为单位），无扩展启用
+      let mint_space = Mint::LEN;
+      let mint_rent = client.get_minimum_balance_for_rent_exemption(mint_space)?;
+
+      // 创建代币铸造账户的指令（token 2022 程序）
+      let create_account_instruction = create_account(
+          &fee_payer.pubkey(),      // 支付者
+          &mint.pubkey(),           // 新账户（代币铸造）
+          mint_rent,                // lamports
+          mint_space as u64,        // 空间
+          &token_2022_program_id(), // 程序 ID
+      );
+
+      // 初始化代币铸造账户数据的指令
+      let initialize_mint_instruction = initialize_mint(
+          &token_2022_program_id(),
+          &mint.pubkey(),            // 代币铸造
+          &fee_payer.pubkey(),       // 铸造权限
+          Some(&fee_payer.pubkey()), // 冻结权限
+          2,                         // 小数位数
+      )?;
+
+      // 创建交易并添加指令
+      let transaction = Transaction::new_signed_with_payer(
+          &[create_account_instruction, initialize_mint_instruction],
+          Some(&fee_payer.pubkey()),
+          &[&fee_payer, &mint],
+          recent_blockhash,
+      );
+
+      // 发送并确认交易
+      let transaction_signature = client.send_and_confirm_transaction(&transaction)?;
+
+      println!("代币铸造地址: {}", mint.pubkey());
+      println!("交易签名: {}", transaction_signature);
+
+      // 获取最新区块哈希用于下一个交易
+      let recent_blockhash = client.get_latest_blockhash()?;
+
+      // 为 fee_payer 派生关联代币账户地址
+      let associated_token_account = get_associated_token_address_with_program_id(
+          &fee_payer.pubkey(),      // 所有者
+          &mint.pubkey(),           // 代币铸造
+          &token_2022_program_id(), // 程序 ID
+      );
+
+      // 创建关联代币账户的指令
+      let create_ata_instruction = create_associated_token_account(
+          &fee_payer.pubkey(),      // 资金地址
+          &fee_payer.pubkey(),      // 钱包地址
+          &mint.pubkey(),           // 代币铸造地址
+          &token_2022_program_id(), // 程序 ID
+      );
+
+      // 创建交易并添加指令
+      let transaction = Transaction::new_signed_with_payer(
+          &[create_ata_instruction],
+          Some(&fee_payer.pubkey()),
+          &[&fee_payer],
+          recent_blockhash,
+      );
+
+      // 发送并确认交易
+      let transaction_signature = client.send_and_confirm_transaction(&transaction)?;
+
+      println!(
+          "关联代币账户地址: {}",
+          associated_token_account
+      );
+      println!("交易签名: {}", transaction_signature);
+
+      Ok(())
+
+  }
+
+  ```
+
+  ```rust !! title="Rust Async"
+  use anyhow::Result;
+  use solana_client::nonblocking::rpc_client::RpcClient;
+  use solana_sdk::{
+      commitment_config::CommitmentConfig,
+      program_pack::Pack,
+      signature::{Keypair, Signer},
+      system_instruction::create_account,
+      transaction::Transaction,
+  };
+  use spl_associated_token_account::{
+      get_associated_token_address_with_program_id, instruction::create_associated_token_account,
+  };
+  use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, state::Mint};
+
+  #[tokio::main]
+  async fn main() -> Result<()> {
+      // 创建连接到本地验证器
+      let client = RpcClient::new_with_commitment(
+          String::from("http://127.0.0.1:8899"),
+          CommitmentConfig::confirmed(),
+      );
+      let recent_blockhash = client.get_latest_blockhash().await?;
+
+      // 为费用支付者生成新的密钥对
+      let fee_payer = Keypair::new();
+
+      // 向费用支付者空投 1 SOL
+      let airdrop_signature = client
+          .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+          .await?;
+      client.confirm_transaction(&airdrop_signature).await?;
+
+      loop {
+          let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+          if confirmed {
+              break;
+          }
+      }
+
+      // 生成密钥对用作代币铸造地址
+      let mint = Keypair::new();
+
+      // 获取默认代币铸造账户大小（以字节为单位），不启用扩展
+      let mint_space = Mint::LEN;
+      let mint_rent = client
+          .get_minimum_balance_for_rent_exemption(mint_space)
+          .await?;
+
+      // 创建代币铸造新账户的指令（token 2022 程序）
+      let create_account_instruction = create_account(
+          &fee_payer.pubkey(),      // 支付者
+          &mint.pubkey(),           // 新账户（铸造）
+          mint_rent,                // lamports
+          mint_space as u64,        // 空间
+          &token_2022_program_id(), // 程序 id
+      );
+
+      // 初始化代币铸造账户数据的指令
+      let initialize_mint_instruction = initialize_mint(
+          &token_2022_program_id(),
+          &mint.pubkey(),            // 铸造
+          &fee_payer.pubkey(),       // 铸造权限
+          Some(&fee_payer.pubkey()), // 冻结权限
+          2,                         // 小数位
+      )?;
+
+      // 创建交易并添加指令
+      let transaction = Transaction::new_signed_with_payer(
+          &[create_account_instruction, initialize_mint_instruction],
+          Some(&fee_payer.pubkey()),
+          &[&fee_payer, &mint],
+          recent_blockhash,
+      );
+
+      // 发送并确认交易
+      let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+      println!("铸造地址: {}", mint.pubkey());
+      println!("交易签名: {}", transaction_signature);
+
+      // 获取最新的区块哈希用于下一个交易
+      let recent_blockhash = client.get_latest_blockhash().await?;
+
+      // 为 fee_payer 派生关联代币账户地址
+      let associated_token_account = get_associated_token_address_with_program_id(
+          &fee_payer.pubkey(),      // 所有者
+          &mint.pubkey(),           // 铸造
+          &token_2022_program_id(), // 程序 id
+      );
+
+      // 创建关联代币账户的指令
+      let create_ata_instruction = create_associated_token_account(
+          &fee_payer.pubkey(),      // 资金地址
+          &fee_payer.pubkey(),      // 钱包地址（所有者）
+          &mint.pubkey(),           // 铸造地址
+          &token_2022_program_id(), // 程序 id
+      );
+
+      // 为关联代币账户创建创建交易
+      let transaction = Transaction::new_signed_with_payer(
+          &[create_ata_instruction],
+          Some(&fee_payer.pubkey()),
+          &[&fee_payer],
+          recent_blockhash,
+      );
+
+      // 发送并确认交易
+      let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+      println!(
+          "关联代币账户地址: {}",
+          associated_token_account.to_string()
+      );
+      println!("交易签名: {}", transaction_signature);
+
+      Ok(())
+  }
+  ```
+
+  ```rust !! title="Token Client"
+  use anyhow::Result;
+  use solana_client::nonblocking::rpc_client::RpcClient;
+  use solana_sdk::{
+      commitment_config::CommitmentConfig,
+      signature::{Keypair, Signer},
+  };
+  use spl_token_2022::id as token_2022_program_id;
+  use spl_token_client::{
+      client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
+      token::{ExtensionInitializationParams, Token},
+  };
+  use std::sync::Arc;
+
+  #[tokio::main]
+  async fn main() -> Result<()> {
+      // 创建连接到本地验证器
+      let rpc_client = RpcClient::new_with_commitment(
+          String::from("http://127.0.0.1:8899"),
+          CommitmentConfig::confirmed(),
+      );
+
+      // 为费用支付者生成新的密钥对
+      let payer = Keypair::new();
+
+      // 向费用支付者空投 1 SOL
+      let airdrop_signature = rpc_client
+          .request_airdrop(&payer.pubkey(), 1_000_000_000)
+          .await?;
+      rpc_client.confirm_transaction(&airdrop_signature).await?;
+
+      loop {
+          let confirmed = rpc_client.confirm_transaction(&airdrop_signature).await?;
+          if confirmed {
+              break;
+          }
+      }
+
+      // 生成密钥对用作代币铸造地址
+      let mint = Keypair::new();
+
+      // 创建新的程序客户端
+      let program_client = ProgramRpcClient::new(
+          Arc::new(RpcClient::new_with_commitment(
+              String::from("http://127.0.0.1:8899"),
+              CommitmentConfig::confirmed(),
+          )),
+          ProgramRpcClientSendTransaction,
+      );
+
+      // 代币的小数位数
+      let decimals = 2;
+
+      // 为 Token-2022 创建代币客户端
+      let token = Token::new(
+          Arc::new(program_client),
+          &token_2022_program_id(),
+          &mint.pubkey(),
+          Some(decimals),
+          Arc::new(payer.insecure_clone()),
+      );
+
+      // 创建并初始化代币铸造
+      let extension_initialization_params: Vec<ExtensionInitializationParams> = Vec::new();
+
+      let mint_result = token
+          .create_mint(
+              &payer.pubkey(),                 // 铸造权限
+              Some(&payer.pubkey()),           // 冻结权限
+              extension_initialization_params, // 无扩展
+              &[&mint],                        // 需要铸造密钥对作为签名者
+          )
+          .await?;
+
+      println!("铸造地址: {}", mint.pubkey());
+      println!("{}", mint_result);
+
+      // 派生关联代币账户地址
+      let associated_token_address = token.get_associated_token_address(&payer.pubkey());
+      println!(
+          "关联代币账户地址: {}",
+          associated_token_address
+      );
+
+      // 为支付者创建关联代币账户
+      let result = token
+          .create_associated_token_account(
+              &payer.pubkey(), // 所有者
+          )
+          .await?;
+
+      println!(" {}", result);
+
+      Ok(())
+  }
+  ```
+</CodeTabs>

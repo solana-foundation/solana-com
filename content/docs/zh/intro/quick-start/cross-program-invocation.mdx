@@ -1,0 +1,576 @@
+---
+title: 组合多个程序
+description:
+  学习如何使用Anchor框架在Solana程序中实现跨程序调用（CPIs）。本教程演示如何在账户之间转移SOL，
+  与系统程序交互，以及在CPIs中处理程序派生地址（PDAs）。对于希望构建可组合Solana程序的开发者来说非常适合。
+h1: 跨程序调用
+---
+
+在本节中，上一个PDA部分的CRUD程序将通过添加跨程序调用（CPIs）进行更新，这一功能使Solana程序能够相互调用。
+
+本教程还展示了程序如何在进行跨程序调用时为程序派生地址（PDAs）"签名"。
+
+`更新`和`删除`指令需要修改，以通过调用系统程序来处理账户之间的SOL转账。
+
+本节的目的包括使用Anchor框架在Solana程序中实现CPIs的过程，建立在前一节探讨的PDA概念之上。有关更多详细信息，请参阅[跨程序调用](/docs/core/cpi)页面。
+
+作为参考，此链接包含完成PDA和CPI部分后的[最终代码](https://beta.solpg.io/668304cfcffcf4b13384d20a)。
+
+本节的[起始代码](https://beta.solpg.io/679d75eecffcf4b13384d604)仅包含已完成的PDA部分。
+
+<Steps>
+  <Step>
+    ### 更新Update指令
+
+    首先，程序需要一个简单的"付费更新"机制，通过更改*rs`Update`*&#x7ED3;构体和`update`函数。
+
+    首先更新`lib.rs` 文件，引入来自
+    `system_program` 模块的项。
+
+    ```rs title="lib.rs"
+    use anchor_lang::system_program::{transfer, Transfer};
+    ```
+
+    <Accordions>
+      <Accordion title="Diff">
+        ```diff
+          use anchor_lang::prelude::*;
+        + use anchor_lang::system_program::{transfer, Transfer};
+        ```
+      </Accordion>
+    </Accordions>
+
+    接下来，更新 *rs`Update`* 结构体，包含一个名为
+    `vault_account` 的新账户。这个由程序控制的账户会在用户更新他们的消息账户时接收用户的 SOL。
+
+    ```rs title="lib.rs"
+    #[account(
+        mut,
+        seeds = [b"vault", user.key().as_ref()],
+        bump,
+    )]
+    pub vault_account: SystemAccount<'info>,
+    ```
+
+    <Accordions>
+      <Accordion title="Diff">
+        ```diff
+        #[derive(Accounts)]
+        #[instruction(message: String)]
+        pub struct Update<'info> {
+            #[account(mut)]
+            pub user: Signer<'info>,
+
+        +   #[account(
+        +       mut,
+        +       seeds = [b"vault", user.key().as_ref()],
+        +       bump,
+        +   )]
+        +   pub vault_account: SystemAccount<'info>,
+            #[account(
+                mut,
+                seeds = [b"message", user.key().as_ref()],
+                bump = message_account.bump,
+                realloc = 8 + 32 + 4 + message.len() + 1,
+                realloc::payer = user,
+                realloc::zero = true,
+            )]
+            pub message_account: Account<'info, MessageAccount>,
+            pub system_program: Program<'info, System>,
+        }
+        ```
+      </Accordion>
+
+      <Accordion title="Explanation">
+        这部分添加了一个名为 `vault_account` 的新账户到 *rs`Update`*
+        结构体中。这个账户作为一个程序控制的"保险库"，在用户更新他们的消息时接收用户的 SOL。
+
+        通过为保险库使用 PDA，程序为每个用户创建了一个程序控制的唯一账户，使资金管理能够在程序逻辑内进行。
+
+        ***
+
+        该账户的关键方面`vault_account`：
+
+        * 该账户地址来源于使用种子派生的PDA
+          *rs`[b"vault", user.key().as_ref()]`*
+        * 作为一个PDA，它没有私钥，因此只有程序可以在执行CPI时为该地址“签名”
+        * 作为一个*rs`SystemAccount`*&#x7C7B;型，系统程序像普通钱包账户一样拥有它
+
+        此设置允许程序：
+
+        * 为每个用户的“vault”生成唯一的、确定性的地址
+        * 无需私钥签名即可控制资金。
+
+        在`delete`指令中，您将看到程序如何在CPI中为此PDA“签名”。
+      </Accordion>
+    </Accordions>
+
+    接下来，在`update`指令中添加CPI逻辑，将0.001 SOL从用户账户转移到vault账户。
+
+    <WithNotes>
+      ```rs title="lib.rs"
+      // !tooltip[/transfer_accounts/] transfer_accounts
+      let transfer_accounts = Transfer {
+          from: ctx.accounts.user.to_account_info(),
+          to: ctx.accounts.vault_account.to_account_info(),
+      };
+
+      // !tooltip[/cpi_context/] cpi_context
+      let cpi_context = CpiContext::new(
+          ctx.accounts.system_program.to_account_info(),
+          transfer_accounts,
+      );
+
+      // !tooltip[/transfer/] transfer
+      transfer(cpi_context, 1_000_000)?;
+      ```
+
+      ### !transfer\_accounts
+
+      这个*rs`Transfer`*&#x7ED3;构体指定了系统程序转账指令所需的账户。
+
+      ### !cpi\_context
+
+      *rs`CpiContext`* 结构体指定了跨程序调用（CPI）的程序和账户。
+
+      ### !transfer
+
+      *rs`transfer()`* 函数调用系统程序的转账指令。
+    </WithNotes>
+
+    <Accordions>
+      <Accordion title="Diff">
+        ```diff
+            pub fn update(ctx: Context<Update>, message: String) -> Result<()> {
+                msg!("Update Message: {}", message);
+                let account_data = &mut ctx.accounts.message_account;
+                account_data.message = message;
+
+        +       let transfer_accounts = Transfer {
+        +           from: ctx.accounts.user.to_account_info(),
+        +           to: ctx.accounts.vault_account.to_account_info(),
+        +       };
+        +       let cpi_context = CpiContext::new(
+        +           ctx.accounts.system_program.to_account_info(),
+        +           transfer_accounts,
+        +       );
+        +       transfer(cpi_context, 1_000_000)?;
+                Ok(())
+            }
+        ```
+      </Accordion>
+
+      <Accordion title="Explanation">
+        在`update`指令中，实现包含了一个跨程序调用（CPI）来调用系统程序的`transfer`指令。这展示了如何从程序内部执行CPI，实现Solana程序的可组合性。
+
+        *rs`Transfer`*&#x7ED3;构体指定了系统程序转账指令所需的账户：
+
+        * `from` - 用户账户（资金来源）
+        * `to` - The vault account (destination of funds)
+
+          ```rs title="lib.rs"
+          let transfer_accounts = Transfer {
+              from: ctx.accounts.user.to_account_info(),
+              to: ctx.accounts.vault_account.to_account_info(),
+          };
+          ```
+
+        这个 *rs`CpiContext`* 指定了：
+
+        * 要调用的程序（系统程序）
+        * CPI中需要的账户（在 *rs`Transfer`* 结构中定义）
+
+          ```rs title="lib.rs"
+          let cpi_context = CpiContext::new(
+              ctx.accounts.system_program.to_account_info(),
+              transfer_accounts,
+          );
+          ```
+
+        然后 `transfer` 函数调用系统程序的转账指令，传入：
+
+        * `cpi_context` （程序和账户）
+        * 要转账的 `amount` （1,000,000 lamports，即 0.001 SOL）
+
+          ```rs title="lib.rs"
+          transfer(cpi_context, 1_000_000)?;
+          ```
+
+        <Callout>
+          CPI的设置与客户端指令构建方式相匹配，你需要为特定指令指定程序、账户和指令数据。当程序的 `update` 指令接收到调用时，它会在内部调用系统程序的转账指令。
+        </Callout>
+      </Accordion>
+    </Accordions>
+
+    重新构建程序。
+
+    ```terminal
+    $ build
+    ```
+  </Step>
+
+  <Step>
+    ### 更新删除指令
+
+    现在通过修改*rs`Delete`*&#x7ED3;构体和
+    `delete`函数来添加"删除时退款"机制。
+
+    首先，更新*rs`Delete`*&#x7ED3;构体以包含`vault_account`。这
+    允许在用户关闭其消息账户时将保险库中的任何SOL转回给用户。
+
+    ```rs title="lib.rs"
+    #[account(
+        mut,
+        seeds = [b"vault", user.key().as_ref()],
+        bump,
+    )]
+    pub vault_account: SystemAccount<'info>,
+    ```
+
+    还需添加`system_program`，因为转账的CPI需要调用
+    系统程序。
+
+    ```rs title="lib.rs"
+    pub system_program: Program<'info, System>,
+    ```
+
+    <Accordions>
+      <Accordion title="差异">
+        ```diff
+        #[derive(Accounts)]
+        pub struct Delete<'info> {
+            #[account(mut)]
+            pub user: Signer<'info>,
+
+        +   #[account(
+        +       mut,
+        +       seeds = [b"vault", user.key().as_ref()],
+        +       bump,
+        +   )]
+        +   pub vault_account: SystemAccount<'info>,
+            #[account(
+                mut,
+                seeds = [b"message", user.key().as_ref()],
+                bump = message_account.bump,
+                close= user,
+            )]
+            pub message_account: Account<'info, MessageAccount>,
+        +   pub system_program: Program<'info, System>,
+        }
+        ```
+      </Accordion>
+
+      <Accordion title="解释">
+        这个`vault_account` 使用与 Update 结构体中相同的 PDA 派生方式。
+
+        将 `vault_account` 添加到 Delete 结构体中，使程序能够在删除指令期间访问
+        用户的金库账户，以便将任何累积的 SOL 返还给用户。
+      </Accordion>
+    </Accordions>
+
+    <WithNotes>
+      接下来，在 `delete` 指令中添加 CPI 逻辑，将 SOL 从金库
+      账户转回用户的账户。
+
+      ```rs title="lib.rs"
+      let user_key = ctx.accounts.user.key();
+      // !tooltip[/signer_seeds/] signer_seeds
+      let signer_seeds: &[&[&[u8]]] =
+          &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+
+      let transfer_accounts = Transfer {
+          from: ctx.accounts.vault_account.to_account_info(),
+          to: ctx.accounts.user.to_account_info(),
+      };
+      let cpi_context = CpiContext::new(
+          ctx.accounts.system_program.to_account_info(),
+          transfer_accounts,
+      // !tooltip[/with_signer/] with_signer
+      ).with_signer(signer_seeds);
+      transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+      ```
+
+      ### !signer\_seeds
+
+      *rs`signer_seeds`* 指定用于派生 PDA 的可选种子和凸点种子。
+
+      ### !with\_signer
+
+      *rs`with_signer()`* 方法将签名者种子与 CPI 一起传递。
+
+      这允许程序为从其程序 ID 派生的 PDA "签名"。
+
+      在指令处理过程中，运行时会验证提供的签名者种子是否正确派生为 PDA 的地址。如果验证通过，运行时会在 CPI 期间将该 PDA 账户视为签名者。
+    </WithNotes>
+
+    请注意，*rs`_ctx: Context<Delete>`* 变更为 *rs`ctx: Context<Delete>`* 在函数体中使用上下文。
+
+    <Accordions>
+      <Accordion title="差异">
+        ```diff
+        -    pub fn delete(_ctx: Context<Delete>) -> Result<()> {
+        +    pub fn delete(ctx: Context<Delete>) -> Result<()> {
+                 msg!("Delete Message");
+
+        +        let user_key = ctx.accounts.user.key();
+        +        let signer_seeds: &[&[&[u8]]] =
+        +            &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+        +
+        +        let transfer_accounts = Transfer {
+        +            from: ctx.accounts.vault_account.to_account_info(),
+        +            to: ctx.accounts.user.to_account_info(),
+        +        };
+        +        let cpi_context = CpiContext::new(
+        +            ctx.accounts.system_program.to_account_info(),
+        +            transfer_accounts,
+        +        ).with_signer(signer_seeds);
+        +        transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+                 Ok(())
+             }
+
+        ```
+      </Accordion>
+
+      <Accordion title="解释">
+        在删除指令中，另一个跨程序调用（CPI）实现了系统程序的转账指令。这个CPI演示了如何进行需要程序派生地址（PDA）签名者的转账。
+
+        首先，为保险库PDA定义签名者种子：
+
+        ```rs title="lib.rs"
+        let user_key = ctx.accounts.user.key();
+        let signer_seeds: &[&[&[u8]]] =
+            &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+        ```
+
+        *rs`Transfer`* 结构指定了系统程序转账指令所需的账户：
+
+        * from：保险库账户（资金来源）
+        * to：用户账户（资金目的地）
+
+          ```rs title="lib.rs"
+          let transfer_accounts = Transfer {
+              from: ctx.accounts.vault_account.to_account_info(),
+              to: ctx.accounts.user.to_account_info(),
+          };
+          ```
+
+        *rs`CpiContext`* 指定：
+
+        * 要调用的程序（系统程序）
+        * 转账中涉及的账户（在Transfer结构中定义）
+        * PDA的签名者种子
+
+          ```rs title="lib.rs"
+          let cpi_context = CpiContext::new(
+              ctx.accounts.system_program.to_account_info(),
+              transfer_accounts,
+          ).with_signer(signer_seeds);
+          ```
+
+        *rs`transfer()`* 函数然后调用系统程序的转账指令，传递：
+
+        * `cpi_context`（程序、账户和PDA签名者）
+        * 要转账的金额（保险库账户的全部余额）
+
+          ```rs title="lib.rs"
+          transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+          ```
+
+        这个CPI实现展示了程序如何使用PDA来管理资金。当程序的删除指令被调用时，它内部会调用系统程序的转账指令，为PDA签名以允许将保险库中的所有资金转回给用户。
+      </Accordion>
+    </Accordions>
+
+    重新构建程序。
+
+    ```terminal
+    $ build
+    ```
+  </Step>
+
+  <Step>
+    ### 重新部署程序
+
+    在进行这些更改后，重新部署更新后的程序。这确保修改后的程序可用于测试。在Solana上，更新程序只需要在相同的程序ID上部署程序即可。
+
+    <Callout>
+      确保你的Playground钱包有devnet SOL。从[Solana水龙头](https://faucet.solana.com/)获取devnet SOL。
+    </Callout>
+
+    ```terminal
+    $ deploy
+    正在部署...这可能需要一些时间，取决于程序大小和网络条件。
+    部署成功。17秒内完成。
+    ```
+
+    <Accordions>
+      <Accordion title="解释">
+        只有程序的升级权限持有者才能更新它。开发者在程序部署期间设置升级权限，它是唯一有权更改或关闭程序的账户。如果有人撤销了升级权限，那么程序将变得不可更改。
+
+        在Solana Playground上部署程序时，你的Playground钱包作为所有程序的升级权限持有者。
+      </Accordion>
+    </Accordions>
+  </Step>
+
+  <Step>
+    ### 更新测试文件
+
+    接下来，更新`anchor.test.ts`文件，在指令中包含新的保险库账户。这需要派生保险库PDA并将其包含在更新和删除指令调用中。
+
+    #### 派生保险库PDA
+
+    首先，添加金库PDA派生：
+
+    ```ts title="anchor.test.ts"
+    const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), wallet.publicKey.toBuffer()],
+      program.programId,
+    );
+    ```
+
+    <Accordions>
+      <Accordion title="差异">
+        ```diff
+        describe("pda", () => {
+          const program = pg.program;
+          const wallet = pg.wallet;
+
+          const [messagePda, messageBump] = PublicKey.findProgramAddressSync(
+            [Buffer.from("message"), wallet.publicKey.toBuffer()],
+            program.programId
+          );
+
+        +  const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
+        +    [Buffer.from("vault"), wallet.publicKey.toBuffer()],
+        +    program.programId
+        +  );
+
+          // ...tests
+          });
+        ```
+      </Accordion>
+    </Accordions>
+
+    #### 修改更新测试
+
+    <WithMentions>
+      然后，更新update指令以包含[`vaultAccount`](mention:one)
+
+      ```ts title="anchor.test.ts"  {5}
+      const transactionSignature = await program.methods
+        .update(message)
+        .accounts({
+          messageAccount: messagePda,
+          // !mention one
+          vaultAccount: vaultPda,
+        })
+        .rpc({ commitment: "confirmed" });
+      ```
+    </WithMentions>
+
+    <Accordions>
+      <Accordion title="差异">
+        ```diff
+            const transactionSignature = await program.methods
+              .update(message)
+              .accounts({
+                messageAccount: messagePda,
+        +       vaultAccount: vaultPda,
+              })
+              .rpc({ commitment: "confirmed" });
+        ```
+      </Accordion>
+    </Accordions>
+
+    #### 修改删除测试
+
+    <WithMentions>
+      然后，更新delete指令以包含[`vaultAccount`](mention:one)
+
+      ```ts title="anchor.test.ts"  {5}
+      const transactionSignature = await program.methods
+        .delete()
+        .accounts({
+          messageAccount: messagePda,
+          // !mention one
+          vaultAccount: vaultPda,
+        })
+        .rpc({ commitment: "confirmed" });
+      ```
+    </WithMentions>
+
+    <Accordions>
+      <Accordion title="差异">
+        ```diff
+            const transactionSignature = await program.methods
+              .delete()
+              .accounts({
+                messageAccount: messagePda,
+        +       vaultAccount: vaultPda,
+              })
+              .rpc({ commitment: "confirmed" });
+        ```
+      </Accordion>
+    </Accordions>
+  </Step>
+
+  <Step>
+    ### 重新运行测试
+
+    进行这些更改后，运行测试以确保一切按预期工作：
+
+    ```terminal
+    $ test
+    Running tests...
+      anchor.test.ts:
+      pda
+        {
+      "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "message": "Hello, World!",
+      "bump": 254
+    }
+        Transaction Signature: https://solana.fm/tx/qGsYb87mUUjeyh7Ha7r9VXkACw32HxVBujo2NUxqHiUc8qxRMFB7kdH2D4JyYtPBx171ddS91VyVrFXypgYaKUr?cluster=devnet-solana
+        ✔ Create Message Account (842ms)
+        {
+      "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "message": "Hello, Solana!",
+      "bump": 254
+    }
+        Transaction Signature: https://solana.fm/tx/3KCDnNSfDDfmSy8kpiSrJsGGkzgxx2mt18KejuV2vmJjeyenkSoEfs2ghUQ6cMoYYgd9Qax9CbnYRcvF2zzumNt8?cluster=devnet-solana
+        ✔ Update Message Account (946ms)
+        Expect Null: null
+        Transaction Signature: https://solana.fm/tx/3M7Z7Mea3TtQc6m9z386B9QuEgvLKxD999mt2RyVtJ26FgaAzV1QA5mxox3eXie3bpBkNpDQ4mEANr3trVHCWMC2?cluster=devnet-solana
+        ✔ Delete Message Account (859ms)
+      3 passing (3s)
+    ```
+
+    然后，您可以检查SolanaFM链接以查看交易详情，在那里您将找到update和delete指令中的转账指令的CPI。
+
+    ![Update CPI](/assets/docs/intro/quickstart/cpi-update.png)
+
+    ![Delete CPI](/assets/docs/intro/quickstart/cpi-delete.png)
+
+    如果您遇到任何错误，您可以参考[最终代码](https://beta.solpg.io/668304cfcffcf4b13384d20a)。
+  </Step>
+</Steps>
+
+## 后续步骤
+
+恭喜您完成Solana快速入门指南。您已经获得了关键Solana概念的实践经验，包括：
+
+* 从账户获取和读取数据
+* 构建和发送交易
+* 部署和更新Solana程序
+* 使用程序派生地址（PDAs）
+* 进行跨程序调用（CPIs）
+
+要深入理解这些概念，请查看[核心概念](/docs/core/accounts)文档，其中提供了本指南所涵盖主题的详细解释。
+
+### 探索更多示例
+
+如果您喜欢通过示例学习，请查看[程序示例仓库](https://github.com/solana-developers/program-examples)以获取各种示例程序。
+
+Solana
+Playground提供了一个便捷功能，允许您使用GitHub链接导入或查看项目。例如，打开这个[Solana Playground链接](https://beta.solpg.io/https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor)查看来自这个[Github仓库](https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor)的Anchor项目。
+
+点击`导入`按钮并输入项目名称，将其添加到您的Solana
+Playground项目列表中。一旦项目被导入，所有更改都会自动保存和持久化。
