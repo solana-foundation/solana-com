@@ -8,22 +8,22 @@ description: 学习如何创建SPL代币铸造账户。
 铸造账户是Solana代币程序中的一种账户类型，它在网络上唯一代表一种代币并存储关于该代币的全局元数据。
 
 ```rust title="Mint Account Type"
-/// 铸造数据。
+/// Mint data.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Mint {
-  /// 用于铸造新代币的可选权限。铸造权限只能
-  /// 在创建铸造账户时提供。如果没有铸造权限
-  /// 则该代币具有固定供应量，不能再铸造
-  /// 更多代币。
+  /// Optional authority used to mint new tokens. The mint authority may only
+  /// be provided during mint creation. If no mint authority is present
+  /// then the mint has a fixed supply and no further tokens may be
+  /// minted.
   pub mint_authority: COption<Pubkey>,
-  /// 代币的总供应量。
+  /// Total supply of tokens.
   pub supply: u64,
-  /// 小数点右侧的基数为10的位数。
+  /// Number of base 10 digits to the right of the decimal place.
   pub decimals: u8,
-  /// 如果此结构已初始化则为`true`
+  /// Is `true` if this structure has been initialized
   pub is_initialized: bool,
-  /// 冻结代币账户的可选权限。
+  /// Optional authority to freeze token accounts.
   pub freeze_authority: COption<Pubkey>,
 }
 ```
@@ -73,396 +73,441 @@ Coin在整个Solana生态系统中的唯一标识符。你可以在[Solana浏览
     TOKEN_2022_PROGRAM_ADDRESS
   } from "@solana-program/token-2022";
 
-  // 创建连接，本例中使用本地验证器 const rpc =
-  createSolanaRpc("http://127.0.0.1:8899"); const rpcSubscriptions =
-  createSolanaRpcSubscriptions( "wss://engine.mirror.ad/rpc/<mirror-id>" );
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
-  // 为费用支付者生成密钥对 const feePayer = await generateKeyPairSigner();
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
 
-  // 为费用支付者提供资金 await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: feePayer.address, lamports: lamports(1_000_000_000n),
-  commitment: "confirmed" });
+// Generate keypairs for fee payer
+const feePayer = await generateKeyPairSigner();
 
-  // 生成密钥对作为铸币账户的地址 const mint = await generateKeyPairSigner();
+// Fund fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
 
-  // 获取默认铸币账户大小（以字节为单位），未启用扩展 const space =
-  BigInt(getMintSize());
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
 
-  // 获取免租金所需的最低余额 const rent = await
-  rpc.getMinimumBalanceForRentExemption(space).send();
+// Get default mint account size (in bytes), no extensions enabled
+const space = BigInt(getMintSize());
 
-  // 创建铸币账户的指令（token 2022程序）// 调用系统程序 const
-  createAccountInstruction = getCreateAccountInstruction({ payer: feePayer,
-  newAccount: mint, lamports: rent, space, programAddress:
-  TOKEN_2022_PROGRAM_ADDRESS });
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
 
-  // 初始化铸币账户数据的指令 // 调用token 2022程序const initializeMintInstruction
-  = getInitializeMintInstruction({ mint: mint.address, decimals: 9, mintAuthority:
-  feePayer.address });
+// Instruction to create new account for mint (token 2022 program)
+// Invokes the system program
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
 
-  const instructions = [createAccountInstruction, initializeMintInstruction];
+// Instruction to initialize mint account data
+// Invokes the token 2022 program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: feePayer.address
+});
 
-  // 获取最新区块哈希以包含在交易中 const { value: latestBlockhash } = await
-  rpc.getLatestBlockhash().send();
+const instructions = [createAccountInstruction, initializeMintInstruction];
 
-  // 创建交易消息 const transactionMessage = pipe( createTransactionMessage({
-  version: 0 }), // 创建交易消息 (tx) =>
-  setTransactionMessageFeePayerSigner(feePayer, tx), // 设置费用支付者 (tx) =>
-  setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  // 设置交易区块哈希 (tx) => appendTransactionMessageInstructions(instructions,
-  tx) // 添加指令 );
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
 
-  // 使用所需签名者（费用支付者和铸币密钥对）签署交易消息 const signedTransaction
-  = await signTransactionMessageWithSigners(transactionMessage);
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }), // Create transaction message
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), // Set fee payer
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), // Set transaction blockhash
+  (tx) => appendTransactionMessageInstructions(instructions, tx) // Append instructions
+);
 
-  // 发送并确认交易 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions
-  })( signedTransaction, { commitment: "confirmed" } );
+// Sign transaction message with required signers (fee payer and mint keypair)
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
 
-  // 获取交易签名 const transactionSignature =
-  getSignatureFromTransaction(signedTransaction);
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
 
-  console.log("铸币地址:", mint.address); console.log("交易签名:",
-  transactionSignature);
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
 
-  ```
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", transactionSignature);
+```
 
-  ```ts !! title="Legacy"
-  import {
-    Connection,
-    Keypair,
-    sendAndConfirmTransaction,
-    SystemProgram,
-    Transaction,
-    LAMPORTS_PER_SOL
-  } from "@solana/web3.js";
-  import {
-    createInitializeMintInstruction,
-    TOKEN_2022_PROGRAM_ID,
-    MINT_SIZE,
-    getMinimumBalanceForRentExemptMint
-  } from "@solana/spl-token";
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ID,
+  MINT_SIZE,
+  getMinimumBalanceForRentExemptMint
+} from "@solana/spl-token";
 
-  // 创建连接到本地验证器
-  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
-  const recentBlockhash = await connection.getLatestBlockhash();
+// Create connection to local validator
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+const recentBlockhash = await connection.getLatestBlockhash();
 
-  // 为手续费支付者生成新的密钥对
-  const feePayer = Keypair.generate();
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
 
-  // 向手续费支付者空投 1 SOL
-  const airdropSignature = await connection.requestAirdrop(
-    feePayer.publicKey,
-    LAMPORTS_PER_SOL
-  );
-  await connection.confirmTransaction({
-    blockhash: recentBlockhash.blockhash,
-    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
-    signature: airdropSignature
-  });
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
 
-  // 生成密钥对作为代币铸造地址
-  const mint = Keypair.generate();
+// Generate keypair to use as address of mint
+const mint = Keypair.generate();
 
-  const createAccountInstruction = SystemProgram.createAccount({
-    fromPubkey: feePayer.publicKey,
-    newAccountPubkey: mint.publicKey,
-    space: MINT_SIZE,
-    lamports: await getMinimumBalanceForRentExemptMint(connection),
-    programId: TOKEN_2022_PROGRAM_ID
-  });
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: await getMinimumBalanceForRentExemptMint(connection),
+  programId: TOKEN_2022_PROGRAM_ID
+});
 
-  const initializeMintInstruction = createInitializeMintInstruction(
-    mint.publicKey, // 代币铸造公钥
-    9, // 小数位数
-    feePayer.publicKey, // 铸造权限
-    feePayer.publicKey, // 冻结权限
-    TOKEN_2022_PROGRAM_ID
-  );
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint pubkey
+  9, // decimals
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
 
-  const transaction = new Transaction().add(
-    createAccountInstruction,
-    initializeMintInstruction
-  );
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
 
-  const transactionSignature = await sendAndConfirmTransaction(
-    connection,
-    transaction,
-    [feePayer, mint] // 签名者
-  );
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint] // Signers
+);
 
-  console.log("代币铸造地址: ", mint.publicKey.toBase58());
-  console.log("交易签名: ", transactionSignature);
-  ```
+console.log("Mint Address: ", mint.publicKey.toBase58());
+console.log("Transaction Signature: ", transactionSignature);
+```
 
-  ```ts !! title="Legacy Helper"
-  import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-  import { createMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+```ts !! title="Legacy Helper"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { createMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
-  // 创建连接到本地验证器
-  const connection = new Connection("http://127.0.0.1:8899", "confirmed");
-  const recentBlockhash = await connection.getLatestBlockhash();
+// Create connection to local validator
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+const recentBlockhash = await connection.getLatestBlockhash();
 
-  // 为手续费支付者生成新的密钥对
-  const feePayer = Keypair.generate();
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
 
-  // 向手续费支付者空投 1 SOL
-  const airdropSignature = await connection.requestAirdrop(
-    feePayer.publicKey,
-    LAMPORTS_PER_SOL
-  );
-  await connection.confirmTransaction({
-    blockhash: recentBlockhash.blockhash,
-    lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
-    signature: airdropSignature
-  });
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
 
-  const mintPubkey = await createMint(
-    connection, // 连接
-    feePayer, // 手续费支付者
-    feePayer.publicKey, // 铸造权限
-    feePayer.publicKey, // 冻结权限
-    9, // 小数位数
-    Keypair.generate(), // 密钥对
-    {
-      commitment: "confirmed" // 确认选项
-    },
-    TOKEN_2022_PROGRAM_ID // 程序 ID
-  );
-  console.log(`代币铸造地址: ${mintPubkey.toBase58()}`);
-  ```
+const mintPubkey = await createMint(
+  connection, // connection
+  feePayer, // fee payer
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  9, // decimals
+  Keypair.generate(), // keypair
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_2022_PROGRAM_ID // program id
+);
+console.log(`Mint Address: ${mintPubkey.toBase58()}`);
+```
+
 </CodeTabs>
 
-### Rust
+### // 获取默认铸币账户大小（以字节为单位），未启用扩展 const space =&#xA;BigInt(getMintSize());
 
 <CodeTabs storage="token-rs" flags="r">
-  ```rust !! title="Rust"
-  use anyhow::Result;
-  use solana_client::rpc_client::RpcClient;
-  use solana_sdk::{
-      commitment_config::CommitmentConfig,
-      program_pack::Pack,
-      signature::{Keypair, Signer},
-      system_instruction::create_account,
-      transaction::Transaction,
-  };
-  use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, state::Mint};
 
-  fn main() -> Result<()> { // Create connection to local validator let client =
-  RpcClient::new_with_commitment( String::from("http://127.0.0.1:8899"),
-  CommitmentConfig::confirmed(), ); let recent_blockhash =
-  client.get_latest_blockhash()?;
+```rust !! title="Rust"
+use anyhow::Result;
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    system_instruction::create_account,
+    transaction::Transaction,
+};
+use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, state::Mint};
 
-      // Generate a new keypair for the fee payer
-      let fee_payer = Keypair::new();
+fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let recent_blockhash = client.get_latest_blockhash()?;
 
-      // Airdrop 1 SOL to fee payer
-      let airdrop_signature = client.request_airdrop(&fee_payer.pubkey(), 1_000_000_000)?;
-      client.confirm_transaction(&airdrop_signature)?;
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
 
-      loop {
-          let confirmed = client.confirm_transaction(&airdrop_signature)?;
-          if confirmed {
-              break;
-          }
-      }
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = client.request_airdrop(&fee_payer.pubkey(), 1_000_000_000)?;
+    client.confirm_transaction(&airdrop_signature)?;
 
-      // Generate keypair to use as address of mint
-      let mint = Keypair::new();
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature)?;
+        if confirmed {
+            break;
+        }
+    }
 
-      let mint_space = Mint::LEN;
-      let rent = client.get_minimum_balance_for_rent_exemption(mint_space)?;
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
 
-      // Create account instruction for mint
-      let create_account_instruction = create_account(
-          &fee_payer.pubkey(),      // payer
-          &mint.pubkey(),           // mint address
-          rent,                     // rent
-          mint_space as u64,        // space
-          &token_2022_program_id(), // program id
-      );
+    let mint_space = Mint::LEN;
+    let rent = client.get_minimum_balance_for_rent_exemption(mint_space)?;
 
-      // Initialize mint account data
-      let initialize_mint_instruction = initialize_mint(
-          &token_2022_program_id(), // program id
-          &mint.pubkey(),           // mint address
-          &fee_payer.pubkey(),      // mint authority
-          Some(&fee_payer.pubkey()),// freeze authority
-          9,                        // decimals
-      )?;
+    // Create account instruction for mint
+    let create_account_instruction = create_account(
+        &fee_payer.pubkey(),      // payer
+        &mint.pubkey(),           // mint address
+        rent,                     // rent
+        mint_space as u64,        // space
+        &token_2022_program_id(), // program id
+    );
 
-      // Create transaction and add instructions
-      let transaction = Transaction::new_signed_with_payer(
-          &[create_account_instruction, initialize_mint_instruction],
-          Some(&fee_payer.pubkey()),
-          &[&fee_payer, &mint],
-          recent_blockhash,
-      );
+    // Initialize mint account data
+    let initialize_mint_instruction = initialize_mint(
+        &token_2022_program_id(), // program id
+        &mint.pubkey(),           // mint address
+        &fee_payer.pubkey(),      // mint authority
+        Some(&fee_payer.pubkey()),// freeze authority
+        9,                        // decimals
+    )?;
 
-      // Send and confirm transaction
-      let transaction_signature = client.send_and_confirm_transaction(&transaction)?;
+    // Create transaction and add instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[create_account_instruction, initialize_mint_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        recent_blockhash,
+    );
 
-      println!("Mint Address: {}", mint.pubkey());
-      println!("Transaction Signature: {}", transaction_signature);
+    // Send and confirm transaction
+    let transaction_signature = client.send_and_confirm_transaction(&transaction)?;
 
-      Ok(())
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
 
-  }
+    Ok(())
+}
+```
 
-  ```
+```rust !! title="Rust Async"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    system_instruction::create_account,
+    transaction::Transaction,
+};
+use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, state::Mint};
 
-  ```rust !! title="Rust Async"
-  use anyhow::Result;
-  use solana_client::nonblocking::rpc_client::RpcClient;
-  use solana_sdk::{
-      commitment_config::CommitmentConfig,
-      program_pack::Pack,
-      signature::{Keypair, Signer},
-      system_instruction::create_account,
-      transaction::Transaction,
-  };
-  use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, state::Mint};
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let recent_blockhash = client.get_latest_blockhash().await?;
 
-  #[tokio::main]
-  async fn main() -> Result<()> {
-      // Create connection to local validator
-      let client = RpcClient::new_with_commitment(
-          String::from("http://127.0.0.1:8899"),
-          CommitmentConfig::confirmed(),
-      );
-      let recent_blockhash = client.get_latest_blockhash().await?;
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
 
-      // Generate a new keypair for the fee payer
-      let fee_payer = Keypair::new();
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+    client.confirm_transaction(&airdrop_signature).await?;
 
-      // Airdrop 1 SOL to fee payer
-      let airdrop_signature = client
-          .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
-          .await?;
-      client.confirm_transaction(&airdrop_signature).await?;
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
 
-      loop {
-          let confirmed = client.confirm_transaction(&airdrop_signature).await?;
-          if confirmed {
-              break;
-          }
-      }
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
 
-      // Generate keypair to use as address of mint
-      let mint = Keypair::new();
+    let space = Mint::LEN;
+    let rent = client.get_minimum_balance_for_rent_exemption(space).await?;
 
-      let space = Mint::LEN;
-      let rent = client.get_minimum_balance_for_rent_exemption(space).await?;
+    // Create account instruction
+    let create_account_instruction = create_account(
+        &fee_payer.pubkey(),      // fee payer
+        &mint.pubkey(),           // mint address
+        rent,                     // rent
+        space as u64,             // space
+        &token_2022_program_id(), // program id
+    );
 
-      // Create account instruction
-      let create_account_instruction = create_account(
-          &fee_payer.pubkey(),      // fee payer
-          &mint.pubkey(),           // mint address
-          rent,                     // rent
-          space as u64,             // space
-          &token_2022_program_id(), // program id
-      );
+    // Initialize mint instruction
+    let initialize_mint_instruction = initialize_mint(
+        &token_2022_program_id(),
+        &mint.pubkey(),            // mint address
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
 
-      // Initialize mint instruction
-      let initialize_mint_instruction = initialize_mint(
-          &token_2022_program_id(),
-          &mint.pubkey(),            // mint address
-          &fee_payer.pubkey(),       // mint authority
-          Some(&fee_payer.pubkey()), // freeze authority
-          9,                         // decimals
-      )?;
+    // Create transaction and add instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[create_account_instruction, initialize_mint_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        recent_blockhash,
+    );
 
-      // Create transaction and add instructions
-      let transaction = Transaction::new_signed_with_payer(
-          &[create_account_instruction, initialize_mint_instruction],
-          Some(&fee_payer.pubkey()),
-          &[&fee_payer, &mint],
-          recent_blockhash,
-      );
+    // Send and confirm transaction
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
 
-      // Send and confirm transaction
-      let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
 
-      println!("Mint Address: {}", mint.pubkey());
-      println!("Transaction Signature: {}", transaction_signature);
+    Ok(())
+}
+```
 
-      Ok(())
-  }
-  ```
+```rust !! title="Token Client"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    signature::{Keypair, Signer},
+};
+use spl_token_2022::id as token_2022_program_id;
+use spl_token_client::{
+    client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
+    token::{ExtensionInitializationParams, Token},
+};
+use std::sync::Arc;
 
-  ```rust !! title="Token Client"
-  use anyhow::Result;
-  use solana_client::nonblocking::rpc_client::RpcClient;
-  use solana_sdk::{
-      commitment_config::CommitmentConfig,
-      signature::{Keypair, Signer},
-  };
-  use spl_token_2022::id as token_2022_program_id;
-  use spl_token_client::{
-      client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
-      token::{ExtensionInitializationParams, Token},
-  };
-  use std::sync::Arc;
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let rpc_client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
 
-  #[tokio::main]
-  async fn main() -> Result<()> {
-      // 创建连接到本地验证器
-      let rpc_client = RpcClient::new_with_commitment(
-          String::from("http://127.0.0.1:8899"),
-          CommitmentConfig::confirmed(),
-      );
+    // Generate a new keypair for the fee payer
+    let payer = Keypair::new();
 
-      // 为费用支付者生成新的密钥对
-      let payer = Keypair::new();
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = rpc_client
+        .request_airdrop(&payer.pubkey(), 1_000_000_000)
+        .await?;
+    rpc_client.confirm_transaction(&airdrop_signature).await?;
 
-      // 向费用支付者空投 1 SOL
-      let airdrop_signature = rpc_client
-          .request_airdrop(&payer.pubkey(), 1_000_000_000)
-          .await?;
-      rpc_client.confirm_transaction(&airdrop_signature).await?;
+    loop {
+        let confirmed = rpc_client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
 
-      loop {
-          let confirmed = rpc_client.confirm_transaction(&airdrop_signature).await?;
-          if confirmed {
-              break;
-          }
-      }
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+    println!("Mint keypair generated: {}", mint.pubkey());
 
-      // 生成密钥对用作代币铸造地址
-      let mint = Keypair::new();
-      println!("代币铸造密钥对已生成: {}", mint.pubkey());
+    // Set up program client for Token client
+    let program_client =
+        ProgramRpcClient::new(Arc::new(rpc_client), ProgramRpcClientSendTransaction);
 
-      // 为 Token 客户端设置程序客户端
-      let program_client =
-          ProgramRpcClient::new(Arc::new(rpc_client), ProgramRpcClientSendTransaction);
+    // Number of decimals for the mint
+    let decimals = 9;
 
-      // 代币的小数位数
-      let decimals = 9;
+    // Create a token client for Token-2022
+    let token = Token::new(
+        Arc::new(program_client),
+        &token_2022_program_id(),
+        &mint.pubkey(),
+        Some(decimals),
+        Arc::new(payer.insecure_clone()),
+    );
 
-      // 为 Token-2022 创建一个代币客户端
-      let token = Token::new(
-          Arc::new(program_client),
-          &token_2022_program_id(),
-          &mint.pubkey(),
-          Some(decimals),
-          Arc::new(payer.insecure_clone()),
-      );
+    // Create and initialize the mint
+    let extension_initialization_params: Vec<ExtensionInitializationParams> = Vec::new();
 
-      // 创建并初始化代币铸造
-      let extension_initialization_params: Vec<ExtensionInitializationParams> = Vec::new();
+    let transaction_signature = token
+        .create_mint(
+            &payer.pubkey(),                 // mint authority
+            Some(&payer.pubkey()),           // freeze authority
+            extension_initialization_params, // no extensions
+            &[&mint],                        // mint keypair needed as signer
+        )
+        .await?;
 
-      let transaction_signature = token
-          .create_mint(
-              &payer.pubkey(),                 // 铸造权限
-              Some(&payer.pubkey()),           // 冻结权限
-              extension_initialization_params, // 无扩展
-              &[&mint],                        // 需要代币铸造密钥对作为签名者
-          )
-          .await?;
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
 
-      println!("代币铸造地址: {}", mint.pubkey());
-      println!("交易签名: {}", transaction_signature);
+    Ok(())
+}
+```
 
-      Ok(())
-  }
-  ```
 </CodeTabs>
