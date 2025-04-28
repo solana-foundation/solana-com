@@ -1,0 +1,426 @@
+---
+title: Solana 上的代币
+description: 了解 Solana 的代币程序。
+---
+
+代币是代表多种资产类别所有权的数字资产。代币化使得产权的数字化成为可能。在 Solana 上的代币被称为 SPL（[Solana 程序库](https://github.com/solana-program)）代币。
+
+本节介绍了 Solana 上代币表示的基本概念。有关代码示例，请参阅
+[SPL 代币基础](/docs/tokens/basics) 部分。
+
+## 关键点
+
+- [代币程序](#token-program)
+  包含与网络上的代币（包括同质化和非同质化代币）交互的所有指令逻辑。
+
+- 一个 [铸币账户](#mint-account)
+  代表一个特定的代币，并存储关于该代币的全局元数据，例如总供应量和铸币权限（被授权创建新代币单位的地址）。
+
+- 一个 [代币账户](#token-account) 跟踪特定所有者的特定铸币账户的代币个人所有权。
+
+- 一个 [关联代币账户](#associated-token-account)
+  是一个通过所有者和铸币账户地址派生出的地址创建的代币账户。
+
+## 代币程序
+
+Solana 生态系统有两个主要的代币程序。以下是两个程序的源代码链接。
+
+<Cards>
+  <Card title="代币程序（原始版本）" href="https://github.com/solana-program/token">
+   - 基本代币功能（铸造、转移等）
+   - 不可变且被广泛使用
+  </Card>
+
+  <Card title="代币扩展程序（Token 2022）" href="https://github.com/solana-program/token-2022">
+   - 包含所有原始代币程序功能
+   - 通过“扩展”添加功能
+  </Card>
+</Cards>
+
+代币程序包含与网络上的代币（包括同质化和非同质化代币）交互的所有指令逻辑。Solana 上的所有代币实际上都是由代币程序拥有的
+[数据账户](/docs/core/accounts#data-account)。
+
+![代币程序](/assets/docs/core/tokens/token-program.svg)
+
+### 铸币账户
+
+Solana 上的代币通过由代币程序拥有的
+[铸币账户](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L16-L30)
+的地址唯一标识。此账户充当特定代币的全局计数器，并存储以下数据：
+
+- **供应量**：代币的总供应量
+- **小数位数**：代币的小数精度
+- **铸造权限**：被授权创建新代币单位的账户，增加供应量
+- **冻结权限**：被授权冻结代币账户中代币的账户，防止代币被转移或销毁
+
+![铸造账户](/assets/docs/core/tokens/mint-account.svg)
+
+每个铸造账户中存储的完整详细信息包括以下内容：
+
+```rust title="Mint Account State"
+pub struct Mint {
+    /// Optional authority used to mint new tokens. The mint authority may only
+    /// be provided during mint creation. If no mint authority is present
+    /// then the mint has a fixed supply and no further tokens may be
+    /// minted.
+    pub mint_authority: COption<Pubkey>,
+    /// Total supply of tokens.
+    pub supply: u64,
+    /// Number of base 10 digits to the right of the decimal place.
+    pub decimals: u8,
+    /// Is `true` if this structure has been initialized
+    pub is_initialized: bool,
+    /// Optional authority to freeze token accounts.
+    pub freeze_authority: COption<Pubkey>,
+}
+```
+
+供参考，这里是 Solana Explorer 上的
+[USDC 铸造账户](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)链接。
+
+### 代币账户
+
+代币程序创建
+[代币账户](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108)
+以跟踪每个代币单位的个人所有权。代币账户存储的数据包括：
+
+- **铸造**：代币账户持有的代币
+- **所有者**：被授权从代币账户转移代币的账户
+- **数量**：代币账户当前持有的代币数量
+
+![代币账户](/assets/docs/core/tokens/token-account.svg)
+
+每个代币账户中存储的完整详细信息包括以下内容：
+
+```rust title="Token Account State"
+pub struct Account {
+    /// The mint associated with this account
+    pub mint: Pubkey,
+    /// The owner of this account.
+    pub owner: Pubkey,
+    /// The amount of tokens this account holds.
+    pub amount: u64,
+    /// If `delegate` is `Some` then `delegated_amount` represents
+    /// the amount authorized by the delegate
+    pub delegate: COption<Pubkey>,
+    /// The account's state
+    pub state: AccountState,
+    /// If is_native.is_some, this is a native token, and the value logs the
+    /// rent-exempt reserve. An Account is required to be rent-exempt, so
+    /// the value is used by the Processor to ensure that wrapped SOL
+    /// accounts do not drop below this threshold.
+    pub is_native: COption<u64>,
+    /// The amount delegated
+    pub delegated_amount: u64,
+    /// Optional authority to close the account.
+    pub close_authority: COption<Pubkey>,
+}
+```
+
+一个钱包需要为其想要持有的每种代币（铸造）创建一个代币账户，并将钱包地址设置为代币账户的所有者。每个钱包可以为同一种代币（铸造）拥有多个代币账户，但一个代币账户只能有一个所有者，并且只能持有一种代币（铸造）。
+
+![账户关系](/assets/docs/core/tokens/token-account-relationship.svg)
+
+<Callout type="info">
+
+请注意，每个代币账户的数据中包含一个 `owner` 字段，用于标识谁拥有该代币账户的权限。这与基础
+[账户](/docs/core/accounts#account-type)
+类型中指定的程序所有者不同，后者对于所有代币账户来说都是代币程序。
+
+</Callout>
+
+### 关联代币账户
+
+关联代币账户简化了查找特定铸造和所有者的代币账户地址的过程。可以将关联代币账户视为特定铸造和所有者的“默认”代币账户。
+
+[associated token account](#associated-token-account) 是通过从所有者地址和 mint
+account 地址派生的地址创建的。需要注意的是，associated token
+account 只是一个具有特定地址的 token account。
+
+这引入了 Solana 开发中的一个关键概念：[Program Derived Address (PDA)](/docs/core/pda)。PDA 使用预定义的输入以确定性方式派生地址，使得查找账户地址变得简单。
+
+![Associated Token Account](/assets/docs/core/tokens/associated-token-account.svg)
+
+请注意，每个钱包需要自己的 token account 来存储来自同一 mint 的代币。
+
+![账户关系扩展](/assets/docs/core/tokens/token-account-relationship-ata.svg)
+
+## Token CLI 示例
+
+_sh`spl-token`_
+CLI 帮助您实验 SPL 代币。以下示例使用
+[Solana Playground](https://beta.solpg.io/)
+终端直接在浏览器中运行 CLI 命令，无需本地安装。
+
+创建代币和账户需要 SOL 用于账户租金存款和交易费用。对于首次使用 Solana
+Playground 的用户，请创建一个 Playground 钱包并在 Playground 终端中运行
+_sh`solana airdrop`_
+命令。您还可以从公共 [web faucet](https://faucet.solana.com/) 获取 devnet SOL。
+
+```terminal
+$ solana airdrop 2
+```
+
+运行 _sh`spl-token --help`_
+查看所有可用命令。
+
+```terminal
+$ spl-token --help
+```
+
+要在本地安装 _sh`spl-token`_
+CLI，请运行：
+
+```terminal
+$ cargo install spl-token-cli
+```
+
+在 _sh`spl-token`_
+[文档](https://www.solana-program.com/docs/token) 中找到更多示例。
+
+<Callout type="info">
+
+终端输出中显示的账户地址与以下示例不同。在操作时，请使用来自 Playground 终端的地址。例如，_sh`create-token`_
+命令会输出一个 mint account 地址，其中您的 Playground 钱包是 mint authority。
+
+</Callout>
+
+### 创建新代币
+
+要创建一个新代币（mint account），请运行：
+
+```terminal
+$ spl-token create-token
+```
+
+输出如下所示：
+
+```sh title="Terminal Output"
+Creating token 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+
+Address:  99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+Decimals:  9
+
+Signature: 44fvKfT1ezBUwdzrCys3fvCdFxbLMnNvBstds76QZyE6cXag5NupBprSXwxPTzzjrC3cA6nvUZaLFTvmcKyzxrm1
+```
+
+一个新的 mint account 初始供应量为零。使用以下命令检查当前供应量：
+
+```terminal
+$ spl-token supply <TOKEN_ADDRESS>
+```
+
+用于新 token 的
+_sh`supply`_
+命令返回 `0`：
+
+```sh title="Example"
+spl-token supply 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+创建一个新的 Mint Account 需要包含两个指令的交易。以下是一个在
+[Solana Playground](https://beta.solpg.io/660ce32ecffcf4b13384d00f)
+上的 Javascript 示例。
+
+1. System Program 创建一个新账户，为 Mint
+   Account 数据分配空间并将所有权转移给 Token Program。
+
+2. Token Program 将新账户的数据初始化为 Mint Account。
+
+### 创建 Token Account
+
+要持有特定 mint 的 token，请创建一个 token account：
+
+```terminal
+$ spl-token create-account <TOKEN_ADDRESS>
+```
+
+示例命令：
+
+```sh title="Example"
+spl-token create-account 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+输出：
+
+```sh title="Terminal Output"
+Creating account AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2BtrynuCLX9CNofFiaw6Yzbx6hit66pup9Sk7aFjwU2NEbFz7NCHD9w9sWhrCfEd73XveAGK1DxFpJoQZPXU9tS1
+```
+
+_sh`create-account`_
+命令会使用您的钱包地址作为所有者创建一个 associated token account。
+
+要为不同的所有者创建一个 token account：
+
+```terminal
+$ spl-token create-account --owner <OWNER_ADDRESS> <TOKEN_ADDRESS>
+```
+
+注意：`<TOKEN_ADDRESS>` 指定了 token
+account 的 mint account。
+
+示例命令：
+
+```sh title="Example"
+spl-token create-account --owner 2i3KvjDCZWxBsqcxBHpdEaZYQwQSYE6LXUMx5VjY5XrR 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+输出：
+
+```shell title="Terminal Output" /Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt/
+Creating account Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 44vqKdfzspT592REDPY4goaRJH3uJ3Ce13G4BCuUHg35dVUbHuGTHvqn4ZjYF9BGe9QrjMfe9GmuLkQhSZCBQuEt
+```
+
+创建一个 Associated Token Account 只需要一个调用
+[Associated Token Program](https://github.com/solana-program/associated-token-account)
+的指令。以下是在
+[Solana Playground](https://beta.solpg.io/660ce868cffcf4b13384d011)
+上的一个 Javascript 示例。
+
+Associated Token Program 使用 [跨程序调用](/docs/core/cpi) 来：
+
+- [调用 System Program](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/tools/account.rs#L19)
+  使用提供的 PDA 作为地址创建一个新账户
+- [调用 Token Program](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/processor.rs#L138-L161)
+  初始化 Token Account 数据
+
+要使用新的 keypair 而不是 Associated Token Account 地址创建一个新的 Token
+Account，请发送包含两个指令的交易。以下是在
+[Solana Playground](https://beta.solpg.io/660ce716cffcf4b13384d010)
+上的 Javascript 示例。
+
+1. System Program 创建一个新账户，为 Token
+   Account 数据分配空间，并将所有权转移给 Token Program。
+
+2. Token Program 将数据初始化为 Token Account。
+
+### 铸造代币
+
+要创建新的代币单位，请将代币铸造到一个 Token Account：
+
+```terminal
+$ spl-token mint [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> [--] [RECIPIENT_TOKEN_ACCOUNT_ADDRESS]
+```
+
+示例命令：
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100
+```
+
+输出：
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2NJ1m7qCraPSBAVxbr2ssmWZmBU9Jc8pDtJAnyZsZJRcaYCYMqq1oRY1gqA4ddQno3g3xcnny5fzr1dvsnFKMEqG
+```
+
+要将代币铸造到另一个 Token Account：
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 -- Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+输出：
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 3SQvNM3o9DsTiLwcEkSPT1Edr14RgE2wC54TEjonEP2swyVCp2jPWYWdD6RwXUGpvDNUkKWzVBZVFShn5yntxVd7
+```
+
+Token Program 上的
+_rs`MintTo`_
+指令创建新的代币。铸造权限必须签署交易。该指令将代币铸造到一个 Token
+Account，并增加 Mint Account 上的总供应量。以下是在
+[Solana Playground](https://beta.solpg.io/660cea45cffcf4b13384d012)
+上的 Javascript 示例。
+
+### 转移代币
+
+要在 Token Account 之间转移代币：
+
+```sh title="Terminal"
+spl-token transfer [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> <RECIPIENT_ADDRESS or RECIPIENT_TOKEN_ACCOUNT_ADDRESS>
+```
+
+示例命令：
+
+```sh title="Example"
+spl-token transfer 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+输出：
+
+```shell title="Terminal Output"
+Transfer 100 tokens
+  Sender: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 5y6HVwV8V2hHGLTVmTmdySRiEUCZnWmkasAvJ7J6m7JR46obbGKCBqUFgLpZu5zQGwM4Xy6GZ4M5LKd1h6Padx3o
+```
+
+Token Program 上的
+_rs`Transfer`_
+指令处理代币转移。发送方 Token Account 的所有者必须签署交易。该指令在 Token
+Account 之间移动代币。以下是在
+[Solana Playground](https://beta.solpg.io/660ced84cffcf4b13384d013)
+上的 Javascript 示例。
+
+发送方和接收方都需要为特定代币（mint）创建 Token
+Account。发送方可以在同一交易中包含创建接收方 Token Account 的指令。
+
+### 创建代币元数据
+
+Token Extensions Program 允许您将元数据（名称、符号、图片链接）直接存储在 Mint
+Account 上。
+
+要创建带有元数据扩展的代币：
+
+```sh title="Example"
+spl-token create-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --enable-metadata
+```
+
+输出：
+
+```shell title="Terminal Output"
+Creating token BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP under program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+To initialize metadata inside the mint, please run `spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>`, and sign with the mint authority.
+
+Address:  BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP
+Decimals:  9
+
+Signature: 5iQofFeXdYhMi9uTzZghcq8stAaa6CY6saUwcdnELST13eNSifiuLbvR5DnRt311frkCTUh5oecj8YEvZSB3wfai
+```
+
+要初始化元数据：
+
+```sh title="Terminal"
+spl-token initialize-metadata <TOKEN_MINT_ADDRESS> <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>
+```
+
+代币 URI 链接到链下元数据。请参阅[此处](https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json)的示例 JSON 格式。
+
+示例命令：
+
+```sh title="Example"
+spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP "TokenName" "TokenSymbol" "https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+```
+
+在
+[Solana Explorer](https://explorer.solana.com/address/BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP?cluster=devnet)
+上查看元数据。
+
+在[元数据扩展指南](/developers/guides/token-extensions/metadata-pointer)中了解更多信息。有关 Token
+Extensions 的详细信息，请参阅 Token
+Extensions 的[入门指南](/developers/guides/token-extensions/getting-started)和
+[SPL 文档](https://www.solana-program.com/docs/token-2022/extensions)。

@@ -1,0 +1,74 @@
+---
+title: Solana RPC 方法
+seoTitle: Solana RPC 方法：HTTP 和 Websockets
+hideTableOfContents: false
+h1: Solana RPC 方法与文档
+---
+
+通过 HTTP 和 Websocket 方法，使用 JSON RPC API 直接与 Solana 节点交互。
+
+## 配置状态承诺
+
+对于预检和交易处理，Solana 节点根据客户端设置的承诺要求选择查询哪个银行状态。承诺描述了某个时间点区块的最终确定程度。在查询分类账状态时，建议使用较低级别的承诺来报告进度，并使用较高级别的承诺来确保状态不会被回滚。
+
+按承诺级别从高到低（从最最终确定到最不最终确定），客户端可以指定：
+
+- `finalized` - 节点将查询被集群的超级多数确认为已达到最大锁定状态的最新区块，这意味着集群已将该区块视为最终确定。
+- `confirmed` - 节点将查询集群超级多数投票的最新区块。
+  - 它包含来自 gossip 和重放的投票。
+  - 它不计算区块后代的投票，仅计算对该区块的直接投票。
+  - 从 1.3 版本及以后，此确认级别还支持“乐观确认”保证。
+- `processed` - 节点将查询其最新的区块。请注意，该区块可能仍会被集群跳过。
+
+对于处理许多连续依赖的交易，建议使用 `confirmed` 承诺，它在速度和回滚安全性之间取得平衡。对于完全安全性，建议使用 `finalized` 承诺。
+
+### 默认承诺级别
+
+如果未提供承诺配置，节点将
+[默认使用 `finalized` 承诺级别](https://github.com/anza-xyz/agave/blob/aa0922d6845e119ba466f88497e8209d1c82febc/sdk/src/commitment_config.rs#L199-L203)。
+
+只有查询银行状态的方法接受承诺参数。它们在下面的 API 参考中有标注。
+
+## RpcResponse 结构
+
+许多接受承诺参数的方法会返回一个由两部分组成的 RpcResponse JSON 对象：
+
+- `context`：一个 RpcResponseContext
+  JSON 结构，其中包括一个 `slot` 字段，表示操作评估的时间点。
+- `value`：操作本身返回的值。
+
+## 解析的响应
+
+某些方法支持 `encoding` 参数，并且如果请求了 `"encoding":"jsonParsed"` 且节点拥有对应程序的解析器，可以以解析的 JSON 格式返回账户或指令数据。Solana 节点目前支持以下原生和 SPL 程序的 JSON 解析：
+
+| 程序             | 账户状态 | 指令    |
+| ---------------- | -------- | ------- |
+| 地址查找         | v1.15.0  | v1.15.0 |
+| BPF 加载器       | n/a      | 稳定版  |
+| BPF 可升级加载器 | 稳定版   | 稳定版  |
+| 配置             | 稳定版   |         |
+| SPL 关联代币账户 | n/a      | 稳定版  |
+| SPL 备忘录       | n/a      | 稳定版  |
+| SPL 代币         | 稳定版   | 稳定版  |
+| SPL 代币 2022    | 稳定版   | 稳定版  |
+| 抵押             | 稳定版   | 稳定版  |
+| 投票             | 稳定版   | 稳定版  |
+
+账户解析器的列表可以在
+[这里](https://github.com/solana-labs/solana/blob/master/account-decoder/src/parse_account_data.rs)找到，指令解析器可以在
+[这里](https://github.com/solana-labs/solana/blob/master/transaction-status/src/parse_instruction.rs)找到。
+
+## 过滤条件
+
+某些方法支持提供一个 `filters` 对象，以便在 RpcResponse
+JSON 对象中返回的数据进行预过滤。以下是可用的过滤器：
+
+- `memcmp: object` - 将提供的一系列字节与程序账户数据在特定偏移量处进行比较。字段：
+
+  - `offset: usize` - 程序账户数据中开始比较的偏移量
+  - `bytes: string` - 要匹配的数据，作为编码字符串
+  - `encoding: string` - 用于过滤 `bytes` 数据的编码方式，可以是 "base58" 或 "base64"。数据大小限制为解码后不超过 128 字节。<br />
+    **新增：此字段以及 base64 支持仅在 solana-core
+    v1.14.0 或更新版本中可用。在查询较早版本的节点时，请省略此字段**
+
+- `dataSize: u64` - 将程序账户数据长度与提供的数据大小进行比较

@@ -1,0 +1,397 @@
+---
+title: 写入网络
+description:
+  学习如何通过发送交易和指令与 Solana
+  网络交互。按照分步示例，使用系统程序和代币扩展程序转移 SOL 代币并创建新代币。
+---
+
+在上一节中，您学习了如何从 Solana 网络读取数据。现在来探索如何向其写入数据。向 Solana 网络写入数据涉及发送包含一个或多个指令的交易。
+
+程序（智能合约）根据各自指令的业务逻辑处理这些指令。当您提交交易时，Solana 运行时会按顺序执行每个指令，并以原子方式执行（即所有指令要么全部成功，要么整个交易失败）。
+
+在本节中，您将看到两个基本示例：
+
+1. 在账户之间转移 SOL
+2. 创建一个新代币
+
+这些示例展示了如何构建和发送交易以调用 Solana 程序。有关更多详细信息，请参阅
+[交易和指令](/docs/core/transactions) 和 [Solana 上的费用](/docs/core/fees)
+页面。
+
+## 转移 SOL
+
+在此示例中，您将学习如何在两个账户之间转移 SOL。
+
+在 Solana 上，每个账户都有一个特定的程序作为其所有者。只有程序所有者可以扣除账户的 SOL（lamport）余额。
+
+系统程序是所有“钱包”账户的
+[所有者](https://github.com/anza-xyz/agave/blob/v2.1.11/sdk/account/src/lib.rs#L55)。要转移 SOL，您必须调用系统程序的
+[转移](https://github.com/anza-xyz/agave/blob/v2.1.11/programs/system/src/system_processor.rs#L183-L213)
+指令。
+
+<WithNotes>
+
+<CodeTabs flags="r">
+
+```ts !! title="Transfer SOL"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+// !tooltip[/connection/] connection
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// !tooltip[/sender/] sender
+const sender = new Keypair();
+// !tooltip[/receiver/] receiver
+const receiver = new Keypair();
+
+// !tooltip[/requestAirdrop/] airdrop
+const signature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+// !tooltip[/transferInstruction/] instruction
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// !tooltip[/transaction/] transaction
+const transaction = new Transaction().add(transferInstruction);
+
+// !tooltip[/sendAndConfirmTransaction/] sendAndConfirmTransaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender]
+);
+
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</CodeTabs>
+
+### !connection
+
+创建与 Solana 集群的连接。
+
+### !sender
+
+生成一个新的密钥对以用作 `sender`。
+
+### !receiver
+
+生成一个新的密钥对以用作 `receiver`。
+
+### !airdrop
+
+请求空投 SOL 以为 `sender` 提供资金。
+
+### !instruction
+
+构建调用系统程序转账指令的指令。
+
+### !transaction
+
+创建新交易并添加转账指令。
+
+### !sendAndConfirmTransaction
+
+发送交易。
+
+</WithNotes>
+
+以下是构建交易以与 Solana 上的任何程序交互的步骤。
+
+<Steps>
+<Step>
+
+创建您想要调用的指令。
+
+```ts title="Instruction"
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  // !mention one
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+```
+
+</Step>
+<Step>
+
+将指令添加到交易中：
+
+```ts title="Transaction"
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Step>
+<Step>
+
+签署并发送交易：
+
+```ts title="Send Transaction"
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender] // signer keypair
+);
+```
+
+</Step>
+</Steps>
+
+## 创建一个代币
+
+在此示例中，您将学习如何使用代币扩展程序在 Solana 上创建一个新代币。这需要两个指令：
+
+1. 调用系统程序创建一个新账户。
+2. 调用代币扩展程序将该账户初始化为一个铸币账户。
+
+<WithNotes>
+
+<CodeTabs flags="r">
+
+```ts !! title="Create Mint Account"
+import {
+  Connection,
+  Keypair,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  MINT_SIZE,
+  TOKEN_2022_PROGRAM_ID,
+  createInitializeMint2Instruction,
+  getMinimumBalanceForRentExemptMint
+} from "@solana/spl-token";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// !tooltip[/wallet/] wallet
+const wallet = new Keypair();
+// Fund the wallet with SOL
+const signature = await connection.requestAirdrop(
+  wallet.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+// Generate keypair to use as address of mint account
+// !tooltip[/mint/] mint
+const mint = new Keypair();
+
+// Calculate lamports required for rent exemption
+// !tooltip[/rentExemptionLamports/] rentExemptionLamports
+const rentExemptionLamports =
+  await getMinimumBalanceForRentExemptMint(connection);
+
+// Instruction to create new account with space for new mint account
+// !tooltip[/createAccountInstruction/] createAccountInstruction
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: wallet.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: rentExemptionLamports,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+// Instruction to initialize mint account
+// !tooltip[/initializeMintInstruction/] initializeMintInstruction
+const initializeMintInstruction = createInitializeMint2Instruction(
+  mint.publicKey,
+  2, // decimals
+  wallet.publicKey, // mint authority
+  wallet.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Build transaction with instructions to create new account and initialize mint account
+// !tooltip[/transaction/] transaction
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+
+// !tooltip[/sendAndConfirmTransaction/] sendAndConfirmTransaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [
+    wallet, // payer
+    mint // mint address keypair
+  ]
+);
+
+console.log("Mint Account:", `${mint.publicKey}`);
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</CodeTabs>
+
+### !钱包
+
+生成一个新的 keypair 作为钱包使用。
+
+### !铸币
+
+生成一个新的 keypair 作为要创建的 Mint 账户的地址。
+
+### !租金Lamports
+
+计算 Mint 账户所需的 lamports。
+
+### !租金豁免Lamports
+
+计算租金豁免所需的 lamports。
+
+### !创建账户指令
+
+构建指令以创建一个新的账户，该账户具有 Mint 账户类型的空间，并由 Token
+Extensions Program 拥有。
+
+### !初始化铸币指令
+
+构建指令以将新账户的数据初始化为 Mint 账户类型。
+
+### !交易
+
+创建新交易并添加两个指令。
+
+指令的顺序在这里很重要。`createAccountInstruction` 必须在 `initializeMintInstruction` 之前。
+
+### !发送并确认交易
+
+发送交易。
+
+</WithNotes>
+
+以下是示例的逐步分解：
+
+<Steps>
+<Step>
+
+创建连接并为钱包提供资金
+
+```ts title="Connection and Wallet"
+const connection = new Connection("http://localhost:8899", "confirmed");
+const wallet = new Keypair();
+const signature = await connection.requestAirdrop(
+  wallet.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+```
+
+</Step>
+<Step>
+
+为 Mint 账户生成一个 keypair
+
+```ts title="Mint Keypair"
+const mint = new Keypair();
+```
+
+</Step>
+<Step>
+
+计算租金豁免所需的最低 lamports
+
+```ts title="Rent Exemption"
+const rentExemptionLamports =
+  await getMinimumBalanceForRentExemptMint(connection);
+```
+
+</Step>
+<Step>
+
+创建一个指令以创建新账户
+
+<WithMentions>
+
+1. [分配所需空间](mention:one)以存储 mint 数据
+2. [从钱包转移 lamports](mention:two)以资助新账户
+3. [将账户的所有权](mention:three)分配给 Token
+   Extensions 程序 (`TOKEN_2022_PROGRAM_ID`)
+
+```ts title="Create Account Instruction"
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: wallet.publicKey,
+  newAccountPubkey: mint.publicKey,
+  // !mention one
+  space: MINT_SIZE,
+  // !mention two
+  lamports: rentExemptionLamports,
+  // !mention three
+  programId: TOKEN_2022_PROGRAM_ID
+});
+```
+
+</WithMentions>
+
+</Step>
+<Step>
+
+创建一个指令以初始化 Mint 账户
+
+```ts title="Initialize Mint Instruction"
+const initializeMintInstruction = createInitializeMint2Instruction(
+  mint.publicKey,
+  2, // decimals
+  wallet.publicKey, // mint authority
+  wallet.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+```
+
+</Step>
+<Step>
+
+将两个指令添加到一个交易中
+
+```ts title="Build Transaction"
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+```
+
+</Step>
+<Step>
+
+发送并确认包含两个所需签名者的交易
+
+```ts title="Send Transaction"
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [wallet, mint]
+);
+```
+
+</Step>
+<Step>
+
+打印 Mint 账户和交易签名
+
+```ts title="Output"
+console.log("Mint Account:", `${mint.publicKey}`);
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</Step>
+</Steps>
+
+通过将两个指令合并到一个交易中，可以确保账户创建和初始化原子性地完成。要么两个指令都成功，要么都失败。这种方法在构建更复杂的 Solana 交易时很常见，因为它保证了所有指令一起执行。
