@@ -39,41 +39,39 @@ export function SingleCode({
   const { pre, title, code, icon } = group.tabs[0];
 
   return (
-    <>
-      <div
-        className={cn(
-          "tw-border rounded overflow-hidden my-4 relative border-ch-border flex flex-col selection:bg-ch-selection",
-          className,
-        )}
-      >
-        {title ? (
-          <div
-            className={cn(
-              "border-b-[1px] border-ch-border bg-ch-tabs-background px-3 py-0",
-              "w-full h-9 flex items-center justify-between shrink-0",
-              "text-ch-tab-inactive-foreground text-sm font-mono",
-            )}
-          >
-            <div className="flex items-center gap-2 w-full h-5">
-              <div className="size-4">{icon}</div>
-              <span className="leading-none">{title}</span>
-              <div className={cn("ml-auto mr-3 items-center flex")}>
-                <CopyButton
-                  text={code}
-                  className="text-ch-tab-inactive-foreground"
-                />
-              </div>
+    <div
+      className={cn(
+        "tw-border rounded overflow-hidden my-4 relative border-ch-border flex flex-col selection:bg-ch-selection",
+        className,
+      )}
+    >
+      {title ? (
+        <div
+          className={cn(
+            "border-b-[1px] border-ch-border bg-ch-tabs-background px-3 py-0",
+            "w-full h-9 flex items-center justify-between shrink-0",
+            "text-ch-tab-inactive-foreground text-sm font-mono",
+          )}
+        >
+          <div className="flex items-center gap-2 w-full h-5">
+            <div className="size-4">{icon}</div>
+            <span className="leading-none">{title}</span>
+            <div className={cn("ml-auto mr-3 items-center flex")}>
+              <CopyButton
+                text={code}
+                className="text-ch-tab-inactive-foreground"
+              />
             </div>
           </div>
-        ) : (
-          <CopyButton
-            text={code}
-            className="absolute right-3 my-0 top-2.5 text-ch-tab-inactive-foreground bg-ch-background/90"
-          />
-        )}
-        {pre}
-      </div>
-    </>
+        </div>
+      ) : (
+        <CopyButton
+          text={code}
+          className="absolute right-3 my-0 top-2.5 text-ch-tab-inactive-foreground bg-ch-background/90"
+        />
+      )}
+      {pre}
+    </div>
   );
 }
 

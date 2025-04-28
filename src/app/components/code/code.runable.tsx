@@ -374,7 +374,7 @@ function EmptyConsole({
 }) {
   return (
     <div className="flex flex-col items-center justify-center w-full py-3 gap-2">
-      <span className="h-4" />
+      <span className="md:h-4" />
       <button
         onClick={handleRun}
         className={`w-28 px-3 py-1 relative z-10 rounded bg-[#9945FF] text-white text-sm font-bold cursor-pointer flex justify-center items-center gap-2 ${running ? "opacity-80" : "hover:bg-[#8838e0]"}`}
@@ -429,27 +429,14 @@ function OutputHeader() {
   );
 }
 
-function Output({ result }: { result: CodeRun }) {
-  const { txGroups, txToInstructions } = processLogs(result?.logs || []);
-  return (
-    <div className="p-2 flex-1 overflow-auto">
-      {result ? (
-        txGroups.map((group, groupIndex) => (
-          <Transaction
-            key={group.url}
-            group={group}
-            groupIndex={groupIndex}
-            instructions={txToInstructions.get(group.url) || []}
-          />
-        ))
-      ) : (
-        <div className="text-sm opacity-80">No output yet</div>
-      )}
-    </div>
-  );
-}
+type RunnableCodeState = {
+  running: boolean;
+  result: CodeRun | null;
+  error: string | null;
+  handleRun: () => void;
+};
 
-function useRunnableCode(code: string, language: string) {
+function useRunnableCode(code: string, language: string): RunnableCodeState {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<CodeRun | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -490,6 +477,67 @@ function useRunnableCode(code: string, language: string) {
   };
 }
 
+function Console({
+  state,
+  className,
+}: {
+  state: RunnableCodeState;
+  className?: string;
+}) {
+  const { running, result, error, handleRun } = state;
+  return (
+    <div
+      className={cn(
+        "rounded bg-ch-background border border-ch-border",
+        className,
+      )}
+    >
+      <ConsoleHeader />
+      {!result ? (
+        <EmptyConsole running={running} error={error} handleRun={handleRun} />
+      ) : (
+        <pre className="p-2 text-sm text-ch-foreground font-mono overflow-auto flex-1">
+          {result?.output}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function Output({
+  result,
+  className,
+}: {
+  result: CodeRun;
+  className?: string;
+}) {
+  const { txGroups, txToInstructions } = processLogs(result?.logs || []);
+  return (
+    <div
+      className={cn(
+        "rounded bg-ch-background border border-ch-border",
+        className,
+      )}
+    >
+      <OutputHeader />
+      <div className="p-2 flex-1 overflow-auto">
+        {result ? (
+          txGroups.map((group, groupIndex) => (
+            <Transaction
+              key={group.url}
+              group={group}
+              groupIndex={groupIndex}
+              instructions={txToInstructions.get(group.url) || []}
+            />
+          ))
+        ) : (
+          <div className="text-sm opacity-80">No output yet</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function RunnableLayout({
   children,
   code,
@@ -501,46 +549,43 @@ export function RunnableLayout({
   language: string;
   className?: string;
 }) {
-  const { running, result, error, handleRun } = useRunnableCode(code, language);
+  const state = useRunnableCode(code, language);
 
   return (
-    <div className="wider">
-      <ResizablePanelGroup
-        direction="horizontal"
-        className={cn("max-h-[700px] min-h-0 overflow-hidden", className)}
-      >
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <div className="h-full min-h-0 min-w-0">{children}</div>
-        </ResizablePanel>
-        <ResizableHandle withHandle className="bg-transparent w-1" />
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <ResizablePanelGroup direction="vertical">
-            <ResizablePanel defaultSize={30} minSize={10}>
-              <div className="h-full rounded bg-ch-background border border-ch-border flex flex-col overflow-hidden">
-                <ConsoleHeader />
-                {!result ? (
-                  <EmptyConsole
-                    running={running}
-                    error={error}
-                    handleRun={handleRun}
-                  />
-                ) : (
-                  <pre className="p-2 text-sm text-ch-foreground font-mono overflow-auto flex-1">
-                    {result?.output}
-                  </pre>
-                )}
-              </div>
-            </ResizablePanel>
-            <ResizableHandle withHandle className="bg-transparent !h-1" />
-            <ResizablePanel defaultSize={70} minSize={20}>
-              <div className="h-full rounded bg-ch-background border border-ch-border flex flex-col min-h-0 overflow-hidden">
-                <OutputHeader />
-                <Output result={result} />
-              </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </div>
+    <>
+      <div className="md:hidden">
+        {children}
+        <Console state={state} className="mt-2" />
+        {state.result && <Output result={state.result} className="mt-2" />}
+      </div>
+      <div className="wider hidden md:block">
+        <ResizablePanelGroup
+          direction="horizontal"
+          className={cn("max-h-[700px] min-h-0 overflow-hidden", className)}
+        >
+          <ResizablePanel defaultSize={50} minSize={30}>
+            <div className="h-full min-h-0 min-w-0">{children}</div>
+          </ResizablePanel>
+          <ResizableHandle withHandle className="bg-transparent w-1" />
+          <ResizablePanel defaultSize={50} minSize={30}>
+            <ResizablePanelGroup direction="vertical">
+              <ResizablePanel defaultSize={30} minSize={10}>
+                <Console
+                  state={state}
+                  className="h-full  flex flex-col overflow-hidden"
+                />
+              </ResizablePanel>
+              <ResizableHandle withHandle className="bg-transparent !h-1" />
+              <ResizablePanel defaultSize={70} minSize={20}>
+                <Output
+                  className="h-full flex flex-col min-h-0 overflow-hidden"
+                  result={state.result}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+    </>
   );
 }
