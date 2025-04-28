@@ -771,5 +771,9 @@ export default {
       source: "/developers/guides/getstarted/how-to-cpi-with-signer",
       destination: "/docs/core/cpi",
     },
+    {
+      source: "/developers/cookbook/programs/*",
+      destination: "/docs/programs/examples",
+    },
   ],
 };
