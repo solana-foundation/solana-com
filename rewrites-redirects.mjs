@@ -772,7 +772,7 @@ export default {
       destination: "/docs/core/cpi",
     },
     {
-      source: "/developers/cookbook/programs/*",
+      source: "/developers/cookbook/programs/:path*",
       destination: "/docs/programs/examples",
     },
   ],
