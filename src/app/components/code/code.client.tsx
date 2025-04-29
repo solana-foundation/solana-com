@@ -11,7 +11,7 @@ import { CopyButton } from "@/app/components/code/copy-button";
 import React from "react";
 import { useStateOrLocalStorage } from "@/hooks/useLocalStorage";
 import { CodeGroup } from "@/app/components/code/code-group";
-import { RunnableLayout } from "./code.runable";
+import { RunnableLayout } from "./code.runnable";
 
 export function MultiCode({
   group,
@@ -29,7 +29,7 @@ export function MultiCode({
 
   const { code } = current;
 
-  const runnable = group.options.runable;
+  const runnable = group.options.runnable;
 
   const tabs = (
     <Tabs

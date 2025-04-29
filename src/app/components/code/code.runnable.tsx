@@ -264,7 +264,7 @@ function Transaction({
   instructions: InstructionLogs[];
 }) {
   return (
-    <div key={group.url} className="mb-4">
+    <div key={group.url} className="mb-4 text-sm">
       <div className="font-medium">
         <a href={group.url} target="_blank" className="font-bold">
           Solana Explorer: Transaction {groupIndex + 1}
