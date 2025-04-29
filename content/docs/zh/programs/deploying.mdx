@@ -1,0 +1,402 @@
+---
+title: 部署程序
+description: 使用 Solana CLI 将自定义程序上传到 Solana 区块链。
+---
+
+本指南假设您已了解以下主题：
+
+- [Solana 账户模型](/core/accounts)
+- [Solana 程序概述](/core/programs)
+- [开发自定义 Solana 程序](/programs/rust/)
+
+## Loader-v3 和 Loader-v4
+
+目前正在从 loader-v3（program 子命令）过渡到 loader-v4（program **-v4**
+子命令），因为 loader-v3 正在被弃用。
+
+对于新的部署，请使用 `solana program-v4 deploy` 代替 `solana program deploy`。
+
+要迁移现有程序（本质上是重新部署它）：
+
+```shell
+solana program migrate ./target/deploy/your_program-keypair.json
+```
+
+## 准备工作
+
+首先，需要对程序进行构建（编译、链接、剥离）。
+
+```shell
+cargo +solana build --target sbpf-solana-solana --release
+```
+
+此步骤必须在每次重新部署之前执行。
+
+检查默认付款账户是否有足够的资金，与可执行文件的大小成比例：
+
+```shell
+du -h ./target/deploy/your_program.so 
+solana balance
+```
+
+此外，每个程序都有一个程序账户和一个程序 ID，即该程序账户的地址。以下命令生成程序账户的密钥对：
+
+```shell
+solana-keygen new -o ./target/deploy/your_program-keypair.json
+```
+
+此操作每个程序只需执行一次，之后可在同一程序的重新部署中重复使用。
+
+工具链中包含了一个快捷方式，但它正在被逐步淘汰/弃用：
+
+```shell
+cargo-build-sbf
+```
+
+## 初次部署
+
+现在可以将可执行文件上传到程序账户：
+
+### Loader-v3
+
+参数被称为 `program-id`，尽管它需要一个密钥对的文件路径：
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+```
+
+## 重新部署
+
+再次将不同的可执行文件上传到同一个程序账户会覆盖/替换原有文件。然而，对于重新部署，只需要程序 ID（程序密钥对的 pubkey），而不需要整个密钥对，因为签名者是升级权限密钥对。
+
+### Loader-v3
+
+这与初始部署完全相同：
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+如果旧的可执行文件比新的短，可能需要先扩展 programdata 账户：
+
+```shell
+solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+```
+
+### Loader-v4
+
+请注意，初始部署使用了 `program-keypair`，而重新部署则使用了 `program-id`：
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## 优先上传
+
+在网络拥堵时，可以使用一些额外的标志来帮助程序部署：
+
+- `--with-compute-unit-price`：以 0.000001
+  lamports（微 lamports）为单位设置交易的计算单元价格。使用
+  [Helius 的优先费用 API](https://docs.helius.dev/guides/priority-fee-api)
+  获取优先费用的估算值。
+- `--use-rpc`：将写入交易发送到配置的 RPC，而不是验证器 TPU。此标志需要一个
+  [基于权益加权的](/developers/guides/advanced/stake-weighted-qos)
+  RPC 连接，例如 [Helius](https://www.helius.dev/) 或
+  [Triton](https://triton.one/)。此标志也可以配置为默认值，使用：`solana config set --url <RPC_URL>`。
+- `--max-sign-attempts`：在区块哈希过期后签署或重新签署交易的最大尝试次数。如果在程序部署期间发送的任何交易在最初选择的最近区块哈希过期后仍未确认，这些交易将使用新的最近区块哈希重新签署并重新发送。使用此设置调整交易签名迭代的最大次数。每个区块哈希有效期约为 60 秒，这意味着使用默认值 5 将导致至少发送交易 5 分钟，或直到所有交易被确认，以先到者为准。
+
+## 恢复上传
+
+上传可能会卡住或中断。
+
+### Loader-v3
+
+如果程序部署失败，将会有一个挂起的中间缓冲账户，其中包含非零余额。为了收回该余额，您可以通过向新的调用提供相同的中间缓冲来恢复失败的部署：`deploy`。
+
+部署失败时会打印一条错误消息，指定恢复生成的中间缓冲 keypair 所需的种子短语：
+
+```
+==================================================================================
+Recover the intermediate account's ephemeral keypair file with
+`solana-keygen recover` and the following 12-word seed phrase:
+==================================================================================
+valley flat great hockey share token excess clever benefit traffic avocado athlete
+==================================================================================
+To resume a deploy, pass the recovered keypair as
+the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
+Or to recover the account's lamports, pass it as the
+[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
+==================================================================================
+```
+
+要恢复 keypair：
+
+```shell
+solana-keygen recover -o ./target/deploy/buffer-keypair.json
+```
+
+当被询问时，输入 12 个单词的种子短语。
+
+然后发出一个新的 `deploy` 命令并指定缓冲区：
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+```
+
+### Loader-v4
+
+可以从指定的字节偏移量恢复上传：
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```
+
+## 最终化
+
+这是一个**不可逆**的操作。
+
+可以通过移除升级权限使程序变为不可变。
+
+### Loader-v3
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```
+
+### Loader-v4
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```
+
+与覆盖程序不同，还可以通过构建一个已最终化程序的链表，为用户提供选择程序版本的选项：
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
+```
+
+## 关闭
+
+对于在 loader-v3 下部署的程序，仅其 programdata 账户、缓冲账户以及锁定在其中的资金可以被回收。程序账户以及程序 ID 和专门锁定在程序账户中的资金将被卡住。
+
+在 loader-v4 下部署的程序可以关闭，其程序账户、程序 ID 和锁定资金将再次可用于其他用途。
+
+### Loader-v3
+
+对于使用 loader-v3 部署的程序，这是一个**不可逆**的操作。
+
+请注意，一旦程序被关闭，其程序 ID 将无法再次使用。尝试使用已关闭的程序 ID 部署程序将导致错误。如果您需要在关闭后重新部署程序，必须生成一个新的程序密钥对文件。
+
+关闭单个 programdata 账户：
+
+```shell
+solana program close ./target/deploy/your_program-keypair.json
+```
+
+关闭与当前权限相关的所有缓冲区账户：
+
+```shell
+solana program close --buffers
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
+```
+
+## 检查元数据
+
+`show` 子命令列出程序的元数据。
+
+示例输出如下：
+
+```shell
+Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
+Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
+Last Deployed In Slot: 63890568
+Data Length: 5216 (0x1460) bytes
+```
+
+- `Program Id` 是可以在调用程序时引用的指令的 `program_id` 字段中的地址。
+- `Owner`：程序部署时使用的加载器。
+- `ProgramData Address` 是与程序账户关联的 programdata 账户，存储程序的可执行文件（仅限 loader-v3）。
+- `Status`：`retracted`、`deployed` 或 `finalized`（仅限 loader-v4）。
+- `Authority` 是程序的升级权限。
+- `Last Deployed In Slot` 是程序最后一次部署时的 slot。
+- `Data Length` 是为部署保留的空间大小。目前部署的程序实际使用的空间可能更少。
+
+### Loader-v3
+
+查看特定程序：
+
+```shell
+solana program show ./target/deploy/your_program-keypair.json
+```
+
+查看使用默认权限部署的程序列表：
+
+```shell
+solana program show --programs
+```
+
+显示所有与权限无关的缓冲区账户：
+
+```shell
+solana program show --buffers --all
+```
+
+指定不同的权限：
+
+```shell
+solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
+solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v4
+
+查看特定程序：
+
+```shell
+solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```
+
+查看使用默认权限部署的程序列表：
+
+```shell
+solana program-v4 show --all
+```
+
+查看使用特定权限部署的程序列表：
+
+```shell
+solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+```
+
+## 下载可执行文件
+
+有时下载并比较程序以确保其包含已知的可执行文件是有用的。下载的文件可以被截断、哈希并与原始程序文件的哈希值进行比较。
+
+### Loader-v3
+
+```shell
+solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
+```
+
+### Loader-v4
+
+```shell
+solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## 高级：权限转移
+
+更改特定程序的权限归其权限所有者所有。此权限可以转移到另一个密钥对，而无需更改程序密钥对，从而使程序 ID 保持不变。此外，单个权限可以控制多个程序账户。
+
+如果在初始部署期间未明确指定权限，则默认密钥对将用作权限。这就是为什么在上述步骤中重新部署程序时不需要明确指定权限的原因。
+
+显式权限对于离线签名和多实体管理的程序非常有用。
+
+首先，必须生成一个用于权限的密钥对：
+
+```shell
+solana-keygen new -o ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v3
+
+可以在部署期间指定权限：
+
+```shell
+solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+或者在部署后使用默认密钥对作为当前权限：
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+或者在部署后指定当前权限：
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
+```
+
+### Loader-v4
+
+可以在部署期间指定权限：
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
+```
+
+或者在部署后使用默认密钥对作为当前权限：
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
+```
+
+或者在部署后指定当前权限：
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
+```
+
+## 高级：使用缓冲区的两步重新部署
+
+与直接上传到程序账户不同，可先将可执行文件上传到暂存缓冲区账户，然后在第二步中将其转移到程序账户（实际的重新部署/部署）。这对于离线签名和多实体管理的程序（如 DAO 投票选择或拒绝上传的可执行文件）非常有用。
+
+请注意，使用缓冲区账户会使上传过程所需的资金大约翻倍，因为两个账户会同时持有一个可执行文件。
+
+首先，必须为缓冲区账户创建一个密钥对：
+
+```shell
+solana-keygen new -o ~/.config/solana/buffer-keypair.json
+```
+
+缓冲区账户可以用于不同的上传，并且不绑定到任何特定的程序账户。
+
+### Loader-v3
+
+```shell
+solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+## 高级：离线签名
+
+某些安全模型要求将签名过程与交易广播分离，以便签名密钥可以完全断开与任何网络的连接，这也被称为离线签名。
+
+请注意，只有重新部署可以在离线模式下执行。初始程序部署**必须**在联网的机器上执行，只有后续的程序重新部署可以利用离线签名。
+
+一个典型的设置包括两个不同的签名者：
+
+- 在线签名者（缓冲区账户的费用支付者和权限）
+- 离线签名者（程序账户的权限）
+
+一般流程是一个包含一些额外步骤的两步重新部署：
+
+1. （在线）创建一个新程序
+2. （在线）将权限转移给离线签名者
+3. （在线）创建缓冲区并上传可执行文件到其中
+4. （可选）验证缓冲区的链上内容
+5. （离线）签署一笔交易以使用缓冲区重新部署程序 `--blockhash <VALUE> --sign-only`
+6. （在线）使用此签名广播重新部署交易 `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
+
+查找最近的 `blockhash` 并将其粘贴进去以生成离线交易签名。`blockhash` 大约在 60 秒后过期。如果未能及时完成 - 只需获取另一个新的哈希并重复，直到成功，或者考虑使用持久交易随机数。

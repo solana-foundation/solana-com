@@ -1,0 +1,137 @@
+---
+title: 扩展功能
+description:
+  了解 Token Extensions Program（Token 2022）以及如何使用其扩展功能为代币 mint
+  和账户添加可选功能。
+---
+
+## 什么是代币扩展功能？
+
+Token Extensions Program（Token
+2022）通过称为扩展的额外指令提供更多功能。扩展是您可以为代币 mint 或代币账户添加的可选功能。您可以在 Token
+Extensions Program 的
+[源代码](https://github.com/solana-program/token-2022/tree/main/program/src/extension)中找到这些扩展指令的实现。
+
+每个扩展都会添加特定的状态，通常在创建 mint 或代币账户时初始化。在初始化任一账户时，您可以同时启用特定扩展以实现不同的功能。大多数扩展在账户初始化后无法添加。这是设计代币时需要考虑的重要因素，因为您需要提前规划希望代币支持哪些功能。每个扩展的集成指南可在
+[Token Extensions 开发者文档](/developers/guides/token-extensions/getting-started)中找到。
+
+<Callout type="info">
+  某些扩展彼此不兼容，您无法在同一个代币 mint
+  或代币账户上同时启用它们。例如，您无法将
+  _rs`NonTransferable`_ 扩展与
+  _rs`TransferFeeConfig`_
+  扩展结合使用，因为它们的行为存在冲突。
+</Callout>
+
+Token Extensions Program 定义了一个
+[`ExtensionType`](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/mod.rs#L1059)
+enum，列出了您可以为代币 mint 或代币账户添加的所有可用扩展。每个变体代表一个具有独特功能的不同扩展。
+
+_rs`ExtensionType`_
+enum 定义如下：
+
+```rust title="Token Extensions"
+/// Extensions that can be applied to mints or accounts.  Mint extensions must
+/// only be applied to mint accounts, and account extensions must only be
+/// applied to token holding accounts.
+#[repr(u16)]
+#[cfg_attr(feature = "serde-traits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-traits", serde(rename_all = "camelCase"))]
+#[derive(Clone, Copy, Debug, PartialEq, TryFromPrimitive, IntoPrimitive)]
+pub enum ExtensionType {
+    /// Used as padding if the account size would otherwise be 355, same as a
+    /// multisig
+    Uninitialized,
+    /// Includes transfer fee rate info and accompanying authorities to withdraw
+    /// and set the fee
+    TransferFeeConfig,
+    /// Includes withheld transfer fees
+    TransferFeeAmount,
+    /// Includes an optional mint close authority
+    MintCloseAuthority,
+    /// Auditor configuration for confidential transfers
+    ConfidentialTransferMint,
+    /// State for confidential transfers
+    ConfidentialTransferAccount,
+    /// Specifies the default Account::state for new Accounts
+    DefaultAccountState,
+    /// Indicates that the Account owner authority cannot be changed
+    ImmutableOwner,
+    /// Require inbound transfers to have memo
+    MemoTransfer,
+    /// Indicates that the tokens from this mint can't be transferred
+    NonTransferable,
+    /// Tokens accrue interest over time,
+    InterestBearingConfig,
+    /// Locks privileged token operations from happening via CPI
+    CpiGuard,
+    /// Includes an optional permanent delegate
+    PermanentDelegate,
+    /// Indicates that the tokens in this account belong to a non-transferable
+    /// mint
+    NonTransferableAccount,
+    /// Mint requires a CPI to a program implementing the "transfer hook"
+    /// interface
+    TransferHook,
+    /// Indicates that the tokens in this account belong to a mint with a
+    /// transfer hook
+    TransferHookAccount,
+    /// Includes encrypted withheld fees and the encryption public that they are
+    /// encrypted under
+    ConfidentialTransferFeeConfig,
+    /// Includes confidential withheld transfer fees
+    ConfidentialTransferFeeAmount,
+    /// Mint contains a pointer to another account (or the same account) that
+    /// holds metadata
+    MetadataPointer,
+    /// Mint contains token-metadata
+    TokenMetadata,
+    /// Mint contains a pointer to another account (or the same account) that
+    /// holds group configurations
+    GroupPointer,
+    /// Mint contains token group configurations
+    TokenGroup,
+    /// Mint contains a pointer to another account (or the same account) that
+    /// holds group member configurations
+    GroupMemberPointer,
+    /// Mint contains token group member configurations
+    TokenGroupMember,
+    /// Mint allowing the minting and burning of confidential tokens
+    ConfidentialMintBurn,
+    /// Tokens whose UI amount is scaled by a given amount
+    ScaledUiAmount,
+    /// Tokens where minting / burning / transferring can be paused
+    Pausable,
+    /// Indicates that the account belongs to a pausable mint
+    PausableAccount,
+
+    /// Test variable-length mint extension
+    #[cfg(test)]
+    VariableLenMintTest = u16::MAX - 2,
+    /// Padding extension used to make an account exactly Multisig::LEN, used
+    /// for testing
+    #[cfg(test)]
+    AccountPaddingTest,
+    /// Padding extension used to make a mint exactly Multisig::LEN, used for
+    /// testing
+    #[cfg(test)]
+    MintPaddingTest,
+}
+```
+
+每个扩展通过向 mint 或代币账户添加额外状态来提供专门的功能。所有扩展特定的状态都存储在
+[`tlv_data`](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/mod.rs#L546)
+字段中，该字段遵循基本账户数据类型。您必须根据为该账户启用的特定扩展类型进一步反序列化 `tlv_data`（包含扩展状态）。
+
+```rust title="Token Extensions"
+/// Encapsulates immutable base state data (mint or account) with possible
+/// extensions, where the base state is Pod for zero-copy serde.
+#[derive(Debug, PartialEq)]
+pub struct PodStateWithExtensions<'data, S: BaseState + Pod> {
+    /// Unpacked base data
+    pub base: &'data S,
+    /// Slice of data containing all TLV data, deserialized on demand
+    // !mark
+    tlv_data: &'data [u8],
+}
+```

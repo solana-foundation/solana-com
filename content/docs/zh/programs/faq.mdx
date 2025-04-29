@@ -1,0 +1,140 @@
+---
+title: 常见问题
+---
+
+在 [StackExchange](https://solana.stackexchange.com/questions/ask)
+上发布您的问题。
+
+## Berkeley Packet Filter (BPF)
+
+Solana 链上程序通过 [LLVM 编译器基础架构](https://llvm.org/) 编译为包含
+[Berkeley Packet Filter (BPF)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter)
+字节码变体的
+[可执行和可链接格式 (ELF)](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)。
+
+由于 Solana 使用 LLVM 编译器基础架构，程序可以用任何能够面向 LLVM 的 BPF 后端的编程语言编写。
+
+BPF 提供了一种高效的
+[指令集](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md)，可以在解释型虚拟机中执行，也可以作为高效的即时编译本地指令执行。
+
+## 内存映射
+
+Solana SBF 程序使用的虚拟地址内存映射是固定的，其布局如下：
+
+- 程序代码从 0x100000000 开始
+- 栈数据从 0x200000000 开始
+- 堆数据从 0x300000000 开始
+- 程序输入参数从 0x400000000 开始
+
+上述虚拟地址是起始地址，但程序只能访问内存映射的一部分。如果程序尝试读取或写入未被授予访问权限的虚拟地址，将会引发程序崩溃，并返回一个包含尝试违规地址和大小的 `AccessViolation` 错误。
+
+## InvalidAccountData
+
+此程序错误可能由多种原因引起。通常是因为将程序未预期的账户传递给程序，可能是指令中的位置错误，或者是与正在执行的指令不兼容的账户。
+
+当执行跨程序指令时，如果忘记为调用的程序提供账户，程序的实现也可能导致此错误。
+
+## InvalidInstructionData
+
+在尝试反序列化指令时可能会出现此程序错误，请检查传入的结构是否与指令完全匹配。字段之间可能存在一些填充。如果程序实现了 Rust
+`Pack` 特性，那么可以尝试打包和解包指令类型 `T`，以确定程序期望的确切编码。
+
+## MissingRequiredSignature
+
+某些指令要求账户是签名者；如果某账户被期望签名但未签名，则会返回此错误。
+
+当执行需要签名的程序地址的[跨程序调用](/docs/core/cpi)时，如果传递的签名种子与用于创建程序地址的签名种子不匹配，程序的实现也可能导致此错误 `invoke_signed`
+[`create_program_address`](/docs/core/pda#createprogramaddress)。
+
+## Stack
+
+SBF 使用栈帧而不是可变栈指针。每个栈帧的大小为 4KB。
+
+如果程序违反了栈帧大小限制，编译器会将其报告为警告。
+
+例如：
+
+```text
+Error: Function _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E Stack offset of -30728 exceeded max offset of -4096 by 26632 bytes, please minimize large stack variables
+```
+
+消息会标识哪个符号超出了其栈帧，但名称可能会被混淆。
+
+> 要解混淆 Rust 符号，请使用 [rustfilt](https://github.com/luser/rustfilt)。
+
+上述警告来自一个 Rust 程序，因此解混淆后的符号名称是：
+
+```shell
+rustfilt _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E
+curve25519_dalek::edwards::EdwardsBasepointTable::create
+```
+
+报告为警告而不是错误的原因是，因为某些依赖的 crate 可能包含违反栈帧限制的功能，即使程序本身未使用这些功能。如果程序在运行时违反了栈大小限制，将会报告一个 `AccessViolation` 错误。
+
+SBF 栈帧占用的虚拟地址范围从 `0x200000000` 开始。
+
+## 堆大小
+
+程序可以通过 Rust 的 `alloc`
+API 访问运行时堆。为了加快分配速度，使用了一个简单的 32KB 增量堆。该堆不支持 `free` 或 `realloc`。
+
+在内部，程序可以访问从虚拟地址 0x300000000 开始的 32KB 内存区域，并可以根据程序的具体需求实现自定义堆。
+
+Rust 程序通过定义自定义的
+[`global_allocator`](https://github.com/solana-labs/solana/blob/d9b0fc0e3eec67dfe4a97d9298b15969b2804fab/sdk/program/src/entrypoint.rs#L72)
+来直接实现堆。
+
+## 加载器
+
+程序通过运行时加载器部署和执行，目前支持两种加载器：
+[BPF Loader](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader.rs#L17)
+和
+[BPF loader deprecated](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader_deprecated.rs#L14)。
+
+加载器可能支持不同的应用程序二进制接口，因此开发者必须为特定加载器编写程序并将其部署到相同的加载器。如果为一个加载器编写的程序被部署到另一个加载器，通常会因为程序输入参数的反序列化不匹配而导致 `AccessViolation` 错误。
+
+在实际应用中，程序应始终针对最新的 BPF 加载器编写。最新的加载器是命令行界面和 JavaScript
+API 的默认选项。
+
+- [Rust 程序入口点](/docs/programs/lang-rust#program-entrypoint)
+
+### 部署
+
+SBF 程序部署是将 BPF 共享对象上传到程序账户的数据中并将账户标记为可执行的过程。客户端将 SBF 共享对象分成较小的部分，并将它们作为指令数据通过
+[`Write`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L13)
+指令发送到加载器，加载器将这些数据写入程序账户的数据中。一旦所有部分都接收完毕，客户端会发送一个
+[`Finalize`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L30)
+指令到加载器，加载器随后验证 SBF 数据的有效性并将程序账户标记为*可执行*。一旦程序账户被标记为可执行，后续交易可以发出指令让该程序处理。
+
+当一个指令被发送到一个可执行的 SBF 程序时，加载器会配置程序的执行环境，序列化程序的输入参数，调用程序的入口点，并报告遇到的任何错误。
+
+有关更多信息，请参阅[部署程序](/docs/programs/deploying)。
+
+### 输入参数序列化
+
+SBF 加载器将程序的输入参数序列化为一个字节数组，然后将其传递给程序的入口点，程序负责在链上对其进行反序列化。弃用的加载器与当前加载器之间的一个变化是，输入参数的序列化方式使得各种参数在对齐的字节数组中落在对齐的偏移量上。这允许反序列化实现直接引用字节数组，并为程序提供对齐的指针。
+
+- [Rust 程序参数反序列化](/docs/programs/lang-rust#parameter-deserialization)
+
+最新的加载器按以下方式序列化程序输入参数（所有编码均为小端序）：
+
+- 8 字节无符号账户数量
+- 对于每个账户
+  - 1 字节指示是否为重复账户，如果不是重复账户，则值为 0xff，否则值为其重复账户的索引。
+  - 如果是重复账户：7 字节填充
+  - 如果不是重复账户：
+    - 1 字节布尔值，如果账户是签名者则为 true
+    - 1 字节布尔值，如果账户是可写的则为 true
+    - 1 字节布尔值，如果账户是可执行的则为 true
+    - 4 字节填充
+    - 32 字节账户公钥
+    - 32 字节账户所有者公钥
+    - 8 字节账户拥有的 lamports 数量
+    - 8 字节账户数据的字节数
+    - x 字节账户数据
+    - 10k 字节填充，用于重新分配
+    - 足够的填充以将偏移量对齐到 8 字节。
+    - 8 字节租赁 epoch
+- 8 字节无符号指令数据数量
+- x 字节指令数据
+- 32 字节程序 id
