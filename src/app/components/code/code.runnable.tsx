@@ -454,7 +454,7 @@ function useRunnableCode(code: string, language: string): RunnableCodeState {
       const data = await res.json();
       if (!res.ok || data.error) {
         setError(
-          `Error running code: ${data.error || data.details?.error || "Unknown error"}`,
+          `Error running code: ${JSON.stringify(data.details?.error || data.error || "Unknown error")}`,
         );
         return;
       }
