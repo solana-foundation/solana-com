@@ -1,0 +1,212 @@
+---
+title: Preguntas frecuentes
+---
+
+Publica tus preguntas en
+[StackExchange](https://solana.stackexchange.com/questions/ask).
+
+## Berkeley Packet Filter (BPF)
+
+Los programas en cadena de Solana se compilan a través de la
+[infraestructura del compilador LLVM](https://llvm.org/) a un
+[Formato Ejecutable y Enlazable (ELF)](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+que contiene una variación del
+[Berkeley Packet Filter (BPF)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter)
+en código de bytes.
+
+Debido a que Solana utiliza la infraestructura del compilador LLVM, un programa
+puede escribirse en cualquier lenguaje de programación que pueda dirigirse al
+backend BPF de LLVM.
+
+BPF proporciona un
+[conjunto de instrucciones](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md)
+eficiente que puede ejecutarse en una máquina virtual interpretada o como
+instrucciones nativas compiladas just-in-time eficientes.
+
+## Mapa de memoria
+
+El mapa de memoria de direcciones virtuales utilizado por los programas SBF de
+Solana es fijo y está dispuesto de la siguiente manera
+
+- El código del programa comienza en 0x100000000
+- Los datos de la pila comienzan en 0x200000000
+- Los datos del montón comienzan en 0x300000000
+- Los parámetros de entrada del programa comienzan en 0x400000000
+
+Las direcciones virtuales anteriores son direcciones de inicio, pero a los
+programas se les da acceso a un subconjunto del mapa de memoria. El programa
+entrará en pánico si intenta leer o escribir en una dirección virtual a la que
+no se le concedió acceso, y se devolverá un error
+`AccessViolation` que contiene la
+dirección y el tamaño de la violación intentada.
+
+## InvalidAccountData
+
+Este error del programa puede ocurrir por muchas razones. Generalmente, es
+causado por pasar una cuenta al programa que el programa no está esperando, ya
+sea en la posición incorrecta en la instrucción o una cuenta no compatible con
+la instrucción que se está ejecutando.
+
+Una implementación de un programa también podría causar este error al realizar
+una instrucción entre programas y olvidar proporcionar la cuenta para el
+programa que estás llamando.
+
+## InvalidInstructionData
+
+Este error del programa puede ocurrir al intentar deserializar la instrucción,
+verifica que la estructura pasada coincida exactamente con la instrucción. Puede
+haber algo de relleno entre campos. Si el programa implementa el trait de Rust
+`Pack` entonces intenta
+empaquetar y desempaquetar el tipo de instrucción
+`T` para determinar
+la codificación exacta que espera el programa.
+
+## MissingRequiredSignature
+
+Algunas instrucciones requieren que la cuenta sea firmante; este error se
+devuelve si se espera que una cuenta esté firmada pero no lo está.
+
+Una implementación de un programa también puede causar este error al realizar
+una [invocación entre programas](/docs/core/cpi) que requiere una dirección de
+programa firmada, pero las semillas de firmante pasadas a
+`invoke_signed` no coinciden con
+las semillas de firmante utilizadas para crear la dirección del programa
+[`create_program_address`](/docs/core/pda#createprogramaddress).
+
+## Stack
+
+SBF utiliza marcos de pila en lugar de un puntero de pila variable. Cada marco
+de pila tiene un tamaño de 4KB.
+
+Si un programa viola ese tamaño de marco de pila, el compilador informará del
+desbordamiento como una advertencia.
+
+Por ejemplo:
+
+```text
+Error: Function _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E Stack offset of -30728 exceeded max offset of -4096 by 26632 bytes, please minimize large stack variables
+```
+
+El mensaje identifica qué símbolo está excediendo su marco de pila, pero el
+nombre puede estar codificado.
+
+> Para decodificar un símbolo de Rust, usa
+> [rustfilt](https://github.com/luser/rustfilt).
+
+La advertencia anterior provino de un programa Rust, por lo que el nombre del
+símbolo decodificado es:
+
+```shell
+rustfilt _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E
+curve25519_dalek::edwards::EdwardsBasepointTable::create
+```
+
+La razón por la que se informa una advertencia en lugar de un error es porque
+algunos crates dependientes pueden incluir funcionalidades que violan las
+restricciones del marco de pila incluso si el programa no utiliza esa
+funcionalidad. Si el programa viola el tamaño de la pila en tiempo de ejecución,
+se informará un error
+`AccessViolation`.
+
+Los marcos de pila SBF ocupan un rango de direcciones virtuales que comienza en
+`0x200000000`.
+
+## Tamaño del heap
+
+Los programas tienen acceso a un heap en tiempo de ejecución a través de las
+APIs de Rust `alloc`.
+Para facilitar asignaciones rápidas, se utiliza un simple heap de incremento de
+32KB. El heap no soporta
+`free` ni
+`realloc`.
+
+Internamente, los programas tienen acceso a la región de memoria de 32KB que
+comienza en la dirección virtual 0x300000000 y pueden implementar un heap
+personalizado basado en las necesidades específicas del programa.
+
+Los programas de Rust implementan el heap directamente definiendo un
+[`global_allocator`](https://github.com/solana-labs/solana/blob/d9b0fc0e3eec67dfe4a97d9298b15969b2804fab/sdk/program/src/entrypoint.rs#L72)
+personalizado
+
+## Cargadores
+
+Los programas se despliegan y ejecutan mediante cargadores en tiempo de
+ejecución, actualmente hay dos cargadores compatibles
+[BPF Loader](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader.rs#L17)
+y
+[BPF loader deprecated](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader_deprecated.rs#L14)
+
+Los cargadores pueden soportar diferentes interfaces binarias de aplicación, por
+lo que los desarrolladores deben escribir sus programas para y desplegarlos en
+el mismo cargador. Si un programa escrito para un cargador se despliega en uno
+diferente, el resultado suele ser un error
+`AccessViolation` debido a la
+deserialización incorrecta de los parámetros de entrada del programa.
+
+Para todos los propósitos prácticos, los programas siempre deben escribirse para
+el último cargador BPF, y el cargador más reciente es el predeterminado para la
+interfaz de línea de comandos y las APIs de JavaScript.
+
+- [Puntos de entrada de programas Rust](/docs/programs/lang-rust#program-entrypoint)
+
+### Despliegue
+
+El despliegue de programas SBF es el proceso de cargar un objeto compartido BPF
+en los datos de una cuenta de programa y marcar la cuenta como ejecutable. Un
+cliente divide el objeto compartido SBF en piezas más pequeñas y las envía como
+datos de instrucción de instrucciones
+[`Write`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L13)
+al cargador, donde el cargador escribe esos datos en los datos de la cuenta del
+programa. Una vez recibidas todas las piezas, el cliente envía una instrucción
+[`Finalize`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L30)
+al cargador, el cargador entonces valida que los datos SBF son válidos y marca
+la cuenta del programa como _ejecutable_. Una vez que la cuenta del programa
+está marcada como ejecutable, las transacciones posteriores pueden emitir
+instrucciones para que ese programa las procese.
+
+Cuando una instrucción se dirige a un programa SBF ejecutable, el cargador
+configura el entorno de ejecución del programa, serializa los parámetros de
+entrada del programa, llama al punto de entrada del programa e informa cualquier
+error encontrado.
+
+Para más información, consulta
+[implementación de programas](/docs/programs/deploying).
+
+### Serialización de parámetros de entrada
+
+Los cargadores SBF serializan los parámetros de entrada del programa en un array
+de bytes que luego se pasa al punto de entrada del programa, donde el programa
+es responsable de deserializarlo en la cadena. Uno de los cambios entre el
+cargador obsoleto y el cargador actual es que los parámetros de entrada se
+serializan de manera que los diversos parámetros caen en desplazamientos
+alineados dentro del array de bytes alineado. Esto permite que las
+implementaciones de deserialización referencien directamente el array de bytes y
+proporcionen punteros alineados al programa.
+
+- [Deserialización de parámetros de programa en Rust](/docs/programs/lang-rust#parameter-deserialization)
+
+El cargador más reciente serializa los parámetros de entrada del programa de la
+siguiente manera (toda la codificación es little endian):
+
+- 8 bytes número sin signo de cuentas
+- Para cada cuenta
+  - 1 byte indicando si esta es una cuenta duplicada, si no es un duplicado
+    entonces el valor es 0xff, de lo contrario el valor es el índice de la
+    cuenta de la que es un duplicado.
+  - Si es duplicado: 7 bytes de relleno
+  - Si no es duplicado:
+    - 1 byte booleano, verdadero si la cuenta es firmante
+    - 1 byte booleano, verdadero si la cuenta es escribible
+    - 1 byte booleano, verdadero si la cuenta es ejecutable
+    - 4 bytes de relleno
+    - 32 bytes de la clave pública de la cuenta
+    - 32 bytes de la clave pública del propietario de la cuenta
+    - 8 bytes número sin signo de lamport que posee la cuenta
+    - 8 bytes número sin signo de bytes de datos de la cuenta
+    - x bytes de datos de la cuenta
+    - 10k bytes de relleno, utilizados para realloc
+    - suficiente relleno para alinear el desplazamiento a 8 bytes.
+    - 8 bytes de época de rent
+- 8 bytes de número sin signo de instruction data
+- x bytes de instruction data
+- 32 bytes del program id
