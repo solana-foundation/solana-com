@@ -1,0 +1,198 @@
+---
+title: FAQ
+---
+
+Ajukan pertanyaan Anda di
+[StackExchange](https://solana.stackexchange.com/questions/ask).
+
+## Berkeley Packet Filter (BPF)
+
+Program onchain Solana dikompilasi melalui
+[infrastruktur kompiler LLVM](https://llvm.org/) menjadi
+[Executable and Linkable Format (ELF)](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+yang berisi variasi dari
+[Berkeley Packet Filter (BPF)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter)
+bytecode.
+
+Karena Solana menggunakan infrastruktur kompiler LLVM, program dapat ditulis
+dalam bahasa pemrograman apa pun yang dapat menargetkan backend BPF dari LLVM.
+
+BPF menyediakan
+[set instruksi](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md) yang
+efisien yang dapat dijalankan dalam mesin virtual yang diinterpretasi atau
+sebagai instruksi native yang dikompilasi just-in-time secara efisien.
+
+## Peta memori
+
+Peta memori alamat virtual yang digunakan oleh program SBF Solana bersifat tetap
+dan disusun sebagai berikut
+
+- Kode program dimulai pada 0x100000000
+- Data stack dimulai pada 0x200000000
+- Data heap dimulai pada 0x300000000
+- Parameter input program dimulai pada 0x400000000
+
+Alamat virtual di atas adalah alamat awal, tetapi program diberikan akses ke
+subset dari peta memori. Program akan mengalami panic jika mencoba membaca atau
+menulis ke alamat virtual yang tidak diberikan aksesnya, dan `AccessViolation`
+error akan dikembalikan yang berisi alamat dan ukuran pelanggaran yang dicoba.
+
+## InvalidAccountData
+
+Error program ini dapat terjadi karena banyak alasan. Biasanya, ini disebabkan
+oleh pemberian akun ke program yang tidak diharapkan oleh program tersebut, baik
+dalam posisi yang salah dalam instruksi atau akun yang tidak kompatibel dengan
+instruksi yang sedang dijalankan.
+
+Implementasi program juga dapat menyebabkan error ini ketika melakukan instruksi
+lintas program dan lupa menyediakan akun untuk program yang Anda panggil.
+
+## InvalidInstructionData
+
+Error program ini dapat terjadi saat mencoba melakukan deserialisasi instruksi,
+periksa bahwa struktur yang dimasukkan cocok persis dengan instruksi. Mungkin
+ada beberapa padding di antara field. Jika program mengimplementasikan trait
+Rust `Pack` maka coba melakukan packing dan unpacking tipe instruksi `T` untuk
+menentukan encoding yang tepat yang diharapkan oleh program.
+
+## MissingRequiredSignature
+
+Beberapa instruksi mengharuskan akun menjadi penandatangan; error ini
+dikembalikan jika akun diharapkan ditandatangani tetapi tidak.
+
+Implementasi program juga dapat menyebabkan error ini ketika melakukan
+[cross-program invocation](/docs/core/cpi) yang memerlukan alamat program yang
+ditandatangani, tetapi signer seeds yang diteruskan ke `invoke_signed` tidak
+cocok dengan signer seeds yang digunakan untuk membuat alamat program
+[`create_program_address`](/docs/core/pda#createprogramaddress).
+
+## Stack
+
+SBF menggunakan stack frame alih-alih pointer stack variabel. Setiap stack frame
+berukuran 4KB.
+
+Jika program melanggar ukuran stack frame tersebut, compiler akan melaporkan
+pelanggaran sebagai peringatan.
+
+Contohnya:
+
+```text
+Error: Function _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E Stack offset of -30728 exceeded max offset of -4096 by 26632 bytes, please minimize large stack variables
+```
+
+Pesan tersebut mengidentifikasi simbol mana yang melebihi stack frame-nya,
+tetapi namanya mungkin ter-mangled.
+
+> Untuk demangle simbol Rust gunakan
+> [rustfilt](https://github.com/luser/rustfilt).
+
+Peringatan di atas berasal dari program Rust, jadi nama simbol yang di-demangle
+adalah:
+
+```shell
+rustfilt _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E
+curve25519_dalek::edwards::EdwardsBasepointTable::create
+```
+
+Alasan peringatan dilaporkan daripada error adalah karena beberapa crate
+dependensi mungkin menyertakan fungsionalitas yang melanggar batasan stack frame
+bahkan jika program tidak menggunakan fungsionalitas tersebut. Jika program
+melanggar ukuran stack saat runtime, error `AccessViolation` akan dilaporkan.
+
+Stack frame SBF menempati rentang alamat virtual yang dimulai dari
+`0x200000000`.
+
+## Ukuran heap
+
+Program memiliki akses ke runtime heap melalui API Rust `alloc`. Untuk
+memfasilitasi alokasi yang cepat, heap bump sederhana sebesar 32KB digunakan.
+Heap tidak mendukung `free` atau `realloc`.
+
+Secara internal, program memiliki akses ke region memori 32KB yang dimulai pada
+alamat virtual 0x300000000 dan dapat mengimplementasikan heap kustom berdasarkan
+kebutuhan spesifik program.
+
+Program Rust mengimplementasikan heap secara langsung dengan mendefinisikan
+[`global_allocator`](https://github.com/solana-labs/solana/blob/d9b0fc0e3eec67dfe4a97d9298b15969b2804fab/sdk/program/src/entrypoint.rs#L72)
+kustom
+
+## Loader
+
+Program di-deploy dan dieksekusi oleh runtime loader, saat ini terdapat dua
+loader yang didukung
+[BPF Loader](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader.rs#L17)
+dan
+[BPF loader deprecated](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader_deprecated.rs#L14)
+
+Loader mungkin mendukung antarmuka biner aplikasi yang berbeda sehingga
+pengembang harus menulis program mereka untuk dan men-deploy-nya ke loader yang
+sama. Jika program yang ditulis untuk satu loader di-deploy ke loader yang
+berbeda, hasilnya biasanya kesalahan `AccessViolation` karena ketidakcocokan
+deserialisasi parameter input program.
+
+Untuk semua tujuan praktis, program harus selalu ditulis untuk menargetkan BPF
+loader terbaru dan loader terbaru adalah default untuk antarmuka command-line
+dan API javascript.
+
+- [Entrypoint program Rust](/docs/programs/lang-rust#program-entrypoint)
+
+### Deployment
+
+Deployment program SBF adalah proses mengunggah objek bersama BPF ke dalam data
+akun program dan menandai akun sebagai executable. Klien memecah objek bersama
+SBF menjadi bagian-bagian yang lebih kecil dan mengirimkannya sebagai data
+instruksi dari instruksi
+[`Write`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L13)
+ke loader di mana loader menulis data tersebut ke dalam data akun program.
+Setelah semua bagian diterima, klien mengirimkan instruksi
+[`Finalize`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L30)
+ke loader, loader kemudian memvalidasi bahwa data SBF valid dan menandai akun
+program sebagai _executable_. Setelah akun program ditandai executable,
+transaksi selanjutnya dapat mengeluarkan instruksi untuk program tersebut untuk
+diproses.
+
+Ketika sebuah instruksi diarahkan ke program SBF yang dapat dieksekusi, loader
+mengkonfigurasi lingkungan eksekusi program, menserialkan parameter input
+program, memanggil entrypoint program, dan melaporkan kesalahan yang ditemui.
+
+Untuk informasi lebih lanjut, lihat
+[men-deploy program](/docs/programs/deploying).
+
+### Serialisasi Parameter Input
+
+Loader SBF menserialkan parameter input program menjadi array byte yang kemudian
+diteruskan ke entrypoint program, di mana program bertanggung jawab untuk
+mendeserialkannya on-chain. Salah satu perubahan antara loader lama yang tidak
+digunakan lagi dan loader saat ini adalah parameter input diserialkan dengan
+cara yang menghasilkan berbagai parameter jatuh pada offset yang selaras dalam
+array byte yang selaras. Ini memungkinkan implementasi deserialisasi untuk
+mereferensikan langsung array byte dan menyediakan pointer yang selaras ke
+program.
+
+- [Deserialisasi parameter program Rust](/docs/programs/lang-rust#parameter-deserialization)
+
+Loader terbaru menserialkan parameter input program sebagai berikut (semua
+pengkodean adalah little endian):
+
+- 8 byte angka unsigned jumlah akun
+- Untuk setiap akun
+  - 1 byte menunjukkan apakah ini adalah akun duplikat, jika bukan duplikat maka
+    nilainya adalah 0xff, jika tidak nilainya adalah indeks akun yang
+    diduplikasi.
+  - Jika duplikat: 7 byte padding
+  - Jika bukan duplikat:
+    - 1 byte boolean, true jika akun adalah penandatangan
+    - 1 byte boolean, true jika akun dapat ditulis
+    - 1 byte boolean, true jika akun dapat dieksekusi
+    - 4 byte padding
+    - 32 byte kunci publik akun
+    - 32 byte kunci publik pemilik akun
+    - 8 byte angka unsigned jumlah lamport yang dimiliki oleh akun
+    - 8 byte angka unsigned jumlah byte data akun
+    - x byte data akun
+    - 10k byte padding, digunakan untuk realloc
+    - padding yang cukup untuk menyelaraskan offset ke 8 byte.
+    - 8 byte epoch sewa
+- 8 byte angka unsigned jumlah instruction data
+- x byte instruction data
+- 32 byte program id
