@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   //   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   // }
 
-  var { code, language } = await req.json();
+  var { code, language, testCode } = await req.json();
 
   const { mirrorUrl, wsMirrorUrl } = await getMirrorInstance();
   code = code.replace(/clusterApiUrl\([^)]*\)/g, `"${mirrorUrl}"`);
@@ -31,6 +31,11 @@ export async function POST(req: Request) {
     wsMirrorUrl,
   );
 
+  const programId = parseProgramId(code);
+  if (testCode && programId) {
+    language = "anchorTest";
+  }
+
   let url: string;
   switch (language) {
     case "rust":
@@ -45,9 +50,14 @@ export async function POST(req: Request) {
     case "ts":
       url = "https://api.mirror.ad/code-exec/typescript";
       break;
+    case "anchorTest":
+      url = "https://api.mirror.ad/code-exec/programs/anchor/test";
+      break;
     default:
       return NextResponse.json({ error: "Invalid language" }, { status: 400 });
   }
+
+  console.log(url);
 
   const mirrorApiKey = process.env.MIRROR_API_KEY;
   if (!mirrorApiKey) {
@@ -61,6 +71,9 @@ export async function POST(req: Request) {
     },
     body: JSON.stringify({
       code,
+      test_code: testCode || undefined,
+      program_id: programId || undefined,
+      blockchain_id: parseMirrorId(mirrorUrl),
     }),
   });
 
@@ -75,4 +88,20 @@ export async function POST(req: Request) {
   const codeRun = await response.json();
 
   return NextResponse.json(codeRun, { status: 200 });
+}
+
+function parseProgramId(code: string) {
+  const programIdRegex = /declare_id!\("([^"]+)"\)/;
+  const match = code.match(programIdRegex);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return null;
+}
+
+function parseMirrorId(url: string) {
+  const uuidRegex = /\/rpc\/([a-f0-9\-]{36})/;
+  const match = url.match(uuidRegex);
+  const mirrorId = match ? match[1] : undefined;
+  return mirrorId;
 }

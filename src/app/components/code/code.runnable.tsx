@@ -436,7 +436,11 @@ type RunnableCodeState = {
   handleRun: () => void;
 };
 
-function useRunnableCode(code: string, language: string): RunnableCodeState {
+function useRunnableCode(
+  code: string,
+  language: string,
+  testCode?: string,
+): RunnableCodeState {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<CodeRun | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -448,7 +452,7 @@ function useRunnableCode(code: string, language: string): RunnableCodeState {
     try {
       const res = await fetch("/docs/api", {
         method: "POST",
-        body: JSON.stringify({ code, language }),
+        body: JSON.stringify({ code, language, testCode }),
       });
 
       const data = await res.json();
@@ -542,14 +546,16 @@ export function RunnableLayout({
   children,
   code,
   language,
+  testCode,
   className,
 }: {
   children: React.ReactNode;
   code: string;
   language: string;
+  testCode?: string;
   className?: string;
 }) {
-  const state = useRunnableCode(code, language);
+  const state = useRunnableCode(code, language, testCode);
 
   return (
     <>

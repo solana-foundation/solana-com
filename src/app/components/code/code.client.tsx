@@ -80,6 +80,7 @@ export function MultiCode({
   return runnable ? (
     <RunnableLayout
       code={current.code}
+      testCode={group.options.testCode}
       language={current.lang}
       key={current.title}
       className={"my-4"}
