@@ -1,0 +1,670 @@
+---
+title: تأليف برامج متعددة
+description:
+  تعلم كيفية تنفيذ استدعاءات البرامج المتقاطعة (CPIs) في برامج Solana باستخدام
+  إطار عمل Anchor. يوضح هذا البرنامج التعليمي كيفية تحويل SOL بين الحسابات،
+  والتفاعل مع برنامج النظام، والتعامل مع عناوين البرامج المشتقة (PDAs) في CPIs.
+  مثالي للمطورين الذين يتطلعون إلى بناء برامج Solana قابلة للتركيب.
+h1: استدعاء البرامج المتقاطع
+---
+
+في هذا القسم، يتم تحديث برنامج CRUD من قسم PDA السابق من خلال إضافة استدعاءات
+البرامج المتقاطعة (CPIs)، وهي ميزة تمكّن برامج Solana من استدعاء بعضها البعض.
+
+يوضح هذا البرنامج التعليمي أيضًا كيف يمكن للبرامج "التوقيع" لعناوين البرامج
+المشتقة (PDAs) عند إجراء استدعاءات البرامج المتقاطعة.
+
+تعليمات `update` و `delete` تحتاج إلى تعديل للتعامل مع تحويلات SOL بين الحسابات
+من خلال استدعاء برنامج النظام.
+
+يتضمن الغرض من هذا القسم شرح عملية تنفيذ CPIs في برنامج Solana باستخدام إطار عمل
+Anchor، بالاعتماد على مفاهيم PDA التي تم استكشافها في القسم السابق. لمزيد من
+التفاصيل، راجع صفحة [استدعاء البرامج المتقاطع](/docs/core/cpi).
+
+للمرجع، يتضمن هذا الرابط
+[الكود النهائي](https://beta.solpg.io/668304cfcffcf4b13384d20a) بعد إكمال قسمي
+PDA و CPI.
+
+[الكود الأولي](https://beta.solpg.io/679d75eecffcf4b13384d604) لهذا القسم يتضمن
+فقط قسم PDA مكتملاً.
+
+<Steps>
+<Step>
+
+### تحديث تعليمة التحديث
+
+أولاً، يحتاج البرنامج إلى آلية "الدفع للتحديث" البسيطة من خلال تغيير بنية
+_rs`Update`_ ووظيفة `update`.
+
+ابدأ بتحديث ملف `lib.rs` لإدخال العناصر من وحدة `system_program`.
+
+```rs title="lib.rs"
+use anchor_lang::system_program::{transfer, Transfer};
+```
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+  use anchor_lang::prelude::*;
++ use anchor_lang::system_program::{transfer, Transfer};
+```
+
+</Accordion>
+</Accordions>
+
+بعد ذلك، قم بتحديث بنية _rs`Update`_ لتشمل حسابًا جديدًا يسمى `vault_account`.
+هذا الحساب، الذي يتحكم فيه البرنامج، يتلقى SOL من المستخدم عندما يقومون بتحديث
+حساب الرسالة الخاص بهم.
+
+```rs title="lib.rs"
+#[account(
+    mut,
+    seeds = [b"vault", user.key().as_ref()],
+    bump,
+)]
+pub vault_account: SystemAccount<'info>,
+```
+
+<Accordions>
+<Accordion title="المقارنة">
+
+```diff
+#[derive(Accounts)]
+#[instruction(message: String)]
+pub struct Update<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
++   #[account(
++       mut,
++       seeds = [b"vault", user.key().as_ref()],
++       bump,
++   )]
++   pub vault_account: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"message", user.key().as_ref()],
+        bump = message_account.bump,
+        realloc = 8 + 32 + 4 + message.len() + 1,
+        realloc::payer = user,
+        realloc::zero = true,
+    )]
+    pub message_account: Account<'info, MessageAccount>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+</Accordion>
+<Accordion title="الشرح">
+
+يضيف هذا القسم حسابًا جديدًا يسمى `vault_account` إلى بنية _rs`Update`_. يعمل
+هذا الحساب كـ "خزنة" يتحكم بها البرنامج وتستقبل عملات SOL من المستخدمين عندما
+يقومون بتحديث رسائلهم.
+
+باستخدام PDA للخزنة، ينشئ البرنامج حسابًا يتحكم به البرنامج وفريدًا لكل مستخدم،
+مما يتيح إدارة الأموال ضمن منطق البرنامج.
+
+---
+
+الجوانب الرئيسية لـ `vault_account`:
+
+- عنوان الحساب يأتي من PDA مشتق باستخدام بذور (seeds)
+  _rs`[b"vault", user.key().as_ref()]`_
+- كونه PDA، فليس له مفتاح خاص، لذلك يمكن للبرنامج فقط "التوقيع" للعنوان عند
+  إجراء CPIs
+- كنوع _rs`SystemAccount`_، يمتلكه System Program مثل حسابات المحفظة العادية
+
+يتيح هذا الإعداد للبرنامج:
+
+- إنشاء عناوين فريدة ومحددة لكل "خزنة" خاصة بالمستخدم
+- التحكم في الأموال دون الحاجة إلى مفتاح خاص للتوقيع على المعاملات.
+
+في تعليمة `delete`، سترى كيف يمكن للبرنامج "التوقيع" لهذا الـ PDA في CPI.
+
+</Accordion>
+</Accordions>
+
+بعد ذلك، أضف منطق CPI في تعليمة `update` لتحويل 0.001 SOL من حساب المستخدم إلى
+حساب الخزنة.
+
+<WithNotes>
+
+```rs title="lib.rs"
+// !tooltip[/transfer_accounts/] transfer_accounts
+let transfer_accounts = Transfer {
+    from: ctx.accounts.user.to_account_info(),
+    to: ctx.accounts.vault_account.to_account_info(),
+};
+
+// !tooltip[/cpi_context/] cpi_context
+let cpi_context = CpiContext::new(
+    ctx.accounts.system_program.to_account_info(),
+    transfer_accounts,
+);
+
+// !tooltip[/transfer/] transfer
+transfer(cpi_context, 1_000_000)?;
+```
+
+### !transfer_accounts
+
+تحدد بنية _rs`Transfer`_ الحسابات المطلوبة لتعليمة التحويل الخاصة بـ System
+Program.
+
+### !cpi_context
+
+تحدد بنية _rs`CpiContext`_ البرنامج والحسابات لـ Cross Program Invocation (CPI).
+
+### !transfer
+
+تستدعي وظيفة _rs`transfer()`_ تعليمة التحويل الخاصة بـ System Program.
+
+</WithNotes>
+
+<Accordions>
+<Accordion title="المقارنة">
+
+```diff
+    pub fn update(ctx: Context<Update>, message: String) -> Result<()> {
+        msg!("Update Message: {}", message);
+        let account_data = &mut ctx.accounts.message_account;
+        account_data.message = message;
+
++       let transfer_accounts = Transfer {
++           from: ctx.accounts.user.to_account_info(),
++           to: ctx.accounts.vault_account.to_account_info(),
++       };
++       let cpi_context = CpiContext::new(
++           ctx.accounts.system_program.to_account_info(),
++           transfer_accounts,
++       );
++       transfer(cpi_context, 1_000_000)?;
+        Ok(())
+    }
+```
+
+</Accordion>
+<Accordion title="شرح">
+
+في تعليمة `update`، يتضمن التنفيذ استدعاء عبر البرامج (Cross Program Invocation)
+لاستدعاء تعليمة `transfer` الخاصة ببرنامج النظام. هذا يوضح كيفية إجراء CPI من
+داخل البرنامج، مما يمكّن من تركيب برامج Solana.
+
+بنية _rs`Transfer`_ تحدد الحسابات المطلوبة لتعليمة التحويل الخاصة ببرنامج
+النظام:
+
+- `from` - حساب المستخدم (مصدر الأموال)
+- `to` - حساب الخزنة (وجهة الأموال)
+
+  ```rs title="lib.rs"
+  let transfer_accounts = Transfer {
+      from: ctx.accounts.user.to_account_info(),
+      to: ctx.accounts.vault_account.to_account_info(),
+  };
+  ```
+
+_rs`CpiContext`_ تحدد:
+
+- البرنامج المراد استدعاؤه (برنامج النظام)
+- الحسابات المطلوبة في CPI (المحددة في بنية \_rs`Transfer`)
+
+  ```rs title="lib.rs"
+  let cpi_context = CpiContext::new(
+      ctx.accounts.system_program.to_account_info(),
+      transfer_accounts,
+  );
+  ```
+
+ثم تقوم الدالة `transfer` باستدعاء تعليمة التحويل على برنامج النظام، مع تمرير:
+
+- `cpi_context` (البرنامج والحسابات)
+- `amount` للتحويل (1,000,000 lamport، أو 0.001 SOL)
+
+  ```rs title="lib.rs"
+  transfer(cpi_context, 1_000_000)?;
+  ```
+
+<Callout>
+
+إعداد CPI يتطابق مع كيفية بناء التعليمات من جانب العميل، حيث تحدد البرنامج
+والحسابات وبيانات التعليمات لتعليمة معينة لاستدعائها. عندما تتلقى تعليمة
+`update` الخاصة بالبرنامج استدعاءً، فإنها تستدعي داخليًا تعليمة التحويل الخاصة
+ببرنامج النظام.
+
+</Callout>
+
+</Accordion>
+</Accordions>
+
+أعد بناء البرنامج.
+
+```terminal
+$ build
+```
+
+</Step>
+<Step>
+
+### تحديث تعليمة الحذف
+
+الآن أضف آلية "استرداد عند الحذف" عن طريق تغيير بنية _rs`Delete`_ ودالة
+`delete`.
+
+أولاً، قم بتحديث بنية _rs`Delete`_ لتشمل `vault_account`. هذا يسمح بتحويل أي SOL
+في الخزنة مرة أخرى إلى المستخدم عندما يقومون بإغلاق حساب الرسالة الخاص بهم.
+
+```rs title="lib.rs"
+#[account(
+    mut,
+    seeds = [b"vault", user.key().as_ref()],
+    bump,
+)]
+pub vault_account: SystemAccount<'info>,
+```
+
+أضف أيضًا `system_program` لأن CPI للتحويل يتطلب استدعاء برنامج النظام.
+
+```rs title="lib.rs"
+pub system_program: Program<'info, System>,
+```
+
+<Accordions>
+<Accordion title="الفرق">
+
+```diff
+#[derive(Accounts)]
+pub struct Delete<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
++   #[account(
++       mut,
++       seeds = [b"vault", user.key().as_ref()],
++       bump,
++   )]
++   pub vault_account: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"message", user.key().as_ref()],
+        bump = message_account.bump,
+        close= user,
+    )]
+    pub message_account: Account<'info, MessageAccount>,
++   pub system_program: Program<'info, System>,
+}
+```
+
+</Accordion>
+<Accordion title="شرح">
+
+يستخدم `vault_account` نفس اشتقاق PDA كما في بنية Update.
+
+إضافة `vault_account` إلى بنية Delete يمكّن البرنامج من الوصول إلى حساب خزنة
+المستخدم أثناء تعليمة الحذف لتحويل أي رصيد SOL متراكم مرة أخرى إلى المستخدم.
+
+</Accordion>
+</Accordions>
+
+<WithNotes>
+
+بعد ذلك، أضف منطق CPI في تعليمة `delete` لتحويل SOL من حساب الخزنة مرة أخرى إلى
+حساب المستخدم.
+
+```rs title="lib.rs"
+let user_key = ctx.accounts.user.key();
+// !tooltip[/signer_seeds/] signer_seeds
+let signer_seeds: &[&[&[u8]]] =
+    &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+
+let transfer_accounts = Transfer {
+    from: ctx.accounts.vault_account.to_account_info(),
+    to: ctx.accounts.user.to_account_info(),
+};
+let cpi_context = CpiContext::new(
+    ctx.accounts.system_program.to_account_info(),
+    transfer_accounts,
+// !tooltip[/with_signer/] with_signer
+).with_signer(signer_seeds);
+transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+```
+
+### !signer_seeds
+
+تحدد _rs`signer_seeds`_ البذور الاختيارية وبذور الزيادة المستخدمة لاشتقاق عنوان
+PDA.
+
+### !with_signer
+
+تمرر طريقة _rs---INLINE-CODE-PLACEHOLDER-b9f9315bbb0a9818---_ بذور الموقّع مع
+CPI.
+
+هذا يسمح للبرنامج بـ "التوقيع" لعنوان PDA المشتق من معرّف البرنامج الخاص به.
+
+أثناء معالجة التعليمات، يتحقق وقت التشغيل من أن بذور الموقّع المقدمة تشتق بشكل
+صحيح إلى عنوان PDA. إذا تم التحقق، يعامل وقت التشغيل حساب PDA هذا كموقّع طوال
+مدة الـ CPI.
+
+</WithNotes>
+
+لاحظ أن _rs`_ctx: Context<Delete>`_ تتغير إلى _rs`ctx: Context<Delete>`_
+لاستخدام السياق في جسم الدالة.
+
+<Accordions>
+<Accordion title="الاختلافات">
+
+```diff
+-    pub fn delete(_ctx: Context<Delete>) -> Result<()> {
++    pub fn delete(ctx: Context<Delete>) -> Result<()> {
+         msg!("Delete Message");
+
++        let user_key = ctx.accounts.user.key();
++        let signer_seeds: &[&[&[u8]]] =
++            &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
++
++        let transfer_accounts = Transfer {
++            from: ctx.accounts.vault_account.to_account_info(),
++            to: ctx.accounts.user.to_account_info(),
++        };
++        let cpi_context = CpiContext::new(
++            ctx.accounts.system_program.to_account_info(),
++            transfer_accounts,
++        ).with_signer(signer_seeds);
++        transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+         Ok(())
+     }
+
+```
+
+</Accordion>
+<Accordion title="شرح">
+
+في تعليمة الحذف، يقوم استدعاء برنامج عبر البرامج آخر (CPI) بتنفيذ تعليمة التحويل
+الخاصة بالنظام. يوضح هذا الـ CPI كيفية إجراء تحويل يتطلب موقّع عنوان مشتق من
+البرنامج (PDA).
+
+أولاً، حدد بذور الموقّع لـ PDA الخزنة:
+
+```rs title="lib.rs"
+let user_key = ctx.accounts.user.key();
+let signer_seeds: &[&[&[u8]]] =
+    &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+```
+
+تحدد _rs---INLINE-CODE-PLACEHOLDER-28a1083da76182b0459e02a5fcc9dfd---_ بذور
+الموقّع لعنوان PDA الخزنة:
+
+```rs title="lib.rs"
+let transfer_accounts = Transfer {
+    from: ctx.accounts.vault_account.to_account_info(),
+    to: ctx.accounts.user.to_account_info(),
+};
+```
+
+```rs title="lib.rs"
+let transfer_accounts = Transfer {
+    from: ctx.accounts.vault_account.to_account_info(),
+    to: ctx.accounts.user.to_account_info(),
+};
+```
+
+يحدد _rs`CpiContext`_:
+
+- البرنامج المراد استدعاؤه (برنامج النظام)
+- الحسابات المشاركة في التحويل (المحددة في بنية Transfer)
+- بذور التوقيع للعنوان المشتق من البرنامج (PDA)
+
+  ```rs title="lib.rs"
+  let cpi_context = CpiContext::new(
+      ctx.accounts.system_program.to_account_info(),
+      transfer_accounts,
+  ).with_signer(signer_seeds);
+  ```
+
+تقوم وظيفة _rs`transfer()`_ بعد ذلك باستدعاء تعليمات التحويل على برنامج النظام،
+وتمرير:
+
+- الـ `cpi_context` (البرنامج، الحسابات، وموقع PDA)
+- المبلغ المراد تحويله (الرصيد الكامل لحساب الخزنة)
+
+  ```rs title="lib.rs"
+  transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+  ```
+
+يوضح تنفيذ CPI هذا كيف يمكن للبرامج استخدام العناوين المشتقة من البرنامج (PDAs)
+لإدارة الأموال. عندما تتلقى تعليمات الحذف في البرنامج استدعاءً، فإنها تستدعي
+داخليًا تعليمات التحويل الخاصة ببرنامج النظام، وتوقع للـ PDA للسماح بتحويل جميع
+الأموال من الخزنة مرة أخرى إلى المستخدم.
+
+</Accordion>
+</Accordions>
+
+أعد بناء البرنامج.
+
+```terminal
+$ build
+```
+
+</Step>
+<Step>
+
+### إعادة نشر البرنامج
+
+بعد إجراء هذه التغييرات، أعد نشر البرنامج المحدث. هذا يضمن أن البرنامج المعدل
+يصبح متاحًا للاختبار. على Solana، تحديث البرنامج يتطلب ببساطة نشر البرنامج بنفس
+معرف البرنامج.
+
+<Callout>
+
+تأكد من أن محفظة Playground الخاصة بك تحتوي على devnet SOL. احصل على devnet SOL
+من [Solana Faucet](https://faucet.solana.com/).
+
+</Callout>
+
+```terminal
+$ deploy
+Deploying... This could take a while depending on the program size and network conditions.
+Deployment successful. Completed in 17s.
+```
+
+<Accordions>
+<Accordion title="شرح">
+
+فقط سلطة الترقية للبرنامج يمكنها تحديثه. يقوم المطور بتعيين سلطة الترقية أثناء
+نشر البرنامج، وتظل الحساب الوحيد الذي لديه إذن لتغيير أو إغلاق البرنامج. إذا قام
+شخص ما بإلغاء سلطة الترقية، فإن البرنامج يصبح غير قابل للتعديل.
+
+عند نشر البرامج على Solana Playground، تعمل محفظة Playground الخاصة بك كسلطة
+ترقية لجميع برامجك.
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+### تحديث ملف الاختبار
+
+بعد ذلك، قم بتحديث ملف `anchor.test.ts` ليشمل حساب الخزنة الجديد في التعليمات.
+هذا يتطلب اشتقاق عنوان PDA للخزنة وتضمينه في استدعاءات تعليمات التحديث والحذف.
+
+#### اشتقاق PDA للخزنة
+
+أولاً، أضف اشتقاق PDA للخزنة:
+
+```ts title="anchor.test.ts"
+const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
+  [Buffer.from("vault"), wallet.publicKey.toBuffer()],
+  program.programId
+);
+```
+
+<Accordions>
+<Accordion title="الفرق">
+
+```diff
+describe("pda", () => {
+  const program = pg.program;
+  const wallet = pg.wallet;
+
+  const [messagePda, messageBump] = PublicKey.findProgramAddressSync(
+    [Buffer.from("message"), wallet.publicKey.toBuffer()],
+    program.programId
+  );
+
++  const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
++    [Buffer.from("vault"), wallet.publicKey.toBuffer()],
++    program.programId
++  );
+
+  // ...tests
+  });
+```
+
+</Accordion>
+</Accordions>
+
+#### تغيير اختبار التحديث
+
+<WithMentions>
+
+ثم، قم بتحديث تعليمة التحديث لتشمل [`vaultAccount`](mention:one)
+
+```ts title="anchor.test.ts"  {5}
+const transactionSignature = await program.methods
+  .update(message)
+  .accounts({
+    messageAccount: messagePda,
+    // !mention one
+    vaultAccount: vaultPda
+  })
+  .rpc({ commitment: "confirmed" });
+```
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="الفرق">
+
+```diff
+    const transactionSignature = await program.methods
+      .update(message)
+      .accounts({
+        messageAccount: messagePda,
++       vaultAccount: vaultPda,
+      })
+      .rpc({ commitment: "confirmed" });
+```
+
+</Accordion>
+</Accordions>
+
+#### تغيير اختبار الحذف
+
+<WithMentions>
+
+ثم، قم بتحديث تعليمة الحذف لتشمل [`vaultAccount`](mention:one)
+
+```ts title="anchor.test.ts"  {5}
+const transactionSignature = await program.methods
+  .delete()
+  .accounts({
+    messageAccount: messagePda,
+    // !mention one
+    vaultAccount: vaultPda
+  })
+  .rpc({ commitment: "confirmed" });
+```
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="الفرق">
+
+```diff
+    const transactionSignature = await program.methods
+      .delete()
+      .accounts({
+        messageAccount: messagePda,
++       vaultAccount: vaultPda,
+      })
+      .rpc({ commitment: "confirmed" });
+```
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+### إعادة تشغيل الاختبار
+
+بعد إجراء هذه التغييرات، قم بتشغيل الاختبارات للتأكد من أن كل شيء يعمل كما هو
+متوقع:
+
+```terminal
+$ test
+Running tests...
+  anchor.test.ts:
+  pda
+    {
+  "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+  "message": "Hello, World!",
+  "bump": 254
+}
+    Transaction Signature: https://solana.fm/tx/qGsYb87mUUjeyh7Ha7r9VXkACw32HxVBujo2NUxqHiUc8qxRMFB7kdH2D4JyYtPBx171ddS91VyVrFXypgYaKUr?cluster=devnet-solana
+    ✔ Create Message Account (842ms)
+    {
+  "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+  "message": "Hello, Solana!",
+  "bump": 254
+}
+    Transaction Signature: https://solana.fm/tx/3KCDnNSfDDfmSy8kpiSrJsGGkzgxx2mt18KejuV2vmJjeyenkSoEfs2ghUQ6cMoYYgd9Qax9CbnYRcvF2zzumNt8?cluster=devnet-solana
+    ✔ Update Message Account (946ms)
+    Expect Null: null
+    Transaction Signature: https://solana.fm/tx/3M7Z7Mea3TtQc6m9z386B9QuEgvLKxD999mt2RyVtJ26FgaAzV1QA5mxox3eXie3bpBkNpDQ4mEANr3trVHCWMC2?cluster=devnet-solana
+    ✔ Delete Message Account (859ms)
+  3 passing (3s)
+```
+
+يمكنك بعد ذلك فحص روابط SolanaFM لعرض تفاصيل المعاملة، حيث ستجد استدعاءات
+البرامج المتقاطعة (CPIs) لتعليمات التحويل ضمن تعليمات التحديث والحذف.
+
+![استدعاء برنامج متقاطع للتحديث](/assets/docs/intro/quickstart/cpi-update.png)
+
+![استدعاء برنامج متقاطع للحذف](/assets/docs/intro/quickstart/cpi-delete.png)
+
+إذا واجهت أي أخطاء، يمكنك الرجوع إلى
+[الكود النهائي](https://beta.solpg.io/668304cfcffcf4b13384d20a).
+
+</Step>
+</Steps>
+
+## الخطوات التالية
+
+تهانينا على إكمال دليل البدء السريع لسولانا. لقد اكتسبت خبرة عملية في مفاهيم
+سولانا الرئيسية بما في ذلك:
+
+- جلب وقراءة البيانات من الحسابات
+- بناء وإرسال المعاملات
+- نشر وتحديث برامج سولانا
+- العمل مع عناوين مشتقة من البرامج (PDAs)
+- إجراء استدعاءات البرامج المتقاطعة (CPIs)
+
+لتعميق فهمك لهذه المفاهيم، راجع وثائق [المفاهيم الأساسية](/docs/core/accounts)
+التي توفر شروحات مفصلة للموضوعات التي تم تناولها في هذا الدليل.
+
+### استكشاف المزيد من الأمثلة
+
+إذا كنت تفضل التعلم من خلال الأمثلة، فراجع
+[مستودع أمثلة البرامج](https://github.com/solana-developers/program-examples)
+للاطلاع على مجموعة متنوعة من البرامج التوضيحية.
+
+يوفر Solana Playground ميزة مريحة تتيح لك استيراد أو عرض المشاريع باستخدام روابط
+GitHub الخاصة بها. على سبيل المثال، افتح
+[رابط Solana Playground هذا](https://beta.solpg.io/https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor)
+لعرض مشروع Anchor من
+[مستودع Github هذا](https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor).
+
+انقر على زر `Import` وأدخل اسم المشروع لإضافته إلى قائمة مشاريعك في Solana
+Playground. بمجرد استيراد المشروع، يتم حفظ جميع التغييرات وحفظها تلقائيًا.

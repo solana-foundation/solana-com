@@ -1,0 +1,314 @@
+---
+title: Lukeminen verkosta
+description:
+  Opi lukemaan dataa Solana-lohkoketjuverkosta. Tämä opas kattaa lompakkotilien,
+  ohjelmatilien ja token mint -tilien hakemisen JavaScript/TypeScript-kielellä,
+  sisältäen käytännön esimerkkejä Solana web3.js -kirjaston käytöstä.
+---
+
+Tässä osiossa tutkitaan, miten Solana-verkosta luetaan dataa hakemalla erilaisia
+tilejä Solana-tilin rakenteen ymmärtämiseksi.
+
+Solanassa kaikki data on olemassa "tileissä". Voit ajatella Solanan dataa
+julkisena tietokantana, jossa on yksi "Tilit"-taulu, jossa jokainen merkintä on
+tili samalla perus
+[Tili-tyypillä](https://github.com/anza-xyz/agave/blob/v2.1.11/sdk/account/src/lib.rs#L48-L60).
+
+![Tilit](/assets/docs/core/accounts/accounts.png)
+
+Solana-tilit voivat tallentaa "tilaa" tai "suoritettavia" ohjelmia. Jokaisella
+tilillä on "osoite" (julkinen avain), joka toimii sen yksilöllisenä tunnuksena
+lohkoketjussa olevan datan paikantamiseen.
+
+Solana-tilit sisältävät joko:
+
+- **Tila**: Dataa, jota on tarkoitus lukea ja säilyttää. Esimerkiksi tietoa
+  tokeneista, käyttäjädataa tai muuta ohjelmassa määriteltyä dataa.
+- **Suoritettavat ohjelmat**: Tilejä, jotka sisältävät Solana-ohjelmien
+  varsinaisen koodin. Nämä tilit tallentavat ohjeita, joita käyttäjät voivat
+  kutsua.
+
+Tämä ohjelmakoodin ja ohjelman tilan erottaminen on keskeinen ominaisuus Solanan
+Tilimallissa. Lisätietoja löydät [Solana-tilimalli](/docs/core/accounts)
+-sivulta.
+
+<Steps>
+<Step>
+
+## Hae lompakkotili
+
+Tämä esimerkki näyttää, miten:
+
+1. Luodaan uusi keypair (julkisen ja yksityisen avaimen pari).
+2. Pyydetään SOL-airdrop uuden osoitteen rahoittamiseksi.
+3. Haetaan tilitiedot rahoitetusta osoitteesta.
+
+Solanassa uuden osoitteen rahoittaminen SOL:lla luo automaattisesti tilin, jonka
+omistaa System Program. Kaikki "lompakko"-tilit ovat yksinkertaisesti System
+Programin omistamia tilejä, jotka sisältävät SOL:ia ja voivat allekirjoittaa
+transaktioita.
+
+<CodeTabs flags="r">
+
+```ts !! title="Fetch Account"
+import { Keypair, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+// !mark
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Funding an address with SOL automatically creates an account
+const signature = await connection.requestAirdrop(
+  keypair.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+// !mark
+const accountInfo = await connection.getAccountInfo(keypair.publicKey);
+console.log(JSON.stringify(accountInfo, null, 2));
+```
+
+</CodeTabs>
+
+<Accordions>
+<Accordion title="Selitys">
+
+Kaikki Solanan tilit jakavat saman
+[Account-tyypin](https://github.com/anza-xyz/agave/blob/v2.1.11/sdk/account/src/lib.rs#L48-L60).
+
+"Lompakko" Solanassa on tili, jonka omistaa
+[System Program](https://github.com/anza-xyz/agave/tree/v2.1.11/programs/system),
+joka on yksi Solanan sisäänrakennetuista ohjelmista. Lompakkotilejä käytetään
+pääasiassa SOL:n säilyttämiseen (seurataan `lamports` -kentässä) ja
+transaktioiden allekirjoittamiseen.
+
+Kun haet lompakkotilin tiedot, vastaus sisältää nämä kentät:
+
+| Kenttä       | Kuvaus                                                                                                                |
+| ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `data`       | Tilin datapuskuri. Lompakkotileillä tämä on tyhjä (0 tavua). Muut tilit käyttävät tätä kenttää datan tallentamiseen.  |
+| `executable` | Ilmaisee, sisältääkö tili suoritettavaa ohjelmakodia. Lompakko- ja tilatileillä tämä on `false`.                      |
+| `owner`      | Ohjelma, joka omistaa tilin. Lompakoilla tämä on aina System Program, osoitteella `11111111111111111111111111111111`. |
+| `lamports`   | Tilin SOL-saldo lamporteissa (1 SOL = 1 000 000 000 lamportia).                                                       |
+| `rentEpoch`  | Vanha kenttä, joka liittyy Solanan vanhentuneeseen rent-mekanismiin (ei nykyisin käytössä).                           |
+| `space`      | `data`-kentän koko tavuina (huomaa: tämä ei ole kenttä itse _rs`Account`_ -tyypissä).                                 |
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+## Token Program -ohjelman hakeminen
+
+Tämä esimerkki hakee Token Program -ohjelman havainnollistaakseen eroa lompakko-
+ja ohjelmatilien välillä.
+
+<CodeTabs flags="r">
+
+```ts !! title="Fetch Program Account"
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+// !mark(1:2)
+const address = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const accountInfo = await connection.getAccountInfo(address);
+
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+</CodeTabs>
+
+<Accordions>
+<Accordion title="Selitys">
+
+Token Program on suoritettava ohjelmatili Solanassa. Kuten lompakkotileillä,
+ohjelmilla on sama pohjalla oleva
+[Account](https://github.com/anza-xyz/agave/blob/v2.1.11/sdk/account/src/lib.rs#L48-L60)
+-tietorakenne, mutta keskeisin eroin kentissä:
+
+| Kenttä       | Kuvaus                                                                                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `executable` | Asetettu arvoon `true`, mikä osoittaa, että tämä tili sisältää suoritettavaa ohjelmakodia.                                                                                         |
+| `data`       | Ohjelmatileillä tämä kenttä sisältää ohjelman suoritettavan koodin. Lompakkotileillä tämä datakenttä on tyhjä.                                                                     |
+| `owner`      | Tilin omistaa Loader-ohjelma, joka on sisäänrakennettujen ohjelmien kategoria, joka omistaa suoritettavia ohjelmatileja Solanassa. (`BPFLoader2111111111111111111111111111111111`) |
+
+Ohjelmatili tallentaa käännetyn tavukoodin Token Program -ohjelman
+[lähdekoodille](https://github.com/solana-program/token/tree/main/program). Voit
+tarkastella tätä ohjelmatiliä
+[Solana Explorerissa](https://explorer.solana.com/address/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA).
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+## Hae Mint-tili
+
+Tämä esimerkki hakee USD Coin (USDC) Mint-tilin osoittaakseen, miten ohjelmat
+Solanassa tallentavat tilan erillisiin tileihin.
+
+[Mint](https://github.com/solana-program/token/blob/program%40v8.0.0/program/src/state.rs#L16-L30)-tili
+on Token Program -ohjelman omistama tili. Se tallentaa globaalit metatiedot
+tietylle tokenille, mukaan lukien kokonaistarjonnan, desimaalien määrän ja
+tilit, joilla on valtuudet luoda tai jäädyttää tokeneita. Mint-tilin osoite
+yksilöi tokenin Solana-verkossa.
+
+<CodeTabs flags="r">
+
+```ts !! title="Fetch Program Account"
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+
+// !mark(1:2)
+const address = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const accountInfo = await connection.getAccountInfo(address);
+
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+</CodeTabs>
+
+<Accordions>
+<Accordion title="Selitys">
+
+Nämä ovat tärkeimmät huomioitavat seikat Mint-tilin tiedoista:
+
+| Kenttä       | Kuvaus                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `executable` | Tämä kenttä on `false`, koska mint-tili tallentaa tilaa, ei suoritettavaa koodia.                            |
+| `data`       | Tämä kenttä sisältää sarjallistetun tilin tilan, kuten mint-valtuudet, kokonaistarjonnan, desimaalien määrän |
+| `owner`      | Token program (`TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`) omistaa mint-tilin.                            |
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+## Pura Mint-tilin sarjallistus
+
+Solana-tilin `data`-kenttä sisältää raakoja tavuja. Jotta tätä dataa voidaan
+tulkita merkityksellisesti, se täytyy purkaa sarjallistuksesta tilin omistavan
+ohjelman määrittelemään asianmukaiseen tietotyyppiin.
+
+Useimmat Solana-ohjelmat tarjoavat asiakaskirjastoja, joissa on apufunktioita,
+jotka abstrahoivat sarjallistuksen purkuprosessin. Nämä funktiot muuntavat tilin
+raakatavut jäsennellyiksi tietotyypeiksi, mikä helpottaa tilin tietojen
+käsittelyä.
+
+<WithMentions>
+
+Esimerkiksi _shell`@solana/spl-token`_ sisältää [_ts`getMint()`_](mention:one)
+-funktion, joka auttaa purkamaan Mint-tilin `data` -kentän
+[Mint](https://github.com/solana-program/token/blob/program%40v8.0.0/program/src/state.rs#L16-L30)
+-datatyyppiin.
+
+<CodeTabs flags="r">
+
+```ts !! title="Deserialize Mint Account Data"
+import { PublicKey, Connection } from "@solana/web3.js";
+import { getMint } from "@solana/spl-token";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+
+const address = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+// !mention one
+const mintData = await getMint(connection, address, "confirmed");
+
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    mintData,
+    (key, value) => {
+      // Convert BigInt to String
+      if (typeof value === "bigint") {
+        return value.toString();
+      }
+      // Handle Buffer objects
+      if (Buffer.isBuffer(value)) {
+        return `<Buffer ${value.toString("hex")}>`;
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+</CodeTabs>
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="Selitys">
+
+_ts`getMint()`_ -funktio purkaa tilin `data` -kentän
+[Mint](https://github.com/solana-program/token/blob/program%40v8.0.0/program/src/state.rs#L16-L30)
+-datatyyppiin, jonka Token Program on määritellyt.
+
+| Kenttä            | Kuvaus                                                               |
+| ----------------- | -------------------------------------------------------------------- |
+| `address`         | Mint-tilin osoite                                                    |
+| `mintAuthority`   | Valtuutettu taho, joka voi luoda uusia tokeneita                     |
+| `supply`          | Tokenien kokonaistarjonta                                            |
+| `decimals`        | Tokenin desimaalipaikkojen määrä                                     |
+| `isInitialized`   | Ilmaisee, onko Mint-tili alustettu                                   |
+| `freezeAuthority` | Valtuutettu taho, joka voi jäädyttää token-tilejä                    |
+| `tlvData`         | Lisätietoja Token Extensions -laajennuksille (vaatii lisäpurkamista) |
+
+Voit tarkastella täysin purettua
+[Mint Account](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v?cluster=mainnet-beta)
+-dataa Solana Explorerissa.
+
+</Accordion>
+</Accordions>
+
+</Step>
+</Steps>

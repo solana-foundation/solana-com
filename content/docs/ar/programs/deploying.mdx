@@ -1,0 +1,454 @@
+---
+title: نشر البرامج
+description:
+  تحميل البرامج المخصصة إلى بلوكتشين سولانا باستخدام واجهة سطر أوامر سولانا.
+---
+
+يفترض هذا الدليل المعرفة بالمواضيع التالية:
+
+- [نموذج حساب سولانا](/core/accounts)
+- [برامج سولانا بشكل عام](/core/programs)
+- [تطوير برامج سولانا المخصصة](/programs/rust/)
+
+## Loader-v3 و Loader-v4
+
+هناك حالياً انتقال جارٍ من loader-v3 (أمر program الفرعي) إلى loader-v4 (أمر
+program **-v4** الفرعي) حيث يتم إيقاف استخدام loader-v3.
+
+للنشر الجديد، يرجى استخدام `solana program-v4 deploy` بدلاً من
+`solana program deploy`.
+
+لترحيل برنامج موجود (وهو في الأساس إعادة نشره):
+
+```shell
+solana program migrate ./target/deploy/your_program-keypair.json
+```
+
+## التحضير
+
+أولاً، يجب بناء البرنامج (تجميعه، ربطه، تجريده).
+
+```shell
+cargo +solana build --target sbpf-solana-solana --release
+```
+
+يجب تنفيذ هذه الخطوة قبل كل عملية نشر أو إعادة نشر.
+
+تحقق من توفر أموال كافية في حساب الدافع الافتراضي بما يتناسب مع حجم الملف
+التنفيذي:
+
+```shell
+du -h ./target/deploy/your_program.so
+solana balance
+```
+
+بالإضافة إلى ذلك، لكل برنامج حساب برنامج ومعرّف برنامج، وهو عنوان حساب البرنامج
+ذلك. يقوم ما يلي بإنشاء زوج مفاتيح لحساب البرنامج:
+
+```shell
+solana-keygen new -o ./target/deploy/your_program-keypair.json
+```
+
+يجب تنفيذ هذا مرة واحدة فقط لكل برنامج وسيتم إعادة استخدامه لعمليات إعادة النشر
+اللاحقة لنفس البرنامج.
+
+تضمنت مجموعة الأدوات اختصاراً، ولكن يتم التخلص منه تدريجياً / إيقاف استخدامه:
+
+```shell
+cargo-build-sbf
+```
+
+## النشر الأولي
+
+الآن يمكن تحميل الملف التنفيذي إلى حساب البرنامج:
+
+### Loader-v3
+
+يسمى المعامل `program-id` على الرغم من أنه يتوقع مسار ملف زوج المفاتيح:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+```
+
+## إعادة النشر
+
+تحميل ملف تنفيذي مختلف إلى نفس حساب البرنامج مرة أخرى سيؤدي إلى الكتابة فوقه /
+استبداله. ومع ذلك، لإعادة النشر، يلزم فقط معرّف البرنامج (pubkey لزوج مفاتيح
+البرنامج)، وليس زوج المفاتيح بالكامل، لأن الموقّع هو زوج مفاتيح سلطة الترقية
+بدلاً من ذلك.
+
+### Loader-v3
+
+هذا مطابق تمامًا للنشر الأولي:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+إذا كان الملف التنفيذي القديم أقصر من الجديد، قد يكون من الضروري توسيع حساب
+بيانات البرنامج أولاً:
+
+```shell
+solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+```
+
+### Loader-v4
+
+لاحظ أن النشر الأولي استخدم `program-keypair`، بينما إعادة النشر تستخدم
+`program-id` بدلاً من ذلك:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## إعطاء الأولوية للتحميل
+
+خلال أوقات الازدحام، هناك بعض الخيارات الإضافية التي يمكنك استخدامها للمساعدة في
+نشر البرنامج:
+
+- `--with-compute-unit-price`: تعيين سعر وحدة الحوسبة للمعاملة، بزيادات قدرها
+  0.000001 لامبورت (ميكرو-لامبورت) لكل وحدة حوسبة. استخدم
+  [واجهة برمجة تطبيقات الرسوم ذات الأولوية من Helius](https://docs.helius.dev/guides/priority-fee-api)
+  للحصول على تقدير للرسوم ذات الأولوية المراد تعيينها.
+- `--use-rpc`: إرسال معاملات الكتابة إلى RPC المكوّن بدلاً من وحدات معالجة
+  المعاملات (TPUs) للمدقق. يتطلب هذا الخيار اتصال RPC
+  [مرجح بالحصة](/developers/guides/advanced/stake-weighted-qos) مثل
+  [Helius](https://www.helius.dev/) أو [Triton](https://triton.one/). يمكن أيضًا
+  تكوين هذا الخيار ليكون افتراضيًا باستخدام:
+  `solana config set --url <RPC_URL>`.
+- `--max-sign-attempts`: الحد الأقصى لعدد محاولات توقيع أو إعادة توقيع المعاملات
+  بعد انتهاء صلاحية blockhash. إذا كانت أي معاملات مرسلة أثناء نشر البرنامج لا
+  تزال غير مؤكدة بعد انتهاء صلاحية blockhash الأخير المختار، سيتم إعادة توقيع
+  تلك المعاملات باستخدام blockhash حديث جديد وإعادة إرسالها. استخدم هذا الإعداد
+  لضبط الحد الأقصى لعدد تكرارات توقيع المعاملة. كل blockhash صالح لمدة 60 ثانية
+  تقريبًا، مما يعني أن استخدام القيمة الافتراضية 5 سيؤدي إلى إرسال المعاملات
+  لمدة 5 دقائق على الأقل أو حتى يتم تأكيد جميع المعاملات، أيهما يأتي أولاً.
+
+## استئناف عملية الرفع
+
+من الممكن أن تتوقف عملية الرفع أو يتم إلغاؤها.
+
+### Loader-v3
+
+إذا فشل نشر البرنامج، سيكون هناك حساب مؤقت للتخزين المؤقت معلق يحتوي على رصيد
+غير صفري. لاسترداد هذا الرصيد، يمكنك استئناف عملية النشر الفاشلة من خلال توفير
+نفس المخزن المؤقت المتوسط لاستدعاء جديد لـ `deploy`.
+
+ستعرض حالات فشل النشر رسالة خطأ تحدد عبارة البذرة "seed" اللازمة لاستعادة زوج
+المفاتيح "keypair" الخاص بالمخزن المؤقت المتوسط الذي تم إنشاؤه:
+
+```
+==================================================================================
+Recover the intermediate account's ephemeral keypair file with
+`solana-keygen recover` and the following 12-word seed phrase:
+==================================================================================
+valley flat great hockey share token excess clever benefit traffic avocado athlete
+==================================================================================
+To resume a deploy, pass the recovered keypair as
+the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
+Or to recover the account's lamports, pass it as the
+[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
+==================================================================================
+```
+
+لاستعادة زوج المفاتيح "keypair":
+
+```shell
+solana-keygen recover -o ./target/deploy/buffer-keypair.json
+```
+
+عندما يُطلب منك، أدخل عبارة البذرة "seed" المكونة من 12 كلمة.
+
+ثم أصدر أمر `deploy` جديد وحدد المخزن المؤقت:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+```
+
+### Loader-v4
+
+من الممكن استئناف عملية الرفع من موضع بايت محدد:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```
+
+## الإنهاء
+
+هذا إجراء **لا رجعة فيه**.
+
+يمكن جعل البرنامج غير قابل للتعديل من خلال إزالة سلطة الترقية الخاصة به.
+
+### Loader-v3
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```
+
+### Loader-v4
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```
+
+بدلاً من استبدال البرامج، من الممكن أيضًا توفير خيار للمستخدمين لاختيار الإصدار
+الذي يريدون استخدامه من البرنامج من خلال إنشاء قائمة مرتبطة من البرامج النهائية:
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
+```
+
+## الإغلاق
+
+بالنسبة للبرامج المنشورة تحت loader-v3، يمكن استرداد حساب بيانات البرنامج فقط،
+وحسابات المخزن المؤقت والأموال المقفلة فيها. أما حساب البرنامج مع معرف البرنامج
+والأموال المقفلة في حساب البرنامج تحديدًا فتبقى عالقة.
+
+يمكن إغلاق البرامج المنشورة تحت loader-v4 مع حساب البرنامج الخاص بها، ويصبح
+معرّف البرنامج والأموال المقفلة متاحة للاستخدامات الأخرى مرة أخرى.
+
+### Loader-v3
+
+هذا إجراء **لا رجعة فيه** للبرامج المنشورة باستخدام loader-v3.
+
+لاحظ أنه بمجرد إغلاق البرنامج، لا يمكن إعادة استخدام معرّف البرنامج. محاولة نشر
+برنامج بمعرّف برنامج تم إغلاقه مسبقًا ستؤدي إلى خطأ. إذا كنت بحاجة إلى إعادة نشر
+برنامج بعد إغلاقه، يجب عليك إنشاء ملف keypair جديد للبرنامج.
+
+لإغلاق حساب programdata واحد:
+
+```shell
+solana program close ./target/deploy/your_program-keypair.json
+```
+
+لإغلاق جميع حسابات المخزن المؤقت المرتبطة بالسلطة الحالية:
+
+```shell
+solana program close --buffers
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
+```
+
+## فحص البيانات الوصفية
+
+الأمر الفرعي `show` يعرض البيانات الوصفية للبرنامج.
+
+مثال على المخرجات يبدو كالتالي:
+
+```shell
+Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
+Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
+Last Deployed In Slot: 63890568
+Data Length: 5216 (0x1460) bytes
+```
+
+- `Program Id` هو العنوان الذي يمكن الإشارة إليه في حقل `program_id` الخاص
+  بالتعليمات عند استدعاء برنامج.
+- `Owner`: المحمّل الذي تم نشر هذا البرنامج به.
+- `ProgramData Address` هو حساب programdata المرتبط بحساب البرنامج الذي يحتوي
+  على البرنامج القابل للتنفيذ (loader-v3 فقط).
+- `Status`: `retracted` أو `deployed` أو `finalized` (loader-v4 فقط).
+- `Authority` هي سلطة ترقية البرنامج.
+- `Last Deployed In Slot` هو الـ slot الذي تم فيه نشر البرنامج آخر مرة.
+- `Data Length` هو حجم المساحة المحجوزة للنشر. قد تكون المساحة الفعلية المستخدمة
+  من قبل البرنامج المنشور حاليًا أقل.
+
+### Loader-v3
+
+لعرض برنامج محدد:
+
+```shell
+solana program show ./target/deploy/your_program-keypair.json
+```
+
+لعرض قائمة البرامج المنشورة بالسلطة الافتراضية:
+
+```shell
+solana program show --programs
+```
+
+لعرض جميع حسابات المخزن المؤقت بغض النظر عن السلطة:
+
+```shell
+solana program show --buffers --all
+```
+
+لتحديد سلطة مختلفة:
+
+```shell
+solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
+solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v4
+
+لعرض برنامج محدد:
+
+```shell
+solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```
+
+لعرض قائمة البرامج المنشورة بالسلطة الافتراضية:
+
+```shell
+solana program-v4 show --all
+```
+
+لعرض قائمة البرامج المنشورة بسلطة محددة:
+
+```shell
+solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+```
+
+## تنزيل الملف التنفيذي
+
+أحيانًا يكون من المفيد تنزيل برنامج ومقارنته للتأكد من أنه يحتوي على ملف تنفيذي
+معروف. يمكن اقتطاع الملف الذي تم تنزيله وحساب قيمة التجزئة له ومقارنتها مع قيمة
+تجزئة ملف البرنامج الأصلي.
+
+### Loader-v3
+
+```shell
+solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
+```
+
+### Loader-v4
+
+```shell
+solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## متقدم: نقل السلطة
+
+حق تغيير برنامج معين يكمن في سلطته. يمكن نقل هذه السلطة إلى زوج مفاتيح آخر دون
+تغيير زوج مفاتيح البرنامج، بحيث يظل معرف البرنامج كما هو. علاوة على ذلك، يمكن
+لسلطة واحدة التحكم في حسابات برامج متعددة.
+
+إذا لم يتم تحديدها صراحة أثناء النشر الأولي، فسيتم استخدام زوج المفاتيح
+الافتراضي كسلطة. هذا هو السبب في أن إعادة نشر برنامج في الخطوات المذكورة أعلاه
+لم تتطلب تحديد سلطة بشكل صريح.
+
+السلطة الصريحة مفيدة للتوقيع دون اتصال بالإنترنت والبرامج التي تحكمها كيانات
+متعددة.
+
+أولاً، يجب إنشاء زوج مفاتيح للسلطة:
+
+```shell
+solana-keygen new -o ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v3
+
+يمكن تحديد السلطة أثناء النشر:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+أو بعد النشر واستخدام زوج المفاتيح الافتراضي كسلطة حالية:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+أو بعد النشر وتحديد السلطة الحالية:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
+```
+
+### Loader-v4
+
+يمكن تحديد السلطة أثناء النشر:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
+```
+
+أو بعد النشر واستخدام زوج المفاتيح الافتراضي كسلطة حالية:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
+```
+
+أو بعد النشر وتحديد السلطة الحالية:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
+```
+
+## متقدم: إعادة النشر على خطوتين باستخدام مخزن مؤقت
+
+بدلاً من التحميل مباشرة إلى حساب البرنامج، يمكن تحميل الملف القابل للتنفيذ إلى
+حساب مخزن مؤقت أولاً ثم نقله إلى حساب البرنامج في خطوة ثانية (إعادة النشر/النشر
+الفعلي). هذا مفيد للتوقيع دون اتصال بالإنترنت والبرامج التي تحكمها كيانات متعددة
+مثل تصويت DAO لاختيار أو رفض ملف قابل للتنفيذ تم تحميله قبل إعادة النشر الفعلية.
+
+ضع في اعتبارك أن استخدام حسابات المخزن المؤقت يضاعف تقريبًا الأموال المطلوبة
+أثناء عملية التحميل لأن حسابين يحتفظان بملف قابل للتنفيذ واحد لكل منهما، في وقت
+واحد.
+
+أولاً، يجب إنشاء زوج مفاتيح لحساب المخزن المؤقت:
+
+```shell
+solana-keygen new -o ~/.config/solana/buffer-keypair.json
+```
+
+يمكن إعادة استخدام حساب المخزن المؤقت لعمليات تحميل مختلفة وهو غير مرتبط بأي
+حساب برنامج محدد.
+
+### Loader-v3
+
+```shell
+solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+## متقدم: التوقيع دون اتصال بالإنترنت
+
+تتطلب بعض نماذج الأمان فصل عملية التوقيع عن بث المعاملة، بحيث يمكن فصل مفاتيح
+التوقيع تمامًا عن أي شبكة، وهو ما يُعرف أيضًا باسم التوقيع دون اتصال بالإنترنت.
+
+لاحظ أنه يمكن تنفيذ عمليات إعادة النشر فقط في وضع عدم الاتصال. يجب تنفيذ النشر
+الأولي للبرنامج **إلزاميًا** من جهاز متصل بالإنترنت، ويمكن فقط لعمليات إعادة نشر
+البرنامج اللاحقة الاستفادة من التوقيع دون اتصال.
+
+عادةً ما يتكون الإعداد النموذجي من موقِّعين مختلفين:
+
+- موقِّع متصل بالإنترنت (دافع الرسوم وصاحب السلطة على حساب المخزن المؤقت)
+- موقِّع غير متصل بالإنترنت (صاحب السلطة على حساب البرنامج)
+
+العملية العامة هي إعادة نشر من خطوتين مع بعض الإضافات:
+
+1. (متصل بالإنترنت) إنشاء برنامج جديد
+2. (متصل بالإنترنت) نقل الصلاحية إلى الموقّع غير المتصل
+3. (متصل بالإنترنت) إنشاء مخزن مؤقت وتحميل ملف قابل للتنفيذ إليه
+4. (اختياري) التحقق من محتويات المخزن المؤقت على السلسلة
+5. (غير متصل بالإنترنت) توقيع معاملة لإعادة نشر البرنامج باستخدام المخزن المؤقت
+   `--blockhash <VALUE> --sign-only`
+6. (متصل بالإنترنت) استخدام هذا التوقيع لبث معاملة إعادة النشر
+   `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
+
+ابحث عن `blockhash` حديث والصقه لإنشاء توقيع المعاملة غير المتصلة. تنتهي صلاحية
+`blockhash` بعد حوالي 60 ثانية. إذا لم تتمكن من إتمام العملية في الوقت المحدد -
+فقط احصل على تجزئة جديدة وكرر حتى تنجح، أو فكر في استخدام رموز المعاملات
+الدائمة.

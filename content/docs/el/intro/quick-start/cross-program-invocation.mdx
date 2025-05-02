@@ -1,0 +1,698 @@
+---
+title: Σύνθεση πολλαπλών προγραμμάτων
+description:
+  Μάθετε πώς να υλοποιήσετε Cross Program Invocations (CPIs) σε προγράμματα
+  Solana χρησιμοποιώντας το πλαίσιο Anchor. Αυτό το tutorial δείχνει πώς να
+  μεταφέρετε SOL μεταξύ λογαριασμών, να αλληλεπιδράσετε με το System Program και
+  να χειριστείτε Program Derived Addresses (PDAs) σε CPIs. Ιδανικό για
+  προγραμματιστές που θέλουν να δημιουργήσουν συνθέσιμα προγράμματα Solana.
+h1: Cross Program Invocation
+---
+
+Σε αυτήν την ενότητα, το πρόγραμμα CRUD από την προηγούμενη ενότητα PDA
+ενημερώνεται με την προσθήκη Cross Program Invocations (CPIs), ένα
+χαρακτηριστικό που επιτρέπει στα προγράμματα Solana να καλούν το ένα το άλλο.
+
+Αυτό το tutorial δείχνει επίσης πώς τα προγράμματα μπορούν να "υπογράφουν" για
+Program Derived Addresses (PDAs) όταν κάνουν Cross Program Invocations.
+
+Οι εντολές `update` και `delete` χρειάζονται τροποποίηση για να χειριστούν
+μεταφορές SOL μεταξύ λογαριασμών καλώντας το System Program.
+
+Ο σκοπός αυτής της ενότητας περιλαμβάνει την καθοδήγηση στη διαδικασία
+υλοποίησης CPIs σε ένα πρόγραμμα Solana χρησιμοποιώντας το πλαίσιο Anchor,
+βασιζόμενοι στις έννοιες PDA που εξερευνήθηκαν στην προηγούμενη ενότητα. Για
+περισσότερες λεπτομέρειες, ανατρέξτε στη σελίδα
+[Cross Program Invocation](/docs/core/cpi).
+
+Για αναφορά, αυτός ο σύνδεσμος περιλαμβάνει τον
+[τελικό κώδικα](https://beta.solpg.io/668304cfcffcf4b13384d20a) μετά την
+ολοκλήρωση τόσο των ενοτήτων PDA όσο και CPI.
+
+Ο [αρχικός κώδικας](https://beta.solpg.io/679d75eecffcf4b13384d604) για αυτήν
+την ενότητα περιλαμβάνει μόνο την ολοκληρωμένη ενότητα PDA.
+
+<Steps>
+<Step>
+
+### Ενημέρωση της εντολής Update
+
+Πρώτα, το πρόγραμμα χρειάζεται έναν απλό μηχανισμό "πληρωμής για ενημέρωση"
+αλλάζοντας τη δομή _rs`Update`_ και τη συνάρτηση `update`.
+
+Ξεκινήστε ενημερώνοντας το αρχείο `lib.rs` για να εισάγετε στο πεδίο εφαρμογής
+στοιχεία από τη μονάδα `system_program`.
+
+```rs title="lib.rs"
+use anchor_lang::system_program::{transfer, Transfer};
+```
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+  use anchor_lang::prelude::*;
++ use anchor_lang::system_program::{transfer, Transfer};
+```
+
+</Accordion>
+</Accordions>
+
+Στη συνέχεια, ενημερώστε τη δομή _rs`Update`_ για να συμπεριλάβει έναν νέο
+λογαριασμό που ονομάζεται `vault_account`. Αυτός ο λογαριασμός, που ελέγχεται
+από το πρόγραμμα, λαμβάνει SOL από έναν χρήστη όταν ενημερώνει τον λογαριασμό
+μηνυμάτων του.
+
+```rs title="lib.rs"
+#[account(
+    mut,
+    seeds = [b"vault", user.key().as_ref()],
+    bump,
+)]
+pub vault_account: SystemAccount<'info>,
+```
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+#[derive(Accounts)]
+#[instruction(message: String)]
+pub struct Update<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
++   #[account(
++       mut,
++       seeds = [b"vault", user.key().as_ref()],
++       bump,
++   )]
++   pub vault_account: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"message", user.key().as_ref()],
+        bump = message_account.bump,
+        realloc = 8 + 32 + 4 + message.len() + 1,
+        realloc::payer = user,
+        realloc::zero = true,
+    )]
+    pub message_account: Account<'info, MessageAccount>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+</Accordion>
+<Accordion title="Explanation">
+
+Αυτή η ενότητα προσθέτει έναν νέο λογαριασμό με όνομα `vault_account` στη δομή
+_rs`Update`_. Αυτός ο λογαριασμός λειτουργεί ως ένα "θησαυροφυλάκιο" ελεγχόμενο
+από το πρόγραμμα που λαμβάνει SOL από τους χρήστες όταν ενημερώνουν τα μηνύματά
+τους.
+
+Χρησιμοποιώντας ένα PDA για το θησαυροφυλάκιο, το πρόγραμμα δημιουργεί έναν
+λογαριασμό ελεγχόμενο από το πρόγραμμα που είναι μοναδικός για κάθε χρήστη,
+επιτρέποντας τη διαχείριση κεφαλαίων μέσα στη λογική του προγράμματος.
+
+---
+
+Βασικά χαρακτηριστικά του `vault_account`:
+
+- Η διεύθυνση του λογαριασμού προέρχεται από ένα PDA που παράγεται
+  χρησιμοποιώντας seeds _rs`[b"vault", user.key().as_ref()]`_
+- Ως PDA, δεν έχει ιδιωτικό κλειδί, οπότε μόνο το πρόγραμμα μπορεί να
+  "υπογράψει" για τη διεύθυνση κατά την εκτέλεση CPIs
+- Ως τύπος _rs`SystemAccount`_, το System Program τον κατέχει όπως τους
+  κανονικούς λογαριασμούς πορτοφολιού
+
+Αυτή η ρύθμιση επιτρέπει στο πρόγραμμα να:
+
+- Δημιουργεί μοναδικές, ντετερμινιστικές διευθύνσεις για το "θησαυροφυλάκιο"
+  κάθε χρήστη
+- Ελέγχει τα κεφάλαια χωρίς να χρειάζεται ιδιωτικό κλειδί για την υπογραφή
+  συναλλαγών.
+
+Στην εντολή `delete`, θα δείτε πώς το πρόγραμμα μπορεί να "υπογράψει" για αυτό
+το PDA σε ένα CPI.
+
+</Accordion>
+</Accordions>
+
+Στη συνέχεια, προσθέστε τη λογική CPI στην εντολή `update` για να μεταφέρετε
+0.001 SOL από τον λογαριασμό του χρήστη στον λογαριασμό του θησαυροφυλακίου.
+
+<WithNotes>
+
+```rs title="lib.rs"
+// !tooltip[/transfer_accounts/] transfer_accounts
+let transfer_accounts = Transfer {
+    from: ctx.accounts.user.to_account_info(),
+    to: ctx.accounts.vault_account.to_account_info(),
+};
+
+// !tooltip[/cpi_context/] cpi_context
+let cpi_context = CpiContext::new(
+    ctx.accounts.system_program.to_account_info(),
+    transfer_accounts,
+);
+
+// !tooltip[/transfer/] transfer
+transfer(cpi_context, 1_000_000)?;
+```
+
+### !transfer_accounts
+
+Η δομή _rs`Transfer`_ καθορίζει τους απαιτούμενους λογαριασμούς για την εντολή
+μεταφοράς του System Program.
+
+### !cpi_context
+
+Η δομή _rs`CpiContext`_ καθορίζει το πρόγραμμα και τους λογαριασμούς για μια
+Cross Program Invocation (CPI).
+
+### !transfer
+
+Η συνάρτηση _rs`transfer()`_ καλεί την εντολή μεταφοράς του System Program.
+
+</WithNotes>
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+    pub fn update(ctx: Context<Update>, message: String) -> Result<()> {
+        msg!("Update Message: {}", message);
+        let account_data = &mut ctx.accounts.message_account;
+        account_data.message = message;
+
++       let transfer_accounts = Transfer {
++           from: ctx.accounts.user.to_account_info(),
++           to: ctx.accounts.vault_account.to_account_info(),
++       };
++       let cpi_context = CpiContext::new(
++           ctx.accounts.system_program.to_account_info(),
++           transfer_accounts,
++       );
++       transfer(cpi_context, 1_000_000)?;
+        Ok(())
+    }
+```
+
+</Accordion>
+<Accordion title="Επεξήγηση">
+
+Στην εντολή `update`, η υλοποίηση περιλαμβάνει μια Cross Program Invocation
+(CPI) για να καλέσει την εντολή `transfer` του System Program. Αυτό δείχνει πώς
+να εκτελέσετε ένα CPI μέσα από το πρόγραμμα, επιτρέποντας τη συνθεσιμότητα των
+προγραμμάτων Solana.
+
+Η δομή _rs`Transfer`_ καθορίζει τους απαιτούμενους λογαριασμούς για την εντολή
+μεταφοράς του System Program:
+
+- `from` - Ο λογαριασμός του χρήστη (πηγή κεφαλαίων)
+- `to` - Ο λογαριασμός θησαυροφυλακίου (προορισμός κεφαλαίων)
+
+  ```rs title="lib.rs"
+  let transfer_accounts = Transfer {
+      from: ctx.accounts.user.to_account_info(),
+      to: ctx.accounts.vault_account.to_account_info(),
+  };
+  ```
+
+Το _rs`CpiContext`_ καθορίζει:
+
+- Το πρόγραμμα που θα κληθεί (System Program)
+- Τους λογαριασμούς που απαιτούνται στο CPI (ορίζονται στη δομή \_rs`Transfer`)
+
+  ```rs title="lib.rs"
+  let cpi_context = CpiContext::new(
+      ctx.accounts.system_program.to_account_info(),
+      transfer_accounts,
+  );
+  ```
+
+Η συνάρτηση `transfer` στη συνέχεια καλεί την εντολή μεταφοράς στο System
+Program, περνώντας:
+
+- Το `cpi_context` (πρόγραμμα και λογαριασμοί)
+- Το ποσό `amount` για μεταφορά (1.000.000 lamports, ή 0,001 SOL)
+
+  ```rs title="lib.rs"
+  transfer(cpi_context, 1_000_000)?;
+  ```
+
+<Callout>
+
+Η ρύθμιση για ένα CPI ταιριάζει με τον τρόπο που δημιουργούνται οι εντολές από
+την πλευρά του πελάτη, όπου καθορίζετε το πρόγραμμα, τους λογαριασμούς και τα
+δεδομένα εντολής για μια συγκεκριμένη εντολή που θα κληθεί. Όταν η εντολή
+`update` του προγράμματος λαμβάνει μια κλήση, εσωτερικά καλεί την εντολή
+μεταφοράς του System Program.
+
+</Callout>
+
+</Accordion>
+</Accordions>
+
+Επαναδημιουργήστε το πρόγραμμα.
+
+```terminal
+$ build
+```
+
+</Step>
+<Step>
+
+### Ενημέρωση της εντολής διαγραφής
+
+Τώρα προσθέστε έναν μηχανισμό "επιστροφής χρημάτων κατά τη διαγραφή" αλλάζοντας
+τη δομή _rs`Delete`_ και τη συνάρτηση `delete`.
+
+Πρώτα, ενημερώστε τη δομή _rs`Delete`_ για να συμπεριλάβει το `vault_account`.
+Αυτό επιτρέπει τη μεταφορά οποιουδήποτε SOL στο θησαυροφυλάκιο πίσω στον χρήστη
+όταν κλείνουν τον λογαριασμό μηνυμάτων τους.
+
+```rs title="lib.rs"
+#[account(
+    mut,
+    seeds = [b"vault", user.key().as_ref()],
+    bump,
+)]
+pub vault_account: SystemAccount<'info>,
+```
+
+Επίσης προσθέστε το `system_program` καθώς το CPI για τη μεταφορά απαιτεί την
+κλήση του System Program.
+
+```rs title="lib.rs"
+pub system_program: Program<'info, System>,
+```
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+#[derive(Accounts)]
+pub struct Delete<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
++   #[account(
++       mut,
++       seeds = [b"vault", user.key().as_ref()],
++       bump,
++   )]
++   pub vault_account: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"message", user.key().as_ref()],
+        bump = message_account.bump,
+        close= user,
+    )]
+    pub message_account: Account<'info, MessageAccount>,
++   pub system_program: Program<'info, System>,
+}
+```
+
+</Accordion>
+<Accordion title="Επεξήγηση">
+
+Το `vault_account` χρησιμοποιεί την ίδια παραγωγή PDA όπως στη δομή Update.
+
+Η προσθήκη του `vault_account` στη δομή Delete επιτρέπει στο πρόγραμμα να έχει
+πρόσβαση στον λογαριασμό θησαυροφυλακίου του χρήστη κατά τη διάρκεια της εντολής
+διαγραφής για να μεταφέρει τυχόν συσσωρευμένο SOL πίσω στον χρήστη.
+
+</Accordion>
+</Accordions>
+
+<WithNotes>
+
+Στη συνέχεια, προσθέστε τη λογική CPI στην εντολή `delete` για να μεταφέρετε SOL
+από τον λογαριασμό θησαυροφυλακίου πίσω στον λογαριασμό του χρήστη.
+
+```rs title="lib.rs"
+let user_key = ctx.accounts.user.key();
+// !tooltip[/signer_seeds/] signer_seeds
+let signer_seeds: &[&[&[u8]]] =
+    &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+
+let transfer_accounts = Transfer {
+    from: ctx.accounts.vault_account.to_account_info(),
+    to: ctx.accounts.user.to_account_info(),
+};
+let cpi_context = CpiContext::new(
+    ctx.accounts.system_program.to_account_info(),
+    transfer_accounts,
+// !tooltip[/with_signer/] with_signer
+).with_signer(signer_seeds);
+transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+```
+
+### !signer_seeds
+
+Τα _rs`signer_seeds`_ καθορίζουν τα προαιρετικά seeds και bump seeds που
+χρησιμοποιούνται για την παραγωγή του PDA.
+
+### !with_signer
+
+Η μέθοδος _rs`with_signer()`_ περνάει τα signer seeds με το CPI.
+
+Αυτό επιτρέπει σε ένα πρόγραμμα να "υπογράψει" για ένα PDA που προέρχεται από το
+ID του προγράμματός του.
+
+Κατά την επεξεργασία της εντολής, το runtime επαληθεύει ότι τα παρεχόμενα signer
+seeds παράγουν σωστά τη διεύθυνση του PDA. Εάν επαληθευτεί, το runtime
+αντιμετωπίζει τον λογαριασμό PDA ως υπογράφοντα για τη διάρκεια του CPI.
+
+</WithNotes>
+
+Σημειώστε ότι το _rs`_ctx: Context<Delete>`_ αλλάζει σε
+_rs`ctx: Context<Delete>`_ για να χρησιμοποιήσει το context στο σώμα της
+συνάρτησης.
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+-    pub fn delete(_ctx: Context<Delete>) -> Result<()> {
++    pub fn delete(ctx: Context<Delete>) -> Result<()> {
+         msg!("Delete Message");
+
++        let user_key = ctx.accounts.user.key();
++        let signer_seeds: &[&[&[u8]]] =
++            &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
++
++        let transfer_accounts = Transfer {
++            from: ctx.accounts.vault_account.to_account_info(),
++            to: ctx.accounts.user.to_account_info(),
++        };
++        let cpi_context = CpiContext::new(
++            ctx.accounts.system_program.to_account_info(),
++            transfer_accounts,
++        ).with_signer(signer_seeds);
++        transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+         Ok(())
+     }
+
+```
+
+</Accordion>
+<Accordion title="Επεξήγηση">
+
+Στην εντολή διαγραφής, μια άλλη Cross Program Invocation (CPI) υλοποιεί την
+εντολή μεταφοράς του System Program. Αυτό το CPI δείχνει πώς να κάνετε μια
+μεταφορά που απαιτεί έναν υπογράφοντα Program Derived Address (PDA).
+
+Πρώτα, ορίστε τα signer seeds για το PDA του θησαυροφυλακίου:
+
+```rs title="lib.rs"
+let user_key = ctx.accounts.user.key();
+let signer_seeds: &[&[&[u8]]] =
+    &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+```
+
+Η δομή _rs`Transfer`_ καθορίζει τους απαιτούμενους λογαριασμούς για την εντολή
+μεταφοράς του System Program:
+
+- from: Ο λογαριασμός θησαυροφυλακίου (πηγή κεφαλαίων)
+- to: Ο λογαριασμός του χρήστη (προορισμός κεφαλαίων)
+
+  ```rs title="lib.rs"
+  let transfer_accounts = Transfer {
+      from: ctx.accounts.vault_account.to_account_info(),
+      to: ctx.accounts.user.to_account_info(),
+  };
+  ```
+
+Το _rs`CpiContext`_ καθορίζει:
+
+- Το πρόγραμμα προς επίκληση (System Program)
+- Τους λογαριασμούς που εμπλέκονται στη μεταφορά (ορίζονται στη δομή Transfer)
+- Τα σπέρματα υπογραφής για το PDA
+
+  ```rs title="lib.rs"
+  let cpi_context = CpiContext::new(
+      ctx.accounts.system_program.to_account_info(),
+      transfer_accounts,
+  ).with_signer(signer_seeds);
+  ```
+
+Η συνάρτηση _rs`transfer()`_ στη συνέχεια επικαλείται την εντολή μεταφοράς στο
+System Program, περνώντας:
+
+- Το `cpi_context` (πρόγραμμα, λογαριασμοί και υπογράφων PDA)
+- Το ποσό προς μεταφορά (ολόκληρο το υπόλοιπο του λογαριασμού θησαυροφυλακίου)
+
+  ```rs title="lib.rs"
+  transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+  ```
+
+Αυτή η υλοποίηση CPI δείχνει πώς τα προγράμματα μπορούν να χρησιμοποιούν PDAs
+για τη διαχείριση κεφαλαίων. Όταν η εντολή διαγραφής του προγράμματος λαμβάνει
+μια κλήση, εσωτερικά καλεί την εντολή μεταφοράς του System Program, υπογράφοντας
+για το PDA ώστε να επιτρέψει τη μεταφορά όλων των κεφαλαίων από το
+θησαυροφυλάκιο πίσω στον χρήστη.
+
+</Accordion>
+</Accordions>
+
+Επαναδημιουργήστε το πρόγραμμα.
+
+```terminal
+$ build
+```
+
+</Step>
+<Step>
+
+### Επανατοποθέτηση προγράμματος
+
+Μετά την πραγματοποίηση αυτών των αλλαγών, επανατοποθετήστε το ενημερωμένο
+πρόγραμμα. Αυτό διασφαλίζει ότι το τροποποιημένο πρόγραμμα θα είναι διαθέσιμο
+για δοκιμή. Στο Solana, η ενημέρωση ενός προγράμματος απλά απαιτεί την
+τοποθέτηση του προγράμματος στο ίδιο αναγνωριστικό προγράμματος.
+
+<Callout>
+
+Βεβαιωθείτε ότι το πορτοφόλι του Playground σας έχει devnet SOL. Αποκτήστε
+devnet SOL από το [Solana Faucet](https://faucet.solana.com/).
+
+</Callout>
+
+```terminal
+$ deploy
+Deploying... This could take a while depending on the program size and network conditions.
+Deployment successful. Completed in 17s.
+```
+
+<Accordions>
+<Accordion title="Επεξήγηση">
+
+Μόνο η αρχή αναβάθμισης του προγράμματος μπορεί να το ενημερώσει. Ο
+προγραμματιστής ορίζει την αρχή αναβάθμισης κατά την τοποθέτηση του
+προγράμματος, και παραμένει ο μόνος λογαριασμός με άδεια να αλλάξει ή να κλείσει
+το πρόγραμμα. Εάν κάποιος ανακαλέσει την αρχή αναβάθμισης, τότε το πρόγραμμα
+γίνεται αμετάβλητο.
+
+Κατά την τοποθέτηση προγραμμάτων στο Solana Playground, το πορτοφόλι του
+Playground σας λειτουργεί ως η αρχή αναβάθμισης για όλα τα προγράμματά σας.
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+### Ενημέρωση αρχείου δοκιμής
+
+Στη συνέχεια, ενημερώστε το αρχείο `anchor.test.ts` για να συμπεριλάβετε το νέο
+λογαριασμό θησαυροφυλακίου στις εντολές. Αυτό απαιτεί την παραγωγή του PDA
+θησαυροφυλακίου και τη συμπερίληψή του στις κλήσεις εντολών ενημέρωσης και
+διαγραφής.
+
+#### Εξαγωγή PDA θησαυροφυλακίου
+
+Πρώτα, προσθέστε την εξαγωγή του PDA θησαυροφυλακίου:
+
+```ts title="anchor.test.ts"
+const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
+  [Buffer.from("vault"), wallet.publicKey.toBuffer()],
+  program.programId
+);
+```
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+describe("pda", () => {
+  const program = pg.program;
+  const wallet = pg.wallet;
+
+  const [messagePda, messageBump] = PublicKey.findProgramAddressSync(
+    [Buffer.from("message"), wallet.publicKey.toBuffer()],
+    program.programId
+  );
+
++  const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
++    [Buffer.from("vault"), wallet.publicKey.toBuffer()],
++    program.programId
++  );
+
+  // ...tests
+  });
+```
+
+</Accordion>
+</Accordions>
+
+#### Αλλαγή δοκιμής ενημέρωσης
+
+<WithMentions>
+
+Στη συνέχεια, ενημερώστε την εντολή ενημέρωσης ώστε να συμπεριλάβει το
+[`vaultAccount`](mention:one)
+
+```ts title="anchor.test.ts"  {5}
+const transactionSignature = await program.methods
+  .update(message)
+  .accounts({
+    messageAccount: messagePda,
+    // !mention one
+    vaultAccount: vaultPda
+  })
+  .rpc({ commitment: "confirmed" });
+```
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+    const transactionSignature = await program.methods
+      .update(message)
+      .accounts({
+        messageAccount: messagePda,
++       vaultAccount: vaultPda,
+      })
+      .rpc({ commitment: "confirmed" });
+```
+
+</Accordion>
+</Accordions>
+
+#### Αλλαγή δοκιμής διαγραφής
+
+<WithMentions>
+
+Στη συνέχεια, ενημερώστε την εντολή διαγραφής ώστε να συμπεριλάβει το
+[`vaultAccount`](mention:one)
+
+```ts title="anchor.test.ts"  {5}
+const transactionSignature = await program.methods
+  .delete()
+  .accounts({
+    messageAccount: messagePda,
+    // !mention one
+    vaultAccount: vaultPda
+  })
+  .rpc({ commitment: "confirmed" });
+```
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+    const transactionSignature = await program.methods
+      .delete()
+      .accounts({
+        messageAccount: messagePda,
++       vaultAccount: vaultPda,
+      })
+      .rpc({ commitment: "confirmed" });
+```
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+### Επανεκτέλεση δοκιμής
+
+Μετά από αυτές τις αλλαγές, εκτελέστε τις δοκιμές για να βεβαιωθείτε ότι όλα
+λειτουργούν όπως αναμένεται:
+
+```terminal
+$ test
+Running tests...
+  anchor.test.ts:
+  pda
+    {
+  "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+  "message": "Hello, World!",
+  "bump": 254
+}
+    Transaction Signature: https://solana.fm/tx/qGsYb87mUUjeyh7Ha7r9VXkACw32HxVBujo2NUxqHiUc8qxRMFB7kdH2D4JyYtPBx171ddS91VyVrFXypgYaKUr?cluster=devnet-solana
+    ✔ Create Message Account (842ms)
+    {
+  "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+  "message": "Hello, Solana!",
+  "bump": 254
+}
+    Transaction Signature: https://solana.fm/tx/3KCDnNSfDDfmSy8kpiSrJsGGkzgxx2mt18KejuV2vmJjeyenkSoEfs2ghUQ6cMoYYgd9Qax9CbnYRcvF2zzumNt8?cluster=devnet-solana
+    ✔ Update Message Account (946ms)
+    Expect Null: null
+    Transaction Signature: https://solana.fm/tx/3M7Z7Mea3TtQc6m9z386B9QuEgvLKxD999mt2RyVtJ26FgaAzV1QA5mxox3eXie3bpBkNpDQ4mEANr3trVHCWMC2?cluster=devnet-solana
+    ✔ Delete Message Account (859ms)
+  3 passing (3s)
+```
+
+Στη συνέχεια, μπορείτε να εξετάσετε τους συνδέσμους SolanaFM για να δείτε τις
+λεπτομέρειες της συναλλαγής, όπου θα βρείτε τα Cross Program Invocation για τις
+εντολές μεταφοράς μέσα στις εντολές ενημέρωσης και διαγραφής.
+
+![Ενημέρωση CPI](/assets/docs/intro/quickstart/cpi-update.png)
+
+![Διαγραφή CPI](/assets/docs/intro/quickstart/cpi-delete.png)
+
+Αν αντιμετωπίσετε οποιαδήποτε σφάλματα, μπορείτε να ανατρέξετε στον
+[τελικό κώδικα](https://beta.solpg.io/668304cfcffcf4b13384d20a).
+
+</Step>
+</Steps>
+
+## Επόμενα βήματα
+
+Συγχαρητήρια για την ολοκλήρωση του οδηγού Solana Quickstart. Αποκτήσατε
+πρακτική εμπειρία με βασικές έννοιες του Solana, συμπεριλαμβανομένων:
+
+- Λήψη και ανάγνωση δεδομένων από λογαριασμούς
+- Δημιουργία και αποστολή συναλλαγών
+- Ανάπτυξη και ενημέρωση προγραμμάτων Solana
+- Εργασία με Program Derived Addresses (PDAs)
+- Πραγματοποίηση Cross-Program Invocations (CPIs)
+
+Για να εμβαθύνετε την κατανόησή σας σε αυτές τις έννοιες, ανατρέξτε στην
+τεκμηρίωση [Βασικές Έννοιες](/docs/core/accounts) που παρέχει λεπτομερείς
+εξηγήσεις των θεμάτων που καλύπτονται σε αυτόν τον οδηγό.
+
+### Εξερευνήστε περισσότερα παραδείγματα
+
+Αν προτιμάτε να μαθαίνετε μέσω παραδειγμάτων, ρίξτε μια ματιά στο
+[Αποθετήριο Παραδειγμάτων Προγραμμάτων](https://github.com/solana-developers/program-examples)
+για μια ποικιλία παραδειγμάτων προγραμμάτων.
+
+Το Solana Playground προσφέρει ένα βολικό χαρακτηριστικό που σας επιτρέπει να
+εισάγετε ή να προβάλλετε έργα χρησιμοποιώντας τους συνδέσμους GitHub τους. Για
+παράδειγμα, ανοίξτε αυτόν τον
+[σύνδεσμο Solana Playground](https://beta.solpg.io/https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor)
+για να δείτε το έργο Anchor από αυτό το
+[αποθετήριο Github](https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor).
+
+Κάντε κλικ στο κουμπί `Import` και εισαγάγετε ένα όνομα έργου για να το
+προσθέσετε στη λίστα των έργων σας στο Solana Playground. Μόλις εισαχθεί ένα
+έργο, όλες οι αλλαγές αποθηκεύονται και διατηρούνται αυτόματα.

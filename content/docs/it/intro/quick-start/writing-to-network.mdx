@@ -1,0 +1,419 @@
+---
+title: Scrivere sulla rete
+description:
+  Impara come interagire con la rete Solana inviando transazioni e istruzioni.
+  Segui esempi passo-passo per trasferire token SOL e creare nuovi token
+  utilizzando il System Program e il Token Extensions Program.
+---
+
+Nella sezione precedente, hai imparato come leggere i dati dalla rete Solana.
+Ora esploriamo come scrivere dati su di essa. Scrivere sulla rete Solana
+comporta l'invio di transazioni che contengono una o più istruzioni.
+
+I programmi (smart contract) elaborano queste istruzioni secondo la loro logica
+di business per ciascuna rispettiva istruzione. Quando invii una transazione, il
+runtime di Solana esegue ogni istruzione in sequenza e in modo atomico (il che
+significa che o tutte le istruzioni hanno successo o l'intera transazione
+fallisce).
+
+In questa sezione, vedrai due esempi di base:
+
+1. Trasferimento di SOL tra account
+2. Creazione di un nuovo token
+
+Questi esempi mostrano come costruire e inviare transazioni per invocare i
+programmi Solana. Per maggiori dettagli, consulta le pagine
+[Transazioni e Istruzioni](/docs/core/transactions) e
+[Commissioni su Solana](/docs/core/fees).
+
+## Trasferire SOL
+
+In questo esempio, imparerai come trasferire SOL tra due account.
+
+Su Solana, ogni account ha un programma specifico come proprietario. Solo il
+programma proprietario può detrarre il saldo SOL (lamport) di un account.
+
+Il System Program è il
+[proprietario](https://github.com/anza-xyz/agave/blob/v2.1.11/sdk/account/src/lib.rs#L55)
+di tutti gli account "wallet". Per trasferire SOL, devi invocare l'istruzione
+[transfer](https://github.com/anza-xyz/agave/blob/v2.1.11/programs/system/src/system_processor.rs#L183-L213)
+del System Program.
+
+<WithNotes>
+
+<CodeTabs flags="r">
+
+```ts !! title="Transfer SOL"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+// !tooltip[/connection/] connection
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// !tooltip[/sender/] sender
+const sender = new Keypair();
+// !tooltip[/receiver/] receiver
+const receiver = new Keypair();
+
+// !tooltip[/requestAirdrop/] airdrop
+const signature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+// !tooltip[/transferInstruction/] instruction
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// !tooltip[/transaction/] transaction
+const transaction = new Transaction().add(transferInstruction);
+
+// !tooltip[/sendAndConfirmTransaction/] sendAndConfirmTransaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender]
+);
+
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</CodeTabs>
+
+### !connection
+
+Crea una connessione a un cluster Solana.
+
+### !sender
+
+Genera un nuovo keypair da utilizzare come `sender`.
+
+### !receiver
+
+Genera un nuovo keypair da utilizzare come `receiver`.
+
+### !airdrop
+
+Richiedi un airdrop di SOL per finanziare il `sender`.
+
+### !instruction
+
+Costruisci l'istruzione per invocare l'istruzione di trasferimento del System
+Program.
+
+### !transaction
+
+Crea una nuova transazione e aggiungi l'istruzione di trasferimento.
+
+### !sendAndConfirmTransaction
+
+Invia la transazione.
+
+</WithNotes>
+
+Questi sono i passaggi per costruire transazioni per interagire con qualsiasi
+programma su Solana.
+
+<Steps>
+<Step>
+
+Crea l'istruzione che vuoi invocare.
+
+```ts title="Instruction"
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  // !mention one
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+```
+
+</Step>
+<Step>
+
+Aggiungi l'istruzione a una transazione:
+
+```ts title="Transaction"
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Step>
+<Step>
+
+Firma e invia la transazione:
+
+```ts title="Send Transaction"
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender] // signer keypair
+);
+```
+
+</Step>
+</Steps>
+
+## Crea un token
+
+In questo esempio, imparerai come creare un nuovo token su Solana utilizzando il
+Token Extensions Program. Questo richiede due istruzioni:
+
+1. Invocare il System Program per creare un nuovo account.
+2. Invocare il Token Extensions Program per inizializzare quell'account come
+   Mint.
+
+<WithNotes>
+
+<CodeTabs flags="r">
+
+```ts !! title="Create Mint Account"
+import {
+  Connection,
+  Keypair,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  MINT_SIZE,
+  TOKEN_2022_PROGRAM_ID,
+  createInitializeMint2Instruction,
+  getMinimumBalanceForRentExemptMint
+} from "@solana/spl-token";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// !tooltip[/wallet/] wallet
+const wallet = new Keypair();
+// Fund the wallet with SOL
+const signature = await connection.requestAirdrop(
+  wallet.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+// Generate keypair to use as address of mint account
+// !tooltip[/mint/] mint
+const mint = new Keypair();
+
+// Calculate lamports required for rent exemption
+// !tooltip[/rentExemptionLamports/] rentExemptionLamports
+const rentExemptionLamports =
+  await getMinimumBalanceForRentExemptMint(connection);
+
+// Instruction to create new account with space for new mint account
+// !tooltip[/createAccountInstruction/] createAccountInstruction
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: wallet.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: rentExemptionLamports,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+// Instruction to initialize mint account
+// !tooltip[/initializeMintInstruction/] initializeMintInstruction
+const initializeMintInstruction = createInitializeMint2Instruction(
+  mint.publicKey,
+  2, // decimals
+  wallet.publicKey, // mint authority
+  wallet.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Build transaction with instructions to create new account and initialize mint account
+// !tooltip[/transaction/] transaction
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+
+// !tooltip[/sendAndConfirmTransaction/] sendAndConfirmTransaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [
+    wallet, // payer
+    mint // mint address keypair
+  ]
+);
+
+console.log("Mint Account:", `${mint.publicKey}`);
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</CodeTabs>
+
+### !wallet
+
+Genera un nuovo keypair da utilizzare come wallet.
+
+### !mint
+
+Genera un nuovo keypair da utilizzare come indirizzo del mint account da creare.
+
+### !rentLamports
+
+Calcola i lamport necessari per un mint account.
+
+### !rentExemptionLamports
+
+Calcola i lamport necessari per l'esenzione dal rent
+
+### !createAccountInstruction
+
+Costruisci l'istruzione per creare un nuovo account con spazio per il tipo di
+mint account e di proprietà del Token Extensions Program.
+
+### !initializeMintInstruction
+
+Costruisci l'istruzione per inizializzare i dati del nuovo account come tipo di
+mint account.
+
+### !transaction
+
+Crea una nuova transazione e aggiungi entrambe le istruzioni.
+
+L'ordine delle istruzioni è importante qui. L'istruzione
+`createAccountInstruction` deve venire prima dell'istruzione
+`initializeMintInstruction`.
+
+### !sendAndConfirmTransaction
+
+Invia la transazione.
+
+</WithNotes>
+
+Ecco una spiegazione passo dopo passo di ciò che fa l'esempio:
+
+<Steps>
+<Step>
+
+Crea una connessione e finanzia il wallet
+
+```ts title="Connection and Wallet"
+const connection = new Connection("http://localhost:8899", "confirmed");
+const wallet = new Keypair();
+const signature = await connection.requestAirdrop(
+  wallet.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+```
+
+</Step>
+<Step>
+
+Genera una keypair per l'account Mint
+
+```ts title="Mint Keypair"
+const mint = new Keypair();
+```
+
+</Step>
+<Step>
+
+Calcola i lamport minimi per l'esenzione dal rent
+
+```ts title="Rent Exemption"
+const rentExemptionLamports =
+  await getMinimumBalanceForRentExemptMint(connection);
+```
+
+</Step>
+<Step>
+
+Crea un'istruzione per creare un nuovo account
+
+<WithMentions>
+
+1. [Alloca lo spazio necessario](mention:one) per memorizzare i dati del mint
+2. [Trasferisci i lamport](mention:two) dal wallet per finanziare il nuovo
+   account
+3. [Assegna la proprietà](mention:three) dell'account al programma Token
+   Extensions (`TOKEN_2022_PROGRAM_ID`)
+
+```ts title="Create Account Instruction"
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: wallet.publicKey,
+  newAccountPubkey: mint.publicKey,
+  // !mention one
+  space: MINT_SIZE,
+  // !mention two
+  lamports: rentExemptionLamports,
+  // !mention three
+  programId: TOKEN_2022_PROGRAM_ID
+});
+```
+
+</WithMentions>
+
+</Step>
+<Step>
+
+Crea un'istruzione per inizializzare l'account Mint
+
+```ts title="Initialize Mint Instruction"
+const initializeMintInstruction = createInitializeMint2Instruction(
+  mint.publicKey,
+  2, // decimals
+  wallet.publicKey, // mint authority
+  wallet.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+```
+
+</Step>
+<Step>
+
+Aggiungi entrambe le istruzioni a una transazione
+
+```ts title="Build Transaction"
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+```
+
+</Step>
+<Step>
+
+Invia e conferma la transazione con entrambi i firmatari richiesti
+
+```ts title="Send Transaction"
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [wallet, mint]
+);
+```
+
+</Step>
+<Step>
+
+Stampa l'account Mint e la firma della transazione
+
+```ts title="Output"
+console.log("Mint Account:", `${mint.publicKey}`);
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</Step>
+</Steps>
+
+Combinando entrambe le istruzioni in un'unica transazione, garantisci che la
+creazione e l'inizializzazione dell'account avvengano in modo atomico. O
+entrambe le istruzioni hanno successo, o nessuna delle due. Questo approccio è
+comune quando si costruiscono transazioni Solana più complesse, poiché
+garantisce che tutte le istruzioni vengano eseguite insieme.
