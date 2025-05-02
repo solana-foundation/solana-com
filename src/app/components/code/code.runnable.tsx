@@ -373,7 +373,7 @@ function EmptyConsole({
   handleRun: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center w-full py-3 gap-2">
+    <div className="flex flex-col items-center justify-center w-full gap-2 py-3">
       <span className="md:h-4" />
       <button
         onClick={handleRun}
@@ -496,7 +496,7 @@ function Console({
       {!result ? (
         <EmptyConsole running={running} error={error} handleRun={handleRun} />
       ) : (
-        <pre className="p-2 text-sm text-ch-foreground font-mono overflow-auto flex-1">
+        <pre className="flex-1 p-2 overflow-auto font-mono text-sm text-ch-foreground">
           {result?.output}
         </pre>
       )}
@@ -520,7 +520,7 @@ function Output({
       )}
     >
       <OutputHeader />
-      <div className="p-2 flex-1 overflow-auto">
+      <div className="flex-1 p-2 overflow-auto">
         {result ? (
           txGroups.map((group, groupIndex) => (
             <Transaction
@@ -558,27 +558,30 @@ export function RunnableLayout({
         <Console state={state} className="mt-2" />
         {state.result && <Output result={state.result} className="mt-2" />}
       </div>
-      <div className="wider hidden md:block">
+      <div className="hidden wider md:block">
         <ResizablePanelGroup
           direction="horizontal"
-          className={cn("max-h-[700px] min-h-0 overflow-hidden", className)}
+          className={cn(
+            "max-h-[700px] min-h-[275px] overflow-hidden",
+            className,
+          )}
         >
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="h-full min-h-0 min-w-0">{children}</div>
+          <ResizablePanel defaultSize={50} minSize={0}>
+            <div className="h-full min-w-0 min-h-0">{children}</div>
           </ResizablePanel>
-          <ResizableHandle withHandle className="bg-transparent w-1" />
-          <ResizablePanel defaultSize={50} minSize={30}>
+          <ResizableHandle withHandle className="w-1 bg-transparent" />
+          <ResizablePanel defaultSize={50} minSize={0}>
             <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={30} minSize={10}>
+              <ResizablePanel defaultSize={50} minSize={10}>
                 <Console
                   state={state}
-                  className="h-full  flex flex-col overflow-hidden"
+                  className="flex flex-col h-full overflow-hidden"
                 />
               </ResizablePanel>
               <ResizableHandle withHandle className="bg-transparent !h-1" />
-              <ResizablePanel defaultSize={70} minSize={20}>
+              <ResizablePanel defaultSize={50} minSize={10}>
                 <Output
-                  className="h-full flex flex-col min-h-0 overflow-hidden"
+                  className="flex flex-col h-full min-h-0 overflow-hidden"
                   result={state.result}
                 />
               </ResizablePanel>
