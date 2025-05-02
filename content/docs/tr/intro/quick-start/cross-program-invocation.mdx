@@ -1,0 +1,686 @@
+---
+title: Birden Fazla Programı Birleştirme
+description:
+  Anchor framework kullanarak Solana programlarında Cross Program Invocation
+  (CPI) uygulamayı öğrenin. Bu öğretici, hesaplar arasında SOL transferi
+  yapmayı, System Program ile etkileşime geçmeyi ve CPI'larda Program Derived
+  Address (PDA) kullanımını göstermektedir. Birleştirilebilir Solana programları
+  oluşturmak isteyen geliştiriciler için idealdir.
+h1: Cross Program Invocation
+---
+
+Bu bölümde, önceki PDA bölümündeki CRUD programı, Solana programlarının
+birbirini çağırmasını sağlayan bir özellik olan Cross Program Invocation (CPI)
+eklenerek güncelleniyor.
+
+Bu öğretici aynı zamanda programların Cross Program Invocation yaparken Program
+Derived Address (PDA) için nasıl "imzalayabileceklerini" de gösteriyor.
+
+`update` ve `delete` talimatları, System Program'ı çağırarak hesaplar arasında
+SOL transferini gerçekleştirmek için değişiklik gerektiriyor.
+
+Bu bölümün amacı, önceki bölümde incelenen PDA kavramları üzerine kurularak,
+Anchor framework kullanarak bir Solana programında CPI'ları uygulama sürecini
+adım adım göstermektir. Daha fazla ayrıntı için
+[Cross Program Invocation](/docs/core/cpi) sayfasına bakın.
+
+Referans olarak, bu bağlantı hem PDA hem de CPI bölümlerini tamamladıktan
+sonraki [nihai kodu](https://beta.solpg.io/668304cfcffcf4b13384d20a) içerir.
+
+Bu bölüm için [başlangıç kodu](https://beta.solpg.io/679d75eecffcf4b13384d604)
+sadece tamamlanmış PDA bölümünü içerir.
+
+<Steps>
+<Step>
+
+### Güncelleme Talimatını Güncelle
+
+İlk olarak, program _rs`Update`_ yapısını ve `update` fonksiyonunu değiştirerek
+basit bir "güncelleme için ödeme" mekanizmasına ihtiyaç duyar.
+
+`lib.rs` dosyasını güncelleyerek `system_program` modülünden öğeleri kapsama
+alanına getirerek başlayın.
+
+```rs title="lib.rs"
+use anchor_lang::system_program::{transfer, Transfer};
+```
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+  use anchor_lang::prelude::*;
++ use anchor_lang::system_program::{transfer, Transfer};
+```
+
+</Accordion>
+</Accordions>
+
+Sonra, _rs`Update`_ yapısını `vault_account` adlı yeni bir hesap ekleyerek
+güncelleyin. Bu hesap, program tarafından kontrol edilir ve kullanıcılar mesaj
+hesaplarını güncellediklerinde onlardan SOL alır.
+
+```rs title="lib.rs"
+#[account(
+    mut,
+    seeds = [b"vault", user.key().as_ref()],
+    bump,
+)]
+pub vault_account: SystemAccount<'info>,
+```
+
+<Accordions>
+<Accordion title="Fark">
+
+```diff
+#[derive(Accounts)]
+#[instruction(message: String)]
+pub struct Update<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
++   #[account(
++       mut,
++       seeds = [b"vault", user.key().as_ref()],
++       bump,
++   )]
++   pub vault_account: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"message", user.key().as_ref()],
+        bump = message_account.bump,
+        realloc = 8 + 32 + 4 + message.len() + 1,
+        realloc::payer = user,
+        realloc::zero = true,
+    )]
+    pub message_account: Account<'info, MessageAccount>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+</Accordion>
+<Accordion title="Açıklama">
+
+Bu bölüm, _rs`Update`_ yapısına `vault_account` adında yeni bir hesap ekler. Bu
+hesap, kullanıcılar mesajlarını güncellediklerinde SOL alan program kontrollü
+bir "kasa" görevi görür.
+
+Kasa için bir PDA kullanarak, program her kullanıcıya özgü, program mantığı
+içinde fon yönetimini sağlayan program kontrollü bir hesap oluşturur.
+
+---
+
+`vault_account` hesabının temel özellikleri:
+
+- Hesabın adresi, _rs`[b"vault", user.key().as_ref()]`_ seed'leri kullanılarak
+  türetilen bir PDA'dan gelir
+- Bir PDA olarak, özel anahtarı yoktur, bu nedenle CPI'lar gerçekleştirirken
+  adres için yalnızca program "imzalayabilir"
+- Bir _rs`SystemAccount`_ türü olarak, normal cüzdan hesapları gibi System
+  Program tarafından sahiplenilir
+
+Bu kurulum, programın şunları yapmasına olanak tanır:
+
+- Her kullanıcının "kasası" için benzersiz, deterministik adresler oluşturma
+- İşlemleri imzalamak için özel anahtara ihtiyaç duymadan fonları kontrol etme.
+
+`delete` talimatında, programın bir CPI'da bu PDA için nasıl
+"imzalayabileceğini" göreceksiniz.
+
+</Accordion>
+</Accordions>
+
+Şimdi, kullanıcının hesabından kasa hesabına 0.001 SOL aktarmak için `update`
+talimatına CPI mantığını ekleyin.
+
+<WithNotes>
+
+```rs title="lib.rs"
+// !tooltip[/transfer_accounts/] transfer_accounts
+let transfer_accounts = Transfer {
+    from: ctx.accounts.user.to_account_info(),
+    to: ctx.accounts.vault_account.to_account_info(),
+};
+
+// !tooltip[/cpi_context/] cpi_context
+let cpi_context = CpiContext::new(
+    ctx.accounts.system_program.to_account_info(),
+    transfer_accounts,
+);
+
+// !tooltip[/transfer/] transfer
+transfer(cpi_context, 1_000_000)?;
+```
+
+### !transfer_accounts
+
+_rs`Transfer`_ yapısı, System Program'ın transfer talimatı için gereken
+hesapları belirtir.
+
+### !cpi_context
+
+_rs`CpiContext`_ yapısı, bir Cross Program Invocation (CPI) için program ve
+hesapları belirtir.
+
+### !transfer
+
+_rs`transfer()`_ fonksiyonu, System Program'ın transfer talimatını çağırır.
+
+</WithNotes>
+
+<Accordions>
+<Accordion title="Fark">
+
+```diff
+    pub fn update(ctx: Context<Update>, message: String) -> Result<()> {
+        msg!("Update Message: {}", message);
+        let account_data = &mut ctx.accounts.message_account;
+        account_data.message = message;
+
++       let transfer_accounts = Transfer {
++           from: ctx.accounts.user.to_account_info(),
++           to: ctx.accounts.vault_account.to_account_info(),
++       };
++       let cpi_context = CpiContext::new(
++           ctx.accounts.system_program.to_account_info(),
++           transfer_accounts,
++       );
++       transfer(cpi_context, 1_000_000)?;
+        Ok(())
+    }
+```
+
+</Accordion>
+<Accordion title="Açıklama">
+
+`update` talimatında, uygulama System Program'ın `transfer` talimatını çağırmak
+için bir Cross Program Invocation (CPI) içerir. Bu, program içinden bir CPI'nin
+nasıl gerçekleştirileceğini gösterir ve Solana programlarının
+birleştirilebilirliğini sağlar.
+
+_rs`Transfer`_ yapısı, System Program'ın transfer talimatı için gereken
+hesapları belirtir:
+
+- `from` - Kullanıcının hesabı (fonların kaynağı)
+- `to` - Kasa hesabı (fonların hedefi)
+
+  ```rs title="lib.rs"
+  let transfer_accounts = Transfer {
+      from: ctx.accounts.user.to_account_info(),
+      to: ctx.accounts.vault_account.to_account_info(),
+  };
+  ```
+
+_rs`CpiContext`_ şunları belirtir:
+
+- Çağrılacak program (System Program)
+- CPI'da gereken hesaplar (_rs`Transfer`_ yapısında tanımlanmıştır)
+
+  ```rs title="lib.rs"
+  let cpi_context = CpiContext::new(
+      ctx.accounts.system_program.to_account_info(),
+      transfer_accounts,
+  );
+  ```
+
+`transfer` fonksiyonu daha sonra System Program üzerinde transfer talimatını
+çağırır ve şunları aktarır:
+
+- `cpi_context` (program ve hesaplar)
+- Transfer edilecek `amount` (1.000.000 lamport veya 0,001 SOL)
+
+  ```rs title="lib.rs"
+  transfer(cpi_context, 1_000_000)?;
+  ```
+
+<Callout>
+
+Bir CPI için kurulum, istemci tarafı talimatların nasıl oluşturulduğuyla
+eşleşir; belirli bir talimatı çağırmak için programı, hesapları ve instruction
+data'yı belirtirsiniz. Program `update` talimatı bir çağrı aldığında, dahili
+olarak System Program'ın transfer talimatını çağırır.
+
+</Callout>
+
+</Accordion>
+</Accordions>
+
+Programı yeniden derleyin.
+
+```terminal
+$ build
+```
+
+</Step>
+<Step>
+
+### Silme Talimatını Güncelleme
+
+Şimdi _rs`Delete`_ yapısını ve `delete` fonksiyonunu değiştirerek "silme
+işleminde geri ödeme" mekanizması ekleyin.
+
+Öncelikle, _rs`Delete`_ yapısını `vault_account` içerecek şekilde güncelleyin.
+Bu, kullanıcılar mesaj hesaplarını kapattıklarında kasadaki SOL'un kullanıcıya
+geri aktarılmasını sağlar.
+
+```rs title="lib.rs"
+#[account(
+    mut,
+    seeds = [b"vault", user.key().as_ref()],
+    bump,
+)]
+pub vault_account: SystemAccount<'info>,
+```
+
+Ayrıca, transfer için CPI System Program'ı çağırmayı gerektirdiğinden
+`system_program` ekleyin.
+
+```rs title="lib.rs"
+pub system_program: Program<'info, System>,
+```
+
+<Accordions>
+<Accordion title="Fark">
+
+```diff
+#[derive(Accounts)]
+pub struct Delete<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
++   #[account(
++       mut,
++       seeds = [b"vault", user.key().as_ref()],
++       bump,
++   )]
++   pub vault_account: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"message", user.key().as_ref()],
+        bump = message_account.bump,
+        close= user,
+    )]
+    pub message_account: Account<'info, MessageAccount>,
++   pub system_program: Program<'info, System>,
+}
+```
+
+</Accordion>
+<Accordion title="Açıklama">
+
+`vault_account`, Update yapısında kullanılan aynı PDA türetme yöntemini
+kullanır.
+
+`vault_account` öğesini Delete yapısına eklemek, programın silme talimatı
+sırasında kullanıcının kasa hesabına erişerek birikmiş SOL'u kullanıcıya geri
+aktarmasını sağlar.
+
+</Accordion>
+</Accordions>
+
+<WithNotes>
+
+Şimdi, kasa hesabından kullanıcının hesabına SOL aktarmak için `delete`
+talimatına CPI mantığını ekleyin.
+
+```rs title="lib.rs"
+let user_key = ctx.accounts.user.key();
+// !tooltip[/signer_seeds/] signer_seeds
+let signer_seeds: &[&[&[u8]]] =
+    &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+
+let transfer_accounts = Transfer {
+    from: ctx.accounts.vault_account.to_account_info(),
+    to: ctx.accounts.user.to_account_info(),
+};
+let cpi_context = CpiContext::new(
+    ctx.accounts.system_program.to_account_info(),
+    transfer_accounts,
+// !tooltip[/with_signer/] with_signer
+).with_signer(signer_seeds);
+transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+```
+
+### !signer_seeds
+
+_rs`signer_seeds`_, PDA türetmek için kullanılan isteğe bağlı seed'leri ve bump
+seed'leri belirtir.
+
+### !with_signer
+
+_rs`with_signer()`_ metodu, imzalayan seed'leri CPI ile birlikte iletir.
+
+Bu, bir programın kendi program kimliğinden türetilen bir PDA için
+"imzalamasına" olanak tanır.
+
+Talimat işleme sırasında, çalışma zamanı sağlanan imzalayan seed'lerin PDA'nın
+adresine doğru şekilde türetildiğini doğrular. Doğrulanırsa, çalışma zamanı CPI
+süresi boyunca o PDA hesabını bir imzalayan olarak değerlendirir.
+
+</WithNotes>
+
+_rs`_ctx: Context<Delete>`_ ifadesinin, fonksiyonun gövdesinde bağlamı kullanmak
+için _rs`ctx: Context<Delete>`_ olarak değiştiğini unutmayın.
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+-    pub fn delete(_ctx: Context<Delete>) -> Result<()> {
++    pub fn delete(ctx: Context<Delete>) -> Result<()> {
+         msg!("Delete Message");
+
++        let user_key = ctx.accounts.user.key();
++        let signer_seeds: &[&[&[u8]]] =
++            &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
++
++        let transfer_accounts = Transfer {
++            from: ctx.accounts.vault_account.to_account_info(),
++            to: ctx.accounts.user.to_account_info(),
++        };
++        let cpi_context = CpiContext::new(
++            ctx.accounts.system_program.to_account_info(),
++            transfer_accounts,
++        ).with_signer(signer_seeds);
++        transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+         Ok(())
+     }
+
+```
+
+</Accordion>
+<Accordion title="Açıklama">
+
+Silme talimatında, başka bir Cross Program Invocation (CPI), System Program'ın
+transfer talimatını uygular. Bu CPI, bir Program Derived Address (PDA) imzalayan
+gerektiren bir transfer yapmanın nasıl yapılacağını gösterir.
+
+İlk olarak, kasa PDA'sı için imzalayan seed'leri tanımlayın:
+
+```rs title="lib.rs"
+let user_key = ctx.accounts.user.key();
+let signer_seeds: &[&[&[u8]]] =
+    &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+```
+
+_rs`Transfer`_ yapısı, System Program'ın transfer talimatı için gereken
+hesapları belirtir:
+
+- from: Kasa hesabı (fonların kaynağı)
+- to: Kullanıcının hesabı (fonların hedefi)
+
+  ```rs title="lib.rs"
+  let transfer_accounts = Transfer {
+      from: ctx.accounts.vault_account.to_account_info(),
+      to: ctx.accounts.user.to_account_info(),
+  };
+  ```
+
+_rs`CpiContext`_ şunları belirtir:
+
+- Çağrılacak programı (System Program)
+- Transfere dahil olan hesapları (Transfer struct'ında tanımlanmış)
+- PDA için imzalayıcı seed'lerini
+
+  ```rs title="lib.rs"
+  let cpi_context = CpiContext::new(
+      ctx.accounts.system_program.to_account_info(),
+      transfer_accounts,
+  ).with_signer(signer_seeds);
+  ```
+
+_rs`transfer()`_ fonksiyonu daha sonra System Program üzerinde transfer
+talimatını çağırır ve şunları iletir:
+
+- `cpi_context` (program, hesaplar ve PDA imzalayıcı)
+- Transfer edilecek miktar (vault hesabının tüm bakiyesi)
+
+  ```rs title="lib.rs"
+  transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+  ```
+
+Bu CPI uygulaması, programların fonları yönetmek için PDA'ları nasıl
+kullanabileceğini gösterir. Program'ın silme talimatı bir çağrı aldığında,
+dahili olarak System Program'ın transfer talimatını çağırır ve vault'tan
+kullanıcıya tüm fonların transferine izin vermek için PDA adına imza atar.
+
+</Accordion>
+</Accordions>
+
+Programı yeniden derleyin.
+
+```terminal
+$ build
+```
+
+</Step>
+<Step>
+
+### Programı yeniden dağıtın
+
+Bu değişiklikleri yaptıktan sonra, güncellenmiş programı yeniden dağıtın. Bu,
+değiştirilmiş programın test için kullanılabilir olmasını sağlar. Solana'da bir
+programı güncellemek, programı aynı program kimliğiyle dağıtmayı gerektirir.
+
+<Callout>
+
+Playground cüzdanınızda devnet SOL olduğundan emin olun.
+[Solana Faucet](https://faucet.solana.com/) adresinden devnet SOL alabilirsiniz.
+
+</Callout>
+
+```terminal
+$ deploy
+Deploying... This could take a while depending on the program size and network conditions.
+Deployment successful. Completed in 17s.
+```
+
+<Accordions>
+<Accordion title="Açıklama">
+
+Programı yalnızca yükseltme yetkisine sahip kişi güncelleyebilir. Geliştirici,
+program dağıtımı sırasında yükseltme yetkisini belirler ve bu, programı
+değiştirme veya kapatma iznine sahip tek hesap olarak kalır. Eğer birisi
+yükseltme yetkisini iptal ederse, program değiştirilemez hale gelir.
+
+Solana Playground'da program dağıtırken, Playground cüzdanınız tüm
+programlarınız için yükseltme yetkisi görevi görür.
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+### Test dosyasını güncelleyin
+
+Sonraki adımda, talimatlara yeni vault hesabını dahil etmek için
+`anchor.test.ts` dosyasını güncelleyin. Bu, vault PDA'sını türetmeyi ve
+güncelleme ve silme talimat çağrılarına dahil etmeyi gerektirir.
+
+#### Kasa PDA'sını Türetme
+
+İlk olarak, kasa PDA türetimini ekleyin:
+
+```ts title="anchor.test.ts"
+const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
+  [Buffer.from("vault"), wallet.publicKey.toBuffer()],
+  program.programId
+);
+```
+
+<Accordions>
+<Accordion title="Fark">
+
+```diff
+describe("pda", () => {
+  const program = pg.program;
+  const wallet = pg.wallet;
+
+  const [messagePda, messageBump] = PublicKey.findProgramAddressSync(
+    [Buffer.from("message"), wallet.publicKey.toBuffer()],
+    program.programId
+  );
+
++  const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
++    [Buffer.from("vault"), wallet.publicKey.toBuffer()],
++    program.programId
++  );
+
+  // ...tests
+  });
+```
+
+</Accordion>
+</Accordions>
+
+#### Güncelleme Testini Değiştirme
+
+<WithMentions>
+
+Ardından, güncelleme talimatını [`vaultAccount`](mention:one) içerecek şekilde
+güncelleyin
+
+```ts title="anchor.test.ts"  {5}
+const transactionSignature = await program.methods
+  .update(message)
+  .accounts({
+    messageAccount: messagePda,
+    // !mention one
+    vaultAccount: vaultPda
+  })
+  .rpc({ commitment: "confirmed" });
+```
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="Fark">
+
+```diff
+    const transactionSignature = await program.methods
+      .update(message)
+      .accounts({
+        messageAccount: messagePda,
++       vaultAccount: vaultPda,
+      })
+      .rpc({ commitment: "confirmed" });
+```
+
+</Accordion>
+</Accordions>
+
+#### Silme Testini Değiştirme
+
+<WithMentions>
+
+Ardından, silme talimatını [`vaultAccount`](mention:one) içerecek şekilde
+güncelleyin
+
+```ts title="anchor.test.ts"  {5}
+const transactionSignature = await program.methods
+  .delete()
+  .accounts({
+    messageAccount: messagePda,
+    // !mention one
+    vaultAccount: vaultPda
+  })
+  .rpc({ commitment: "confirmed" });
+```
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="Fark">
+
+```diff
+    const transactionSignature = await program.methods
+      .delete()
+      .accounts({
+        messageAccount: messagePda,
++       vaultAccount: vaultPda,
+      })
+      .rpc({ commitment: "confirmed" });
+```
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+### Testi Yeniden Çalıştırma
+
+Bu değişiklikleri yaptıktan sonra, her şeyin beklendiği gibi çalıştığından emin
+olmak için testleri çalıştırın:
+
+```terminal
+$ test
+Running tests...
+  anchor.test.ts:
+  pda
+    {
+  "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+  "message": "Hello, World!",
+  "bump": 254
+}
+    Transaction Signature: https://solana.fm/tx/qGsYb87mUUjeyh7Ha7r9VXkACw32HxVBujo2NUxqHiUc8qxRMFB7kdH2D4JyYtPBx171ddS91VyVrFXypgYaKUr?cluster=devnet-solana
+    ✔ Create Message Account (842ms)
+    {
+  "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+  "message": "Hello, Solana!",
+  "bump": 254
+}
+    Transaction Signature: https://solana.fm/tx/3KCDnNSfDDfmSy8kpiSrJsGGkzgxx2mt18KejuV2vmJjeyenkSoEfs2ghUQ6cMoYYgd9Qax9CbnYRcvF2zzumNt8?cluster=devnet-solana
+    ✔ Update Message Account (946ms)
+    Expect Null: null
+    Transaction Signature: https://solana.fm/tx/3M7Z7Mea3TtQc6m9z386B9QuEgvLKxD999mt2RyVtJ26FgaAzV1QA5mxox3eXie3bpBkNpDQ4mEANr3trVHCWMC2?cluster=devnet-solana
+    ✔ Delete Message Account (859ms)
+  3 passing (3s)
+```
+
+Daha sonra işlem detaylarını görüntülemek için SolanaFM bağlantılarını
+inceleyebilirsiniz; burada güncelleme ve silme talimatları içindeki transfer
+talimatları için CPI'ları bulacaksınız.
+
+![Güncelleme CPI](/assets/docs/intro/quickstart/cpi-update.png)
+
+![Silme CPI](/assets/docs/intro/quickstart/cpi-delete.png)
+
+Herhangi bir hatayla karşılaşırsanız,
+[son koda](https://beta.solpg.io/668304cfcffcf4b13384d20a) başvurabilirsiniz.
+
+</Step>
+</Steps>
+
+## Sonraki adımlar
+
+Solana Hızlı Başlangıç kılavuzunu tamamladığınız için tebrikler. Aşağıdakiler
+dahil olmak üzere temel Solana kavramlarıyla pratik deneyim kazandınız:
+
+- Hesaplardan veri alma ve okuma
+- İşlem oluşturma ve gönderme
+- Solana programlarını dağıtma ve güncelleme
+- Program Derived Address (PDA) ile çalışma
+- Cross-Program Invocation (CPI) yapma
+
+Bu kavramları daha derinlemesine anlamak için, bu kılavuzda ele alınan konuların
+ayrıntılı açıklamalarını içeren [Temel Kavramlar](/docs/core/accounts)
+belgelerine göz atın.
+
+### Daha fazla örnek keşfedin
+
+Örneklerle öğrenmeyi tercih ediyorsanız, çeşitli örnek programlar için
+[Program Örnekleri Deposu](https://github.com/solana-developers/program-examples)'nu
+inceleyin.
+
+Solana Playground, GitHub bağlantılarını kullanarak projeleri içe aktarmanıza
+veya görüntülemenize olanak tanıyan kullanışlı bir özellik sunar. Örneğin, bu
+[GitHub repo](https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor)'dan
+Anchor projesini görüntülemek için bu
+[Solana Playground bağlantısı](https://beta.solpg.io/https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor)'nı
+açın.
+
+`Import` düğmesine tıklayın ve Solana Playground'daki projeler listenize eklemek
+için bir proje adı girin. Bir proje içe aktarıldıktan sonra, tüm değişiklikler
+otomatik olarak kaydedilir ve korunur.

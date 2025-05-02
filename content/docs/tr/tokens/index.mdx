@@ -1,0 +1,451 @@
+---
+title: Solana'da Token'lar
+description: Solana'nın Token Programları hakkında bilgi edinin.
+---
+
+Token'lar, çeşitli kategorilerdeki varlıkların sahipliğini temsil eden dijital
+varlıklardır. Tokenizasyon, mülkiyet haklarının dijitalleştirilmesini sağlar.
+Solana'daki token'lar SPL
+([Solana Program Library](https://github.com/solana-program)) Token'ları olarak
+adlandırılır.
+
+Bu bölüm, token'ların Solana'da nasıl temsil edildiğine dair temel kavramları
+kapsar. Kod örnekleri için [SPL Token Temelleri](/docs/tokens/basics) bölümüne
+bakın.
+
+## Önemli Noktalar
+
+- [Token Program](#token-program), ağdaki token'larla (hem değiştirilebilir hem
+  de değiştirilemez) etkileşim için tüm talimat mantığını içerir.
+
+- Bir [Mint Account](#mint-account), belirli bir token'ı temsil eder ve toplam
+  arz ve mint yetkisi (bir token'ın yeni birimlerini oluşturmaya yetkili adres)
+  gibi token hakkındaki global meta verileri saklar.
+
+- Bir [Token Account](#token-account), belirli bir mint account için belirli bir
+  sahibin token sahipliğini takip eder.
+
+- Bir [Associated Token Account](#associated-token-account), sahibin ve mint
+  account adreslerinden türetilen bir adresle oluşturulan bir Token Account'tur.
+
+## Token Programs
+
+Solana ekosisteminde iki ana Token Program vardır. Her iki programın kaynak kodu
+aşağıdadır.
+
+<Cards>
+  <Card title="Token Program (Orijinal)" href="https://github.com/solana-program/token">
+   - Temel token özellikleri (mint, transfer, vb.)
+   - Değiştirilemez ve yaygın olarak kullanılır
+  </Card>
+
+  <Card title="Token Extension Program (Token 2022)" href="https://github.com/solana-program/token-2022">
+   - Orijinal Token Program'ın tüm özelliklerini içerir
+   - "Uzantılar" aracılığıyla özellikler ekler
+  </Card>
+</Cards>
+
+Token Program, ağdaki token'larla (hem değiştirilebilir hem de değiştirilemez)
+etkileşim için tüm talimat mantığını içerir. Solana'daki tüm token'lar, etkili
+bir şekilde Token Program'ın sahip olduğu
+[veri hesaplarıdır](/docs/core/accounts#data-account).
+
+![Token Program](/assets/docs/core/tokens/token-program.svg)
+
+### Mint Account
+
+Solana'daki token'lar, Token Program'ın sahip olduğu bir
+[Mint Account](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L16-L30)
+adresiyle benzersiz şekilde tanımlanır. Bu hesap, belirli bir token için global
+bir sayaç görevi görür ve şunlar gibi verileri saklar:
+
+- **Arz**: Token'ın toplam arzı
+- **Ondalık**: Token'ın ondalık hassasiyeti
+- **Mint yetkisi**: Arzı artırarak token'ın yeni birimlerini oluşturmaya yetkili
+  hesap
+- **Dondurma yetkisi**: Bir Token Account içindeki token'ları dondurarak
+  transfer edilmelerini veya yakılmalarını engellemeye yetkili hesap
+
+![Mint Account](/assets/docs/core/tokens/mint-account.svg)
+
+Her Mint Account'ta saklanan tam detaylar şunları içerir:
+
+```rust title="Mint Account State"
+pub struct Mint {
+    /// Optional authority used to mint new tokens. The mint authority may only
+    /// be provided during mint creation. If no mint authority is present
+    /// then the mint has a fixed supply and no further tokens may be
+    /// minted.
+    pub mint_authority: COption<Pubkey>,
+    /// Total supply of tokens.
+    pub supply: u64,
+    /// Number of base 10 digits to the right of the decimal place.
+    pub decimals: u8,
+    /// Is `true` if this structure has been initialized
+    pub is_initialized: bool,
+    /// Optional authority to freeze token accounts.
+    pub freeze_authority: COption<Pubkey>,
+}
+```
+
+Referans olarak, işte
+[USDC Mint Account](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+için bir Solana Explorer bağlantısı.
+
+### Token Account
+
+Token Program, her token biriminin bireysel sahipliğini takip etmek için
+[Token Accounts](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108)
+oluşturur. Bir Token Account şu gibi verileri saklar:
+
+- **Mint**: Token Account'ın birimlerini tuttuğu token
+- **Sahibi**: Token Account'tan token transfer etmeye yetkili hesap
+- **Miktar**: Token Account'ın şu anda tuttuğu token sayısı
+
+![Token Account](/assets/docs/core/tokens/token-account.svg)
+
+Her Token Account'ta saklanan tam detaylar şunları içerir:
+
+```rust title="Token Account State"
+pub struct Account {
+    /// The mint associated with this account
+    pub mint: Pubkey,
+    /// The owner of this account.
+    pub owner: Pubkey,
+    /// The amount of tokens this account holds.
+    pub amount: u64,
+    /// If `delegate` is `Some` then `delegated_amount` represents
+    /// the amount authorized by the delegate
+    pub delegate: COption<Pubkey>,
+    /// The account's state
+    pub state: AccountState,
+    /// If is_native.is_some, this is a native token, and the value logs the
+    /// rent-exempt reserve. An Account is required to be rent-exempt, so
+    /// the value is used by the Processor to ensure that wrapped SOL
+    /// accounts do not drop below this threshold.
+    pub is_native: COption<u64>,
+    /// The amount delegated
+    pub delegated_amount: u64,
+    /// Optional authority to close the account.
+    pub close_authority: COption<Pubkey>,
+}
+```
+
+Bir cüzdan, tutmak istediği her token (mint) için, cüzdan adresi token account
+sahibi olarak ayarlanmış bir token account'a ihtiyaç duyar. Her cüzdan aynı
+token (mint) için birden fazla token account'a sahip olabilir, ancak bir token
+account yalnızca bir sahibi olabilir ve yalnızca bir token'ın (mint) birimlerini
+tutabilir.
+
+![Hesap İlişkisi](/assets/docs/core/tokens/token-account-relationship.svg)
+
+<Callout type="info">
+
+Her Token Account'ın verilerinin, Token Account üzerinde kimin yetkisi olduğunu
+belirten bir `owner` alanı içerdiğini unutmayın. Bu, tüm Token Account'lar için
+Token Program olan temel [Account](/docs/core/accounts#account-type) türünde
+belirtilen program sahibinden farklıdır.
+
+</Callout>
+
+### Associated Token Account
+
+Associated Token Account'lar, belirli bir mint ve sahip için token account
+adresini bulma sürecini basitleştirir. Associated Token Account'ı belirli bir
+mint ve sahip için "varsayılan" token account olarak düşünebilirsiniz.
+
+İlişkili Token Hesabı, sahibinin adresi ve mint hesabının adresinden türetilen
+bir adresle oluşturulur. Anlaşılması gereken önemli nokta, İlişkili Token
+Hesabının sadece belirli bir adrese sahip bir token hesabı olduğudur.
+
+Bu, Solana geliştirmede önemli bir kavramı ortaya koyar:
+[Program Türetilmiş Adres (PDA)](/docs/core/pda). PDA, önceden tanımlanmış
+girdileri kullanarak deterministik olarak bir adres türetir, böylece bir hesabın
+adresini bulmayı kolaylaştırır.
+
+![İlişkili Token Hesabı](/assets/docs/core/tokens/associated-token-account.svg)
+
+Her cüzdanın aynı mint'ten token tutabilmesi için kendi token hesabına ihtiyacı
+olduğunu unutmayın.
+
+![Genişletilmiş Hesap İlişkisi](/assets/docs/core/tokens/token-account-relationship-ata.svg)
+
+## Token CLI örnekleri
+
+_spl-token_ CLI, SPL token'larıyla denemeler yapmanıza yardımcı olur. Aşağıdaki
+örnekler, CLI komutlarını yerel kurulum olmadan doğrudan tarayıcıda çalıştırmak
+için [Solana Playground](https://beta.solpg.io/) terminalini kullanır.
+
+Token ve hesap oluşturmak, hesap kira depozitoları ve işlem ücretleri için SOL
+gerektirir. Solana Playground'u ilk kez kullananlar için, bir Playground cüzdanı
+oluşturun ve Playground terminalinde _solana airdrop 1_ komutunu çalıştırın.
+Ayrıca genel [web faucet](https://faucet.solana.com/) üzerinden devnet SOL da
+alabilirsiniz.
+
+```bash
+solana airdrop 1
+```
+
+Tüm mevcut komutları görmek için _spl-token --help_ komutunu çalıştırın.
+
+```bash
+spl-token --help
+```
+
+_spl-token_ CLI'yi yerel olarak kurmak için şunu çalıştırın:
+
+```bash
+npm install -g @solana/spl-token
+```
+
+_spl-token_ [dokümantasyonunda](https://www.solana-program.com/docs/token) daha
+fazla örnek bulabilirsiniz.
+
+<Callout type="info">
+
+Terminal çıktınızda gösterilen hesap adresleri aşağıdaki örneklerden farklıdır.
+Takip ederken Playground terminalinizdeki adresleri kullanın. Örneğin,
+_spl-token create-token_ komutu, Playground cüzdanınızı mint yetkilisi olarak
+içeren bir mint hesap adresi çıktısı verir.
+
+</Callout>
+
+### Yeni bir token oluşturma
+
+Yeni bir token (mint hesabı) oluşturmak için şunu çalıştırın:
+
+```bash
+spl-token create-token
+```
+
+Çıktı şuna benzer:
+
+```bash
+Creating token 7EYQDdNgyrEYeEEUFNi4iiX9GzXLGkY4Ujtpv2harro
+
+Signature: 4N9KCzGMTH9XzxvgxAHXGFqo53zLCM3BW1n8yZUWUx8Mf6VBCvdvLHrDMFDgCjXQUgMj7o81AvvNbWxY3KYP9Nq5
+```
+
+Yeni bir mint account sıfır arz ile başlar. Mevcut arzı şu şekilde kontrol
+edebilirsiniz:
+
+```terminal
+$ spl-token supply <TOKEN_ADDRESS>
+```
+
+Yeni bir token için _sh`supply`_ komutu `0` döndürür:
+
+```sh title="Example"
+spl-token supply 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Yeni bir Mint Account oluşturmak iki talimat içeren bir işlem gerektirir. İşte
+[Solana Playground](https://beta.solpg.io/660ce32ecffcf4b13384d00f) üzerinde bir
+Javascript örneği.
+
+1. System Program, Mint Account verisi için alan içeren yeni bir hesap oluşturur
+   ve sahipliği Token Program'a aktarır.
+
+2. Token Program, yeni hesabın verilerini bir Mint Account olarak başlatır
+
+### Token Account oluşturma
+
+Belirli bir mint'in tokenlarını tutmak için bir token account oluşturun:
+
+```terminal
+$ spl-token create-account <TOKEN_ADDRESS>
+```
+
+Örnek komut:
+
+```sh title="Example"
+spl-token create-account 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Çıktı:
+
+```sh title="Terminal Output"
+Creating account AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2BtrynuCLX9CNofFiaw6Yzbx6hit66pup9Sk7aFjwU2NEbFz7NCHD9w9sWhrCfEd73XveAGK1DxFpJoQZPXU9tS1
+```
+
+_sh`create-account`_ komutu, cüzdan adresinizi sahip olarak belirleyerek bir
+associated token account oluşturur.
+
+Farklı bir sahibi olan bir token account oluşturmak için:
+
+```terminal
+$ spl-token create-account --owner <OWNER_ADDRESS> <TOKEN_ADDRESS>
+```
+
+Not: `<TOKEN_ADDRESS>` token account için mint account'u belirtir.
+
+Örnek komut:
+
+```sh title="Example"
+spl-token create-account --owner 2i3KvjDCZWxBsqcxBHpdEaZYQwQSYE6LXUMx5VjY5XrR 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Çıktı:
+
+```shell title="Terminal Output" /Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt/
+Creating account Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 44vqKdfzspT592REDPY4goaRJH3uJ3Ce13G4BCuUHg35dVUbHuGTHvqn4ZjYF9BGe9QrjMfe9GmuLkQhSZCBQuEt
+```
+
+Associated Token Account oluşturmak,
+[Associated Token Program](https://github.com/solana-program/associated-token-account)'ı
+çağıran bir talimat gerektirir. İşte
+[Solana Playground](https://beta.solpg.io/660ce868cffcf4b13384d011) üzerinde bir
+Javascript örneği.
+
+Associated Token Program, [Çapraz Program Çağrıları](/docs/core/cpi) kullanarak
+şunları yapar:
+
+- Sağlanan PDA'yı adres olarak kullanarak yeni bir hesap oluşturmak için
+  [System Program'ı çağırır](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/tools/account.rs#L19)
+- Token Account verilerini başlatmak için
+  [Token Program'ı çağırır](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/processor.rs#L138-L161)
+
+Associated Token Account adresi yerine yeni bir keypair ile yeni bir Token
+Account oluşturmak için, iki talimat içeren bir işlem gönderin. İşte
+[Solana Playground](https://beta.solpg.io/660ce716cffcf4b13384d010) üzerinde bir
+Javascript örneği.
+
+1. System Program, Token Account verisi için alan içeren yeni bir hesap
+   oluşturur ve sahipliği Token Program'a aktarır.
+
+2. Token Program, verileri bir Token Account olarak başlatır
+
+### Token Mint Etme
+
+Bir tokenın yeni birimlerini oluşturmak için, bir Token Account'a token mint
+edin:
+
+```terminal
+$ spl-token mint [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> [--] [RECIPIENT_TOKEN_ACCOUNT_ADDRESS]
+```
+
+Örnek komut:
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100
+```
+
+Çıktı:
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2NJ1m7qCraPSBAVxbr2ssmWZmBU9Jc8pDtJAnyZsZJRcaYCYMqq1oRY1gqA4ddQno3g3xcnny5fzr1dvsnFKMEqG
+```
+
+Farklı bir token hesabına token mint etmek için:
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 -- Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+Çıktı:
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 3SQvNM3o9DsTiLwcEkSPT1Edr14RgE2wC54TEjonEP2swyVCp2jPWYWdD6RwXUGpvDNUkKWzVBZVFShn5yntxVd7
+```
+
+Token Program üzerindeki _rs`MintTo`_ talimatı yeni tokenlar oluşturur. Mint
+yetkilisinin işlemi imzalaması gerekir. Bu talimat, bir Token Account'a token
+mint eder ve Mint Account üzerindeki toplam arzı artırır. İşte
+[Solana Playground](https://beta.solpg.io/660cea45cffcf4b13384d012) üzerinde bir
+Javascript örneği.
+
+### Token Transfer Etme
+
+Token hesapları arasında token transfer etmek için:
+
+```sh title="Terminal"
+spl-token transfer [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> <RECIPIENT_ADDRESS or RECIPIENT_TOKEN_ACCOUNT_ADDRESS>
+```
+
+Örnek komut:
+
+```sh title="Example"
+spl-token transfer 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+Çıktı:
+
+```shell title="Terminal Output"
+Transfer 100 tokens
+  Sender: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 5y6HVwV8V2hHGLTVmTmdySRiEUCZnWmkasAvJ7J6m7JR46obbGKCBqUFgLpZu5zQGwM4Xy6GZ4M5LKd1h6Padx3o
+```
+
+Token Program üzerindeki _rs`Transfer`_ talimatı token transferlerini yönetir.
+Gönderenin Token Account sahibinin işlemi imzalaması gerekir. Bu talimat, Token
+Account'lar arasında token taşır. İşte
+[Solana Playground](https://beta.solpg.io/660ced84cffcf4b13384d013) üzerinde bir
+Javascript örneği.
+
+Hem gönderen hem de alıcının belirli token (mint) için token hesaplarına
+ihtiyacı vardır. Gönderen, aynı işlemde alıcının token hesabını oluşturmak için
+talimatlar ekleyebilir.
+
+### Token Metadatası Oluşturma
+
+Token Extensions Program, metadata'yı (isim, sembol, görsel bağlantısı) doğrudan
+Mint Account üzerinde saklamanıza olanak tanır.
+
+Metadata uzantısı olan bir token oluşturmak için:
+
+```sh title="Example"
+spl-token create-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --enable-metadata
+```
+
+Çıktı:
+
+```shell title="Terminal Output"
+Creating token BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP under program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+To initialize metadata inside the mint, please run `spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>`, and sign with the mint authority.
+
+Address:  BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP
+Decimals:  9
+
+Signature: 5iQofFeXdYhMi9uTzZghcq8stAaa6CY6saUwcdnELST13eNSifiuLbvR5DnRt311frkCTUh5oecj8YEvZSB3wfai
+```
+
+Metadata'yı başlatmak için:
+
+```sh title="Terminal"
+spl-token initialize-metadata <TOKEN_MINT_ADDRESS> <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>
+```
+
+Token URI, zincir dışı metadata'ya bağlantı verir. Örnek JSON formatını
+[burada](https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json)
+görebilirsiniz.
+
+Örnek komut:
+
+```sh title="Example"
+spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP "TokenName" "TokenSymbol" "https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+```
+
+Metadata'yı
+[Solana Explorer](https://explorer.solana.com/address/BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP?cluster=devnet)
+üzerinde görüntüleyin.
+
+[Metadata Extension Kılavuzu](/developers/guides/token-extensions/metadata-pointer)
+içinde daha fazla bilgi edinin. Token Extensions hakkında ayrıntılar için Token
+Extensions
+[Başlangıç Kılavuzu](/developers/guides/token-extensions/getting-started) ve
+[SPL dokümantasyonu](https://www.solana-program.com/docs/token-2022/extensions)
+bölümlerine bakın.

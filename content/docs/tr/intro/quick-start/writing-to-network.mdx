@@ -1,0 +1,416 @@
+---
+title: Ağa yazma
+description:
+  İşlemler ve talimatlar göndererek Solana ağıyla nasıl etkileşim kuracağınızı
+  öğrenin. System Program ve Token Extensions Program kullanarak SOL token
+  transferi yapmak ve yeni tokenler oluşturmak için adım adım örnekleri takip
+  edin.
+---
+
+Önceki bölümde, Solana ağından veri okumayı öğrendiniz. Şimdi ağa nasıl veri
+yazılacağını keşfedin. Solana ağına yazmak, bir veya daha fazla talimat içeren
+işlemler göndermeyi içerir.
+
+Programlar (akıllı sözleşmeler) bu talimatları ilgili her talimat için kendi iş
+mantıklarına göre işlerler. Bir işlem gönderdiğinizde, Solana çalışma zamanı her
+talimatı sırayla ve atomik olarak yürütür (yani ya tüm talimatlar başarılı olur
+ya da tüm işlem başarısız olur).
+
+Bu bölümde, iki temel örnek göreceksiniz:
+
+1. Hesaplar arasında SOL transferi
+2. Yeni bir token oluşturma
+
+Bu örnekler, Solana programlarını çağırmak için işlemlerin nasıl
+oluşturulacağını ve gönderileceğini gösterir. Daha fazla ayrıntı için
+[İşlemler ve Talimatlar](/docs/core/transactions) ve
+[Solana'da Ücretler](/docs/core/fees) sayfalarına bakın.
+
+## SOL transferi
+
+Bu örnekte, iki hesap arasında SOL transferi yapmayı öğreneceksiniz.
+
+Solana'da, her hesabın sahibi olarak belirli bir program vardır. Yalnızca
+program sahibi bir hesabın SOL (lamport) bakiyesini düşürebilir.
+
+System Program, tüm "cüzdan" hesaplarının
+[sahibidir](https://github.com/anza-xyz/agave/blob/v2.1.11/sdk/account/src/lib.rs#L55).
+SOL transferi yapmak için, System Program'ın
+[transfer](https://github.com/anza-xyz/agave/blob/v2.1.11/programs/system/src/system_processor.rs#L183-L213)
+talimatını çağırmanız gerekir.
+
+<WithNotes>
+
+<CodeTabs flags="r">
+
+```ts !! title="Transfer SOL"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+// !tooltip[/connection/] connection
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// !tooltip[/sender/] sender
+const sender = new Keypair();
+// !tooltip[/receiver/] receiver
+const receiver = new Keypair();
+
+// !tooltip[/requestAirdrop/] airdrop
+const signature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+// !tooltip[/transferInstruction/] instruction
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// !tooltip[/transaction/] transaction
+const transaction = new Transaction().add(transferInstruction);
+
+// !tooltip[/sendAndConfirmTransaction/] sendAndConfirmTransaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender]
+);
+
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</CodeTabs>
+
+### !connection
+
+Bir Solana kümesine bağlantı oluşturun.
+
+### !sender
+
+Gönderici olarak kullanmak için yeni bir anahtar çifti oluşturun.
+
+### !receiver
+
+Alıcı olarak kullanmak için yeni bir anahtar çifti oluşturun.
+
+### !airdrop
+
+`sender` için SOL airdrop'u talep edin.
+
+### !instruction
+
+System Program'ın transfer talimatını çağırmak için talimat oluşturun.
+
+### !transaction
+
+Yeni bir işlem oluşturun ve transfer talimatını ekleyin.
+
+### !sendAndConfirmTransaction
+
+İşlemi gönderin.
+
+</WithNotes>
+
+Bunlar, Solana'daki herhangi bir programla etkileşim kurmak için işlem oluşturma
+adımlarıdır.
+
+<Steps>
+<Step>
+
+Çağırmak istediğiniz talimatı oluşturun.
+
+```ts title="Instruction"
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  // !mention one
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+```
+
+</Step>
+<Step>
+
+Talimatı bir işleme ekleyin:
+
+```ts title="Transaction"
+const transaction = new Transaction().add(transferInstruction);
+```
+
+</Step>
+<Step>
+
+İşlemi imzalayın ve gönderin:
+
+```ts title="Send Transaction"
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender] // signer keypair
+);
+```
+
+</Step>
+</Steps>
+
+## Token Oluşturma
+
+Bu örnekte, Token Extensions Program kullanarak Solana'da yeni bir token
+oluşturmayı öğreneceksiniz. Bu, iki talimat gerektirir:
+
+1. Yeni bir hesap oluşturmak için System Program'ı çağırın.
+2. Bu hesabı bir Mint olarak başlatmak için Token Extensions Program'ı çağırın.
+
+<WithNotes>
+
+<CodeTabs flags="r">
+
+```ts !! title="Create Mint Account"
+import {
+  Connection,
+  Keypair,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  MINT_SIZE,
+  TOKEN_2022_PROGRAM_ID,
+  createInitializeMint2Instruction,
+  getMinimumBalanceForRentExemptMint
+} from "@solana/spl-token";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// !tooltip[/wallet/] wallet
+const wallet = new Keypair();
+// Fund the wallet with SOL
+const signature = await connection.requestAirdrop(
+  wallet.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+// Generate keypair to use as address of mint account
+// !tooltip[/mint/] mint
+const mint = new Keypair();
+
+// Calculate lamports required for rent exemption
+// !tooltip[/rentExemptionLamports/] rentExemptionLamports
+const rentExemptionLamports =
+  await getMinimumBalanceForRentExemptMint(connection);
+
+// Instruction to create new account with space for new mint account
+// !tooltip[/createAccountInstruction/] createAccountInstruction
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: wallet.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: rentExemptionLamports,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+// Instruction to initialize mint account
+// !tooltip[/initializeMintInstruction/] initializeMintInstruction
+const initializeMintInstruction = createInitializeMint2Instruction(
+  mint.publicKey,
+  2, // decimals
+  wallet.publicKey, // mint authority
+  wallet.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Build transaction with instructions to create new account and initialize mint account
+// !tooltip[/transaction/] transaction
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+
+// !tooltip[/sendAndConfirmTransaction/] sendAndConfirmTransaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [
+    wallet, // payer
+    mint // mint address keypair
+  ]
+);
+
+console.log("Mint Account:", `${mint.publicKey}`);
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</CodeTabs>
+
+### !wallet
+
+Cüzdan olarak kullanmak için yeni bir keypair oluşturun.
+
+### !mint
+
+Oluşturulacak Mint hesabının adresi olarak kullanmak için yeni bir keypair
+oluşturun.
+
+### !rentLamports
+
+Mint hesabı için gereken lamport miktarını hesaplayın.
+
+### !rentExemptionLamports
+
+Kira muafiyeti için gereken lamport miktarını hesaplayın
+
+### !createAccountInstruction
+
+Mint hesap türü için alan içeren ve Token Extensions Program tarafından
+sahiplenilen yeni bir hesap oluşturmak için talimat oluşturun.
+
+### !initializeMintInstruction
+
+Yeni hesabın verilerini Mint hesap türü olarak başlatmak için talimat oluşturun.
+
+### !transaction
+
+Yeni işlem oluşturun ve her iki talimatı da ekleyin.
+
+Burada talimatların sırası önemlidir. `createAccountInstruction`,
+`initializeMintInstruction`'den önce gelmelidir.
+
+### !sendAndConfirmTransaction
+
+İşlemi gönderin.
+
+</WithNotes>
+
+İşte örneğin yaptıklarının adım adım açıklaması:
+
+<Steps>
+<Step>
+
+Bir bağlantı oluşturun ve cüzdanı fonlayın
+
+```ts title="Connection and Wallet"
+const connection = new Connection("http://localhost:8899", "confirmed");
+const wallet = new Keypair();
+const signature = await connection.requestAirdrop(
+  wallet.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+```
+
+</Step>
+<Step>
+
+Mint hesabı için bir keypair oluşturun
+
+```ts title="Mint Keypair"
+const mint = new Keypair();
+```
+
+</Step>
+<Step>
+
+Kira muafiyeti için gereken minimum lamport miktarını hesaplayın
+
+```ts title="Rent Exemption"
+const rentExemptionLamports =
+  await getMinimumBalanceForRentExemptMint(connection);
+```
+
+</Step>
+<Step>
+
+Yeni bir hesap oluşturmak için bir talimat oluşturun
+
+<WithMentions>
+
+1. Mint verilerini depolamak için [gereken alanı ayırın](mention:one)
+2. Yeni hesabı finanse etmek için cüzdandan
+   [lamport transferi yapın](mention:two)
+3. Hesabın sahipliğini Token Extensions programına [atayın](mention:three)
+   (`TOKEN_2022_PROGRAM_ID`)
+
+```ts title="Create Account Instruction"
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: wallet.publicKey,
+  newAccountPubkey: mint.publicKey,
+  // !mention one
+  space: MINT_SIZE,
+  // !mention two
+  lamports: rentExemptionLamports,
+  // !mention three
+  programId: TOKEN_2022_PROGRAM_ID
+});
+```
+
+</WithMentions>
+
+</Step>
+<Step>
+
+Mint hesabını başlatmak için bir talimat oluşturun
+
+```ts title="Initialize Mint Instruction"
+const initializeMintInstruction = createInitializeMint2Instruction(
+  mint.publicKey,
+  2, // decimals
+  wallet.publicKey, // mint authority
+  wallet.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+```
+
+</Step>
+<Step>
+
+Her iki talimatı da bir işleme ekleyin
+
+```ts title="Build Transaction"
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+```
+
+</Step>
+<Step>
+
+İşlemi her iki gerekli imzalayıcı ile gönderin ve onaylayın
+
+```ts title="Send Transaction"
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [wallet, mint]
+);
+```
+
+</Step>
+<Step>
+
+Mint hesabını ve işlem imzasını yazdırın
+
+```ts title="Output"
+console.log("Mint Account:", `${mint.publicKey}`);
+console.log("Transaction Signature:", `${transactionSignature}`);
+```
+
+</Step>
+</Steps>
+
+Her iki talimatı tek bir işlemde birleştirerek, hesap oluşturma ve başlatma
+işlemlerinin atomik olarak gerçekleşmesini sağlarsınız. Ya her iki talimat da
+başarılı olur ya da hiçbiri olmaz. Bu yaklaşım, daha karmaşık Solana işlemleri
+oluştururken yaygındır, çünkü tüm talimatların birlikte yürütülmesini garanti
+eder.
