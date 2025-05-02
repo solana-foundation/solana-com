@@ -1,0 +1,196 @@
+---
+title: SSS
+---
+
+Sorularınızı [StackExchange](https://solana.stackexchange.com/questions/ask)
+üzerinde paylaşın.
+
+## Berkeley Packet Filter (BPF)
+
+Solana zincir üstü programları, [LLVM derleyici altyapısı](https://llvm.org/)
+aracılığıyla
+[Executable and Linkable Format (ELF)](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+biçiminde,
+[Berkeley Packet Filter (BPF)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter)
+bayt kodunun bir varyasyonunu içerecek şekilde derlenir.
+
+Solana LLVM derleyici altyapısını kullandığı için, bir program LLVM'nin BPF arka
+ucunu hedefleyebilen herhangi bir programlama dilinde yazılabilir.
+
+BPF, yorumlanmış sanal makinede veya verimli bir şekilde tam zamanında derlenmiş
+yerel talimatlar olarak yürütülebilen etkili bir
+[komut seti](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md) sağlar.
+
+## Bellek haritası
+
+Solana SBF programları tarafından kullanılan sanal adres bellek haritası
+sabittir ve aşağıdaki gibi düzenlenmiştir
+
+- Program kodu 0x100000000 adresinden başlar
+- Yığın verisi 0x200000000 adresinden başlar
+- Heap verisi 0x300000000 adresinden başlar
+- Program giriş parametreleri 0x400000000 adresinden başlar
+
+Yukarıdaki sanal adresler başlangıç adresleridir, ancak programlara bellek
+haritasının bir alt kümesine erişim verilir. Program, erişim izni verilmeyen bir
+sanal adresi okumaya veya yazmaya çalışırsa panik durumuna geçer ve ihlal
+girişiminin adresini ve boyutunu içeren bir "AccessViolation" hatası döndürülür.
+
+## InvalidAccountData
+
+Bu program hatası birçok nedenden dolayı oluşabilir. Genellikle, programın
+beklemediği bir hesabı programa geçirmekten kaynaklanır; ya talimattaki yanlış
+pozisyonda ya da yürütülen talimatla uyumlu olmayan bir hesap.
+
+Bir programın uygulaması, çapraz program talimatı gerçekleştirirken çağırdığınız
+program için hesap sağlamayı unuttuğunuzda da bu hataya neden olabilir.
+
+## InvalidInstructionData
+
+Bu program hatası, talimatı deserialize ederken oluşabilir, iletilen yapının
+talimata tam olarak uyduğunu kontrol edin. Alanlar arasında bazı dolgu olabilir.
+Eğer program Rust `Pack` özelliğini uyguluyorsa, programın beklediği tam
+kodlamayı belirlemek için talimat türü `T` paketlemeyi ve paketi açmayı deneyin.
+
+## MissingRequiredSignature
+
+Bazı talimatlar, hesabın imzalayıcı olmasını gerektirir; bir hesabın imzalanması
+beklendiği halde imzalanmadığında bu hata döndürülür.
+
+Bir programın uygulaması, imzalı bir program adresi gerektiren bir
+[çapraz program çağrısı](/docs/core/cpi) gerçekleştirirken de bu hataya neden
+olabilir, ancak `invoke_signed` için iletilen imzalayıcı tohumları, program
+adresini oluşturmak için kullanılan imzalayıcı tohumlarıyla eşleşmez
+[`create_program_address`](/docs/core/pda#createprogramaddress).
+
+## Stack
+
+SBF, değişken bir yığın işaretçisi yerine yığın çerçeveleri kullanır. Her yığın
+çerçevesi 4KB boyutundadır.
+
+Bir program bu yığın çerçeve boyutunu ihlal ederse, derleyici taşmayı bir uyarı
+olarak bildirir.
+
+Örneğin:
+
+```text
+Error: Function _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E Stack offset of -30728 exceeded max offset of -4096 by 26632 bytes, please minimize large stack variables
+```
+
+Mesaj, yığın çerçevesini aşan sembolü tanımlar, ancak isim karıştırılmış
+olabilir.
+
+> Bir Rust sembolünün karışıklığını gidermek için
+> [rustfilt](https://github.com/luser/rustfilt) kullanın.
+
+Yukarıdaki uyarı bir Rust programından geldi, bu nedenle karışıklığı giderilmiş
+sembol adı şudur:
+
+```shell
+rustfilt _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E
+curve25519_dalek::edwards::EdwardsBasepointTable::create
+```
+
+Bir hata yerine bir uyarı bildirilmesinin nedeni, program bu işlevselliği
+kullanmasa bile, bazı bağımlı sandıkların yığın çerçeve kısıtlamalarını ihlal
+eden işlevselliği içerebilmesidir. Program çalışma zamanında yığın boyutunu
+ihlal ederse, bir `AccessViolation` hatası bildirilecektir.
+
+SBF yığın çerçeveleri, `0x200000000` adresinden başlayan sanal bir adres
+aralığını kaplar.
+
+## Yığın boyutu
+
+Programlar, Rust `alloc` API'leri aracılığıyla çalışma zamanı yığınına
+erişebilir. Hızlı bellek tahsisini kolaylaştırmak için basit bir 32KB bump
+yığını kullanılır. Bu yığın `free` veya `realloc` desteklemez.
+
+Dahili olarak, programlar 0x300000000 sanal adresinden başlayan 32KB bellek
+bölgesine erişebilir ve programın özel ihtiyaçlarına göre özel bir yığın
+uygulayabilir.
+
+Rust programları, özel bir
+[`global_allocator`](https://github.com/solana-labs/solana/blob/d9b0fc0e3eec67dfe4a97d9298b15969b2804fab/sdk/program/src/entrypoint.rs#L72)
+tanımlayarak yığını doğrudan uygular
+
+## Yükleyiciler
+
+Programlar, çalışma zamanı yükleyicileri ile dağıtılır ve yürütülür. Şu anda
+desteklenen iki yükleyici vardır:
+[BPF Loader](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader.rs#L17)
+ve
+[BPF loader deprecated](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader_deprecated.rs#L14)
+
+Yükleyiciler farklı uygulama ikili arayüzlerini destekleyebilir, bu nedenle
+geliştiriciler programlarını aynı yükleyici için yazmalı ve dağıtmalıdır. Bir
+yükleyici için yazılmış bir program farklı bir yükleyiciye dağıtılırsa, sonuç
+genellikle programın giriş parametrelerinin yanlış seri hale getirilmesinden
+kaynaklanan bir `AccessViolation` hatasıdır.
+
+Tüm pratik amaçlar için, programlar her zaman en son BPF yükleyiciyi
+hedefleyecek şekilde yazılmalıdır ve en son yükleyici, komut satırı arayüzü ve
+javascript API'leri için varsayılandır.
+
+- [Rust program giriş noktaları](/docs/programs/lang-rust#program-entrypoint)
+
+### Dağıtım
+
+SBF program dağıtımı, bir BPF paylaşılan nesnesini bir program hesabının
+verilerine yükleme ve hesabı yürütülebilir olarak işaretleme sürecidir. Bir
+istemci, SBF paylaşılan nesnesini daha küçük parçalara böler ve bunları
+yükleyiciye
+[`Write`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L13)
+talimatlarının talimat verisi olarak gönderir; yükleyici de bu verileri
+programın hesap verilerine yazar. Tüm parçalar alındıktan sonra, istemci
+yükleyiciye bir
+[`Finalize`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L30)
+talimatı gönderir, yükleyici daha sonra SBF verilerinin geçerli olduğunu
+doğrular ve program hesabını _executable_ olarak işaretler. Program hesabı
+yürütülebilir olarak işaretlendikten sonra, sonraki işlemler bu programın
+işlemesi için talimatlar verebilir.
+
+Bir talimat çalıştırılabilir bir SBF programına yönlendirildiğinde, yükleyici
+programın çalışma ortamını yapılandırır, programın giriş parametrelerini seri
+hale getirir, programın giriş noktasını çağırır ve karşılaşılan hataları
+raporlar.
+
+Daha fazla bilgi için [program dağıtımı](/docs/programs/deploying) bölümüne
+bakın.
+
+### Giriş Parametresi Serileştirme
+
+SBF yükleyicileri, program giriş parametrelerini bir bayt dizisine serileştirir
+ve bu dizi daha sonra programın giriş noktasına iletilir; burada program, zincir
+üzerinde bunu seri durumdan çıkarmaktan sorumludur. Kullanımdan kaldırılan
+yükleyici ile mevcut yükleyici arasındaki değişikliklerden biri, giriş
+parametrelerinin, çeşitli parametrelerin hizalanmış bayt dizisi içinde
+hizalanmış ofsetlere düşmesini sağlayacak şekilde serileştirilmesidir. Bu, seri
+durumdan çıkarma uygulamalarının bayt dizisine doğrudan başvurmasına ve programa
+hizalanmış işaretçiler sağlamasına olanak tanır.
+
+- [Rust program parametresi seri durumdan çıkarma](/docs/programs/lang-rust#parameter-deserialization)
+
+En son yükleyici, program giriş parametrelerini aşağıdaki gibi serileştirir (tüm
+kodlama küçük endian'dır):
+
+- 8 bayt işaretsiz hesap sayısı
+- Her hesap için
+  - Bunun yinelenen bir hesap olup olmadığını belirten 1 bayt, yinelenen değilse
+    değer 0xff'dir, aksi takdirde değer yinelenen hesabın dizinidir.
+  - Yineleniyorsa: 7 bayt dolgu
+  - Yinelenmiyorsa:
+    - 1 bayt boolean, hesap imzalayıcıysa true
+    - 1 bayt boolean, hesap yazılabilirse true
+    - 1 bayt boolean, hesap çalıştırılabilirse true
+    - 4 bayt dolgu
+    - Hesap açık anahtarının 32 baytı
+    - Hesap sahibinin açık anahtarının 32 baytı
+    - Hesabın sahip olduğu lamport sayısının 8 bayt işaretsiz değeri
+    - Hesap verisi bayt sayısının 8 bayt işaretsiz değeri
+    - x bayt hesap verisi
+    - 10k bayt dolgu, realloc için kullanılır
+    - Ofseti 8 bayta hizalamak için yeterli dolgu.
+    - 8 bayt rent epoch
+- instruction data'nın işaretsiz sayısının 8 baytı
+- x bayt instruction data
+- Program kimliğinin 32 baytı
