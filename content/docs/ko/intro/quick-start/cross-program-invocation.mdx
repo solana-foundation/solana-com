@@ -1,0 +1,670 @@
+---
+title: 여러 프로그램 구성하기
+description:
+  Anchor 프레임워크를 사용하여 Solana 프로그램에서 교차 프로그램 호출(CPIs)을
+  구현하는 방법을 알아보세요. 이 튜토리얼은 계정 간 SOL 전송, System Program과의
+  상호작용, 그리고 CPI에서 프로그램 파생 주소(PDAs) 처리 방법을 보여줍니다. 구성
+  가능한 Solana 프로그램을 구축하려는 개발자에게 완벽한 가이드입니다.
+h1: 교차 프로그램 호출
+---
+
+이 섹션에서는 이전 PDA 섹션의 CRUD 프로그램이 Solana 프로그램이 서로를 호출할 수
+있게 해주는 기능인 교차 프로그램 호출(CPIs)을 추가하여 업데이트됩니다.
+
+이 튜토리얼은 또한 프로그램이 교차 프로그램 호출을 할 때 프로그램 파생
+주소(PDAs)에 대해 어떻게 "서명"할 수 있는지 보여줍니다.
+
+`update` 및 `delete` 명령어는 System Program을 호출하여 계정 간 SOL 전송을
+처리하도록 수정이 필요합니다.
+
+이 섹션의 목적은 Anchor 프레임워크를 사용하여 Solana 프로그램에서 CPI를 구현하는
+과정을 안내하고, 이전 섹션에서 탐색한 PDA 개념을 기반으로 합니다. 자세한 내용은
+[교차 프로그램 호출](/docs/core/cpi) 페이지를 참조하세요.
+
+참고로, 이 링크는 PDA와 CPI 섹션을 모두 완료한 후의
+[최종 코드](https://beta.solpg.io/668304cfcffcf4b13384d20a)를 포함합니다.
+
+이 섹션의 [시작 코드](https://beta.solpg.io/679d75eecffcf4b13384d604)는 PDA
+섹션만 완료된 상태입니다.
+
+<Steps>
+<Step>
+
+### 업데이트 명령어 수정하기
+
+먼저, 프로그램은 _rs`Update`_ 구조체와 `update` 함수를 변경하여 간단한 "업데이트
+비용 지불" 메커니즘이 필요합니다.
+
+`lib.rs` 파일을 업데이트하여 `system_program` 모듈의 항목들을 범위에 포함시키는
+것부터 시작하세요.
+
+```rs title="lib.rs"
+use anchor_lang::system_program::{transfer, Transfer};
+```
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+  use anchor_lang::prelude::*;
++ use anchor_lang::system_program::{transfer, Transfer};
+```
+
+</Accordion>
+</Accordions>
+
+다음으로, _rs`Update`_ 구조체를 업데이트하여 `vault_account`라는 새 계정을
+포함시킵니다. 이 계정은 프로그램에 의해 제어되며, 사용자가 자신의 메시지 계정을
+업데이트할 때 SOL을 받습니다.
+
+```rs title="lib.rs"
+#[account(
+    mut,
+    seeds = [b"vault", user.key().as_ref()],
+    bump,
+)]
+pub vault_account: SystemAccount<'info>,
+```
+
+<Accordions>
+<Accordion title="차이점">
+
+```diff
+#[derive(Accounts)]
+#[instruction(message: String)]
+pub struct Update<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
++   #[account(
++       mut,
++       seeds = [b"vault", user.key().as_ref()],
++       bump,
++   )]
++   pub vault_account: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"message", user.key().as_ref()],
+        bump = message_account.bump,
+        realloc = 8 + 32 + 4 + message.len() + 1,
+        realloc::payer = user,
+        realloc::zero = true,
+    )]
+    pub message_account: Account<'info, MessageAccount>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+</Accordion>
+<Accordion title="설명">
+
+이 섹션은 _rs`Update`_ 구조체에 `vault_account`라는 새 계정을 추가합니다. 이
+계정은 사용자가 메시지를 업데이트할 때 SOL을 받는 프로그램 제어 "금고" 역할을
+합니다.
+
+금고에 PDA를 사용함으로써 프로그램은 각 사용자에게 고유한 프로그램 제어 계정을
+생성하여 프로그램 로직 내에서 자금 관리를 가능하게 합니다.
+
+---
+
+`vault_account`의 주요 특징:
+
+- 계정 주소는 _rs`[b"vault", user.key().as_ref()]`_ 시드를 사용하여 파생된
+  PDA에서 가져옵니다
+- PDA로서 개인 키가 없으므로 CPI를 수행할 때 프로그램만 주소에 대해 "서명"할 수
+  있습니다
+- _rs`SystemAccount`_ 유형으로서 일반 지갑 계정처럼 System Program이 소유합니다
+
+이 설정을 통해 프로그램은 다음과 같은 작업을 수행할 수 있습니다:
+
+- 각 사용자의 "금고"에 대한 고유하고 결정적인 주소 생성
+- 트랜잭션에 서명하기 위한 개인 키 없이도 자금 제어 가능
+
+`delete` 명령에서 프로그램이 CPI에서 이 PDA에 대해 어떻게 "서명"할 수 있는지
+확인할 수 있습니다.
+
+</Accordion>
+</Accordions>
+
+다음으로, `update` 명령에 CPI 로직을 추가하여 사용자 계정에서 금고 계정으로
+0.001 SOL을 전송합니다.
+
+<WithNotes>
+
+```rs title="lib.rs"
+// !tooltip[/transfer_accounts/] transfer_accounts
+let transfer_accounts = Transfer {
+    from: ctx.accounts.user.to_account_info(),
+    to: ctx.accounts.vault_account.to_account_info(),
+};
+
+// !tooltip[/cpi_context/] cpi_context
+let cpi_context = CpiContext::new(
+    ctx.accounts.system_program.to_account_info(),
+    transfer_accounts,
+);
+
+// !tooltip[/transfer/] transfer
+transfer(cpi_context, 1_000_000)?;
+```
+
+### !transfer_accounts
+
+_rs`Transfer`_ 구조체는 System Program의 전송 명령에 필요한 계정을 지정합니다.
+
+### !cpi_context
+
+_rs`CpiContext`_ 구조체는 Cross Program Invocation(CPI)에 대한 프로그램과 계정을
+지정합니다.
+
+### !transfer
+
+_rs`transfer()`_ 함수는 System Program의 전송 명령을 호출합니다.
+
+</WithNotes>
+
+<Accordions>
+<Accordion title="차이점">
+
+```diff
+    pub fn update(ctx: Context<Update>, message: String) -> Result<()> {
+        msg!("Update Message: {}", message);
+        let account_data = &mut ctx.accounts.message_account;
+        account_data.message = message;
+
++       let transfer_accounts = Transfer {
++           from: ctx.accounts.user.to_account_info(),
++           to: ctx.accounts.vault_account.to_account_info(),
++       };
++       let cpi_context = CpiContext::new(
++           ctx.accounts.system_program.to_account_info(),
++           transfer_accounts,
++       );
++       transfer(cpi_context, 1_000_000)?;
+        Ok(())
+    }
+```
+
+</Accordion>
+<Accordion title="설명">
+
+`update` 명령어에서 구현은 System Program의 `transfer` 명령어를 호출하기 위한
+Cross Program Invocation(CPI)을 포함합니다. 이는 프로그램 내에서 CPI를 수행하는
+방법을 보여주며, Solana 프로그램의 구성 가능성을 가능하게 합니다.
+
+_rs`Transfer`_ 구조체는 System Program의 전송 명령어에 필요한 계정을 지정합니다:
+
+- `from` - 사용자 계정(자금 출처)
+- `to` - 금고 계정(자금 목적지)
+
+  ```rs title="lib.rs"
+  let transfer_accounts = Transfer {
+      from: ctx.accounts.user.to_account_info(),
+      to: ctx.accounts.vault_account.to_account_info(),
+  };
+  ```
+
+*rs`CpiContext`*는 다음을 지정합니다:
+
+- 호출할 프로그램(System Program)
+- CPI에 필요한 계정(_rs`Transfer`_ 구조체에 정의됨)
+
+  ```rs title="lib.rs"
+  let cpi_context = CpiContext::new(
+      ctx.accounts.system_program.to_account_info(),
+      transfer_accounts,
+  );
+  ```
+
+`transfer` 함수는 System Program에서 전송 명령어를 호출하며 다음을 전달합니다:
+
+- `cpi_context`(프로그램 및 계정)
+- 전송할 `amount`(1,000,000 lamport 또는 0.001 SOL)
+
+  ```rs title="lib.rs"
+  transfer(cpi_context, 1_000_000)?;
+  ```
+
+<Callout>
+
+CPI 설정은 클라이언트 측 명령어 구축 방식과 일치합니다. 특정 명령어를 호출하기
+위해 프로그램, 계정 및 instruction data를 지정합니다. 프로그램의 `update`
+명령어가 호출을 받으면 내부적으로 System Program의 전송 명령어를 호출합니다.
+
+</Callout>
+
+</Accordion>
+</Accordions>
+
+프로그램을 다시 빌드하세요.
+
+```terminal
+$ build
+```
+
+</Step>
+<Step>
+
+### 삭제 명령어 업데이트하기
+
+이제 _rs`Delete`_ 구조체와 `delete` 함수를 변경하여 "삭제 시 환불" 메커니즘을
+추가하세요.
+
+먼저 _rs`Delete`_ 구조체를 업데이트하여 `vault_account`를 포함시키세요. 이를
+통해 사용자가 메시지 계정을 닫을 때 금고에 있는 SOL을 사용자에게 다시 전송할 수
+있습니다.
+
+```rs title="lib.rs"
+#[account(
+    mut,
+    seeds = [b"vault", user.key().as_ref()],
+    bump,
+)]
+pub vault_account: SystemAccount<'info>,
+```
+
+또한 전송을 위한 CPI는 System Program을 호출해야 하므로 `system_program`를
+추가하세요.
+
+```rs title="lib.rs"
+pub system_program: Program<'info, System>,
+```
+
+<Accordions>
+<Accordion title="차이점">
+
+```diff
+#[derive(Accounts)]
+pub struct Delete<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
++   #[account(
++       mut,
++       seeds = [b"vault", user.key().as_ref()],
++       bump,
++   )]
++   pub vault_account: SystemAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"message", user.key().as_ref()],
+        bump = message_account.bump,
+        close= user,
+    )]
+    pub message_account: Account<'info, MessageAccount>,
++   pub system_program: Program<'info, System>,
+}
+```
+
+</Accordion>
+<Accordion title="설명">
+
+`vault_account`는 Update 구조체와 동일한 PDA 파생 방식을 사용합니다.
+
+Delete 구조체에 `vault_account`를 추가하면 프로그램이 삭제 명령 중에 사용자의
+볼트 계정에 접근하여 누적된 SOL을 사용자에게 다시 전송할 수 있습니다.
+
+</Accordion>
+</Accordions>
+
+<WithNotes>
+
+다음으로, `delete` 명령에 CPI 로직을 추가하여 볼트 계정에서 사용자 계정으로
+SOL을 전송합니다.
+
+```rs title="lib.rs"
+let user_key = ctx.accounts.user.key();
+// !tooltip[/signer_seeds/] signer_seeds
+let signer_seeds: &[&[&[u8]]] =
+    &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+
+let transfer_accounts = Transfer {
+    from: ctx.accounts.vault_account.to_account_info(),
+    to: ctx.accounts.user.to_account_info(),
+};
+let cpi_context = CpiContext::new(
+    ctx.accounts.system_program.to_account_info(),
+    transfer_accounts,
+// !tooltip[/with_signer/] with_signer
+).with_signer(signer_seeds);
+transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+```
+
+### !signer_seeds
+
+*rs`signer_seeds`*는 PDA를 파생하는 데 사용되는 선택적 시드와 범프 시드를
+지정합니다.
+
+### !with_signer
+
+_rs`with_signer()`_ 메서드는 CPI와 함께 서명자 시드를 전달합니다.
+
+이를 통해 프로그램은 자신의 프로그램 ID에서 파생된 PDA에 대해 "서명"할 수
+있습니다.
+
+명령 처리 중에 런타임은 제공된 서명자 시드가 PDA의 주소로 올바르게 파생되는지
+확인합니다. 확인되면 런타임은 CPI 기간 동안 해당 PDA 계정을 서명자로 취급합니다.
+
+</WithNotes>
+
+*rs`_ctx: Context<Delete>`*가 *rs`ctx: Context<Delete>`*로 변경되어 함수
+본문에서 컨텍스트를 사용한다는 점에 유의하세요.
+
+<Accordions>
+<Accordion title="차이점">
+
+```diff
+-    pub fn delete(_ctx: Context<Delete>) -> Result<()> {
++    pub fn delete(ctx: Context<Delete>) -> Result<()> {
+         msg!("Delete Message");
+
++        let user_key = ctx.accounts.user.key();
++        let signer_seeds: &[&[&[u8]]] =
++            &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
++
++        let transfer_accounts = Transfer {
++            from: ctx.accounts.vault_account.to_account_info(),
++            to: ctx.accounts.user.to_account_info(),
++        };
++        let cpi_context = CpiContext::new(
++            ctx.accounts.system_program.to_account_info(),
++            transfer_accounts,
++        ).with_signer(signer_seeds);
++        transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+         Ok(())
+     }
+
+```
+
+</Accordion>
+<Accordion title="설명">
+
+삭제 명령에서는 또 다른 Cross Program Invocation(CPI)이 System Program의 전송
+명령을 구현합니다. 이 CPI는 Program Derived Address(PDA) 서명자가 필요한 전송을
+수행하는 방법을 보여줍니다.
+
+먼저, 볼트 PDA의 서명자 시드를 정의합니다:
+
+```rs title="lib.rs"
+let user_key = ctx.accounts.user.key();
+let signer_seeds: &[&[&[u8]]] =
+    &[&[b"vault", user_key.as_ref(), &[ctx.bumps.vault_account]]];
+```
+
+_rs`Transfer`_ 구조체는 System Program의 전송 명령에 필요한 계정을 지정합니다:
+
+- from: 볼트 계정(자금 출처)
+- to: 사용자 계정(자금 목적지)
+
+  ```rs title="lib.rs"
+  let transfer_accounts = Transfer {
+      from: ctx.accounts.vault_account.to_account_info(),
+      to: ctx.accounts.user.to_account_info(),
+  };
+  ```
+
+*rs`CpiContext`*는 다음을 지정합니다:
+
+- 호출할 프로그램(시스템 프로그램)
+- 전송에 관련된 계정(Transfer 구조체에 정의됨)
+- PDA의 서명자 시드
+
+  ```rs title="lib.rs"
+  let cpi_context = CpiContext::new(
+      ctx.accounts.system_program.to_account_info(),
+      transfer_accounts,
+  ).with_signer(signer_seeds);
+  ```
+
+_rs`transfer()`_ 함수는 시스템 프로그램의 전송 명령을 호출하며 다음을
+전달합니다:
+
+- `cpi_context`(프로그램, 계정 및 PDA 서명자)
+- 전송할 금액(볼트 계정의 전체 잔액)
+
+  ```rs title="lib.rs"
+  transfer(cpi_context, ctx.accounts.vault_account.lamports())?;
+  ```
+
+이 CPI 구현은 프로그램이 PDA를 사용하여 자금을 관리하는 방법을 보여줍니다.
+프로그램의 삭제 명령이 호출되면 내부적으로 시스템 프로그램의 전송 명령을
+호출하고, PDA에 서명하여 볼트에서 사용자에게 모든 자금을 전송할 수 있도록
+합니다.
+
+</Accordion>
+</Accordions>
+
+프로그램을 다시 빌드하세요.
+
+```terminal
+$ build
+```
+
+</Step>
+<Step>
+
+### 프로그램 재배포
+
+이러한 변경 사항을 적용한 후, 업데이트된 프로그램을 재배포하세요. 이렇게 하면
+수정된 프로그램을 테스트할 수 있게 됩니다. Solana에서는 동일한 프로그램 ID에
+프로그램을 배포하는 것만으로 프로그램을 업데이트할 수 있습니다.
+
+<Callout>
+
+플레이그라운드 지갑에 devnet SOL이 있는지 확인하세요.
+[Solana Faucet](https://faucet.solana.com/)에서 devnet SOL을 받을 수 있습니다.
+
+</Callout>
+
+```terminal
+$ deploy
+Deploying... This could take a while depending on the program size and network conditions.
+Deployment successful. Completed in 17s.
+```
+
+<Accordions>
+<Accordion title="설명">
+
+프로그램의 업그레이드 권한을 가진 계정만 프로그램을 업데이트할 수 있습니다.
+개발자는 프로그램 배포 중에 업그레이드 권한을 설정하며, 이 계정만이 프로그램을
+변경하거나 닫을 수 있는 권한을 가집니다. 업그레이드 권한이 취소되면 프로그램은
+불변 상태가 됩니다.
+
+Solana 플레이그라운드에서 프로그램을 배포할 때, 플레이그라운드 지갑이 모든
+프로그램의 업그레이드 권한을 갖게 됩니다.
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+### 테스트 파일 업데이트
+
+다음으로, `anchor.test.ts` 파일을 업데이트하여 명령어에 새 볼트 계정을
+포함시키세요. 이를 위해 볼트 PDA를 도출하고 업데이트 및 삭제 명령어 호출에
+포함시켜야 합니다.
+
+#### Vault PDA 도출
+
+먼저, vault PDA 도출을 추가하세요:
+
+```ts title="anchor.test.ts"
+const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
+  [Buffer.from("vault"), wallet.publicKey.toBuffer()],
+  program.programId
+);
+```
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+describe("pda", () => {
+  const program = pg.program;
+  const wallet = pg.wallet;
+
+  const [messagePda, messageBump] = PublicKey.findProgramAddressSync(
+    [Buffer.from("message"), wallet.publicKey.toBuffer()],
+    program.programId
+  );
+
++  const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
++    [Buffer.from("vault"), wallet.publicKey.toBuffer()],
++    program.programId
++  );
+
+  // ...tests
+  });
+```
+
+</Accordion>
+</Accordions>
+
+#### 업데이트 테스트 변경
+
+<WithMentions>
+
+그런 다음, [`vaultAccount`](mention:one)을 포함하도록 업데이트 명령어를
+수정하세요
+
+```ts title="anchor.test.ts"  {5}
+const transactionSignature = await program.methods
+  .update(message)
+  .accounts({
+    messageAccount: messagePda,
+    // !mention one
+    vaultAccount: vaultPda
+  })
+  .rpc({ commitment: "confirmed" });
+```
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+    const transactionSignature = await program.methods
+      .update(message)
+      .accounts({
+        messageAccount: messagePda,
++       vaultAccount: vaultPda,
+      })
+      .rpc({ commitment: "confirmed" });
+```
+
+</Accordion>
+</Accordions>
+
+#### 삭제 테스트 변경
+
+<WithMentions>
+
+그런 다음, [`vaultAccount`](mention:one)을 포함하도록 삭제 명령어를 수정하세요
+
+```ts title="anchor.test.ts"  {5}
+const transactionSignature = await program.methods
+  .delete()
+  .accounts({
+    messageAccount: messagePda,
+    // !mention one
+    vaultAccount: vaultPda
+  })
+  .rpc({ commitment: "confirmed" });
+```
+
+</WithMentions>
+
+<Accordions>
+<Accordion title="Diff">
+
+```diff
+    const transactionSignature = await program.methods
+      .delete()
+      .accounts({
+        messageAccount: messagePda,
++       vaultAccount: vaultPda,
+      })
+      .rpc({ commitment: "confirmed" });
+```
+
+</Accordion>
+</Accordions>
+
+</Step>
+<Step>
+
+### 테스트 재실행
+
+이러한 변경 사항을 적용한 후, 모든 것이 예상대로 작동하는지 확인하기 위해
+테스트를 실행하세요:
+
+```terminal
+$ test
+Running tests...
+  anchor.test.ts:
+  pda
+    {
+  "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+  "message": "Hello, World!",
+  "bump": 254
+}
+    Transaction Signature: https://solana.fm/tx/qGsYb87mUUjeyh7Ha7r9VXkACw32HxVBujo2NUxqHiUc8qxRMFB7kdH2D4JyYtPBx171ddS91VyVrFXypgYaKUr?cluster=devnet-solana
+    ✔ Create Message Account (842ms)
+    {
+  "user": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+  "message": "Hello, Solana!",
+  "bump": 254
+}
+    Transaction Signature: https://solana.fm/tx/3KCDnNSfDDfmSy8kpiSrJsGGkzgxx2mt18KejuV2vmJjeyenkSoEfs2ghUQ6cMoYYgd9Qax9CbnYRcvF2zzumNt8?cluster=devnet-solana
+    ✔ Update Message Account (946ms)
+    Expect Null: null
+    Transaction Signature: https://solana.fm/tx/3M7Z7Mea3TtQc6m9z386B9QuEgvLKxD999mt2RyVtJ26FgaAzV1QA5mxox3eXie3bpBkNpDQ4mEANr3trVHCWMC2?cluster=devnet-solana
+    ✔ Delete Message Account (859ms)
+  3 passing (3s)
+```
+
+그런 다음 SolanaFM 링크를 검사하여 트랜잭션 세부 정보를 볼 수 있으며, 업데이트
+및 삭제 명령 내에서 전송 명령에 대한 CPI를 찾을 수 있습니다.
+
+![업데이트 CPI](/assets/docs/intro/quickstart/cpi-update.png)
+
+![삭제 CPI](/assets/docs/intro/quickstart/cpi-delete.png)
+
+오류가 발생하면 [최종 코드](https://beta.solpg.io/668304cfcffcf4b13384d20a)를
+참조할 수 있습니다.
+
+</Step>
+</Steps>
+
+## 다음 단계
+
+Solana 퀵스타트 가이드를 완료한 것을 축하합니다. 다음과 같은 주요 Solana 개념에
+대한 실무 경험을 얻었습니다:
+
+- 계정에서 데이터 가져오기 및 읽기
+- 트랜잭션 구축 및 전송
+- Solana 프로그램 배포 및 업데이트
+- Program Derived Address(PDA) 작업
+- Cross-Program Invocation(CPI) 수행
+
+이러한 개념에 대한 이해를 깊게 하려면 이 가이드에서 다룬 주제에 대한 자세한
+설명을 제공하는 [핵심 개념](/docs/core/accounts) 문서를 확인하세요.
+
+### 더 많은 예제 탐색하기
+
+예제를 통해 배우는 것을 선호한다면 다양한 예제 프로그램이 있는
+[프로그램 예제 저장소](https://github.com/solana-developers/program-examples)를
+확인하세요.
+
+Solana Playground는 GitHub 링크를 사용하여 프로젝트를 가져오거나 볼 수 있는
+편리한 기능을 제공합니다. 예를 들어, 이
+[GitHub 저장소](https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor)의
+Anchor 프로젝트를 보려면
+[Solana Playground 링크](https://beta.solpg.io/https://github.com/solana-developers/program-examples/tree/main/basics/hello-solana/anchor)를
+열어보세요.
+
+`Import` 버튼을 클릭하고 프로젝트 이름을 입력하여 Solana Playground의 프로젝트
+목록에 추가하세요. 프로젝트가 가져와지면 모든 변경 사항이 자동으로 저장되고
+유지됩니다.

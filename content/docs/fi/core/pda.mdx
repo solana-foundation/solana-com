@@ -1,0 +1,586 @@
+---
+title: Program Derived Address
+description:
+  Opi Program Derived Address (PDA) -osoitteista Solanassa - deterministiset
+  tiliosoitteet, jotka mahdollistavat turvallisen ohjelman allekirjoituksen.
+  Ymmärrä PDA-johdannaisten, kanonisten bump-arvojen ja PDA-tilien luomisen
+  periaatteet.
+h1: Program Derived Address (PDA)
+---
+
+Program Derived Address (PDA) -osoitteet tarjoavat Solanan kehittäjille kaksi
+pääkäyttötapausta:
+
+- **Deterministiset tiliosoitteet**: PDA-osoitteet tarjoavat mekanismin luoda
+  deterministisesti osoitteen käyttämällä yhdistelmää valinnaisia "seed"-arvoja
+  (ennalta määritettyjä syötteitä) ja tiettyä ohjelmatunnusta.
+- **Mahdollistaa ohjelman allekirjoituksen**: Solanan ajoympäristö mahdollistaa
+  ohjelmien "allekirjoittaa" PDA-osoitteita, jotka on johdettu ohjelman
+  osoitteesta.
+
+Voit ajatella PDA-osoitteita tapana luoda hajautustaulun kaltaisia rakenteita
+lohkoketjuun ennalta määritetystä syötejoukosta (esim. merkkijonot, numerot ja
+muut tiliosoitteet).
+
+Tämän lähestymistavan etu on, että se poistaa tarpeen seurata tarkkaa osoitetta.
+Sen sijaan sinun tarvitsee vain muistaa tietyt syötteet, joita käytettiin sen
+johtamiseen.
+
+![Program Derived Address](/assets/docs/core/pda/pda.svg)
+
+On tärkeää ymmärtää, että pelkkä Program Derived Address (PDA) -osoitteen
+johtaminen ei automaattisesti luo lohkoketjuun tiliä kyseiseen osoitteeseen.
+Tilit, joilla on PDA lohkoketjuosoitteena, on nimenomaisesti luotava ohjelman
+kautta, jota käytettiin osoitteen johtamiseen. Voit ajatella PDA:n johtamista
+kuin osoitteen löytämistä kartalta. Pelkkä osoitteen omistaminen ei tarkoita,
+että kyseiseen paikkaan olisi rakennettu mitään.
+
+<Callout type="info">
+  Tämä osio käsittelee PDA-osoitteiden johtamisen yksityiskohtia. Osio [Cross
+  Program Invocation (CPI)](/docs/core/cpi) selittää, miten ohjelmat käyttävät
+  PDA-osoitteita allekirjoittamiseen.
+</Callout>
+
+## Keskeiset kohdat
+
+- PDA-osoitteet ovat osoitteita, jotka **johdetaan deterministisesti** käyttäen
+  yhdistelmää ennalta määritettyjä seed-arvoja, bump seed -arvoa ja ohjelman
+  tunnusta.
+- PDA-osoitteet ovat osoitteita, jotka jäävät Ed25519-käyrän ulkopuolelle ja
+  **joilla ei ole vastaavaa yksityistä avainta**.
+- Solana-ohjelmat voivat **allekirjoittaa PDA-osoitteiden puolesta, jotka on
+  johdettu sen ohjelmatunnuksesta**.
+- PDA-osoitteen johtaminen ei automaattisesti luo lohkoketjutiliä.
+- Tili, joka käyttää PDA-osoitetta osoitteenaan, on luotava Solana-ohjelman
+  ohjeen kautta.
+
+## Mikä on PDA
+
+PDA:t ovat deterministisesti johdettuja osoitteita, jotka näyttävät julkisilta
+avaimiltä, mutta niillä ei ole yksityisiä avaimia. Tämä tarkoittaa, että
+osoitteelle ei ole mahdollista luoda kelvollista allekirjoitusta. Solanan
+ajoympäristö kuitenkin mahdollistaa ohjelmien "allekirjoittaa" PDA:iden puolesta
+ilman yksityistä avainta.
+
+Taustatietona, Solanan
+[Avainparit](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/keypair/src/lib.rs#L26)
+ovat pisteitä Ed25519-käyrällä (elliptisen käyrän kryptografia), joilla on
+julkinen avain ja vastaava yksityinen avain. Julkisia avaimia käytetään
+osoitteina (yksilöllisinä tunnisteina) lohkoketjun tileille.
+
+![Käyrällä oleva osoite](/assets/docs/core/pda/address-on-curve.svg)
+
+PDA on piste, joka on tarkoituksella johdettu Ed25519-käyrän ulkopuolelle
+käyttäen ennalta määritettyä syötteiden joukkoa. Pisteellä, joka ei ole
+Ed25519-käyrällä, ei ole kelvollista vastaavaa yksityistä avainta eikä se voi
+suorittaa kryptografisia toimintoja (allekirjoittamista).
+
+PDA voi toimia osoitteena (yksilöllisenä tunnisteena) lohkoketjun tilille,
+tarjoten menetelmän ohjelman tilan helppoon tallentamiseen, kartoittamiseen ja
+hakemiseen.
+
+![Käyrän ulkopuolinen osoite](/assets/docs/core/pda/address-off-curve.svg)
+
+## Miten PDA johdetaan
+
+PDA:n johtaminen vaatii kolme syötettä:
+
+- **Valinnaiset seed-arvot**: Ennalta määritettyjä syötteitä (esim.
+  merkkijonoja, numeroita, muita tilien osoitteita) PDA:n johtamiseen.
+- **Bump seed**: Ylimääräinen tavu, joka lisätään valinnaisiin seed-arvoihin
+  varmistaakseen, että kelvollinen PDA (käyrän ulkopuolinen) luodaan. Bump seed
+  alkaa arvosta 255 ja vähenee 1:llä kunnes kelvollinen PDA löytyy.
+- **Ohjelmatunnus**: Sen ohjelman osoite, josta PDA johdetaan. Tämä ohjelma voi
+  allekirjoittaa PDA:n puolesta.
+
+![PDA:n johtaminen](/assets/docs/core/pda/pda-derivation.svg)
+
+Käytä seuraavia funktioita vastaavista SDK:ista PDA:n johtamiseen.
+
+| SDK                            | Funktio                                                                                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/kit` (Typescript)     | [`getProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L157) |
+| `@solana/web3.js` (Typescript) | [`findProgramAddressSync`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/publickey.ts#L212)               |
+| `solana_sdk` (Rust)            | [`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/pubkey/src/lib.rs#L617)                        |
+
+PDA:n johtamiseksi anna seuraavat syötteet SDK-funktioon:
+
+- Ennalta määritellyt valinnaiset seedit tavuiksi muunnettuina
+- Johtamiseen käytetty ohjelmatunnus (osoite)
+
+Kun kelvollinen PDA löytyy, funktio palauttaa sekä osoitteen (PDA) että
+johtamiseen käytetyn bump seedin.
+
+### Esimerkkejä
+
+Seuraavat esimerkit näyttävät, miten PDA johdetaan käyttäen eri SDK:ita.
+
+Napsauta "Run"-painiketta suorittaaksesi koodin.
+
+#### PDA:n johtaminen valinnaisella merkkijonon seedillä
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+
+    let seeds: &[&[u8]] = &[b"helloWorld"];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+#### PDA:n johtaminen valinnaisella osoitteen seedillä
+
+<CodeTabs storage="pda-examples"flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+#### PDA:n johtaminen useilla valinnaisilla seededeillä
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const optionalSeedString = "helloWorld";
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedString, optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const optionalSeedString = "helloWorld";
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+
+    let optional_seed_bytes = b"helloWorld";
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Kanoninen bump
+
+PDA-johtaminen vaatii "bump seed" -arvon, ylimääräisen tavun, joka lisätään
+valinnaisiin seedeihin. Johtamisfunktio käy läpi bump-arvoja alkaen arvosta 255
+ja vähentäen arvoa yhdellä, kunnes arvo tuottaa kelvollisen käyrän ulkopuolisen
+osoitteen. Ensimmäinen bump-arvo, joka tuottaa kelvollisen käyrän ulkopuolisen
+osoitteen, on "kanoninen bump".
+
+Seuraavat esimerkit näyttävät PDA-johtamisen käyttäen kaikkia mahdollisia bump
+seed -arvoja (255- 0):
+
+<Callout type="info">
+  Kit-esimerkkiä ei ole sisällytetty, koska
+  [createProgramDerivedAddress](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L101)
+  -funktiota ei ole viety.
+</Callout>
+
+<CodeTabs flags="r">
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const optionalSeed = "helloWorld";
+
+// Loop through all bump seeds (255 down to 0)
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(optionalSeed), Buffer.from([bump])],
+      programId
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_id = Pubkey::from_str("11111111111111111111111111111111")?;
+    let optional_seed = b"helloWorld";
+
+    // Loop through all bump seeds (255 down to 0)
+    for bump in (0..=255).rev() {
+        match Pubkey::create_program_address(&[optional_seed.as_ref(), &[bump]], &program_id) {
+            Ok(pda) => println!("bump {}: {}", bump, pda),
+            Err(err) => println!("bump {}: {}", bump, err),
+        }
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<CodeTabs>
+
+```sh !! title="Expected TS Output"
+bump 255: Error: Invalid seeds, address must fall off the curve
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Error: Invalid seeds, address must fall off the curve
+...
+// remaining bump outputs
+```
+
+```sh !! title="Expected Rust Output"
+bump 255: Provided seeds do not result in a valid address
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Provided seeds do not result in a valid address
+...
+// remaining bump outputs
+```
+
+</CodeTabs>
+
+Bump seed -arvo 255 aiheuttaa virheen ja ensimmäinen bump seed, joka johtaa
+kelvolliseen PDA:han, on 254.
+
+Huomaa, että bump seed -arvot 253-251 kaikki johtavat kelvollisiin PDA:ihin eri
+osoitteilla. Tämä tarkoittaa, että samoilla valinnaisilla seededeillä ja
+`programId`, eri bump seed -arvolla voidaan silti johtaa kelvollinen PDA.
+
+<Callout type="warn">
+  Kun rakennat Solana-ohjelmia, sisällytä aina turvallisuustarkistukset
+  varmistaaksesi, että ohjelmalle välitetty PDA on johdettu kanonisesta
+  bumpista. Jos näitä tarkistuksia ei sisällytetä, se voi tuoda
+  haavoittuvuuksia, jotka mahdollistavat odottamattomien tilien käytön ohjelman
+  ohjeissa. Parhaana käytäntönä on käyttää vain kanonista bumpia PDA:iden
+  johtamisessa.
+</Callout>
+
+## PDA-tilien luominen
+
+Alla oleva esimerkkiohjelma näyttää, miten luodaan tili käyttäen PDA:ta uuden
+tilin osoitteena. Esimerkkiohjelma käyttää
+[Anchor-kehystä](https://www.anchor-lang.com/docs).
+
+Ohjelma sisältää yhden `initialize` -ohjeen uuden tilin luomiseksi käyttäen
+PDA:ta tilin osoitteena. Uusi tili tallentaa `user` -osoitteen ja `bump` seed
+-arvon, jota käytettiin PDA:n johtamiseen.
+
+<CodeTabs>
+
+```rs !! title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+
+#[derive(InitSpace)]
+pub struct DataAccount {
+    pub user: Pubkey,
+    pub bump: u8,
+}
+```
+
+```ts !! title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</CodeTabs>
+
+Tässä esimerkissä PDA-johtamisen seed-arvot sisältävät kiinteän merkkijonon
+`data` ja ohjeessa annetun `user`-tilin osoitteen. Anchor- kehys löytää
+automaattisesti kanonisen `bump`-seed-arvon.
+
+```rust title="pda_account"
+#[account(
+    init,
+    // !mark[/seeds/]
+    seeds = [b"data", user.key().as_ref()],
+    // !mark[/bump/]
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+`init`-rajoite ohjeistaa Anchoria kutsumaan System Program -ohjelmaa uuden tilin
+luomiseksi käyttäen PDA:ta osoitteena. Anchor tekee tämän
+[CPI](/docs/core/cpi)-kutsun kautta.
+
+```rust title="pda_account"
+#[account(
+    // !mark[/init/]
+    init,
+    seeds = [b"data", user.key().as_ref()],
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+Testitiedosto sisältää Typescript-koodin PDA:n johtamiseksi.
+
+```ts title="Derive PDA"
+const [PDA] = PublicKey.findProgramAddressSync(
+  // !mark
+  [Buffer.from("data"), user.publicKey.toBuffer()],
+  program.programId
+);
+```
+
+Testitiedoston transaktio kutsuu `initialize`-ohjetta luodakseen uuden
+lohkoketjutilin käyttäen PDA:ta osoitteena. Tässä esimerkissä Anchor voi
+päätellä PDA-osoitteen ohjetilejä varten, joten sitä ei tarvitse nimenomaisesti
+määrittää.
+
+```ts title="Invoke Initialize Instruction"
+it("Is initialized!", async () => {
+  const transactionSignature = await program.methods
+    // !mark
+    .initialize()
+    .accounts({
+      user: user.publicKey
+    })
+    .rpc();
+
+  console.log("Transaction Signature:", transactionSignature);
+});
+```
+
+Testitiedosto näyttää myös, miten hakea kyseiseen osoitteeseen luotu
+lohkoketjutili transaktion lähettämisen jälkeen.
+
+```ts title="Fetch Account"
+it("Fetch Account", async () => {
+  // !mark
+  const pdaAccount = await program.account.dataAccount.fetch(PDA);
+  console.log(JSON.stringify(pdaAccount, null, 2));
+});
+```
+
+Huomaa, että tässä esimerkissä, jos kutsut `initialize`-ohjetta useammin kuin
+kerran käyttäen samaa `user`-osoitetta seed-arvona, transaktio epäonnistuu. Tämä
+tapahtuu, koska johdettuun osoitteeseen on jo olemassa tili.

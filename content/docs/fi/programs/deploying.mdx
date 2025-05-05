@@ -1,0 +1,472 @@
+---
+title: Ohjelmien käyttöönotto
+description:
+  Mukautettujen ohjelmien lataaminen Solana-lohkoketjuun käyttäen Solana CLI:tä.
+---
+
+Tämä opas olettaa seuraavien aiheiden tuntemusta:
+
+- [Solanan tilimalli](/core/accounts)
+- [Solana-ohjelmat yleisesti](/core/programs)
+- [Mukautettujen Solana-ohjelmien kehittäminen](/programs/rust/)
+
+## Loader-v3 ja Loader-v4
+
+Tällä hetkellä on käynnissä siirtymä loader-v3:sta (program-alikomento)
+loader-v4:ään (program **-v4** -alikomento), koska loader-v3 on poistumassa
+käytöstä.
+
+Uusissa käyttöönotoissa käytä komentoa `solana program-v4 deploy` komennon
+`solana program deploy` sijaan.
+
+Olemassa olevan ohjelman siirtäminen (mikä on käytännössä sen
+uudelleenkäyttöönotto):
+
+```shell
+solana program migrate ./target/deploy/your_program-keypair.json
+```
+
+## Valmistelu
+
+Ensin ohjelma täytyy rakentaa (kääntää, linkittää, karsia).
+
+```shell
+cargo +solana build --target sbpf-solana-solana --release
+```
+
+Tämä vaihe on suoritettava ennen jokaista käyttöönottoa tai
+uudelleenkäyttöönottoa.
+
+Tarkista, että oletustilin käytettävissä on riittävästi varoja suhteessa
+suoritettavan tiedoston kokoon:
+
+```shell
+du -h ./target/deploy/your_program.so
+solana balance
+```
+
+Lisäksi jokaisella ohjelmalla on ohjelmatili ja ohjelmatunnus (program ID), joka
+on kyseisen ohjelmatilin osoite. Seuraava komento luo avainparin ohjelmatilin:
+
+```shell
+solana-keygen new -o ./target/deploy/your_program-keypair.json
+```
+
+Tämä täytyy tehdä vain kerran ohjelmaa kohden, ja samaa avainparia käytetään
+saman ohjelman myöhemmissä uudelleenkäyttöönotoissa.
+
+Työkaluketjussa oli oikotie, mutta se on poistumassa käytöstä / vanhentunut:
+
+```shell
+cargo-build-sbf
+```
+
+## Ensimmäinen käyttöönotto
+
+Nyt suoritettava tiedosto voidaan ladata ohjelmatilille:
+
+### Loader-v3
+
+Parametrin nimi on `program-id` vaikka se odottaa avainparin tiedostopolkua:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+```
+
+## Uudelleenkäyttöönotto
+
+Eri suoritettavan tiedoston lataaminen samaan ohjelmatiliin uudelleen
+korvaa/vaihtaa sen. Uudelleenkäyttöönottoa varten tarvitaan kuitenkin vain
+ohjelman tunnus (ohjelmaavainparin pubkey), ei koko avainparia, koska
+allekirjoittajana toimii päivitysoikeuden avainpari.
+
+### Loader-v3
+
+Tämä on täsmälleen sama kuin ensimmäinen käyttöönotto:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+Jos vanha suoritettava tiedosto oli lyhyempi kuin uusi, saattaa olla tarpeen
+kasvattaa programdata-tiliä ensin:
+
+```shell
+solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+```
+
+### Loader-v4
+
+Huomaa, että ensimmäisessä käyttöönotossa käytettiin `program-keypair`, kun taas
+uudelleenkäyttöönotossa käytetään `program-id`:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Latauksen priorisointi
+
+Ruuhka-aikoina voit käyttää muutamia lisälippuja ohjelman käyttöönoton
+helpottamiseksi:
+
+- `--with-compute-unit-price`: Asettaa laskentayksikön hinnan transaktiolle
+  0,000001 lamportin (mikro-lamportin) askelin laskentayksikköä kohden. Käytä
+  [Heliuksen Priority Fee API:a](https://docs.helius.dev/guides/priority-fee-api)
+  saadaksesi arvion asetettavasta prioriteettimaksusta.
+- `--use-rpc`: Lähettää kirjoitustransaktiot määritettyyn RPC:hen validaattorien
+  TPU:iden sijaan. Tämä lippu vaatii
+  [stake-weighted](/developers/guides/advanced/stake-weighted-qos) RPC-yhteyden,
+  kuten [Helius](https://www.helius.dev/) tai [Triton](https://triton.one/).
+  Tämä lippu voidaan myös määrittää oletusarvoksi käyttämällä:
+  `solana config set --url <RPC_URL>`.
+- `--max-sign-attempts`: Maksimimäärä yrityksiä allekirjoittaa tai
+  uudelleenallekirjoittaa transaktioita blockhash-vanhentumisen jälkeen. Jos
+  jokin ohjelman käyttöönoton aikana lähetetty transaktio on edelleen
+  vahvistamatta alun perin valitun viimeisimmän blockhash-arvon vanhennuttua,
+  nämä transaktiot allekirjoitetaan uudelleen uudella viimeisimmällä
+  blockhash-arvolla ja lähetetään uudelleen. Käytä tätä asetusta säätääksesi
+  transaktioiden allekirjoitusiteraatioiden enimmäismäärää. Kukin blockhash on
+  voimassa noin 60 sekuntia, mikä tarkoittaa, että oletusarvon 5 käyttäminen
+  johtaa transaktioiden lähettämiseen vähintään 5 minuutin ajan tai kunnes
+  kaikki transaktiot on vahvistettu, kumpi tahansa tulee ensin.
+
+## Latauksen jatkaminen
+
+On mahdollista, että lataus jumiutuu tai keskeytyy.
+
+### Loader-v3
+
+Jos ohjelman käyttöönotto epäonnistuu, jäljelle jää väliaikainen puskuritili,
+jossa on nollasta poikkeava saldo. Saadaksesi saldon takaisin voit jatkaa
+epäonnistunutta käyttöönottoa antamalla saman väliaikaisen puskurin uudelle
+`deploy` -kutsulle.
+
+Käyttöönoton epäonnistuessa näytetään virheviesti, jossa määritetään
+siemenlause, jota tarvitaan luodun väliaikaisen puskurin avainparin
+palauttamiseen:
+
+```
+==================================================================================
+Recover the intermediate account's ephemeral keypair file with
+`solana-keygen recover` and the following 12-word seed phrase:
+==================================================================================
+valley flat great hockey share token excess clever benefit traffic avocado athlete
+==================================================================================
+To resume a deploy, pass the recovered keypair as
+the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
+Or to recover the account's lamports, pass it as the
+[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
+==================================================================================
+```
+
+Avainparin palauttaminen:
+
+```shell
+solana-keygen recover -o ./target/deploy/buffer-keypair.json
+```
+
+Syötä pyydettäessä 12 sanan siemenlause.
+
+Anna sitten uusi `deploy` -komento ja määritä puskuri:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+```
+
+### Loader-v4
+
+Latauksen jatkaminen on mahdollista määritetystä tavusijainnista:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```
+
+## Viimeistely
+
+Tämä on **peruuttamaton** toiminto.
+
+Ohjelma voidaan tehdä muuttumattomaksi poistamalla sen päivitysoikeus.
+
+### Loader-v3
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```
+
+### Loader-v4
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```
+
+Ohjelmien ylikirjoittamisen sijaan on myös mahdollista tarjota käyttäjille
+mahdollisuus valita, mitä ohjelman versiota he haluavat käyttää, muodostamalla
+linkitetty lista viimeistellyistä ohjelmista:
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
+```
+
+## Sulkeminen
+
+Loader-v3:n alla käyttöönotetuista ohjelmista vain niiden programdata-tili,
+puskuritilit ja niihin lukitut varat voidaan palauttaa. Ohjelmatili sekä
+ohjelmatunnus ja erityisesti ohjelmatiliin lukitut varat jäävät jumiin.
+
+Loader-v4:n alla käyttöönotetut ohjelmat voidaan sulkea, jolloin niiden
+ohjelmatili, ohjelmatunnus ja lukitut varat vapautuvat jälleen muuhun käyttöön.
+
+### Loader-v3
+
+Tämä on **peruuttamaton** toimenpide loader-v3:lla käyttöönotetuille ohjelmille.
+
+Huomaa, että kun ohjelma on suljettu, sen ohjelmatunnusta ei voi käyttää
+uudelleen. Jos yrität ottaa käyttöön ohjelman aiemmin suljetulla
+ohjelmatunnuksella, saat virheilmoituksen. Jos haluat ottaa ohjelman uudelleen
+käyttöön sulkemisen jälkeen, sinun on luotava uusi ohjelma-keypair-tiedosto.
+
+Yhden programdata-tilin sulkeminen:
+
+```shell
+solana program close ./target/deploy/your_program-keypair.json
+```
+
+Kaikkien nykyiseen valtuuteen liittyvien puskuritilien sulkeminen:
+
+```shell
+solana program close --buffers
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Metatietojen tarkastelu
+
+`show` -alikomento näyttää ohjelman metatiedot.
+
+Esimerkki tulosteesta:
+
+```shell
+Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
+Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
+Last Deployed In Slot: 63890568
+Data Length: 5216 (0x1460) bytes
+```
+
+- `Program Id` on osoite, johon voidaan viitata ohjeen `program_id` -kentässä
+  ohjelmaa kutsuttaessa.
+- `Owner`: Loader, jolla tämä ohjelma otettiin käyttöön.
+- `ProgramData Address` on ohjelmatiliin liittyvä programdata-tili, joka
+  sisältää ohjelman suoritettavan koodin (vain loader-v3).
+- `Status`: `retracted`, `deployed` tai `finalized` (vain loader-v4).
+- `Authority` on ohjelman päivitysvaltuus.
+- `Last Deployed In Slot` on slot, jossa ohjelma viimeksi otettiin käyttöön.
+- `Data Length` on käyttöönottoja varten varatun tilan koko. Nykyisen
+  käyttöönotetun ohjelman käyttämä todellinen tila voi olla pienempi.
+
+### Loader-v3
+
+Tietyn ohjelman tarkastelu:
+
+```shell
+solana program show ./target/deploy/your_program-keypair.json
+```
+
+Oletusvaltuudella käyttöönotettujen ohjelmien luettelon tarkastelu:
+
+```shell
+solana program show --programs
+```
+
+Kaikkien puskuritilien näyttäminen valtuudesta riippumatta:
+
+```shell
+solana program show --buffers --all
+```
+
+Eri valtuuden määrittäminen:
+
+```shell
+solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
+solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v4
+
+Tietyn ohjelman tarkasteleminen:
+
+```shell
+solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```
+
+Oletusvaltuudella käyttöönotettujen ohjelmien luettelon tarkasteleminen:
+
+```shell
+solana program-v4 show --all
+```
+
+Tietyllä valtuudella käyttöönotettujen ohjelmien luettelon tarkasteleminen:
+
+```shell
+solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+```
+
+## Suoritettavan tiedoston lataaminen
+
+Joskus on hyödyllistä ladata ja vertailla ohjelmaa varmistaakseen, että se
+sisältää tunnetun suoritettavan tiedoston. Ladattu tiedosto voidaan katkaista,
+laskea siitä tiiviste ja verrata sitä alkuperäisen ohjelmatiedoston
+tiivisteeseen.
+
+### Loader-v3
+
+```shell
+solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
+```
+
+### Loader-v4
+
+```shell
+solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Edistynyt: valtuuden siirto
+
+Oikeus muuttaa tiettyä ohjelmaa kuuluu sen valtuudelle. Tämä valtuus voidaan
+siirtää toiselle keypairille muuttamatta ohjelman keypairiä, jolloin
+ohjelmatunnus pysyy samana. Lisäksi yksi valtuus voi hallita useita
+ohjelmatileja.
+
+Jos valtuutta ei ole nimenomaisesti määritetty alkuperäisen käyttöönoton
+yhteydessä, käytetään oletusarvoisesti oletuskeypairiä. Tämän vuoksi ohjelman
+uudelleenkäyttöönotto yllä olevissa vaiheissa ei vaatinut valtuuden nimenomaista
+määrittämistä.
+
+Nimenomainen valtuus on hyödyllinen offline-allekirjoituksessa ja usean tahon
+hallinnoimissa ohjelmissa.
+
+Ensin on luotava keypair valtuutta varten:
+
+```shell
+solana-keygen new -o ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v3
+
+Valtuus voidaan määrittää käyttöönoton yhteydessä:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Tai käyttöönoton jälkeen käyttäen oletuskeypairiä nykyisenä valtuutena:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Tai käyttöönoton jälkeen määrittämällä nykyinen auktoriteetti:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
+```
+
+### Loader-v4
+
+Auktoriteetti voidaan määrittää käyttöönoton aikana:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
+```
+
+Tai käyttöönoton jälkeen käyttämällä oletusavainparia nykyisenä auktoriteettina:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
+```
+
+Tai käyttöönoton jälkeen määrittämällä nykyinen auktoriteetti:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
+```
+
+## Edistynyt: Kaksivaiheinen uudelleenkäyttöönotto puskuria käyttäen
+
+Sen sijaan, että suoritettava koodi ladattaisiin suoraan ohjelmatilille, se
+voidaan ladata ensin väliaikaiseen puskuritiliin ja siirtää sitten
+ohjelmatilille toisessa vaiheessa (varsinainen uudelleen-/käyttöönotto). Tämä on
+hyödyllistä offline-allekirjoituksessa ja usean tahon hallinnoimissa ohjelmissa,
+kuten DAO-äänestyksessä, jossa päätetään hyväksytäänkö vai hylätäänkö ladattu
+suoritettava koodi ennen varsinaista uudelleenkäyttöönottoa.
+
+Huomaa, että puskuritilien käyttö lähes kaksinkertaistaa latauksen aikana
+tarvittavat varat, koska kaksi tiliä pitää hallussaan yhtä suoritettavaa koodia
+samanaikaisesti.
+
+Ensin on luotava avainpari puskuritiliä varten:
+
+```shell
+solana-keygen new -o ~/.config/solana/buffer-keypair.json
+```
+
+Puskuritiliä voidaan käyttää uudelleen eri latauksiin, eikä se ole sidottu
+mihinkään tiettyyn ohjelmatiliin.
+
+### Loader-v3
+
+```shell
+solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+## Edistynyt: Offline-allekirjoitus
+
+Jotkin turvallisuusmallit edellyttävät allekirjoitusprosessin erottamista
+transaktion lähettämisestä siten, että allekirjoitusavaimet voidaan täysin
+irrottaa verkosta. Tätä kutsutaan offline-allekirjoitukseksi.
+
+Huomaa, että vain uudelleenkäyttöönottoja voidaan suorittaa offline-tilassa.
+Alkuperäinen ohjelman käyttöönotto **täytyy** suorittaa verkossa olevalta
+laitteelta, ja vain myöhemmät ohjelman uudelleenkäyttöönotot voivat hyödyntää
+offline-allekirjoitusta.
+
+Tyypillinen kokoonpano koostuisi kahdesta eri allekirjoittajasta:
+
+- online-allekirjoittaja (maksun maksaja ja puskuritilin auktoriteetti)
+- offline-allekirjoittaja (ohjelmatilin auktoriteetti)
+
+Yleinen prosessi on kaksivaiheinen uudelleenkäyttöönotto muutamilla lisäyksillä:
+
+1. (online) luo uusi ohjelma
+2. (online) siirrä valtuutus offline-allekirjoittajalle
+3. (online) luo puskuri ja lataa suoritettava tiedosto siihen
+4. (valinnainen) varmista puskurin lohkoketjussa olevat sisällöt
+5. (offline) allekirjoita transaktio ohjelman uudelleenkäyttöönottamiseksi
+   puskuria käyttäen `--blockhash <VALUE> --sign-only`
+6. (online) käytä tätä allekirjoitusta uudelleenkäyttöönottotransaktion
+   lähettämiseen
+   `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
+
+Etsi tuore `blockhash` ja liitä se offline-transaktion allekirjoituksen
+luomiseksi. `blockhash` vanhenee noin 60 sekunnin kuluttua. Jos et ehtinyt
+ajoissa - hae vain uusi tuore tiiviste ja toista kunnes onnistut, tai harkitse
+kestävien transaktiononce-arvojen käyttämistä.

@@ -1,0 +1,420 @@
+---
+title: Solana上のトークン
+description: Solanaのトークンプログラムについて学びましょう。
+---
+
+トークンは、様々なカテゴリーの資産の所有権を表すデジタル資産です。トークン化により、財産権のデジタル化が可能になります。Solana上のトークンはSPL
+([Solana Program Library](https://github.com/solana-program))トークンと呼ばれています。
+
+このセクションでは、Solana上でトークンがどのように表現されているかの基本概念を説明します。コード例については、[SPLトークンの基本](/docs/tokens/basics)セクションを参照してください。
+
+## 重要ポイント
+
+- [Token Program](#token-program)には、ネットワーク上のトークン（代替可能トークンと非代替性トークンの両方）とやり取りするためのすべての命令ロジックが含まれています。
+
+- [Mint Account](#mint-account)は特定のトークンを表し、総供給量やミント権限（トークンの新しい単位を作成する権限を持つアドレス）などのトークンに関するグローバルメタデータを保存します。
+
+- [Token Account](#token-account)は、特定の所有者のための特定のmint
+  accountに対するトークンの個人所有権を追跡します。
+
+- [Associated Token Account](#associated-token-account)は、所有者とmint
+  accountのアドレスから派生したアドレスで作成されたToken Accountです。
+
+## Token Programs
+
+Solanaエコシステムには2つの主要なToken
+Programがあります。両プログラムのソースコードは以下の通りです。
+
+<Cards>
+  <Card title="Token Program (オリジナル)" href="https://github.com/solana-program/token">
+   - 基本的なトークン機能（ミント、転送など）
+   - 不変で広く使用されている
+  </Card>
+
+  <Card title="Token Extension Program (Token 2022)" href="https://github.com/solana-program/token-2022">
+   - オリジナルのToken Programのすべての機能を含む
+   - 「拡張機能」を通じて機能を追加
+  </Card>
+</Cards>
+
+Token
+Programには、ネットワーク上のトークン（代替可能トークンと非代替性トークンの両方）とやり取りするためのすべての命令ロジックが含まれています。Solana上のすべてのトークンは、実質的にToken
+Programが所有する[データアカウント](/docs/core/accounts#data-account)です。
+
+![Token Program](/assets/docs/core/tokens/token-program.svg)
+
+### Mint Account
+
+Solana上のトークンは、Token
+Programが所有する[Mint Account](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L16-L30)のアドレスによって一意に識別されます。このアカウントは特定のトークンのグローバルカウンターとして機能し、以下のようなデータを保存します：
+
+- **供給量**: トークンの総供給量
+- **小数点**: トークンの小数点精度
+- **ミント権限**: トークンの新しい単位を作成し、供給量を増やす権限を持つアカウント
+- **凍結権限**: token
+  accountのトークンを凍結し、転送や焼却を防止する権限を持つアカウント
+
+![Mint Account](/assets/docs/core/tokens/mint-account.svg)
+
+各mint accountに保存される詳細情報は以下の通りです：
+
+```rust title="Mint Account State"
+pub struct Mint {
+    /// Optional authority used to mint new tokens. The mint authority may only
+    /// be provided during mint creation. If no mint authority is present
+    /// then the mint has a fixed supply and no further tokens may be
+    /// minted.
+    pub mint_authority: COption<Pubkey>,
+    /// Total supply of tokens.
+    pub supply: u64,
+    /// Number of base 10 digits to the right of the decimal place.
+    pub decimals: u8,
+    /// Is `true` if this structure has been initialized
+    pub is_initialized: bool,
+    /// Optional authority to freeze token accounts.
+    pub freeze_authority: COption<Pubkey>,
+}
+```
+
+参考として、こちらは[USDC Mint Account](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)のSolana
+Explorerリンクです。
+
+### Token Account
+
+Token
+Programは[Token Accounts](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108)を作成して、各トークン単位の個別所有権を追跡します。token
+accountには以下のようなデータが保存されます：
+
+- **Mint**: token accountが保持するトークンの種類
+- **Owner**: token accountからトークンを転送する権限を持つアカウント
+- **Amount**: token accountが現在保持しているトークンの数量
+
+![Token Account](/assets/docs/core/tokens/token-account.svg)
+
+各token accountに保存される詳細情報は以下の通りです：
+
+```rust title="Token Account State"
+pub struct Account {
+    /// The mint associated with this account
+    pub mint: Pubkey,
+    /// The owner of this account.
+    pub owner: Pubkey,
+    /// The amount of tokens this account holds.
+    pub amount: u64,
+    /// If `delegate` is `Some` then `delegated_amount` represents
+    /// the amount authorized by the delegate
+    pub delegate: COption<Pubkey>,
+    /// The account's state
+    pub state: AccountState,
+    /// If is_native.is_some, this is a native token, and the value logs the
+    /// rent-exempt reserve. An Account is required to be rent-exempt, so
+    /// the value is used by the Processor to ensure that wrapped SOL
+    /// accounts do not drop below this threshold.
+    pub is_native: COption<u64>,
+    /// The amount delegated
+    pub delegated_amount: u64,
+    /// Optional authority to close the account.
+    pub close_authority: COption<Pubkey>,
+}
+```
+
+ウォレットは保有したい各トークン（mint）に対してtoken
+accountが必要で、ウォレットアドレスがtoken
+accountのオーナーとして設定されます。各ウォレットは同じトークン（mint）に対して複数のtoken
+accountを所有できますが、1つのtoken
+accountは1人のオーナーしか持てず、1種類のトークン（mint）の単位しか保持できません。
+
+![Account Relationship](/assets/docs/core/tokens/token-account-relationship.svg)
+
+<Callout type="info">
+
+各token accountのデータには、token
+accountに対する権限を持つ人を識別する`owner`フィールドが含まれていることに注意してください。これは基本的な[Account](/docs/core/accounts#account-type)タイプで指定されるプログラムオーナー（すべてのtoken
+accountではToken Program）とは異なります。
+
+</Callout>
+
+### Associated Token Account
+
+associated token accountは、特定のmintとオーナーに対するtoken
+accountのアドレスを見つけるプロセスを簡素化します。associated token
+accountは特定のmintとオーナーに対する「デフォルト」のtoken
+accountと考えることができます。
+
+関連トークンアカウント（Associated Token
+Account）は、所有者のアドレスとミントアカウントのアドレスから派生したアドレスで作成されます。関連トークンアカウントは特定のアドレスを持つトークンアカウントに過ぎないということを理解することが重要です。
+
+これはSolana開発における重要な概念を紹介しています：
+[プログラム派生アドレス（Program Derived Address、PDA）](/docs/core/pda)。PDAは事前に定義された入力を使用して決定論的にアドレスを導出し、アカウントのアドレスを簡単に見つけることができます。
+
+![関連トークンアカウント](/assets/docs/core/tokens/associated-token-account.svg)
+
+同じミントからのトークンを保持するには、各ウォレットが独自のトークンアカウントを必要とすることに注意してください。
+
+![拡張されたアカウント関係](/assets/docs/core/tokens/token-account-relationship-ata.svg)
+
+## トークンCLIの例
+
+_spl-token_
+CLIはSPLトークンを実験するのに役立ちます。以下の例では、[Solana Playground](https://beta.solpg.io/)ターミナルを使用して、ローカルにインストールせずにブラウザ上で直接CLIコマンドを実行します。
+
+トークンとアカウントの作成には、アカウントのレント預金と取引手数料のためのSOLが必要です。Solana
+Playgroundを初めて使用する場合は、Playgroundウォレットを作成し、Playgroundターミナルで*solana
+airdrop
+1*コマンドを実行してください。また、公開[ウェブフォーセット](https://faucet.solana.com/)からdevnet
+SOLを取得することもできます。
+
+```terminal
+$ solana airdrop 2
+```
+
+*spl-token --help*を実行して、利用可能なすべてのコマンドを確認してください。
+
+```terminal
+$ spl-token --help
+```
+
+_spl-token_ CLIをローカルにインストールするには、次のコマンドを実行します：
+
+```terminal
+$ cargo install spl-token-cli
+```
+
+*spl-token*の[ドキュメント](https://www.solana-program.com/docs/token)でさらに例を見つけることができます。
+
+<Callout type="info">
+
+ターミナル出力に表示されるアカウントアドレスは、以下の例とは異なります。フォローする際には、Playgroundターミナルからのアドレスを使用してください。例えば、*spl-token
+create-token*コマンドは、あなたのPlaygroundウォレットをミント権限者としたミントアカウントアドレスを出力します。
+
+</Callout>
+
+### 新しいトークンの作成
+
+新しいトークン（ミントアカウント）を作成するには、次のコマンドを実行します：
+
+```terminal
+$ spl-token create-token
+```
+
+出力は次のようになります：
+
+```sh title="Terminal Output"
+Creating token 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+
+Address:  99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+Decimals:  9
+
+Signature: 44fvKfT1ezBUwdzrCys3fvCdFxbLMnNvBstds76QZyE6cXag5NupBprSXwxPTzzjrC3cA6nvUZaLFTvmcKyzxrm1
+```
+
+新しいmint
+accountは供給量ゼロから始まります。現在の供給量を次のコマンドで確認できます：
+
+```terminal
+$ spl-token supply <TOKEN_ADDRESS>
+```
+
+新しいトークンに対する _sh`supply`_ コマンドは `0` を返します：
+
+```sh title="Example"
+spl-token supply 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+新しいMint
+Accountを作成するには、2つの命令を含むトランザクションが必要です。[Solana Playground](https://beta.solpg.io/660ce32ecffcf4b13384d00f)でJavaScriptの例を確認できます。
+
+1. System ProgramがMint
+   Accountデータ用のスペースを持つ新しいアカウントを作成し、所有権をToken
+   Programに転送します。
+
+2. Token Programが新しいアカウントのデータをMint Accountとして初期化します
+
+### Token Accountの作成
+
+特定のmintのトークンを保持するには、token accountを作成します：
+
+```terminal
+$ spl-token create-account <TOKEN_ADDRESS>
+```
+
+コマンド例：
+
+```sh title="Example"
+spl-token create-account 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+出力：
+
+```sh title="Terminal Output"
+Creating account AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2BtrynuCLX9CNofFiaw6Yzbx6hit66pup9Sk7aFjwU2NEbFz7NCHD9w9sWhrCfEd73XveAGK1DxFpJoQZPXU9tS1
+```
+
+_sh`create-account`_
+コマンドは、あなたのウォレットアドレスを所有者としてassociated token
+accountを作成します。
+
+異なる所有者でtoken accountを作成するには：
+
+```terminal
+$ spl-token create-account --owner <OWNER_ADDRESS> <TOKEN_ADDRESS>
+```
+
+注意：`<TOKEN_ADDRESS>` はtoken accountのmint accountを指定します。
+
+コマンド例：
+
+```sh title="Example"
+spl-token create-account --owner 2i3KvjDCZWxBsqcxBHpdEaZYQwQSYE6LXUMx5VjY5XrR 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+出力：
+
+```shell title="Terminal Output" /Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt/
+Creating account Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 44vqKdfzspT592REDPY4goaRJH3uJ3Ce13G4BCuUHg35dVUbHuGTHvqn4ZjYF9BGe9QrjMfe9GmuLkQhSZCBQuEt
+```
+
+Associated Token
+Accountを作成するには、[Associated Token Program](https://github.com/solana-program/associated-token-account)を呼び出す1つの命令が必要です。[Solana Playground](https://beta.solpg.io/660ce868cffcf4b13384d011)でJavaScriptの例を確認できます。
+
+Associated Token Programは[クロスプログラム呼び出し](/docs/core/cpi)を使用して：
+
+- [System Programを呼び出し](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/tools/account.rs#L19)、提供されたPDAをアドレスとして新しいアカウントを作成します
+- [Token Programを呼び出し](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/processor.rs#L138-L161)、Token
+  Accountデータを初期化します
+
+Associated Token Accountアドレスの代わりに新しいkeypairで新しいToken
+Accountを作成するには、2つの命令を含むトランザクションを送信します。[Solana Playground](https://beta.solpg.io/660ce716cffcf4b13384d010)でのJavascriptの例を以下に示します。
+
+1. System ProgramがToken
+   Accountデータ用のスペースを持つ新しいアカウントを作成し、所有権をToken
+   Programに転送します。
+
+2. Token ProgramがデータをToken Accountとして初期化します
+
+### トークンのミント
+
+トークンの新しい単位を作成するには、Token Accountにトークンをミントします：
+
+```terminal
+$ spl-token mint [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> [--] [RECIPIENT_TOKEN_ACCOUNT_ADDRESS]
+```
+
+コマンド例：
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100
+```
+
+出力：
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2NJ1m7qCraPSBAVxbr2ssmWZmBU9Jc8pDtJAnyZsZJRcaYCYMqq1oRY1gqA4ddQno3g3xcnny5fzr1dvsnFKMEqG
+```
+
+別のtoken accountにトークンをミントするには：
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 -- Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+出力：
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 3SQvNM3o9DsTiLwcEkSPT1Edr14RgE2wC54TEjonEP2swyVCp2jPWYWdD6RwXUGpvDNUkKWzVBZVFShn5yntxVd7
+```
+
+Token
+Programの*rs`MintTo`*命令は新しいトークンを作成します。ミント権限者がトランザクションに署名する必要があります。この命令はToken
+Accountにトークンをミントし、mint
+accountの総供給量を増加させます。[Solana Playground](https://beta.solpg.io/660cea45cffcf4b13384d012)でのJavascriptの例を以下に示します。
+
+### トークンの転送
+
+token account間でトークンを転送するには：
+
+```sh title="Terminal"
+spl-token transfer [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> <RECIPIENT_ADDRESS or RECIPIENT_TOKEN_ACCOUNT_ADDRESS>
+```
+
+コマンド例：
+
+```sh title="Example"
+spl-token transfer 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+出力：
+
+```shell title="Terminal Output"
+Transfer 100 tokens
+  Sender: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 5y6HVwV8V2hHGLTVmTmdySRiEUCZnWmkasAvJ7J6m7JR46obbGKCBqUFgLpZu5zQGwM4Xy6GZ4M5LKd1h6Padx3o
+```
+
+Token Programの*rs`Transfer`*命令がトークン転送を処理します。送信者のToken
+Accountの所有者がトランザクションに署名する必要があります。この命令はToken
+Account間でトークンを移動させます。[Solana Playground](https://beta.solpg.io/660ced84cffcf4b13384d013)でのJavascriptの例を以下に示します。
+
+送信者と受信者の両方が特定のトークン（mint）のtoken
+accountを必要とします。送信者は同じトランザクションで受信者のtoken
+accountを作成する命令を含めることができます。
+
+### トークンメタデータの作成
+
+Token Extensions
+Programを使用すると、メタデータ（名前、シンボル、画像リンク）をMint
+Accountに直接保存できます。
+
+メタデータ拡張機能付きのトークンを作成するには：
+
+```sh title="Example"
+spl-token create-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --enable-metadata
+```
+
+出力：
+
+```shell title="Terminal Output"
+Creating token BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP under program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+To initialize metadata inside the mint, please run `spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>`, and sign with the mint authority.
+
+Address:  BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP
+Decimals:  9
+
+Signature: 5iQofFeXdYhMi9uTzZghcq8stAaa6CY6saUwcdnELST13eNSifiuLbvR5DnRt311frkCTUh5oecj8YEvZSB3wfai
+```
+
+メタデータを初期化するには：
+
+```sh title="Terminal"
+spl-token initialize-metadata <TOKEN_MINT_ADDRESS> <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>
+```
+
+トークンURIはオフチェーンメタデータにリンクします。JSONフォーマットの例は
+[こちら](https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json)をご覧ください。
+
+コマンド例：
+
+```sh title="Example"
+spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP "TokenName" "TokenSymbol" "https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+```
+
+[Solana Explorer](https://explorer.solana.com/address/BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP?cluster=devnet)でメタデータを確認できます。
+
+詳細は[メタデータ拡張ガイド](/developers/guides/token-extensions/metadata-pointer)をご覧ください。Token
+Extensionsについての詳細は、Token Extensions
+[入門ガイド](/developers/guides/token-extensions/getting-started)と
+[SPLドキュメント](https://www.solana-program.com/docs/token-2022/extensions)を参照してください。

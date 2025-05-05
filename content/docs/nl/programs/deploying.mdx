@@ -1,0 +1,489 @@
+---
+title: Programma's implementeren
+description:
+  Aangepaste programma's uploaden naar de Solana blockchain met behulp van de
+  Solana CLI.
+---
+
+Deze handleiding gaat ervan uit dat je kennis hebt van de volgende onderwerpen:
+
+- [Solana accountmodel](/core/accounts)
+- [Solana programma's in het algemeen](/core/programs)
+- [Ontwikkelen van aangepaste Solana programma's](/programs/rust/)
+
+## Loader-v3 en Loader-v4
+
+Er is momenteel een lopende overgang van loader-v3 (program subcommand) naar
+loader-v4 (program **-v4** subcommand) omdat loader-v3 wordt uitgefaseerd.
+
+Gebruik voor nieuwe implementaties `solana program-v4 deploy` in plaats van
+`solana program deploy`.
+
+Om een bestaand programma te migreren (wat in wezen het opnieuw implementeren
+is):
+
+```shell
+solana program migrate ./target/deploy/your_program-keypair.json
+```
+
+## Voorbereiding
+
+Eerst moet het programma worden gebouwd (gecompileerd, gelinkt, gestript).
+
+```shell
+cargo +solana build --target sbpf-solana-solana --release
+```
+
+Deze stap moet vóór elke (her)implementatie worden uitgevoerd.
+
+Controleer of er voldoende fondsen beschikbaar zijn op het standaard
+betaalaccount in verhouding tot de grootte van het uitvoerbare bestand:
+
+```shell
+du -h ./target/deploy/your_program.so
+solana balance
+```
+
+Daarnaast heeft elk programma een programma-account en een programma-ID, wat het
+adres is van dat programma-account. Het volgende genereert een keypair voor het
+programma-account:
+
+```shell
+solana-keygen new -o ./target/deploy/your_program-keypair.json
+```
+
+Dit hoeft slechts één keer per programma te worden uitgevoerd en zal later
+worden hergebruikt voor herimplementaties van hetzelfde programma.
+
+De toolchain bevatte een shortcut, deze wordt echter uitgefaseerd / afgeschaft:
+
+```shell
+cargo-build-sbf
+```
+
+## Initiële implementatie
+
+Nu kan het uitvoerbare bestand worden geüpload naar het programma-account:
+
+### Loader-v3
+
+De parameter heet `program-id` hoewel het het bestandspad van een keypair
+verwacht:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+```
+
+## Herplaatsing
+
+Het uploaden van een andere executable naar dezelfde programma-account zal deze
+overschrijven/vervangen. Voor herplaatsingen is echter alleen de program ID
+(pubkey van het programma keypair) nodig, niet het volledige keypair, omdat de
+ondertekenaar de upgrade authority keypair is.
+
+### Loader-v3
+
+Dit is exact hetzelfde als de initiële plaatsing:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+Als de oude executable korter was dan de nieuwe, kan het nodig zijn om eerst de
+programdata-account te vergroten:
+
+```shell
+solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+```
+
+### Loader-v4
+
+Merk op dat de initiële plaatsing `program-keypair` gebruikte, terwijl de
+herplaatsing `program-id` gebruikt:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Een upload prioriteren
+
+Tijdens periodes van congestie zijn er enkele aanvullende opties die je kunt
+gebruiken om te helpen bij de programma-implementatie:
+
+- `--with-compute-unit-price`: Stel de rekeneenheid-prijs in voor transacties,
+  in stappen van 0,000001 lamports (micro-lamports) per rekeneenheid. Gebruik de
+  [Priority Fee API van Helius](https://docs.helius.dev/guides/priority-fee-api)
+  om een schatting te krijgen van de prioriteitsvergoeding die je moet
+  instellen.
+- `--use-rpc`: Stuur schrijftransacties naar de geconfigureerde RPC in plaats
+  van validator TPUs. Deze optie vereist een
+  [stake-weighted](/developers/guides/advanced/stake-weighted-qos) RPC-
+  verbinding zoals [Helius](https://www.helius.dev/) of
+  [Triton](https://triton.one/). Deze optie kan ook als standaard worden
+  geconfigureerd met: `solana config set --url <RPC_URL>`.
+- `--max-sign-attempts`: Maximaal aantal pogingen om transacties te ondertekenen
+  of opnieuw te ondertekenen na het verlopen van de blockhash. Als transacties
+  die tijdens de programma-implementatie zijn verzonden nog niet bevestigd zijn
+  nadat de aanvankelijk gekozen recente blockhash verloopt, worden deze
+  transacties opnieuw ondertekend met een nieuwe recente blockhash en opnieuw
+  verzonden. Gebruik deze instelling om het maximale aantal
+  transactie-ondertekeningsiteraties aan te passen. Elke blockhash is ongeveer
+  60 seconden geldig, wat betekent dat het gebruik van de standaardwaarde van 5
+  ertoe leidt dat transacties gedurende minstens 5 minuten worden verzonden of
+  totdat alle transacties zijn bevestigd, afhankelijk van wat eerst komt.
+
+## Een upload hervatten
+
+Het is mogelijk dat een upload vastloopt of wordt afgebroken.
+
+### Loader-v3
+
+Als de programma-implementatie mislukt, blijft er een tussenliggend
+bufferaccount hangen dat een niet-nul saldo bevat. Om dat saldo terug te
+krijgen, kun je een mislukte implementatie hervatten door dezelfde
+tussenliggende buffer te gebruiken voor een nieuwe aanroep naar `deploy`.
+
+Bij mislukte implementaties wordt een foutmelding weergegeven met de seed phrase
+die nodig is om het keypair van de gegenereerde tussenliggende buffer te
+herstellen:
+
+```
+==================================================================================
+Recover the intermediate account's ephemeral keypair file with
+`solana-keygen recover` and the following 12-word seed phrase:
+==================================================================================
+valley flat great hockey share token excess clever benefit traffic avocado athlete
+==================================================================================
+To resume a deploy, pass the recovered keypair as
+the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
+Or to recover the account's lamports, pass it as the
+[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
+==================================================================================
+```
+
+Om het keypair te herstellen:
+
+```shell
+solana-keygen recover -o ./target/deploy/buffer-keypair.json
+```
+
+Voer desgevraagd de 12-woorden seed phrase in.
+
+Geef vervolgens een nieuw `deploy` commando en specificeer de buffer:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+```
+
+### Loader-v4
+
+Het is mogelijk om een upload te hervatten vanaf een specifieke byte-offset:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```
+
+## Finalisatie
+
+Dit is een **onomkeerbare** actie.
+
+Een programma kan onveranderbaar worden gemaakt door de upgrade-autoriteit te
+verwijderen.
+
+### Loader-v3
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```
+
+### Loader-v4
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```
+
+In plaats van programma's te overschrijven, is het ook mogelijk om gebruikers de
+keuze te geven welke versie van een programma ze willen gebruiken door een
+gelinkte lijst van gefinaliseerde programma's te maken:
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
+```
+
+## Afsluiten
+
+Voor programma's die zijn geïmplementeerd onder loader-v3 kunnen alleen hun
+programdata-account, de buffer- accounts en de daarin vergrendelde fondsen
+worden teruggevorderd. Het programma-account samen met de programma-ID en
+specifiek in het programma-account vergrendelde fondsen zitten vast.
+
+Programma's die zijn geïmplementeerd onder loader-v4 kunnen worden gesloten met
+hun programma-account, waardoor hun programma-ID en vergrendelde fondsen weer
+beschikbaar komen voor ander gebruik.
+
+### Loader-v3
+
+Dit is een **onomkeerbare** actie voor programma's die zijn geïmplementeerd met
+loader-v3.
+
+Let op dat zodra een programma is gesloten, de programma-ID niet opnieuw kan
+worden gebruikt. Een poging om een programma te implementeren met een eerder
+gesloten programma-ID zal resulteren in een fout. Als je een programma opnieuw
+moet implementeren na het sluiten, moet je een nieuw programma keypair-bestand
+genereren.
+
+Om een enkel programdata-account te sluiten:
+
+```shell
+solana program close ./target/deploy/your_program-keypair.json
+```
+
+Om alle buffer-accounts te sluiten die gekoppeld zijn aan de huidige autoriteit:
+
+```shell
+solana program close --buffers
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Metadata inspecteren
+
+Het `show` subcommando toont de metadata van een programma.
+
+Een voorbeelduitvoer ziet er als volgt uit:
+
+```shell
+Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
+Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
+Last Deployed In Slot: 63890568
+Data Length: 5216 (0x1460) bytes
+```
+
+- `Program Id` is het adres dat kan worden gerefereerd in het `program_id` veld
+  van een instructie bij het aanroepen van een programma.
+- `Owner`: De loader waarmee dit programma is geïmplementeerd.
+- `ProgramData Address` is het programdata-account dat gekoppeld is aan het
+  programma- account dat de uitvoerbare code van het programma bevat (alleen
+  loader-v3).
+- `Status`: `retracted`, `deployed` of `finalized` (alleen loader-v4).
+- `Authority` is de upgrade-autoriteit van het programma.
+- `Last Deployed In Slot` is de slot waarin het programma voor het laatst is
+  geïmplementeerd.
+- `Data Length` is de grootte van de ruimte die is gereserveerd voor
+  implementaties. De werkelijke ruimte die door het momenteel geïmplementeerde
+  programma wordt gebruikt, kan minder zijn.
+
+### Loader-v3
+
+Om een specifiek programma te bekijken:
+
+```shell
+solana program show ./target/deploy/your_program-keypair.json
+```
+
+Om de lijst met programma's te bekijken die zijn geïmplementeerd met de
+standaardautoriteit:
+
+```shell
+solana program show --programs
+```
+
+Om alle buffer-accounts te tonen, ongeacht de autoriteit:
+
+```shell
+solana program show --buffers --all
+```
+
+Om een andere autoriteit op te geven:
+
+```shell
+solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
+solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v4
+
+Om een specifiek programma te bekijken:
+
+```shell
+solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```
+
+Om de lijst met programma's te bekijken die zijn geïmplementeerd met de
+standaard autoriteit:
+
+```shell
+solana program-v4 show --all
+```
+
+Om de lijst met programma's te bekijken die zijn geïmplementeerd met een
+specifieke autoriteit:
+
+```shell
+solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+```
+
+## Het uitvoerbare bestand downloaden
+
+Soms is het nuttig om een programma te downloaden en te vergelijken om er zeker
+van te zijn dat het een bekend uitvoerbaar bestand bevat. Het gedownloade
+bestand kan worden ingekort, gehasht en vergeleken met de hash van het originele
+programmabestand.
+
+### Loader-v3
+
+```shell
+solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
+```
+
+### Loader-v4
+
+```shell
+solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Geavanceerd: Autoriteitsoverdracht
+
+Het recht om een bepaald programma te wijzigen ligt bij de autoriteit ervan.
+Deze autoriteit kan worden overgedragen aan een ander keypair zonder het
+programma-keypair te wijzigen, zodat de programma-ID hetzelfde blijft. Bovendien
+kan één autoriteit meerdere programma-accounts beheren.
+
+Als dit niet expliciet is gespecificeerd tijdens de eerste implementatie, dan
+wordt het standaard keypair gebruikt als autoriteit. Daarom was het bij het
+opnieuw implementeren van een programma in de bovenstaande stappen niet nodig om
+expliciet een autoriteit op te geven.
+
+Een expliciete autoriteit is nuttig voor offline ondertekening en programma's
+die door meerdere entiteiten worden beheerd.
+
+Eerst moet er een keypair voor de autoriteit worden gegenereerd:
+
+```shell
+solana-keygen new -o ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v3
+
+De autoriteit kan tijdens de implementatie worden gespecificeerd:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Of na de implementatie en met gebruik van het standaard keypair als de huidige
+autoriteit:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Of na implementatie en het specificeren van de huidige autoriteit:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
+```
+
+### Loader-v4
+
+De autoriteit kan worden gespecificeerd tijdens de implementatie:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
+```
+
+Of na implementatie en met gebruik van de standaard keypair als huidige
+autoriteit:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
+```
+
+Of na implementatie en het specificeren van de huidige autoriteit:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
+```
+
+## Geavanceerd: Herimplementatie in twee stappen met een buffer
+
+In plaats van direct naar het programma-account te uploaden, kan het uitvoerbare
+bestand eerst naar een tijdelijk buffer-account worden geüpload en vervolgens in
+een tweede stap naar het programma-account worden overgebracht (de eigenlijke
+her-/implementatie). Dit is nuttig voor offline ondertekening en programma's die
+door meerdere entiteiten worden beheerd, zoals een DAO-stemming om een geüpload
+uitvoerbaar bestand te kiezen of af te wijzen vóór de eigenlijke
+herimplementatie.
+
+Houd er rekening mee dat het gebruik van buffer-accounts de benodigde fondsen
+tijdens het uploadproces ongeveer verdubbelt, omdat twee accounts tegelijkertijd
+elk één uitvoerbaar bestand bevatten.
+
+Eerst moet er een keypair voor het buffer-account worden aangemaakt:
+
+```shell
+solana-keygen new -o ~/.config/solana/buffer-keypair.json
+```
+
+Het buffer-account kan worden hergebruikt voor verschillende uploads en is niet
+gebonden aan een specifiek programma-account.
+
+### Loader-v3
+
+```shell
+solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+## Geavanceerd: Offline ondertekening
+
+Sommige beveiligingsmodellen vereisen het scheiden van het ondertekeningsproces
+van de transactie-uitzending, zodat de ondertekeningssleutels volledig
+losgekoppeld kunnen zijn van elk netwerk, ook bekend als offline ondertekening.
+
+Merk op dat alleen herimplementaties in offline modus kunnen worden uitgevoerd.
+De initiële programma-implementatie **moet** worden uitgevoerd vanaf een online
+machine, en alleen daaropvolgende programma-herimplementaties kunnen gebruik
+maken van offline ondertekening.
+
+Een typische opstelling zou bestaan uit twee verschillende ondertekenaars:
+
+- online ondertekenaar (fee-betaler en autoriteit van het buffer-account)
+- offline ondertekenaar (autoriteit van het programma-account)
+
+Het algemene proces is een herimplementatie in twee stappen met enkele extra's:
+
+1. (online) maak een nieuw programma aan
+2. (online) draag de autoriteit over aan de offline ondertekenaar
+3. (online) maak een buffer en upload een uitvoerbaar bestand
+4. (optioneel) verifieer de inhoud van de buffer op de blockchain
+5. (offline) onderteken een transactie om het programma opnieuw te implementeren
+   met behulp van de buffer `--blockhash <VALUE> --sign-only`
+6. (online) gebruik deze handtekening om de herimplementatie-transactie uit te
+   zenden
+   `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
+
+Zoek een recente `blockhash` op en plak deze in om de offline
+transactie-handtekening te genereren. De `blockhash` verloopt na ongeveer 60
+seconden. Als je het niet op tijd hebt gedaan - haal gewoon een nieuwe hash op
+en herhaal tot je slaagt, of overweeg om duurzame transactie-nonces te
+gebruiken.

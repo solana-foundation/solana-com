@@ -1,0 +1,191 @@
+---
+title: UKK
+---
+
+Lähetä kysymyksesi
+[StackExchange](https://solana.stackexchange.com/questions/ask)-palveluun.
+
+## Berkeley Packet Filter (BPF)
+
+Solanan lohkoketjuohjelmat käännetään
+[LLVM-kääntäjäinfrastruktuurin](https://llvm.org/) avulla
+[Executable and Linkable Format (ELF)](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+-muotoon, joka sisältää muunnelman
+[Berkeley Packet Filter (BPF)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter)
+-tavukoodista.
+
+Koska Solana käyttää LLVM-kääntäjäinfrastruktuuria, ohjelma voidaan kirjoittaa
+millä tahansa ohjelmointikielellä, joka voi kohdistua LLVM:n
+BPF-taustajärjestelmään.
+
+BPF tarjoaa tehokkaan
+[käskyjoukon](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md), jota
+voidaan suorittaa tulkatussa virtuaalikoneessa tai tehokkaina just-in-time
+käännettyinä natiivikäskyinä.
+
+## Muistikartta
+
+Solana SBF -ohjelmien käyttämä virtuaalinen osoitemuistikartta on kiinteä ja
+järjestetty seuraavasti
+
+- Ohjelmakoodi alkaa osoitteesta 0x100000000
+- Pinodata alkaa osoitteesta 0x200000000
+- Kekodata alkaa osoitteesta 0x300000000
+- Ohjelman syöteparametrit alkavat osoitteesta 0x400000000
+
+Yllä olevat virtuaaliosoitteet ovat aloitusosoitteita, mutta ohjelmille annetaan
+pääsy vain osaan muistikartasta. Ohjelma kaatuu, jos se yrittää lukea tai
+kirjoittaa virtuaaliosoitteeseen, johon sille ei ole myönnetty pääsyä, ja
+`AccessViolation` -virhe palautetaan, joka sisältää osoitteen ja koon yritetystä
+rikkomuksesta.
+
+## InvalidAccountData
+
+Tämä ohjelmavirhe voi tapahtua monista syistä. Yleensä se johtuu siitä, että
+ohjelmalle välitetään tili, jota ohjelma ei odota, joko väärässä paikassa
+ohjeessa tai tili, joka ei ole yhteensopiva suoritettavan ohjeen kanssa.
+
+Ohjelman toteutus voi myös aiheuttaa tämän virheen suorittaessaan ohjelmarajat
+ylittävän ohjeen ja unohtaessaan antaa tilin ohjelmalle, jota kutsutaan.
+
+## InvalidInstructionData
+
+Tämä ohjelmavirhe voi tapahtua yrittäessä purkaa ohjetta, tarkista että
+välitetty rakenne vastaa täsmälleen ohjetta. Kenttien välillä saattaa olla
+täytettä. Jos ohjelma toteuttaa Rust-kielen `Pack` -rajapinnan, kokeile pakata
+ja purkaa ohjetyyppi `T` määrittääksesi tarkan koodauksen, jota ohjelma odottaa.
+
+## MissingRequiredSignature
+
+Jotkin ohjeet vaativat, että tili on allekirjoittaja; tämä virhe palautetaan,
+jos tilin odotetaan olevan allekirjoitettu, mutta se ei ole.
+
+Ohjelman toteutus voi myös aiheuttaa tämän virheen suorittaessaan
+[ohjelmien välistä kutsua](/docs/core/cpi), joka vaatii allekirjoitetun ohjelma-
+osoitteen, mutta `invoke_signed` -funktiolle välitetyt allekirjoittajan siemenet
+eivät vastaa ohjelma-osoitteen luomiseen käytettyjä allekirjoittajan siemeniä
+[`create_program_address`](/docs/core/pda#createprogramaddress).
+
+## Stack
+
+SBF käyttää pinakehyksiä muuttuvan pinakohdistimen sijaan. Jokaisen pinakehyksen
+koko on 4 kt.
+
+Jos ohjelma rikkoo pinakehyksen kokoa, kääntäjä ilmoittaa ylityksestä
+varoituksena.
+
+Esimerkiksi:
+
+```text
+Error: Function _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E Stack offset of -30728 exceeded max offset of -4096 by 26632 bytes, please minimize large stack variables
+```
+
+Viesti kertoo, mikä symboli ylittää pinakehyksensä, mutta nimi saattaa olla
+vääristynyt.
+
+> Rust-symbolin selventämiseen käytä
+> [rustfilt](https://github.com/luser/rustfilt)-työkalua.
+
+Yllä oleva varoitus tuli Rust-ohjelmasta, joten selvennetty symbolin nimi on:
+
+```shell
+rustfilt _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E
+curve25519_dalek::edwards::EdwardsBasepointTable::create
+```
+
+Syy siihen, että ilmoitetaan varoitus eikä virhettä, on se, että jotkin
+riippuvuudet saattavat sisältää toiminnallisuutta, joka rikkoo pinakehyksen
+rajoituksia, vaikka ohjelma ei käyttäisi kyseistä toiminnallisuutta. Jos ohjelma
+rikkoo pina- kokoa ajonaikaisesti, raportoidaan `AccessViolation` -virhe.
+
+SBF-pinakehykset käyttävät virtuaalista osoitealuetta alkaen osoitteesta
+`0x200000000`.
+
+## Heap-koko
+
+Ohjelmilla on pääsy ajonaikaiseen heap-muistiin Rust `alloc` API:en kautta.
+Nopeiden allokointien mahdollistamiseksi käytetään yksinkertaista 32 kilotavun
+bump heap -muistia. Heap ei tue `free` tai `realloc`toimintoja.
+
+Sisäisesti ohjelmilla on pääsy 32 kilotavun muistialueeseen, joka alkaa
+virtuaaliosoitteesta 0x300000000, ja ne voivat toteuttaa mukautetun heap-muistin
+ohjelman erityistarpeiden mukaan.
+
+Rust-ohjelmat toteuttavat heap-muistin suoraan määrittelemällä mukautetun
+[`global_allocator`](https://github.com/solana-labs/solana/blob/d9b0fc0e3eec67dfe4a97d9298b15969b2804fab/sdk/program/src/entrypoint.rs#L72)
+
+## Lataajat
+
+Ohjelmat otetaan käyttöön ja suoritetaan ajonaikaisten lataajien avulla. Tällä
+hetkellä tuettuja lataajia on kaksi:
+[BPF Loader](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader.rs#L17)
+ja
+[BPF loader deprecated](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader_deprecated.rs#L14)
+
+Lataajat voivat tukea erilaisia sovellusten binäärirajapintoja, joten
+kehittäjien on kirjoitettava ohjelmansa tietylle lataajalle ja otettava ne
+käyttöön samalla lataajalla. Jos yhdelle lataajalle kirjoitettu ohjelma otetaan
+käyttöön toisella lataajalla, tuloksena on yleensä `AccessViolation` virhe, joka
+johtuu ohjelman syöteparametrien virheellisestä deserialisoinnista.
+
+Käytännössä ohjelmat tulisi aina kirjoittaa kohdistumaan uusimpaan
+BPF-lataajaan, ja uusin lataaja on oletusarvoisesti käytössä
+komentorivikäyttöliittymässä ja JavaScript-API:ssa.
+
+- [Rust-ohjelmien sisääntulopisteet](/docs/programs/lang-rust#program-entrypoint)
+
+### Käyttöönotto
+
+SBF-ohjelman käyttöönotto on prosessi, jossa BPF-jaettu objekti ladataan
+ohjelmatiliin ja tili merkitään suoritettavaksi. Asiakas pilkkoo SBF-jaetun
+objektin pienempiin osiin ja lähettää ne lataajalle
+[`Write`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L13)
+-ohjeiden datana, jolloin lataaja kirjoittaa tiedot ohjelmatilin dataan. Kun
+kaikki osat on vastaanotettu, asiakas lähettää
+[`Finalize`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L30)
+-ohjeen lataajalle, joka tarkistaa, että SBF-data on kelvollista ja merkitsee
+ohjelmatilin _suoritettavaksi_. Kun ohjelmatili on merkitty suoritettavaksi,
+myöhemmät transaktiot voivat antaa ohjeita kyseisen ohjelman käsiteltäväksi.
+
+Kun ohje ohjataan suoritettavaan SBF-ohjelmaan, lataaja määrittää ohjelman
+suoritusympäristön, sarjallistaa ohjelman syöttöparametrit, kutsuu ohjelman
+sisääntulopistettä ja raportoi mahdolliset kohdatut virheet.
+
+Lisätietoja löydät kohdasta [ohjelmien käyttöönotto](/docs/programs/deploying).
+
+### Syöttöparametrien sarjallistaminen
+
+SBF-lataajat sarjallistavat ohjelman syöttöparametrit tavutaulukoksi, joka
+sitten välitetään ohjelman sisääntulokohtaan, jossa ohjelma on vastuussa sen
+deserialisoinnista lohkoketjussa. Yksi muutoksista vanhentuneen lataajan ja
+nykyisen lataajan välillä on, että syöttöparametrit sarjallistetaan tavalla,
+joka johtaa eri parametrien sijoittumiseen kohdistettuihin siirtymiin
+kohdistetun tavutaulukon sisällä. Tämä mahdollistaa deserialisointitoteutusten
+viitata suoraan tavutaulukkoon ja tarjota kohdistettuja osoittimia ohjelmalle.
+
+- [Rust-ohjelman parametrien deserialisointi](/docs/programs/lang-rust#parameter-deserialization)
+
+Uusin lataaja sarjallistaa ohjelman syöttöparametrit seuraavasti (kaikki koodaus
+on little endian):
+
+- 8 tavua etumerkitön tilien lukumäärä
+- Jokaiselle tilille
+  - 1 tavu, joka ilmaisee, onko tämä duplikaattitili, jos ei ole duplikaatti,
+    arvo on 0xff, muuten arvo on sen tilin indeksi, jonka duplikaatti se on.
+  - Jos duplikaatti: 7 tavua täytettä
+  - Jos ei duplikaatti:
+    - 1 tavu boolean, tosi jos tili on allekirjoittaja
+    - 1 tavu boolean, tosi jos tili on kirjoitettavissa
+    - 1 tavu boolean, tosi jos tili on suoritettavissa
+    - 4 tavua täytettä
+    - 32 tavua tilin julkista avainta
+    - 32 tavua tilin omistajan julkista avainta
+    - 8 tavua etumerkitön lamport-määrä, jonka tili omistaa
+    - 8 tavua etumerkitön tilin data-tavujen määrä
+    - x tavua tilin dataa
+    - 10k tavua täytettä, käytetään uudelleenallokointiin
+    - riittävästi täytettä siirtymän kohdistamiseksi 8 tavuun.
+    - 8 tavua rent epoch
+- 8 tavua etumerkitön instruction data -määrä
+- x tavua instruction data
+- 32 tavua ohjelmatunnusta

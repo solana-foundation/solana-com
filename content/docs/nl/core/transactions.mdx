@@ -1,0 +1,1173 @@
+---
+title: Transacties en instructies
+description:
+  Leer over Solana transacties en instructies - de fundamentele bouwstenen voor
+  interactie met de Solana blockchain. Begrijp de transactiestructuur en
+  instructiesamenstelling met praktische voorbeelden.
+---
+
+Op Solana sturen gebruikers [transacties](/docs/core/transactions#transaction)
+om te interacteren met het netwerk. Transacties bevatten een of meer
+[instructies](/docs/core/transactions#instruction) die te verwerken operaties
+specificeren. De uitvoeringslogica voor instructies is opgeslagen in
+[programs](/docs/core/programs) die op het Solana-netwerk zijn geïmplementeerd,
+waarbij elk program zijn eigen set instructies definieert.
+
+Hieronder staan belangrijke details over Solana transactieverwerking:
+
+- Als een transactie meerdere instructies bevat, worden de instructies
+  uitgevoerd in de volgorde waarin ze aan de transactie zijn toegevoegd.
+- Transacties zijn "atomair" - alle instructies moeten succesvol worden
+  verwerkt, anders mislukt de hele transactie en vinden er geen wijzigingen
+  plaats.
+
+Een transactie is in essentie een verzoek om een of meer instructies te
+verwerken.
+
+![Transactie vereenvoudigd](/assets/docs/core/transactions/transaction-simple.svg)
+
+Een transactie is als een envelop met formulieren. Elk formulier is een
+instructie die het netwerk vertelt wat te doen. Het verzenden van de transactie
+is als het versturen van de envelop om de formulieren te laten verwerken.
+
+## Belangrijke punten
+
+- Solana transacties bevatten instructies die programs op het netwerk aanroepen.
+- Transacties zijn **atomair** - als een instructie mislukt, mislukt de hele
+  transactie en vinden er geen wijzigingen plaats.
+- Instructies in een transactie worden in sequentiële volgorde uitgevoerd.
+- De limiet voor transactiegrootte is
+  [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+  bytes.
+- Elke instructie vereist drie stukken informatie:
+  1. Het adres van het program dat moet worden aangeroepen
+  2. De accounts waaruit de instructie leest of waarin deze schrijft
+  3. Eventuele extra gegevens die de instructie nodig heeft (bijv.
+     functieargumenten)
+
+## SOL-overdrachtsvoorbeeld
+
+Het onderstaande diagram toont een transactie met een enkele instructie om SOL
+over te maken van een verzender naar een ontvanger.
+
+Op Solana zijn "wallets" accounts die eigendom zijn van het
+[System Program](/docs/core/accounts#system-program). Alleen de
+programma-eigenaar kan de gegevens van een account wijzigen, dus het overmaken
+van SOL vereist het verzenden van een transactie om het System Program aan te
+roepen.
+
+![SOL Overdracht](/assets/docs/core/transactions/sol-transfer.svg)
+
+Het verzendende account moet de transactie ondertekenen (`is_signer`) om het
+System Program toestemming te geven om het lamport-saldo te verminderen. De
+verzender en ontvanger accounts moeten beschrijfbaar zijn (`is_writable`) omdat
+hun lamport-saldi veranderen.
+
+Na het verzenden van de transactie verwerkt het System Program de overdracht
+instructie. Het System Program werkt vervolgens de lamport-saldi bij van zowel
+de verzender als de ontvanger accounts.
+
+![SOL Overdracht Proces](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+De onderstaande voorbeelden laten zien hoe je een transactie verzendt die SOL
+overmaakt van het ene account naar het andere.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Create a connection to cluster
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Fund sender with airdrop
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: sender.address,
+  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
+  commitment: "confirmed"
+});
+
+// Check balance before transfer
+const { value: preBalance1 } = await rpc.getBalance(sender.address).send();
+const { value: preBalance2 } = await rpc.getBalance(recipient.address).send();
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount // 0.01 SOL in lamports
+});
+
+// Add the transfer instruction to a new transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+// Send the transaction to the network
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+// Check balance after transfer
+const { value: postBalance1 } = await rpc.getBalance(sender.address).send();
+const { value: postBalance2 } = await rpc.getBalance(recipient.address).send();
+
+console.log(
+  "Sender prebalance:",
+  Number(preBalance1) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Recipient prebalance:",
+  Number(preBalance2) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Sender postbalance:",
+  Number(postBalance1) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Recipient postbalance:",
+  Number(postBalance2) / Number(LAMPORTS_PER_SOL)
+);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+// Create a connection to cluster
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Fund sender with airdrop
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Check balance before transfer
+const preBalance1 = await connection.getBalance(sender.publicKey);
+const preBalance2 = await connection.getBalance(recipient.publicKey);
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+// Add the transfer instruction to a new transaction
+const transaction = new Transaction().add(transferInstruction);
+
+// Send the transaction to the network
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender] // signer
+);
+
+// Check balance after transfer
+const postBalance1 = await connection.getBalance(sender.publicKey);
+const postBalance2 = await connection.getBalance(recipient.publicKey);
+
+console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
+console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Signer,
+    signer::keypair::Keypair, system_instruction, transaction::Transaction,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create a connection to cluster
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Fund sender with airdrop
+    let airdrop_signature = connection
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        let confirmed = connection.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Check balance before transfer
+    let pre_balance1 = connection.get_balance(&sender.pubkey()).await?;
+    let pre_balance2 = connection.get_balance(&recipient.pubkey()).await?;
+
+    // Define the amount to transfer
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction =
+        system_instruction::transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    // Add the transfer instruction to a new transaction
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    let blockhash = connection.get_latest_blockhash().await?;
+    transaction.sign(&[&sender], blockhash);
+
+    // Send the transaction to the network
+    let transaction_signature = connection
+        .send_and_confirm_transaction(&transaction)
+        .await?;
+
+    // Check balance after transfer
+    let post_balance1 = connection.get_balance(&sender.pubkey()).await?;
+    let post_balance2 = connection.get_balance(&recipient.pubkey()).await?;
+
+    println!(
+        "Sender prebalance: {}",
+        pre_balance1 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Recipient prebalance: {}",
+        pre_balance2 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Sender postbalance: {}",
+        post_balance1 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Recipient postbalance: {}",
+        post_balance2 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!("Transaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+Client bibliotheken abstraheren vaak de details voor het bouwen van
+programma-instructies. Als er geen bibliotheek beschikbaar is, kun je de
+instructie handmatig opbouwen. Dit vereist dat je de implementatiedetails van de
+instructie kent.
+
+De onderstaande voorbeelden tonen hoe je handmatig de overdracht-instructie kunt
+opbouwen. De `Expanded Instruction` tab is functioneel gelijk aan de
+`Instruction` tab.
+
+- Kit
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const TRANSFER_INSTRUCTION_INDEX = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
+instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
+
+const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
+
+// Manually create the transfer instruction
+const transferInstruction: IInstruction = {
+  programAddress: SYSTEM_PROGRAM_ADDRESS,
+  accounts: [
+    {
+      address: sender.address,
+      role: AccountRole.WRITABLE_SIGNER
+    },
+    {
+      address: recipient.address,
+      role: AccountRole.WRITABLE
+    }
+  ],
+  data: new Uint8Array(instructionData)
+};
+```
+
+</CodeTabs>
+
+- Legacy
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const transferInstructionIndex = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// Manually create a transfer instruction
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+```
+
+</CodeTabs>
+
+- Rust
+
+<CodeTabs>
+
+```rs !! title="Instruction"
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+let transfer_instruction =
+    system_instruction::transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+```
+
+```rs !! title="Expanded Instruction"
+// Instruction index for the System Program's transfer instruction
+let transfer_instruction_index: u32 = 2;
+
+// Define the amount to transfer
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
+let mut instruction_data = Vec::with_capacity(12);
+instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
+instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
+
+// Manually create the transfer instruction
+let transfer_instruction = Instruction {
+    program_id: system_program::id(),
+    accounts: vec![
+        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
+        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
+    ],
+    data: instruction_data,
+};
+```
+
+</CodeTabs>
+
+In de onderstaande secties bespreken we de details van transacties en
+instructies.
+
+## Instructions
+
+Een
+[instruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
+op een Solana [program](/docs/core/accounts#program-account) kan worden gezien
+als een publieke functie die door iedereen op het Solana-netwerk kan worden
+aangeroepen.
+
+Het aanroepen van een instruction van een program vereist drie belangrijke
+stukken informatie:
+
+- Program ID: Het program met de uitvoeringslogica voor de instruction
+- Accounts: Lijst met accounts die de instruction nodig heeft
+- Instruction Data: Byte-array die de aan te roepen instruction op het program
+  specificeert en eventuele argumenten die de instruction vereist
+
+```rust title="Instruction"
+pub struct Instruction {
+    /// Pubkey of the program that executes this instruction.
+    pub program_id: Pubkey,
+    /// Metadata describing accounts that should be passed to the program.
+    pub accounts: Vec<AccountMeta>,
+    /// Opaque data passed to the program for its own interpretation.
+    pub data: Vec<u8>,
+}
+```
+
+![Transaction Instruction](/assets/docs/core/transactions/instruction.svg)
+
+### AccountMeta
+
+Elk account dat door een instruction vereist wordt, moet worden aangeleverd als
+een
+[AccountMeta](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25)
+die het volgende bevat:
+
+- `pubkey`: Het adres van het account
+- `is_signer`: Of het account de transactie moet ondertekenen
+- `is_writable`: Of de instruction de gegevens van het account wijzigt
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// An account's public key.
+    pub pubkey: Pubkey,
+    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
+    pub is_signer: bool,
+    /// True if the account data or metadata may be mutated during program execution.
+    pub is_writable: bool,
+}
+```
+
+![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+
+Door vooraf te specificeren welke accounts een instruction leest of schrijft,
+kunnen transacties die niet dezelfde accounts wijzigen parallel worden
+uitgevoerd.
+
+### Voorbeeld van een instruction-structuur
+
+Voer de onderstaande voorbeelden uit om de structuur van een
+SOL-overdrachtsinstructie te zien.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair
+} from "@solana/web3.js";
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair, system_instruction,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Define the amount to transfer
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = system_instruction::transfer(
+        &sender.pubkey(),
+        &recipient.pubkey(),
+        transfer_amount,
+    );
+
+    println!("{:#?}", transfer_instruction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+De volgende voorbeelden tonen de output van de voorgaande codefragmenten. Het
+exacte formaat verschilt afhankelijk van de SDK, maar elke Solana instruction
+vereist de volgende informatie:
+
+- **Program ID**: Het adres van het programma dat de instructie zal uitvoeren.
+- **Accounts**: Een lijst van accounts die vereist zijn voor de instructie. Voor
+  elk account moet de instructie het adres specificeren, of het de transactie
+  moet ondertekenen, en of er naar geschreven zal worden.
+- **Data**: Een byte buffer die het programma vertelt welke instructie
+  uitgevoerd moet worden en eventuele argumenten bevat die nodig zijn voor de
+  instructie.
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  "accounts": [
+    {
+      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+      "role": 3,
+      "signer": {
+        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+        "keyPair": {
+          "privateKey": {},
+          "publicKey": {}
+        }
+      }
+    },
+    {
+      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
+      "role": 1
+    }
+  ],
+  "programAddress": "11111111111111111111111111111111",
+  "data": {
+    "0": 2,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 128,
+    "5": 150,
+    "6": 152,
+    "7": 0,
+    "8": 0,
+    "9": 0,
+    "10": 0,
+    "11": 0
+  }
+}
+```
+
+```json !! title="Legacy"
+{
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  "programId": "11111111111111111111111111111111",
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+```json !! title="Rust"
+{
+  "program_id": "11111111111111111111111111111111",
+  "accounts": [
+    {
+      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
+      "is_signer": true,
+      "is_writable": true
+    },
+    {
+      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
+      "is_signer": false,
+      "is_writable": true
+    }
+  ],
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+</CodeTabs>
+
+## Transacties
+
+Een Solana
+[transactie](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+bestaat uit:
+
+1. [Handtekeningen](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30):
+   Een array van handtekeningen die bij de transactie zijn inbegrepen.
+2. [Bericht](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131):
+   Lijst van instructies die atomisch verwerkt moeten worden.
+
+```rust title="Transaction"
+pub struct Transaction {
+    #[wasm_bindgen(skip)]
+    #[serde(with = "short_vec")]
+    pub signatures: Vec<Signature>,
+
+    #[wasm_bindgen(skip)]
+    pub message: Message,
+}
+```
+
+![Transactie Formaat](/assets/docs/core/transactions/tx_format.png)
+
+De structuur van een transactiebericht bestaat uit:
+
+- [Berichtheader](/docs/core/transactions#message-header): Specificeert het
+  aantal ondertekenaars en alleen-lezen accounts.
+- [Account Adressen](/docs/core/transactions#array-of-account-addresses): Een
+  array van accountadressen die vereist zijn voor de instructies in de
+  transactie.
+- [Recente Blockhash](/docs/core/transactions#recent-blockhash): Fungeert als
+  een tijdstempel voor de transactie.
+- [Instructies](/docs/core/transactions#array-of-instructions): Een array van
+  instructies die uitgevoerd moeten worden.
+
+```rust title="Message"
+pub struct Message {
+    /// The message header, identifying signed and read-only `account_keys`.
+    pub header: MessageHeader,
+
+    /// All the account keys used by this transaction.
+    #[serde(with = "short_vec")]
+    pub account_keys: Vec<Pubkey>,
+
+    /// The id of a recent ledger entry.
+    pub recent_blockhash: Hash,
+
+    /// Programs that will be executed in sequence and committed in
+    /// one atomic transaction if all succeed.
+    #[serde(with = "short_vec")]
+    pub instructions: Vec<CompiledInstruction>,
+}
+```
+
+![Transactie Bericht](/assets/docs/core/transactions/legacy_message.png)
+
+### Transactiegrootte
+
+Solana transacties hebben een groottelimiet van
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+bytes. Deze limiet komt voort uit de IPv6 Maximum Transmission Unit (MTU)
+grootte van 1280 bytes, minus 48 bytes voor netwerkheaders (40 bytes IPv6 + 8
+bytes fragment header).
+
+De totale grootte van een transactie (handtekeningen en bericht) moet onder deze
+limiet blijven en omvat:
+
+- Handtekeningen: 64 bytes elk
+- Bericht: Header (3 bytes), accountsleutels (32 bytes elk), recente blockhash
+  (32 bytes), en instructies
+
+![Transactie Formaat](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+### Berichtheader
+
+De
+[berichtheader](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
+gebruikt drie bytes om accountprivileges te definiëren.
+
+1. Vereiste handtekeningen
+2. Aantal alleen-lezen ondertekende accounts
+3. Aantal alleen-lezen niet-ondertekende accounts
+
+```rust title="MessageHeader"
+pub struct MessageHeader {
+    /// The number of signatures required for this message to be considered
+    /// valid. The signers of those signatures must match the first
+    /// `num_required_signatures` of [`Message::account_keys`].
+    pub num_required_signatures: u8,
+
+    /// The last `num_readonly_signed_accounts` of the signed keys are read-only
+    /// accounts.
+    pub num_readonly_signed_accounts: u8,
+
+    /// The last `num_readonly_unsigned_accounts` of the unsigned keys are
+    /// read-only accounts.
+    pub num_readonly_unsigned_accounts: u8,
+}
+```
+
+![Berichtkop](/assets/docs/core/transactions/message_header.png)
+
+### Compact-Array formaat
+
+Een compact array in een transactiebericht is een array geserialiseerd in het
+volgende formaat:
+
+1. De array lengte (gecodeerd als
+   [compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs))
+2. De array-items op een rij
+
+![Compact array formaat](/assets/docs/core/transactions/compact_array_format.png)
+
+Dit formaat wordt gebruikt om de lengtes te coderen van de
+[Accountadressen](/docs/core/transactions#array-of-account-addresses) en
+[Instructies](/docs/core/transactions#array-of-instructions) arrays in
+transactieberichten.
+
+### Array van accountadressen
+
+Een transactiebericht bevat een array van
+[accountadressen](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+die vereist zijn door de instructies. De array begint met een
+[compact-u16](/docs/core/transactions#compact-array-format) getal dat aangeeft
+hoeveel adressen het bevat. De adressen worden vervolgens geordend op hun
+privileges, zoals bepaald door de berichtkop.
+
+- Accounts die schrijfbaar zijn en ondertekenaars
+- Accounts die alleen-lezen zijn en ondertekenaars
+- Accounts die schrijfbaar zijn en geen ondertekenaars
+- Accounts die alleen-lezen zijn en geen ondertekenaars
+
+![Compact array van accountadressen](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### Recente blockhash
+
+Elke transactie vereist een
+[recente blockhash](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L141)
+die twee doelen dient:
+
+1. Fungeert als tijdstempel
+2. Voorkomt dubbele transacties
+
+Een blockhash verloopt na
+[150](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)
+blokken (ongeveer 1 minuut uitgaande van 400ms bloktijden), waarna de transactie
+niet meer kan worden verwerkt.
+
+Je kunt de [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC methode
+gebruiken om de huidige blockhash en laatste blokhoogte te krijgen waarop de
+blockhash geldig zal zijn. Hier is een voorbeeld op
+[Solana Playground](https://beta.solpg.io/661a06e1cffcf4b13384d046).
+
+### Array van instructies
+
+Een transactiebericht bevat een array van
+[instructies](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+in het
+[CompiledInstruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+type. Instructies worden naar dit type geconverteerd wanneer ze aan een
+transactie worden toegevoegd.
+
+Net als de accountadressen array in het bericht, begint het met een
+[compact-u16](/docs/core/transactions#compact-array-format) lengte gevolgd door
+de instruction data. Elke instructie bevat:
+
+1. Program ID Index: Een u8-index die verwijst naar het adres van het programma
+   in de array met accountadressen. Dit specificeert het programma dat de
+   instructie zal verwerken.
+2. Account Indexes: Een array van u8-indexen die verwijzen naar de
+   accountadressen die vereist zijn voor deze instructie.
+3. Instruction Data: Een byte-array die specificeert welke instructie moet
+   worden aangeroepen op het programma en eventuele aanvullende gegevens die
+   nodig zijn voor de instructie (bijv. functie argumenten).
+
+```rust title="CompiledInstruction"
+pub struct CompiledInstruction {
+    /// Index into the transaction keys array indicating the program account that executes this instruction.
+    pub program_id_index: u8,
+    /// Ordered indices into the transaction keys array indicating which accounts to pass to the program.
+    #[serde(with = "short_vec")]
+    pub accounts: Vec<u8>,
+    /// The program input data.
+    #[serde(with = "short_vec")]
+    pub data: Vec<u8>,
+}
+```
+
+![Compacte array van Instructions](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+### Voorbeeld transactiestructuur
+
+Voer de onderstaande voorbeelden uit om de structuur van een transactie met een
+enkele SOL overboeking instructie te zien.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import {
+  createSolanaRpc,
+  generateKeyPairSigner,
+  lamports,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstructions,
+  pipe,
+  signTransactionMessageWithSigners,
+  getCompiledTransactionMessageDecoder
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const rpc = createSolanaRpc("http://localhost:8899");
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Decode the messageBytes
+const compiledTransactionMessage =
+  getCompiledTransactionMessageDecoder().decode(signedTransaction.messageBytes);
+
+console.log(JSON.stringify(compiledTransactionMessage, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const { blockhash, lastValidBlockHeight } =
+  await connection.getLatestBlockhash();
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+const transaction = new Transaction({
+  blockhash,
+  lastValidBlockHeight,
+  feePayer: sender.publicKey
+}).add(transferInstruction);
+transaction.sign(sender);
+
+const compiledMessage = transaction.compileMessage();
+console.log(JSON.stringify(compiledMessage, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Signer,
+    signer::keypair::Keypair, system_instruction, transaction::Transaction,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Fetch the latest blockhash and last valid block height
+    let blockhash = connection.get_latest_blockhash().await?;
+
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = system_instruction::transfer(
+        &sender.pubkey(),
+        &recipient.pubkey(),
+        LAMPORTS_PER_SOL / 100, // 0.01 SOL
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    transaction.sign(&[&sender], blockhash);
+
+    println!("{:#?}", transaction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+De volgende voorbeelden tonen de transactiebericht-output van de vorige
+codesnippets. Het exacte formaat verschilt afhankelijk van de SDK, maar bevat
+dezelfde informatie.
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  "version": 0,
+  "header": {
+    "numSignerAccounts": 1,
+    "numReadonlySignerAccounts": 0,
+    "numReadonlyNonSignerAccounts": 1
+  },
+  "staticAccounts": [
+    "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
+    "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
+    "11111111111111111111111111111111"
+  ],
+  "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  "instructions": [
+    {
+      "programAddressIndex": 2,
+      "accountIndices": [0, 1],
+      "data": {
+        "0": 2,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 128,
+        "5": 150,
+        "6": 152,
+        "7": 0,
+        "8": 0,
+        "9": 0,
+        "10": 0,
+        "11": 0
+      }
+    }
+  ]
+}
+```
+
+```json !! title="Legacy"
+{
+  "header": {
+    "numRequiredSignatures": 1,
+    "numReadonlySignedAccounts": 0,
+    "numReadonlyUnsignedAccounts": 1
+  },
+  "accountKeys": [
+    "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
+    "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
+    "11111111111111111111111111111111"
+  ],
+  "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  "instructions": [
+    {
+      "programIdIndex": 2,
+      "accounts": [0, 1],
+      "data": "3Bxs4NN8M2Yn4TLb"
+    }
+  ],
+  "indexToProgramIds": {}
+}
+```
+
+```json !! title="Rust"
+{
+  "signatures": [
+    "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
+  ],
+  "message": {
+    "header": {
+      "num_required_signatures": 1,
+      "num_readonly_signed_accounts": 0,
+      "num_readonly_unsigned_accounts": 1
+    },
+    "account_keys": [
+      "9CpbtdXfUTgLMJL8DEAeEm8thERJPwDuruohjvUuzY7m",
+      "6jELNgS8Q35sF4QZCvwgyKGaKrbcm8P5QcNWUyAb5ekJ",
+      "11111111111111111111111111111111"
+    ],
+    "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    "instructions": [
+      {
+        "program_id_index": 2,
+        "accounts": [0, 1],
+        "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+      }
+    ]
+  }
+}
+```
+
+</CodeTabs>
+
+Wanneer je een transactie ophaalt met behulp van de handtekening nadat je deze
+naar het netwerk hebt verzonden, ontvang je een antwoord met de volgende
+structuur.
+
+Het `message` veld bevat de volgende velden:
+
+- `header`: Specificeert lees/schrijf- en ondertekenaarsprivileges voor adressen
+  in de `accountKeys` array
+
+- `accountKeys`: Array van alle accountadressen die in de instructies van de
+  transactie worden gebruikt
+
+- `recentBlockhash`: Blockhash gebruikt om de transactie van een tijdstempel te
+  voorzien
+
+- `instructions`: Array van uit te voeren instructies. Elke `account` en
+  `programIdIndex` in een instructie verwijst naar de `accountKeys` array via
+  index.
+
+- `signatures`: Array met handtekeningen voor alle accounts die als
+  ondertekenaars vereist zijn door de instructies in de transactie. Een
+  handtekening wordt gemaakt door het transactiebericht te ondertekenen met de
+  bijbehorende privésleutel voor een account.
+
+```json title="Transaction Data"
+{
+  "blockTime": 1745196488,
+  "meta": {
+    "computeUnitsConsumed": 150,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success"
+    ],
+    "postBalances": [989995000, 10000000, 1],
+    "postTokenBalances": [],
+    "preBalances": [1000000000, 0, 1],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 13049,
+  "transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "8PLdpLxkuv9Nt8w3XcGXvNa663LXDjSrSNon4EK7QSjQ",
+        "7GLg7bqgLBv1HVWXKgWAm6YoPf1LoWnyWGABbgk487Ma",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "7ZCxc2SDhzV2bYgEQqdxTpweYJkpwshVSDtXuY7uPtjf",
+      "instructions": [
+        {
+          "accounts": [0, 1],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX"
+    ]
+  },
+  "version": "legacy"
+}
+```

@@ -1,0 +1,798 @@
+---
+title: Modello di account Solana
+description:
+  Scopri il modello di account di Solana, incluso come gli account memorizzano
+  dati e programmi, i meccanismi di rent, la proprietà degli account e la
+  relazione tra programmi e account dati. Comprendi i concetti fondamentali del
+  sistema di archiviazione chiave-valore di Solana.
+---
+
+Su Solana, tutti i dati sono memorizzati in quelli che vengono chiamati
+"account". Puoi pensare ai dati su Solana come a un database pubblico con una
+singola tabella "Account", dove ogni voce in questa tabella è un "account". Ogni
+account Solana condivide lo stesso
+[tipo di Account](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60)
+di base.
+
+![Account](/assets/docs/core/accounts/accounts.png)
+
+## Punti chiave
+
+- Gli account possono memorizzare fino a
+  [10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+  di dati, che contengono codice di programma eseguibile o stato del programma.
+- Gli account richiedono un
+  [deposito di rent](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+  in lamport (SOL) proporzionale alla quantità di dati memorizzati, e puoi
+  recuperarlo completamente quando chiudi l'account.
+- Ogni account ha un
+  [proprietario](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L55)
+  del programma. Solo il programma che possiede un account può modificare i suoi
+  dati o detrarre il suo saldo in lamport. Ma chiunque può aumentare il saldo.
+- **Account sysvar** sono account speciali che memorizzano lo stato del cluster
+  di rete.
+- **Account programma** memorizzano il codice eseguibile degli smart contract.
+- **Account dati** sono creati dai programmi per memorizzare e gestire lo stato
+  del programma.
+
+## Account
+
+Ogni account su Solana ha un indirizzo univoco di 32 byte, spesso mostrato come
+una stringa codificata in base58 (es.
+`vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo6X8TsVXREG`).
+
+La relazione tra l'account e il suo indirizzo funziona come una coppia
+chiave-valore, dove l'indirizzo è la chiave per localizzare i dati on-chain
+corrispondenti dell'account. L'indirizzo dell'account funge da "ID univoco" per
+ogni voce nella tabella "Account".
+
+![Indirizzo dell'account](/assets/docs/core/accounts/account-address.svg)
+
+La maggior parte degli account Solana utilizza una chiave pubblica
+[Ed25519](https://ed25519.cr.yp.to/) come indirizzo.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+Mentre le chiavi pubbliche sono comunemente utilizzate come indirizzi degli
+account, Solana supporta anche una funzionalità chiamata
+[Program Derived Addresses](/docs/core/pda) (PDA). I PDA sono indirizzi speciali
+che puoi derivare deterministicamente da un ID del programma e input opzionali
+(seed).
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+### Tipo di account
+
+Gli account hanno una dimensione massima di
+[10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+e ogni account su Solana condivide lo stesso tipo base
+[Account](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60).
+
+![Tipo di account](/assets/docs/core/accounts/account-type.svg)
+
+Ogni account su Solana ha i seguenti campi:
+
+- `data`: Un array di byte che memorizza dati arbitrari per un account. Per
+  account non eseguibili, questo spesso memorizza lo stato che deve essere
+  letto. Per gli account di programma (smart contract), questo contiene il
+  codice del programma eseguibile. Il campo data è comunemente chiamato "dati
+  dell'account".
+- `executable`: Questo flag indica se un account è un programma.
+- `lamports`: Il saldo dell'account in lamport, l'unità più piccola di SOL (1
+  SOL = 1 miliardo di lamport).
+- `owner`: L'ID del programma (chiave pubblica) del programma che possiede
+  questo account. Solo il programma proprietario può modificare i dati
+  dell'account o detrarre il suo saldo in lamport.
+- `rent_epoch`: Un campo legacy risalente a quando Solana aveva un meccanismo
+  che detraeva periodicamente lamport dagli account. Sebbene questo campo esista
+  ancora nel tipo Account, non viene più utilizzato da quando la raccolta del
+  rent è stata deprecata.
+
+```rust title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+    /// the epoch at which this account will next owe rent
+    pub rent_epoch: Epoch,
+}
+```
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPairSigner,
+  lamports
+} from "@solana/kit";
+
+// Create a connection to Solana cluster
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate a new keypair
+const keypair = await generateKeyPairSigner();
+console.log(`Public Key: ${keypair.address}`);
+
+// Funding an address with SOL automatically creates an account
+const signature = await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: keypair.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+const accountInfo = await rpc.getAccountInfo(keypair.address).send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Keypair, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+// Generate a new keypair
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+
+// Create a connection to the Solana cluster
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Funding an address with SOL automatically creates an account
+const signature = await connection.requestAirdrop(
+  keypair.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+const accountInfo = await connection.getAccountInfo(keypair.publicKey);
+console.log(JSON.stringify(accountInfo, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
+    signer::{keypair::Keypair, Signer},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate a new keypair
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+
+    // Create a connection to Solana cluster
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Funding an address with SOL automatically creates an account
+    let signature = connection
+        .request_airdrop(&keypair.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+    connection.confirm_transaction(&signature).await?;
+
+    let account_info = connection.get_account(&keypair.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Rent
+
+Per memorizzare dati on-chain, gli account devono anche mantenere un saldo in
+lamport (SOL) che è proporzionale alla quantità di dati memorizzati sull'account
+(in byte). Questo saldo è chiamato "rent", ma funziona più come un deposito
+perché puoi recuperare l'intero importo quando chiudi un account. Puoi trovare
+il calcolo
+[qui](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+utilizzando queste
+[costanti](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70).
+
+Il termine "rent" deriva da un meccanismo deprecato che detraeva regolarmente
+lamport dagli account che scendevano sotto la soglia di rent. Questo meccanismo
+non è più attivo.
+
+### Proprietario del programma
+
+Su Solana, gli "smart contract" sono chiamati [programmi](/docs/core/programs).
+La proprietà del programma è una parte fondamentale del modello di account di
+Solana. Ogni account ha un programma designato come proprietario. Solo il
+programma proprietario può:
+
+- Modificare il campo `data` dell'account
+- Detrarre lamport dal saldo dell'account
+
+## System Program
+
+Per impostazione predefinita, tutti i nuovi account appartengono al
+[System Program](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/system/src).
+Il System Program svolge alcune funzioni chiave:
+
+- [Creazione di nuovi account](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L146):
+  Solo il System Program può creare nuovi account.
+- [Allocazione dello spazio](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L71):
+  Imposta la capacità in byte per il campo dati di ciascun account.
+- [Trasferimento / Assegnazione della proprietà del programma](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L113):
+  Una volta che il System Program crea un account, può riassegnare il
+  proprietario del programma designato a un account di programma diverso. È così
+  che i programmi personalizzati prendono possesso dei nuovi account creati dal
+  System Program.
+
+Tutti gli account "wallet" su Solana sono semplicemente account posseduti dal
+System Program. Il saldo in lamport in questi account mostra la quantità di SOL
+posseduta dal wallet. Solo gli account posseduti dal System Program possono
+pagare le commissioni di transazione.
+
+![Account di Sistema](/assets/docs/core/accounts/system-account.svg)
+
+## Account Sysvar
+
+Gli account Sysvar sono account speciali a indirizzi predefiniti che forniscono
+accesso ai dati di stato del cluster. Questi account si aggiornano dinamicamente
+con dati sul cluster di rete. Puoi trovare l'elenco completo degli Account
+Sysvar [qui](https://docs.anza.xyz/runtime/sysvars).
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSVAR_CLOCK_ADDRESS =
+  "SysvarC1ock11111111111111111111111111111111" as Address;
+
+const accountInfo = await rpc
+  .getAccountInfo(SYSVAR_CLOCK_ADDRESS, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Connection, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+
+const accountInfo = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{commitment_config::CommitmentConfig, sysvar};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet-beta.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let account_info = connection.get_account(&sysvar::clock::ID).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+## Account di Programma
+
+Il deployment di un programma Solana crea un account di programma eseguibile.
+L'account di programma memorizza il codice eseguibile del programma.
+
+Gli account di programma sono di proprietà di un
+[Loader Program](/docs/core/programs#loader-programs).
+
+![Account di Programma](/assets/docs/core/accounts/program-account-simple.svg)
+
+Per semplicità, puoi considerare l'account di programma come il programma
+stesso. Quando invochi le istruzioni di un programma, specifichi l'indirizzo
+dell'account di programma (comunemente chiamato "Program ID").
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const programId = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address;
+
+const accountInfo = await rpc
+  .getAccountInfo(programId, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+
+const programId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+const accountInfo = await connection.getAccountInfo(programId);
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet-beta.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let program_id = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let account_info = connection.get_account(&program_id).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<Callout type="info">
+
+Quando fai il deployment di un programma Solana, viene memorizzato in un account
+di programma. Gli account di programma sono di proprietà di un
+[Loader Program](/docs/core/programs#loader-programs). Esistono diverse versioni
+del loader, ma tutte tranne loader-v3 memorizzano il codice eseguibile
+direttamente nell'account di programma. Loader-v3 memorizza il codice eseguibile
+in un "account di dati del programma" separato e l'account di programma si
+limita a puntare ad esso. Quando fai il deployment di un nuovo programma, la CLI
+di Solana utilizza la versione più recente del loader per impostazione
+predefinita.
+
+</Callout>
+
+### Account Buffer
+
+Loader-v3 ha un tipo di account speciale per la preparazione temporanea del
+caricamento di un programma durante il deployment o il
+redeployment/aggiornamenti. In loader-v4, ci sono ancora buffer, ma sono
+semplicemente normali account di programma.
+
+### Account di Dati del Programma
+
+Loader-v3 funziona diversamente da tutti gli altri programmi BPF Loader.
+L'account di programma contiene solo l'indirizzo di un account di dati del
+programma, che memorizza il codice eseguibile effettivo:
+
+![Account dati del programma](/assets/docs/core/accounts/program-account-expanded.svg)
+
+Non confondere questi account dati del programma con gli account dati dei
+programmi (vedi sotto).
+
+## Account dati
+
+Su Solana, il codice eseguibile di un programma è memorizzato in un account
+diverso rispetto allo stato del programma. Questo è simile a come i sistemi
+operativi tipicamente hanno file separati per i programmi e i loro dati.
+
+Per mantenere lo stato, i programmi definiscono istruzioni per creare account
+separati che essi possiedono. Ciascuno di questi account ha il proprio indirizzo
+univoco e può memorizzare qualsiasi dato arbitrario definito dal programma.
+
+![Account dati](/assets/docs/core/accounts/data-account.svg)
+
+Nota che solo il [System Program](/docs/core/accounts#system-program) può creare
+nuovi account. Una volta che il System Program crea un account, può quindi
+trasferire o assegnare la proprietà del nuovo account a un altro programma.
+
+In altre parole, la creazione di un account dati per un programma personalizzato
+richiede due passaggi:
+
+1. Invocare il System Program per creare un account, quindi trasferire la
+   proprietà al programma personalizzato
+2. Invocare il programma personalizzato, che ora possiede l'account, per
+   inizializzare i dati dell'account come definito dall'istruzione del programma
+
+Questo processo di creazione dell'account è spesso astratto come un singolo
+passaggio, ma è utile comprendere il processo sottostante.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate keypairs for fee payer
+const feePayer = await generateKeyPairSigner();
+
+// Fund fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
+
+// Get default mint account size (in bytes), no extensions enabled
+const space = BigInt(getMintSize());
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Instruction to create new account for mint (token 2022 program)
+// Invokes the system program
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize mint account data
+// Invokes the token 2022 program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: feePayer.address
+});
+
+const instructions = [createAccountInstruction, initializeMintInstruction];
+
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }), // Create transaction message
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), // Set fee payer
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), // Set transaction blockhash
+  (tx) => appendTransactionMessageInstructions(instructions, tx) // Append instructions
+);
+
+// Sign transaction message with required signers (fee payer and mint keypair)
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", transactionSignature);
+
+const accountInfo = await rpc.getAccountInfo(mint.address).send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ID,
+  MINT_SIZE,
+  getMinimumBalanceForRentExemptMint
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const recentBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// Generate keypair to use as address of mint
+const mint = Keypair.generate();
+
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: await getMinimumBalanceForRentExemptMint(connection),
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint pubkey
+  9, // decimals
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint] // Signers
+);
+
+console.log("Mint Address: ", mint.publicKey.toBase58());
+console.log("Transaction Signature: ", transactionSignature);
+
+const accountInfo = await connection.getAccountInfo(mint.publicKey);
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    system_instruction::create_account,
+    transaction::Transaction,
+};
+use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, state::Mint};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://127.0.0.1:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
+
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+    client.confirm_transaction(&airdrop_signature).await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+
+    let space = Mint::LEN;
+    let rent = client.get_minimum_balance_for_rent_exemption(space).await?;
+
+    // Create account instruction
+    let create_account_instruction = create_account(
+        &fee_payer.pubkey(),      // fee payer
+        &mint.pubkey(),           // mint address
+        rent,                     // rent
+        space as u64,             // space
+        &token_2022_program_id(), // program id
+    );
+
+    // Initialize mint instruction
+    let initialize_mint_instruction = initialize_mint(
+        &token_2022_program_id(),
+        &mint.pubkey(),            // mint address
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
+
+    // Create transaction and add instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[create_account_instruction, initialize_mint_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        recent_blockhash,
+    );
+
+    // Send and confirm transaction
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
+
+    let account_info = client.get_account(&mint.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

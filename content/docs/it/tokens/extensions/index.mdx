@@ -1,0 +1,152 @@
+---
+title: Extensions
+description:
+  Scopri di più sul Token Extensions Program (Token 2022) e come utilizzare le
+  sue estensioni per aggiungere funzionalità opzionali ai mint e agli account
+  dei token.
+---
+
+## Cosa sono le Token Extensions?
+
+Il Token Extensions Program (Token 2022) fornisce più funzionalità attraverso
+istruzioni aggiuntive chiamate estensioni. Le Extensions sono funzionalità
+opzionali che puoi aggiungere a un mint token o a un token account. Puoi trovare
+l'implementazione di queste istruzioni di estensione nel
+[codice sorgente](https://github.com/solana-program/token-2022/tree/main/program/src/extension)
+del Token Extensions Program.
+
+Ogni estensione aggiunge uno stato specifico che viene generalmente
+inizializzato durante la creazione del mint o del token account. Durante
+l'inizializzazione di uno dei due account, puoi abilitare specifiche estensioni
+contemporaneamente per ottenere diverse funzionalità. La maggior parte delle
+estensioni non può essere aggiunta dopo che un account è stato inizializzato.
+Questa è una considerazione importante quando progetti il tuo token, poiché
+dovrai pianificare in anticipo quali funzionalità vuoi che il tuo token
+supporti. Le guide di integrazione per ciascuna estensione sono disponibili
+nella
+[documentazione per sviluppatori delle Token Extensions](/developers/guides/token-extensions/getting-started).
+
+<Callout type="info">
+  Alcune estensioni sono incompatibili tra loro e non puoi abilitarle
+  contemporaneamente sullo stesso mint token o token account. Ad esempio, non
+  puoi combinare l'estensione _rs`NonTransferable`_ con l'estensione
+  _rs`TransferFeeConfig`_, poiché hanno comportamenti in conflitto.
+</Callout>
+
+Il Token Extensions Program definisce un enum
+[`ExtensionType`](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/mod.rs#L1059)
+che elenca tutte le estensioni disponibili che puoi aggiungere a un mint token o
+token account. Ogni variante rappresenta un'estensione diversa con funzionalità
+uniche.
+
+L'enum _rs`ExtensionType`_ è definito come segue:
+
+```rust title="Token Extensions"
+/// Extensions that can be applied to mints or accounts.  Mint extensions must
+/// only be applied to mint accounts, and account extensions must only be
+/// applied to token holding accounts.
+#[repr(u16)]
+#[cfg_attr(feature = "serde-traits", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-traits", serde(rename_all = "camelCase"))]
+#[derive(Clone, Copy, Debug, PartialEq, TryFromPrimitive, IntoPrimitive)]
+pub enum ExtensionType {
+    /// Used as padding if the account size would otherwise be 355, same as a
+    /// multisig
+    Uninitialized,
+    /// Includes transfer fee rate info and accompanying authorities to withdraw
+    /// and set the fee
+    TransferFeeConfig,
+    /// Includes withheld transfer fees
+    TransferFeeAmount,
+    /// Includes an optional mint close authority
+    MintCloseAuthority,
+    /// Auditor configuration for confidential transfers
+    ConfidentialTransferMint,
+    /// State for confidential transfers
+    ConfidentialTransferAccount,
+    /// Specifies the default Account::state for new Accounts
+    DefaultAccountState,
+    /// Indicates that the Account owner authority cannot be changed
+    ImmutableOwner,
+    /// Require inbound transfers to have memo
+    MemoTransfer,
+    /// Indicates that the tokens from this mint can't be transferred
+    NonTransferable,
+    /// Tokens accrue interest over time,
+    InterestBearingConfig,
+    /// Locks privileged token operations from happening via CPI
+    CpiGuard,
+    /// Includes an optional permanent delegate
+    PermanentDelegate,
+    /// Indicates that the tokens in this account belong to a non-transferable
+    /// mint
+    NonTransferableAccount,
+    /// Mint requires a CPI to a program implementing the "transfer hook"
+    /// interface
+    TransferHook,
+    /// Indicates that the tokens in this account belong to a mint with a
+    /// transfer hook
+    TransferHookAccount,
+    /// Includes encrypted withheld fees and the encryption public that they are
+    /// encrypted under
+    ConfidentialTransferFeeConfig,
+    /// Includes confidential withheld transfer fees
+    ConfidentialTransferFeeAmount,
+    /// Mint contains a pointer to another account (or the same account) that
+    /// holds metadata
+    MetadataPointer,
+    /// Mint contains token-metadata
+    TokenMetadata,
+    /// Mint contains a pointer to another account (or the same account) that
+    /// holds group configurations
+    GroupPointer,
+    /// Mint contains token group configurations
+    TokenGroup,
+    /// Mint contains a pointer to another account (or the same account) that
+    /// holds group member configurations
+    GroupMemberPointer,
+    /// Mint contains token group member configurations
+    TokenGroupMember,
+    /// Mint allowing the minting and burning of confidential tokens
+    ConfidentialMintBurn,
+    /// Tokens whose UI amount is scaled by a given amount
+    ScaledUiAmount,
+    /// Tokens where minting / burning / transferring can be paused
+    Pausable,
+    /// Indicates that the account belongs to a pausable mint
+    PausableAccount,
+
+    /// Test variable-length mint extension
+    #[cfg(test)]
+    VariableLenMintTest = u16::MAX - 2,
+    /// Padding extension used to make an account exactly Multisig::LEN, used
+    /// for testing
+    #[cfg(test)]
+    AccountPaddingTest,
+    /// Padding extension used to make a mint exactly Multisig::LEN, used for
+    /// testing
+    #[cfg(test)]
+    MintPaddingTest,
+}
+```
+
+Ogni estensione aggiunge funzionalità specializzate includendo stato extra a un
+mint o token account. Tutto lo stato specifico dell'estensione è memorizzato nel
+campo
+[`tlv_data`](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/mod.rs#L546),
+che segue il tipo di dati dell'account base. Devi deserializzare ulteriormente
+il `tlv_data` (contenente lo stato dell'estensione) in base ai tipi di
+estensione specifici abilitati per quell'account.
+
+```rust title="Token Extensions"
+/// Encapsulates immutable base state data (mint or account) with possible
+/// extensions, where the base state is Pod for zero-copy serde.
+#[derive(Debug, PartialEq)]
+pub struct PodStateWithExtensions<'data, S: BaseState + Pod> {
+    /// Unpacked base data
+    pub base: &'data S,
+    /// Slice of data containing all TLV data, deserialized on demand
+    // !mark
+    tlv_data: &'data [u8],
+}
+```

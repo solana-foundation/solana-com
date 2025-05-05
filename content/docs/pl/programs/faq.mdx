@@ -1,0 +1,200 @@
+---
+title: FAQ
+---
+
+Zadaj swoje pytania na
+[StackExchange](https://solana.stackexchange.com/questions/ask).
+
+## Berkeley Packet Filter (BPF)
+
+Programy on-chain Solana są kompilowane za pomocą
+[infrastruktury kompilatora LLVM](https://llvm.org/) do formatu
+[Executable and Linkable Format (ELF)](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format),
+który zawiera wariant
+[Berkeley Packet Filter (BPF)](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter)
+kodu bajtowego.
+
+Ponieważ Solana korzysta z infrastruktury kompilatora LLVM, program może być
+napisany w dowolnym języku programowania, który może być skompilowany do
+backendu BPF LLVM.
+
+BPF zapewnia wydajny
+[zbiór instrukcji](https://github.com/iovisor/bpf-docs/blob/master/eBPF.md),
+który może być wykonywany w interpretowanej maszynie wirtualnej lub jako wydajne
+instrukcje natywne skompilowane w czasie rzeczywistym.
+
+## Mapa pamięci
+
+Wirtualna mapa adresów pamięci używana przez programy SBF Solana jest stała i
+wygląda następująco:
+
+- Kod programu zaczyna się od 0x100000000
+- Dane stosu zaczynają się od 0x200000000
+- Dane sterty zaczynają się od 0x300000000
+- Parametry wejściowe programu zaczynają się od 0x400000000
+
+Powyższe adresy wirtualne to adresy początkowe, ale programy mają dostęp tylko
+do podzbioru mapy pamięci. Program zakończy działanie z błędem, jeśli spróbuje
+odczytać lub zapisać do wirtualnego adresu, do którego nie ma dostępu, a
+zwrócony zostanie błąd `AccessViolation`, który zawiera adres i rozmiar próby
+naruszenia.
+
+## InvalidAccountData
+
+Ten błąd programu może wystąpić z wielu powodów. Zazwyczaj jest spowodowany
+przekazaniem konta do programu, którego program się nie spodziewa, czy to w
+niewłaściwej pozycji w instrukcji, czy też konta niezgodnego z wykonywaną
+instrukcją.
+
+Implementacja programu może również spowodować ten błąd podczas wykonywania
+instrukcji międzyprogramowej i zapomnienia o dostarczeniu konta dla programu,
+który jest wywoływany.
+
+## InvalidInstructionData
+
+Ten błąd programu może wystąpić podczas próby deserializacji instrukcji.
+Sprawdź, czy przekazana struktura dokładnie odpowiada instrukcji. Mogą
+występować pewne wypełnienia między polami. Jeśli program implementuje trait
+Rust `Pack`, spróbuj spakować i rozpakować typ instrukcji `T`, aby określić
+dokładne kodowanie, jakiego oczekuje program.
+
+## MissingRequiredSignature
+
+Niektóre instrukcje wymagają, aby konto było podpisane; ten błąd jest zwracany,
+jeśli konto powinno być podpisane, ale nie jest.
+
+Implementacja programu może również spowodować ten błąd podczas wykonywania
+[wywołania międzyprogramowego](/docs/core/cpi), które wymaga podpisanego adresu
+programu, ale przekazane ziarna podpisu do `invoke_signed` nie pasują do ziaren
+podpisu użytych do utworzenia adresu programu
+[`create_program_address`](/docs/core/pda#createprogramaddress).
+
+## Stack
+
+SBF używa ramek stosu zamiast zmiennego wskaźnika stosu. Każda ramka stosu ma
+rozmiar 4 KB.
+
+Jeśli program przekroczy ten rozmiar ramki stosu, kompilator zgłosi to
+przekroczenie jako ostrzeżenie.
+
+Na przykład:
+
+```text
+Error: Function _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E Stack offset of -30728 exceeded max offset of -4096 by 26632 bytes, please minimize large stack variables
+```
+
+Komunikat identyfikuje, który symbol przekracza swoją ramkę stosu, ale nazwa
+może być zniekształcona.
+
+> Aby odczytać zniekształconą nazwę symbolu w Rust, użyj
+> [rustfilt](https://github.com/luser/rustfilt).
+
+Powyższe ostrzeżenie pochodzi z programu napisanego w Rust, więc odczytana nazwa
+symbolu to:
+
+```shell
+rustfilt _ZN16curve25519_dalek7edwards21EdwardsBasepointTable6create17h178b3d2411f7f082E
+curve25519_dalek::edwards::EdwardsBasepointTable::create
+```
+
+Powodem, dla którego zgłaszane jest ostrzeżenie, a nie błąd, jest to, że
+niektóre zależne biblioteki mogą zawierać funkcjonalność naruszającą
+ograniczenia ramki stosu, nawet jeśli program nie korzysta z tej
+funkcjonalności. Jeśli program naruszy rozmiar stosu w czasie wykonywania,
+zostanie zgłoszony błąd `AccessViolation`.
+
+Ramki stosu SBF zajmują zakres wirtualnych adresów zaczynający się od
+`0x200000000`.
+
+## Rozmiar sterty
+
+Programy mają dostęp do sterty w czasie wykonywania za pośrednictwem API Rust
+`alloc`. Aby umożliwić szybkie alokacje, wykorzystywana jest prosta sterta typu
+bump o rozmiarze 32 KB. Sterta nie obsługuje `free` ani `realloc`.
+
+Wewnętrznie programy mają dostęp do obszaru pamięci o rozmiarze 32 KB,
+zaczynającego się od wirtualnego adresu 0x300000000, i mogą zaimplementować
+własną stertę dostosowaną do specyficznych potrzeb programu.
+
+Programy w Rust implementują stertę bezpośrednio, definiując własny
+[`global_allocator`](https://github.com/solana-labs/solana/blob/d9b0fc0e3eec67dfe4a97d9298b15969b2804fab/sdk/program/src/entrypoint.rs#L72).
+
+## Loadery
+
+Programy są wdrażane i wykonywane przez loadery w czasie wykonywania. Obecnie
+obsługiwane są dwa loadery:
+[BPF Loader](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader.rs#L17)
+oraz
+[BPF loader deprecated](https://github.com/solana-labs/solana/blob/7ddf10e602d2ed87a9e3737aa8c32f1db9f909d8/sdk/program/src/bpf_loader_deprecated.rs#L14).
+
+Loadery mogą obsługiwać różne interfejsy binarne aplikacji, dlatego deweloperzy
+muszą pisać swoje programy i wdrażać je na tym samym loaderze. Jeśli program
+napisany dla jednego loadera zostanie wdrożony na innym, zazwyczaj skutkuje to
+błędem `AccessViolation` z powodu niedopasowanego deserializowania parametrów
+wejściowych programu.
+
+W praktyce programy powinny zawsze być pisane z myślą o najnowszym loaderze BPF,
+który jest domyślny dla interfejsu wiersza poleceń oraz API JavaScript.
+
+- [Punkty wejścia programów w Rust](/docs/programs/lang-rust#program-entrypoint)
+
+### Wdrażanie
+
+Wdrażanie programu SBF to proces przesyłania obiektu współdzielonego BPF do
+danych konta programu i oznaczania konta jako wykonywalnego. Klient dzieli
+obiekt współdzielony SBF na mniejsze fragmenty i przesyła je jako dane
+instrukcji
+[`Write`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L13)
+do loadera, gdzie loader zapisuje te dane w danych konta programu. Po otrzymaniu
+wszystkich fragmentów klient wysyła instrukcję
+[`Finalize`](https://github.com/solana-labs/solana/blob/bc7133d7526a041d1aaee807b80922baa89b6f90/sdk/program/src/loader_instruction.rs#L30)
+do loadera, który następnie weryfikuje, czy dane SBF są poprawne, i oznacza
+konto programu jako _wykonywalne_. Po oznaczeniu konta programu jako
+wykonywalnego, kolejne transakcje mogą wydawać instrukcje do przetwarzania przez
+ten program.
+
+Kiedy instrukcja jest skierowana do wykonywalnego programu SBF, loader
+konfiguruje środowisko wykonawcze programu, serializuje parametry wejściowe
+programu, wywołuje punkt wejścia programu i raportuje wszelkie napotkane błędy.
+
+Aby uzyskać więcej informacji, zobacz
+[wdrażanie programów](/docs/programs/deploying).
+
+### Serializacja parametrów wejściowych
+
+Loadery SBF serializują parametry wejściowe programu do tablicy bajtów, która
+następnie jest przekazywana do punktu wejścia programu, gdzie program jest
+odpowiedzialny za ich deserializację na łańcuchu. Jedną ze zmian między
+przestarzałym loaderem a obecnym loaderem jest to, że parametry wejściowe są
+serializowane w sposób, który powoduje, że różne parametry znajdują się na
+wyrównanych przesunięciach w wyrównanej tablicy bajtów. Pozwala to
+implementacjom deserializacji bezpośrednio odwoływać się do tablicy bajtów i
+dostarczać wyrównane wskaźniki do programu.
+
+- [Deserializacja parametrów programu w Rust](/docs/programs/lang-rust#parameter-deserialization)
+
+Najnowszy loader serializuje parametry wejściowe programu w następujący sposób
+(wszystkie kodowania są w formacie little endian):
+
+- 8 bajtów: nieznakowana liczba kont
+- Dla każdego konta:
+  - 1 bajt wskazujący, czy jest to zduplikowane konto; jeśli nie jest
+    zduplikowane, wartość wynosi 0xff, w przeciwnym razie wartość to indeks
+    konta, którego jest duplikatem.
+  - Jeśli zduplikowane: 7 bajtów wypełnienia
+  - Jeśli nie zduplikowane:
+    - 1 bajt logiczny, true jeśli konto jest sygnatariuszem
+    - 1 bajt logiczny, true jeśli konto jest zapisywalne
+    - 1 bajt logiczny, true jeśli konto jest wykonywalne
+    - 4 bajty wypełnienia
+    - 32 bajty klucza publicznego konta
+    - 32 bajty klucza publicznego właściciela konta
+    - 8 bajtów: nieznakowana liczba lamportów posiadanych przez konto
+    - 8 bajtów: nieznakowana liczba bajtów danych konta
+    - x bajtów danych konta
+    - 10k bajtów wypełnienia, używane do ponownej alokacji
+    - wystarczająca ilość wypełnienia, aby wyrównać przesunięcie do 8 bajtów
+    - 8 bajtów: epoka czynszu
+- 8 bajtów: nieznakowana liczba danych instrukcji
+- x bajtów danych instrukcji
+- 32 bajty identyfikatora programu

@@ -1,0 +1,472 @@
+---
+title: Розгортання програм
+description:
+  Завантаження власних програм у блокчейн Solana за допомогою Solana CLI.
+---
+
+Цей посібник передбачає знання наступних тем:
+
+- [Модель облікових записів Solana](/core/accounts)
+- [Програми Solana загалом](/core/programs)
+- [Розробка власних програм Solana](/programs/rust/)
+
+## Loader-v3 та Loader-v4
+
+Наразі відбувається перехід від loader-v3 (підкоманда program) до loader-v4
+(підкоманда program **-v4**), оскільки loader-v3 застарів.
+
+Для нових розгортань використовуйте `solana program-v4 deploy` замість
+`solana program deploy`.
+
+Щоб мігрувати існуючу програму (що по суті є її повторним розгортанням):
+
+```shell
+solana program migrate ./target/deploy/your_program-keypair.json
+```
+
+## Підготовка
+
+Спочатку програму потрібно зібрати (скомпілювати, зв'язати, очистити).
+
+```shell
+cargo +solana build --target sbpf-solana-solana --release
+```
+
+Цей крок необхідно виконувати перед кожним повторним розгортанням.
+
+Перевірте, чи достатньо коштів на обліковому записі платника за замовчуванням
+пропорційно розміру виконуваного файлу:
+
+```shell
+du -h ./target/deploy/your_program.so
+solana balance
+```
+
+Крім того, кожна програма має обліковий запис програми та ідентифікатор
+програми, який є адресою цього облікового запису програми. Наступна команда
+генерує пару ключів для облікового запису програми:
+
+```shell
+solana-keygen new -o ./target/deploy/your_program-keypair.json
+```
+
+Це потрібно виконати лише один раз для кожної програми, і ці ключі будуть
+повторно використовуватися для подальших повторних розгортань тієї ж програми.
+
+Інструментарій містив скорочений шлях, але він поступово виводиться з
+експлуатації / застаріває:
+
+```shell
+cargo-build-sbf
+```
+
+## Початкове розгортання
+
+Тепер виконуваний файл можна завантажити в обліковий запис програми:
+
+### Loader-v3
+
+Параметр називається `program-id`, хоча він очікує шлях до файлу пари ключів:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+```
+
+## Повторне розгортання
+
+Завантаження іншого виконуваного файлу до того самого облікового запису програми
+знову перезапише/замінить його. Однак для повторних розгортань потрібен лише
+ідентифікатор програми (pubkey пари ключів програми), а не вся пара ключів,
+оскільки підписантом є пара ключів з правами на оновлення.
+
+### Loader-v3
+
+Це точно так само, як і початкове розгортання:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+Якщо старий виконуваний файл був коротшим за новий, можливо, спочатку потрібно
+збільшити обліковий запис programdata:
+
+```shell
+solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+```
+
+### Loader-v4
+
+Зверніть увагу, що початкове розгортання використовувало `program-keypair`, тоді
+як повторне розгортання використовує `program-id`:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Пріоритезація завантаження
+
+У періоди перевантаження мережі ви можете використовувати кілька додаткових
+прапорців, які допоможуть із розгортанням програми:
+
+- `--with-compute-unit-price`: Встановлює ціну обчислювальної одиниці для
+  транзакції в інкрементах по 0,000001 lamport (мікро-lamport) за обчислювальну
+  одиницю. Використовуйте
+  [Priority Fee API від Helius](https://docs.helius.dev/guides/priority-fee-api)
+  для отримання оцінки комісії за пріоритет, яку слід встановити.
+- `--use-rpc`: Надсилає транзакції запису до налаштованого RPC замість TPU
+  валідаторів. Цей прапорець вимагає підключення до RPC з
+  [ваговим коефіцієнтом стейку](/developers/guides/advanced/stake-weighted-qos),
+  такого як [Helius](https://www.helius.dev/) або [Triton](https://triton.one/).
+  Цей прапорець також можна налаштувати як типовий за допомогою:
+  `solana config set --url <RPC_URL>`.
+- `--max-sign-attempts`: Максимальна кількість спроб підписати або повторно
+  підписати транзакції після закінчення терміну дії blockhash. Якщо будь-які
+  транзакції, надіслані під час розгортання програми, все ще не підтверджені
+  після закінчення терміну дії спочатку вибраного нещодавнього blockhash, ці
+  транзакції будуть повторно підписані з новим нещодавнім blockhash і надіслані
+  повторно. Використовуйте цей параметр для налаштування максимальної кількості
+  ітерацій підписання транзакцій. Кожен blockhash дійсний приблизно 60 секунд,
+  що означає, що використання типового значення 5 призведе до надсилання
+  транзакцій щонайменше 5 хвилин або до підтвердження всіх транзакцій, залежно
+  від того, що настане раніше.
+
+## Відновлення завантаження
+
+Можливо, що завантаження застрягне або буде перервано.
+
+### Loader-v3
+
+Якщо розгортання програми не вдається, залишиться проміжний буферний рахунок із
+ненульовим балансом. Щоб повернути цей баланс, ви можете відновити невдале
+розгортання, надавши той самий проміжний буфер для нового виклику `deploy`.
+
+При невдалому розгортанні буде виведено повідомлення про помилку із зазначенням
+seed-фрази, необхідної для відновлення згенерованої пари ключів проміжного
+буфера:
+
+```
+==================================================================================
+Recover the intermediate account's ephemeral keypair file with
+`solana-keygen recover` and the following 12-word seed phrase:
+==================================================================================
+valley flat great hockey share token excess clever benefit traffic avocado athlete
+==================================================================================
+To resume a deploy, pass the recovered keypair as
+the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
+Or to recover the account's lamports, pass it as the
+[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
+==================================================================================
+```
+
+Щоб відновити keypair:
+
+```shell
+solana-keygen recover -o ./target/deploy/buffer-keypair.json
+```
+
+Коли вас запитають, введіть 12-слівну seed-фразу.
+
+Потім видайте нову команду `deploy` і вкажіть буфер:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+```
+
+### Loader-v4
+
+Можливо відновити завантаження з вказаного байтового зміщення:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```
+
+## Фіналізація
+
+Це **незворотна** дія.
+
+Програму можна зробити незмінною, видаливши її повноваження на оновлення.
+
+### Loader-v3
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```
+
+### Loader-v4
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```
+
+Замість перезапису програм також можливо надати користувачам вибір, яку версію
+програми вони хочуть використовувати, створивши зв'язаний список фіналізованих
+програм:
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
+```
+
+## Закриття
+
+Для програм, розгорнутих під loader-v3, можна повернути лише їхній рахунок
+programdata, буферні рахунки та кошти, заблоковані в них. Рахунок програми разом
+з ідентифікатором програми та коштами, заблокованими конкретно в рахунку
+програми, залишаються заблокованими.
+
+Програми, розгорнуті під loader-v4, можуть бути закриті разом з їхнім програмним
+акаунтом, їхнім program ID та заблокованими коштами, які знову стають доступними
+для інших цілей.
+
+### Loader-v3
+
+Це **незворотна** дія для програм, розгорнутих за допомогою loader-v3.
+
+Зауважте, що після закриття програми її program ID не може бути використаний
+повторно. Спроба розгорнути програму з раніше закритим program ID призведе до
+помилки. Якщо вам потрібно повторно розгорнути програму після її закриття, ви
+повинні згенерувати новий файл keypair програми.
+
+Щоб закрити один акаунт programdata:
+
+```shell
+solana program close ./target/deploy/your_program-keypair.json
+```
+
+Щоб закрити всі буферні акаунти, пов'язані з поточним authority:
+
+```shell
+solana program close --buffers
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Перегляд метаданих
+
+Підкоманда `show` виводить метадані програми.
+
+Приклад виводу виглядає так:
+
+```shell
+Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
+Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
+Last Deployed In Slot: 63890568
+Data Length: 5216 (0x1460) bytes
+```
+
+- `Program Id` — це адреса, на яку можна посилатися в полі `program_id`
+  інструкції при виклику програми.
+- `Owner`: Loader, за допомогою якого була розгорнута ця програма.
+- `ProgramData Address` — це акаунт programdata, пов'язаний з акаунтом програми,
+  який містить виконуваний код програми (тільки для loader-v3).
+- `Status`: `retracted`, `deployed` або `finalized` (тільки для loader-v4).
+- `Authority` — це authority для оновлення програми.
+- `Last Deployed In Slot` — це slot, у якому програма була востаннє розгорнута.
+- `Data Length` — це розмір простору, зарезервованого для розгортань. Фактичний
+  простір, який використовується поточною розгорнутою програмою, може бути
+  меншим.
+
+### Loader-v3
+
+Щоб переглянути конкретну програму:
+
+```shell
+solana program show ./target/deploy/your_program-keypair.json
+```
+
+Щоб переглянути список програм, розгорнутих з authority за замовчуванням:
+
+```shell
+solana program show --programs
+```
+
+Щоб показати всі буферні акаунти незалежно від authority:
+
+```shell
+solana program show --buffers --all
+```
+
+Щоб вказати інший authority:
+
+```shell
+solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
+solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v4
+
+Щоб переглянути конкретну програму:
+
+```shell
+solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```
+
+Щоб переглянути список програм, розгорнутих із типовим повноваженням:
+
+```shell
+solana program-v4 show --all
+```
+
+Щоб переглянути список програм, розгорнутих із конкретним повноваженням:
+
+```shell
+solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+```
+
+## Завантаження виконуваного файлу
+
+Іноді корисно завантажити та порівняти програму, щоб переконатися, що вона
+містить відомий виконуваний файл. Завантажений файл можна скоротити, хешувати та
+порівняти з хешем оригінального файлу програми.
+
+### Loader-v3
+
+```shell
+solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
+```
+
+### Loader-v4
+
+```shell
+solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Розширені можливості: передача повноважень
+
+Право змінювати певну програму належить її повноваженню. Це повноваження можна
+передати іншому keypair без зміни keypair програми, щоб ідентифікатор програми
+залишався незмінним. Крім того, одне повноваження може контролювати кілька
+облікових записів програм.
+
+Якщо під час початкового розгортання не вказано явно, то використовується
+типовий keypair як повноваження. Ось чому повторне розгортання програми у кроках
+вище не вимагало явного зазначення повноваження.
+
+Явне повноваження корисне для офлайн-підписання та програм, керованих кількома
+суб'єктами.
+
+Спочатку потрібно згенерувати keypair для повноваження:
+
+```shell
+solana-keygen new -o ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v3
+
+Повноваження можна вказати під час розгортання:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Або після розгортання, використовуючи типовий keypair як поточне повноваження:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Або після розгортання та вказання поточного власника:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
+```
+
+### Loader-v4
+
+Власника можна вказати під час розгортання:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
+```
+
+Або після розгортання та використання типової keypair як поточного власника:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
+```
+
+Або після розгортання та вказання поточного власника:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
+```
+
+## Розширено: Двоетапне повторне розгортання з використанням буфера
+
+Замість завантаження безпосередньо в обліковий запис програми, виконуваний файл
+можна спочатку завантажити в проміжний буферний обліковий запис, а потім
+перенести в обліковий запис програми на другому етапі (фактичне повторне
+розгортання). Це корисно для офлайн-підписання та програм, керованих кількома
+суб'єктами, наприклад, голосування DAO для вибору або відхилення завантаженого
+виконуваного файлу перед фактичним повторним розгортанням.
+
+Майте на увазі, що використання буферних облікових записів приблизно подвоює
+кошти, необхідні під час процесу завантаження, оскільки два облікові записи
+одночасно містять по одному виконуваному файлу.
+
+Спочатку потрібно створити keypair для буферного облікового запису:
+
+```shell
+solana-keygen new -o ~/.config/solana/buffer-keypair.json
+```
+
+Буферний обліковий запис можна повторно використовувати для різних завантажень,
+і він не прив'язаний до жодного конкретного облікового запису програми.
+
+### Loader-v3
+
+```shell
+solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+## Розширено: Офлайн-підписання
+
+Деякі моделі безпеки вимагають відокремлення процесу підписання від трансляції
+транзакцій, щоб ключі підписання могли бути повністю відключені від будь-якої
+мережі, що також відомо як офлайн-підписання.
+
+Зауважте, що лише повторні розгортання можна виконувати в офлайн-режимі.
+Початкове розгортання програми **повинно** виконуватися з онлайн-машини, і лише
+наступні повторні розгортання програми можуть використовувати офлайн-підписання.
+
+Типова конфігурація складається з двох різних підписувачів:
+
+- онлайн-підписувач (платник комісії та власник буферного облікового запису)
+- офлайн-підписувач (власник облікового запису програми)
+
+Загальний процес — це двоетапне повторне розгортання з деякими додатковими
+кроками:
+
+1. (онлайн) створіть нову програму
+2. (онлайн) передайте повноваження офлайн-підписувачу
+3. (онлайн) створіть буфер і завантажте в нього виконуваний файл
+4. (опціонально) перевірте вміст буфера в блокчейні
+5. (офлайн) підпишіть транзакцію для повторного розгортання програми,
+   використовуючи буфер `--blockhash <VALUE> --sign-only`
+6. (онлайн) використайте цей підпис для трансляції транзакції повторного
+   розгортання
+   `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
+
+Знайдіть нещодавній `blockhash` і вставте його, щоб згенерувати підпис
+офлайн-транзакції. `blockhash` закінчується приблизно через 60 секунд. Якщо ви
+не встигли вчасно — просто отримайте інший свіжий хеш і повторюйте, доки не
+вдасться, або розгляньте можливість використання довготривалих nonce транзакцій.

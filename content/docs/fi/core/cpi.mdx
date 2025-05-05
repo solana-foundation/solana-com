@@ -1,0 +1,826 @@
+---
+title: Cross Program Invocation
+description:
+  Opi Cross Program Invocation (CPI) -toiminnosta Solanassa - miten ohjelmat
+  voivat kutsua muiden ohjelmien käskyjä, käsitellä PDA-allekirjoittajia ja
+  yhdistää toiminnallisuutta Solana-verkossa.
+h1: Cross Program Invocation (CPI)
+---
+
+Cross Program Invocation (CPI) tarkoittaa tilannetta, jossa yksi ohjelma kutsuu
+toisen ohjelman käskyjä. Tämä mahdollistaa Solana-ohjelmien yhteensopivuuden.
+
+Voit ajatella käskyjä API-päätepisteinä, joita ohjelma tarjoaa verkolle, ja
+CPI:tä yhtenä API:na, joka sisäisesti kutsuu toista API:a.
+
+![Cross Program Invocation](/assets/docs/core/cpi/cpi.svg)
+
+## Keskeiset kohdat
+
+- **Cross Program Invocation** mahdollistaa Solana-ohjelmien käskyjen suoran
+  kutsumisen toiseen ohjelmaan.
+- **Allekirjoittajan oikeudet** kutsuohjelmasta siirtyvät kutsuttavaan
+  ohjelmaan.
+- Tehdessään Cross Program Invocation -kutsun, **ohjelmat voivat allekirjoittaa
+  PDA:iden puolesta**, jotka on johdettu niiden omasta ohjelmatunnuksesta.
+- Kutsuttava ohjelma voi tehdä lisää CPI-kutsuja muihin ohjelmiin, enintään 4
+  tasoa syvyyteen.
+
+## Mikä on CPI?
+
+Cross Program Invocation (CPI) on tilanne, jossa yksi ohjelma kutsuu toisen
+ohjelman käskyjä.
+
+Ohjelmakäskyn kirjoittaminen CPI:llä noudattaa samaa kaavaa kuin
+[käskyn](/docs/core/transactions#instruction) rakentaminen transaktioon
+lisäämistä varten. Pohjimmiltaan jokaisen CPI-käskyn on määritettävä:
+
+- **Ohjelman osoite**: Määrittää kutsuttavan ohjelman
+- **Tilit**: Luettelee jokaisen tilin, josta käsky lukee tai johon se
+  kirjoittaa, mukaan lukien muut ohjelmat
+- **Instruction data**: Määrittää, mikä käsky ohjelmassa kutsutaan, sekä kaikki
+  käskyn tarvitsemat tiedot (funktioargumentit)
+
+Kun ohjelma tekee Cross Program Invocation (CPI) -kutsun toiseen ohjelmaan:
+
+- Alkuperäisen tapahtuman allekirjoitusoikeudet ulottuvat kutsuttavaan ohjelmaan
+  (esim. A->B)
+- Kutsuttava ohjelma voi tehdä lisää Cross Program Invocation -kutsuja muihin
+  ohjelmiin, enintään 4 syvyyteen (esim. B->C, C->D)
+- Ohjelmat voivat "allekirjoittaa" [PDA](/docs/core/pda)-tilien puolesta, jotka
+  on johdettu sen ohjelmatunnuksesta
+
+<Callout>
+  Solanan ohjelmaympäristö asettaa
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget.rs#L38)
+  vakion
+  [MAX_INSTRUCTION_STACK_DEPTH](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget.rs#L13)
+  arvoksi 5. Tämä edustaa ohjelman käskyjen kutsupinon maksimisyvyyttä. Pinon
+  korkeus alkaa arvosta 1 alkuperäiselle tapahtumalle ja kasvaa 1:llä aina kun
+  ohjelma kutsuu toista käskyä. Tämä asetus rajoittaa CPI-kutsujen syvyyden
+  4:ään.
+</Callout>
+
+Kun tapahtumaa käsitellään, tilin käyttöoikeudet siirtyvät ohjelmasta toiseen.
+Tässä mitä se tarkoittaa:
+
+Oletetaan, että ohjelma A vastaanottaa käskyn, jossa on:
+
+- Tili, joka on allekirjoittanut tapahtuman
+- Tili, johon voidaan kirjoittaa (muokattava)
+
+Kun ohjelma A tekee CPI-kutsun ohjelmaan B:
+
+- Ohjelma B saa käyttää näitä samoja tilejä niiden alkuperäisillä
+  käyttöoikeuksilla
+- Ohjelma B voi allekirjoittaa allekirjoittajatilin avulla
+- Ohjelma B voi kirjoittaa kirjoitettavaan tiliin
+- Ohjelma B voi jopa välittää nämä samat käyttöoikeudet eteenpäin, jos se tekee
+  omia CPI-kutsujaan
+
+## Cross Program Invocations
+
+[`invoke`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/program.rs#L26-L28)
+funktio käsittelee CPI-kutsuja, jotka eivät vaadi PDA-allekirjoittajia. Funktio
+kutsuu `invoke_signed` funktiota tyhjällä `signers_seeds` taulukolla, mikä
+osoittaa, ettei allekirjoittamiseen tarvita PDA-tilejä.
+
+```rust title="Invoke Function"
+pub fn invoke(instruction: &Instruction, account_infos: &[AccountInfo]) -> ProgramResult {
+    invoke_signed(instruction, account_infos, &[])
+}
+```
+
+Seuraavat esimerkit näyttävät, miten tehdä CPI-kutsu käyttäen
+[Anchor Framework](https://www.anchor-lang.com/docs) -kehystä ja natiivi-Rustia.
+Esimerkkiohjelmat sisältävät yhden käskyn, joka siirtää SOL:ia yhdeltä tililtä
+toiselle CPI-kutsun avulla.
+
+### Anchor Framework
+
+Seuraavat esimerkit esittelevät kolme tapaa luoda Cross Program Invocations
+(CPIs) Anchor-ohjelmassa, kukin eri abstraktiotasolla. Kaikki esimerkit toimivat
+samalla tavalla. Päätarkoituksena on näyttää CPI:n toteutuksen yksityiskohdat.
+
+- Esimerkki 1: Käyttää Anchorin _rs`CpiContext`_ ja apufunktiota CPI-ohjeen
+  rakentamiseen.
+- Esimerkki 2: Käyttää _rs`system_instruction::transfer`_ -funktiota
+  `solana_program` -paketista CPI-ohjeen rakentamiseen. Esimerkki 1 abstrahoi
+  tämän toteutuksen.
+- Esimerkki 3: Rakentaa CPI-ohjeen manuaalisesti. Tämä lähestymistapa on
+  hyödyllinen kun ohjeen rakentamiseen ei ole olemassa pakettia.
+
+<CodeTabs>
+
+```rs !! title="Example 1"
+use anchor_lang::prelude::*;
+use anchor_lang::system_program::{transfer, Transfer};
+
+declare_id!("9AvUNHjxscdkiKQ8tUn12QCMXtcnbR9BVGq3ULNzFMRi");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.sender.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        let cpi_context = CpiContext::new(
+            program_id,
+            Transfer {
+                from: from_pubkey,
+                to: to_pubkey,
+            },
+        );
+
+        transfer(cpi_context, amount)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(mut)]
+    sender: Signer<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```rs !! title="Example 2"
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke, system_instruction};
+
+declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.sender.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        let instruction =
+            &system_instruction::transfer(&from_pubkey.key(), &to_pubkey.key(), amount);
+
+        invoke(instruction, &[from_pubkey, to_pubkey, program_id])?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(mut)]
+    sender: Signer<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```rs !! title="Example 3"
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke, instruction::Instruction};
+
+declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.sender.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        // Prepare instruction AccountMetas
+        let account_metas = vec![
+            AccountMeta::new(from_pubkey.key(), true),
+            AccountMeta::new(to_pubkey.key(), false),
+        ];
+
+        // SOL transfer instruction discriminator
+        let instruction_discriminator: u32 = 2;
+
+        // Prepare instruction data
+        let mut instruction_data = Vec::with_capacity(4 + 8);
+        instruction_data.extend_from_slice(&instruction_discriminator.to_le_bytes());
+        instruction_data.extend_from_slice(&amount.to_le_bytes());
+
+        // Create instruction
+        let instruction = Instruction {
+            program_id: program_id.key(),
+            accounts: account_metas,
+            data: instruction_data,
+        };
+
+        // Invoke instruction
+        invoke(&instruction, &[from_pubkey, to_pubkey, program_id])?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(mut)]
+    sender: Signer<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```ts !! title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { BN, Program } from "@coral-xyz/anchor";
+import { Cpi } from "../target/types/cpi";
+import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+describe("cpi", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.Cpi as Program<Cpi>;
+  const sender = provider.wallet as anchor.Wallet;
+  const recipient = new Keypair();
+
+  const transferAmount = 0.01 * LAMPORTS_PER_SOL;
+
+  it("SOL Transfer Anchor", async () => {
+    const transactionSignature = await program.methods
+      .solTransfer(new BN(transferAmount))
+      .accounts({
+        sender: sender.publicKey,
+        recipient: recipient.publicKey
+      })
+      .rpc();
+
+    console.log(`\nTransaction Signature: ${transactionSignature}`);
+  });
+});
+```
+
+</CodeTabs>
+
+### Native Rust
+
+Seuraava esimerkki näyttää, miten tehdään CPI ohjelmasta, joka on kirjoitettu
+Native Rustilla. Ohjelma sisältää yhden ohjeen, joka siirtää SOL:ia yhdeltä
+tililtä toiselle käyttäen CPI:tä. Testitiedosto käyttää
+[LiteSVM](https://github.com/LiteSVM/litesvm) -kirjastoa ohjelman testaamiseen.
+
+<CodeTabs>
+
+```rs !! title="Example"
+use borsh::BorshDeserialize;
+use solana_program::{
+    account_info::AccountInfo,
+    entrypoint,
+    entrypoint::ProgramResult,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+};
+
+// Declare program entrypoint
+entrypoint!(process_instruction);
+
+// Define program instructions
+#[derive(BorshDeserialize)]
+enum ProgramInstruction {
+    SolTransfer { amount: u64 },
+}
+
+impl ProgramInstruction {
+    fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
+        Self::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)
+    }
+}
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Deserialize instruction data
+    let instruction = ProgramInstruction::unpack(instruction_data)?;
+
+    // Process instruction
+    match instruction {
+        ProgramInstruction::SolTransfer { amount } => {
+            // Parse accounts
+            let [sender_info, recipient_info, system_program_info] = accounts else {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            };
+
+            // Verify the sender is a signer
+            if !sender_info.is_signer {
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+
+            // Create and invoke the transfer instruction
+            let transfer_ix = system_instruction::transfer(
+                sender_info.key,
+                recipient_info.key,
+                amount,
+            );
+
+            invoke(
+                &transfer_ix,
+                &[
+                    sender_info.clone(),
+                    recipient_info.clone(),
+                    system_program_info.clone(),
+                ],
+            )?;
+
+            Ok(())
+        }
+    }
+}
+```
+
+```ts !! title="Test"
+import * as path from "path";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction
+} from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
+
+test("sol transfer cpi", () => {
+  const svm = new LiteSVM();
+
+  const programId = PublicKey.unique();
+  const programPath = path.join(__dirname, "program.so");
+  svm.addProgramFromFile(programId, programPath);
+
+  // Create sender and recipient
+  const sender = new Keypair();
+  const recipient = new Keypair();
+
+  // Fund sender
+  const amount = BigInt(LAMPORTS_PER_SOL);
+  svm.airdrop(sender.publicKey, amount); // 1 SOL
+
+  // Create instruction data buffer
+  const transferAmount = amount / BigInt(2); // 0.5 SOL
+  const instructionIndex = 0; // instruction index 0 for SolTransfer enum
+
+  const data = Buffer.alloc(9); // 1 byte for instruction enum + 8 bytes for u64
+  data.writeUInt8(instructionIndex, 0); // first byte identifies the instruction
+  data.writeBigUInt64LE(transferAmount, 1); // remaining bytes are instruction arguments
+
+  // Create instruction
+  const instruction = new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: sender.publicKey, isSigner: true, isWritable: true },
+      { pubkey: recipient.publicKey, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+    ],
+    data
+  });
+
+  // Create and send transaction
+  const transaction = new Transaction().add(instruction);
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(sender);
+
+  svm.sendTransaction(transaction);
+
+  // Check balances
+  const recipientBalance = svm.getBalance(recipient.publicKey);
+  const senderBalance = svm.getBalance(sender.publicKey);
+
+  const transactionFee = BigInt(5000);
+  expect(recipientBalance).toBe(transferAmount);
+  expect(senderBalance).toBe(amount - transferAmount - transactionFee);
+});
+```
+
+</CodeTabs>
+
+## Cross Program Invocations PDA-allekirjoittajilla
+
+[`invoke_signed`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/program.rs#L51-L73)
+-funktio käsittelee CPI:t, jotka vaativat PDA-allekirjoittajia. Funktio ottaa
+siemenet PDA-allekirjoittajien johtamiseen `signer_seeds`.
+
+Voit tutustua [Program Derived Address](/docs/core/pda) -sivuun saadaksesi
+lisätietoja siitä, miten PDA:t johdetaan.
+
+```rust title="Invoke Signed"
+pub fn invoke_signed(
+    instruction: &Instruction,
+    account_infos: &[AccountInfo],
+    signers_seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    // --snip--
+    invoke_signed_unchecked(instruction, account_infos, signers_seeds)
+}
+```
+
+Kun käsitellään ohjetta, joka sisältää CPI:n, Solana-ajoympäristö kutsuu
+sisäisesti
+[`create_program_address`](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/bpf_loader/src/syscalls/cpi.rs#L552)
+käyttäen `signers_seeds` ja kutsuvan ohjelman `program_id`. Kun kelvollinen PDA
+on vahvistettu, osoite
+[lisätään kelvolliseksi allekirjoittajaksi](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/bpf_loader/src/syscalls/cpi.rs#L554).
+
+Seuraavat esimerkit havainnollistavat, miten tehdään CPI PDA-allekirjoittajilla
+käyttäen [Anchor Framework](https://www.anchor-lang.com/docs) -kehystä ja Native
+Rustia. Esimerkkiohjelmat sisältävät yhden ohjeen, joka siirtää SOL:ia PDA:lta
+vastaanottajatilille käyttäen PDA:n allekirjoittamaa CPI:tä.
+
+### Anchor Framework
+
+Seuraavat esimerkit sisältävät kolme lähestymistapaa Cross Program Invocation
+(CPI) -toimintojen toteuttamiseen Anchor-ohjelmassa, kukin eri
+abstraktiotasolla. Kaikki esimerkit ovat toiminnallisesti samanarvoisia.
+Päätarkoituksena on havainnollistaa CPI:n toteutuksen yksityiskohtia.
+
+- Esimerkki 1: Käyttää Anchorin _rs`CpiContext`_ ja apufunktiota CPI-ohjeen
+  rakentamiseen.
+- Esimerkki 2: Käyttää _rs`system_instruction::transfer`_ -funktiota
+  `solana_program` -paketista CPI-ohjeen rakentamiseen. Esimerkki 1 on
+  abstraktio tästä toteutuksesta.
+- Esimerkki 3: Rakentaa CPI-ohjeen manuaalisesti. Tämä lähestymistapa on
+  hyödyllinen kun saatavilla ei ole pakettia, joka auttaisi rakentamaan ohjeen,
+  jonka haluat kutsua.
+
+<CodeTabs>
+
+```rs !! title="Example 1"
+use anchor_lang::prelude::*;
+use anchor_lang::system_program::{transfer, Transfer};
+
+declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.pda_account.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        let seed = to_pubkey.key();
+        let bump_seed = ctx.bumps.pda_account;
+        let signer_seeds: &[&[&[u8]]] = &[&[b"pda", seed.as_ref(), &[bump_seed]]];
+
+        let cpi_context = CpiContext::new(
+            program_id,
+            Transfer {
+                from: from_pubkey,
+                to: to_pubkey,
+            },
+        )
+        .with_signer(signer_seeds);
+
+        transfer(cpi_context, amount)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(
+        mut,
+        seeds = [b"pda", recipient.key().as_ref()],
+        bump,
+    )]
+    pda_account: SystemAccount<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```rs !! title="Example 2"
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke_signed, system_instruction};
+
+declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.pda_account.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        let seed = to_pubkey.key();
+        let bump_seed = ctx.bumps.pda_account;
+
+        let signer_seeds: &[&[&[u8]]] = &[&[b"pda", seed.as_ref(), &[bump_seed]]];
+
+        let instruction =
+            &system_instruction::transfer(&from_pubkey.key(), &to_pubkey.key(), amount);
+
+        invoke_signed(instruction, &[from_pubkey, to_pubkey, program_id], signer_seeds)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(
+        mut,
+        seeds = [b"pda", recipient.key().as_ref()],
+        bump,
+    )]
+    pda_account: SystemAccount<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```rs !! title="Example 3"
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke_signed, instruction::{Instruction, AccountMeta}};
+
+declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.pda_account.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        // Get PDA signer seeds
+        let seed = to_pubkey.key();
+        let bump_seed = ctx.bumps.pda_account;
+        let signer_seeds: &[&[&[u8]]] = &[&[b"pda", seed.as_ref(), &[bump_seed]]];
+
+        // Prepare instruction AccountMetas
+        let account_metas = vec![
+            AccountMeta::new(from_pubkey.key(), true),
+            AccountMeta::new(to_pubkey.key(), false),
+        ];
+
+        // SOL transfer instruction discriminator
+        let instruction_discriminator: u32 = 2;
+
+        // Prepare instruction data
+        let mut instruction_data = Vec::with_capacity(4 + 8);
+        instruction_data.extend_from_slice(&instruction_discriminator.to_le_bytes());
+        instruction_data.extend_from_slice(&amount.to_le_bytes());
+
+        // Create instruction
+        let instruction = Instruction {
+            program_id: program_id.key(),
+            accounts: account_metas,
+            data: instruction_data,
+        };
+
+        // Invoke instruction with PDA signer
+        invoke_signed(&instruction, &[from_pubkey, to_pubkey, program_id], signer_seeds)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(
+        mut,
+        seeds = [b"pda", recipient.key().as_ref()],
+        bump,
+    )]
+    pda_account: SystemAccount<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```ts !! title="Test"
+import * as anchor from "@coral-xyz/anchor";
+
+import { BN, Program } from "@coral-xyz/anchor";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+
+import { Cpi } from "../target/types/cpi";
+
+describe("cpi", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.Cpi as Program<Cpi>;
+  const connection = program.provider.connection;
+  const wallet = provider.wallet as anchor.Wallet;
+
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("pda"), wallet.publicKey.toBuffer()],
+    program.programId
+  );
+
+  const transferAmount = 0.1 * LAMPORTS_PER_SOL;
+
+  before(async () => {
+    // Request airdrop to fund PDA
+    const signature = await connection.requestAirdrop(PDA, transferAmount);
+
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash();
+
+    await connection.confirmTransaction({
+      signature,
+      blockhash,
+      lastValidBlockHeight
+    });
+  });
+
+  it("SOL Transfer with PDA signer", async () => {
+    const transactionSignature = await program.methods
+      .solTransfer(new BN(transferAmount))
+      .accounts({
+        recipient: wallet.publicKey
+      })
+      .rpc();
+
+    console.log(`\nTransaction Signature: ${transactionSignature}`);
+  });
+});
+```
+
+</CodeTabs>
+
+### Native Rust
+
+Seuraava esimerkki näyttää, miten tehdään CPI PDA-allekirjoittajilla ohjelmasta,
+joka on kirjoitettu natiivilla Rustilla. Ohjelma sisältää yhden ohjeen, joka
+siirtää SOL:ia PDA:lta vastaanottajatilille käyttäen PDA:n allekirjoittamaa
+CPI:tä. Testitiedosto käyttää [LiteSVM](https://github.com/LiteSVM/litesvm)
+-kirjastoa ohjelman testaamiseen.
+
+<CodeTabs>
+
+```rs !! title="Example"
+use borsh::BorshDeserialize;
+use solana_program::{
+    account_info::AccountInfo,
+    entrypoint,
+    entrypoint::ProgramResult,
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+};
+
+// Declare program entrypoint
+entrypoint!(process_instruction);
+
+// Define program instructions
+#[derive(BorshDeserialize)]
+enum ProgramInstruction {
+    SolTransfer { amount: u64 },
+}
+
+impl ProgramInstruction {
+    fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
+        Self::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)
+    }
+}
+
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Deserialize instruction data
+    let instruction = ProgramInstruction::unpack(instruction_data)?;
+
+    // Process instruction
+    match instruction {
+        ProgramInstruction::SolTransfer { amount } => {
+            // Parse accounts
+            let [pda_account_info, recipient_info, system_program_info] = accounts else {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            };
+
+            // Derive PDA and verify it matches the account provided by client
+            let recipient_pubkey = recipient_info.key;
+            let seeds = &[b"pda", recipient_pubkey.as_ref()];
+            let (expected_pda, bump_seed) = Pubkey::find_program_address(seeds, program_id);
+
+            if expected_pda != *pda_account_info.key {
+                return Err(ProgramError::InvalidArgument);
+            }
+
+            // Create the transfer instruction
+            let transfer_ix = system_instruction::transfer(
+                pda_account_info.key,
+                recipient_info.key,
+                amount,
+            );
+
+            // Create signer seeds for PDA
+            let signer_seeds: &[&[&[u8]]] = &[&[b"pda", recipient_pubkey.as_ref(), &[bump_seed]]];
+
+            // Invoke the transfer instruction with PDA as signer
+            invoke_signed(
+                &transfer_ix,
+                &[
+                    pda_account_info.clone(),
+                    recipient_info.clone(),
+                    system_program_info.clone(),
+                ],
+                signer_seeds,
+            )?;
+
+            Ok(())
+        }
+    }
+}
+```
+
+```ts !! title="Test"
+import * as path from "path";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction
+} from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
+
+test("sol transfer cpi with pda signer", () => {
+  const svm = new LiteSVM();
+
+  const programId = PublicKey.unique();
+  const programPath = path.join(__dirname, "program.so");
+  svm.addProgramFromFile(programId, programPath);
+
+  // Create recipient
+  const recipient = new Keypair();
+
+  // Derive PDA that will hold and send funds
+  const [pdaAddress] = PublicKey.findProgramAddressSync(
+    [Buffer.from("pda"), recipient.publicKey.toBuffer()],
+    programId
+  );
+
+  // Fund accounts
+  const amount = BigInt(LAMPORTS_PER_SOL);
+  svm.airdrop(recipient.publicKey, amount); // 1 SOL
+  svm.airdrop(pdaAddress, amount); // 1 SOL
+
+  // Create instruction data buffer
+  const transferAmount = amount / BigInt(2); // 0.5 SOL
+  const instructionIndex = 0; // instruction index 0 for SolTransfer enum
+
+  const data = Buffer.alloc(9); // 1 byte for instruction enum + 8 bytes for u64
+  data.writeUInt8(instructionIndex, 0); // first byte identifies the instruction
+  data.writeBigUInt64LE(transferAmount, 1); // remaining bytes are instruction arguments
+
+  // Create instruction
+  const instruction = new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: pdaAddress, isSigner: false, isWritable: true },
+      { pubkey: recipient.publicKey, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+    ],
+    data
+  });
+
+  // Create and send transaction
+  const transaction = new Transaction().add(instruction);
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(recipient);
+
+  svm.sendTransaction(transaction);
+
+  // Check balances
+  const recipientBalance = svm.getBalance(recipient.publicKey);
+  const pdaBalance = svm.getBalance(pdaAddress);
+
+  const transactionFee = BigInt(5000);
+  // Recipient starts with 1 SOL, receives 0.5 SOL, pays tx fee
+  expect(recipientBalance).toBe(amount + transferAmount - transactionFee);
+  // PDA starts with 1 SOL, sends 0.5 SOL
+  expect(pdaBalance).toBe(amount - transferAmount);
+});
+```
+
+</CodeTabs>

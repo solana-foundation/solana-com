@@ -1,0 +1,471 @@
+---
+title: Wdrażanie programów
+description:
+  Przesyłanie własnych programów na blockchain Solana za pomocą Solana CLI.
+---
+
+Ten przewodnik zakłada znajomość następujących tematów:
+
+- [Model kont Solana](/core/accounts)
+- [Programy Solana w ogólności](/core/programs)
+- [Tworzenie własnych programów Solana](/programs/rust/)
+
+## Loader-v3 i Loader-v4
+
+Obecnie trwa przejście z loader-v3 (podkomenda program) na loader-v4 (podkomenda
+program **-v4**), ponieważ loader-v3 jest wycofywany.
+
+Do nowych wdrożeń należy używać `solana program-v4 deploy` zamiast
+`solana program deploy`.
+
+Aby zmigrować istniejący program (co w zasadzie oznacza jego ponowne wdrożenie):
+
+```shell
+solana program migrate ./target/deploy/your_program-keypair.json
+```
+
+## Przygotowanie
+
+Najpierw program musi zostać zbudowany (skomplikowany, połączony,
+zoptymalizowany).
+
+```shell
+cargo +solana build --target sbpf-solana-solana --release
+```
+
+Ten krok musi być wykonany przed każdym (ponownym) wdrożeniem.
+
+Sprawdź, czy na domyślnym koncie płatnika dostępne są wystarczające środki
+proporcjonalne do rozmiaru pliku wykonywalnego:
+
+```shell
+du -h ./target/deploy/your_program.so
+solana balance
+```
+
+Dodatkowo każdy program posiada konto programu oraz ID programu, które jest
+adresem tego konta programu. Poniższe polecenie generuje keypair dla konta
+programu:
+
+```shell
+solana-keygen new -o ./target/deploy/your_program-keypair.json
+```
+
+To należy wykonać tylko raz dla każdego programu i będzie ponownie używane przy
+kolejnych wdrożeniach tego samego programu.
+
+Narzędzia zawierały skrót, który jednak jest wycofywany:
+
+```shell
+cargo-build-sbf
+```
+
+## Pierwsze wdrożenie
+
+Teraz plik wykonywalny może zostać przesłany na konto programu:
+
+### Loader-v3
+
+Parametr nazywa się `program-id`, mimo że oczekuje ścieżki do pliku keypair:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+```
+
+## Ponowne wdrożenie
+
+Przesłanie innego pliku wykonywalnego do tego samego konta programu ponownie
+nadpisze/zastąpi istniejący plik. Jednak w przypadku ponownych wdrożeń potrzebny
+jest tylko identyfikator programu (pubkey pary kluczy programu), a nie cała para
+kluczy, ponieważ podpisującym jest para kluczy uprawniona do aktualizacji.
+
+### Loader-v3
+
+Jest to dokładnie takie samo jak początkowe wdrożenie:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+Jeśli stary plik wykonywalny był krótszy niż nowy, może być konieczne najpierw
+zwiększenie rozmiaru konta programdata:
+
+```shell
+solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+```
+
+### Loader-v4
+
+Zauważ, że początkowe wdrożenie używało `program-keypair`, podczas gdy ponowne
+wdrożenie używa `program-id`:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Priorytetowe przesyłanie
+
+W czasie przeciążenia sieci można użyć kilku dodatkowych flag, aby ułatwić
+wdrażanie programu:
+
+- `--with-compute-unit-price`: Ustaw cenę jednostki obliczeniowej dla transakcji
+  w przyrostach 0,000001 lamportów (mikrolamportów) na jednostkę obliczeniową.
+  Użyj
+  [Priority Fee API by Helius](https://docs.helius.dev/guides/priority-fee-api),
+  aby uzyskać szacunkową opłatę priorytetową.
+- `--use-rpc`: Wysyłaj transakcje zapisu do skonfigurowanego RPC zamiast do TPU
+  walidatora. Ta flaga wymaga połączenia RPC z
+  [ważeniem staków](/developers/guides/advanced/stake-weighted-qos), takiego jak
+  [Helius](https://www.helius.dev/) lub [Triton](https://triton.one/). Tę flagę
+  można również skonfigurować jako domyślną za pomocą:
+  `solana config set --url <RPC_URL>`.
+- `--max-sign-attempts`: Maksymalna liczba prób podpisania lub ponownego
+  podpisania transakcji po wygaśnięciu blockhash. Jeśli jakiekolwiek transakcje
+  wysłane podczas wdrażania programu pozostaną niepotwierdzone po wygaśnięciu
+  pierwotnie wybranego blockhash, te transakcje zostaną ponownie podpisane nowym
+  blockhash i wysłane ponownie. Użyj tego ustawienia, aby dostosować maksymalną
+  liczbę iteracji podpisywania transakcji. Każdy blockhash jest ważny przez
+  około 60 sekund, co oznacza, że użycie domyślnej wartości 5 spowoduje
+  wysyłanie transakcji przez co najmniej 5 minut lub do momentu potwierdzenia
+  wszystkich transakcji, w zależności od tego, co nastąpi wcześniej.
+
+## Wznawianie przesyłania
+
+Możliwe jest, że przesyłanie zostanie zatrzymane lub przerwane.
+
+### Loader-v3
+
+Jeśli wdrożenie programu zakończy się niepowodzeniem, pozostanie wiszące
+pośrednie konto bufora, które zawiera niezerowe saldo. Aby odzyskać to saldo,
+możesz wznowić nieudane wdrożenie, podając ten sam pośredni bufor w nowym
+wywołaniu `deploy`.
+
+W przypadku niepowodzenia wdrożenia zostanie wyświetlony komunikat o błędzie
+określający frazę seed potrzebną do odzyskania wygenerowanego klucza keypair
+pośredniego bufora:
+
+```
+==================================================================================
+Recover the intermediate account's ephemeral keypair file with
+`solana-keygen recover` and the following 12-word seed phrase:
+==================================================================================
+valley flat great hockey share token excess clever benefit traffic avocado athlete
+==================================================================================
+To resume a deploy, pass the recovered keypair as
+the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
+Or to recover the account's lamports, pass it as the
+[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
+==================================================================================
+```
+
+Aby odzyskać keypair:
+
+```shell
+solana-keygen recover -o ./target/deploy/buffer-keypair.json
+```
+
+Po wyświetleniu monitu wprowadź 12-wyrazową frazę seed.
+
+Następnie wydaj nowe polecenie `deploy` i określ bufor:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+```
+
+### Loader-v4
+
+Możliwe jest wznowienie przesyłania od określonego offsetu bajtowego:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```
+
+## Finalizacja
+
+Jest to działanie **nieodwracalne**.
+
+Program może zostać uczyniony niezmiennym poprzez usunięcie jego uprawnień do
+aktualizacji.
+
+### Loader-v3
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```
+
+### Loader-v4
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```
+
+Zamiast nadpisywać programy, możliwe jest również zapewnienie użytkownikom
+wyboru wersji programu, której chcą używać, poprzez skonstruowanie listy
+połączonej sfinalizowanych programów:
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
+```
+
+## Zamykanie
+
+Dla programów wdrożonych za pomocą loader-v3 można odzyskać jedynie ich konto
+programdata, konta buforów oraz środki zablokowane na tych kontach. Konto
+programu wraz z identyfikatorem programu i środkami zablokowanymi na koncie
+programu pozostają zablokowane.
+
+Programy wdrożone za pomocą loader-v4 mogą zostać zamknięte, a ich konto
+programu, identyfikator programu i zablokowane środki ponownie stają się
+dostępne do innych zastosowań.
+
+### Loader-v3
+
+Jest to **nieodwracalna** operacja dla programów wdrożonych za pomocą loader-v3.
+
+Pamiętaj, że po zamknięciu programu jego identyfikator programu nie może być
+ponownie użyty. Próba wdrożenia programu z wcześniej zamkniętym identyfikatorem
+programu zakończy się błędem. Jeśli musisz ponownie wdrożyć program po jego
+zamknięciu, musisz wygenerować nowy plik keypair programu.
+
+Aby zamknąć pojedyncze konto programdata:
+
+```shell
+solana program close ./target/deploy/your_program-keypair.json
+```
+
+Aby zamknąć wszystkie konta buforowe powiązane z bieżącym autorytetem:
+
+```shell
+solana program close --buffers
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Inspekcja metadanych
+
+Polecenie `show` wyświetla metadane programu.
+
+Przykładowy wynik wygląda następująco:
+
+```shell
+Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
+Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
+Last Deployed In Slot: 63890568
+Data Length: 5216 (0x1460) bytes
+```
+
+- `Program Id` to adres, który można odwołać w polu `program_id` instrukcji
+  podczas wywoływania programu.
+- `Owner`: Loader, za pomocą którego wdrożono ten program.
+- `ProgramData Address` to konto programdata powiązane z kontem programu, które
+  przechowuje plik wykonywalny programu (tylko loader-v3).
+- `Status`: `retracted`, `deployed` lub `finalized` (tylko loader-v4).
+- `Authority` to autorytet aktualizacji programu.
+- `Last Deployed In Slot` to slot, w którym program został ostatnio wdrożony.
+- `Data Length` to rozmiar przestrzeni zarezerwowanej na wdrożenia. Rzeczywista
+  przestrzeń używana przez obecnie wdrożony program może być mniejsza.
+
+### Loader-v3
+
+Aby wyświetlić konkretny program:
+
+```shell
+solana program show ./target/deploy/your_program-keypair.json
+```
+
+Aby wyświetlić listę programów wdrożonych z domyślnym autorytetem:
+
+```shell
+solana program show --programs
+```
+
+Aby wyświetlić wszystkie konta buforowe niezależnie od autorytetu:
+
+```shell
+solana program show --buffers --all
+```
+
+Aby określić inny autorytet:
+
+```shell
+solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
+solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v4
+
+Aby wyświetlić konkretny program:
+
+```shell
+solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```
+
+Aby wyświetlić listę programów wdrożonych z domyślnym autorytetem:
+
+```shell
+solana program-v4 show --all
+```
+
+Aby wyświetlić listę programów wdrożonych z określonym autorytetem:
+
+```shell
+solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+```
+
+## Pobieranie pliku wykonywalnego
+
+Czasami przydatne jest pobranie i porównanie programu, aby upewnić się, że
+zawiera znany plik wykonywalny. Pobierany plik można skrócić, zahashować i
+porównać z hashem oryginalnego pliku programu.
+
+### Loader-v3
+
+```shell
+solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
+```
+
+### Loader-v4
+
+```shell
+solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Zaawansowane: Przeniesienie autorytetu
+
+Prawo do zmiany danego programu należy do jego autorytetu. Ten autorytet może
+zostać przeniesiony na inny keypair bez zmiany keypair programu, dzięki czemu ID
+programu pozostaje takie samo. Ponadto jeden autorytet może kontrolować wiele
+kont programów.
+
+Jeśli nie zostanie to wyraźnie określone podczas początkowego wdrożenia,
+domyślny keypair jest używany jako autorytet. Dlatego ponowne wdrożenie programu
+w powyższych krokach nie wymagało wyraźnego określenia autorytetu.
+
+Wyraźny autorytet jest przydatny do podpisywania offline i programów
+zarządzanych przez wiele podmiotów.
+
+Najpierw należy wygenerować keypair dla autorytetu:
+
+```shell
+solana-keygen new -o ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v3
+
+Autorytet można określić podczas wdrożenia:
+
+```shell
+solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Lub po wdrożeniu, używając domyślnego keypair jako bieżącego autorytetu:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Lub po wdrożeniu i określeniu obecnego autorytetu:
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
+```
+
+### Loader-v4
+
+Autorytet można określić podczas wdrożenia:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
+```
+
+Lub po wdrożeniu, używając domyślnego keypair jako obecnego autorytetu:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
+```
+
+Lub po wdrożeniu i określeniu obecnego autorytetu:
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
+```
+
+## Zaawansowane: Dwuetapowe ponowne wdrożenie z użyciem bufora
+
+Zamiast przesyłać bezpośrednio do konta programu, plik wykonywalny można
+najpierw przesłać do tymczasowego konta bufora, a następnie przenieść do konta
+programu w drugim kroku (faktyczne ponowne wdrożenie). Jest to przydatne w
+przypadku podpisywania offline i programów zarządzanych przez wiele podmiotów,
+takich jak DAO głosujące nad wyborem lub odrzuceniem przesłanego pliku
+wykonywalnego przed faktycznym ponownym wdrożeniem.
+
+Pamiętaj, że użycie kont buforowych mniej więcej podwaja środki wymagane podczas
+procesu przesyłania, ponieważ dwa konta jednocześnie przechowują jeden plik
+wykonywalny.
+
+Najpierw należy utworzyć keypair dla konta bufora:
+
+```shell
+solana-keygen new -o ~/.config/solana/buffer-keypair.json
+```
+
+Konto bufora może być ponownie używane do różnych przesyłek i nie jest powiązane
+z żadnym konkretnym kontem programu.
+
+### Loader-v3
+
+```shell
+solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+### Loader-v4
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+## Zaawansowane: Podpisywanie offline
+
+Niektóre modele bezpieczeństwa wymagają oddzielenia procesu podpisywania od
+transmisji transakcji, tak aby klucze podpisujące mogły być całkowicie odłączone
+od jakiejkolwiek sieci, co jest znane jako podpisywanie offline.
+
+Należy zauważyć, że tylko ponowne wdrożenia mogą być wykonywane w trybie
+offline. Początkowe wdrożenie programu **musi** być wykonane z maszyny online, a
+jedynie kolejne ponowne wdrożenia programu mogą korzystać z podpisywania
+offline.
+
+Typowa konfiguracja składałaby się z dwóch różnych podpisujących:
+
+- podpisujący online (płatnik opłat i autorytet konta bufora)
+- podpisujący offline (autorytet konta programu)
+
+Ogólny proces to dwuetapowe ponowne wdrożenie z kilkoma dodatkami:
+
+1. (online) utwórz nowy program
+2. (online) przenieś uprawnienia na offline'owego sygnatariusza
+3. (online) utwórz bufor i prześlij do niego plik wykonywalny
+4. (opcjonalnie) zweryfikuj zawartość bufora w łańcuchu
+5. (offline) podpisz transakcję, aby ponownie wdrożyć program za pomocą bufora
+   `--blockhash <VALUE> --sign-only`
+6. (online) użyj tego podpisu, aby nadać transakcji ponownego wdrożenia
+   `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
+
+Znajdź ostatni `blockhash` i wklej go, aby wygenerować podpis transakcji
+offline. `blockhash` wygasa po około 60 sekundach. Jeśli nie zdążysz na czas -
+po prostu zdobądź nowy hash i powtarzaj, aż się uda, lub rozważ użycie trwałych
+liczników transakcji.
