@@ -116,8 +116,9 @@ function ParamInput({
       <Input
         id={param.name}
         type={param.type === "number" ? "number" : "text"}
+        min={param.type === "number" ? 0 : undefined}
         value={param.type === "number" ? Number(text) : text}
-        className="flex-1 max-w-lg h-8"
+        className="flex-1 h-8 max-w-lg"
         onChange={(e) => setText(e.target.value)}
         onBlur={(e) => onChange(e.target.value)}
       />
@@ -149,8 +150,8 @@ export function RequestClientContent() {
       data-playground={isOpen}
       className="bg-ch-tabs-background"
     >
-      <CollapsibleTrigger className="p-2 gap-2 w-full justify-between items-center flex cursor-pointer text-ch-tab-inactive-foreground hover:text-ch-tab-active-foreground transition-colors duration-200">
-        <div className="h-5 shrink-0 font-medium flex items-center gap-2">
+      <CollapsibleTrigger className="flex items-center justify-between w-full gap-2 p-2 transition-colors duration-200 cursor-pointer text-ch-tab-inactive-foreground hover:text-ch-tab-active-foreground">
+        <div className="flex items-center h-5 gap-2 font-medium shrink-0">
           <Play className="size-3" fill="currentColor" />
           <span className="text-ch-tab-active-foreground">Try it</span>
         </div>
@@ -171,7 +172,7 @@ export function RequestClientContent() {
               />
             ))}
         </div>
-        <div className="p-2 gap-2 flex">
+        <div className="flex gap-2 p-2">
           <Select
             value={values["SERVER"]}
             onValueChange={(value) => setValue("SERVER", value)}
