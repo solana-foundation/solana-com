@@ -1,0 +1,226 @@
+---
+title: Guia de integração de valor de interface escalada
+description:
+  Aprenda como integrar um token que usa a extensão de valor de interface
+  escalada em sua aplicação.
+---
+
+# Suportando a extensão de valor de interface escalada no Solana
+
+## Contexto
+
+Uma nova extensão de token chamada "Valor de interface escalada" foi lançada
+recentemente que permite que os emissores de tokens especifiquem um
+multiplicador a ser usado ao calcular o valor de interface do saldo de tokens de
+um usuário. Isso permite que os emissores criem tokens de rebase e possibilitem
+coisas como desdobramentos de ações. Esta extensão, como a extensão de token com
+rendimento de juros, fornece um valor de interface puramente cosmético. Os
+cálculos e transferências subjacentes ocorrem usando os valores brutos no
+programa.
+
+### Recursos:
+
+- [Documentação para desenvolvedores](https://www.solana-program.com/docs/token-2022/extensions#scaled-ui-amount)
+- [Código Rust da extensão](https://github.com/solana-program/token-2022/tree/main/program/src/extension/scaled_ui_amount)
+- [Código Rust de conversão de valor para valor de interface](https://github.com/solana-program/token-2022/blob/main/program/src/processor.rs#L1425)
+
+## Objetivos
+
+- Fornecer a melhor experiência do usuário para os usuários finais
+- Fornecer diretrizes claras e diretas para as equipes criarem uma experiência
+  unificada de tokens com rendimento de juros em todo o ecossistema
+- Identificar e planejar trabalhos para reduzir o esforço que as equipes
+  precisam fazer para integrar com a extensão de valor de interface escalada
+
+## Resumo
+
+- Os usuários finais devem interagir com o valor de interface (valor bruto \*
+  multiplicador) para o preço do token, saldo do token e quantidades de token
+  sempre que possível
+- dApps e provedores de serviços devem usar o valor bruto e preços não escalados
+  para todos os cálculos e converter para os usuários na borda
+- Feeds de preços históricos precisam ser fornecidos tanto para valores
+  escalados quanto não escalados para facilitar a integração
+- Valores históricos do multiplicador precisam estar acessíveis para dados
+  históricos precisos
+
+## Definições de termos
+
+- Multiplicador: multiplicador estático atualizável usado para cálculos de
+  Quantidade na UI
+- Quantidade na UI: multiplicador \* quantidade bruta (também conhecido como:
+  quantidade escalada)
+- Quantidade Bruta: quantidade (também conhecido como: quantidade não escalada)
+
+## Saldo atual
+
+### Quantidade atual para exibição
+
+- Sempre que você exibir quantidades de tokens que usam a extensão de quantidade
+  escalada na UI para usuários finais, você deve usar:
+  - Quantidade na UI/UIAmountString (**_preferível_**)
+  - Um cálculo manual de quantidade bruta \* multiplicador
+  - Recomendamos truncar este valor com base no número de casas decimais que o
+    token possui.
+    - Ex: se yUSD tem 6 casas decimais e um usuário tem uma Quantidade na UI de
+      1.123456789, você deve exibir "1.123456"
+
+### Onde obter estes dados:
+
+- Para o saldo atual de um usuário, você pode obter informações atualizadas
+  sobre as quantidades acima chamando getTokenAccountBalance ou getAccountInfo
+- Se você precisar saber a Quantidade na UI para uma quantidade arbitrária, você
+  pode obter este cálculo chamando a função
+  [`amountToUiAmountForMintWithoutSimulation`](https://github.com/solana-program/token-2022/blob/main/clients/js-legacy/src/actions/amountToUiAmount.ts#L164)
+  (web3.js v1) ou simulando uma transação usando amountToUiAmount.
+  - Nota: amountToUiAmount requer uma simulação de transação, o que significa
+    que também precisa de um pagador de taxa válido com saldo. Por isso, esta
+    não deve ser a forma padrão de obter um saldo.
+
+### Atualizando a quantidade atual
+
+Como os emissores podem atualizar o multiplicador a qualquer momento, você pode
+considerar fazer polling ocasionalmente para manter o saldo da conta atualizado.
+É improvável que os emissores atualizem este multiplicador mais de uma vez por
+dia. Se um multiplicador for definido para uma data futura, você pode
+automaticamente fazer polling neste momento de atualização
+
+## Quantidades de tokens em transações (transferências / trocas etc.)
+
+- Os usuários devem inserir valores para serem interpretados como "UIAmount"
+  escalado. O aplicativo que precisa processar isso deve converter para o valor
+  bruto do token para a transação.
+  - Se houver problemas de arredondamento, arredonde para baixo e prefira deixar
+    uma pequena quantidade de poeira em vez de arriscar a falha da transação
+  - Para fazer essa conversão, você pode usar a função
+    [`uiAmountToAmountForMintWithoutSimulation`](https://github.com/solana-program/token-2022/blob/main/clients/js-legacy/src/actions/amountToUiAmount.ts#L312C23-L312C63)
+    (web3.js v1) ou simular uma transação usando amountToUiAmount.
+- Os aplicativos devem usar o valor bruto total quando um usuário solicita fazer
+  uma ação com "máximo" ou "todo" o seu saldo. Isso garante que não haja poeira
+  restante.
+  - Opcional: você pode considerar fechar automaticamente uma conta quando
+    "máximo" é usado para reembolsar o usuário de seu depósito de armazenamento
+
+## Preço do token
+
+- O preço do token deve sempre ser exibido como o preço escalado sempre que
+  possível.
+- Se você é um provedor de serviço de feed de preços, como um oráculo, você deve
+  expor tanto o preço escalado quanto o não escalado.
+  - Sempre que possível, forneça um SDK/API que abstraia as complexidades da
+    extensão de UI amount escalada.
+
+## Multiplicador atual
+
+- O multiplicador atual pode ser lido do mint do token a qualquer momento
+  chamando `getAccountInfo`. Além disso, se um multiplicador futuro estiver
+  definido, esta informação também está disponível no mint do token.
+  Recomendamos não mostrar este multiplicador, pois pode confundir a UX.
+
+## Dados históricos
+
+### Dados históricos para feed de preços
+
+- Serviços que fornecem dados históricos devem armazenar e **apresentar tanto os
+  preços escalados quanto os não escalados para a extensão de UI amount
+  escalada**.
+- Esperamos que os valores escalados sejam usados com mais frequência, pois isso
+  se alinha com como o mundo financeiro tradicional trata gráficos relacionados
+  a tokens com desdobramentos de ações.
+
+### Dados históricos para quantias
+
+- Se você deseja mostrar o saldo transferido no passado, precisa ter acesso ao
+  multiplicador naquele determinado slot. Você também pode salvar o UiAmount
+  para transferências enquanto processa transações para evitar fazer esse
+  cálculo no futuro.
+
+## Compatibilidade retroativa
+
+- Por padrão, carteiras e aplicativos que não compreendem a extensão de quantia
+  UI escalada mostrarão o preço total correto de uma atividade multiplicando o
+  preço não escalado \* quantidade bruta.
+- No entanto, eles exibiriam o preço não escalado, causando alguma confusão para
+  o usuário.
+- Esperamos que isso incentive as equipes a atualizarem seus dapps para serem
+  compatíveis com tokens que usam a extensão de quantia UI escalada e estamos
+  felizes em fornecer suporte durante este processo.
+
+## Funções utilitárias a serem adicionadas à biblioteca SPL-Token:
+
+- **\[Concluído\]** Amount para UIAmount: Fornece uma função para obter o
+  UIAmount no momento atual, dado o mint e a quantidade bruta
+- **\[Concluído\]** UIAmount para Amount: Fornece uma função para obter a
+  quantidade bruta no momento atual, dado o mint e UIAmount
+- **\[Concluído\]** Amount para UIAmount for: Fornece uma função para obter o
+  UIAmount para um determinado multiplicador, decimal e quantidade bruta
+- **\[Concluído\]** UIAmount para Amount: Fornece uma função para obter a
+  quantidade bruta para um determinado multiplicador, decimal e UIAmount
+- **\[A FAZER\]** Todas as funcionalidades auxiliares acima para @solana/kit
+
+## Critérios de aceitação por plataforma
+
+### **Requisitos gerais**
+
+| Requisito                                 | Descrição                                                                                                                                                                                                                                   | Prioridade |
+| :---------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------- |
+| Suportar ações do usuário usando UiAmount | Todas as ações do usuário devem ser inseridas em UiAmount quando o UiAmount estiver ativado em todo o aplicativo. Se o UiAmount não estiver visível no aplicativo, eles devem usar quantidades brutas até que o aplicativo seja atualizado. | **P0**     |
+
+---
+
+### **Carteiras**
+
+| Requisito                                          | Descrição                                                                                                                 | Prioridade |
+| :------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ | :--------- |
+| Exibir saldo escalado                              | Mostrar o valor escalado (uiAmount) como o saldo principal.                                                               | **P0**     |
+| Suporte para transferências de tokens              | Os usuários finais devem inserir valores de transferência com seus saldos escalados (valor bruto \* saldo).               | **P0**     |
+| Exibir preço à vista                               | Exibir o preço à vista escalado para os usuários                                                                          | **P0**     |
+| Metadados do histórico de transações               | Mostrar o valor escalado (UIAmount) para cada transferência sempre que possível.                                          | **P1**     |
+| Mostrar atualizações de multiplicador no histórico | Quando ocorrerem atualizações de multiplicador, mostrar como um evento no histórico de transações incluindo o valor ganho | **P2**     |
+| Exibir gráfico de histórico de preços              | Refletir os preços escalados no gráfico de preços                                                                         | **P1**     |
+| Integração/Dicas                                   | Oferecer dicas ou integração para educar os usuários sobre tokens que usam a extensão de valor ui escalado                | **P2**     |
+
+---
+
+### **Exploradores**
+
+| Requisito                                                                 | Descrição                                                                                  | Prioridade |
+| :------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------- | :--------- |
+| Melhorias na página de detalhes do token                                  | Exibir metadados como capitalização de mercado escalada total e multiplicador atual        | **P0**     |
+| Exibir saldo escalado para saldos                                         | Exibir saldos escalados (UiAmount) para saldos atuais.                                     | **P0**     |
+| Exibir saldo escalado para transações                                     | Exibir saldos escalados (UiAmount) para valores de transferência em transações históricas. | **P0**     |
+| Exibir preço escalado para transações                                     | Exibir preços escalados para transações anteriores                                         | **P1**     |
+| Analisar e exibir corretamente transações de atualização de multiplicador | Mostrar corretamente detalhes sobre a atualização do multiplicador                         | **P2**     |
+
+---
+
+### **Agregadores de dados de mercado (Ex: CoinGecko)**
+
+| Requisito                                 | Descrição                                                                                                                       | Prioridade |
+| :---------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ | :--------- |
+| Atualizações de API para dados escalados  | Estender a funcionalidade da API para incluir mudanças de multiplicador ao longo do tempo, bem como o feed de preços escalados. | **P0**     |
+| Fornecimento total com ajuste escalado    | Ao exibir o fornecimento total e a capitalização total de mercado, levar em conta os saldos escalados                           | **P0**     |
+| Rastreamento histórico de preços          | Fornecer um gráfico histórico de preços usando o preço escalado ao longo do tempo.                                              | **P1**     |
+| Rastreamento histórico de multiplicadores | Fornecer marcadores históricos de atualizações de multiplicadores para tokens com rendimento de juros.                          | **P2**     |
+| Conteúdo educacional ou explicações       | Incluir breves descrições ou dicas explicando como funcionam os tokens escalados.                                               | **P2**     |
+
+---
+
+### **Provedores de feed de preços**
+
+| Requisito                                 | Descrição                                                                              | Prioridade |
+| :---------------------------------------- | :------------------------------------------------------------------------------------- | :--------- |
+| Feeds de preços escalados e não escalados | Fornecer feeds de preços tanto para preços escalados quanto não escalados.             | **P0**     |
+| Dados históricos de multiplicadores       | Oferecer APIs com mudanças históricas de multiplicadores.                              | **P0**     |
+| Dados históricos de preços                | Oferecer APIs com preços históricos baseados em quantidades escaladas e não escaladas. | **P0**     |
+
+---
+
+### **DEXes**
+
+| Requisito                             | Descrição                                                                                                                  | Prioridade |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Exibir saldos de tokens rebaseados    | Mostrar saldos escalados para negociação ou provisão de liquidez na UI. (o backend ainda pode usar quantidades brutas)     | **P0**     |
+| Suporte para ações de tokens          | Os usuários finais devem inserir quantidades de ação com seus saldos UiAmount (multiplicador \* quantidade bruta).         | **P0**     |
+| Adaptação de feed de preços           | Em qualquer lugar onde um feed de preços é usado para exibir o preço atual, fornecer o preço escalado aos usuários finais. | **P1**     |
+| Exibir gráfico de histórico de preços | Refletir os preços escalados no gráfico de preços                                                                          | **P1**     |
