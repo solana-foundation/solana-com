@@ -71,7 +71,7 @@ export function MultiCode({
           </div>
         )}
       </TabsList>
-      <TabsContent value={current.title} className="mt-0 min-h-0">
+      <TabsContent value={current.title} className="min-h-0 mt-0">
         {current.pre}
       </TabsContent>
     </Tabs>
