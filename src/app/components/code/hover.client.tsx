@@ -1,5 +1,5 @@
 "use client";
-import { BlockAnnotationComponent } from "codehike/code";
+import { BlockAnnotationComponent, CustomLine, InnerLine } from "codehike/code";
 import { createContext, useContext, useState } from "react";
 
 const HoverContext = createContext<{
@@ -48,7 +48,7 @@ export function Hoverable({
   const isHovered =
     hoveredNames.length > 0 && hoveredNames[hoveredNames.length - 1] === name;
   return (
-    <div
+    <span
       className={className}
       onMouseEnter={() => addHoveredName(name)}
       onMouseLeave={() => removeHoveredName(name)}
@@ -56,7 +56,7 @@ export function Hoverable({
       style={style}
     >
       {children}
-    </div>
+    </span>
   );
 }
 
@@ -76,5 +76,22 @@ export const HoverBlock: BlockAnnotationComponent = ({
     >
       {children}
     </div>
+  );
+};
+
+export const HoverLine: CustomLine = ({ annotation, ...props }) => {
+  const { hoveredNames } = useContext(HoverContext);
+  let opacity = hoveredNames.length > 0 ? 0.5 : 1;
+  if (annotation) {
+    const name = annotation.query;
+    const isHovered = hoveredNames[hoveredNames.length - 1] === name;
+    opacity = isHovered ? 1 : opacity;
+  }
+
+  return (
+    <InnerLine
+      merge={props}
+      style={{ opacity, transition: "opacity 0.3s ease" }}
+    />
   );
 };
