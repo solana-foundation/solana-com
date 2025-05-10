@@ -97,15 +97,23 @@ function CodeTabs(props: unknown) {
     code: z.array(CodeBlock),
     flags: z.string().optional(),
     storage: z.string().optional(),
+    testCode: z.string().optional(),
   }).safeParse(props);
 
   if (error) {
     throw betterError(error, "CodeTabs");
   }
 
-  const { code, flags, storage } = data;
+  const { code, flags, storage, testCode } = data;
 
-  return <Code codeblocks={code} flags={flags} storage={storage} />;
+  return (
+    <Code
+      codeblocks={code}
+      flags={flags}
+      storage={storage}
+      testCode={testCode}
+    />
+  );
 }
 
 function TerminalPicker(props: unknown) {
