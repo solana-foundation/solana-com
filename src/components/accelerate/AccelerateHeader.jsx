@@ -35,6 +35,19 @@ const Header = () => {
                 className={styles.logoWord}
               />
             </a>
+
+            <div>
+              <Link href="/accelerate#speakers">
+                {t("accelerate.header.speakers")}
+              </Link>
+              <a
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://lu.ma/solana-accelerate"
+              >
+                Agenda
+              </a>
+            </div>
           </div>
 
           <Link
@@ -53,9 +66,6 @@ const Header = () => {
           </Link>
 
           <div className={styles.col}>
-            <Link href="/accelerate#speakers">
-              {t("accelerate.header.speakers")}
-            </Link>
             <Link href="/accelerate#sponsors">
               {t("accelerate.header.sponsors")}
             </Link>
@@ -102,6 +112,13 @@ const Header = () => {
           >
             {t("accelerate.header.speakers")}
           </Link>
+          <a
+            href="https://lu.ma/solana-accelerate"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Agenda
+          </a>
           <Link
             href="/accelerate#sponsors"
             onClick={() => {
