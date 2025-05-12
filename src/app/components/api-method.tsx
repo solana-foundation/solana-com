@@ -409,7 +409,7 @@ async function getCurlTab(codeblock: RawCode) {
       <RequestClientProvider params={params} json={json}>
         <Pre
           code={highlighted}
-          className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono text-sm"
+          className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono text-sm flex-1 shrink-0"
           handlers={handlers}
         />
         <RequestClientContent />
@@ -436,12 +436,12 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
     return (
       <SingleCode
         group={group}
-        className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0"
+        className="has-[[data-block-hovered=true]]:border-sky-500/40 transition-colors duration-300 m-0 flex-1 min-h-0 shrink-0"
       />
     );
   }
 
-  return <MultiCode group={group} className="flex-1 min-h-0 my-0" />;
+  return <MultiCode group={group} className="flex-1 min-h-0 my-0 shrink-0" />;
 }
 
 async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {
@@ -457,7 +457,7 @@ async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {
     pre: (
       <Pre
         code={highlighted}
-        className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm "
+        className="overflow-auto px-0 py-3 m-0 rounded-none !bg-ch-background font-mono selection:bg-ch-selection text-sm"
         handlers={handlers}
       />
     ),
