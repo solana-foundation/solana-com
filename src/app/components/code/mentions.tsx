@@ -1,9 +1,14 @@
-import { AnnotationHandler, InnerLine } from "codehike/code";
+import { AnnotationHandler, CodeAnnotation } from "codehike/code";
 import React from "react";
-import "./mentions.css";
+import {
+  Hoverable,
+  HoverInline,
+  HoverLine,
+  HoverProvider,
+} from "./hover.client";
 
 export function WithMentions(props: { children: React.ReactNode }) {
-  return <div className="mention-container">{props.children}</div>;
+  return <HoverProvider>{props.children}</HoverProvider>;
 }
 
 export function MentionLink(props: {
@@ -12,23 +17,32 @@ export function MentionLink(props: {
 }) {
   const mention = props.href.slice("mention:".length);
   return (
-    <span
-      className="underline decoration-dotted underline-offset-4"
-      data-mention={mention}
+    <Hoverable
+      className="underline decoration-dotted underline-offset-4 inline"
+      name={mention}
     >
       {props.children}
-    </span>
+    </Hoverable>
   );
 }
 
 export const mention: AnnotationHandler = {
   name: "mention",
   onlyIfAnnotated: true,
-  Line: ({ annotation, ...props }) => (
-    <InnerLine
-      merge={props}
-      className="transition-opacity"
-      data-line={annotation?.query || ""}
-    />
-  ),
+  Line: HoverLine,
+  Inline: HoverInline,
+  transform: (annotation: CodeAnnotation) => {
+    if (!("fromColumn" in annotation)) {
+      return [annotation];
+    }
+    // if is inline, add a block annotation so the line is not dimmed
+    const blockAnnotation = {
+      name: annotation.name,
+      query: annotation.query,
+      fromLineNumber: annotation.lineNumber,
+      toLineNumber: annotation.lineNumber,
+      data: { inline: true },
+    };
+    return [blockAnnotation, annotation];
+  },
 };

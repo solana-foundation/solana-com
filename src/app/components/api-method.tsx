@@ -187,7 +187,7 @@ function ParamsSection({ params }: { params: ParamBlock[] }) {
           <Hoverable
             key={i}
             name={param.title}
-            className="tw-border border-ch-border p-2 rounded bg-ch-background data-[hovered=true]:border-sky-500/40  transition-colors duration-300"
+            className="tw-border border-ch-border p-2 rounded bg-ch-background data-[hovered=true]:border-sky-500/40  transition-colors duration-300 block"
           >
             <div className="[&>p]:inline">
               <Pill value={param.type} color="var(--ch-6)" className="mr-1" />
@@ -215,7 +215,7 @@ function ParamsSection({ params }: { params: ParamBlock[] }) {
 function ObjectParam({ block }: { block: ParamBlock }) {
   const isEmpty = !(block.children as any)?.props.children;
   return (
-    <Hoverable key={block.title} name={block.title} className="group">
+    <Hoverable key={block.title} name={block.title} className="group block">
       <Collapsible
         className="tw-border border-ch-border bg-ch-tabs-background rounded group-data-[hovered=true]:border-sky-500/40 transition-colors duration-300"
         disabled={isEmpty}
@@ -280,7 +280,7 @@ function ResultSection({ result }: { result: Result }) {
   return (
     <Hoverable
       name="result"
-      className="tw-border border-ch-border p-2 rounded bg-ch-background data-[hovered=true]:border-sky-500/40  transition-colors duration-300"
+      className="tw-border border-ch-border p-2 rounded bg-ch-background data-[hovered=true]:border-sky-500/40 transition-colors duration-300 block"
     >
       <div className="[&>p]:inline">
         <Pill value={result?.type} color="var(--ch-6)" className="mr-1" />
