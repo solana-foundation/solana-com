@@ -113,7 +113,7 @@ const Header = () => {
             {t("accelerate.header.speakers")}
           </Link>
           <a
-            href="https://lu.ma/solana-accelerate"
+            href="https://lu.ma/solana-accelerate?compact=true"
             target="_blank"
             rel="noopener noreferrer"
           >
