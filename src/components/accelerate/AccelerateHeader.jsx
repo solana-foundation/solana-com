@@ -43,7 +43,7 @@ const Header = () => {
               <a
                 target="_blank"
                 rel="noopener noreferrer"
-                href="https://lu.ma/solana-accelerate"
+                href="https://lu.ma/solana-accelerate?compact=true"
               >
                 Agenda
               </a>
