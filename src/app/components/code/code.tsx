@@ -21,6 +21,7 @@ export async function Code(props: {
   codeblocks: RawCode[];
   flags?: string;
   storage?: string;
+  testCode?: string;
 }) {
   const group = await toCodeGroup(props);
   return group.tabs.length === 1 ? (
@@ -91,6 +92,7 @@ export async function toCodeGroup(props: {
   flags?: string;
   storage?: string;
   handlers?: AnnotationHandler[];
+  testCode?: string;
 }): Promise<CodeGroup> {
   const groupOptions = flagsToOptions(props.flags);
   groupOptions.copyButton = true;
@@ -128,6 +130,17 @@ export async function toCodeGroup(props: {
       };
     }),
   );
+
+  if (props.testCode) {
+    const testTab = tabs.find((tab) => tab.title === props.testCode);
+    if (!testTab) {
+      console.warn(
+        `Test code "${groupOptions.testCode}" not found in code blocks.`,
+      );
+    } else {
+      groupOptions.testCode = testTab.code;
+    }
+  }
 
   return {
     storage: props.storage,
