@@ -3,12 +3,99 @@ title: How to Create a Token
 description: "Learn how to create tokens on Solana."
 ---
 
-Creating tokens is done by creating what is called a "mint account". This mint
-account is later used to mint tokens to a user's Associated Token Account (ATA).
+A mint account is an account type in Solana's Token Programs that uniquely
+represents a token on the network and stores global metadata about the token.
 
-<CodeTabs >
+The transaction to create a mint account needs two instructions:
 
-```typescript !! title="gill"
+1. Invoke the System Program to create and allocate space for a mint account and
+   transfer ownership to the Token Program.
+2. Invoke the Token Program to initialize the mint account data.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+const feePayer = await generateKeyPairSigner();
+
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+const mint = await generateKeyPairSigner();
+
+const space = BigInt(getMintSize());
+
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// !mark(1:7)
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !mark(1:5)
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: feePayer.address
+});
+
+const instructions = [createAccountInstruction, initializeMintInstruction];
+
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions(instructions, tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```ts !! title="Gill"
 import {
   airdropFactory,
   createSolanaClient,
@@ -128,94 +215,70 @@ const signedTransaction = await signTransactionMessageWithSigners(transaction);
 await sendAndConfirmTransaction(signedTransaction);
 ```
 
-```typescript !! title="Legacy"
+```ts !! title="Legacy"
 import {
-  clusterApiUrl,
   Connection,
   Keypair,
   sendAndConfirmTransaction,
   SystemProgram,
-  Transaction
+  Transaction,
+  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
   createInitializeMintInstruction,
-  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   MINT_SIZE,
-  getMinimumBalanceForRentExemptMint,
-  createMint
+  getMinimumBalanceForRentExemptMint
 } from "@solana/spl-token";
-import bs58 from "bs58";
 
-(async () => {
-  // connection
-  const connection = new Connection(
-    clusterApiUrl("http://127.0.0.1:8899"),
-    "confirmed"
-  );
-  const recentBlockhash = await connection.getLatestBlockhash();
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+const recentBlockhash = await connection.getLatestBlockhash();
 
-  // 5YNmS1R9nNSCDzb5a7mMJ1dwK9uHeAAF4CmPEwKgVWr8
-  const feePayer = Keypair.fromSecretKey(
-    bs58.decode(
-      "588FU4PktJWfGfxtzpAAXywSNt74AvtroVzGfKkVN1LwRuvHwKGr851uH8czM5qm4iqLbs1kKoMKtMJG4ATR7Ld2"
-    )
-  );
-  const airdropSig = await connection.requestAirdrop(
-    feePayer.publicKey,
-    1000000000
-  );
-  await connection.confirmTransaction(airdropSig);
+const feePayer = Keypair.generate();
 
-  // G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
-  const alice = Keypair.fromSecretKey(
-    bs58.decode(
-      "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp"
-    )
-  );
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
 
-  // 1) use build-in function
-  let mintPubkey = await createMint(
-    connection, // connection
-    feePayer, // fee payer
-    alice.publicKey, // mint authority
-    alice.publicKey, // freeze authority (you can use `null` to disable it. when you disable it, you can't turn it on again)
-    8 // decimals
-  );
-  console.log(`mint: ${mintPubkey.toBase58()}`);
+const mint = Keypair.generate();
 
-  // or
+// !mark(1:7)
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: await getMinimumBalanceForRentExemptMint(connection),
+  programId: TOKEN_2022_PROGRAM_ID
+});
 
-  // 2) compose by yourself
-  const mint = Keypair.generate();
-  console.log(`mint: ${mint.publicKey.toBase58()}`);
+// !mark(1:7)
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey,
+  9,
+  feePayer.publicKey,
+  feePayer.publicKey,
+  TOKEN_2022_PROGRAM_ID
+);
 
-  const transaction = new Transaction().add(
-    // create mint account
-    SystemProgram.createAccount({
-      fromPubkey: feePayer.publicKey,
-      newAccountPubkey: mint.publicKey,
-      space: MINT_SIZE,
-      lamports: await getMinimumBalanceForRentExemptMint(connection),
-      programId: TOKEN_PROGRAM_ID
-    }),
-    // init mint account
-    createInitializeMintInstruction(
-      mint.publicKey, // mint pubkey
-      8, // decimals
-      alice.publicKey, // mint authority
-      alice.publicKey // freeze authority (you can use `null` to disable it. when you disable it, you can't turn it on again)
-    )
-  );
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
 
-  // Send transaction
-  const transactionSignature = await sendAndConfirmTransaction(
-    connection,
-    transaction,
-    [feePayer, mint] // Signers
-  );
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint]
+);
 
-  console.log(`txhash: ${transactionSignature}`);
-})();
+console.log("Mint Address: ", mint.publicKey.toBase58());
+console.log("Transaction Signature: ", transactionSignature);
 ```
 
 ```rust !! title="Rust"
@@ -242,6 +305,7 @@ async fn main() -> anyhow::Result<()> {
         .get_minimum_balance_for_rent_exemption(mint_account_len)
         .await?;
 
+    // !mark(1:7)
     let create_mint_account_ix = create_account(
         &authority_keypair.pubkey(),
         &mint_account.pubkey(),
@@ -250,6 +314,7 @@ async fn main() -> anyhow::Result<()> {
         &TOKEN_PROGRAM_ID,
     );
 
+    // !mark(1:7)
     let initialize_mint_ix = initialize_mint2(
         &TOKEN_PROGRAM_ID,
         &mint_account.pubkey(),

@@ -5,15 +5,90 @@ description:
   create accounts on the Solana blockchain."
 ---
 
-Creating an account requires using the System Program `createAccount`
-instruction. The Solana runtime will grant the owner program of an account,
-access to write to its data or transfer lamports. When creating an account, we
-have to preallocate a fixed storage space in bytes (space) and enough lamports
-to cover the rent.
+To create an account on Solana, invoke the
+[System Program's](https://github.com/solana-program/system) `createAccount`
+instruction. This instruction requires you to specify the the number of bytes
+(`space`) for the new account and fund it with lamports for the allocated bytes
+(rent). The account's owner program is set as the program specified in the
+instruction. The Solana runtime enforces that only this owner program can modify
+the account's data or transfer lamports from it.
 
-<CodeTabs >
+<Callout type="info">
 
-```typescript !! title="gill"
+On Solana, only the System Program can create new accounts. To create accounts
+owned by other programs, invoke the `createAccount` instruction to create a new
+account and set the owner program to the desired program. The new program owner
+can then initialize the account data through its own instructions.
+
+</Callout>
+
+<CodeTabs flags="r" storage="cookbook">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getCreateAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+const sender = await generateKeyPairSigner();
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: sender.address,
+  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
+  commitment: "confirmed"
+});
+
+const newAccount = await generateKeyPairSigner();
+
+const space = 0n;
+const rentLamports = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// !mark(1:7)
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: newAccount,
+  lamports: rentLamports,
+  programAddress: SYSTEM_PROGRAM_ADDRESS,
+  space
+});
+
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createAccountInstruction], tx) // Use new instruction
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+console.log("Transaction Signature for create account:", transactionSignature);
+```
+
+```ts !! title="Gill"
 import {
   createTransaction,
   createSolanaClient,
@@ -46,12 +121,12 @@ const tx = createTransaction({
   version: "legacy",
   feePayer: signer,
   instructions: [
+    // !mark(1:7)
     getCreateAccountInstruction({
       lamports: rentLamports,
       newAccount: newAccount,
       payer: signer,
       space: space,
-      // "wallet" accounts are owned by the system program
       programAddress: SYSTEM_PROGRAM_ADDRESS
     })
   ],
@@ -59,7 +134,8 @@ const tx = createTransaction({
 });
 
 const signedTransaction = await signTransactionMessageWithSigners(tx);
-await sendAndConfirmTransaction(signedTransaction);
+const signature = await sendAndConfirmTransaction(signedTransaction);
+console.log("Transaction Signature:", signature);
 ```
 
 ```typescript !! title="Legacy"
@@ -92,6 +168,7 @@ const space = 0;
 const rentLamports = await connection.getMinimumBalanceForRentExemption(space);
 
 const createAccountTransaction = new Transaction().add(
+  // !mark(1:7)
   SystemProgram.createAccount({
     fromPubkey: fromKeypair.publicKey,
     newAccountPubkey: newAccount.publicKey,
@@ -101,10 +178,13 @@ const createAccountTransaction = new Transaction().add(
   })
 );
 
-await sendAndConfirmTransaction(connection, createAccountTransaction, [
-  fromKeypair,
-  newAccount
-]);
+const signature = await sendAndConfirmTransaction(
+  connection,
+  createAccountTransaction,
+  [fromKeypair, newAccount]
+);
+
+console.log("Transaction Signature:", signature);
 ```
 
 ```rust !! title="Rust"
@@ -132,6 +212,7 @@ async fn main() -> anyhow::Result<()> {
         .get_minimum_balance_for_rent_exemption(data_len)
         .await?;
 
+    // !mark(1:7)
     let create_acc_ix = create_account_ix(
         &from_keypair.pubkey(),        // payer
         &new_account_keypair.pubkey(), // new account

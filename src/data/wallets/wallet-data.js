@@ -3,7 +3,7 @@ import phantomIcon from "../../../assets/wallets/icons/phantom.png";
 import backpackIcon from "../../../assets/wallets/icons/backpack.png";
 import solflareIcon from "../../../assets/wallets/icons/solflare.png";
 import fuseIcon from "../../../assets/wallets/icons/fuse.png";
-import capsuleIcon from "../../../assets/wallets/icons/capsule.png";
+import paraIcon from "../../../assets/wallets/icons/para.png";
 import okxIcon from "../../../assets/wallets/icons/okx.png";
 import circleIcon from "../../../assets/wallets/icons/circle.png";
 import robinhoodIcon from "../../../assets/wallets/icons/robinhood.png";
@@ -177,12 +177,12 @@ export const walletData = [
     private_key_infrastructure: false,
   },
   {
-    name: "Capsule",
-    body: "Capsule’s goal is simple: make transacting onchain easier. Capsule handles the hard stuff for you, so you can get back to perfecting your product.",
-    website: "https://usecapsule.com/",
+    name: "Para",
+    body: "The most comprehensive wallet and authentication suite for crypto applications.",
+    website: "https://www.getpara.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Buy Crypto • Sell Crytpo • Hold NFTs • MPC • Gas Abstraction • Social recovery • Staking • Spending Limits • Open Source",
-    icon: capsuleIcon,
+    icon: paraIcon,
     custodial: false,
     non_custodial: true,
     te: true,

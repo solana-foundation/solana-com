@@ -4,16 +4,139 @@ description:
   "Learn to create Solana token accounts, which hold tokens for users."
 ---
 
-A token account is required for a user to hold tokens.
+A token account is an account type in Solana's Token Programs that stores
+information about an individual's ownership of a specific token (mint). Each
+token account is associated with a single mint and tracks details like the token
+balance and owner.
 
-A user will have at least one token account for every type of token they own.
+An associated token account is a token account with an address that's a Program
+Derived Address (PDA) created by the Associated Token Program. You can think of
+an associated token account as the default token account for a user to hold
+units of a specific token (mint).
 
-Associated Token Accounts (ATAs) are deterministically created accounts for
-every keypair. ATAs are the recommended method of managing token accounts.
+<CodeTabs storage="cookbook" flags="r">
 
-<CodeTabs >
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  findAssociatedTokenPda
+} from "@solana-program/token-2022";
 
-```typescript !! title="gill"
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+const feePayer = await generateKeyPairSigner();
+
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+const mint = await generateKeyPairSigner();
+
+const space = BigInt(getMintSize());
+
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 2,
+  mintAuthority: feePayer.address
+});
+
+const instructions = [createAccountInstruction, initializeMintInstruction];
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions(instructions, tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address: ", mint.address.toString());
+console.log("Transaction Signature: ", transactionSignature);
+
+// !mark(1:5)
+const [associatedTokenAddress] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: feePayer.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+console.log(
+  "Associated Token Account Address: ",
+  associatedTokenAddress.toString()
+);
+
+const { value: latestBlockhash2 } = await rpc.getLatestBlockhash().send();
+
+// !mark(1:5)
+const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
+  payer: feePayer,
+  mint: mint.address,
+  owner: feePayer.address
+});
+
+const transactionMessage2 = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash2, tx),
+  (tx) => appendTransactionMessageInstructions([createAtaInstruction], tx)
+);
+
+const signedTransaction2 =
+  await signTransactionMessageWithSigners(transactionMessage2);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction2,
+  { commitment: "confirmed" }
+);
+
+const transactionSignature2 = getSignatureFromTransaction(signedTransaction2);
+console.log("Transaction Signature: ", transactionSignature2);
+```
+
+```ts !! title="Gill"
 import {
   address,
   airdropFactory,
@@ -81,65 +204,111 @@ const signedTransaction = await signTransactionMessageWithSigners(transaction);
 await sendAndConfirmTransaction(signedTransaction);
 ```
 
-```typescript !! title="Legacy"
+```ts !! title="Legacy"
 import {
-  clusterApiUrl,
   Connection,
-  PublicKey,
   Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
   Transaction,
-  sendAndConfirmTransaction
+  LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
-  getAssociatedTokenAddress,
+  createInitializeMintInstruction,
+  MINT_SIZE,
+  getMinimumBalanceForRentExemptMint,
+  TOKEN_2022_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
-  createAssociatedTokenAccountIdempotent,
-  TOKEN_2022_PROGRAM_ID
+  ASSOCIATED_TOKEN_PROGRAM_ID
 } from "@solana/spl-token";
-import bs58 from "bs58";
 
-(async () => {
-  // connection
-  const connection = new Connection(
-    clusterApiUrl("http://127.0.0.1:8899"),
-    "confirmed"
-  );
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+const recentBlockhash = await connection.getLatestBlockhash();
 
-  // 5YNmS1R9nNSCDzb5a7mMJ1dwK9uHeAAF4CmPEwKgVWr8
-  const feePayer = Keypair.fromSecretKey(
-    bs58.decode(
-      "588FU4PktJWfGfxtzpAAXywSNt74AvtroVzGfKkVN1LwRuvHwKGr851uH8czM5qm4iqLbs1kKoMKtMJG4ATR7Ld2"
-    )
-  );
-  const airdropSig = await connection.requestAirdrop(
-    feePayer.publicKey,
-    1000000000
-  );
-  await connection.confirmTransaction(airdropSig);
+const feePayer = Keypair.generate();
 
-  // G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
-  const alice = Keypair.fromSecretKey(
-    bs58.decode(
-      "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp"
-    )
-  );
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
 
-  const mintPubkey = new PublicKey(
-    "8mAKLjGGmjKTnmcXeyr3pr7iX13xXVjJJiL6RujDbSPV"
-  );
+const mint = Keypair.generate();
 
-  {
-    let ata = await createAssociatedTokenAccountIdempotent(
-      connection, // connection
-      feePayer, // fee payer
-      mintPubkey, // mint
-      alice.publicKey, // owner
-      undefined,
-      TOKEN_2022_PROGRAM_ID
-    );
-    console.log(`ATA: ${ata.toBase58()}`);
-  }
-})();
+const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: mintRent,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint pubkey
+  2, // decimals
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+let transaction = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight
+}).add(createAccountInstruction, initializeMintInstruction);
+
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint]
+);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Transaction Signature:", transactionSignature);
+
+// !mark(1:7)
+const associatedTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  feePayer.publicKey,
+  false, // allowOwnerOffCurve
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// !mark(1:8)
+const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey,
+  associatedTokenAccount,
+  feePayer.publicKey, // owner
+  mint.publicKey, // mint
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+const transaction2 = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight
+}).add(createAssociatedTokenAccountIx);
+
+const transactionSignature2 = await sendAndConfirmTransaction(
+  connection,
+  transaction2,
+  [feePayer]
+);
+
+console.log(
+  "Associated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+console.log("Transaction Signature:", transactionSignature2);
 ```
 
 ```rust !! title="Rust"
@@ -165,6 +334,7 @@ async fn main() -> anyhow::Result<()> {
     // Airdrop authority, create the mint account
     setup(&client, &authority_keypair, &mint_account).await?;
 
+    // !mark(1:6)
     let create_ata_ix = create_associated_token_account_idempotent(
         &authority_keypair.pubkey(), // payer
         &authority_keypair.pubkey(),

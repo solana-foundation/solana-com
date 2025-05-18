@@ -148,7 +148,7 @@ export function RequestClientContent() {
       open={isOpen}
       onOpenChange={setIsOpen}
       data-playground={isOpen}
-      className="bg-ch-tabs-background"
+      className="bg-ch-tabs-background flex flex-col min-h-0 flex-1"
     >
       <CollapsibleTrigger className="flex items-center justify-between w-full gap-2 p-2 transition-colors duration-200 cursor-pointer text-ch-tab-inactive-foreground hover:text-ch-tab-active-foreground">
         <div className="flex items-center h-5 gap-2 font-medium shrink-0">
@@ -159,7 +159,7 @@ export function RequestClientContent() {
           className={`size-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </CollapsibleTrigger>
-      <CollapsibleContent>
+      <CollapsibleContent className="min-h-0 flex-col flex flex-1">
         <div className="grid gap-2 px-4 [&:not(:empty)]:py-2">
           {params
             .filter((p) => p.name !== "SERVER")
@@ -205,7 +205,7 @@ export function RequestClientContent() {
           </Button>
         </div>
         {response && (
-          <pre className="overflow-auto px-3 py-3 m-0 rounded-none !bg-ch-background font-mono text-sm max-h-[500px]">
+          <pre className="overflow-auto px-3 py-3 m-0 rounded-none !bg-ch-background font-mono text-sm max-h-[500px] flex-1 min-h-0">
             {response}
           </pre>
         )}

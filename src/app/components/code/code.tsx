@@ -15,6 +15,7 @@ import { wordWrap } from "./word-wrap";
 import { MultiCode } from "./code.client";
 import { tooltip } from "./tooltip";
 import { tokenTransitions } from "./token-transitions";
+import { RunnableLayout } from "./code.runnable";
 
 export async function Code(props: {
   codeblocks: RawCode[];
@@ -36,12 +37,14 @@ export function SingleCode({
   group: CodeGroup;
   className?: string;
 }) {
-  const { pre, title, code, icon } = group.tabs[0];
+  const { pre, title, code, icon, lang } = group.tabs[0];
+  const isRunnable = group.options.runnable;
 
-  return (
+  const content = (
     <div
       className={cn(
-        "tw-border rounded overflow-hidden my-4 relative border-ch-border flex flex-col selection:bg-ch-selection",
+        "tw-border rounded overflow-hidden relative border-ch-border flex flex-col selection:bg-ch-selection",
+        isRunnable ? "h-full" : "my-4",
         className,
       )}
     >
@@ -53,7 +56,7 @@ export function SingleCode({
             "text-ch-tab-inactive-foreground text-sm font-mono",
           )}
         >
-          <div className="flex items-center gap-2 w-full h-5">
+          <div className="flex items-center w-full h-5 gap-2">
             <div className="size-4">{icon}</div>
             <span className="leading-none">{title}</span>
             <div className={cn("ml-auto mr-3 items-center flex")}>
@@ -72,6 +75,14 @@ export function SingleCode({
       )}
       {pre}
     </div>
+  );
+
+  return isRunnable ? (
+    <RunnableLayout code={code} language={lang} className={"my-4"}>
+      {content}
+    </RunnableLayout>
+  ) : (
+    content
   );
 }
 
