@@ -6,6 +6,11 @@ import { locales } from "@/i18n/config.cjs";
 const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req) {
+  // Skip i18n for /breakpoint/* paths
+  if (req.nextUrl.pathname.startsWith("/breakpoint")) {
+    return NextResponse.next();
+  }
+
   if (req.nextUrl.pathname !== req.nextUrl.pathname.toLowerCase()) {
     return NextResponse.redirect(
       `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}`,
@@ -26,5 +31,5 @@ export default async function middleware(req) {
 }
 
 export const config = {
-  matcher: ["/((?!api|opengraph|_next|_vercel|.*\\..*).*)"],
+  matcher: ["/((?!api|opengraph|_next|_vercel|breakpoint|.*\\..*).*)"],
 };
