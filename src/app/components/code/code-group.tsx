@@ -4,6 +4,7 @@ type CodeOptions = {
   wordWrap?: boolean;
   animate?: boolean;
   runnable?: boolean;
+  testCode?: string;
 };
 
 export type CodeGroup = {
