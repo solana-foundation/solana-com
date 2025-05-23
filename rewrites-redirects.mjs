@@ -2,9 +2,15 @@ export default {
   rewrites: {
     beforeFiles: [
       {
-        source: "/breakpoint/:path+",
+        source: "/breakpoint",
+        destination: "https://solana-com-breakpoint.vercel.app/breakpoint",
+        locale: false,
+      },
+      // everything underneath
+      {
+        source: "/breakpoint/:path*",
         destination:
-          "https://solana-com-breakpoint.vercel.app/breakpoint/:path+",
+          "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
         locale: false,
       },
     ],
