@@ -19,7 +19,7 @@ const SideEvents = ({
       <HTMLHead
         title={t("breakpoint.page.side-events.title")}
         description={t("breakpoint.page.side-events.description")}
-        socialShare="https://solana.com/social/breakpoint.jpg?v=2"
+        socialShare="https://solana.com/social/breakpoint.jpg?123"
       />
       <SimpleHero
         frontmatter={{ title: t("breakpoint.page.side-events.title") }}
