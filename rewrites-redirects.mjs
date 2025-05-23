@@ -5,6 +5,7 @@ export default {
         source: "/breakpoint/:path*",
         destination:
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
+        locale: false,
       },
     ],
     afterFiles: [],
