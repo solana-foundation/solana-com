@@ -1,7 +1,22 @@
 export default {
-  rewrites: [
-    //
-  ],
+  rewrites: {
+    beforeFiles: [
+      {
+        source: "/breakpoint",
+        destination: "https://solana-com-breakpoint.vercel.app/breakpoint",
+        locale: false,
+      },
+      // everything underneath
+      {
+        source: "/breakpoint/:path*",
+        destination:
+          "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
+        locale: false,
+      },
+    ],
+    afterFiles: [],
+    fallback: [],
+  },
 
   redirects: [
     { source: "/brand", destination: "/branding" },
