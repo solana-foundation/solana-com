@@ -64,7 +64,7 @@ export default function DevelopersCoursesSection(/* { courses } */) {
   return (
     <section className="mt-12 mt-md-0" id="courses">
       <div className="container">
-        <div className="d-md-flex align-items-center justify-content-between mb-6">
+        <div className="mb-6 d-md-flex align-items-center justify-content-between">
           <div>
             <DevelopersSectionTitle titleId="developers.courses.title" />
             <p className="subdued">{t("developers.courses.description")}</p>
@@ -77,8 +77,8 @@ export default function DevelopersCoursesSection(/* { courses } */) {
           <CarouselCards>
             <DevelopersCourseItem
               title="Solana Development Courses"
-              courseCreator={"Unboxed"}
-              url="/developers/courses"
+              courseCreator={"Blueshift"}
+              url="https://learn.blueshift.gg"
               image={solanaDevCourseSmallImg}
             />
             {courses}
@@ -89,8 +89,8 @@ export default function DevelopersCoursesSection(/* { courses } */) {
           <DevelopersCourseFeaturedItem
             title={t("developers.courses.featured-item.title")}
             description={t("developers.courses.featured-item.description")}
-            courseCreator={"Unboxed"}
-            url="/developers/courses"
+            courseCreator={"Blueshift"}
+            url="https://learn.blueshift.gg"
             image={solanaDevCourseImg}
             className={styles["feature-card"]}
           />

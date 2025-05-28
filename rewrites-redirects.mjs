@@ -75,10 +75,6 @@ export default {
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents",
     },
-    {
-      source: "/developers/courses/lesson",
-      destination: "/developers/courses",
-    },
     { source: "/disclaimer", destination: "/tos" },
     { source: "/ecosystem(.*)", destination: "/" },
     { source: "/lolla", destination: "/" },
@@ -801,6 +797,10 @@ export default {
     {
       source: "/developers/cookbook/accounts/close-account",
       destination: "/docs/core/accounts",
+    },
+    {
+      source: "/developers/courses/:path*",
+      destination: "https://learn.blueshift.gg",
     },
   ],
 };
