@@ -86,9 +86,6 @@ def get_relative_url(file_path):
     if not rel_path.startswith('/'):
         rel_path = '/' + rel_path
     
-    # Map courses to /developers path
-    if '/courses/' in rel_path:
-        rel_path = rel_path.replace('/courses/', '/developers/courses/')
     if '/guides/' in rel_path:
         rel_path = rel_path.replace('/guides/', '/developers/guides/')
     

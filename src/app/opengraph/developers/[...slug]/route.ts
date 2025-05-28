@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import DeveloperDocsImage from "@/components/opengraph/DeveloperDocsImage";
 import { cookbookData as cookbook } from "@@/.source/cookbook.fm";
 import { guidesData as guides } from "@@/.source/guides.fm";
-import { coursesData as courses } from "@@/.source/courses.fm";
 import { docsData as docs } from "@@/.source/docs.fm";
 
 // Route segment config
@@ -30,7 +29,6 @@ export async function GET(_request: Request, { params }: Params) {
 const collections = {
   cookbook,
   guides,
-  courses,
   docs,
 };
 function getImageProps(slugItems: Array<string>) {
@@ -44,11 +42,6 @@ function getImageProps(slugItems: Array<string>) {
     }
   }
   switch (name) {
-    case "courses":
-      return {
-        title,
-        heading: rest.length > 1 ? "Lesson" : "Developer Course",
-      };
     case "resources":
       return { title: "Developer Resources", heading: "Developer Resources" };
     case "cookbook":
