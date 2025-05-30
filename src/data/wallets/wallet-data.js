@@ -876,7 +876,7 @@ export const walletData = [
     body: "Coinbase Developer Platform's API-based developer wallet that gives builders control without touching private keys.",
     website: "https://www.coinbase.com/developer-platform/products/wallets",
     additionalInfo:
-      "Non-Custodial/Self Custodial • Holds NFTs • Open Source •Private Key Infrastructure",
+      "Non-Custodial/Self Custodial • Holds NFTs • Open Source • Private Key Infrastructure",
     icon: cdpIcon,
     custodial: false,
     non_custodial: true,
