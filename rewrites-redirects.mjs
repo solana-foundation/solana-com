@@ -822,5 +822,9 @@ export default {
       source: "/developers/guides/getstarted/how-to-create-a-token",
       destination: "/docs/tokens",
     },
+    {
+      source: "/developers/guides/getstarted/local-rust-hello-world",
+      destination: "/docs/programs/rust",
+    },
   ],
 };
