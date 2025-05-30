@@ -826,5 +826,9 @@ export default {
       source: "/developers/guides/getstarted/local-rust-hello-world",
       destination: "/docs/programs/rust",
     },
+    {
+      source: "/developers/guides/getstarted/rust-to-solana",
+      destination: "/docs/intro/quick-start",
+    },
   ],
 };
