@@ -850,5 +850,9 @@ export default {
       source: "/developers/guides/dapps/cash-app",
       destination: "https://docs.solanamobile.com/developers/overview",
     },
+    {
+      source: "/developers/guides/getstarted/full-stack-solana-development",
+      destination: "/docs#deploy-your-first-solana-application",
+    },
   ],
 };
