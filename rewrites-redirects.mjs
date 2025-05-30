@@ -834,5 +834,9 @@ export default {
       source: "/developers/guides/getstarted/scaffold-nextjs-anchor",
       destination: "/docs#deploy-your-first-solana-application",
     },
+    {
+      source: "/developers/guides/wallets/add-solana-wallet-adapter-to-nextjs",
+      destination: "/developers/cookbook/wallets/connect-wallet-react",
+    },
   ],
 };
