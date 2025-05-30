@@ -810,5 +810,9 @@ export default {
       source: "/developers/guides/javascript/get-program-accounts",
       destination: "/docs/rpc/http/getprogramaccounts",
     },
+    {
+      source: "/developers/guides/javascript/compressed-nfts",
+      destination: "https://www.zkcompression.com",
+    },
   ],
 };
