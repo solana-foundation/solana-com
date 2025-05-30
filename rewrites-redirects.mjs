@@ -842,5 +842,9 @@ export default {
       source: "/developers/guides/advanced/state-compression",
       destination: "https://www.zkcompression.com",
     },
+    {
+      source: "/developers/guides/advanced/testing-with-jest-and-bankrun",
+      destination: "https://www.anchor-lang.com/docs/testing/litesvm",
+    },
   ],
 };
