@@ -830,5 +830,9 @@ export default {
       source: "/developers/guides/getstarted/rust-to-solana",
       destination: "/docs/intro/quick-start",
     },
+    {
+      source: "/developers/guides/getstarted/scaffold-nextjs-anchor",
+      destination: "/docs#deploy-your-first-solana-application",
+    },
   ],
 };
