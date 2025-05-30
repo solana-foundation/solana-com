@@ -802,5 +802,9 @@ export default {
       source: "/developers/courses/:path*",
       destination: "https://learn.blueshift.gg",
     },
+    {
+      source: "/developers/guides/intro/wallets-explained",
+      destination: "/wallets",
+    },
   ],
 };
