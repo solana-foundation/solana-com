@@ -30,6 +30,7 @@ import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
 import guardaIcon from "../../../assets/wallets/icons/guarda.png";
 import cakewalletIcon from "../../../assets/wallets/icons/cakewallet.png";
 import tokenPocketIcon from "../../../assets/wallets/icons/tokenpocket.png";
+import cdpIcon from "../../../assets/wallets/icons/cdp.png";
 
 export const walletData = [
   {
@@ -869,6 +870,30 @@ export const walletData = [
     open_source: false,
     hardware: true,
     private_key_infrastructure: false,
+  },
+  {
+    name: "CDP Wallets",
+    body: "Coinbase Developer Platform's API-based developer wallet that gives builders control without touching private keys.",
+    website: "https://www.coinbase.com/developer-platform/products/wallets",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Holds NFTs • Open Source •Private Key Infrastructure",
+    icon: cdpIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: false,
+    sell_crypto: false,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
+    hardware: false,
+    private_key_infrastructure: true,
   },
 
   // {
