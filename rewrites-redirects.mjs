@@ -806,5 +806,9 @@ export default {
       source: "/developers/guides/intro/wallets-explained",
       destination: "/wallets",
     },
+    {
+      source: "/developers/guides/javascript/get-program-accounts",
+      destination: "/docs/rpc/http/getprogramaccounts",
+    },
   ],
 };
