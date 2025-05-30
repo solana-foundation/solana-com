@@ -838,5 +838,9 @@ export default {
       source: "/developers/guides/wallets/add-solana-wallet-adapter-to-nextjs",
       destination: "/developers/cookbook/wallets/connect-wallet-react",
     },
+    {
+      source: "/developers/guides/advanced/state-compression",
+      destination: "https://www.zkcompression.com",
+    },
   ],
 };
