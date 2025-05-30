@@ -814,5 +814,9 @@ export default {
       source: "/developers/guides/javascript/compressed-nfts",
       destination: "https://www.zkcompression.com",
     },
+    {
+      source: "/developers/guides/getstarted/evm-to-svm",
+      destination: "/developers/evm-to-svm",
+    },
   ],
 };
