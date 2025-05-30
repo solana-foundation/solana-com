@@ -818,5 +818,9 @@ export default {
       source: "/developers/guides/getstarted/evm-to-svm",
       destination: "/developers/evm-to-svm",
     },
+    {
+      source: "/developers/guides/getstarted/how-to-create-a-token",
+      destination: "/docs/tokens",
+    },
   ],
 };
