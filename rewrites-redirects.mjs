@@ -846,5 +846,9 @@ export default {
       source: "/developers/guides/advanced/testing-with-jest-and-bankrun",
       destination: "https://www.anchor-lang.com/docs/testing/litesvm",
     },
+    {
+      source: "/developers/guides/dapps/cash-app",
+      destination: "https://docs.solanamobile.com/developers/overview",
+    },
   ],
 };
