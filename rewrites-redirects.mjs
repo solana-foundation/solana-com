@@ -802,5 +802,57 @@ export default {
       source: "/developers/courses/:path*",
       destination: "https://learn.blueshift.gg",
     },
+    {
+      source: "/developers/guides/intro/wallets-explained",
+      destination: "/wallets",
+    },
+    {
+      source: "/developers/guides/javascript/get-program-accounts",
+      destination: "/docs/rpc/http/getprogramaccounts",
+    },
+    {
+      source: "/developers/guides/javascript/compressed-nfts",
+      destination: "https://www.zkcompression.com",
+    },
+    {
+      source: "/developers/guides/getstarted/evm-to-svm",
+      destination: "/developers/evm-to-svm",
+    },
+    {
+      source: "/developers/guides/getstarted/how-to-create-a-token",
+      destination: "/docs/tokens",
+    },
+    {
+      source: "/developers/guides/getstarted/local-rust-hello-world",
+      destination: "/docs/programs/rust",
+    },
+    {
+      source: "/developers/guides/getstarted/rust-to-solana",
+      destination: "/docs/intro/quick-start",
+    },
+    {
+      source: "/developers/guides/getstarted/scaffold-nextjs-anchor",
+      destination: "/docs#deploy-your-first-solana-application",
+    },
+    {
+      source: "/developers/guides/wallets/add-solana-wallet-adapter-to-nextjs",
+      destination: "/developers/cookbook/wallets/connect-wallet-react",
+    },
+    {
+      source: "/developers/guides/advanced/state-compression",
+      destination: "https://www.zkcompression.com",
+    },
+    {
+      source: "/developers/guides/advanced/testing-with-jest-and-bankrun",
+      destination: "https://www.anchor-lang.com/docs/testing/litesvm",
+    },
+    {
+      source: "/developers/guides/dapps/cash-app",
+      destination: "https://docs.solanamobile.com/developers/overview",
+    },
+    {
+      source: "/developers/guides/getstarted/full-stack-solana-development",
+      destination: "/docs#deploy-your-first-solana-application",
+    },
   ],
 };
