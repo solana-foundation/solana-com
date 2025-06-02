@@ -352,13 +352,6 @@ function ConsoleHeader({ className }: { className?: string }) {
       )}
     >
       <span>Console</span>
-      <a
-        href="https://mirror.ad"
-        target="_blank"
-        className="text-sm hover:underline"
-      >
-        Powered by Mirror
-      </a>
     </div>
   );
 }
