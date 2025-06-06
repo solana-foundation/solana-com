@@ -35,19 +35,6 @@ const Header = () => {
                 className={styles.logoWord}
               />
             </a>
-
-            <div>
-              <Link href="/accelerate#speakers">
-                {t("accelerate.header.speakers")}
-              </Link>
-              <a
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://lu.ma/solana-accelerate?compact=true"
-              >
-                Agenda
-              </a>
-            </div>
           </div>
 
           <Link
@@ -66,18 +53,7 @@ const Header = () => {
           </Link>
 
           <div className={styles.col}>
-            <Link href="/accelerate#sponsors">
-              {t("accelerate.header.sponsors")}
-            </Link>
-            <Link href="/accelerate#faq">{t("accelerate.header.faq")}</Link>
-            <a
-              href="https://lu.ma/solana-nyc?tag=accelerate"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              side events
-            </a>
-            <Link className={styles.cta} href="/accelerate#tickets">
+            <Link className={styles.cta} href="/breakpoint">
               <span>
                 {t("accelerate.header.get-tickets")} <ArrowUpRight />
               </span>
@@ -103,49 +79,10 @@ const Header = () => {
           fill
           className={styles.mobileBackground}
         />
-        <div className={styles.mobileLinks}>
-          <Link
-            href="/accelerate#speakers"
-            onClick={() => {
-              handleMenu();
-            }}
-          >
-            {t("accelerate.header.speakers")}
-          </Link>
-          <a
-            href="https://lu.ma/solana-accelerate?compact=true"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Agenda
-          </a>
-          <Link
-            href="/accelerate#sponsors"
-            onClick={() => {
-              handleMenu();
-            }}
-          >
-            {t("accelerate.header.sponsors")}
-          </Link>
-          <Link
-            href="/accelerate#faq"
-            onClick={() => {
-              handleMenu();
-            }}
-          >
-            {t("accelerate.header.faq")}
-          </Link>
-          <a
-            href="https://lu.ma/solana-nyc?tag=accelerate"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Side Events
-          </a>
-        </div>
+        <div className={styles.mobileLinks}></div>
 
         <Link
-          href="/accelerate#tickets"
+          href="/breakpoint"
           onClick={() => {
             handleMenu();
           }}
