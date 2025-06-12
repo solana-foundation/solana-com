@@ -27,6 +27,99 @@ There are two ways to add balance for Wrapped SOL
 
 <CodeTabs storage="cookbook">
 
+```ts !! title="Kit"
+import { getTransferSolInstruction } from "@solana-program/system";
+import {
+	findAssociatedTokenPda,
+	getCreateAssociatedTokenInstructionAsync,
+	getSyncNativeInstruction,
+	TOKEN_PROGRAM_ADDRESS,
+} from "@solana-program/token";
+import {
+	address,
+	airdropFactory,
+	appendTransactionMessageInstructions,
+	createSolanaRpc,
+	createSolanaRpcSubscriptions,
+	createTransactionMessage,
+	generateKeyPairSigner,
+	getSignatureFromTransaction,
+	lamports,
+	pipe,
+	sendAndConfirmTransactionFactory,
+	setTransactionMessageFeePayerSigner,
+	setTransactionMessageLifetimeUsingBlockhash,
+	signTransactionMessageWithSigners,
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+/* constants */
+const AUTHORITY = await generateKeyPairSigner();
+const NATIVE_MINT = address("So11111111111111111111111111111111111111112");
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+await requestAirdrop();
+
+const [associatedTokenAddress] = await findAssociatedTokenPda({
+	mint: NATIVE_MINT,
+	owner: AUTHORITY.address,
+	tokenProgram: TOKEN_PROGRAM_ADDRESS,
+});
+
+let amount = 1_000_000_000n;
+
+const createAuthorityATAInstruction =
+	await getCreateAssociatedTokenInstructionAsync({
+		payer: AUTHORITY,
+		mint: NATIVE_MINT,
+		owner: AUTHORITY.address,
+	});
+
+const transferSolIx = getTransferSolInstruction({
+	source: AUTHORITY,
+	destination: associatedTokenAddress,
+	amount,
+});
+
+const syncNativeInstruction = getSyncNativeInstruction({
+	account: associatedTokenAddress,
+});
+
+const instructions = [
+	createAuthorityATAInstruction,
+	transferSolIx,
+	syncNativeInstruction,
+];
+
+const transactionMessage = pipe(
+	createTransactionMessage({ version: 0 }),
+	(tx) => setTransactionMessageFeePayerSigner(AUTHORITY, tx),
+	(tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+	(tx) => appendTransactionMessageInstructions(instructions, tx)
+);
+
+const signedTransaction = await signTransactionMessageWithSigners(
+	transactionMessage
+);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+	signedTransaction,
+	{ commitment: "confirmed" }
+);
+
+const txSignature = getSignatureFromTransaction(signedTransaction);
+console.log("Transaction Signature:", txSignature);
+
+async function requestAirdrop() {
+	await airdropFactory({ rpc, rpcSubscriptions })({
+		recipientAddress: AUTHORITY.address,
+		lamports: lamports(5_000_000_000n), // 5 SOL
+		commitment: "confirmed",
+	});
+}
+```
+
 ```typescript !! title="Legacy"
 import {
   clusterApiUrl,
