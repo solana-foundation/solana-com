@@ -799,7 +799,7 @@ export default {
       destination: "/docs/core/accounts",
     },
     {
-      source: "/developers/courses/:path*",
+      source: "/developers/courses",
       destination: "https://learn.blueshift.gg",
     },
     {
