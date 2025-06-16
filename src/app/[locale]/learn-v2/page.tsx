@@ -1,7 +1,9 @@
+"use client";
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { serverTranslation } from "@/i18n/translation";
+import DevelopersHeroSection from "@/components/developers/sections/DevelopersHeroSection/DevelopersHeroSection";
+import heroImg from "@@/assets/developers/hero-solana-learn.png";
 
 const featuredPosts = [
   {
@@ -118,55 +120,24 @@ export default async function LearnV2Page(props: Props) {
 
   return (
     <>
-      <section
-        className="relative min-h-[480px] flex items-center justify-center overflow-hidden mb-4"
-        aria-label="Introduction"
-      >
-        <div className="absolute inset-0 z-0">
-          <Image
-            src="https://placehold.co/1920x600/9945FF/FFFFFF?text=Learn+Solana"
-            alt=""
-            role="presentation"
-            fill
-            priority
-            style={{ objectFit: "cover" }}
-          />
-          <div
-            className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/40"
-            aria-hidden="true"
-          />
-        </div>
-        <div className="container relative z-10">
-          <div className="text-center py-5 px-4 md:px-8">
-            <h1 className="h1 mb-4 text-white">{t("learn.hero.title")}</h1>
-            <p className="text-xl text-white/90 mb-4">
-              {t("learn.hero.subtitle")}
-            </p>
-            <nav
-              aria-label={t("learn.hero.nav-aria-label")}
-              className="flex gap-4 justify-center"
-            >
-              <Link
-                href="#tutorials"
-                className="text-white hover:text-white/80 underline transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-purple-600 rounded px-1"
-                aria-label={t("learn.hero.start-learning-aria-label")}
-              >
-                {t("learn.hero.start-learning")}
-              </Link>
-              <span className="text-white/60" aria-hidden="true">
-                •
-              </span>
-              <Link
-                href="/docs"
-                className="text-white hover:text-white/80 underline transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-purple-600 rounded px-1"
-                aria-label={t("learn.hero.build-aria-label")}
-              >
-                {t("learn.hero.build")}
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </section>
+      <DevelopersHeroSection
+        title={t("learn.hero.title")}
+        description={t("learn.hero.subtitle")}
+        img={{
+          src: heroImg,
+          alt: "Abstract image of a Solana learning Logo",
+        }}
+        buttons={{
+          cta: {
+            label: t("learn.hero.start-learning"),
+            href: "#tutorials",
+          },
+          secondary: {
+            label: t("learn.hero.build"),
+            href: "/docs",
+          },
+        }}
+      />
 
       <section
         id="featured"
