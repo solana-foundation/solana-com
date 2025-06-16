@@ -119,7 +119,7 @@ export default async function LearnV2Page(props: Props) {
   return (
     <>
       <section
-        className="relative min-h-[480px] flex items-center justify-center overflow-hidden mb-8"
+        className="relative min-h-[480px] flex items-center justify-center overflow-hidden mb-4"
         aria-label="Introduction"
       >
         <div className="absolute inset-0 z-0">
@@ -170,7 +170,7 @@ export default async function LearnV2Page(props: Props) {
 
       <section
         id="featured"
-        className="py-16 md:py-20"
+        className="py-8 md:py-12"
         aria-label={t("learn.featured.aria-label")}
       >
         <div className="container">
@@ -216,7 +216,7 @@ export default async function LearnV2Page(props: Props) {
 
       <section
         id="tutorials"
-        className="py-16 md:py-20 bg-light"
+        className="pt-8 md:pt-12 pb-20 md:pb-24 bg-light"
         aria-label={t("learn.tutorials.aria-label")}
       >
         <div className="container">
@@ -233,28 +233,28 @@ export default async function LearnV2Page(props: Props) {
               >
                 <Link
                   href={`/learn/tutorial/${tutorial.id}`}
-                  className="no-underline focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 rounded-2xl d-block"
+                  className="no-underline focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 rounded-2xl d-block h-100"
                   aria-label={t("learn.tutorials.tutorial-aria-label", {
                     id: tutorial.id,
                     title: tutorial.title,
                     description: tutorial.description,
                   })}
                 >
-                  <article className="h-full bg-white rounded-2xl shadow-sm overflow-visible transition-all duration-300 hover:shadow-lg hover:-translate-y-1 relative group">
+                  <article className="h-full bg-white rounded-2xl shadow-sm overflow-visible transition-all duration-300 hover:shadow-lg hover:-translate-y-1 relative group d-flex flex-column">
                     <div
                       className="absolute -top-2 -left-2 w-10 h-10 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm z-10 shadow-md transition-transform duration-300 group-hover:scale-110"
                       aria-hidden="true"
                     >
                       {tutorial.id}
                     </div>
-                    <div className="p-6">
+                    <div className="p-6 flex-grow-1 d-flex flex-column">
                       <h3 className="text-lg font-bold text-gray-900 mb-2">
                         <span className="sr-only">
                           {t("learn.tutorials.step", { id: tutorial.id })}:{" "}
                         </span>
                         {tutorial.title}
                       </h3>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 flex-grow-1">
                         {tutorial.description}
                       </p>
                     </div>
