@@ -27,8 +27,9 @@ export default async function RootLayout({ children, params }: Props) {
   const { resources } = await initTranslations(locale, namespaces);
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
   const builderLocale = locale == "en" ? "Default" : locale;
+  const isArabic = locale === "ar";
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning dir={isArabic ? "rtl" : "ltr"}>
       <body suppressHydrationWarning>
         {/* Google Tag Manager (noscript) */}
         <noscript>
