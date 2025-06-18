@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 
@@ -40,7 +41,7 @@ export const MotionComponent = ({
     };
   }
 
-  const MotionComponentElement = motion[element];
+  const MotionComponentElement = useMemo(() => motion(element), [element]);
   return (
     <MotionComponentElement
       ref={ref}
