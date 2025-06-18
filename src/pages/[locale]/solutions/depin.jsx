@@ -167,6 +167,7 @@ const DePINPage = () => {
                     width={500}
                     height={300}
                     layout="responsive"
+                    loading="lazy"
                   />
                 </div>
                 <h2 className={styles.featureTitle}>Mint at Scale</h2>

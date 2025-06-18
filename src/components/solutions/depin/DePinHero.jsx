@@ -5,6 +5,7 @@ import Text from "@/components/shared/Text";
 import Button from "@/components/solutions/Button";
 import { ChevronRight } from "lucide-react";
 import styles from "./DePINHero.module.scss";
+import React from "react";
 
 // Import images
 import globeImage from "assets/solutions/depin/globe.png";
@@ -106,7 +107,7 @@ const sliderData = [
   },
 ];
 
-const ProjectCard = ({ data }) => (
+const ProjectCard = React.memo(({ data }) => (
   <motion.div className={styles.cardWrapper}>
     <div className={styles.projectCard}>
       <div className={styles.cardHeader}>
@@ -141,24 +142,18 @@ const ProjectCard = ({ data }) => (
       </div>
     </div>
   </motion.div>
-);
+));
 
 const DePINHero = () => {
   const carouselRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [scrollPosition, setScrollPosition] = useState(0);
-  const [hasHorizontalScroll, setHasHorizontalScroll] = useState(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
   const autoScrollTimerRef = useRef(null);
 
   const checkScrollability = () => {
     if (carouselRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
-
-      // Update scroll position for debug display
-      setScrollPosition(scrollLeft);
-      setHasHorizontalScroll(scrollWidth > clientWidth);
 
       setCanScrollLeft(scrollLeft > 0);
       setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
@@ -246,25 +241,6 @@ const DePINHero = () => {
       </div>
 
       <div className={styles.sliderSection}>
-        {/* Debug info - remove in production */}
-        <div
-          style={{
-            position: "absolute",
-            top: "-30px",
-            left: 0,
-            color: "white",
-            background: "rgba(0,0,0,0.5)",
-            padding: "5px",
-            fontSize: "14px",
-            zIndex: 100,
-            display: "none", // hide in production
-          }}
-        >
-          Scroll: {Math.round(scrollPosition)}px | Scrollable:{" "}
-          {hasHorizontalScroll ? "Yes" : "No"} | Auto:{" "}
-          {isAutoScrolling ? "On" : "Off"}
-        </div>
-
         <button
           className={`${styles.navigationButton} ${styles.prev}`}
           onClick={scrollLeft}
@@ -318,7 +294,8 @@ const DePINHero = () => {
         width={1400}
         height={800}
         className={styles.globe}
-        priority
+        priority={false}
+        loading="lazy"
       />
     </section>
   );
