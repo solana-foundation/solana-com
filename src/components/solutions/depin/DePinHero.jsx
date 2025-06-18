@@ -7,7 +7,6 @@ import { ChevronRight } from "lucide-react";
 import styles from "./DePINHero.module.scss";
 
 // Import images
-import gradientBg from "assets/solutions/depin/gradient.svg";
 import globeImage from "assets/solutions/depin/globe.png";
 import heliumLogo from "assets/solutions/depin/helium.png";
 import renderLogo from "assets/solutions/depin/render.png";
@@ -229,15 +228,6 @@ const DePINHero = () => {
 
   return (
     <section className={styles.hero}>
-      {/* Background Elements */}
-      <Image
-        src={gradientBg}
-        alt="Background gradient"
-        fill
-        className={styles.backgroundImage}
-        priority
-      />
-
       {/* DePIN Badge */}
       <div className={styles.badge}>
         <span className={styles.eyebrowText}>DePIN SZN is here</span>
