@@ -4,7 +4,6 @@ import { withLocales } from "@/i18n/routing";
 import Layout from "@/components/solutions/layout";
 import HTMLHead from "@/components/HTMLHead";
 import Image from "next/image";
-import FooterCallout from "@/components/solutions/FooterCallout";
 import DePINHero from "@/components/solutions/depin/DePinHero";
 import WhyBuildSection from "@/components/solutions/depin/WhyBuildSection";
 import YDeveloperResources, {
@@ -339,17 +338,6 @@ const DePINPage = () => {
               />
             </>
           }
-        />
-        <FooterCallout
-          title="Ready to build on Solana?"
-          text="Check out funding, hackathon, and grant opportunities within the Solana ecosystem."
-          btnText="Funding Opportunities"
-          btnUrl="https://solana.org/grants-funding"
-          btnLargeText="<strong>Still have questions?</strong> Reach out to Solana Foundation DePIN team"
-          btnLargeUrl="https://solanafoundation.typeform.com/to/NFeIvWZi"
-          className={styles.FooterCallout}
-          topSectionClassName={styles.FooterCalloutTopSection}
-          buttonLargeClassName={styles.FooterCalloutButtonLarge}
         />
         {/* DePIN Resources Grid Section */}
         <section
