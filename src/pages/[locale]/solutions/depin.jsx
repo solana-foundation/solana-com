@@ -1,17 +1,21 @@
-import { useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { withLocales } from "@/i18n/routing";
-import Layout from "@/components/solutions/layout";
+import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Image from "next/image";
-import DePINHero from "@/components/solutions/depin/DePinHero";
+import Layout from "@/components/solutions/layout";
 import WhyBuildSection from "@/components/solutions/depin/WhyBuildSection";
 import YDeveloperResources, {
   YDeveloperResourcesLink,
 } from "@/components/solutions/YDeveloperResources";
 import styles from "./depin.module.scss";
-import { Play, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { Play, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  VideoPlayerModal,
+  VideoTrigger,
+} from "@/component-library/video-modal";
+import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { useState, useCallback } from "react";
+import { useTranslation } from "next-i18next";
+import { withLocales } from "@/i18n/routing";
 
 // Import video thumbnails
 import video1Img from "assets/solutions/depin/video1.png";
@@ -26,43 +30,8 @@ import jakeImg from "assets/solutions/depin/jake.png";
 import mintImg from "assets/solutions/depin/mint.png";
 import kycImg from "assets/solutions/depin/kyc.png";
 
-const VideoLightbox = ({ videoId, onClose }) => {
-  useEffect(() => {
-    // Disable scrolling when lightbox is open
-    document.body.style.overflow = "hidden";
-
-    // Cleanup function to re-enable scrolling when component unmounts
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, []);
-
-  return (
-    <div className={styles.lightboxOverlay}>
-      <div className={styles.lightboxContent}>
-        <button className={styles.closeButton} onClick={onClose}>
-          <X size={24} />
-        </button>
-        <div className={styles.videoContainer}>
-          <iframe
-            width="100%"
-            height="100%"
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
-            title="YouTube video player"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          ></iframe>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const DePINPage = () => {
-  // eslint-disable-next-line no-unused-vars
   const { t: _ } = useTranslation("common");
-  const [activeVideo, setActiveVideo] = useState(null);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
   const testimonials = [
@@ -134,14 +103,6 @@ const DePINPage = () => {
       alt: "Hivemapper video thumbnail",
     },
   ];
-
-  const openLightbox = (videoId) => {
-    setActiveVideo(videoId);
-  };
-
-  const closeLightbox = () => {
-    setActiveVideo(null);
-  };
 
   return (
     <Layout>
@@ -226,19 +187,21 @@ const DePINPage = () => {
             <div className={styles.videoGrid}>
               {videoData.map((video, index) => (
                 <div className={styles.videoCard} key={index}>
-                  <div
-                    className={styles.videoThumbnail}
-                    onClick={() => openLightbox(video.id)}
-                  >
+                  <div className={styles.videoThumbnail}>
                     <Image
                       src={video.thumbnail}
                       alt={video.alt}
                       layout="fill"
                       objectFit="cover"
                     />
-                    <div className={styles.playButton}>
+                    <VideoTrigger
+                      platform="youtube"
+                      id={video.id}
+                      title={video.title}
+                      className={styles.playButton}
+                    >
                       <Play fill="white" strokeWidth={0} />
-                    </div>
+                    </VideoTrigger>
                   </div>
                   <h3>{video.title}</h3>
                   <p>{video.description}</p>
@@ -387,11 +350,8 @@ const DePINPage = () => {
             </div>
           </div>
         </section>
-
-        {activeVideo && (
-          <VideoLightbox videoId={activeVideo} onClose={closeLightbox} />
-        )}
       </div>
+      <VideoPlayerModal />
     </Layout>
   );
 };
