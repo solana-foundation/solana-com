@@ -14,7 +14,7 @@ import {
 } from "@/component-library/video-modal";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { useState, useCallback } from "react";
-import { useTranslation } from "next-i18next";
+// import { useTranslation } from "next-i18next";
 import { withLocales } from "@/i18n/routing";
 
 // Import video thumbnails
@@ -31,7 +31,7 @@ import mintImg from "assets/solutions/depin/mint.png";
 import kycImg from "assets/solutions/depin/kyc.png";
 
 const DePINPage = () => {
-  const { t: _ } = useTranslation("common");
+  // const { t } = useTranslation("common");
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
   const testimonials = [
