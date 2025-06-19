@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Trans } from "next-i18next";
 import classNames from "classnames";
 
-import Button from "@/components/solutions/Button";
+import { Button } from "@/app/components/ui/button";
 import { AnimatedText } from "@/components/shared/Text";
 import { SquareArrowOutUpRight } from "lucide-react";
 
@@ -22,9 +22,17 @@ export const YDeveloperResourcesLink = ({
 }: YDeveloperResourcesLinkProps) => (
   <li>
     {link && (
-      <Link href={link} target="_blank">
+      <Link
+        href={link}
+        target="_blank"
+        className="group inline-flex items-center"
+      >
         {title}
-        <SquareArrowOutUpRight color="#D0D0DC" />
+        <SquareArrowOutUpRight
+          color="#D0D0DC"
+          size={20}
+          className="transition-transform duration-200 group-hover:translate-x-1"
+        />
       </Link>
     )}
   </li>
@@ -76,10 +84,12 @@ const YDeveloperResources = ({
             <div className={styles.button_wrapper}>
               {primaryButtonText && primaryButtonUrl && (
                 <Button
-                  text={primaryButtonText}
-                  url={primaryButtonUrl}
-                  target="_blank"
-                />
+                  variant="hero"
+                  size="lg"
+                  onClick={() => (window.location.href = primaryButtonUrl)}
+                >
+                  {primaryButtonText}
+                </Button>
               )}
 
               {secButtonText && secButtonUrl && (
