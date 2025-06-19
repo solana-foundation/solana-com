@@ -6,10 +6,7 @@ export default {
   presets: [createPreset()],
   content: [
     "./node_modules/fumadocs-ui/dist/**/*.js",
-    // "./src/components/**/*.{ts,tsx}",
-    "./src/app/**/*.{ts,tsx}",
-    // "./src/**/*.{js,ts,jsx,tsx,mdx}",
-    // "./src/content/**/*.mdx",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   blocklist: ["collapse"], // Block the collapse class from being generated
   theme: {
