@@ -20,6 +20,13 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-50",
         link: "text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-50",
+        hero: [
+          "relative overflow-hidden inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-bold px-6 py-3 transition-all duration-300",
+          "bg-purple-600 hover:text-black",
+          "hover:bg-gradient-to-tr hover:from-purple-600 hover:via-blue-400/60 hover:to-green-400",
+          "hover:shadow-lg hover:-translate-y-0.5",
+          "hover:shadow-[0_0_16px_1px_rgba(44,217,187,0.3)]",
+        ].join(" "),
       },
       size: {
         default: "h-10 px-4 py-2",
