@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import Text from "@/components/shared/Text";
-import Button from "@/components/solutions/Button";
+import { Button } from "@/app/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import styles from "./DePINHero.module.scss";
 import React from "react";
+import type { StaticImageData } from "next/image";
 
 // Import images
 import globeImage from "assets/solutions/depin/globe.png";
@@ -20,6 +21,22 @@ import cudisLogo from "assets/solutions/depin/cudis.png";
 import natixLogo from "assets/solutions/depin/natix.png";
 
 // Additional logos will need to be added here
+
+type ProjectStats = {
+  users: string;
+  label: string;
+};
+
+type Project = {
+  logo: StaticImageData;
+  name: string;
+  description: string;
+  stats: ProjectStats;
+};
+
+type ProjectCardProps = {
+  data: Project;
+};
 
 const sliderData = [
   {
@@ -107,7 +124,7 @@ const sliderData = [
   },
 ];
 
-const ProjectCard = React.memo(({ data }) => (
+const ProjectCard = React.memo(({ data }: ProjectCardProps) => (
   <motion.div className={styles.cardWrapper}>
     <div className={styles.projectCard}>
       <div className={styles.cardHeader}>
@@ -237,7 +254,13 @@ const DePINHero = () => {
           The next generation of infrastructure is being built on the
           decentralized, high-performance Solana blockchain.
         </Text>
-        <Button text="Start Building" url="#developer-resources" />
+        <Button
+          variant="hero"
+          size="lg"
+          onClick={() => (window.location.href = "#depin-resources")}
+        >
+          Start Building
+        </Button>
       </div>
 
       <div className={styles.sliderSection}>
