@@ -17,23 +17,28 @@ export interface VideoSource {
 }
 
 export function openVideoPlayer(source: VideoSource) {
-  window.dispatchEvent(new CustomEvent(OPEN_VIDEO_EVENT, { detail: source }));
+  window.dispatchEvent(
+    new CustomEvent(OPEN_VIDEO_EVENT, {
+      detail: { ...source, autoplay: source.autoplay ?? true },
+    }),
+  );
 }
 
 export interface VideoTriggerProps extends VideoSource {
   children?: React.ReactNode;
   className?: string;
+  autoplay?: boolean;
 }
 
 export const VideoTrigger = React.forwardRef<
   HTMLButtonElement,
   VideoTriggerProps
->(({ children, className = "", ...source }, ref) => {
+>(({ children, className = "", autoplay = true, ...source }, ref) => {
   return (
     <button
       ref={ref}
       type="button"
-      onClick={() => openVideoPlayer(source)}
+      onClick={() => openVideoPlayer({ ...source, autoplay })}
       className={
         "inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-primary-foreground transition hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 " +
         className
