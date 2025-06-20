@@ -7,6 +7,7 @@ import { ChevronRight } from "lucide-react";
 import styles from "./DePINHero.module.scss";
 import React from "react";
 import type { StaticImageData } from "next/image";
+import { useTranslation } from "next-i18next";
 
 // Import images
 import globeImage from "assets/solutions/depin/globe.png";
@@ -20,7 +21,18 @@ import xnetLogo from "assets/solutions/depin/xnet.png";
 import cudisLogo from "assets/solutions/depin/cudis.png";
 import natixLogo from "assets/solutions/depin/natix.png";
 
-// Additional logos will need to be added here
+// Base (static) logo list to avoid repeating StaticImageData imports in JSON
+const projectLogos: StaticImageData[] = [
+  heliumLogo,
+  hivemapperLogo,
+  renderLogo,
+  starpowerLogo,
+  geodnetLogo,
+  skytradeLogo,
+  xnetLogo,
+  cudisLogo,
+  natixLogo,
+];
 
 type ProjectStats = {
   users: string;
@@ -38,92 +50,6 @@ type ProjectCardProps = {
   data: Project;
 };
 
-const sliderData = [
-  {
-    logo: heliumLogo,
-    name: "Helium Mobile",
-    description: "A cheaper phone plan",
-    stats: {
-      users: "350k+",
-      label: "daily subscribers",
-    },
-  },
-  {
-    logo: hivemapperLogo,
-    name: "Hivemapper",
-    description: "Decentralized mapmaking",
-    stats: {
-      users: "30%",
-      label: "of the world's roads mapped",
-    },
-  },
-  {
-    logo: renderLogo,
-    name: "Render",
-    description: "AI-driven creativity with decentralized GPU power",
-    stats: {
-      users: "40M",
-      label: "frames rendered",
-    },
-  },
-  {
-    logo: starpowerLogo,
-    name: "Starpower",
-    description:
-      "Powering AI partnering with renewable energy device manufactures",
-    stats: {
-      users: "5M",
-      label: "registered users",
-    },
-  },
-  {
-    logo: geodnetLogo,
-    name: "Geodnet",
-    description: "High-precision positioning for robots",
-    stats: {
-      users: "2.5x",
-      label: "bigger than its closest web2 competitor",
-    },
-  },
-  {
-    logo: skytradeLogo,
-    name: "Skytrade",
-    description: "Monetizing your low-altitude air rights assets",
-    stats: {
-      users: "10,000",
-      label: "air rights parcels",
-    },
-  },
-  {
-    logo: xnetLogo,
-    name: "XNET",
-    description: "A decentralized mobile network that works with any carrier",
-    stats: {
-      users: "1M",
-      label: "total users",
-    },
-  },
-  {
-    logo: cudisLogo,
-    name: "Cudis",
-    description: "The smart ring that rewards your wellness journey",
-    stats: {
-      users: "1B+",
-      label: "steps tracked",
-    },
-  },
-  {
-    logo: natixLogo,
-    name: "NATIX",
-    description:
-      "Infrastructure for mapping, autonomous driving, and physical AI",
-    stats: {
-      users: "220k",
-      label: "registered drivers",
-    },
-  },
-];
-
 const ProjectCard = React.memo(({ data }: ProjectCardProps) => (
   <motion.div className={styles.cardWrapper}>
     <div className={styles.projectCard}>
@@ -134,10 +60,7 @@ const ProjectCard = React.memo(({ data }: ProjectCardProps) => (
           width={32}
           height={32}
           className={styles.logo}
-          style={{
-            maxWidth: "100%",
-            height: "auto",
-          }}
+          style={{ maxWidth: "100%", height: "auto" }}
         />
         <h3>{data.name}</h3>
         <div className={styles.arrow}>
@@ -162,78 +85,71 @@ const ProjectCard = React.memo(({ data }: ProjectCardProps) => (
 ));
 
 const DePINHero = () => {
-  const carouselRef = useRef(null);
+  const { t } = useTranslation("common");
+
+  // Build slider data from i18n keys so that copy is translatable
+  const sliderData: Project[] = projectLogos.map((logo, idx) => ({
+    logo,
+    name: t(`depin.hero.slider.${idx}.name`),
+    description: t(`depin.hero.slider.${idx}.description`),
+    stats: {
+      users: t(`depin.hero.slider.${idx}.stats.users`),
+      label: t(`depin.hero.slider.${idx}.stats.label`),
+    },
+  }));
+
+  const carouselRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
-  const autoScrollTimerRef = useRef(null);
+  const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const checkScrollability = () => {
     if (carouselRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
-
       setCanScrollLeft(scrollLeft > 0);
       setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
     }
   };
 
-  // Function to handle automatic scrolling
+  // Automatic scrolling
   const autoScroll = useCallback(() => {
     if (!carouselRef.current || !isAutoScrolling) return;
-
     const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
-
-    // If we're near the end, go back to the start
     if (scrollLeft >= scrollWidth - clientWidth - 10) {
       carouselRef.current.scrollTo({ left: 0, behavior: "smooth" });
     } else {
-      // Otherwise keep scrolling right
       carouselRef.current.scrollBy({ left: 424, behavior: "smooth" });
     }
   }, [isAutoScrolling]);
 
   useEffect(() => {
-    // Set up auto-scrolling timer
     if (isAutoScrolling) {
       autoScrollTimerRef.current = setInterval(autoScroll, 5000);
     }
-
     return () => {
-      if (autoScrollTimerRef.current) {
-        clearInterval(autoScrollTimerRef.current);
-      }
+      if (autoScrollTimerRef.current) clearInterval(autoScrollTimerRef.current);
     };
   }, [isAutoScrolling, autoScroll]);
 
   useEffect(() => {
     checkScrollability();
     window.addEventListener("resize", checkScrollability);
-
-    return () => {
-      window.removeEventListener("resize", checkScrollability);
-    };
+    return () => window.removeEventListener("resize", checkScrollability);
   }, []);
 
   const scrollLeft = () => {
     if (carouselRef.current) {
-      // Pause auto scrolling temporarily when user interacts
       setIsAutoScrolling(false);
-
       carouselRef.current.scrollBy({ left: -424, behavior: "smooth" });
-
-      // Resume auto scrolling after a delay
       setTimeout(() => setIsAutoScrolling(true), 10000);
     }
   };
 
   const scrollRight = () => {
     if (carouselRef.current) {
-      // Pause auto scrolling temporarily when user interacts
       setIsAutoScrolling(false);
-
       carouselRef.current.scrollBy({ left: 424, behavior: "smooth" });
-
-      // Resume auto scrolling after a delay
       setTimeout(() => setIsAutoScrolling(true), 10000);
     }
   };
@@ -242,24 +158,23 @@ const DePINHero = () => {
     <section className={styles.hero}>
       {/* DePIN Badge */}
       <div className={styles.badge}>
-        <span className={styles.eyebrowText}>DePIN SZN is here</span>
+        <span className={styles.eyebrowText}>{t("depin.hero.badge")}</span>
         <ChevronRight className={styles.badgeIcon} size={14} />
       </div>
 
       <div className={styles.content}>
         <Text element="h1" as="heading">
-          Home of World&apos;s Biggest DePIN projects
+          {t("depin.hero.title")}
         </Text>
         <Text element="p" as="paragraph">
-          The next generation of infrastructure is being built on the
-          decentralized, high-performance Solana blockchain.
+          {t("depin.hero.subtitle")}
         </Text>
         <Button
           variant="hero"
           size="lg"
           onClick={() => (window.location.href = "#depin-resources")}
         >
-          Start Building
+          {t("depin.hero.cta")}
         </Button>
       </div>
 
@@ -268,7 +183,7 @@ const DePINHero = () => {
           className={`${styles.navigationButton} ${styles.prev}`}
           onClick={scrollLeft}
           disabled={!canScrollLeft}
-          aria-label="Previous slide"
+          aria-label={t("depin.hero.prevAria")}
         >
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
             <path
@@ -297,7 +212,7 @@ const DePINHero = () => {
           className={`${styles.navigationButton} ${styles.next}`}
           onClick={scrollRight}
           disabled={!canScrollRight}
-          aria-label="Next slide"
+          aria-label={t("depin.hero.nextAria")}
         >
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
             <path
@@ -313,7 +228,7 @@ const DePINHero = () => {
 
       <Image
         src={globeImage}
-        alt="Globe visualization"
+        alt={t("depin.hero.globeAlt")}
         width={1400}
         height={800}
         className={styles.globe}
