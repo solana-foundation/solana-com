@@ -14,7 +14,7 @@ import {
 } from "@/component-library/video-modal";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { useState, useCallback } from "react";
-// import { useTranslation } from "next-i18next";
+import { useTranslation } from "next-i18next";
 import { withLocales } from "@/i18n/routing";
 
 // Import video thumbnails
@@ -31,31 +31,28 @@ import mintImg from "assets/solutions/depin/mint.png";
 import kycImg from "assets/solutions/depin/kyc.png";
 
 const DePINPage = () => {
-  // const { t } = useTranslation("common");
+  const { t } = useTranslation("common");
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
   const testimonials = [
     {
-      quote:
-        "Given the scale of our vision, Solana is undoubtedly the best foundation for us to build on moving forward.",
+      quote: t("depin.testimonials.0.quote"),
       name: "Yuan",
-      title: "Founder & CEO",
+      title: t("depin.testimonials.0.title"),
       companyLogo: gradientLogo,
       avatar: yuanImg,
     },
     {
-      quote:
-        "Our users are pushing almost 2 million on chain transactions daily. Not a lot of blockchains can handle that volume.",
+      quote: t("depin.testimonials.1.quote"),
       name: "Rohan",
-      title: "CMO",
+      title: t("depin.testimonials.1.title"),
       companyLogo: roamLogo,
       avatar: rohanImg,
     },
     {
-      quote:
-        "Solana's high throughput and fast finality ensure that our globally distributed GPU compute resources can be orchestrated with minimal latency, which is critical for powering AI/ML workloads, zero-knowledge proof generation, and other compute-intensive operations.",
+      quote: t("depin.testimonials.2.quote"),
       name: "Jake",
-      title: "Founder & CEO",
+      title: t("depin.testimonials.2.title"),
       companyLogo: ioLogo,
       avatar: jakeImg,
     },
@@ -73,7 +70,7 @@ const DePINPage = () => {
     );
   }, [testimonials.length]);
 
-  const goToSlide = (index) => {
+  const goToSlide = (index: number) => {
     setCurrentTestimonial(index);
   };
 
@@ -81,34 +78,31 @@ const DePINPage = () => {
     {
       id: "IpWVxL4V4Oc",
       thumbnail: video1Img,
-      title: "Render Network",
-      description:
-        "Discover how Render is revolutionizing cloud computing with their innovative DePIN solution on Solana.",
-      alt: "Render video thumbnail",
+      title: t("depin.videos.0.title"),
+      description: t("depin.videos.0.description"),
+      alt: t("depin.videos.0.alt"),
     },
     {
-      id: "PzNXP0w4xqU", // Replace with actual Render YouTube video ID
+      id: "PzNXP0w4xqU",
       thumbnail: video2Img,
-      title: "Hivemapper",
-      description:
-        "Learn how Hivemapper is building a decentralized mapping network powered by dashcams and Solana's blockchain.",
-      alt: "Render video thumbnail",
+      title: t("depin.videos.1.title"),
+      description: t("depin.videos.1.description"),
+      alt: t("depin.videos.1.alt"),
     },
     {
-      id: "VaBJu3dXpKk", // Replace with actual Hivemapper YouTube video ID
+      id: "VaBJu3dXpKk",
       thumbnail: video3Img,
-      title: "Helium Mobile",
-      description:
-        "Learn how Helium Mobile is building a decentralized mobile network powered by dashcams and Solana's blockchain.",
-      alt: "Hivemapper video thumbnail",
+      title: t("depin.videos.2.title"),
+      description: t("depin.videos.2.description"),
+      alt: t("depin.videos.2.alt"),
     },
   ];
 
   return (
     <Layout>
       <HTMLHead
-        title="DePIN"
-        description="Build Decentralized Physical Infrastructure Networks on Solana for affordable, censorship-resistant, and composable hardware resource orchestration."
+        title={t("depin.head.title")}
+        description={t("depin.head.description")}
       />
 
       <div id="depin-page">
@@ -124,17 +118,18 @@ const DePINPage = () => {
                 <div className={styles.featureImageContainer}>
                   <Image
                     src={mintImg}
-                    alt="Mint at Scale visualization"
+                    alt={t("depin.features.mint.alt")}
                     width={500}
                     height={300}
                     layout="responsive"
                     loading="lazy"
                   />
                 </div>
-                <h2 className={styles.featureTitle}>Mint at Scale</h2>
+                <h2 className={styles.featureTitle}>
+                  {t("depin.features.mint.title")}
+                </h2>
                 <p className={styles.featureDescription}>
-                  Use zk compression on Solana to create millions of digital
-                  assets for hundreds of dollars.
+                  {t("depin.features.mint.description")}
                 </p>
               </div>
 
@@ -143,18 +138,17 @@ const DePINPage = () => {
                 <div className={styles.featureImageContainer}>
                   <Image
                     src={kycImg}
-                    alt="Compliance tooling visualization"
+                    alt={t("depin.features.tooling.alt")}
                     width={500}
                     height={300}
                     layout="responsive"
                   />
                 </div>
                 <h2 className={styles.featureTitle}>
-                  Ready-made tooling for scale and compliance
+                  {t("depin.features.tooling.title")}
                 </h2>
                 <p className={styles.featureDescription}>
-                  Token extensions on Solana can enable KYC checks, privacy,
-                  audit trails, and more.
+                  {t("depin.features.tooling.description")}
                 </p>
               </div>
             </div>
@@ -165,12 +159,10 @@ const DePINPage = () => {
         <section className={styles.buildersSection}>
           <div className={styles.buildersContainer}>
             <h2 className={styles.buildersTitle}>
-              Real Builders. Real Impact.
+              {t("depin.builders.title")}
             </h2>
             <p className={styles.buildersSubtitle}>
-              Meet the visionary teams building the future of global
-              infrastructure on Solana, revolutionizing how we think about
-              decentralized physical infrastructure.
+              {t("depin.builders.subtitle")}
             </p>
 
             <div className={styles.buttonContainer}>
@@ -180,7 +172,7 @@ const DePINPage = () => {
                 rel="noopener noreferrer"
                 className={styles.ghostButton}
               >
-                More Stories
+                {t("depin.builders.moreStories")}
               </a>
             </div>
 
@@ -217,7 +209,9 @@ const DePINPage = () => {
             {testimonials.map((testimonial, index) => (
               <div
                 key={index}
-                className={`${styles.testimonialSlide} ${currentTestimonial === index ? styles.active : ""}`}
+                className={`${styles.testimonialSlide} ${
+                  currentTestimonial === index ? styles.active : ""
+                }`}
                 style={{
                   transform: `translateX(${100 * (index - currentTestimonial)}%)`,
                 }}
@@ -260,7 +254,7 @@ const DePINPage = () => {
               <button
                 className={styles.prevButton}
                 onClick={prevSlide}
-                aria-label="Previous testimonial"
+                aria-label={t("depin.testimonials.prevAria")}
               >
                 <ChevronLeft size={24} />
               </button>
@@ -268,16 +262,20 @@ const DePINPage = () => {
                 {testimonials.map((_, index) => (
                   <button
                     key={index}
-                    className={`${styles.sliderDot} ${currentTestimonial === index ? styles.active : ""}`}
+                    className={`${styles.sliderDot} ${
+                      currentTestimonial === index ? styles.active : ""
+                    }`}
                     onClick={() => goToSlide(index)}
-                    aria-label={`Go to testimonial ${index + 1}`}
+                    aria-label={t("depin.testimonials.gotoAria", {
+                      num: index + 1,
+                    })}
                   />
                 ))}
               </div>
               <button
                 className={styles.nextButton}
                 onClick={nextSlide}
-                aria-label="Next testimonial"
+                aria-label={t("depin.testimonials.nextAria")}
               >
                 <ChevronRight size={24} />
               </button>
@@ -288,16 +286,16 @@ const DePINPage = () => {
         {/* Developer Resources Section */}
         <YDeveloperResources
           id="depin-resources"
-          title="Start Building on Solana Today"
-          subtitle="Get everything you need to build DePIN applications on Solana with these essential resources."
+          title={t("depin.resources.title")}
+          subtitle={t("depin.resources.subtitle")}
           links={
             <>
               <YDeveloperResourcesLink
-                title="DePIN Quickstart Guide"
+                title={t("depin.resources.quickstart")}
                 link="/developers/guides/depin/getting-started"
               />
               <YDeveloperResourcesLink
-                title="Solana DePIN Examples"
+                title={t("depin.resources.examples")}
                 link="https://github.com/solana-developers/solana-depin-examples"
               />
             </>
@@ -326,11 +324,12 @@ const DePINPage = () => {
                 className={styles.resourceColumn}
                 style={{ textAlign: "center", maxWidth: "600px" }}
               >
-                <h3 className={styles.resourceColumnTitle}>DePIN in Action</h3>
+                <h3 className={styles.resourceColumnTitle}>
+                  {t("depin.resources.actionTitle")}
+                </h3>
                 <div className={styles.resourceContent}>
                   <p className={styles.resourceText}>
-                    Check out these videos of Solana DePIN founders telling
-                    their stories about what they&apos;re building.
+                    {t("depin.resources.actionText")}
                   </p>
                   <div
                     className={styles.buttonContainer}
@@ -342,7 +341,7 @@ const DePINPage = () => {
                       rel="noopener noreferrer"
                       className={styles.ghostButton}
                     >
-                      Watch Videos
+                      {t("depin.resources.watchVideos")}
                     </a>
                   </div>
                 </div>
