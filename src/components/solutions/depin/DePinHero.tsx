@@ -43,9 +43,9 @@ const DePINHero = () => {
   return (
     <>
       <section id="depin-hero" className={styles.depinHero}>
-      <div className={styles.leftDotsBar}>
-        <Image src={dotsImage} alt="Dots" width={40} height={238} />
-      </div>
+        <div className={styles.leftDotsBar}>
+          <Image src={dotsImage} alt="Dots" width={40} height={238} />
+        </div>
         <div className={styles.badge}>
           <span className={styles.eyebrowText}>{t("depin.hero.badge")}</span>
           <ChevronRight className={styles.badgeIcon} size={14} />
