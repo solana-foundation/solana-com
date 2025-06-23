@@ -21,6 +21,7 @@ export default {
         "ch-line-number": "var(--ch-24)", // editorLineNumber.foreground
         "ch-tabs-background": "hsl(var(--fd-muted))", // editorGroupHeader.tabsBackground
         "ch-active-border": "var(--ch-3)", // tab.activeBorderTop
+        "depin-bg": "#080d17",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -1,12 +1,12 @@
 import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Image from "next/image";
-import WhatIsDepin from "@/components/solutions/depin/WhatIsDepin";
+import { WhatIsDepin } from "@/components/solutions/depin/WhatIsDepin";
+import { EcoProjects } from "@/components/solutions/depin/EcoProjects";
 import Layout from "@/components/solutions/layout";
 import YDeveloperResources, {
   YDeveloperResourcesLink,
 } from "@/components/solutions/YDeveloperResources";
-import styles from "./depin.module.scss";
 import { Play, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   VideoPlayerModal,
@@ -105,49 +105,59 @@ const DePINPage = () => {
         description={t("depin.head.description")}
       />
 
-      <div id="depin-page">
+      <div id="depin-page" className="bg-depin-bg">
         <DePINHero />
         <WhatIsDepin />
 
+        {/* EcoProjects Section */}
+        <section className="py-12">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
+              <h2 className="text-3xl font-bold text-white col-span-full">
+                {t("depin.features.title")}
+              </h2>
+              <EcoProjects />
+            </div>
+          </div>
+        </section>
+
         {/* Two Column Features Section */}
-        <section className={styles.featuresSection}>
-          <div className={styles.featuresContainer}>
-            <div className={styles.featuresRow}>
+        <section className="py-12">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
               {/* Left Column - Mint at Scale */}
-              <div className={styles.featureColumn}>
-                <div className={styles.featureImageContainer}>
+              <div className="flex flex-col">
+                <div className="mb-8 rounded-2xl overflow-hidden bg-[#12101e] p-8 h-72 flex items-center justify-center">
                   <Image
                     src={mintImg}
                     alt={t("depin.features.mint.alt")}
                     width={500}
                     height={300}
-                    layout="responsive"
-                    loading="lazy"
+                    className="object-contain max-h-60 w-full"
                   />
                 </div>
-                <h2 className={styles.featureTitle}>
+                <h2 className="text-2xl md:text-3xl font-semibold text-white mb-4">
                   {t("depin.features.mint.title")}
                 </h2>
-                <p className={styles.featureDescription}>
+                <p className="text-base md:text-lg text-gray-300">
                   {t("depin.features.mint.description")}
                 </p>
               </div>
-
               {/* Right Column - Ready-made tooling */}
-              <div className={styles.featureColumn}>
-                <div className={styles.featureImageContainer}>
+              <div className="flex flex-col">
+                <div className="mb-8 rounded-2xl overflow-hidden bg-[#12101e] p-8 h-72 flex items-center justify-center">
                   <Image
                     src={kycImg}
                     alt={t("depin.features.tooling.alt")}
                     width={500}
                     height={300}
-                    layout="responsive"
+                    className="object-contain max-h-60 w-full"
                   />
                 </div>
-                <h2 className={styles.featureTitle}>
+                <h2 className="text-2xl md:text-3xl font-semibold text-white mb-4">
                   {t("depin.features.tooling.title")}
                 </h2>
-                <p className={styles.featureDescription}>
+                <p className="text-base md:text-lg text-gray-300">
                   {t("depin.features.tooling.description")}
                 </p>
               </div>
@@ -156,47 +166,49 @@ const DePINPage = () => {
         </section>
 
         {/* Real Builders Section */}
-        <section className={styles.buildersSection}>
-          <div className={styles.buildersContainer}>
-            <h2 className={styles.buildersTitle}>
+        <section className="py-20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl md:text-5xl font-bold text-white text-center mb-4">
               {t("depin.builders.title")}
             </h2>
-            <p className={styles.buildersSubtitle}>
+            <p className="text-base md:text-lg text-gray-300 text-center max-w-2xl mx-auto mb-12">
               {t("depin.builders.subtitle")}
             </p>
-
-            <div className={styles.buttonContainer}>
+            <div className="flex justify-center mb-12">
               <a
                 href="https://www.youtube.com/@SolanaFndn"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={styles.ghostButton}
+                className="inline-flex items-center justify-center px-6 py-3 border border-white/30 rounded-full text-white font-medium hover:bg-white/10 transition"
               >
                 {t("depin.builders.moreStories")}
               </a>
             </div>
-
-            <div className={styles.videoGrid}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {videoData.map((video, index) => (
-                <div className={styles.videoCard} key={index}>
-                  <div className={styles.videoThumbnail}>
+                <div className="flex flex-col" key={index}>
+                  <div className="relative w-full aspect-video rounded-xl overflow-hidden cursor-pointer group">
                     <Image
                       src={video.thumbnail}
                       alt={video.alt}
-                      layout="fill"
-                      objectFit="cover"
+                      fill
+                      className="object-cover"
                     />
                     <VideoTrigger
                       platform="youtube"
                       id={video.id}
                       title={video.title}
-                      className={styles.playButton}
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-purple-600/90 rounded-full flex items-center justify-center transition group-hover:scale-110"
                     >
                       <Play fill="white" strokeWidth={0} />
                     </VideoTrigger>
                   </div>
-                  <h3>{video.title}</h3>
-                  <p>{video.description}</p>
+                  <h3 className="text-lg md:text-xl font-semibold text-white mt-4 mb-2">
+                    {video.title}
+                  </h3>
+                  <p className="text-sm md:text-base text-gray-300">
+                    {video.description}
+                  </p>
                 </div>
               ))}
             </div>
@@ -204,81 +216,82 @@ const DePINPage = () => {
         </section>
 
         {/* Testimonial Slider Section */}
-        <section className={styles.testimonialSection}>
-          <div className={styles.testimonialSlider}>
-            {testimonials.map((testimonial, index) => (
-              <div
-                key={index}
-                className={`${styles.testimonialSlide} ${
-                  currentTestimonial === index ? styles.active : ""
-                }`}
-                style={{
-                  transform: `translateX(${100 * (index - currentTestimonial)}%)`,
-                }}
-              >
-                <div className={styles.testimonialContent}>
-                  <blockquote>
-                    <p>&ldquo;{testimonial.quote}&rdquo;</p>
-                  </blockquote>
-                  <div className={styles.testimonialAuthor}>
-                    <div className={styles.authorInfo}>
-                      <div className={styles.authorName}>
-                        {testimonial.name}
+        <section className="py-20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+            <div className="relative overflow-hidden">
+              {testimonials.map((testimonial, index) => (
+                <div
+                  key={index}
+                  className={`flex flex-col-reverse md:flex-row items-center transition-all duration-700 absolute w-full top-0 left-0 ${currentTestimonial === index ? "opacity-100 relative" : "opacity-0 pointer-events-none"}`}
+                  style={{
+                    transform: `translateX(${100 * (index - currentTestimonial)}%)`,
+                  }}
+                >
+                  <div className="flex-1 pt-6 md:pt-0 md:pr-12">
+                    <blockquote>
+                      <p className="text-lg md:text-2xl text-white font-light mb-6">
+                        &ldquo;{testimonial.quote}&rdquo;
+                      </p>
+                    </blockquote>
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mt-8">
+                      <div>
+                        <div className="text-purple-400 font-semibold text-base md:text-lg">
+                          {testimonial.name}
+                        </div>
+                        <div className="text-gray-300 text-sm md:text-base">
+                          {testimonial.title}
+                        </div>
                       </div>
-                      <div className={styles.authorTitle}>
-                        {testimonial.title}
+                      <div className="flex items-center max-w-xs h-10">
+                        <Image
+                          src={testimonial.companyLogo}
+                          alt="Company logo"
+                          width={120}
+                          height={24}
+                        />
                       </div>
-                    </div>
-                    <div className={styles.companyLogo}>
-                      <Image
-                        src={testimonial.companyLogo}
-                        alt="Gradient logo"
-                        width={120}
-                        height={24}
-                      />
                     </div>
                   </div>
+                  <div className="max-w-xs w-full h-72 flex-shrink-0 mx-auto md:mx-0">
+                    <Image
+                      src={testimonial.avatar}
+                      alt={testimonial.name}
+                      width={280}
+                      height={280}
+                      className="object-contain w-full h-full"
+                    />
+                  </div>
                 </div>
-                <div className={styles.testimonialImage}>
-                  <Image
-                    src={testimonial.avatar}
-                    alt={testimonial.name}
-                    width={280}
-                    height={280}
-                  />
+              ))}
+              {/* Slider Controls */}
+              <div className="flex items-center justify-center mt-10">
+                <button
+                  className="w-10 h-10 flex items-center justify-center text-white hover:text-purple-400 transition"
+                  onClick={prevSlide}
+                  aria-label={t("depin.testimonials.prevAria")}
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <div className="flex items-center gap-2 mx-4">
+                  {testimonials.map((_, index) => (
+                    <button
+                      key={index}
+                      className={`w-3 h-3 rounded-full border-none transition ${currentTestimonial === index ? "bg-white" : "bg-white/30"}`}
+                      onClick={() => goToSlide(index)}
+                      aria-label={t("depin.testimonials.gotoAria", {
+                        num: index + 1,
+                      })}
+                    />
+                  ))}
                 </div>
+                <button
+                  className="w-10 h-10 flex items-center justify-center text-white hover:text-purple-400 transition"
+                  onClick={nextSlide}
+                  aria-label={t("depin.testimonials.nextAria")}
+                >
+                  <ChevronRight size={24} />
+                </button>
               </div>
-            ))}
-
-            <div className={styles.sliderControls}>
-              <button
-                className={styles.prevButton}
-                onClick={prevSlide}
-                aria-label={t("depin.testimonials.prevAria")}
-              >
-                <ChevronLeft size={24} />
-              </button>
-              <div className={styles.sliderDots}>
-                {testimonials.map((_, index) => (
-                  <button
-                    key={index}
-                    className={`${styles.sliderDot} ${
-                      currentTestimonial === index ? styles.active : ""
-                    }`}
-                    onClick={() => goToSlide(index)}
-                    aria-label={t("depin.testimonials.gotoAria", {
-                      num: index + 1,
-                    })}
-                  />
-                ))}
-              </div>
-              <button
-                className={styles.nextButton}
-                onClick={nextSlide}
-                aria-label={t("depin.testimonials.nextAria")}
-              >
-                <ChevronRight size={24} />
-              </button>
             </div>
           </div>
         </section>
@@ -301,50 +314,26 @@ const DePINPage = () => {
             </>
           }
         />
+
         {/* DePIN Resources Grid Section */}
-        <section
-          className={styles.resourcesGridSection}
-          style={{ display: "flex", justifyContent: "center" }}
-        >
-          <div
-            className={styles.resourcesContainer}
-            style={{ display: "flex", justifyContent: "center" }}
-          >
-            <div
-              className={styles.resourcesColumns}
-              style={{
-                textAlign: "center",
-                justifyContent: "center",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-              }}
-            >
-              <div
-                className={styles.resourceColumn}
-                style={{ textAlign: "center", maxWidth: "600px" }}
-              >
-                <h3 className={styles.resourceColumnTitle}>
-                  {t("depin.resources.actionTitle")}
-                </h3>
-                <div className={styles.resourceContent}>
-                  <p className={styles.resourceText}>
-                    {t("depin.resources.actionText")}
-                  </p>
-                  <div
-                    className={styles.buttonContainer}
-                    style={{ marginTop: "24px" }}
-                  >
-                    <a
-                      href="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.ghostButton}
-                    >
-                      {t("depin.resources.watchVideos")}
-                    </a>
-                  </div>
-                </div>
+        <section className="py-20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
+            <div className="flex flex-col items-center text-center max-w-xl">
+              <h3 className="text-xl md:text-2xl font-semibold text-white mb-6">
+                {t("depin.resources.actionTitle")}
+              </h3>
+              <p className="text-base md:text-lg text-gray-300 mb-6">
+                {t("depin.resources.actionText")}
+              </p>
+              <div className="mt-6">
+                <a
+                  href="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center px-6 py-3 border border-white/30 rounded-full text-white font-medium hover:bg-white/10 transition"
+                >
+                  {t("depin.resources.watchVideos")}
+                </a>
               </div>
             </div>
           </div>
