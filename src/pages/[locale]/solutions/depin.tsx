@@ -1,8 +1,8 @@
 import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Image from "next/image";
+import WhatIsDepin from "@/components/solutions/depin/WhatIsDepin";
 import Layout from "@/components/solutions/layout";
-import WhyBuildSection from "@/components/solutions/depin/WhyBuildSection";
 import YDeveloperResources, {
   YDeveloperResourcesLink,
 } from "@/components/solutions/YDeveloperResources";
@@ -107,7 +107,7 @@ const DePINPage = () => {
 
       <div id="depin-page">
         <DePINHero />
-        <WhyBuildSection />
+        <WhatIsDepin />
 
         {/* Two Column Features Section */}
         <section className={styles.featuresSection}>
