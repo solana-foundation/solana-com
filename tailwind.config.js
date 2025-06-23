@@ -5,8 +5,9 @@ export default {
   darkMode: ["class"],
   presets: [createPreset()],
   content: [
-    "./node_modules/fumadocs-ui/dist/**/*.js",
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./node_modules/fumadocs-ui/dist/**/*.js",
+    "./node_modules/radix-ui/**/*.{js,ts,tsx}", 
   ],
   blocklist: ["collapse"], // Block the collapse class from being generated
   theme: {
