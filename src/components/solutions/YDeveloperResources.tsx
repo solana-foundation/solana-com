@@ -1,10 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Trans } from "next-i18next";
-import classNames from "classnames";
+// import { Trans } from "next-i18next";
+// import classNames from "classnames";
 
 import { Button } from "@/app/components/ui/button";
-import { AnimatedText } from "@/components/shared/Text";
 import { SquareArrowOutUpRight } from "lucide-react";
 
 import styles from "./YDeveloperResources.module.scss";
@@ -52,7 +51,7 @@ interface YDeveloperResourcesProps {
 const YDeveloperResources = ({
   id,
   title,
-  subtitle,
+  // subtitle,
   links,
   primaryButtonText,
   primaryButtonUrl,
@@ -65,7 +64,7 @@ const YDeveloperResources = ({
         <div className={styles.inner_container}>
           <div className={styles.title_block}>
             <h3 className={styles.title_badge}>Build</h3>
-            <AnimatedText element="h2" as="heading">
+            {/* <AnimatedText element="h2" as="heading">
               <Trans i18nKey={title} />
             </AnimatedText>
 
@@ -77,7 +76,7 @@ const YDeveloperResources = ({
               >
                 <Trans i18nKey={subtitle} />
               </AnimatedText>
-            )}
+            )} */}
 
             {links && <ul className={styles.links_wrapper}>{links}</ul>}
 
