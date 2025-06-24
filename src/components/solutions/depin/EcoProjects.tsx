@@ -1,9 +1,10 @@
 import React from "react";
 import Image from "next/image";
+import { useTranslation } from "next-i18next";
 
 const PROJECTS = [
   {
-    name: "Helium",
+    key: "helium",
     icon: (
       <Image
         src="/src/img/solutions/depin/helium.png"
@@ -13,13 +14,10 @@ const PROJECTS = [
         loading="lazy"
       />
     ),
-    description:
-      "Helium is a wireless network, deployed by 100k+ hotspot owners worldwide and used by telecom giants like T-Mobile and AT&T.",
-    stat: "350K",
-    statLabel: "Daily Subscribers",
+    bg: "#181F24",
   },
   {
-    name: "Render",
+    key: "render",
     icon: (
       <Image
         src="/src/img/solutions/depin/render.png"
@@ -29,13 +27,10 @@ const PROJECTS = [
         loading="lazy"
       />
     ),
-    description:
-      "GPU rendering platform designed to supercharge creative workflows. Harness idle GPU power worldwide.",
-    stat: "40M",
-    statLabel: "Frames Rendered",
+    bg: "#FF2D2E",
   },
   {
-    name: "Hivemapper",
+    key: "hivemapper",
     icon: (
       <Image
         src="/src/img/solutions/depin/hivemapper.png"
@@ -45,13 +40,10 @@ const PROJECTS = [
         loading="lazy"
       />
     ),
-    description:
-      "Hivemapper is a crowdsourced map, built by a community of people who take images of the world while they drive.",
-    stat: "30%",
-    statLabel: "of the World's Roads Mapped",
+    bg: "#4B6FFF",
   },
   {
-    name: "Grass",
+    key: "grass",
     icon: (
       <Image
         src="/src/img/solutions/depin/grass.png"
@@ -61,56 +53,54 @@ const PROJECTS = [
         loading="lazy"
       />
     ),
-    description:
-      "Grass is a network of millions of people who are earning rewards for sharing unused internet bandwidth with the Grass network.",
-    stat: "1B GB",
-    statLabel: "Data Scaped everyday",
+    bg: "#B6FF3A",
   },
 ];
 
-export const EcoProjects = () => (
-  <div className="col-span-full md:col-span-2 py-6">
-    <div className="mx-auto">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {PROJECTS.map((project) => (
-          <div
-            key={project.name}
-            className="flex flex-col h-full bg-[#181F24] rounded-2xl p-4 shadow-lg"
-            style={{
-              background: "linear-gradient(to top, #101520 0%, #202731 100%)",
-            }}
-          >
-            <div
-              className="mb-4 relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
-              style={{
-                background:
-                  project.name === "Helium"
-                    ? "#181F24"
-                    : project.name === "Render"
-                      ? "#FF2D2E"
-                      : project.name === "Hivemapper"
-                        ? "#4B6FFF"
-                        : "#B6FF3A",
-              }}
-            >
-              {project.icon}
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">
-              {project.name}
-            </h3>
-            <p className="text-gray-300 text-base mb-3 flex-1">
-              {project.description}
-            </p>
-            <hr className="border-[#FFFFFF] mb-4" />
-            <div className="mb-4">
-              <div className="text-3xl font-bold text-white">
-                {project.stat}
+export const EcoProjects = () => {
+  const { t } = useTranslation("common");
+
+  return (
+    <div className="col-span-full md:col-span-2 py-6">
+      <div className="mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {PROJECTS.map((project) => {
+            const base = `depin.ecoProjects.${project.key}`;
+            return (
+              <div
+                key={project.key}
+                className="flex flex-col h-full bg-[#181F24] rounded-2xl p-4 shadow-lg"
+                style={{
+                  background:
+                    "linear-gradient(to top, #101520 0%, #202731 100%)",
+                }}
+              >
+                <div
+                  className="mb-4 relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
+                  style={{ background: project.bg }}
+                >
+                  {project.icon}
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">
+                  {t(`${base}.name`)}
+                </h3>
+                <p className="text-gray-300 text-base mb-3 flex-1">
+                  {t(`${base}.description`)}
+                </p>
+                <hr className="border-[#FFFFFF] mb-4" />
+                <div className="mb-4">
+                  <div className="text-3xl font-bold text-white">
+                    {t(`${base}.stat`)}
+                  </div>
+                  <div className="text-gray-400 text-sm">
+                    {t(`${base}.statLabel`)}
+                  </div>
+                </div>
               </div>
-              <div className="text-gray-400 text-sm">{project.statLabel}</div>
-            </div>
-          </div>
-        ))}
+            );
+          })}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
