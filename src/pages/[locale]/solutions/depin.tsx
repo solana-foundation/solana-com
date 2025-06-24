@@ -18,11 +18,15 @@ const DePINPage = () => {
   return (
     <Layout>
       <HTMLHead
-        title={t("depin.head.title")}
-        description={t("depin.head.description")}
+        title={t("depin.meta.title")}
+        description={t("depin.meta.description")}
       />
 
-      <div id="depin-page" className="bg-depin-bg">
+      <div
+        id="depin-page"
+        className="bg-depin-bg"
+        aria-labelledby="depin-hero-title"
+      >
         <DePINHero />
         <WhatIsDepin />
 

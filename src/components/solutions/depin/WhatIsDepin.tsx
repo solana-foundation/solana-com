@@ -35,11 +35,11 @@ export const WhatIsDepin = () => {
           <p className="text-lg text-[#B0B8C1] mb-8 max-w-xl">
             {t("depin.features.description")}
           </p>
-          <div className="flex flex-wrap gap-4">
+          <ul className="flex flex-wrap gap-4 pl-0">
             <FeatureCheck text={t("depin.features.fast")} />
             <FeatureCheck text={t("depin.features.decentralized")} />
             <FeatureCheck text={t("depin.features.communityFirst")} />
-          </div>
+          </ul>
         </div>
       </div>
     </section>
@@ -47,10 +47,14 @@ export const WhatIsDepin = () => {
 };
 
 const FeatureCheck = ({ text }: { text: string }) => (
-  <div className="flex items-center gap-2">
+  <li className="flex items-center gap-2">
     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0f533d]">
-      <Check className="w-4 h-4 text-[#1eff9b]" strokeWidth={2.5} />
+      <Check
+        className="w-4 h-4 text-[#1eff9b]"
+        strokeWidth={2.5}
+        aria-hidden="true"
+      />
     </span>
     <span className="text-base text-[#B0B8C1]">{text}</span>
-  </div>
+  </li>
 );

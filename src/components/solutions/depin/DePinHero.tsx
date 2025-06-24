@@ -41,7 +41,11 @@ const DePINHero = () => {
 
   return (
     <>
-      <section id="depin-hero" className={styles.depinHero}>
+      <section
+        id="depin-hero"
+        className={styles.depinHero}
+        aria-labelledby="depin-hero-title"
+      >
         <div className={styles.leftDotsBar}>
           <Image src={dotsImage} alt="Dots" width={40} height={238} />
         </div>
@@ -51,7 +55,7 @@ const DePINHero = () => {
         </div>
 
         <div className={styles.content}>
-          <h1>
+          <h1 id="depin-hero-title">
             {beforeDot}
             {afterDot && <br />}
             {afterDot}
@@ -64,8 +68,12 @@ const DePINHero = () => {
         <p className={styles.reportEyebrow}>{t("depin.hero.reportEyebrow")}</p>
 
         <form className={styles.emailForm} onSubmit={handleSubmit}>
+          <label htmlFor="depin-hero-email" className="sr-only">
+            {t("depin.hero.emailAria")}
+          </label>
           <div className={styles.inputWrapper}>
             <input
+              id="depin-hero-email"
               type="email"
               required
               placeholder={t("depin.hero.emailPlaceholder")}
@@ -76,23 +84,25 @@ const DePINHero = () => {
               variant="hero"
               size="lg"
               className={styles.emailButton}
+              aria-label={t("depin.hero.emailCta")}
             >
-              {t("depin.hero.emailCta")} <ArrowRightIcon />
+              {t("depin.hero.emailCta")} <ArrowRightIcon aria-hidden="true" />
             </Button>
           </div>
         </form>
 
-        <div className={styles.statsBar}>
+        <dl className={styles.statsBar}>
           {stats.map((s, idx) => (
             <React.Fragment key={s.label}>
               <div className={styles.statBlock}>
-                <span className={styles.statValueGradient}>{s.value}</span>
+                <dt className="sr-only">{s.label}</dt>
+                <dd className={styles.statValueGradient}>{s.value}</dd>
                 <span className={styles.statLabel}>{s.label}</span>
               </div>
               {idx < stats.length - 1 && <div className={styles.divider} />}
             </React.Fragment>
           ))}
-        </div>
+        </dl>
 
         <Image
           src="/src/img/solutions/depin/globe.png"

@@ -57,7 +57,7 @@ export const Products = () => {
         {t("depin.products.title")}
         <span className="flex-1 border-t border-white/10 ml-4" />
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+      <ul className="grid grid-cols-1 md:grid-cols-3 gap-1 pl-0">
         {products.map(({ key, Icon, color, href }) => {
           const hasLink = Boolean(href);
           const Content = (
@@ -66,7 +66,7 @@ export const Products = () => {
                 <div
                   className={`w-20 h-20 flex items-center justify-center rounded-xl text-2xl ${color}`}
                 >
-                  <Icon size={20} />
+                  <Icon size={20} aria-hidden="true" />
                 </div>
               </div>
               <div>
@@ -85,23 +85,24 @@ export const Products = () => {
             </>
           );
 
-          return hasLink ? (
-            <a
-              key={key}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex flex-col md:flex-row"
-            >
-              {Content}
-            </a>
-          ) : (
-            <div key={key} className="group flex flex-col md:flex-row">
-              {Content}
-            </div>
+          return (
+            <li key={key} className="group flex flex-col md:flex-row">
+              {hasLink ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-col md:flex-row"
+                >
+                  {Content}
+                </a>
+              ) : (
+                <div className="group flex flex-col md:flex-row">{Content}</div>
+              )}
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 };

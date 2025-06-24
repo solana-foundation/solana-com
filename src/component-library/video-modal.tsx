@@ -43,6 +43,8 @@ export const VideoTrigger = React.forwardRef<
         "inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-primary-foreground transition hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 " +
         className
       }
+      aria-label={source.title}
+      tabIndex={0}
     >
       {children ?? "Play video"}
     </button>
