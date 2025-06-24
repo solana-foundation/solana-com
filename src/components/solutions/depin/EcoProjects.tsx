@@ -6,7 +6,7 @@ const PROJECTS = [
     name: "Helium",
     icon: (
       <Image
-        src="/img/solutions/depin/helium.png"
+        src="/src/img/solutions/depin/helium.png"
         alt="Helium logo"
         fill
         className="object-contain"
@@ -22,7 +22,7 @@ const PROJECTS = [
     name: "Render",
     icon: (
       <Image
-        src="/img/solutions/depin/render.png"
+        src="/src/img/solutions/depin/render.png"
         alt="Render logo"
         fill
         className="object-contain"
@@ -38,7 +38,7 @@ const PROJECTS = [
     name: "Hivemapper",
     icon: (
       <Image
-        src="/img/solutions/depin/hivemapper.png"
+        src="/src/img/solutions/depin/hivemapper.png"
         alt="Hivemapper logo"
         fill
         className="object-contain"
@@ -54,7 +54,7 @@ const PROJECTS = [
     name: "Grass",
     icon: (
       <Image
-        src="/img/solutions/depin/grass.png"
+        src="/src/img/solutions/depin/grass.png"
         alt="Grass logo"
         fill
         className="object-contain"

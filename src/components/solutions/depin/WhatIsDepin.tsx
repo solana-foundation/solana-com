@@ -1,5 +1,4 @@
 import Image from "next/image";
-import worldMapDots from "assets/solutions/depin/world-map-dots.png";
 import { Check, Play } from "lucide-react";
 
 export const WhatIsDepin = () => (
@@ -7,7 +6,7 @@ export const WhatIsDepin = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8 max-w-5xl w-full px-4 items-center">
       <div className="relative w-full h-[240px] max-h-[240px] rounded-2xl bg-[#181F2B] flex items-center justify-center overflow-hidden">
         <Image
-          src={worldMapDots}
+          src="/src/img/solutions/depin/world-map-dots.png"
           alt="World map"
           fill
           className="object-cover opacity-80"

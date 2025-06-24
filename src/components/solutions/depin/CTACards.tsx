@@ -52,7 +52,7 @@ const CTACards = () => {
           </p>
           <div className="relative w-full flex-1 min-h-[180px]">
             <Image
-              src="/img/solutions/depin/dev-resources.png"
+              src="/src/img/solutions/depin/dev-resources.png"
               alt="Developer Resources"
               fill
               className="rounded-lg object-cover object-top"

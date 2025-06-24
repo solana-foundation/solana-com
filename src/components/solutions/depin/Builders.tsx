@@ -9,21 +9,21 @@ export const Builders = () => {
   const videoData = [
     {
       id: "IpWVxL4V4Oc",
-      thumbnail: "/img/solutions/depin/video1.png",
+      thumbnail: "/src/img/solutions/depin/video1.png",
       title: t("depin.videos.0.title"),
       description: t("depin.videos.0.description"),
       alt: t("depin.videos.0.alt"),
     },
     {
       id: "PzNXP0w4xqU",
-      thumbnail: "/img/solutions/depin/video2.png",
+      thumbnail: "/src/img/solutions/depin/video2.png",
       title: t("depin.videos.1.title"),
       description: t("depin.videos.1.description"),
       alt: t("depin.videos.1.alt"),
     },
     {
       id: "VaBJu3dXpKk",
-      thumbnail: "/img/solutions/depin/video3.png",
+      thumbnail: "/src/img/solutions/depin/video3.png",
       title: t("depin.videos.2.title"),
       description: t("depin.videos.2.description"),
       alt: t("depin.videos.2.alt"),

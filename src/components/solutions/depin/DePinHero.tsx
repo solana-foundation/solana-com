@@ -6,7 +6,6 @@ import styles from "./DePINHero.module.scss";
 import React from "react";
 import { useTranslation } from "next-i18next";
 
-import globeImage from "assets/solutions/depin/globe.png";
 import dotsImage from "assets/solutions/depin/hero-dots.svg";
 
 type Stat = { value: string; label: string };
@@ -96,7 +95,7 @@ const DePINHero = () => {
         </div>
 
         <Image
-          src={globeImage}
+          src="/src/img/solutions/depin/globe.png"
           alt={t("depin.hero.globeAlt")}
           width={1400}
           height={800}
