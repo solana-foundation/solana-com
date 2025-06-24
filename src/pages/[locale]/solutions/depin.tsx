@@ -49,12 +49,12 @@ const DePINPage = () => {
         </section>
 
         {/* Latest News Section */}
-        <section className="py-10">
+        {/* <section className="py-10">
           <LatestNews />
-        </section>
+        </section> */}
 
         {/* Card Section */}
-        <section className="pb-10">
+        <section className="py-10">
           <CTACards />
         </section>
       </div>
