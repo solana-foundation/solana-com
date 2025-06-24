@@ -1,17 +1,12 @@
 import React from "react";
 import Image from "next/image";
 
-import helium from "assets/solutions/depin/helium.png";
-import render from "assets/solutions/depin/render.png";
-import hivemapper from "assets/solutions/depin/hivemapper.png";
-import grass from "assets/solutions/depin/grass.png";
-
 const PROJECTS = [
   {
     name: "Helium",
     icon: (
       <Image
-        src={helium}
+        src="/img/solutions/depin/helium.png"
         alt="Helium logo"
         fill
         className="object-contain"
@@ -27,7 +22,7 @@ const PROJECTS = [
     name: "Render",
     icon: (
       <Image
-        src={render}
+        src="/img/solutions/depin/render.png"
         alt="Render logo"
         fill
         className="object-contain"
@@ -43,7 +38,7 @@ const PROJECTS = [
     name: "Hivemapper",
     icon: (
       <Image
-        src={hivemapper}
+        src="/img/solutions/depin/hivemapper.png"
         alt="Hivemapper logo"
         fill
         className="object-contain"
@@ -59,7 +54,7 @@ const PROJECTS = [
     name: "Grass",
     icon: (
       <Image
-        src={grass}
+        src="/img/solutions/depin/grass.png"
         alt="Grass logo"
         fill
         className="object-contain"

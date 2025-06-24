@@ -3,31 +3,27 @@ import { Play, ArrowRight } from "lucide-react";
 import { VideoTrigger } from "@/component-library/video-modal";
 import { useTranslation } from "next-i18next";
 
-import video1Img from "assets/solutions/depin/video1.png";
-import video2Img from "assets/solutions/depin/video2.png";
-import video3Img from "assets/solutions/depin/video3.png";
-
 export const Builders = () => {
   const { t } = useTranslation("common");
 
   const videoData = [
     {
       id: "IpWVxL4V4Oc",
-      thumbnail: video1Img,
+      thumbnail: "/img/solutions/depin/video1.png",
       title: t("depin.videos.0.title"),
       description: t("depin.videos.0.description"),
       alt: t("depin.videos.0.alt"),
     },
     {
       id: "PzNXP0w4xqU",
-      thumbnail: video2Img,
+      thumbnail: "/img/solutions/depin/video2.png",
       title: t("depin.videos.1.title"),
       description: t("depin.videos.1.description"),
       alt: t("depin.videos.1.alt"),
     },
     {
       id: "VaBJu3dXpKk",
-      thumbnail: video3Img,
+      thumbnail: "/img/solutions/depin/video3.png",
       title: t("depin.videos.2.title"),
       description: t("depin.videos.2.description"),
       alt: t("depin.videos.2.alt"),
