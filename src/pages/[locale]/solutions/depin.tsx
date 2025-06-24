@@ -4,7 +4,7 @@ import Layout from "@/components/solutions/layout";
 import { Builders } from "@/components/solutions/depin/Builders";
 import { EcoProjects } from "@/components/solutions/depin/EcoProjects";
 import { Products } from "@/components/solutions/depin/Products";
-import { LatestNews } from "@/components/solutions/depin/LatestNews";
+// import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { CTACards } from "@/components/solutions/depin/CTACards";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsDepin } from "@/components/solutions/depin/WhatIsDepin";
