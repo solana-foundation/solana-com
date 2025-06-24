@@ -3,32 +3,26 @@ import HTMLHead from "@/components/HTMLHead";
 import Image from "next/image";
 import { WhatIsDepin } from "@/components/solutions/depin/WhatIsDepin";
 import { EcoProjects } from "@/components/solutions/depin/EcoProjects";
+import { Products } from "@/components/solutions/depin/Products";
+import { Builders } from "@/components/solutions/depin/Builders";
 import Layout from "@/components/solutions/layout";
 import YDeveloperResources, {
   YDeveloperResourcesLink,
 } from "@/components/solutions/YDeveloperResources";
-import { Play, ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  VideoPlayerModal,
-  VideoTrigger,
-} from "@/component-library/video-modal";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { VideoPlayerModal } from "@/component-library/video-modal";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { useState, useCallback } from "react";
 import { useTranslation } from "next-i18next";
 import { withLocales } from "@/i18n/routing";
 
 // Import video thumbnails
-import video1Img from "assets/solutions/depin/video1.png";
-import video2Img from "assets/solutions/depin/video2.png";
-import video3Img from "assets/solutions/depin/video3.png";
 import yuanImg from "assets/solutions/depin/yuan.png";
 import gradientLogo from "assets/solutions/depin/gradient-yuan.svg";
 import rohanImg from "assets/solutions/depin/rohan.png";
 import roamLogo from "assets/solutions/depin/roam.svg";
 import ioLogo from "assets/solutions/depin/io.svg";
 import jakeImg from "assets/solutions/depin/jake.png";
-import mintImg from "assets/solutions/depin/mint.png";
-import kycImg from "assets/solutions/depin/kyc.png";
 
 const DePINPage = () => {
   const { t } = useTranslation("common");
@@ -74,30 +68,6 @@ const DePINPage = () => {
     setCurrentTestimonial(index);
   };
 
-  const videoData = [
-    {
-      id: "IpWVxL4V4Oc",
-      thumbnail: video1Img,
-      title: t("depin.videos.0.title"),
-      description: t("depin.videos.0.description"),
-      alt: t("depin.videos.0.alt"),
-    },
-    {
-      id: "PzNXP0w4xqU",
-      thumbnail: video2Img,
-      title: t("depin.videos.1.title"),
-      description: t("depin.videos.1.description"),
-      alt: t("depin.videos.1.alt"),
-    },
-    {
-      id: "VaBJu3dXpKk",
-      thumbnail: video3Img,
-      title: t("depin.videos.2.title"),
-      description: t("depin.videos.2.description"),
-      alt: t("depin.videos.2.alt"),
-    },
-  ];
-
   return (
     <Layout>
       <HTMLHead
@@ -121,98 +91,14 @@ const DePINPage = () => {
           </div>
         </section>
 
-        {/* Two Column Features Section */}
-        <section className="py-12">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-              {/* Left Column - Mint at Scale */}
-              <div className="flex flex-col">
-                <div className="mb-8 rounded-2xl overflow-hidden bg-[#12101e] p-8 h-72 flex items-center justify-center">
-                  <Image
-                    src={mintImg}
-                    alt={t("depin.features.mint.alt")}
-                    width={500}
-                    height={300}
-                    className="object-contain max-h-60 w-full"
-                  />
-                </div>
-                <h2 className="text-2xl md:text-3xl font-semibold text-white mb-4">
-                  {t("depin.features.mint.title")}
-                </h2>
-                <p className="text-base md:text-lg text-gray-300">
-                  {t("depin.features.mint.description")}
-                </p>
-              </div>
-              {/* Right Column - Ready-made tooling */}
-              <div className="flex flex-col">
-                <div className="mb-8 rounded-2xl overflow-hidden bg-[#12101e] p-8 h-72 flex items-center justify-center">
-                  <Image
-                    src={kycImg}
-                    alt={t("depin.features.tooling.alt")}
-                    width={500}
-                    height={300}
-                    className="object-contain max-h-60 w-full"
-                  />
-                </div>
-                <h2 className="text-2xl md:text-3xl font-semibold text-white mb-4">
-                  {t("depin.features.tooling.title")}
-                </h2>
-                <p className="text-base md:text-lg text-gray-300">
-                  {t("depin.features.tooling.description")}
-                </p>
-              </div>
-            </div>
-          </div>
+        {/* Products Section */}
+        <section className="pb-10">
+          <Products />
         </section>
 
         {/* Real Builders Section */}
-        <section className="py-20">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl md:text-5xl font-bold text-white text-center mb-4">
-              {t("depin.builders.title")}
-            </h2>
-            <p className="text-base md:text-lg text-gray-300 text-center max-w-2xl mx-auto mb-12">
-              {t("depin.builders.subtitle")}
-            </p>
-            <div className="flex justify-center mb-12">
-              <a
-                href="https://www.youtube.com/@SolanaFndn"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-6 py-3 border border-white/30 rounded-full text-white font-medium hover:bg-white/10 transition"
-              >
-                {t("depin.builders.moreStories")}
-              </a>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {videoData.map((video, index) => (
-                <div className="flex flex-col" key={index}>
-                  <div className="relative w-full aspect-video rounded-xl overflow-hidden cursor-pointer group">
-                    <Image
-                      src={video.thumbnail}
-                      alt={video.alt}
-                      fill
-                      className="object-cover"
-                    />
-                    <VideoTrigger
-                      platform="youtube"
-                      id={video.id}
-                      title={video.title}
-                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-purple-600/90 rounded-full flex items-center justify-center transition group-hover:scale-110"
-                    >
-                      <Play fill="white" strokeWidth={0} />
-                    </VideoTrigger>
-                  </div>
-                  <h3 className="text-lg md:text-xl font-semibold text-white mt-4 mb-2">
-                    {video.title}
-                  </h3>
-                  <p className="text-sm md:text-base text-gray-300">
-                    {video.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+        <section className="py-10 bg-[#171c25]">
+          <Builders />
         </section>
 
         {/* Testimonial Slider Section */}
