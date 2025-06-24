@@ -4,6 +4,7 @@ import Layout from "@/components/solutions/layout";
 import { Builders } from "@/components/solutions/depin/Builders";
 import { EcoProjects } from "@/components/solutions/depin/EcoProjects";
 import { Products } from "@/components/solutions/depin/Products";
+import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsDepin } from "@/components/solutions/depin/WhatIsDepin";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
@@ -44,6 +45,11 @@ const DePINPage = () => {
         {/* Real Builders Section */}
         <section className="py-10 bg-[#171c25]">
           <Builders />
+        </section>
+
+        {/* Latest News Section */}
+        <section className="py-10">
+          <LatestNews />
         </section>
       </div>
       <VideoPlayerModal />
