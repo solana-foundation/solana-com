@@ -10,6 +10,7 @@
  * @param {string} [props.className] - Additional class names for the carousel container.
  * @param {React.Ref<CarouselHandle>} [ref] - Ref for imperative carousel controls.
  * @param {number} [props.panels=1] - Number of items to show at once.
+ * @param {number} [props.autoplay=0] - Autoplay interval in milliseconds.
  *
  * @example
  * // Inline controls (default)
@@ -30,11 +31,10 @@
 
 import React, {
   useState,
-  useRef,
   useImperativeHandle,
   forwardRef,
   ReactNode,
-  useLayoutEffect,
+  useEffect,
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -53,6 +53,7 @@ type CarouselProps = {
   controlsInline?: boolean;
   className?: string;
   panels?: number;
+  autoplay?: number;
 };
 
 const NAV_BUTTON_BASE_CLASS =
@@ -87,16 +88,26 @@ function CarouselNavButton({
 }
 
 const Carousel = forwardRef<CarouselHandle, CarouselProps>(
-  ({ children, controlsInline = true, className, panels = 1 }, ref) => {
+  (
+    { children, controlsInline = true, className, panels = 1, autoplay = 0 },
+    ref,
+  ) => {
     const count = children.length;
     const panelsToShow = Math.max(1, Math.min(panels, count));
     const numPages = Math.ceil(count / panelsToShow);
     const lastPage = Math.max(0, numPages - 1);
 
     const [currentPage, setCurrentPage] = useState(0);
+    const [hasInteracted, setHasInteracted] = useState(false);
 
-    const handlePrev = () => setCurrentPage((p) => Math.max(p - 1, 0));
-    const handleNext = () => setCurrentPage((p) => Math.min(p + 1, lastPage));
+    const handlePrev = () => {
+      setHasInteracted(true);
+      setCurrentPage((p) => Math.max(p - 1, 0));
+    };
+    const handleNext = () => {
+      setHasInteracted(true);
+      setCurrentPage((p) => Math.min(p + 1, lastPage));
+    };
 
     // Track is 100% * numPages wide
     const trackStyle = {
@@ -131,6 +142,22 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       }),
       [currentPage, lastPage, panelsToShow, count],
     );
+
+    // Autoplay effect
+    useEffect(() => {
+      if (autoplay > 0 && currentPage < lastPage && !hasInteracted) {
+        const interval = setInterval(() => {
+          setCurrentPage((p) => {
+            if (p < lastPage) {
+              return p + 1;
+            }
+            return p;
+          });
+        }, autoplay);
+        return () => clearInterval(interval);
+      }
+      return undefined;
+    }, [autoplay, currentPage, lastPage, hasInteracted]);
 
     return (
       <div
