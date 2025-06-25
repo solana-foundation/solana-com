@@ -166,7 +166,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         ([entry]) => {
           setIsVisible(entry.isIntersecting);
         },
-        { threshold: 0.1 }
+        { threshold: 0.1 },
       );
 
       observer.observe(node);
@@ -203,7 +203,8 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
           current: currentPage,
           maxIndex: lastPage,
           panels: panelsToShow,
-          goTo: (idx: number) => setCurrentPage(Math.max(0, Math.min(idx, lastPage))),
+          goTo: (idx: number) =>
+            setCurrentPage(Math.max(0, Math.min(idx, lastPage))),
         }}
       >
         <div
