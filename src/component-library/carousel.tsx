@@ -36,6 +36,7 @@ import React, {
   ReactNode,
   useEffect,
   useRef,
+  createContext,
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -87,6 +88,15 @@ function CarouselNavButton({
     </button>
   );
 }
+
+type CarouselContextType = {
+  current: number;
+  maxIndex: number;
+  panels: number;
+  goTo: (idx: number) => void;
+};
+
+export const CarouselContext = createContext<CarouselContextType | null>(null);
 
 const Carousel = forwardRef<CarouselHandle, CarouselProps>(
   (
@@ -188,46 +198,55 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
     }, [autoplay, currentPage, lastPage, hasInteracted, isVisible]);
 
     return (
-      <div
-        ref={containerRef}
-        className={`relative w-full flex items-center justify-center ${className ?? ""}`}
+      <CarouselContext.Provider
+        value={{
+          current: currentPage,
+          maxIndex: lastPage,
+          panels: panelsToShow,
+          goTo: (idx: number) => setCurrentPage(Math.max(0, Math.min(idx, lastPage))),
+        }}
       >
-        {controlsInline && (
-          <>
-            <CarouselNavButton
-              ariaLabel="Previous"
-              onClick={handlePrev}
-              icon={<ChevronLeft className="w-6 h-6" />}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-20"
-              disabled={currentPage === 0}
-            />
-            <CarouselNavButton
-              ariaLabel="Next"
-              onClick={handleNext}
-              icon={<ChevronRight className="w-6 h-6" />}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-20"
-              disabled={currentPage === lastPage}
-            />
-          </>
-        )}
-        <div className="w-full overflow-hidden z-0 px-14">
-          <div style={trackStyle}>
-            {children.map((item, _idx) => (
-              <div
-                key={_idx}
-                style={{
-                  width: slideWidth,
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ width: "100%" }}>{item}</div>
-              </div>
-            ))}
+        <div
+          ref={containerRef}
+          className={`relative w-full flex items-center justify-center ${className ?? ""}`}
+        >
+          {controlsInline && (
+            <>
+              <CarouselNavButton
+                ariaLabel="Previous"
+                onClick={handlePrev}
+                icon={<ChevronLeft className="w-6 h-6" />}
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-20"
+                disabled={currentPage === 0}
+              />
+              <CarouselNavButton
+                ariaLabel="Next"
+                onClick={handleNext}
+                icon={<ChevronRight className="w-6 h-6" />}
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-20"
+                disabled={currentPage === lastPage}
+              />
+            </>
+          )}
+          <div className="w-full overflow-hidden z-0 px-14">
+            <div style={trackStyle}>
+              {children.map((item, _idx) => (
+                <div
+                  key={_idx}
+                  style={{
+                    width: slideWidth,
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <div style={{ width: "100%" }}>{item}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </CarouselContext.Provider>
     );
   },
 );
@@ -246,8 +265,20 @@ export function CarouselControls({
   carouselRef,
   className,
 }: CarouselControlsProps) {
-  const current = carouselRef.current?.current ?? 0;
-  const maxIndex = carouselRef.current?.maxIndex ?? 0;
+  const [current, setCurrent] = React.useState(0);
+  const [maxIndex, setMaxIndex] = React.useState(0);
+
+  // Poll the ref for updates (since CarouselHandle is imperative)
+  React.useEffect(() => {
+    const update = () => {
+      setCurrent(carouselRef.current?.current ?? 0);
+      setMaxIndex(carouselRef.current?.maxIndex ?? 0);
+    };
+    update(); // initial
+    const id = setInterval(update, 100); // poll every 100ms
+    return () => clearInterval(id);
+  }, [carouselRef]);
+
   return (
     <div className={`flex gap-2 ${className ?? ""}`}>
       <CarouselNavButton
