@@ -43,7 +43,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 export type CarouselHandle = {
   next: () => void;
   prev: () => void;
-  goTo: (idx: number) => void;
+  goTo: (_idx: number) => void;
   current: number;
   maxIndex: number;
   panels: number;
@@ -93,7 +93,7 @@ type CarouselContextType = {
   current: number;
   maxIndex: number;
   panels: number;
-  goTo: (idx: number) => void;
+  goTo: (_idx: number) => void;
 };
 
 export const CarouselContext = createContext<CarouselContextType | null>(null);
@@ -139,8 +139,8 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       () => ({
         next: () => setCurrentPage((c) => Math.min(c + panelsToShow, lastPage)),
         prev: () => setCurrentPage((c) => Math.max(c - panelsToShow, 0)),
-        goTo: (idx: number) =>
-          setCurrentPage(Math.max(0, Math.min(idx, lastPage))),
+        goTo: (_idx: number) =>
+          setCurrentPage(Math.max(0, Math.min(_idx, lastPage))),
         get current() {
           return currentPage;
         },
@@ -203,8 +203,8 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
           current: currentPage,
           maxIndex: lastPage,
           panels: panelsToShow,
-          goTo: (idx: number) =>
-            setCurrentPage(Math.max(0, Math.min(idx, lastPage))),
+          goTo: (_idx: number) =>
+            setCurrentPage(Math.max(0, Math.min(_idx, lastPage))),
         }}
       >
         <div

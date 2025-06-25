@@ -1,6 +1,14 @@
-import React from "react";
+import React, { useRef } from "react";
 import Image from "next/image";
 import { useTranslation } from "next-i18next";
+import Carousel, { CarouselHandle } from "@/component-library/carousel";
+
+import logo1 from "assets/solutions/depin/logo-1.svg";
+import logo2 from "assets/solutions/depin/logo-2.svg";
+import logo3 from "assets/solutions/depin/logo-3.svg";
+import logo4 from "assets/solutions/depin/logo-4.svg";
+import logo5 from "assets/solutions/depin/logo-5.svg";
+import logo6 from "assets/solutions/depin/logo-6.svg";
 
 const PROJECTS = [
   {
@@ -57,8 +65,26 @@ const PROJECTS = [
   },
 ];
 
+const LOGOS = [logo1, logo2, logo3, logo4, logo5, logo6];
+
 export const EcoProjects = () => {
   const { t } = useTranslation("common");
+  const carouselRef = useRef<CarouselHandle>(null);
+
+  const items = LOGOS.map((logo, i) => (
+    <div
+      key={i}
+      className="flex items-center justify-center mr-4 max-w-[200px] aspect-video relative"
+    >
+      <Image
+        src={logo}
+        alt={`DePIN Logo ${i + 1}`}
+        fill
+        style={{ objectFit: "contain", maxHeight: "20px", maxWidth: "120px" }}
+        loading="lazy"
+      />
+    </div>
+  ));
 
   return (
     <div className="col-span-full md:col-span-2 py-6">
@@ -104,6 +130,14 @@ export const EcoProjects = () => {
               </article>
             );
           })}
+        </div>
+        {/* <div className="mt-4 flex justify-end">
+          <CarouselControls carouselRef={carouselRef} />
+        </div> */}
+        <div className="flex justify-center min-h-[100px] mt-8">
+          <Carousel panels={6} ref={carouselRef} controlsInline={false}>
+            {items}
+          </Carousel>
         </div>
       </div>
     </div>
