@@ -34,7 +34,7 @@ const CTACards = () => {
           <div className="relative z-10 flex flex-col items-center">
             <h3
               id="cta-report-title"
-              className="text-2xl md:text-3xl font-bold text-white mb-4"
+              className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4"
             >
               {t("depin.cta.reportTitle")}
             </h3>
@@ -53,7 +53,7 @@ const CTACards = () => {
         </div>
 
         <div className="bg-[#303742] rounded-2xl flex flex-col shadow-lg max-h-[400px] pt-6 px-6 pb-0">
-          <h4 className="text-lg font-semibold text-white mb-3">
+          <h4 className="text-2xl font-semibold text-white mb-3">
             {t("depin.cta.developerResourcesTitle")}
           </h4>
           <p className="text-white/80 mb-6">
@@ -71,7 +71,7 @@ const CTACards = () => {
         </div>
 
         <div className="bg-[#212030] rounded-2xl p-6 flex flex-col shadow-lg">
-          <h4 className="text-lg font-semibold text-white mb-3">
+          <h4 className="text-2xl font-semibold text-white mb-3">
             {t("depin.cta.getHelpTitle")}
           </h4>
           <p className="text-white/80 mb-6">

@@ -35,7 +35,7 @@ export const WhatIsDepin = () => {
           <p className="text-lg text-[#B0B8C1] mb-8 max-w-xl">
             {t("depin.features.description")}
           </p>
-          <ul className="flex flex-wrap gap-4 pl-0">
+          <ul className="flex flex-col md:flex-row flex-wrap gap-4 pl-0">
             <FeatureCheck text={t("depin.features.fast")} />
             <FeatureCheck text={t("depin.features.decentralized")} />
             <FeatureCheck text={t("depin.features.communityFirst")} />
