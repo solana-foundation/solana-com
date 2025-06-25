@@ -183,9 +183,9 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         )}
         <div className="w-full overflow-hidden z-0 px-14">
           <div style={trackStyle}>
-            {children.map((item, idx) => (
+            {children.map((item, _idx) => (
               <div
-                key={idx}
+                key={_idx}
                 style={{
                   width: slideWidth,
                   display: "flex",
