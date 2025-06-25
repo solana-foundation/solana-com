@@ -284,13 +284,13 @@ export function CarouselControls({
     <div className={`flex gap-2 ${className ?? ""}`}>
       <CarouselNavButton
         ariaLabel="Previous"
-        onClick={() => carouselRef.current?.prev()}
+        onClick={() => carouselRef.current?.goTo(current - 1)}
         icon={<ChevronLeft className="w-6 h-6" />}
         disabled={current === 0}
       />
       <CarouselNavButton
         ariaLabel="Next"
-        onClick={() => carouselRef.current?.next()}
+        onClick={() => carouselRef.current?.goTo(current + 1)}
         icon={<ChevronRight className="w-6 h-6" />}
         disabled={current >= maxIndex}
       />
