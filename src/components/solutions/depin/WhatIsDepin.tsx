@@ -8,7 +8,7 @@ export const WhatIsDepin = () => {
   return (
     <section className="w-full py-10 md:py-20 flex justify-center">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8 max-w-5xl w-full px-4 items-center">
-        <div className="relative w-full h-[240px] max-h-[240px] rounded-2xl bg-[#181F2B] flex items-center justify-center overflow-hidden">
+        <div className="relative w-full h-[240px] max-h-[240px] rounded-2xl bg-[#181F2B] flex items-center justify-center overflow-hidden self-start">
           <Image
             src="/src/img/solutions/depin/world-map-dots.png"
             alt="World map"

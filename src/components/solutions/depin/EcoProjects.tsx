@@ -63,6 +63,19 @@ const PROJECTS = [
     ),
     bg: "#B6FF3A",
   },
+  {
+    key: "geodnet",
+    icon: (
+      <Image
+        src="/src/img/solutions/depin/geodnet.png"
+        alt="Geodnet logo"
+        fill
+        className="object-contain"
+        loading="lazy"
+      />
+    ),
+    bg: "#000000",
+  },
 ];
 
 const LOGOS = [logo1, logo2, logo3, logo4, logo5, logo6];
@@ -89,13 +102,13 @@ export const EcoProjects = () => {
   return (
     <div className="col-span-full md:col-span-2 py-6">
       <div className="mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 w-full">
           {PROJECTS.map((project) => {
             const base = `depin.ecoProjects.${project.key}`;
             return (
               <article
                 key={project.key}
-                className="flex flex-col h-full bg-[#181F24] rounded-2xl p-4 shadow-lg"
+                className="flex flex-col bg-[#181F24] rounded-2xl p-4 shadow-lg w-full h-full"
                 style={{
                   background:
                     "linear-gradient(to top, #101520 0%, #202731 100%)",
@@ -134,7 +147,7 @@ export const EcoProjects = () => {
         {/* <div className="mt-4 flex justify-end">
           <CarouselControls carouselRef={carouselRef} />
         </div> */}
-        <div className="flex justify-center min-h-[100px] mt-8">
+        <div className="hidden md:flex justify-center min-h-[100px] mt-8">
           <Carousel panels={6} ref={carouselRef} controlsInline={false}>
             {items}
           </Carousel>
