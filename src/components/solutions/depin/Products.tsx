@@ -57,7 +57,7 @@ export const Products = () => {
         {t("depin.products.title")}
         <span className="flex-1 border-t border-white/10 ml-4" />
       </h2>
-      <p className="text-[#B0B8C1] pb-3 text-base">
+      <p className="text-[#B0B8C1] text-lg pb-3">
         {t("depin.products.description")}
       </p>
       <ul className="grid grid-cols-1 md:grid-cols-3 gap-1 pl-0">
