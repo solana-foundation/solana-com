@@ -35,6 +35,7 @@ import React, {
   forwardRef,
   ReactNode,
   useEffect,
+  useRef,
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -99,6 +100,9 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
 
     const [currentPage, setCurrentPage] = useState(0);
     const [hasInteracted, setHasInteracted] = useState(false);
+    const [isVisible, setIsVisible] = useState(false);
+
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const handlePrev = () => {
       setHasInteracted(true);
@@ -143,9 +147,33 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       [currentPage, lastPage, panelsToShow, count],
     );
 
-    // Autoplay effect
+    // Intersection Observer to detect visibility
     useEffect(() => {
-      if (autoplay > 0 && currentPage < lastPage && !hasInteracted) {
+      const node = containerRef.current;
+      if (!node) return;
+
+      const observer = new window.IntersectionObserver(
+        ([entry]) => {
+          setIsVisible(entry.isIntersecting);
+        },
+        { threshold: 0.1 }
+      );
+
+      observer.observe(node);
+
+      return () => {
+        observer.disconnect();
+      };
+    }, []);
+
+    // Autoplay effect (now only when visible)
+    useEffect(() => {
+      if (
+        autoplay > 0 &&
+        currentPage < lastPage &&
+        !hasInteracted &&
+        isVisible
+      ) {
         const interval = setInterval(() => {
           setCurrentPage((p) => {
             if (p < lastPage) {
@@ -157,10 +185,11 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         return () => clearInterval(interval);
       }
       return undefined;
-    }, [autoplay, currentPage, lastPage, hasInteracted]);
+    }, [autoplay, currentPage, lastPage, hasInteracted, isVisible]);
 
     return (
       <div
+        ref={containerRef}
         className={`relative w-full flex items-center justify-center ${className ?? ""}`}
       >
         {controlsInline && (
