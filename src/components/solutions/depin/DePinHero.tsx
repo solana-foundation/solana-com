@@ -5,8 +5,6 @@ import styles from "./DePINHero.module.scss";
 import React from "react";
 import { useTranslation } from "next-i18next";
 
-import dotsImage from "assets/solutions/depin/hero-dots.svg";
-
 type Stat = { value: string; label: string };
 
 const useHeroStats = (t: ReturnType<typeof useTranslation>["t"]): Stat[] => [
