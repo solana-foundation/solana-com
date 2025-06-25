@@ -41,9 +41,6 @@ const DePINHero = () => {
         className={styles.depinHero}
         aria-labelledby="depin-hero-title"
       >
-        <div className={styles.leftDotsBar}>
-          <Image src={dotsImage} alt="Dots" width={40} height={238} />
-        </div>
         <div className={styles.badge}>
           <span className={styles.eyebrowText}>{t("depin.hero.badge")}</span>
           <ChevronRight className={styles.badgeIcon} size={14} />
