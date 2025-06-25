@@ -68,7 +68,7 @@ export const Builders = () => {
       </div>
       <div className="flex justify-center mb-6">
         <a
-          href="https://www.youtube.com/@SolanaFndn"
+          href="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center px-6 py-3 border border-white/30 rounded-xl text-white font-medium hover:bg-white/10 transition"
