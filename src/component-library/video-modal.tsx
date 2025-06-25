@@ -1,3 +1,28 @@
+/**
+ * Video Modal System
+ *
+ * @description
+ * Provides a modal system for playing YouTube and Vimeo videos.
+ *
+ * @usage
+ * 1. Place <VideoPlayerModal /> once at the root of your app (e.g. in _app.tsx or a layout).
+ * 2. Use the <VideoTrigger /> component anywhere to render a button that opens the modal:
+ *
+ *    <VideoTrigger platform="youtube" id="dQw4w9WgXcQ" title="Demo Video">
+ *      Watch Demo
+ *    </VideoTrigger>
+ *
+ *    // Or for Vimeo:
+ *    <VideoTrigger platform="vimeo" id="123456789" title="Vimeo Example" />
+ *
+ * 3. To open the modal programmatically, call:
+ *
+ *    openVideoPlayer({ platform: "youtube", id: "dQw4w9WgXcQ", title: "Demo" });
+ *
+ * @remarks
+ * The modal supports YouTube and Vimeo. The `autoplay` prop is optional (defaults to true).
+ */
+
 import * as React from "react";
 import {
   Dialog,
@@ -6,6 +31,9 @@ import {
   DialogDescription,
 } from "@/app/components/ui/dialog";
 import { useState, useEffect } from "react";
+
+/**
+ */
 
 const OPEN_VIDEO_EVENT = "open-video-player" as const;
 
