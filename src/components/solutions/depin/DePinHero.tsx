@@ -1,4 +1,3 @@
-import { FormEvent } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowRightIcon, ChevronRight } from "lucide-react";
@@ -28,10 +27,6 @@ const useHeroStats = (t: ReturnType<typeof useTranslation>["t"]): Stat[] => [
 const DePINHero = () => {
   const { t } = useTranslation("common");
   const stats = useHeroStats(t);
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-  };
 
   const title = t("depin.hero.title");
   const firstDotIdx = title.indexOf(".");
@@ -67,29 +62,23 @@ const DePINHero = () => {
 
         <p className={styles.reportEyebrow}>{t("depin.hero.reportEyebrow")}</p>
 
-        <form className={styles.emailForm} onSubmit={handleSubmit}>
-          <label htmlFor="depin-hero-email" className="sr-only">
-            {t("depin.hero.emailAria")}
-          </label>
-          <div className={styles.inputWrapper}>
-            <input
-              id="depin-hero-email"
-              type="email"
-              required
-              placeholder={t("depin.hero.emailPlaceholder")}
-              aria-label={t("depin.hero.emailAria")}
-            />
-            <Button
-              type="submit"
-              variant="hero"
-              size="lg"
-              className={styles.emailButton}
-              aria-label={t("depin.hero.emailCta")}
+        <div className={styles.inputWrapper}>
+          <Button
+            asChild
+            variant="hero"
+            size="lg"
+            className={styles.emailButton}
+            aria-label={t("depin.hero.emailCta")}
+          >
+            <a
+              href="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=depin"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               {t("depin.hero.emailCta")} <ArrowRightIcon aria-hidden="true" />
-            </Button>
-          </div>
-        </form>
+            </a>
+          </Button>
+        </div>
 
         <dl className={styles.statsBar}>
           {stats.map((s, idx) => (
