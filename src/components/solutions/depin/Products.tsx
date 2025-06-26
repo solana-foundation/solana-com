@@ -14,37 +14,37 @@ const products = [
     key: "wallets",
     Icon: Wallet,
     color: "text-emerald-400 bg-emerald-900/30",
-    href: "#",
+    href: "/wallets",
   },
   {
     key: "mobile",
     Icon: Smartphone,
     color: "text-indigo-400 bg-indigo-900/30",
-    href: "#",
+    href: "https://docs.solanamobile.com/",
   },
   {
     key: "tokenization",
     Icon: Sparkles,
     color: "text-cyan-400 bg-cyan-900/30",
-    href: undefined,
+    href: "/solutions/real-world-assets",
   },
   {
     key: "cnfts",
     Icon: GalleryVerticalEnd,
     color: "text-violet-400 bg-violet-900/30",
-    href: "#",
+    href: "/developers/courses/state-compression/compressed-nfts",
   },
   {
     key: "zkcompression",
     Icon: Fullscreen,
     color: "text-blue-400 bg-blue-900/30",
-    href: undefined,
+    href: "https://www.zkcompression.com/",
   },
   {
     key: "tokenExtensions",
     Icon: Box,
     color: "text-emerald-400 bg-emerald-900/30",
-    href: undefined,
+    href: "/solutions/token-extensions",
   },
 ];
 
