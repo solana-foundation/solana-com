@@ -9,7 +9,7 @@ import { memo } from "react";
 
 export default function DevelopersResourceItem({
   category = "Resource",
-  children,
+  children = [],
   title,
   description,
   url,
