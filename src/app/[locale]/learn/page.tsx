@@ -2,45 +2,7 @@ import React from "react";
 import { serverTranslation } from "@/i18n/translation";
 import heroImg from "@@/assets/developers/hero-solana-learn.png";
 import LearnPageContent from "./LearnPageContent";
-
-const tutorialsData = [
-  {
-    id: 1,
-    slug: "what-is-a-wallet",
-  },
-  {
-    id: 2,
-    slug: "understanding-solana-transaction-fees",
-  },
-  {
-    id: 3,
-    slug: "sending-and-receiving-sol",
-  },
-  {
-    id: 4,
-    slug: "what-is-staking",
-  },
-  {
-    id: 5,
-    slug: "introduction-to-solana-tokens",
-  },
-  {
-    id: 6,
-    slug: "what-are-nfts",
-  },
-  {
-    id: 7,
-    slug: "introduction-to-defi-on-solana",
-  },
-  {
-    id: 8,
-    slug: "exploring-solana-web3-applications",
-  },
-  {
-    id: 9,
-    slug: "staying-safe-in-web3",
-  },
-];
+import { learnTutorials } from "@/utils/learn-tutorials";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -50,10 +12,11 @@ export default async function LearnPage(props: Props) {
   const { t } = await serverTranslation(locale, ["common"]);
 
   // Build tutorials with translations
-  const tutorials = tutorialsData.map((tutorial) => ({
+  const tutorials = learnTutorials.map((tutorial) => ({
     ...tutorial,
     title: t(`learn.tutorials.items.${tutorial.slug}.title`),
     description: t(`learn.tutorials.items.${tutorial.slug}.description`),
+    category: t(`learn.tutorials.items.${tutorial.slug}.category`),
   }));
 
   // Derive featured posts from tutorials (first 3)

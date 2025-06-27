@@ -51,7 +51,7 @@ const HeaderListLearn = () => {
           </Dropdown.Item>
           <Dropdown.Item
             as={Link}
-            to="/learn"
+            to="/learn#tutorials"
             className="nav-link nav-link--secondary"
             activeClassName="active"
           >

@@ -11,12 +11,14 @@ interface LearnPageContentProps {
     title: string;
     description: string;
     slug: string;
+    category: string;
   }>;
   tutorials: Array<{
     id: number;
     title: string;
     description: string;
     slug: string;
+    category: string;
   }>;
   translations: {
     heroTitle: string;
@@ -73,7 +75,7 @@ export default function LearnPageContent({
                 role="listitem"
               >
                 <DevelopersResourceItem
-                  category="Getting Started"
+                  category={post.category}
                   title={post.title}
                   description={post.description}
                   url={`/learn/${post.slug}`}
@@ -103,7 +105,7 @@ export default function LearnPageContent({
                 role="listitem"
               >
                 <DevelopersResourceItem
-                  category={`Step ${tutorial.id}`}
+                  category={`Part ${tutorial.id}: ${tutorial.category}`}
                   title={tutorial.title}
                   description={tutorial.description}
                   url={`/learn/${tutorial.slug}`}
