@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowRightIcon } from "lucide-react";
 import { useTranslation } from "next-i18next";
+import Link from "next/link";
 
 const CTACards = () => {
   const { t } = useTranslation("common");
@@ -57,20 +58,22 @@ const CTACards = () => {
             {t("depin.cta.developerResourcesDescription")}
           </p>
           <div className="flex flex-col gap-3 mb-6">
-            <a
-              href="#"
+            <Link
+              href="/developers/guides/depin/getting-started"
               className="text-[#fff] flex items-center gap-1 hover:underline transition text-sm"
             >
-              {t("depin.cta.quickstartGuide", "DePIN Quickstart Guide")}
+              {t("depin.cta.quickstartGuide")}
               <ArrowRightIcon size={18} />
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
+              href="https://github.com/solana-developers/solana-depin-examples"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-[#b3b8c5] flex items-center gap-1 hover:underline transition text-sm"
             >
-              {t("depin.cta.examples", "Examples")}
+              {t("depin.cta.examples")}
               <ArrowRightIcon size={16} />
-            </a>
+            </Link>
           </div>
           <div className="relative w-full flex-1 min-h-[180px]">
             <Image
@@ -92,7 +95,7 @@ const CTACards = () => {
           </p>
           <div className="mt-auto flex gap-4">
             <a
-              href="#"
+              href="/grants-funding"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-[#7b47ff] hover:bg-[#441caa] text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200 text-base"
@@ -100,7 +103,7 @@ const CTACards = () => {
               {t("depin.cta.applyForGrant")}
             </a>
             <a
-              href="#"
+              href="https://talent.superteam.fun/"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200 text-base hover:bg-[#2a223d] outline outline-2 outline-[#7b47ff] outline-offset-[-2px]"
