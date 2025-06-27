@@ -60,7 +60,7 @@ const CTACards = () => {
           <div className="flex flex-col gap-3 mb-6">
             <Link
               href="/developers/guides/depin/getting-started"
-              className="text-[#fff] flex items-center gap-1 hover:underline transition text-sm"
+              className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("depin.cta.quickstartGuide")}
               <ArrowRightIcon size={18} />
@@ -69,7 +69,7 @@ const CTACards = () => {
               href="https://github.com/solana-developers/solana-depin-examples"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#b3b8c5] flex items-center gap-1 hover:underline transition text-sm"
+              className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("depin.cta.examples")}
               <ArrowRightIcon size={16} />
@@ -93,7 +93,7 @@ const CTACards = () => {
           <p className="text-white/80 mb-6">
             {t("depin.cta.getHelpDescription")}
           </p>
-          <div className="mt-auto flex gap-4">
+          <div className="flex gap-4">
             <Link
               href="/grants-funding"
               className="bg-[#7b47ff] hover:bg-[#441caa] text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200 text-base"
