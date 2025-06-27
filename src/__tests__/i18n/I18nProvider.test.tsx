@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import I18nProvider from "./I18nProvider";
+import I18nProvider from "@/i18n/I18nProvider";
 
 const mockResources = {
   en: { translation: { hello: "Hello" } },

@@ -1,4 +1,4 @@
-import fetcher from "../fetcher";
+import fetcher from "@/utils/fetcher";
 
 describe("fetcher", () => {
   beforeEach(() => {
