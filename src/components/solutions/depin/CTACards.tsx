@@ -94,15 +94,13 @@ const CTACards = () => {
             {t("depin.cta.getHelpDescription")}
           </p>
           <div className="mt-auto flex gap-4">
-            <a
+            <Link
               href="/grants-funding"
-              target="_blank"
-              rel="noopener noreferrer"
               className="bg-[#7b47ff] hover:bg-[#441caa] text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200 text-base"
             >
               {t("depin.cta.applyForGrant")}
-            </a>
-            <a
+            </Link>
+            <Link
               href="https://talent.superteam.fun/"
               target="_blank"
               rel="noopener noreferrer"
@@ -124,7 +122,7 @@ const CTACards = () => {
                 </svg>
               </span>
               {t("depin.cta.findTalent")}
-            </a>
+            </Link>
           </div>
         </div>
       </div>
