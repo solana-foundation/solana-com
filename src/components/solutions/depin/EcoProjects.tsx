@@ -1,10 +1,7 @@
-import React, { useRef } from "react";
+import React from "react";
 import Image from "next/image";
 import { useTranslation } from "next-i18next";
-import Carousel, {
-  CarouselControls,
-  CarouselHandle,
-} from "@/component-library/carousel";
+import Marquee from "@/component-library/marquee";
 
 const PROJECTS = [
   {
@@ -99,12 +96,11 @@ const LOGOS = [
 
 export const EcoProjects = () => {
   const { t } = useTranslation("common");
-  const carouselRef = useRef<CarouselHandle>(null);
 
   const items = LOGOS.map((logo, i) => (
     <div
       key={i}
-      className={`flex items-center justify-center mr-4 max-w-[200px] aspect-video relative rounded-sm p-[5px] min-w-[100px] min-h-[50px] ${logo.bg}`}
+      className={`flex items-center justify-center mr-4 mt-6 max-w-[200px] aspect-video relative rounded-sm p-[5px] min-w-[100px] min-h-[70px] ${logo.bg}`}
     >
       <img
         src={logo.src}
@@ -161,22 +157,12 @@ export const EcoProjects = () => {
             );
           })}
         </div>
-        <div className="mt-4 flex justify-end">
-          <CarouselControls carouselRef={carouselRef} />
-        </div>
         <div className="relative w-full mt-4">
           {/* Left Blur */}
           <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-[#090d17] to-transparent z-10" />
           {/* Right Blur */}
           <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-[#090d17] to-transparent z-10" />
-          <Carousel
-            panels={6}
-            ref={carouselRef}
-            controlsInline={false}
-            autoPlay={3000}
-          >
-            {items}
-          </Carousel>
+          <Marquee className="w-full">{items}</Marquee>
         </div>
       </div>
     </div>
