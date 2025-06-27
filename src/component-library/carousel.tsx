@@ -10,7 +10,7 @@
  * @param {string} [props.className] - Additional class names for the carousel container.
  * @param {React.Ref<CarouselHandle>} [ref] - Ref for imperative carousel controls.
  * @param {number} [props.panels=1] - Number of items to show at once.
- * @param {number} [props.autoplay=0] - Autoplay interval in milliseconds.
+ * @param {number} [props.autoPlay=0] - Autoplay interval in milliseconds.
  *
  * @example
  * // Inline controls (default)
@@ -55,7 +55,7 @@ type CarouselProps = {
   controlsInline?: boolean;
   className?: string;
   panels?: number;
-  autoplay?: number;
+  autoPlay?: number;
 };
 
 const NAV_BUTTON_BASE_CLASS =
@@ -100,7 +100,7 @@ export const CarouselContext = createContext<CarouselContextType | null>(null);
 
 const Carousel = forwardRef<CarouselHandle, CarouselProps>(
   (
-    { children, controlsInline = true, className, panels = 1, autoplay = 0 },
+    { children, controlsInline = true, className, panels = 1, autoPlay = 0 },
     ref,
   ) => {
     const count = children.length;
@@ -176,10 +176,10 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       };
     }, []);
 
-    // Autoplay effect (now only when visible)
+    // autoPlay effect (now only when visible)
     useEffect(() => {
       if (
-        autoplay > 0 &&
+        autoPlay > 0 &&
         currentPage < lastPage &&
         !hasInteracted &&
         isVisible
@@ -191,11 +191,11 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             }
             return p;
           });
-        }, autoplay);
+        }, autoPlay);
         return () => clearInterval(interval);
       }
       return undefined;
-    }, [autoplay, currentPage, lastPage, hasInteracted, isVisible]);
+    }, [autoPlay, currentPage, lastPage, hasInteracted, isVisible]);
 
     return (
       <CarouselContext.Provider

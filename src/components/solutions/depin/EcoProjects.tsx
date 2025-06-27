@@ -1,14 +1,10 @@
 import React, { useRef } from "react";
 import Image from "next/image";
 import { useTranslation } from "next-i18next";
-import Carousel, { CarouselHandle } from "@/component-library/carousel";
-
-import logo1 from "assets/solutions/depin/logo-1.svg";
-import logo2 from "assets/solutions/depin/logo-2.svg";
-import logo3 from "assets/solutions/depin/logo-3.svg";
-import logo4 from "assets/solutions/depin/logo-4.svg";
-import logo5 from "assets/solutions/depin/logo-5.svg";
-import logo6 from "assets/solutions/depin/logo-6.svg";
+import Carousel, {
+  CarouselControls,
+  CarouselHandle,
+} from "@/component-library/carousel";
 
 const PROJECTS = [
   {
@@ -78,7 +74,28 @@ const PROJECTS = [
   },
 ];
 
-const LOGOS = [logo1, logo2, logo3, logo4, logo5, logo6];
+const LOGOS = [
+  { src: "/src/img/solutions/depin/ecosystem/375ai.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/blockcast.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/cudis.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/dawn.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/decharge.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/dephy.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/geodnet.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/hivemapper.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/inference.png", bg: "bg-black" },
+  { src: "/src/img/solutions/depin/ecosystem/jambo.png", bg: "bg-black" },
+  { src: "/src/img/solutions/depin/ecosystem/onocoy.png", bg: "bg-black" },
+  { src: "/src/img/solutions/depin/ecosystem/pipenetwork.png", bg: "bg-black" },
+  { src: "/src/img/solutions/depin/ecosystem/roam.png", bg: "bg-white" },
+  { src: "/src/img/solutions/depin/ecosystem/shaga.png", bg: "bg-[#f1ff61]" },
+  { src: "/src/img/solutions/depin/ecosystem/wayru.png", bg: "bg-white" },
+  {
+    src: "/src/img/solutions/depin/ecosystem/wingbits-seo.png",
+    bg: "bg-[#201c1c]",
+  },
+  { src: "/src/img/solutions/depin/ecosystem/xnet.png", bg: "bg-white" },
+];
 
 export const EcoProjects = () => {
   const { t } = useTranslation("common");
@@ -87,14 +104,14 @@ export const EcoProjects = () => {
   const items = LOGOS.map((logo, i) => (
     <div
       key={i}
-      className="flex items-center justify-center mr-4 max-w-[200px] aspect-video relative"
+      className={`flex items-center justify-center mr-4 max-w-[200px] aspect-video relative rounded-sm p-[5px] min-w-[100px] min-h-[50px] ${logo.bg}`}
     >
-      <Image
-        src={logo}
+      <img
+        src={logo.src}
         alt={`DePIN Logo ${i + 1}`}
-        fill
-        style={{ objectFit: "contain", maxHeight: "20px", maxWidth: "120px" }}
+        className="object-contain w-4/5 h-4/5"
         loading="lazy"
+        style={{ display: "block" }}
       />
     </div>
   ));
@@ -144,11 +161,15 @@ export const EcoProjects = () => {
             );
           })}
         </div>
-        {/* <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end">
           <CarouselControls carouselRef={carouselRef} />
-        </div> */}
-        <div className="hidden md:flex justify-center min-h-[100px] mt-8">
-          <Carousel panels={6} ref={carouselRef} controlsInline={false}>
+        </div>
+        <div className="relative w-full mt-4">
+          {/* Left Blur */}
+          <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-[#090d17] to-transparent z-10" />
+          {/* Right Blur */}
+          <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-[#090d17] to-transparent z-10" />
+          <Carousel panels={6} ref={carouselRef} controlsInline={false} autoPlay={3000}>
             {items}
           </Carousel>
         </div>
