@@ -2,6 +2,7 @@ import { useTranslation } from "next-i18next";
 import Link, { InlineLink } from "../../utils/Link";
 import ResourcesSVG from "../../../assets/nav/network/resources.inline.svg";
 import InspectSVG from "../../../assets/nav/network/inspect.inline.svg";
+import Dropdown from "react-bootstrap/Dropdown";
 
 const HeaderListNetwork = () => {
   const { t } = useTranslation("common");
@@ -20,7 +21,8 @@ const HeaderListNetwork = () => {
           {t("nav.network.resources.title")}
         </div>
         <div>
-          <Link
+          <Dropdown.Item
+            as={Link}
             to="/validators"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -29,8 +31,9 @@ const HeaderListNetwork = () => {
               {networkResourcesItems[0].title}
             </strong>
             {networkResourcesItems[0].description}
-          </Link>
-          <Link
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={Link}
             to="/rpc"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -39,8 +42,9 @@ const HeaderListNetwork = () => {
               {networkResourcesItems[1].title}
             </strong>
             {networkResourcesItems[1].description}
-          </Link>
-          <InlineLink
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={InlineLink}
             to="https://status.solana.com/"
             className="nav-link nav-link--secondary"
           >
@@ -48,8 +52,9 @@ const HeaderListNetwork = () => {
               {networkResourcesItems[2].title}
             </strong>
             {networkResourcesItems[2].description}
-          </InlineLink>
-          <Link
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={Link}
             to="/solanaramp"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -58,7 +63,7 @@ const HeaderListNetwork = () => {
               {networkResourcesItems[3].title}
             </strong>
             {networkResourcesItems[3].description}
-          </Link>
+          </Dropdown.Item>
         </div>
       </div>
 
@@ -70,7 +75,8 @@ const HeaderListNetwork = () => {
           {t("nav.network.inspect.title")}
         </div>
         <div>
-          <InlineLink
+          <Dropdown.Item
+            as={InlineLink}
             to="https://solscan.io/"
             className="nav-link nav-link--secondary"
           >
@@ -78,8 +84,9 @@ const HeaderListNetwork = () => {
               {networkInspectItems[0].title}
             </strong>
             {networkInspectItems[0].description}
-          </InlineLink>
-          <InlineLink
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={InlineLink}
             to="https://solana.fm/"
             className="nav-link nav-link--secondary"
           >
@@ -87,8 +94,9 @@ const HeaderListNetwork = () => {
               {networkInspectItems[1].title}
             </strong>
             {networkInspectItems[1].description}
-          </InlineLink>
-          <InlineLink
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={InlineLink}
             to="https://explorer.solana.com/"
             className="nav-link nav-link--secondary"
           >
@@ -96,7 +104,7 @@ const HeaderListNetwork = () => {
               {networkInspectItems[2].title}
             </strong>
             {networkInspectItems[2].description}
-          </InlineLink>
+          </Dropdown.Item>
         </div>
       </div>
     </div>
