@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import I18nProvider from "@/i18n/I18nProvider";
-import IndexPage from "@/pages/[locale]/index";
+import IndexPage from "../../../pages/[locale]/index";
 import * as useRouterMock from "@/hooks/useRouter";
 jest.mock("@/hooks/useRouter");
 
