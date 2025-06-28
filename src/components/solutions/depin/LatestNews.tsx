@@ -26,6 +26,14 @@ const news = [
     image: "/src/img/solutions/depin/news/helium.webp",
     link: "https://www.theblock.co/post/351856/att-subscribers-will-now-automatically-connect-to-nearby-helium-hotspots-through-new-commercial-agreement",
   },
+  {
+    id: 4,
+    title:
+      "Mike Horton, Project Creator of GEODNET, Testifies Before U.S. Congress",
+    date: "April 19",
+    image: "/src/img/solutions/depin/news/mike-horton.webp",
+    link: "https://x.com/geodnet_/status/1913329186317779239",
+  },
 ];
 
 export const LatestNews = () => (
