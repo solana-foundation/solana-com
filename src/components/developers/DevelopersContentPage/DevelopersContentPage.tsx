@@ -4,6 +4,9 @@ import classNames from "classnames";
 import styles from "./DevelopersContentPage.module.scss";
 import { FormattedDate } from "@/components/SolFormattedMessage";
 import Link from "next/link";
+import Image from "next/image";
+import defaultImg from "@@/public/social/solana.jpg";
+import blurImage from "@@/public/img/blurImage.png";
 import SocialShareButtons from "@/components/sharedPageSections/SocialShareButtons";
 import { config } from "src/config";
 import { TagCloud } from "./TagCloud";
@@ -57,6 +60,25 @@ export function HeroTitle({
         </p>
 
         <TagCloud record={record} baseHref={baseHref} />
+      </div>
+      <div className={"col-lg-4"}>
+        <div className={styles["developers-content-page__hero-image"]}>
+          <Link href={record.href || "#"}>
+            <Image
+              alt={record.title}
+              src={`/opengraph${record.href}` || defaultImg}
+              loading="lazy"
+              fill
+              sizes="100vw"
+              className="position-relative img-fluid"
+              placeholder="blur"
+              blurDataURL={blurImage.blurDataURL}
+              onError={(e) => {
+                e.currentTarget.srcset = "/social/solana.jpg";
+              }}
+            />
+          </Link>
+        </div>
       </div>
     </section>
   );
