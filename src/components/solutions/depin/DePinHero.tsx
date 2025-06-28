@@ -59,7 +59,6 @@ const DePINHero = ({ onEmailClick }) => {
 
         <div className={styles.inputWrapper}>
           <Button
-            variant="hero"
             size="lg"
             className={styles.emailButton}
             aria-label={t("depin.hero.emailCta")}
