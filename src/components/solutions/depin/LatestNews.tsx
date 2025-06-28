@@ -1,36 +1,30 @@
 // src/components/solutions/depin/LatestNews.tsx
 import Link from "next/link";
 import React from "react";
+import Image from "next/image";
 
 const news = [
   {
     id: 1,
-    title: "Gradient Network raises $10M for AI DePIN",
-    date: "May 12",
-    image: "/img/og-backgrounds/shape-1.jpg",
+    title: "Natix Teams Up with Grab",
+    date: "May 6",
+    image: "/src/img/solutions/depin/news/natix-grab.avif",
     large: true,
-    link: "#",
+    link: "https://www.coindesk.com/tech/2025/05/06/solanas-natix-and-grab-team-up-to-expand-depin-mapping-into-us-europe",
   },
   {
     id: 2,
-    title: "Helium hits new milestones in wireless DePIN",
-    date: "May 12",
-    image: "/img/og-backgrounds/shape-2.jpg",
-    link: "#",
+    title: "Lyft taps Hivemapper for Decentralized Data Mapping",
+    date: "May 15",
+    image: "/src/img/solutions/depin/news/lyft.webp",
+    link: "https://decrypt.co/320127/rideshare-company-lyft-taps-bee-maps-decentralized-mapping-data",
   },
   {
     id: 3,
-    title: "Natix teams up with Grab for global DePIN mapping",
-    date: "May 12",
-    image: "/img/og-backgrounds/shape-3.jpg",
-    link: "#",
-  },
-  {
-    id: 4,
-    title: "Lyft to use decentralized maps provided by Hivemapper",
-    date: "May 12",
-    image: "/img/og-backgrounds/shape-4.jpg",
-    link: "#",
+    title: "AT&T use Helium hotspots in new commercial agreement",
+    date: "April 24",
+    image: "/src/img/solutions/depin/news/helium.webp",
+    link: "https://www.theblock.co/post/351856/att-subscribers-will-now-automatically-connect-to-nearby-helium-hotspots-through-new-commercial-agreement",
   },
 ];
 
@@ -41,13 +35,18 @@ export const LatestNews = () => (
       <div className="md:col-span-3 flex flex-col">
         <Link
           href={news[0].link}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex flex-col rounded-lg transition hover:bg-[#23272f] p-2 group mb-3"
         >
-          <div className="w-full rounded-lg overflow-hidden flex-shrink-0">
-            <img
+          <div className="w-full rounded-lg overflow-hidden flex-shrink-0 relative h-64">
+            <Image
               src={news[0].image}
               alt={news[0].title}
-              className="w-full h-64 object-cover"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover"
+              loading="lazy"
             />
           </div>
           <div className="mt-4">
@@ -65,13 +64,18 @@ export const LatestNews = () => (
           <Link
             key={item.id}
             href={item.link}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex gap-4 rounded-lg transition hover:bg-[#23272f] p-2 group"
           >
-            <div className="w-32 h-20 rounded-lg overflow-hidden flex-shrink-0">
-              <img
+            <div className="w-32 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
+              <Image
                 src={item.image}
                 alt={item.title}
-                className="w-full h-full object-cover"
+                fill
+                sizes="128px"
+                className="object-cover"
+                loading="lazy"
               />
             </div>
             <div>
