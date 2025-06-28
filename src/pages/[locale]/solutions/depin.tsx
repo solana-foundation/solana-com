@@ -66,7 +66,10 @@ const DePINPage = () => {
         </section>
       </div>
       <VideoPlayerModal />
-      <DePinEmailModal open={emailModalOpen} onOpenChange={setEmailModalOpen} />
+      <DePinEmailModal
+        _open={emailModalOpen}
+        onOpenChange={setEmailModalOpen}
+      />
     </Layout>
   );
 };
