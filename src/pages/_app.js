@@ -1,4 +1,5 @@
 import { ThemeProvider } from "../themecontext";
+import "../app/globals.css";
 import "../scss/index.scss";
 import { appWithTranslation } from "next-i18next";
 import SitewideTopAlert from "../components/sharedPageSections/SitewideTopAlert";
