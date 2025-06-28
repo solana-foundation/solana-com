@@ -98,7 +98,7 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
           <p className="text-white/80 mb-6">
             {t("depin.cta.getHelpDescription")}
           </p>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <Link
               href="https://solana.org/grants-funding"
               target="_blank"
