@@ -11,9 +11,12 @@ import { WhatIsDepin } from "@/components/solutions/depin/WhatIsDepin";
 import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { useTranslation } from "next-i18next";
 import { withLocales } from "@/i18n/routing";
+import { useState } from "react";
+import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
 
 const DePINPage = () => {
   const { t } = useTranslation("common");
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   return (
     <Layout>
@@ -27,7 +30,7 @@ const DePINPage = () => {
         className="bg-depin-bg"
         aria-labelledby="depin-hero-title"
       >
-        <DePINHero />
+        <DePINHero onEmailClick={() => setEmailModalOpen(true)} />
         <WhatIsDepin />
 
         {/* EcoProjects Section */}
@@ -59,10 +62,11 @@ const DePINPage = () => {
 
         {/* Card Section */}
         <section className="py-10">
-          <CTACards />
+          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
         </section>
       </div>
       <VideoPlayerModal />
+      <DePinEmailModal open={emailModalOpen} onOpenChange={setEmailModalOpen} />
     </Layout>
   );
 };

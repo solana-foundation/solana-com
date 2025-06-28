@@ -22,7 +22,7 @@ const useHeroStats = (t: ReturnType<typeof useTranslation>["t"]): Stat[] => [
   },
 ];
 
-const DePINHero = () => {
+const DePINHero = ({ onEmailClick }) => {
   const { t } = useTranslation("common");
   const stats = useHeroStats(t);
 
@@ -59,19 +59,13 @@ const DePINHero = () => {
 
         <div className={styles.inputWrapper}>
           <Button
-            asChild
             variant="hero"
             size="lg"
             className={styles.emailButton}
             aria-label={t("depin.hero.emailCta")}
+            onClick={onEmailClick}
           >
-            <a
-              href="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=depin"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {t("depin.hero.emailCta")} <ArrowRightIcon aria-hidden="true" />
-            </a>
+            {t("depin.hero.emailCta")} <ArrowRightIcon aria-hidden="true" />
           </Button>
         </div>
 

@@ -5,7 +5,11 @@ import { ArrowRightIcon } from "lucide-react";
 import { useTranslation } from "next-i18next";
 import Link from "next/link";
 
-const CTACards = () => {
+type CTACardsProps = {
+  onEmailClick: () => void;
+};
+
+export const CTACards = ({ onEmailClick }: CTACardsProps) => {
   const { t } = useTranslation("common");
 
   return (
@@ -43,6 +47,7 @@ const CTACards = () => {
               variant="default"
               className="text-lg p-5 rounded-xl transition-colors duration-200 shadow-md"
               aria-label={t("depin.cta.downloadReport")}
+              onClick={onEmailClick}
             >
               {t("depin.cta.downloadReport")}{" "}
               <ArrowRightIcon aria-hidden="true" />
@@ -129,5 +134,3 @@ const CTACards = () => {
     </div>
   );
 };
-
-export { CTACards };
