@@ -100,7 +100,9 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
           </p>
           <div className="flex gap-4">
             <Link
-              href="/grants-funding"
+              href="https://solana.org/grants-funding"
+              target="_blank"
+              rel="noopener noreferrer"
               className="bg-[#7b47ff] hover:bg-[#441caa] text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200 text-base"
             >
               {t("depin.cta.applyForGrant")}
