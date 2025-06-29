@@ -13,7 +13,8 @@ export const ThemeProvider = ({ children }) => {
   const isThemePage = pathname
     ? pathname.startsWith("/docs") ||
       pathname.startsWith("/developers/cookbook") ||
-      pathname.startsWith("/developers/guides")
+      pathname.startsWith("/developers/guides") ||
+      pathname.startsWith("/developers/courses")
     : false;
   const [theme, setTheme] = useState("dark"); // Initial theme state; will be updated by useEffect.
 

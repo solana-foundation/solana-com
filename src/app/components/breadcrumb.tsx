@@ -4,6 +4,7 @@ import React from "react";
 
 const roots = {
   guides: "Guides",
+  courses: "Courses",
   cookbook: "Cookbook",
   docs: "Docs",
   developers: "Developers",
@@ -20,7 +21,7 @@ export function Breadcrumb({
 
   return (
     <div
-      className="flex flex-row items-center gap-1 -mb-3 text-sm font-medium text-fd-muted-foreground"
+      className="-mb-3 flex flex-row items-center gap-1 text-sm font-medium text-fd-muted-foreground"
       id="nd-breadcrumb"
     >
       <Link className="truncate hover:text-fd-accent-foreground" href="/">

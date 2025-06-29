@@ -57,7 +57,8 @@ access can perform translations.
 
 The developer docs content for solana.com is located in the
 [`/content`](/content) directory which contains the pages for `/docs`,
-`/developers/cookbook`, `/developers/guides`, in the respective subdirectories.
+`/developers/cookbook`, `/developers/guides`, `/developers/courses` in the
+respective subdirectories.
 
 The developer docs are built with [Fumadocs](https://fumadocs.vercel.app/). For
 additional details on how files are structured, see the
