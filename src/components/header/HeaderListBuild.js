@@ -2,6 +2,7 @@ import { useTranslation } from "next-i18next";
 import { Link } from "../../utils/Link";
 import DevelopersSVG from "../../../assets/nav/build/developers.inline.svg";
 import MoreSVG from "../../../assets/nav/build/cases.inline.svg";
+import Dropdown from "react-bootstrap/Dropdown";
 
 const HeaderListBuild = () => {
   const { t } = useTranslation("common");
@@ -14,7 +15,8 @@ const HeaderListBuild = () => {
           {t("nav.developers.items.title")}
         </div>
         <div>
-          <Link
+          <Dropdown.Item
+            as={Link}
             to="/docs"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -23,8 +25,9 @@ const HeaderListBuild = () => {
               {t("nav.developers.items.docs.title")}
             </strong>
             {t("nav.developers.items.docs.description")}
-          </Link>
-          <Link
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={Link}
             to="/docs/rpc"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -33,8 +36,9 @@ const HeaderListBuild = () => {
               {t("nav.developers.items.api.title")}
             </strong>
             {t("nav.developers.items.api.description")}
-          </Link>
-          <Link
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={Link}
             to="/developers/cookbook"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -43,8 +47,9 @@ const HeaderListBuild = () => {
               {t("nav.developers.items.cookbook.title")}
             </strong>
             {t("nav.developers.items.cookbook.description")}
-          </Link>
-          <Link
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={Link}
             to="/developers"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -53,7 +58,7 @@ const HeaderListBuild = () => {
               {t("nav.developers.items.hub.title")}
             </strong>
             {t("nav.developers.items.hub.description")}
-          </Link>
+          </Dropdown.Item>
         </div>
       </div>
 
@@ -65,27 +70,30 @@ const HeaderListBuild = () => {
           {t("nav.developers.tutorials.title")}
         </div>
         <div>
-          <Link
+          <Dropdown.Item
+            as={Link}
             to="/docs/intro/quick-start"
             className="nav-link nav-link--secondary d-block text-white fw-bold"
             activeClassName="active"
           >
             {t("nav.developers.tutorials.hello-world")}
-          </Link>
-          <Link
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={Link}
             to="/docs/intro/installation"
             className="nav-link nav-link--secondary text-white d-block fw-bold"
             activeClassName="active font-weight-bold"
           >
             {t("nav.developers.tutorials.local-setup")}
-          </Link>
-          <Link
+          </Dropdown.Item>
+          <Dropdown.Item
+            as={Link}
             to="/developers/evm-to-svm"
             className="nav-link nav-link--secondary text-white d-block fw-bold"
             activeClassName="active font-weight-bold"
           >
             {t("nav.developers.tutorials.evm-to-svm")}
-          </Link>
+          </Dropdown.Item>
         </div>
       </div>
     </div>
