@@ -82,13 +82,12 @@ const DePINHero = ({ onEmailClick }) => {
         </dl>
 
         <Image
-          src="/src/img/solutions/depin/globe.png"
+          src="/src/img/solutions/depin/globe.webp"
           alt={t("depin.hero.globeAlt")}
           width={1400}
           height={800}
           className={styles.globe}
-          priority={false}
-          loading="lazy"
+          priority
         />
       </section>
     </>
