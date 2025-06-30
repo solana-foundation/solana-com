@@ -2,7 +2,6 @@ import { useTranslation } from "next-i18next";
 import Link from "../../utils/Link";
 import BreakpointLogo from "../../../assets/nav/community/breakpoint-logo.inline.svg";
 import InvolvedSVG from "../../../assets/nav/community/involved.inline.svg";
-import Dropdown from "react-bootstrap/Dropdown";
 
 const HeaderListCommunity = () => {
   const { t } = useTranslation("common");
@@ -18,8 +17,7 @@ const HeaderListCommunity = () => {
           {t("nav.community.involved.title")}
         </div>
         <div>
-          <Dropdown.Item
-            as={Link}
+          <Link
             to="/news"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -28,9 +26,8 @@ const HeaderListCommunity = () => {
               {communityInvolvedItems[0].title}
             </strong>
             {communityInvolvedItems[0].description}
-          </Dropdown.Item>
-          <Dropdown.Item
-            as={Link}
+          </Link>
+          <Link
             to="/events"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -39,9 +36,8 @@ const HeaderListCommunity = () => {
               {communityInvolvedItems[1].title}
             </strong>
             {communityInvolvedItems[1].description}
-          </Dropdown.Item>
-          <Dropdown.Item
-            as={Link}
+          </Link>
+          <Link
             to="https://www.solanacollective.com/"
             className="nav-link nav-link--secondary"
             target="_blank"
@@ -51,9 +47,8 @@ const HeaderListCommunity = () => {
               {communityInvolvedItems[2].title}
             </strong>
             {communityInvolvedItems[2].description}
-          </Dropdown.Item>
-          <Dropdown.Item
-            as={Link}
+          </Link>
+          <Link
             to="/community"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -62,7 +57,7 @@ const HeaderListCommunity = () => {
               {communityInvolvedItems[3].title}
             </strong>
             {communityInvolvedItems[3].description}
-          </Dropdown.Item>
+          </Link>
         </div>
       </div>
 
@@ -73,7 +68,7 @@ const HeaderListCommunity = () => {
           {t("nav.community.event.title")}
         </div>
         <div>
-          <Dropdown.Item as={Link} to="/breakpoint" className="text-white">
+          <Link to="/breakpoint" className="text-white">
             <BreakpointLogo
               width={228}
               height={131}
@@ -83,7 +78,7 @@ const HeaderListCommunity = () => {
             <div className="text-white" style={{ lineHeight: 1.2 }}>
               Dec. 11-13, 2025 - ABU DHABI
             </div>
-          </Dropdown.Item>
+          </Link>
         </div>
       </div>
     </div>

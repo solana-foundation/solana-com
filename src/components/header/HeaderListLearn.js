@@ -1,7 +1,6 @@
 import { useTranslation } from "next-i18next";
 import { Link } from "../../utils/Link";
 import StartSVG from "../../../assets/nav/learn/start.inline.svg";
-import Dropdown from "react-bootstrap/Dropdown";
 
 const HeaderListLearn = () => {
   const { t } = useTranslation("common");
@@ -14,8 +13,7 @@ const HeaderListLearn = () => {
           {t("nav.learn.start.title")}
         </div>
         <div>
-          <Dropdown.Item
-            as={Link}
+          <Link
             to="/learn/what-is-a-wallet"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -24,9 +22,8 @@ const HeaderListLearn = () => {
               {t("learn.tutorials.items.what-is-a-wallet.title")}
             </strong>
             {t("nav.learn.start.items.wallet.description")}
-          </Dropdown.Item>
-          <Dropdown.Item
-            as={Link}
+          </Link>
+          <Link
             to="/learn/sending-and-receiving-sol"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -35,9 +32,8 @@ const HeaderListLearn = () => {
               {t("learn.tutorials.items.sending-and-receiving-sol.title")}
             </strong>
             {t("nav.learn.start.items.transactions.description")}
-          </Dropdown.Item>
-          <Dropdown.Item
-            as={Link}
+          </Link>
+          <Link
             to="/learn/understanding-solana-transaction-fees"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -48,9 +44,8 @@ const HeaderListLearn = () => {
               )}
             </strong>
             {t("nav.learn.start.items.fees.description")}
-          </Dropdown.Item>
-          <Dropdown.Item
-            as={Link}
+          </Link>
+          <Link
             to="/learn#tutorials"
             className="nav-link nav-link--secondary"
             activeClassName="active"
@@ -59,7 +54,7 @@ const HeaderListLearn = () => {
               {t("nav.learn.start.items.all.title")}
             </strong>
             {t("nav.learn.start.items.all.description")}
-          </Dropdown.Item>
+          </Link>
         </div>
       </div>
     </div>

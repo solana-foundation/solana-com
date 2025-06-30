@@ -85,7 +85,11 @@ const nextConfig = {
               ...results
                 .filter((content) => {
                   const data = (content || {}).data || {};
-                  return !!(data.sourceUrl && data.destinationUrl);
+                  const isValid = !!(data.sourceUrl && data.destinationUrl && data.sourceUrl.startsWith("/"));
+                  if (!isValid && data.sourceUrl) {
+                    console.warn(`Ignoring invalid redirect from Builder.io: ${data.sourceUrl}`);
+                  }
+                  return isValid;
                 })
                 .map(({ data }) => ({
                   source: data.sourceUrl,
