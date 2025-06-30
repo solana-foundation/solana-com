@@ -15,12 +15,13 @@ export const DePinEmailModal = ({
   return (
     <Dialog open={_open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl w-full p-0 overflow-hidden">
-        <iframe
-          src={HUBSPOT_FORM_URL}
-          title="DePin Email Signup"
-          className="w-full h-[600px] border-0"
-          allowFullScreen
-        />
+        <div className="w-full max-h-[85vh] border-0">
+          <iframe
+            src={HUBSPOT_FORM_URL}
+            title="DePin Email Signup"
+            className="w-full h-[600px] sm:h-[710px] border-0"
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );
