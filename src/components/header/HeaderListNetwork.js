@@ -50,7 +50,6 @@ const HeaderListNetwork = () => {
             {networkResourcesItems[2].description}
           </InlineLink>
           <Link
-            as={Link}
             to="/solanaramp"
             className="nav-link nav-link--secondary"
             activeClassName="active"
