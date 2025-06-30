@@ -1,6 +1,5 @@
 import React from "react";
 import { serverTranslation } from "@/i18n/translation";
-import heroImg from "@@/assets/developers/hero-solana-learn.png";
 import LearnPageContent from "./LearnPageContent";
 import { learnTutorials } from "@/utils/learn-tutorials";
 
@@ -11,7 +10,6 @@ export default async function LearnPage(props: Props) {
 
   const { t } = await serverTranslation(locale, ["common"]);
 
-  // Build tutorials with translations
   const tutorials = learnTutorials.map((tutorial) => ({
     ...tutorial,
     title: t(`learn.tutorials.items.${tutorial.slug}.title`),
@@ -22,7 +20,6 @@ export default async function LearnPage(props: Props) {
   // Derive featured posts from tutorials (first 3)
   const featuredPosts = tutorials.slice(0, 3);
 
-  // Pre-translate all needed strings
   const translations = {
     heroTitle: t("learn.hero.title"),
     heroSubtitle: t("learn.hero.subtitle"),
@@ -37,7 +34,6 @@ export default async function LearnPage(props: Props) {
 
   return (
     <LearnPageContent
-      heroImg={heroImg}
       featuredPosts={featuredPosts}
       tutorials={tutorials}
       translations={translations}

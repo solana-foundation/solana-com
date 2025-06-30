@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import DevelopersHeroSection from "@/components/developers/sections/DevelopersHeroSection/DevelopersHeroSection";
+import { Hero } from "@solana-foundation/solana-lib";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 
 interface LearnPageContentProps {
-  heroImg: any;
   featuredPosts: Array<{
     id: number;
     title: string;
@@ -34,31 +33,34 @@ interface LearnPageContentProps {
 }
 
 export default function LearnPageContent({
-  heroImg,
   featuredPosts,
   tutorials,
   translations,
 }: LearnPageContentProps) {
   return (
     <>
-      <DevelopersHeroSection
-        title={translations.heroTitle}
-        description={translations.heroSubtitle}
-        img={{
-          src: heroImg,
-          alt: "Abstract image of a Solana learning Logo",
-        }}
-        buttons={{
-          cta: {
-            label: translations.heroStartLearning,
-            href: "#tutorials",
-          },
-          secondary: {
-            label: translations.heroBuild,
-            href: "/docs",
-          },
-        }}
-      />
+      <div className="bg-black flex justify-center w-full">
+        <Hero
+          headline={translations.heroTitle}
+          body={translations.heroSubtitle}
+          headingAs="h1"
+          headingSize="lg"
+          buttons={[
+            {
+              label: translations.heroStartLearning,
+              // @ts-expect-error href getting passed properly but typings not picking it up
+              href: "#tutorials",
+              variant: "primary",
+            },
+            {
+              label: translations.heroBuild,
+              // @ts-expect-error href getting passe properly but typings not picking it up
+              href: "/docs",
+              variant: "secondary",
+            },
+          ]}
+        />
+      </div>
 
       <section
         id="featured"
@@ -89,12 +91,12 @@ export default function LearnPageContent({
 
       <section
         id="tutorials"
-        className="pt-8 md:pt-12 pb-20 md:pb-24 bg-light"
+        className="pt-8 md:pt-12 pb-20 md:pb-24 text-white"
         aria-label={translations.tutorialsAriaLabel}
       >
         <div className="container">
-          <h2 className="h3 mb-4 text-dark">{translations.tutorialsTitle}</h2>
-          <p className="text-muted mb-5 col-lg-8">
+          <h2 className="h3 mb-4 text-white">{translations.tutorialsTitle}</h2>
+          <p className="text-white-50 mb-5 col-lg-8">
             {translations.tutorialsSubtitle}
           </p>
           <ol className="row g-4 list-unstyled" role="list">
