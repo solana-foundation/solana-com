@@ -85,7 +85,7 @@ const nextConfig = {
               ...results
                 .filter((content) => {
                   const data = (content || {}).data || {};
-                  return !!(data.sourceUrl && data.destinationUrl);
+                  return !!(data.sourceUrl && data.destinationUrl && data.sourceUrl.startsWith("/"));
                 })
                 .map(({ data }) => ({
                   source: data.sourceUrl,
