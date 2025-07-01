@@ -19,6 +19,8 @@ import { InlineCode } from "./components/code/inline-code";
 import { Terminal } from "./components/code/terminal";
 import { Mermaid } from "./components/code/mermaid";
 import { Download, Rocket, Coins } from "lucide-react";
+import { ScrollyCoding } from "./components/code/scrollycoding";
+import { CodePlaceholder } from "./components/code/scrollycoding.client";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -38,6 +40,8 @@ export const mdxComponents = {
   Code: DocsKitCode,
   CodeTabs,
   TerminalPicker,
+  ScrollyCoding,
+  CodePlaceholder,
   // Icons
   Download,
   Rocket,
