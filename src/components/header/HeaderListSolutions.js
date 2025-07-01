@@ -35,6 +35,15 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
+              to="/solutions/depin"
+              className="nav-link nav-link--secondary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-white">
+                {solutionsToolsItems[11].title}
+              </strong>
+            </Link>
+            <Link
               to="/solutions/actions"
               className="nav-link nav-link--secondary"
               activeClassName="active"
