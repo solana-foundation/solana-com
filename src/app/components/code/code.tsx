@@ -16,17 +16,19 @@ import { MultiCode } from "./code.client";
 import { tooltip } from "./tooltip";
 import { tokenTransitions } from "./token-transitions";
 import { RunnableLayout } from "./code.runnable";
+import { focus } from "./focus";
 
 export async function Code(props: {
   codeblocks: RawCode[];
   flags?: string;
   storage?: string;
+  className?: string;
 }) {
   const group = await toCodeGroup(props);
   return group.tabs.length === 1 ? (
-    <SingleCode group={group} />
+    <SingleCode group={group} className={props.className} />
   ) : (
-    <MultiCode group={group} key={group.storage} />
+    <MultiCode group={group} key={group.storage} className={props.className} />
   );
 }
 
@@ -70,7 +72,7 @@ export function SingleCode({
       ) : (
         <CopyButton
           text={code}
-          className="absolute right-3 my-0 top-2.5 text-ch-tab-inactive-foreground bg-ch-background/90"
+          className="absolute right-3 my-0 top-2.5 text-ch-tab-inactive-foreground bg-ch-background/90 z-10"
         />
       )}
       {pre}
@@ -148,6 +150,7 @@ function getHandlers(options: CodeGroup["options"]) {
     options.wordWrap && wordWrap,
     mention,
     callout,
+    focus,
   ].filter(Boolean) as AnnotationHandler[];
 }
 
@@ -162,7 +165,7 @@ function getHandlers(options: CodeGroup["options"]) {
  * console.log(flags); // "abc"
  * ```
  */
-function extractFlags(codeblock: RawCode) {
+export function extractFlags(codeblock: RawCode) {
   const flags =
     codeblock.meta.split(" ").filter((flag) => flag.startsWith("-"))[0] ?? "";
   const metaWithoutFlags = !flags
