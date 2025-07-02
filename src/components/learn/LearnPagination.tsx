@@ -1,9 +1,22 @@
 import { ChevronLeft, ChevronRight } from "react-feather";
 import { useTranslation } from "next-i18next";
-import Link from "../../utils/Link";
+import Link from "next/link";
 
-const LearnPagination = ({ prevSlug, prevTopic, nextSlug, nextTopic }) => {
+interface LearnPaginationProps {
+  prevSlug?: string;
+  prevTopic?: string;
+  nextSlug?: string;
+  nextTopic?: string;
+}
+
+const LearnPagination: React.FC<LearnPaginationProps> = ({
+  prevSlug,
+  prevTopic,
+  nextSlug,
+  nextTopic,
+}) => {
   const { t } = useTranslation();
+
   return (
     <nav
       className={`d-flex mx-n5 mx-md-n0 my-10 ${
@@ -16,7 +29,7 @@ const LearnPagination = ({ prevSlug, prevTopic, nextSlug, nextTopic }) => {
     >
       {prevSlug && (
         <Link
-          to={`/learn/${prevSlug}`}
+          href={`/learn/${prevSlug}`}
           className="w-50 link-unstyled d-flex justify-content-start align-items-center"
         >
           <ChevronLeft className="me-2" width="20" />
@@ -28,7 +41,7 @@ const LearnPagination = ({ prevSlug, prevTopic, nextSlug, nextTopic }) => {
       )}
       {nextSlug && (
         <Link
-          to={nextSlug ? `/learn/${nextSlug}` : ``}
+          href={`/learn/${nextSlug}`}
           className="w-50 link-unstyled d-flex justify-content-end align-items-center"
         >
           <div>
