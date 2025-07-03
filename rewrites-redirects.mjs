@@ -147,7 +147,6 @@ export default {
     },
     { source: "/breakpoint/side-events", destination: "/breakpoint" },
     { source: "/breakpoint/sponsors", destination: "/breakpoint" },
-    { source: "/breakpoint/speakers", destination: "/breakpoint" },
     {
       source: "/verifiable-builds",
       destination:
