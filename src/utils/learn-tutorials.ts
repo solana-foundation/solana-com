@@ -1,39 +1,43 @@
 export const learnTutorials = [
   {
     id: 1,
-    slug: "what-is-a-wallet",
+    slug: "what-is-solana",
   },
   {
     id: 2,
-    slug: "understanding-solana-transaction-fees",
+    slug: "what-is-a-wallet",
   },
   {
     id: 3,
-    slug: "sending-and-receiving-sol",
+    slug: "understanding-solana-transaction-fees",
   },
   {
     id: 4,
-    slug: "what-is-staking",
+    slug: "sending-and-receiving-sol",
   },
   {
     id: 5,
-    slug: "introduction-to-solana-tokens",
+    slug: "what-is-staking",
   },
   {
     id: 6,
-    slug: "what-are-nfts",
+    slug: "introduction-to-solana-tokens",
   },
   {
     id: 7,
-    slug: "introduction-to-defi-on-solana",
+    slug: "what-are-nfts",
   },
   {
     id: 8,
-    slug: "exploring-solana-web3-applications",
+    slug: "introduction-to-defi-on-solana",
   },
   {
     id: 9,
-    slug: "staying-safe-in-web3",
+    slug: "exploring-solana-applications",
+  },
+  {
+    id: 10,
+    slug: "staying-safe-on-solana",
   },
 ];
 

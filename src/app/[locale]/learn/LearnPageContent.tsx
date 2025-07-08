@@ -5,13 +5,6 @@ import { Hero } from "@solana-foundation/solana-lib";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 
 interface LearnPageContentProps {
-  featuredPosts: Array<{
-    id: number;
-    title: string;
-    description: string;
-    slug: string;
-    category: string;
-  }>;
   tutorials: Array<{
     id: number;
     title: string;
@@ -24,8 +17,6 @@ interface LearnPageContentProps {
     heroSubtitle: string;
     heroStartLearning: string;
     heroBuild: string;
-    featuredTitle: string;
-    featuredAriaLabel: string;
     tutorialsTitle: string;
     tutorialsSubtitle: string;
     tutorialsAriaLabel: string;
@@ -33,7 +24,6 @@ interface LearnPageContentProps {
 }
 
 export default function LearnPageContent({
-  featuredPosts,
   tutorials,
   translations,
 }: LearnPageContentProps) {
@@ -49,7 +39,7 @@ export default function LearnPageContent({
             {
               label: translations.heroStartLearning,
               // @ts-expect-error href getting passed properly but typings not picking it up
-              href: "#tutorials",
+              href: "/learn/what-is-solana",
               variant: "primary",
             },
             {
@@ -61,33 +51,6 @@ export default function LearnPageContent({
           ]}
         />
       </div>
-
-      <section
-        id="featured"
-        className="py-8 md:py-12 bg-white"
-        aria-label={translations.featuredAriaLabel}
-      >
-        <div className="container">
-          <h2 className="h3 mb-4 text-dark">{translations.featuredTitle}</h2>
-          <div className="row g-4" role="list">
-            {featuredPosts.map((post) => (
-              <div
-                key={post.id}
-                className="col-12 col-md-6 col-lg-4"
-                role="listitem"
-              >
-                <DevelopersResourceItem
-                  category={post.category}
-                  title={post.title}
-                  description={post.description}
-                  url={`/learn/${post.slug}`}
-                  isExternal={false}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       <section
         id="tutorials"
