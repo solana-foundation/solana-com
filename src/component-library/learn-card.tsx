@@ -13,6 +13,9 @@ interface LearnCardProps {
   description: string;
   href: string;
   className?: string;
+  partLabel?: string;
+  readMoreLabel?: string;
+  readMoreAriaLabel?: string;
 }
 
 export const LearnCard: React.FC<LearnCardProps> = ({
@@ -21,6 +24,9 @@ export const LearnCard: React.FC<LearnCardProps> = ({
   description,
   href,
   className,
+  partLabel = "Part",
+  readMoreLabel = "Read more",
+  readMoreAriaLabel = "Read more about",
 }) => {
   return (
     <article
@@ -42,9 +48,11 @@ export const LearnCard: React.FC<LearnCardProps> = ({
             <Link
               href={href}
               className="text-lg font-semibold text-white hover:text-[#9945FF] hover:underline transition-colors duration-200 line-clamp-2 focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-gray-900 rounded"
-              aria-label={`Part ${index}: ${title}`}
+              aria-label={`${partLabel} ${index}: ${title}`}
             >
-              <span aria-hidden="true">Part {index}: </span>
+              <span aria-hidden="true">
+                {partLabel} {index}:{" "}
+              </span>
               <span>{title}</span>
             </Link>
           </h3>
@@ -54,9 +62,9 @@ export const LearnCard: React.FC<LearnCardProps> = ({
         <Link
           href={href}
           className="inline-flex items-center text-sm font-medium text-[#9945FF] hover:underline transition-colors duration-200 mt-4 focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-gray-900 rounded"
-          aria-label={`Read more about ${title}`}
+          aria-label={`${readMoreAriaLabel} ${title}`}
         >
-          <span>Read more</span>
+          <span>{readMoreLabel}</span>
           <svg
             className="ml-1 w-4 h-4 transition-transform duration-200 group-hover:translate-x-1"
             fill="none"

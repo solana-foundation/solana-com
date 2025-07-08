@@ -20,6 +20,25 @@ interface LearnPageContentProps {
     tutorialsTitle: string;
     tutorialsSubtitle: string;
     tutorialsAriaLabel: string;
+    continueJourneyTitle: string;
+    continueJourneySubtitle: string;
+    resourcesAriaLabel: string;
+    documentationLabel: string;
+    documentationDescription: string;
+    documentationAriaLabel: string;
+    cookbookLabel: string;
+    cookbookDescription: string;
+    cookbookAriaLabel: string;
+    coursesLabel: string;
+    coursesDescription: string;
+    coursesAriaLabel: string;
+    walletsLabel: string;
+    walletsDescription: string;
+    walletsAriaLabel: string;
+    opensInNewTabAriaLabel: string;
+    tutorialPartLabel: string;
+    readMoreLabel: string;
+    readMoreAriaLabel: string;
   };
 }
 
@@ -40,6 +59,14 @@ export default function LearnPageContent({
         aria-label={translations.tutorialsAriaLabel}
       >
         <div className="container">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              {translations.tutorialsTitle}
+            </h2>
+            <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+              {translations.tutorialsSubtitle}
+            </p>
+          </div>
           <div
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             role="list"
@@ -51,39 +78,53 @@ export default function LearnPageContent({
                 title={tutorial.title}
                 description={tutorial.description}
                 href={`/learn/${tutorial.slug}`}
+                partLabel={translations.tutorialPartLabel}
+                readMoreLabel={translations.readMoreLabel}
+                readMoreAriaLabel={translations.readMoreAriaLabel}
               />
             ))}
           </div>
         </div>
       </section>
 
-      <section className="pb-20 md:pb-24 text-white">
+      <section
+        className="pb-20 md:pb-24 text-white"
+        aria-labelledby="resources-heading"
+        aria-label={translations.resourcesAriaLabel}
+      >
         <div className="container">
           <div className="max-w-3xl">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">
-              Continue Your Journey
+            <h2
+              id="resources-heading"
+              className="text-2xl md:text-3xl font-bold mb-4"
+            >
+              {translations.continueJourneyTitle}
             </h2>
             <p className="text-gray-300 mb-8">
-              Ready to dive deeper? Explore these essential resources for Solana
-              developers
+              {translations.continueJourneySubtitle}
             </p>
-            <ul className="space-y-3">
+            <ul className="space-y-3" role="list">
               <li>
                 <a
                   href="https://solana.com/docs"
-                  className="inline-flex items-center gap-2 text-white hover:underline transition-all duration-200 group"
+                  className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label={translations.documentationAriaLabel}
                 >
-                  <span className="font-medium">Documentation</span>
-                  <span className="text-gray-400">
-                    - Official Solana documentation and API references
+                  <span className="font-medium">
+                    {translations.documentationLabel}
+                  </span>
+                  <span className="text-gray-400" aria-hidden="true">
+                    - {translations.documentationDescription}
                   </span>
                   <svg
                     className="w-4 h-4 text-gray-400 transition-colors"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
+                    aria-hidden="true"
+                    focusable="false"
                   >
                     <path
                       strokeLinecap="round"
@@ -97,19 +138,24 @@ export default function LearnPageContent({
               <li>
                 <a
                   href="https://solana.com/developers/cookbook"
-                  className="inline-flex items-center gap-2 text-white hover:underline transition-all duration-200 group"
+                  className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label={translations.cookbookAriaLabel}
                 >
-                  <span className="font-medium">Cookbook</span>
-                  <span className="text-gray-400">
-                    - Code snippets and recipes for common tasks
+                  <span className="font-medium">
+                    {translations.cookbookLabel}
+                  </span>
+                  <span className="text-gray-400" aria-hidden="true">
+                    - {translations.cookbookDescription}
                   </span>
                   <svg
                     className="w-4 h-4 text-gray-400 transition-colors"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
+                    aria-hidden="true"
+                    focusable="false"
                   >
                     <path
                       strokeLinecap="round"
@@ -123,19 +169,24 @@ export default function LearnPageContent({
               <li>
                 <a
                   href="https://solana.com/developers/courses"
-                  className="inline-flex items-center gap-2 text-white hover:underline transition-all duration-200 group"
+                  className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label={translations.coursesAriaLabel}
                 >
-                  <span className="font-medium">Courses</span>
-                  <span className="text-gray-400">
-                    - Structured learning paths for Solana development
+                  <span className="font-medium">
+                    {translations.coursesLabel}
+                  </span>
+                  <span className="text-gray-400" aria-hidden="true">
+                    - {translations.coursesDescription}
                   </span>
                   <svg
                     className="w-4 h-4 text-gray-400 transition-colors"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
+                    aria-hidden="true"
+                    focusable="false"
                   >
                     <path
                       strokeLinecap="round"
@@ -149,19 +200,24 @@ export default function LearnPageContent({
               <li>
                 <a
                   href="https://solana.com/wallets"
-                  className="inline-flex items-center gap-2 text-white hover:underline transition-all duration-200 group"
+                  className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label={translations.walletsAriaLabel}
                 >
-                  <span className="font-medium">Wallets</span>
-                  <span className="text-gray-400">
-                    - Explore Solana wallets to manage your assets
+                  <span className="font-medium">
+                    {translations.walletsLabel}
+                  </span>
+                  <span className="text-gray-400" aria-hidden="true">
+                    - {translations.walletsDescription}
                   </span>
                   <svg
                     className="w-4 h-4 text-gray-400 transition-colors"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
+                    aria-hidden="true"
+                    focusable="false"
                   >
                     <path
                       strokeLinecap="round"
