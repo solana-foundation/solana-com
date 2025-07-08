@@ -1,6 +1,6 @@
 import React from "react";
 import { serverTranslation } from "@/i18n/translation";
-import LearnPageContent from "./LearnPageContent";
+import LearnPageContent from "./learn-page-content";
 import { learnTutorials } from "@/utils/learn-tutorials";
 
 type Props = { params: Promise<{ locale: string }> };
