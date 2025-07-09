@@ -20,19 +20,19 @@ export default function LearnHero({ title, subtitle }: LearnHeroProps) {
           src={learnHeroImage}
           alt="Solana learning resources background"
           fill
-          className="object-cover"
+          className="object-cover object-top"
           priority
           sizes="100vw"
         />
       </div>
 
       <div className="container relative z-10 mx-auto px-4">
-        <div className="flex min-h-[500px] items-center py-20 md:py-24 lg:py-32">
+        <div className="flex min-h-[300px] items-center py-12 md:py-16 lg:py-20">
           <div className="max-w-2xl">
-            <h1 className="mb-6 text-4xl font-bold leading-tight text-white md:text-5xl lg:text-6xl">
+            <h1 className="mb-4 text-3xl font-bold leading-tight text-white md:text-4xl lg:text-5xl">
               {title}
             </h1>
-            <p className="text-lg leading-relaxed text-white md:text-xl">
+            <p className="text-base leading-relaxed text-white md:text-lg">
               {subtitle}
             </p>
           </div>

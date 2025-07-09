@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { LearnCard } from "@/component-library/learn-card";
 import LearnHero from "./learn-hero";
 
@@ -17,8 +18,6 @@ interface LearnPageContentProps {
     heroSubtitle: string;
     heroStartLearning: string;
     heroBuild: string;
-    tutorialsTitle: string;
-    tutorialsSubtitle: string;
     tutorialsAriaLabel: string;
     continueJourneyTitle: string;
     continueJourneySubtitle: string;
@@ -59,14 +58,6 @@ export default function LearnPageContent({
         aria-label={translations.tutorialsAriaLabel}
       >
         <div className="container">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              {translations.tutorialsTitle}
-            </h2>
-            <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-              {translations.tutorialsSubtitle}
-            </p>
-          </div>
           <div
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             role="list"
@@ -105,8 +96,8 @@ export default function LearnPageContent({
             </p>
             <ul className="space-y-3" role="list">
               <li>
-                <a
-                  href="https://solana.com/docs"
+                <Link
+                  href="/docs"
                   className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -133,11 +124,11 @@ export default function LearnPageContent({
                       d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                     />
                   </svg>
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="https://solana.com/developers/cookbook"
+                <Link
+                  href="/developers/cookbook"
                   className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -164,11 +155,11 @@ export default function LearnPageContent({
                       d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                     />
                   </svg>
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="https://solana.com/developers/courses"
+                <Link
+                  href="/developers/courses"
                   className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -195,11 +186,11 @@ export default function LearnPageContent({
                       d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                     />
                   </svg>
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="https://solana.com/wallets"
+                <Link
+                  href="/wallets"
                   className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -226,7 +217,7 @@ export default function LearnPageContent({
                       d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                     />
                   </svg>
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

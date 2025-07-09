@@ -84,11 +84,21 @@ export default async function LearnContentPage(props: Props) {
                   </div>
                   <div>
                     <p className="text-zinc-400 text-sm uppercase tracking-wider mb-1">
+                      <span className="sr-only">
+                        {t("learn.navigation.currentChapter")}:{" "}
+                      </span>
                       {t("learn.navigation.chapter")} {currentIndex + 1}
                     </p>
-                    <h2 className="text-2xl font-medium text-white">
+                    <p
+                      className="text-2xl font-medium text-white"
+                      aria-label={t("learn.navigation.chapterCategory", {
+                        category: t(
+                          `learn.tutorials.items.${currentSlug}.category`,
+                        ),
+                      })}
+                    >
                       {t(`learn.tutorials.items.${currentSlug}.category`)}
-                    </h2>
+                    </p>
                   </div>
                 </div>
 
@@ -97,7 +107,9 @@ export default async function LearnContentPage(props: Props) {
                   <Link
                     href={`/learn/${nextSlug}`}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg border border-zinc-800 hover:border-zinc-600 transition-all group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-black"
-                    aria-label={`Go to next chapter: ${nextTitle}`}
+                    aria-label={t("learn.navigation.goToNextChapter", {
+                      title: nextTitle,
+                    })}
                   >
                     <span className="text-sm text-zinc-400 group-hover:text-white transition-colors hidden sm:inline">
                       {t("learn.navigation.next")}
@@ -123,7 +135,10 @@ export default async function LearnContentPage(props: Props) {
               {/* Mobile Chapter Navigation Dropdown */}
               <div className="xl:hidden sticky top-16 z-10 -mx-4 px-4 pb-6">
                 <details className="rounded-lg">
-                  <summary className="px-4 py-3 cursor-pointer flex items-center justify-between text-white hover:bg-zinc-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-black">
+                  <summary
+                    className="px-4 py-3 cursor-pointer flex items-center justify-between text-white hover:bg-zinc-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-black"
+                    aria-label={t("learn.navigation.toggleChapterNavigation")}
+                  >
                     <span className="text-sm font-medium">
                       {t("learn.navigation.chapters")}
                     </span>
@@ -142,7 +157,12 @@ export default async function LearnContentPage(props: Props) {
                       />
                     </svg>
                   </summary>
-                  <nav className="px-2 pb-2" aria-label="Chapter navigation">
+                  <nav
+                    className="px-2 pb-2"
+                    aria-label={t(
+                      "learn.navigation.chapterNavigationAriaLabel",
+                    )}
+                  >
                     {learnTutorials.map((tutorial, index) => {
                       const isActive = tutorial.slug === currentSlug;
                       const tutorialTitle = t(
@@ -169,7 +189,11 @@ export default async function LearnContentPage(props: Props) {
                           >
                             {index + 1}.
                           </span>
-                          <span className="sr-only">Chapter {index + 1}: </span>
+                          <span className="sr-only">
+                            {t("learn.navigation.chapterNumber", {
+                              number: index + 1,
+                            })}{" "}
+                          </span>
                           {tutorialTitle}
                         </Link>
                       );
@@ -194,14 +218,17 @@ export default async function LearnContentPage(props: Props) {
               {/* Navigation */}
               <nav
                 className="mt-12 pt-8 border-t border-zinc-800"
-                aria-label="Tutorial navigation"
+                aria-label={t("learn.navigation.tutorialNavigationAriaLabel")}
               >
                 <div className="flex justify-between items-center">
                   {prevSlug ? (
                     <Link
                       href={`/learn/${prevSlug}`}
                       className="group flex items-center text-white hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-black rounded-lg p-2 -m-2"
-                      aria-label={`Previous chapter: ${prevTitle}`}
+                      aria-label={t(
+                        "learn.navigation.previousChapterAriaLabel",
+                        { title: prevTitle },
+                      )}
                     >
                       <svg
                         className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform"
@@ -233,7 +260,9 @@ export default async function LearnContentPage(props: Props) {
                     <Link
                       href={`/learn/${nextSlug}`}
                       className="group flex items-center text-white hover:text-primary transition-colors text-right focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-black rounded-lg p-2 -m-2"
-                      aria-label={`Next chapter: ${nextTitle}`}
+                      aria-label={t("learn.navigation.nextChapterAriaLabel", {
+                        title: nextTitle,
+                      })}
                     >
                       <div className="text-right">
                         <div className="text-sm text-zinc-400">
@@ -268,15 +297,15 @@ export default async function LearnContentPage(props: Props) {
           {/* Chapter Navigation Dropdown */}
           <aside
             className="hidden xl:block sticky top-24 h-fit ml-8 w-64"
-            aria-label="Chapter navigation"
+            aria-label={t("learn.navigation.chapterNavigationAriaLabel")}
           >
             <div className="rounded-lg p-4">
-              <h3
+              <h2
                 id="chapters-heading"
                 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3"
               >
                 {t("learn.navigation.chapters")}
-              </h3>
+              </h2>
               <nav className="space-y-1" aria-labelledby="chapters-heading">
                 {learnTutorials.map((tutorial, index) => {
                   const isActive = tutorial.slug === currentSlug;
@@ -311,7 +340,9 @@ export default async function LearnContentPage(props: Props) {
                         <div className="flex-1 min-w-0">
                           <div className="text-sm truncate">
                             <span className="sr-only">
-                              Chapter {index + 1}:{" "}
+                              {t("learn.navigation.chapterNumber", {
+                                number: index + 1,
+                              })}{" "}
                             </span>
                             {tutorialTitle}
                           </div>

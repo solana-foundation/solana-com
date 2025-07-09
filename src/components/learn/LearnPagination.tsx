@@ -26,13 +26,15 @@ const LearnPagination: React.FC<LearnPaginationProps> = ({
             ? "justify-content-end"
             : "justify-content-start"
       }`}
+      aria-label={t("learn.pagination.ariaLabel")}
     >
       {prevSlug && (
         <Link
           href={`/learn/${prevSlug}`}
           className="w-50 link-unstyled d-flex justify-content-start align-items-center"
+          aria-label={t("learn.pagination.prevAriaLabel", { topic: prevTopic })}
         >
-          <ChevronLeft className="me-2" width="20" />
+          <ChevronLeft className="me-2" width="20" aria-hidden="true" />
           <div>
             <p className="m-0 fw-bold">{t("learn.prev")}</p>
             <p className="smaller m-0 text-capitalize">{prevTopic}</p>
@@ -43,12 +45,13 @@ const LearnPagination: React.FC<LearnPaginationProps> = ({
         <Link
           href={`/learn/${nextSlug}`}
           className="w-50 link-unstyled d-flex justify-content-end align-items-center"
+          aria-label={t("learn.pagination.nextAriaLabel", { topic: nextTopic })}
         >
           <div>
             <p className="m-0 fw-bold">{t("learn.next")}</p>
             <p className="smaller m-0 text-capitalize">{nextTopic}</p>
           </div>
-          <ChevronRight className="ms-2" width="20" />
+          <ChevronRight className="ms-2" width="20" aria-hidden="true" />
         </Link>
       )}
     </nav>
