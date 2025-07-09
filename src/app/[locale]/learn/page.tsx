@@ -42,6 +42,9 @@ export default async function LearnPage(props: Props) {
     tutorialPartLabel: t("learn.tutorials.partLabel"),
     readMoreLabel: t("learn.tutorials.readMore"),
     readMoreAriaLabel: t("learn.tutorials.readMoreAriaLabel"),
+    // Developer component translations
+    developersResourcesLearnMore: t("developers.resources.learn-more"),
+    developersDocumentsViewAll: t("developers.documents.view-all"),
   };
 
   return <LearnPageContent tutorials={tutorials} translations={translations} />;

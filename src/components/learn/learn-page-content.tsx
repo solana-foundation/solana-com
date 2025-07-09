@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { LinkCard } from "@/component-library/link-card";
+import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
+import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
 import LearnHero from "./learn-hero";
-import ResourceLink from "./resource-link";
 
 interface LearnPageContentProps {
   tutorials: Array<{
@@ -38,6 +38,8 @@ interface LearnPageContentProps {
     tutorialPartLabel: string;
     readMoreLabel: string;
     readMoreAriaLabel: string;
+    developersResourcesLearnMore: string;
+    developersDocumentsViewAll: string;
   };
 }
 
@@ -89,16 +91,15 @@ export default function LearnPageContent({
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             role="list"
           >
-            {tutorials.map((tutorial) => (
-              <LinkCard
+            {tutorials.map((tutorial, index) => (
+              <DevelopersResourceItem
                 key={tutorial.id}
-                index={tutorial.id}
+                category={`${translations.tutorialPartLabel} ${index + 1}`}
                 title={tutorial.title}
                 description={tutorial.description}
-                href={`/learn/${tutorial.slug}`}
-                partLabel={translations.tutorialPartLabel}
-                readMoreLabel={translations.readMoreLabel}
-                readMoreAriaLabel={translations.readMoreAriaLabel}
+                url={`/learn/${tutorial.slug}`}
+                isExternal={false}
+                ctaLabel={translations.readMoreLabel}
               />
             ))}
           </div>
@@ -106,32 +107,63 @@ export default function LearnPageContent({
       </section>
 
       <section
-        className="pb-20 md:pb-24 text-white"
+        className="pb-20 md:pb-24"
         aria-labelledby="resources-heading"
         aria-label={translations.resourcesAriaLabel}
+        style={{
+          background:
+            "linear-gradient(180deg, #19161C 0%, rgba(25, 22, 28, 0) 100%)",
+        }}
       >
         <div className="container">
-          <div className="max-w-3xl">
+          <div className="mb-8 pt-10">
             <h2
               id="resources-heading"
-              className="text-2xl md:text-3xl font-bold mb-4"
+              className="text-2xl md:text-3xl font-bold mb-4 text-white"
             >
               {translations.continueJourneyTitle}
             </h2>
-            <p className="text-gray-300 mb-8">
-              {translations.continueJourneySubtitle}
-            </p>
-            <ul className="space-y-3" role="list">
-              {resources.map((resource, index) => (
-                <ResourceLink
-                  key={index}
-                  href={resource.href}
-                  label={resource.label}
-                  description={resource.description}
-                  ariaLabel={resource.ariaLabel}
-                />
-              ))}
-            </ul>
+            <p className="subdued">{translations.continueJourneySubtitle}</p>
+          </div>
+          <div className="row">
+            <div className="col-12 col-lg-6">
+              <DevelopersDocumentItem
+                title={resources[0].label}
+                description={resources[0].description}
+                url={resources[0].href}
+                newTab={false}
+                ctaLabel={translations.developersDocumentsViewAll}
+              />
+            </div>
+            <div className="col-12 col-lg-6 mt-10 mt-lg-0">
+              <DevelopersDocumentItem
+                title={resources[1].label}
+                description={resources[1].description}
+                url={resources[1].href}
+                newTab={false}
+                ctaLabel={translations.developersDocumentsViewAll}
+              />
+            </div>
+          </div>
+          <div className="row mt-8 mt-lg-12">
+            <div className="col-12 col-lg-6">
+              <DevelopersDocumentItem
+                title={resources[2].label}
+                description={resources[2].description}
+                url={resources[2].href}
+                newTab={false}
+                ctaLabel={translations.developersDocumentsViewAll}
+              />
+            </div>
+            <div className="col-12 col-lg-6 mt-10 mt-lg-0">
+              <DevelopersDocumentItem
+                title={resources[3].label}
+                description={resources[3].description}
+                url={resources[3].href}
+                newTab={false}
+                ctaLabel={translations.developersDocumentsViewAll}
+              />
+            </div>
           </div>
         </div>
       </section>

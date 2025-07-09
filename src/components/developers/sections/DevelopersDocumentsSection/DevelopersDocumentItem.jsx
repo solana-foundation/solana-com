@@ -9,6 +9,7 @@ export default function DevelopersDocumentItem({
   description,
   url,
   newTab = true,
+  ctaLabel,
 }) {
   const { t } = useTranslation();
 
@@ -25,9 +26,9 @@ export default function DevelopersDocumentItem({
           to={url}
           newTab={newTab}
           className={styles["document-item__cta"]}
-          aria-label={t("developers.documents.view-all")}
+          aria-label={ctaLabel || t("developers.documents.view-all")}
         >
-          <span>{t("developers.documents.view-all")}</span>
+          <span>{ctaLabel || t("developers.documents.view-all")}</span>
           <ArrowUpRight strokeWidth={1} />
         </Button>
       </div>
