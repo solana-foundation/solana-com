@@ -1,0 +1,108 @@
+---
+title: "How to land transactions on Solana"
+description:
+  "Understand best practices to be able to land transactions on Solana"
+keywords:
+  - guide
+  - transactions
+  - landing-transactions
+---
+
+## How do I land a Solana Transaction?
+
+For context, a Solana transaction bundles signed instructions, a set of
+accounts, and a “recent” blockhash (valid for roughly 150 slots, or 1 minute 19
+seconds) into a single atomic unit—once that blockhash expires or points to a
+minority fork, validators simply reject it. Submissions flow through RPC nodes
+or the TPU network to leader validators, where at each stage (fetch, signature
+verification, banking, PoH sequencing, and broadcast) packets can be dropped due
+to UDP losses, overloaded queues, RPC pool lag, or transient forks. When there
+is extreme on-chain volume, there is a higher chance of failed or dropped
+transactions. This guide will cover best practices for increasing transaction
+throughput.
+
+This guide assumes you have an understanding of how transactions work on Solana.
+If you need additional context on this topic, please read the
+[Transactions and Instructions Guide](/docs/core/transactions) before
+continuing.
+
+## Key Points
+
+- Fetch the latest blockhash with commitment `confirmed` or `finalized`
+- Set `skipPreflight` to true
+- Optimize Compute Units
+- Add priority fees and calculate them dynamically
+- Turn off built-in retries (`maxRetries: 0`) and implement your own retry logic
+- Leverage stake-weighted (RPC/TPU) connections where possible
+- For non-time-sensitive transactions, use durable nonces to sidestep blockhash
+  expiry
+
+### 1. Use a Recent Blockhash
+
+Each transaction carries a “recent blockhash” that must still be considered
+valid (within ~150 slots, or ~1 min 19 sec). The RPC API to fetch the latest
+blockhash is `getLatestBlockhash`. By default, this method uses the `finalized`
+commitment, which indicated the block has at least 31 confirmed blocks added
+above it, eliminating the risk of using a blockhash that belongs to a dropped
+fork. However, this reduces the expiration of a transaction by about 13 seconds.
+
+Instead, you can set the commitment level to `confirmed`, which is usually only
+a few slots behind the `processed` commitment level and has a low chance of
+belonging to a dropped fork.
+
+It is recommended to poll for a new blockhash every ~60 sec and refresh it
+immediately before signing.
+
+### 2. Skip Preflight Checks (Advanced)
+
+Preflight checks ensure the transaction's signatures are verified and it
+simulates your transaction against the bank slot specified by the preflight
+commitment. If you’re confident in your instruction and signatures, set
+`skipPreflight: true`. Always set the `preflightCommitment` to the same
+commitment level as your blockhash commitment. This shaves latency and avoids
+misleading “blockhash not found” errors. ￼
+
+### 3. Optimize Compute Units
+
+By default you request up to 200 k CU—even if you need far less. Over-requesting
+makes block scheduling less efficient. Measure your actual CU usage and set a
+tighter budget: smaller transactions get scheduled and executed faster. ￼
+
+### 4. Attach Priority Fees
+
+Validators prioritize transactions that include a micro-lamport fee per CU,
+which is considered a priority fee. This will incentivize validator nodes to
+include the transaction. Calculate this fee dynamically to make sure you don't
+overpay but remain competitive.
+
+### 5. Implement Robust Retry Logic
+
+Turn off automatic RPC retries (`maxRetries: 0`) and write custom logic to retry
+manually. Below are two different methods that can be used to retry
+transactions:
+
+- Poll the `transaction status` with different commitment levels and continuously
+  use the same signed transaction until it gets confirmed using an exponential
+  backoff mechanism to avoid spam. Alternatively, you can submit transactions at
+  a constant interval until a timeout occurs.￼
+- Store the `lastValidBlockHeight` that comes from the `getLatestBlockhash` method.
+  Then, poll the cluster's block height and retry the transaction manually after
+  the current block height goes above the `lastValidBlockHeight`. When polling via
+  `getLatestBlockhash`, it is recommended that you specify your intended
+  commitment level. By setting the commitment to confirmed (voted on) or
+  finalized (~30 blocks after confirmed), you can avoid polling a blockhash from
+  a minority fork.
+
+### 6. Use Stake-Weighted Connections
+
+Solana validators naturally rate-limit by stake weight to protect against spam.
+If your RPC/TPU path supports stake-weighted QoS, you’ll get a guaranteed slice
+of the leader’s ingress bandwidth proportional to stake, improving reliability
+under load. ￼
+
+### 7. Employ Durable Nonces for Offline or Delayed Flows
+
+For cases where you can’t submit immediately (e.g. custodial services, delayed
+signatures), create a nonce account on-chain and use its stored blockhash in
+your transaction. As long as the nonce remains unused, your transaction never
+“expires” in the usual sense.
