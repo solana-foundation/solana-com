@@ -6,18 +6,18 @@ import Image from "next/image";
 const news = [
   {
     id: 1,
+    title: "VW ADMT taps Hivemapper for Driverless Data",
+    date: "Jul 9",
+    image: "/src/img/solutions/depin/news/vw.webp",
+    link: "https://www.coindesk.com/tech/2025/07/08/volkswagen-admt-taps-solana-based-hivemapper-bee-maps-for-driverless-data",
+  },
+  {
+    id: 2,
     title: "Natix Teams Up with Grab",
     date: "May 6",
     image: "/src/img/solutions/depin/news/natix-grab.avif",
     large: true,
     link: "https://www.coindesk.com/tech/2025/05/06/solanas-natix-and-grab-team-up-to-expand-depin-mapping-into-us-europe",
-  },
-  {
-    id: 2,
-    title: "Lyft taps Hivemapper for Decentralized Data Mapping",
-    date: "May 15",
-    image: "/src/img/solutions/depin/news/lyft.webp",
-    link: "https://decrypt.co/320127/rideshare-company-lyft-taps-bee-maps-decentralized-mapping-data",
   },
   {
     id: 3,
