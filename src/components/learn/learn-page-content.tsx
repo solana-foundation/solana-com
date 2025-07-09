@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { LinkCard } from "@/component-library/link-card";
 import LearnHero from "./learn-hero";
+import ResourceLink from "./resource-link";
 
 interface LearnPageContentProps {
   tutorials: Array<{
@@ -45,6 +45,33 @@ export default function LearnPageContent({
   tutorials,
   translations,
 }: LearnPageContentProps) {
+  const resources = [
+    {
+      href: "/docs",
+      label: translations.documentationLabel,
+      description: translations.documentationDescription,
+      ariaLabel: translations.documentationAriaLabel,
+    },
+    {
+      href: "/developers/cookbook",
+      label: translations.cookbookLabel,
+      description: translations.cookbookDescription,
+      ariaLabel: translations.cookbookAriaLabel,
+    },
+    {
+      href: "/developers/courses",
+      label: translations.coursesLabel,
+      description: translations.coursesDescription,
+      ariaLabel: translations.coursesAriaLabel,
+    },
+    {
+      href: "/wallets",
+      label: translations.walletsLabel,
+      description: translations.walletsDescription,
+      ariaLabel: translations.walletsAriaLabel,
+    },
+  ];
+
   return (
     <>
       <LearnHero
@@ -95,130 +122,15 @@ export default function LearnPageContent({
               {translations.continueJourneySubtitle}
             </p>
             <ul className="space-y-3" role="list">
-              <li>
-                <Link
-                  href="/docs"
-                  className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={translations.documentationAriaLabel}
-                >
-                  <span className="font-medium">
-                    {translations.documentationLabel}
-                  </span>
-                  <span className="text-gray-400" aria-hidden="true">
-                    - {translations.documentationDescription}
-                  </span>
-                  <svg
-                    className="w-4 h-4 text-gray-400 transition-colors"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/developers/cookbook"
-                  className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={translations.cookbookAriaLabel}
-                >
-                  <span className="font-medium">
-                    {translations.cookbookLabel}
-                  </span>
-                  <span className="text-gray-400" aria-hidden="true">
-                    - {translations.cookbookDescription}
-                  </span>
-                  <svg
-                    className="w-4 h-4 text-gray-400 transition-colors"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/developers/courses"
-                  className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={translations.coursesAriaLabel}
-                >
-                  <span className="font-medium">
-                    {translations.coursesLabel}
-                  </span>
-                  <span className="text-gray-400" aria-hidden="true">
-                    - {translations.coursesDescription}
-                  </span>
-                  <svg
-                    className="w-4 h-4 text-gray-400 transition-colors"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/wallets"
-                  className="inline-flex items-center gap-2 text-white hover:underline focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={translations.walletsAriaLabel}
-                >
-                  <span className="font-medium">
-                    {translations.walletsLabel}
-                  </span>
-                  <span className="text-gray-400" aria-hidden="true">
-                    - {translations.walletsDescription}
-                  </span>
-                  <svg
-                    className="w-4 h-4 text-gray-400 transition-colors"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
-                </Link>
-              </li>
+              {resources.map((resource, index) => (
+                <ResourceLink
+                  key={index}
+                  href={resource.href}
+                  label={resource.label}
+                  description={resource.description}
+                  ariaLabel={resource.ariaLabel}
+                />
+              ))}
             </ul>
           </div>
         </div>
