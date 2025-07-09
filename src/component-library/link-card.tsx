@@ -7,7 +7,7 @@ export function cn(...inputs: any[]) {
   return twMerge(classNames(inputs));
 }
 
-interface LearnCardProps {
+interface LinkCardProps {
   index: number;
   title: string;
   description: string;
@@ -18,7 +18,7 @@ interface LearnCardProps {
   readMoreAriaLabel?: string;
 }
 
-export const LearnCard: React.FC<LearnCardProps> = ({
+export const LinkCard: React.FC<LinkCardProps> = ({
   index,
   title,
   description,
@@ -86,4 +86,4 @@ export const LearnCard: React.FC<LearnCardProps> = ({
   );
 };
 
-export default LearnCard;
+export default LinkCard;

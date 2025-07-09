@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { LearnCard } from "@/component-library/learn-card";
+import { LinkCard } from "@/component-library/link-card";
 import LearnHero from "./learn-hero";
 
 interface LearnPageContentProps {
@@ -63,7 +63,7 @@ export default function LearnPageContent({
             role="list"
           >
             {tutorials.map((tutorial) => (
-              <LearnCard
+              <LinkCard
                 key={tutorial.id}
                 index={tutorial.id}
                 title={tutorial.title}
