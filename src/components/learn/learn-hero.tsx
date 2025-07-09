@@ -2,7 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
-import learnHeroImage from "../../../../assets/learn/learn-hero.webp";
+import learnHeroImage from "../../../assets/learn/learn-hero.webp";
 
 interface LearnHeroProps {
   title: string;
