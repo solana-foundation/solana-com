@@ -20,13 +20,13 @@ export default function ResourceLink({
     <li>
       <Link
         href={href}
-        className="inline-flex items-center gap-2 text-white hover:underline hover:decoration-current focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
+        className="inline-flex items-center gap-2 text-white focus:outline-none focus:ring-2 focus:ring-[#9945FF] focus:ring-offset-2 focus:ring-offset-black rounded px-2 py-1 -mx-2 -my-1 transition-all duration-200 group"
         target="_blank"
         rel="noopener noreferrer"
         aria-label={ariaLabel}
       >
         <span className="flex items-center gap-2">
-          <span className="font-medium text-[#9945FF]">{label}</span>
+          <span className="font-medium text-white underline">{label}</span>
           <span className="text-gray-400" aria-hidden="true">
             - {description}
           </span>
