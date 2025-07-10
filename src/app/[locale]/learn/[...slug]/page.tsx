@@ -119,7 +119,7 @@ export default async function LearnContentPage(props: Props) {
                 )}
               </header>
 
-              <div className="prose prose-lg max-w-none">
+              <div className="prose prose-xl max-w-none">
                 <MDX components={mdxComponents} />
               </div>
 

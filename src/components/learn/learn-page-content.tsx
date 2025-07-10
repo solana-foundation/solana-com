@@ -3,7 +3,8 @@
 import React from "react";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
-import LearnHero from "./learn-hero";
+import DevelopersHeroSection from "@/components/developers/sections/DevelopersHeroSection/DevelopersHeroSection";
+import learnHeroImg from "@@/assets/learn/learn-hero.webp";
 
 interface LearnPageContentProps {
   tutorials: Array<{
@@ -18,6 +19,8 @@ interface LearnPageContentProps {
     heroSubtitle: string;
     heroStartLearning: string;
     heroBuild: string;
+    heroImageAlt?: string;
+    heroDeveloperDocs?: string;
     tutorialsAriaLabel: string;
     continueJourneyTitle: string;
     continueJourneySubtitle: string;
@@ -76,9 +79,24 @@ export default function LearnPageContent({
 
   return (
     <>
-      <LearnHero
+      <DevelopersHeroSection
         title={translations.heroTitle}
-        subtitle={translations.heroSubtitle}
+        description={translations.heroSubtitle}
+        img={{
+          src: learnHeroImg,
+          alt: translations.heroImageAlt || translations.heroTitle,
+        }}
+        buttons={{
+          cta: {
+            label: translations.heroStartLearning || "Start Learning",
+            href:
+              tutorials.length > 0 ? `/learn/${tutorials[0].slug}` : "/learn",
+          },
+          secondary: {
+            label: translations.heroDeveloperDocs || "Developer Docs",
+            href: "/developers",
+          },
+        }}
       />
 
       <section
