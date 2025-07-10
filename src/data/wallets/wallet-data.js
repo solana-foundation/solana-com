@@ -84,7 +84,7 @@ export const walletData = [
   {
     name: "Solflare",
     body: "A secure and powerful Solana Wallet. Buy, store, swap tokens & NFTs and access Solana DeFi from web or mobile.",
-    website: "https://solflare.com/",
+    website: "https://www.solflare.com/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
     icon: solflareIcon,
