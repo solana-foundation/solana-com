@@ -54,6 +54,16 @@ const guidesData = defineDocs({
 export const guides = guidesData.docs;
 export const guidesMeta = guidesData.meta;
 
+const learnData = defineDocs({
+  dir: "content/learn",
+  localized: true,
+  docs: { schema, async: true },
+  output: "learn",
+});
+
+export const learn = learnData.docs;
+export const learnMeta = learnData.meta;
+
 const chConfig = {
   components: { code: "Code", inlineCode: "InlineCode" },
 };

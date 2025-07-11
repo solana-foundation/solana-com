@@ -9,11 +9,12 @@ import { memo } from "react";
 
 export default function DevelopersResourceItem({
   category = "Resource",
-  children,
+  children = [],
   title,
   description,
   url,
   isExternal,
+  ctaLabel,
 }) {
   const { t } = useTranslation();
   // use the correct type of link
@@ -50,7 +51,7 @@ export default function DevelopersResourceItem({
           </div>
         </div>
         <div className={styles["resource-item__cta"]}>
-          <span>{t("developers.resources.learn-more")}</span>
+          <span>{ctaLabel || t("developers.resources.learn-more")}</span>
           <ArrowUpRight strokeWidth={1} />
         </div>
       </div>
