@@ -17,8 +17,7 @@ export default async function Layout({
     children: tree.children.filter(
       (child) =>
         typeof child.name !== "string" ||
-        (!child.name.startsWith("Solana RPC Methods") &&
-          !child.name.startsWith("The Solana Toolkit")),
+        !child.name.startsWith("Solana RPC Methods"),
     ),
   };
   return (

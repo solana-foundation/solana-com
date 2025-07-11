@@ -646,14 +646,6 @@ export default {
       destination: "/docs/rpc/websocket/voteunsubscribe",
     },
     {
-      source: "/docs/toolkit/projects",
-      destination: "/docs/toolkit/projects/overview",
-    },
-    {
-      source: "/docs/toolkit/test-suite",
-      destination: "/docs/toolkit/test-suite/overview",
-    },
-    {
       source: "/developers/cookbook/tokens",
       destination: "/developers/cookbook/tokens/create-mint-account",
     },
@@ -848,6 +840,10 @@ export default {
     {
       source: "/developers/guides/getstarted/full-stack-solana-development",
       destination: "/docs#deploy-your-first-solana-application",
+    },
+    {
+      source: "/docs/toolkit/:path*",
+      destination: "/docs/intro/installation",
     },
   ],
 };
