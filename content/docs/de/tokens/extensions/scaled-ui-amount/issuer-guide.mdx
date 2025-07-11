@@ -129,15 +129,39 @@ export async function createScaledUiMint(
 
 ### Aktualisieren des UI-Betrags-Multiplikators
 
-Um den UI-Betrags-Multiplikator zu aktualisieren, müssen Sie den Befehl
-`update-ui-amount-multiplier` verwenden. Ein Zeitstempel ist optional und kann
-verwendet werden, um eine benutzerdefinierte Startzeit für den neuen
-Multiplikator festzulegen. Wenn kein Zeitstempel angegeben wird, wird der
-aktuelle Zeitstempel verwendet.
+Um den UI-Betragsmultiplikator zu aktualisieren, müssen Sie den Befehl
+`update-ui-amount-multiplier` verwenden. Ein Zeitstempel in Sekunden seit der
+Unix- epoch ist optional und kann verwendet werden, um eine benutzerdefinierte
+Startzeit für den neuen Multiplikator festzulegen. Wenn kein Zeitstempel
+angegeben wird, wird der aktuelle Zeitstempel verwendet.
+
+**Wichtiger Hinweis:** Derzeit gibt es eine Besonderheit im Prozess zur
+Aktualisierung des skalierten UI-Multiplikators. Wenn Sie Folgendes tun:
+
+1. Einen skalierten UI-Multiplikator für die Zukunft festlegen
+2. Zeit vergeht über diesen Aktualisierungszeitpunkt hinaus
+3. Einen weiteren skalierten UI-Multiplikator für die Zukunft festlegen
+4. Dann wird der vorherige skalierte UI-Multiplikator durch den neuen
+   überschrieben und effektiv entfernt.
+
+Es gibt einen
+[zusammengeführten PR zur Behebung dieses Problems](https://github.com/solana-program/token-2022/pull/522),
+damit der Multiplikator ordnungsgemäß auf den aktuellen Multiplikator
+aktualisiert wird, anstatt überschrieben zu werden, aber dies ist noch nicht
+live.
+
+Bis dahin ist es notwendig, während Schritt 3 oben 2
+Multiplikator-Aktualisierungen durchzuführen:
+
+1. Den vorherigen Multiplikator erneut mit dem Zeitstempel auf denselben
+   Zeitstempel setzen, der ursprünglich in Schritt 1 festgelegt wurde (dies
+   setzt den Multiplikator ordnungsgemäß als aktuellen Multiplikator)
+2. Den neuen Multiplikator wie in Schritt 3 oben beschrieben festlegen
 
 <CodeTabs>
 
 ```terminal !! title="update-ui-amount-multiplier.sh"
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.2 -- 1746470000 # 1.2 is the current multiplier as described in step 1 above
 $ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.5 -- 1746471400
 ```
 
@@ -156,18 +180,33 @@ export async function updateScaledUiMultiplier(
   payer: Signer,
   mint: PublicKey,
   multiplier: number,
-  effectiveTimestamp: bigint
+  effectiveTimestamp: bigint,
+  previousMultiplier: number,
+  previousEffectiveTimestamp: bigint
 ): Promise<string> {
-  const transaction = new Transaction().add(
-    createUpdateMultiplierDataInstruction(
-      mint,
-      payer.publicKey,
-      multiplier,
-      effectiveTimestamp,
-      [],
-      TOKEN_2022_PROGRAM_ID
+  const transaction = new Transaction()
+    .add(
+      // Set the previous multiplier to the current multiplier
+      // This is temporarily needed until PR 522 is deployed to mainnet
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        previousMultiplier,
+        previousEffectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
     )
-  );
+    .add(
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        multiplier,
+        effectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
 
   const signature = await sendAndConfirmTransaction(
     connection,
@@ -184,19 +223,23 @@ export async function updateScaledUiMultiplier(
 }
 const multiplier = 1.5;
 const effectiveTimestamp = BigInt(Math.floor(Date.now() / 1000));
+const previousMultiplier = 1.2;
+const previousEffectiveTimestamp = BigInt(1746470000);
 const updateSignature = await updateScaledUiMultiplier(
   connection,
   payer,
   mintPubkey,
   multiplier,
-  effectiveTimestamp
+  effectiveTimestamp,
+  previousMultiplier,
+  previousEffectiveTimestamp
 );
 console.log("Update signature:", updateSignature);
 ```
 
 </CodeTabs>
 
-### Abrufen des Guthabens
+### Guthaben abrufen
 
 Um das Guthaben abzurufen, müssen Sie den Befehl `balance` verwenden.
 
