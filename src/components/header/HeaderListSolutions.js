@@ -1,11 +1,11 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { Link } from "../../utils/Link";
 import SolutionsToolsSVG from "../../../assets/nav/solutions/solutions.inline.svg";
 import SolutionsCasesSVG from "../../../assets/nav/solutions/cases.inline.svg";
 import SolutionsResourcesSVG from "../../../assets/nav/solutions/resources.inline.svg";
 
 const HeaderListSolutions = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const solutionsToolsItems = t("nav.solutions.tools.items", {
     returnObjects: true,
   });

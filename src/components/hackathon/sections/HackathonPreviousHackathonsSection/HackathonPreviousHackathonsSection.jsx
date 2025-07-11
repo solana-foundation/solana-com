@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import Image from "next/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { ArrowRightCircle } from "react-feather";
 import CarouselCards from "../../../shared/CarouselCards";
 import Link from "../../../shared/Link";
@@ -39,7 +39,7 @@ function PreviousHackathonCard({ date, title, description, to, image }) {
 }
 
 export default function HackathonPreviousHackathonsSection() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <section className="mt-12">
       <div className="container">

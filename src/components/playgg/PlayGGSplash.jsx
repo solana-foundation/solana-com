@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import styles from "./PlayGGSplash.module.scss";
 import Link, { InlineLink } from "../shared/Link";
 import useReducedMotion from "../../hooks/useReducedMotion";
@@ -15,7 +15,7 @@ import PlayGGPoster from "../../../assets/playgg/poster.jpg";
 import RSVP from "./RSVP";
 
 const PlayGGSplash = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   const heroVideoRef = useRef();
   const [prefersReducedMotion] = useReducedMotion();

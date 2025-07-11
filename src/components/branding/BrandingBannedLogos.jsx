@@ -1,6 +1,6 @@
 import Image from "next/image";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 import InvalidMark from "../../../public/src/img/icons/RedClose.inline.svg";
 
@@ -42,7 +42,7 @@ const StyledSection = styled.section`
 `;
 
 const BrandingBannedLogos = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledSection className="mt-6">

@@ -5,17 +5,14 @@ import CookieConsent from "@/components/CookieConsent/CookieConsent";
 import Footer from "@/components/Footer";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
 import Header from "@/components/Header";
-import I18nProvider from "@/i18n/I18nProvider";
+import { NextIntlClientProvider } from "next-intl";
 import { Metadata } from "next";
 import { PostHogProvider } from "@/app/components/posthog/PostHogProvider";
 import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
 import { ThemeProvider } from "@/themecontext";
 import { config } from "@/config";
 import { getBaseMetadata } from "@/app/metadata";
-import initTranslations from "@/i18n/translation";
 import { staticLocales } from "@/i18n/config.cjs";
-
-const namespaces = ["common"];
 
 type Props = {
   children: React.ReactNode;
@@ -24,7 +21,9 @@ type Props = {
 
 export default async function RootLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
-  const { resources } = await initTranslations(locale, namespaces);
+  // Load messages directly
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
   const builderLocale = locale == "en" ? "Default" : locale;
   return (
@@ -40,11 +39,7 @@ export default async function RootLayout({ children, params }: Props) {
           ></iframe>
         </noscript>
         {/* End Google Tag Manager (noscript) */}
-        <I18nProvider
-          namespaces={namespaces}
-          locale={locale}
-          resources={resources}
-        >
+        <NextIntlClientProvider messages={messages} locale={locale}>
           <PostHogProvider>
             <ThemeProvider>
               <GTMTrackingSnippet />
@@ -55,7 +50,7 @@ export default async function RootLayout({ children, params }: Props) {
               <Footer />
             </ThemeProvider>
           </PostHogProvider>
-        </I18nProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

@@ -1,5 +1,5 @@
 // import { memo } from "react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 import CarouselCards from "@/components/shared/CarouselCards";
 import DevelopersCourseItem from "./DevelopersCourseItem";
@@ -18,7 +18,7 @@ import shapeImg5 from "../../../../../assets/developers/courses/shape-5.png";
 import shapeImg6 from "../../../../../assets/developers/courses/shape-6.png";
 
 export default function DevelopersCoursesSection(/* { courses } */) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   const courses = (
     <>
@@ -103,7 +103,7 @@ export default function DevelopersCoursesSection(/* { courses } */) {
 }
 
 // const CourseCards = memo(function CourseCards({ courses }) {
-//   // const { t } = useTranslation();
+//   // const t = useTranslations();
 
 //   return (
 //     <>

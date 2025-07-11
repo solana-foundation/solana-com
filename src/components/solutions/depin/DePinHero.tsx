@@ -3,7 +3,7 @@ import { Button } from "@/app/components/ui/button";
 import { ArrowRightIcon, ChevronRight } from "lucide-react";
 import styles from "./DePINHero.module.scss";
 import React from "react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 type Stat = { value: string; label: string };
 
@@ -23,7 +23,7 @@ const useHeroStats = (t: ReturnType<typeof useTranslation>["t"]): Stat[] => [
 ];
 
 const DePINHero = ({ onEmailClick }) => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const stats = useHeroStats(t);
 
   const title = t("depin.hero.title");

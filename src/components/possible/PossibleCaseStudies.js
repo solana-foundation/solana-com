@@ -1,10 +1,10 @@
 import Link from "../../utils/Link";
 import classNames from "classnames";
 import styles from "./PossibleCaseStudies.module.scss";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const PossibleCaseStudies = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const caseStudyCTA = t("possible.learnMore");
 
   return (

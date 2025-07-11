@@ -4,12 +4,12 @@ import Button from "@/components/shared/Button";
 import RoundedDepthCard from "@/components/shared/RoundedDepthCard";
 import DevelopersResources from "@/components/developers/DevelopersResources/DevelopersResources";
 import DevelopersFeaturedResourcesList from "@/components/developers/DevelopersFeaturedResourcesList/DevelopersFeaturedResourcesList";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "@/components/developers/DevelopersContentPage/DevelopersContentPage.module.scss";
 
 export function GuidesIndex({ records, featured }) {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div className={classNames(styles["developers-content-page"])}>

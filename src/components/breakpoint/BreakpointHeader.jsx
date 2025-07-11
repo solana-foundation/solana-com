@@ -1,10 +1,10 @@
 import Navbar from "react-bootstrap/Navbar";
 import Link from "../shared/Link";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import SolanaLogo from "../../../public/src/img/logos-solana/logotype.inline.svg";
 
 const Header = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     // 1020 is a z-index value similar to main Header's one

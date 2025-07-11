@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { ArrowRightCircle } from "react-feather";
 import styled from "styled-components";
 
@@ -19,7 +19,7 @@ export default function DevelopersCourseItem({
   url,
   image,
 }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <CourseLink to={url} className={styles["course-item"]} $image={image}>

@@ -2,7 +2,7 @@ import React from "react";
 import styles from "./Filters.module.scss";
 import RampFilter from "./RampFilter";
 import { CloseButton } from "react-bootstrap";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const Filters = ({
   filtersActive,
@@ -18,7 +18,7 @@ const Filters = ({
   resetFilters,
   filters,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <div

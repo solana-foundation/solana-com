@@ -7,12 +7,12 @@ import lowcarbonImage from "../../../assets/possible/innovation-lowcarbon.png";
 import concensusImage from "../../../assets/possible/innovation-concensus.png";
 import sagaImage from "../../../assets/possible/innovation-saga.png";
 import InnovationAccordion from "./PossibleInnovationAccordion";
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 
 const PossibleInnovation = () => {
   // create refs for each accordion item - need this to open accordions via the control buttons
   const refs = Array.from({ length: 5 }).map((_) => createRef());
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <Accordion alwaysOpen>

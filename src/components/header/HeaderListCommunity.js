@@ -1,10 +1,10 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Link from "../../utils/Link";
 import BreakpointLogo from "../../../assets/nav/community/breakpoint-logo.inline.svg";
 import InvolvedSVG from "../../../assets/nav/community/involved.inline.svg";
 
 const HeaderListCommunity = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const communityInvolvedItems = t("nav.community.involved.items", {
     returnObjects: true,
   });

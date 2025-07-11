@@ -1,10 +1,10 @@
 import classNames from "classnames";
 import styles from "./DevelopersContentPage.module.scss";
 import Link from "next/link";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 export const PageNav = ({ nav }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <div

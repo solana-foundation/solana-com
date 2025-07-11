@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Dropdown from "react-bootstrap/Dropdown";
 import AngleUp from "../../../public/src/img/icons/Angle-up.inline.svg";
 import AngleDown from "../../../public/src/img/icons/Angle-down.inline.svg";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/hooks/useRouter";
 import HeaderListBuild from "./HeaderListBuild";
 import HeaderListSolutions from "./HeaderListSolutions";
@@ -11,7 +11,7 @@ import HeaderListNetwork from "./HeaderListNetwork";
 import HeaderListCommunity from "./HeaderListCommunity";
 
 const HeaderList = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const { asPath } = useRouter();
 
   const [showNetwork, updateShowNetwork] = useState(false);

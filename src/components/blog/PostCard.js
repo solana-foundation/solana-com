@@ -2,7 +2,7 @@ import dynamic from "next/dynamic";
 import Image from "next/legacy/image";
 import Link from "../../utils/Link";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const PublishedAt = dynamic(() => import("./PublishedAt"), {
   ssr: false,
@@ -141,7 +141,7 @@ const StyledPostCard = styled.article`
 `;
 
 const PostCard = ({ post, index, isFirstPage, variant = "primary" }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   if (!post?.data) {
     return null;

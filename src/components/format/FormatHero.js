@@ -1,6 +1,6 @@
 import { useState } from "react";
 import StyledRoundedCard from "../shared/StyledRoundedCard";
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import heroImage from "../../../public/src/img/format/hero.jpg";
 import solanaFormat from "../../../public/src/img/format/solana-format.png";
 import formatBannerLogo from "../../../public/src/img/format/banner-logo.png";
@@ -72,7 +72,7 @@ const StyledBanner = styled.div`
 `;
 
 const FormatHero = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const [showVideoModal, setShowVideoModal] = useState(false);
 
   return (

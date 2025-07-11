@@ -1,9 +1,9 @@
 import Image from "next/legacy/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import validatorLogo from "../../../public/src/img/validators/validators_geometry_small.png";
 
 const ValidatorsDefinition = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="definition">

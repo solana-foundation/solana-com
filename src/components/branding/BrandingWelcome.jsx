@@ -1,8 +1,8 @@
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import { InlineLink } from "../shared/Link";
 
 const BrandingWelcome = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section>

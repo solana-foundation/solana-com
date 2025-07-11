@@ -1,9 +1,9 @@
 import { ChevronLeft, ChevronRight } from "react-feather";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Link from "../../utils/Link";
 
 const LearnPagination = ({ prevSlug, prevTopic, nextSlug, nextTopic }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <nav
       className={`d-flex mx-n5 mx-md-n0 my-10 ${

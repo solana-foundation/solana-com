@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const StyledSection = styled.section`
   a {
@@ -21,7 +21,7 @@ const StyledSection = styled.section`
 `;
 
 const BrandingAnchorTagsSection = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledSection>

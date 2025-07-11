@@ -1,10 +1,9 @@
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import HTMLHead from "@/components/HTMLHead";
 import SimpleHero from "@/components/breakpoint/BreakpointSimpleHero";
 import BreakpointLayout from "@/components/breakpoint/BreakpointLayout";
 import { fetchCalendarEvents } from "@/lib/events/fetchCalendarEvents";
 import EventsList from "@/components/events/EventsList";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 import Button from "@/components/shared/Button";
 
@@ -12,7 +11,7 @@ const SideEvents = ({
   sideEventsBreakpointFeatured,
   sideEventsBreakpointCommunity,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <BreakpointLayout data={{ showHeader: true, showFooter: true }}>
@@ -50,6 +49,8 @@ const SideEvents = ({
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   const sideEventsBreakpointFeatured = await fetchCalendarEvents(
     "cal-J8paV20F2tKUEXI",
     {
@@ -73,7 +74,7 @@ export async function getStaticProps({ params }) {
       sideEventsBreakpointCommunity: JSON.parse(
         JSON.stringify(sideEventsBreakpointCommunity),
       ),
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
     notFound: true,

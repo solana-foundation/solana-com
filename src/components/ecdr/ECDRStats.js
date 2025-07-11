@@ -1,4 +1,4 @@
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import classNames from "classnames";
 import Link from "../../utils/Link";
 import { FormattedNumber } from "../SolFormattedMessage";
@@ -22,7 +22,7 @@ const StatCard = ({ value, description = "", note = "", className }) => (
 );
 
 const ECDRStats = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const openSourceTitle = t("ecdr.stats.open-source.title", {
     returnObjects: true,
   });

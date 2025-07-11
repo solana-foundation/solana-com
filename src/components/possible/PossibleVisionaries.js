@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import Image from "next/image";
 import classNames from "classnames";
 import styles from "./PossibleVisionaries.module.scss";
@@ -14,7 +14,7 @@ import PlayButton from "assets/possible/visionaries/play-button.png";
 import { PossibleVisionariesData } from "./PossibleVisionariesData";
 
 const PossibleVisionaries = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const sliderRef = useRef(null);
   const [currentEpisode, setCurrentEpisode] = useState(0);
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -157,7 +157,7 @@ const PossibleEpisodeSelection = ({
   episodeData,
   currentEpisode,
 }) => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const containerRef = useRef(null);
 
   const selectEpisode = (index) => {

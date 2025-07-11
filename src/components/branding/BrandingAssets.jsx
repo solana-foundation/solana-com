@@ -2,7 +2,7 @@ import Image from "next/image";
 import styled from "styled-components";
 import Divider from "../shared/Divider";
 import Button from "../shared/Button";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const StyledSection = styled.section`
   .logo-section {
@@ -24,7 +24,7 @@ const StyledSection = styled.section`
 `;
 
 const BrandingAssets = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledSection className="pt-10" id="asset">

@@ -1,6 +1,5 @@
 import TicketsPage from "./tickets.js";
 import { withLocales } from "@/i18n/routing";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 
 export default function Page(props) {
   return <TicketsPage {...props} />;
@@ -8,11 +7,13 @@ export default function Page(props) {
 
 export async function getStaticProps({ params }) {
   const { locale } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
 
   return {
     props: {
       params,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
   };
 }

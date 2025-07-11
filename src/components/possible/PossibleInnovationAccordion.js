@@ -3,7 +3,7 @@ import Accordion from "react-bootstrap/Accordion";
 import { useAccordionButton } from "react-bootstrap/AccordionButton";
 import classNames from "classnames";
 import styles from "./PossibleInnovations.module.scss";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { AccordionContext } from "react-bootstrap";
 import PossibleAnimatedIcons from "./PossibleAnimatedIcons";
 
@@ -25,7 +25,7 @@ const InnovationAccordion = forwardRef(
     const accordionContext = useContext(AccordionContext);
     const isExpanded =
       accordionContext?.activeEventKey?.includes(index) || false;
-    const { t } = useTranslation();
+    const t = useTranslations();
 
     return (
       <div ref={ref}>

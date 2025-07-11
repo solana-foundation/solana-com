@@ -1,10 +1,10 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Link, { InlineLink } from "../../utils/Link";
 import ResourcesSVG from "../../../assets/nav/network/resources.inline.svg";
 import InspectSVG from "../../../assets/nav/network/inspect.inline.svg";
 
 const HeaderListNetwork = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const networkInspectItems = t("nav.network.inspect.items", {
     returnObjects: true,
   });

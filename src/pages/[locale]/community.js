@@ -6,9 +6,8 @@ import CommunityLinks from "@/components/community/CommunityLinks";
 import CommunitySocial from "@/components/community/CommunitySocial";
 import CommunityNews from "@/components/community/CommunityNews";
 import CommunityCollective from "@/components/community/CommunityCollective";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { withLocales } from "@/i18n/routing";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { getPostsPage, getPostPagination } from "@/lib/builder/api";
 import {
   getGHStargazers,
@@ -26,7 +25,7 @@ import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
  * @constructor
  */
 const CommunityPage = ({ posts, socialData, youtubeVideos }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <Layout>
@@ -58,6 +57,9 @@ export async function getStaticProps({ params }) {
       getYTVideos(10),
     ]);
 
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
+
   return {
     props: {
       locale,
@@ -69,7 +71,7 @@ export async function getStaticProps({ params }) {
       },
       youtubeVideos: youtubeVideos?.value,
       posts: posts?.value || [],
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

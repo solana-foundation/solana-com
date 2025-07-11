@@ -1,15 +1,17 @@
 import { ThemeProvider } from "../themecontext";
 import "../app/globals.css";
 import "../scss/index.scss";
-import { appWithTranslation } from "next-i18next";
+import { NextIntlClientProvider } from "next-intl";
 import SitewideTopAlert from "../components/sharedPageSections/SitewideTopAlert";
 import GTMTrackingSnippet from "../components/GTMTrackingSnippet";
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
-import { NextIntlClientProvider } from "next-intl";
 
-const App = ({ Component, pageProps: { ...pageProps } }) => {
+const App = ({ Component, pageProps: { messages, ...pageProps } }) => {
   return (
-    <NextIntlClientProvider locale={pageProps.locale || "en"}>
+    <NextIntlClientProvider
+      messages={messages}
+      locale={pageProps.locale || "en"}
+    >
       <GTMTrackingSnippet />
       <SitewideTopAlert locale={pageProps.builderLocale || "Default"} />
       <CookieConsent />
@@ -20,4 +22,4 @@ const App = ({ Component, pageProps: { ...pageProps } }) => {
   );
 };
 
-export default appWithTranslation(App);
+export default App;

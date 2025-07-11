@@ -1,5 +1,5 @@
 import RoundedDepthCard from "../shared/RoundedDepthCard";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 
 /**
@@ -7,7 +7,7 @@ import Button from "../shared/Button";
  * @constructor
  */
 const CommunityLinks = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="container mb-8">

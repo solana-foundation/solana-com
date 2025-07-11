@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Marquee from "@/component-library/marquee";
 
 const PROJECTS = [
@@ -95,7 +95,7 @@ const LOGOS = [
 ];
 
 export const EcoProjects = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   const items = LOGOS.map((logo, i) => (
     <div

@@ -1,8 +1,8 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import BrandLogo from "../../../public/src/img/branding/brandLogo.inline.svg";
 
 const BrandingLogo = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section id="brand">

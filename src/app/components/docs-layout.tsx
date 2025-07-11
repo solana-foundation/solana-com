@@ -8,7 +8,7 @@ import { NavbarSidebarTrigger } from "fumadocs-ui/layouts/docs.client";
 import { SidebarPageTree } from "fumadocs-ui/layouts/docs/sidebar";
 import { RootProvider } from "fumadocs-ui/provider";
 import { I18nProvider } from "fumadocs-ui/i18n";
-import { serverTranslation } from "@/i18n/translation";
+import { getTranslations } from "next-intl/server";
 
 export async function DocsLayout({
   children,
@@ -21,7 +21,7 @@ export async function DocsLayout({
   sidebarEnabled?: boolean;
   locale?: string;
 }) {
-  const { t } = await serverTranslation(locale);
+  const t = await getTranslations({ locale, namespace: "common" });
   const translations = {
     toc: t("shared.general.toc"),
     editOnGithub: t("shared.general.edit-page"),

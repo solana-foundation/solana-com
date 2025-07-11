@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "react-feather";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import useIsomorphicLayoutEffect from "../../hooks/useIsomorphicLayoutEffect";
 
 const Direction = {
@@ -290,7 +290,7 @@ const CarouselCards = ({ children }) => {
 
   // #endregion
 
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledCarouselCards className="py-2" data-overflowing={dataPos || "none"}>

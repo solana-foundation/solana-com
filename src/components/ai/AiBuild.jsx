@@ -2,7 +2,7 @@ import styled from "styled-components";
 import Image from "next/image";
 import { ArrowRight } from "react-feather";
 
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import CarouselCards from "../shared/CarouselCards";
 import bgImage from "../../../assets/ai/build-bg.png";
@@ -23,7 +23,7 @@ const StyledCard = styled.div`
 `;
 
 function Card({ color, bgColor, dividerColor, title, icon, content, ctaLink }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledCard

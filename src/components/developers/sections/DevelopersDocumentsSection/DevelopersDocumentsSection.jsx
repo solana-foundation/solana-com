@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Image from "next/legacy/image";
 
 import DevelopersDocumentItem from "./DevelopersDocumentItem";
@@ -12,7 +12,7 @@ import DevelopersSectionTitle from "../DevelopersSectionTitle";
 import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
 
 export default function DevelopersDocumentsSection({ latestVideo }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className={styles["documents-section"]}>

@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import Image from "next/image";
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import Button from "@/components/shared/Button";
 import bgSmall from "../../../assets/ai/hero-bg-small.png";
 import bgLarge from "../../../assets/ai/hero-bg-large.png";
@@ -8,7 +8,7 @@ import bgLarge from "../../../assets/ai/hero-bg-large.png";
 import styles from "./AiHero.module.scss";
 
 export default function AiHero() {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <div className="position-relative mb-8">

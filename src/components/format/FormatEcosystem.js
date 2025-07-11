@@ -1,9 +1,9 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
 import Button from "../shared/Button";
 
 const FormatHero = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <>

@@ -1,4 +1,4 @@
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "./PossibleStats.module.scss";
 import Link from "../../utils/Link";
@@ -91,7 +91,7 @@ const PossibleStats = ({ visible, showKPIs = true }) => {
       getLiveTransactionCount: true,
     });
 
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div className={styles["index-stats"]}>

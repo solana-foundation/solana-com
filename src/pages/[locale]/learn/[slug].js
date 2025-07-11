@@ -1,5 +1,4 @@
 import CommonMarkdown from "@/components/sharedPageSections/CommonMarkdown";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
@@ -81,6 +80,8 @@ export const getStaticPaths = async () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   const article = getPostBySlug("learn", params.slug);
 
   if (!article) {
@@ -91,7 +92,7 @@ export async function getStaticProps({ params }) {
     props: {
       locale,
       article,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

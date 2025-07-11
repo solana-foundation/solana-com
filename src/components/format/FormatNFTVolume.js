@@ -2,7 +2,7 @@ import Image from "next/legacy/image";
 import styled from "styled-components";
 import Button from "../shared/Button";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
-import { Trans, useTranslation } from "next-i18next";
+import { Trans, useTranslations } from "next-intl";
 import nftLogo from "../../../assets/format/nftLogo.png";
 import Link from "../../utils/Link";
 
@@ -62,7 +62,7 @@ const NFTCard = styled.div`
 `;
 
 const FormatNFTVolume = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledHeroSection>

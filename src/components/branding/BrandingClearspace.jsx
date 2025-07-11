@@ -1,9 +1,9 @@
 import Image from "next/legacy/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import clearspaceMain from "../../../public/src/img/branding/spacing.png";
 
 const BrandingClearspace = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section>

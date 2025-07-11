@@ -1,7 +1,7 @@
 import classNames from "classnames";
 import { ArrowUpRight } from "react-feather";
 import Button from "../../../shared/Button";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./DevelopersDocumentItem.module.scss";
 
 export default function DevelopersDocumentItem({
@@ -10,7 +10,7 @@ export default function DevelopersDocumentItem({
   url,
   newTab = true,
 }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <div className={styles["document-item"]}>

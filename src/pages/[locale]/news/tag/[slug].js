@@ -3,7 +3,6 @@ import Layout from "@/components/layout";
 import PostCard from "@/components/blog/PostCard";
 import HTMLHead from "@/components/HTMLHead";
 import styled from "styled-components";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { slugWithLocales } from "@/i18n/routing";
 import {
   getSingleTag,
@@ -95,6 +94,8 @@ export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
   try {
     const { slug } = params;
+    const messages = (await import(`@@/public/locales/${locale}/common.json`))
+      .default;
 
     const [tag, posts = [], pageSettings] = await Promise.all([
       getSingleTag(slug),
@@ -117,7 +118,7 @@ export async function getStaticProps({ params }) {
               return p;
             })
           : [],
-        ...(await serverSideTranslations(locale, ["common"])),
+        messages,
       },
       revalidate: 60,
     };

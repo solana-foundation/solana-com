@@ -1,4 +1,4 @@
-import { useTranslation, Trans } from "next-i18next";
+import { useTranslations, Trans } from "next-intl";
 import HashAccordion, {
   HashAccordionItem,
 } from "../sharedPageSections/HashAccordion";
@@ -7,7 +7,7 @@ import Image from "next/image";
 import faqLogo from "../../../public/src/img/validators/validators_geometry_small2.png";
 
 const ValidatorsFAQ = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const questionsAndAnswers = t("validators.qa.items", { returnObjects: true });
 
   return (

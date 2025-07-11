@@ -1,6 +1,5 @@
 import { StrictMode } from "react";
-import { Trans, useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { Trans, useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 
 import Layout from "@/components/layout";
@@ -27,7 +26,7 @@ const EventsLandingPage = ({
   featuredEvent,
   usEvents,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StrictMode>
@@ -96,6 +95,8 @@ const EventsLandingPage = ({
 };
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   // Solana Foundation calendar
   let mainEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
     period: "future",
@@ -171,7 +172,7 @@ export async function getStaticProps({ params }) {
       communityEvents: JSON.parse(JSON.stringify(sortedCommunity)),
       usEvents: JSON.parse(JSON.stringify(usEvents)),
       featuredEvent: JSON.parse(JSON.stringify(featuredEvent)), // never a subevent
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };
