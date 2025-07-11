@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { Trans, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 
 import Layout from "@/components/layout";
@@ -53,14 +53,13 @@ const EventsLandingPage = ({
             <ul>
               <li>{t("events.community.description")}</li>
               <li>
-                <Trans
-                  i18nKey="events.community.help"
-                  components={{
-                    meetupLink: (
-                      <InlineLink to="https://community-meetups-playbook.super.site/" />
-                    ),
-                  }}
-                />
+                {t.rich("events.community.help", {
+                  meetupLink: (chunks) => (
+                    <InlineLink to="https://community-meetups-playbook.super.site/">
+                      {chunks}
+                    </InlineLink>
+                  ),
+                })}
               </li>
             </ul>
             <div className="mb-6">

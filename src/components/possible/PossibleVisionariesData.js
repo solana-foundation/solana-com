@@ -19,7 +19,7 @@ import heliusPoster from "assets/possible/visionaries/Helius_poster.jpg";
 
 export const PossibleVisionariesData = () => {
   const t = useTranslations();
-  const episodes = t("possible.visionaries.episodes", { returnObjects: true });
+  const episodes = t.raw("possible.visionaries.episodes");
 
   return [
     {

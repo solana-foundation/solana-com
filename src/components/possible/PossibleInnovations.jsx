@@ -6,8 +6,8 @@ import scalableImage from "../../../assets/possible/innovation-scalable.png";
 import lowcarbonImage from "../../../assets/possible/innovation-lowcarbon.png";
 import concensusImage from "../../../assets/possible/innovation-concensus.png";
 import sagaImage from "../../../assets/possible/innovation-saga.png";
-import InnovationAccordion from "./PossibleInnovationAccordion";
-import { Trans, useTranslations } from "next-intl";
+import InnovationAccordion from "./PossibleInnovationAccordion.js";
+import { useTranslations } from "next-intl";
 
 const PossibleInnovation = () => {
   // create refs for each accordion item - need this to open accordions via the control buttons
@@ -44,17 +44,16 @@ const PossibleInnovation = () => {
               {t("possible.innovations.mint.description1")}
               <br />
               <br />
-              <Trans
-                i18nKey="possible.innovations.mint.description2"
-                components={{
-                  docsLink: (
-                    <Link
-                      href="/news/state-compression-compressed-nfts-solana"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                }}
-              />
+              {t.rich("possible.innovations.mint.description2", {
+                docsLink: (chunks) => (
+                  <Link
+                    href="/news/state-compression-compressed-nfts-solana"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
             </InnovationAccordion>
 
             {/* SCALE */}
@@ -69,42 +68,44 @@ const PossibleInnovation = () => {
               title={t("possible.innovations.scale.title")}
               color={"152, 69, 254"}
             >
-              <Trans
-                i18nKey="possible.innovations.scale.description1"
-                components={{
-                  gamingLink: (
-                    <Link
-                      href="/developers/gaming"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                }}
-              />
+              {t.rich("possible.innovations.scale.description1", {
+                gamingLink: (chunks) => (
+                  <Link
+                    href="/developers/gaming"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
               <br />
               <br />
-              <Trans
-                i18nKey="possible.innovations.scale.description2"
-                components={{
-                  heliumLink: (
-                    <Link
-                      href="/news/helium-upgrades-to-solana"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                  hivemapperLink: (
-                    <Link
-                      href="/news/case-study-hivemapper"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                  aiLink: (
-                    <Link
-                      href="/ai"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                }}
-              />
+              {t.rich("possible.innovations.scale.description2", {
+                heliumLink: (chunks) => (
+                  <Link
+                    href="/news/helium-upgrades-to-solana"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+                hivemapperLink: (chunks) => (
+                  <Link
+                    href="/news/case-study-hivemapper"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+                aiLink: (chunks) => (
+                  <Link
+                    href="/ai"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
             </InnovationAccordion>
 
             {/* CLIMATE */}
@@ -119,23 +120,24 @@ const PossibleInnovation = () => {
               title={t("possible.innovations.climate.title")}
               color={"25, 251, 155"}
             >
-              <Trans
-                i18nKey="possible.innovations.climate.description1"
-                components={{
-                  environmentLink: (
-                    <Link
-                      href="/environment"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                  emissionsLink: (
-                    <Link
-                      href="/news/announcing-real-time-emissions-measurement-on-the-solana-blockchain"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                }}
-              />
+              {t.rich("possible.innovations.climate.description1", {
+                environmentLink: (chunks) => (
+                  <Link
+                    href="/environment"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+                emissionsLink: (chunks) => (
+                  <Link
+                    href="/news/announcing-real-time-emissions-measurement-on-the-solana-blockchain"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
               <br />
               <br />
               {t("possible.innovations.climate.description2")}
@@ -154,24 +156,25 @@ const PossibleInnovation = () => {
               title={t("possible.innovations.payment.title")}
               color={"255, 213, 18"}
             >
-              <Trans
-                i18nKey="possible.innovations.payment.description1"
-                components={{
-                  paymentsLink: (
-                    <Link
-                      href="/developers/payments"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                  solanapayLink: (
-                    <Link
-                      target={"_blank"}
-                      href="https://solanapay.com/"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                }}
-              />
+              {t.rich("possible.innovations.payment.description1", {
+                paymentsLink: (chunks) => (
+                  <Link
+                    href="/developers/payments"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+                solanapayLink: (chunks) => (
+                  <Link
+                    target={"_blank"}
+                    href="https://solanapay.com/"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
               <br />
               <br />
               {t("possible.innovations.payment.description2")}
@@ -189,18 +192,17 @@ const PossibleInnovation = () => {
               title={t("possible.innovations.web3.title")}
               color={"32, 207, 241"}
             >
-              <Trans
-                i18nKey="possible.innovations.web3.description1"
-                components={{
-                  solanaMobileLink: (
-                    <Link
-                      target={"_blank"}
-                      href="https://solanamobile.com/"
-                      className="text-decoration-underline copy__link"
-                    ></Link>
-                  ),
-                }}
-              />
+              {t.rich("possible.innovations.web3.description1", {
+                solanaMobileLink: (chunks) => (
+                  <Link
+                    target={"_blank"}
+                    href="https://solanamobile.com/"
+                    className="text-decoration-underline copy__link"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
               <br />
               <br />
               {t("possible.innovations.web3.description2")}

@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Trans, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import classNames from "classnames";
 import styles from "./PossibleVisionaries.module.scss";
@@ -54,12 +54,9 @@ const PossibleVisionaries = () => {
         <div className={`row`}>
           <div className="col-12 col-md-5 d-flex flex-row d-md-block mb-8 mb-md-0 ps-lg-0 align-items-center">
             <h2 className="h2 pe-5 flex-grow-1 flex-shrink-1 mb-0">
-              <Trans
-                i18nKey="possible.visionaries.title"
-                components={{
-                  italic: <em className="fst-italic" />,
-                }}
-              />
+              {t.rich("possible.visionaries.title", {
+                italic: (chunks) => <em className="fst-italic">{chunks}</em>,
+              })}
             </h2>
           </div>
           <div className={`col-12 col-md-7 px-0 mb-6 mb-md-0`}>
@@ -194,12 +191,11 @@ const PossibleEpisodeSelection = ({
                 )}
                 onClick={() => selectEpisode(index)}
               >
-                <Trans
-                  i18nKey={item.name}
-                  components={{
-                    lowercase: <span className="text-lowercase" />,
-                  }}
-                />
+                {t.rich(item.name, {
+                  lowercase: (chunks) => (
+                    <span className="text-lowercase">{chunks}</span>
+                  ),
+                })}
               </button>
             ))}
           </div>
@@ -227,12 +223,11 @@ const PossibleEpisodeSelection = ({
                     styles[`visionaries-episodeDropdownBtn--possible`],
                   )}
                 >
-                  <Trans
-                    i18nKey={item.name}
-                    components={{
-                      lowercase: <span className="text-lowercase" />,
-                    }}
-                  />
+                  {t.rich(item.name, {
+                    lowercase: (chunks) => (
+                      <span className="text-lowercase">{chunks}</span>
+                    ),
+                  })}
                 </Dropdown.Item>
               ))}
             </Dropdown.Menu>

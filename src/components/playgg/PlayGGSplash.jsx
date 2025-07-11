@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Trans, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import styles from "./PlayGGSplash.module.scss";
 import Link, { InlineLink } from "../shared/Link";
 import useReducedMotion from "../../hooks/useReducedMotion";
@@ -125,12 +125,11 @@ const PlayGGSplash = () => {
                 <br />
                 <RSVP />
                 <div className="mono mt-2">
-                  <Trans
-                    i18nKey="playgg.signup.cta"
-                    components={{
-                      ctaLink: <Link to="mailto:partnerships@solana.org" />,
-                    }}
-                  />
+                  {t.rich("playgg.signup.cta", {
+                    ctaLink: (chunks) => (
+                      <Link to="mailto:partnerships@solana.org">{chunks}</Link>
+                    ),
+                  })}
                 </div>
               </div>
             </div>
