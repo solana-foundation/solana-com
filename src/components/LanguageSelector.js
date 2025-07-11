@@ -3,7 +3,7 @@
 import Dropdown from "react-bootstrap/Dropdown";
 import Globe from "../../public/src/img/icons/Globe.inline.svg";
 import { ChevronDown } from "react-feather";
-import languages from "../../public/json/languages.json";
+import { languages } from "@/i18n/config.cjs";
 import { usePathname, useLocale } from "@/i18n/routing";
 
 const Language = () => {
