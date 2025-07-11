@@ -1,4 +1,4 @@
-import { Trans, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import Link from "../../utils/Link";
 import { FormattedNumber } from "../SolFormattedMessage";
@@ -41,22 +41,21 @@ const ECDRStats = () => {
           <div className="d-flex">
             <ClipboardIcon className="me-2" width="24" height="26" />
             <p className={styles["ecdr-stats__heading--learn"]}>
-              <Trans
-                i18nKey="ecdr.stats.learn"
-                components={{
-                  learnLink: (
-                    <Link
-                      to="/news/the-values-that-got-us-here-solana-2023"
-                      onClick={() => {
-                        gtag("event", "Link click", {
-                          event_category: "Open blog link",
-                          event_label: "EC Developers Report - Blog link",
-                        });
-                      }}
-                    />
-                  ),
-                }}
-              />
+              {t.rich("ecdr.stats.learn", {
+                learnLink: (chunks) => (
+                  <Link
+                    to="/news/the-values-that-got-us-here-solana-2023"
+                    onClick={() => {
+                      gtag("event", "Link click", {
+                        event_category: "Open blog link",
+                        event_label: "EC Developers Report - Blog link",
+                      });
+                    }}
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
             </p>
           </div>
         </div>

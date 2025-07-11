@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import Image from "next/image";
-import { Trans, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import Button from "@/components/shared/Button";
 import bgSmall from "../../../assets/ai/hero-bg-small.png";
 import bgLarge from "../../../assets/ai/hero-bg-large.png";
@@ -21,12 +21,11 @@ export default function AiHero() {
       <div className={classNames("container", styles["hero__container"])}>
         <div className={styles["hero__content"]}>
           <h1 className={classNames("h2 mb-4", styles["hero__title"])}>
-            <Trans
-              i18nKey="ai.hero.title"
-              components={{
-                colored: <span className={styles["hero__title--colored"]} />,
-              }}
-            />
+            {t.rich("ai.hero.title", {
+              colored: (chunks) => (
+                <span className={styles["hero__title--colored"]}>{chunks}</span>
+              ),
+            })}
           </h1>
           <div className={classNames("w-lg-75", styles["hero__points"])}>
             <p className="mb-0">{t("ai.hero.point-3")}</p>
