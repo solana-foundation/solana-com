@@ -78,7 +78,7 @@ export default function LearnPageContent({
   ];
 
   return (
-    <>
+    <div className="overflow-hidden">
       <DevelopersHeroSection
         title={translations.heroTitle}
         description={translations.heroSubtitle}
@@ -185,6 +185,6 @@ export default function LearnPageContent({
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }
