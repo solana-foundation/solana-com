@@ -153,7 +153,10 @@ export async function getStaticProps({ params }) {
     return el;
   });
 
-  const subevents = ["https://lu.ma/Mega-mixer-2025"];
+  const subevents = [
+    "https://lu.ma/SOL-DePinNYC-25",
+    "https://lu.ma/BONKxUSDGxSOL25",
+  ];
 
   // Filter out subevents from being featured
   const featuredEvents = unique.filter(
