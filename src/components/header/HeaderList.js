@@ -4,9 +4,9 @@ import AngleUp from "../../../public/src/img/icons/Angle-up.inline.svg";
 import AngleDown from "../../../public/src/img/icons/Angle-down.inline.svg";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/hooks/useRouter";
+import { Link } from "@/utils/Link";
 import HeaderListBuild from "./HeaderListBuild";
 import HeaderListSolutions from "./HeaderListSolutions";
-import HeaderListLearn from "./HeaderListLearn";
 import HeaderListNetwork from "./HeaderListNetwork";
 import HeaderListCommunity from "./HeaderListCommunity";
 
@@ -18,7 +18,6 @@ const HeaderList = () => {
   const [showSolutions, updateShowSolutions] = useState(false);
   const [showDevelopers, updateShowDevelopers] = useState(false);
   const [showCommunity, updateShowCommunity] = useState(false);
-  const [showLearn, updateShowLearn] = useState(false);
 
   useEffect(() => {
     // links from "developers" (app router) doesnt reload the page
@@ -45,29 +44,15 @@ const HeaderList = () => {
 
   return (
     <ul className="navbar-nav ms-auto">
-      <Dropdown
-        as="li"
-        className={`nav-item`}
-        onToggle={(isOpen) => {
-          isOpen ? updateShowLearn(true) : updateShowLearn(false);
-        }}
-        style={{ "--color-active": "#19fb9b" }}
-      >
-        <Dropdown.Toggle
-          as="button"
-          type="button"
-          className={`nav-link nav-link--primary dropdown-toggle ${
-            isLearnActive && "active"
-          }`}
+      <li className="nav-item" style={{ "--color-active": "#19fb9b" }}>
+        <Link
+          to="/learn"
+          className={`nav-link nav-link--primary ${isLearnActive && "active"}`}
           suppressHydrationWarning={true}
         >
           {t("nav.learn.title")}
-          {showLearn ? <AngleUp /> : <AngleDown />}
-        </Dropdown.Toggle>
-        <Dropdown.Menu>
-          <HeaderListLearn />
-        </Dropdown.Menu>
-      </Dropdown>
+        </Link>
+      </li>
 
       <Dropdown
         as="li"

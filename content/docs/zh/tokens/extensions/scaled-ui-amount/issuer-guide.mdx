@@ -124,12 +124,29 @@ export async function createScaledUiMint(
 
 ### 更新 UI 数量倍数
 
-要更新 UI 数量倍数，您需要使用 `update-ui-amount-multiplier`
-命令。时间戳是可选的，可以用来设置新倍数的自定义开始时间。如果未提供时间戳，将使用当前时间戳。
+要更新 UI 金额倍数，您需要使用 `update-ui-amount-multiplier`
+命令。时间戳（以 Unix 纪元以来的秒数表示）是可选的，可用于设置新倍数的自定义开始时间。如果未提供时间戳，将使用当前时间戳。
+
+**重要提示：**
+当前在更新缩放 UI 倍数的过程中存在一个特殊情况。目前，如果您执行以下操作：
+
+1. 为未来设置一个缩放 UI 倍数
+2. 时间超过了此更新时间
+3. 为未来设置另一个缩放 UI 倍数
+4. 那么之前的缩放 UI 倍数将被新的倍数覆盖，从而有效地移除它。
+
+有一个
+[已合并的 PR 修复此问题](https://github.com/solana-program/token-2022/pull/522)，使倍数正确更新为当前倍数而不是被覆盖，但此修复尚未上线。
+
+在此之前，在上述第 3 步中需要进行两次倍数更新：
+
+1. 再次设置之前的倍数，并将时间戳设置为第 1 步中最初设置的时间戳（这将正确地将倍数设置为当前倍数）
+2. 按照上述第 3 步的描述设置新的倍数
 
 <CodeTabs>
 
 ```terminal !! title="update-ui-amount-multiplier.sh"
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.2 -- 1746470000 # 1.2 is the current multiplier as described in step 1 above
 $ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.5 -- 1746471400
 ```
 
@@ -148,18 +165,33 @@ export async function updateScaledUiMultiplier(
   payer: Signer,
   mint: PublicKey,
   multiplier: number,
-  effectiveTimestamp: bigint
+  effectiveTimestamp: bigint,
+  previousMultiplier: number,
+  previousEffectiveTimestamp: bigint
 ): Promise<string> {
-  const transaction = new Transaction().add(
-    createUpdateMultiplierDataInstruction(
-      mint,
-      payer.publicKey,
-      multiplier,
-      effectiveTimestamp,
-      [],
-      TOKEN_2022_PROGRAM_ID
+  const transaction = new Transaction()
+    .add(
+      // Set the previous multiplier to the current multiplier
+      // This is temporarily needed until PR 522 is deployed to mainnet
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        previousMultiplier,
+        previousEffectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
     )
-  );
+    .add(
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        multiplier,
+        effectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
 
   const signature = await sendAndConfirmTransaction(
     connection,
@@ -176,12 +208,16 @@ export async function updateScaledUiMultiplier(
 }
 const multiplier = 1.5;
 const effectiveTimestamp = BigInt(Math.floor(Date.now() / 1000));
+const previousMultiplier = 1.2;
+const previousEffectiveTimestamp = BigInt(1746470000);
 const updateSignature = await updateScaledUiMultiplier(
   connection,
   payer,
   mintPubkey,
   multiplier,
-  effectiveTimestamp
+  effectiveTimestamp,
+  previousMultiplier,
+  previousEffectiveTimestamp
 );
 console.log("Update signature:", updateSignature);
 ```

@@ -4,7 +4,6 @@ import StartSVG from "../../../assets/nav/learn/start.inline.svg";
 
 const HeaderListLearn = () => {
   const t = useTranslations();
-  const learnStartItems = t("nav.learn.start.items", { returnObjects: true });
 
   return (
     <div className="d-lg-flex">
@@ -15,34 +14,46 @@ const HeaderListLearn = () => {
         </div>
         <div>
           <Link
-            to="/learn/blockchain-basics"
+            to="/learn/what-is-a-wallet"
             className="nav-link nav-link--secondary"
             activeClassName="active"
           >
             <strong className="d-block text-white">
-              {learnStartItems[0].title}
+              {t("learn.tutorials.items.what-is-a-wallet.title")}
             </strong>
-            {learnStartItems[0].description}
+            {t("nav.learn.start.items.wallet.description")}
           </Link>
           <Link
-            to="/learn/nfts"
+            to="/learn/sending-and-receiving-sol"
             className="nav-link nav-link--secondary"
             activeClassName="active"
           >
             <strong className="d-block text-white">
-              {learnStartItems[1].title}
+              {t("learn.tutorials.items.sending-and-receiving-sol.title")}
             </strong>
-            {learnStartItems[1].description}
+            {t("nav.learn.start.items.transactions.description")}
           </Link>
           <Link
-            to="/environment"
+            to="/learn/understanding-solana-transaction-fees"
             className="nav-link nav-link--secondary"
             activeClassName="active"
           >
             <strong className="d-block text-white">
-              {learnStartItems[2].title}
+              {t(
+                "learn.tutorials.items.understanding-solana-transaction-fees.title",
+              )}
             </strong>
-            {learnStartItems[2].description}
+            {t("nav.learn.start.items.fees.description")}
+          </Link>
+          <Link
+            to="/learn#tutorials"
+            className="nav-link nav-link--secondary"
+            activeClassName="active"
+          >
+            <strong className="d-block text-white">
+              {t("nav.learn.start.items.all.title")}
+            </strong>
+            {t("nav.learn.start.items.all.description")}
           </Link>
         </div>
       </div>
