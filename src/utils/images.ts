@@ -50,7 +50,7 @@ export const IMAGE_BACKGROUND_DETAILS = {
  */
 export const IMAGE_SETTINGS: {
   runtime: ServerRuntime;
-  sizeDefault: ImageSize;
+  sizeDefault: { width: number; height: number };
   contentType: string;
 } = {
   /**
