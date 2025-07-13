@@ -129,15 +129,39 @@ export async function createScaledUiMint(
 
 ### Mettre à jour le multiplicateur de montant d'interface utilisateur
 
-Pour mettre à jour le multiplicateur de montant d'interface utilisateur, vous
-devez utiliser la commande `update-ui-amount-multiplier`. Un horodatage est
-optionnel et peut être utilisé pour définir une heure de début personnalisée
-pour le nouveau multiplicateur. Si aucun horodatage n'est fourni, l'horodatage
-actuel sera utilisé.
+Pour mettre à jour le multiplicateur de montant UI, vous devez utiliser la
+commande `update-ui-amount-multiplier`. Un horodatage, en secondes depuis
+l'epoch Unix, est optionnel et peut être utilisé pour définir une heure de début
+personnalisée pour le nouveau multiplicateur. Si aucun horodatage n'est fourni,
+l'horodatage actuel sera utilisé.
+
+**Note importante :** Il existe actuellement une particularité dans le processus
+de mise à jour du multiplicateur UI mis à l'échelle. Actuellement, si vous
+faites ce qui suit :
+
+1. Définir un multiplicateur UI mis à l'échelle pour le futur
+2. Le temps passe au-delà de cette heure de mise à jour
+3. Définir un autre multiplicateur UI mis à l'échelle pour le futur
+4. Alors le multiplicateur UI mis à l'échelle précédent est remplacé par le
+   nouveau, l'effaçant effectivement.
+
+Il existe une
+[PR fusionnée pour corriger cela](https://github.com/solana-program/token-2022/pull/522)
+afin que le multiplicateur se mette à jour correctement vers le multiplicateur
+actuel au lieu d'être remplacé, mais ce n'est pas encore en production.
+
+Jusqu'à ce moment, il est nécessaire de faire 2 mises à jour du multiplicateur
+pendant l'étape 3 ci-dessus :
+
+1. Définir à nouveau le multiplicateur précédent avec l'horodatage au même
+   horodatage initialement défini à l'étape 1 (cela définira correctement le
+   multiplicateur comme multiplicateur actuel)
+2. Définir le nouveau multiplicateur comme décrit à l'étape 3 ci-dessus
 
 <CodeTabs>
 
 ```terminal !! title="update-ui-amount-multiplier.sh"
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.2 -- 1746470000 # 1.2 is the current multiplier as described in step 1 above
 $ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.5 -- 1746471400
 ```
 
@@ -156,18 +180,33 @@ export async function updateScaledUiMultiplier(
   payer: Signer,
   mint: PublicKey,
   multiplier: number,
-  effectiveTimestamp: bigint
+  effectiveTimestamp: bigint,
+  previousMultiplier: number,
+  previousEffectiveTimestamp: bigint
 ): Promise<string> {
-  const transaction = new Transaction().add(
-    createUpdateMultiplierDataInstruction(
-      mint,
-      payer.publicKey,
-      multiplier,
-      effectiveTimestamp,
-      [],
-      TOKEN_2022_PROGRAM_ID
+  const transaction = new Transaction()
+    .add(
+      // Set the previous multiplier to the current multiplier
+      // This is temporarily needed until PR 522 is deployed to mainnet
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        previousMultiplier,
+        previousEffectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
     )
-  );
+    .add(
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        multiplier,
+        effectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
 
   const signature = await sendAndConfirmTransaction(
     connection,
@@ -184,12 +223,16 @@ export async function updateScaledUiMultiplier(
 }
 const multiplier = 1.5;
 const effectiveTimestamp = BigInt(Math.floor(Date.now() / 1000));
+const previousMultiplier = 1.2;
+const previousEffectiveTimestamp = BigInt(1746470000);
 const updateSignature = await updateScaledUiMultiplier(
   connection,
   payer,
   mintPubkey,
   multiplier,
-  effectiveTimestamp
+  effectiveTimestamp,
+  previousMultiplier,
+  previousEffectiveTimestamp
 );
 console.log("Update signature:", updateSignature);
 ```
