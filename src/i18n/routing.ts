@@ -6,7 +6,8 @@ import { useLocale } from "next-intl";
 export const routing = defineRouting({
   locales,
   defaultLocale,
-  localePrefix: "as-needed", // default locale won't have a prefix
+  localePrefix: "as-needed",
+  localeDetection: true,
 });
 
 export const { Link, redirect, usePathname, useRouter } =
