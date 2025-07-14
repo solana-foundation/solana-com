@@ -1,4 +1,4 @@
-import { languages } from "@/i18n/config.cjs";
+import { languages } from "@/i18n/config";
 import { config } from "src/config";
 
 const cleanPath = (pathString) => {
