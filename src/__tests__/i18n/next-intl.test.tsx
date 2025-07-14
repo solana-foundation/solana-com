@@ -4,6 +4,7 @@ import React from "react";
 import { readdirSync, readFileSync } from "fs";
 import path from "path";
 import { locales } from "@/i18n/config";
+import { act } from "react";
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -117,12 +118,16 @@ describe("Smoke Tests for UI Elements Across Locales", () => {
         usePathname.mockReturnValue("/");
       });
 
-      it("renders Menu (Header) without errors and with translated copy", () => {
-        const { container } = render(
-          <NextIntlClientProvider locale={locale} messages={messages}>
-            <Header />
-          </NextIntlClientProvider>,
-        );
+      it("renders Menu (Header) without errors and with translated copy", async () => {
+        let container;
+        await act(async () => {
+          const result = render(
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              <Header />
+            </NextIntlClientProvider>,
+          );
+          container = result.container;
+        });
         const developersTitle = getNestedValue(
           messages,
           "nav.developers.title",
@@ -144,24 +149,32 @@ describe("Smoke Tests for UI Elements Across Locales", () => {
         expect(container).toMatchSnapshot();
       });
 
-      it("renders Footer without errors and with translated copy", () => {
-        const { container } = render(
-          <NextIntlClientProvider locale={locale} messages={messages}>
-            <Footer />
-          </NextIntlClientProvider>,
-        );
+      it("renders Footer without errors and with translated copy", async () => {
+        let container;
+        await act(async () => {
+          const result = render(
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              <Footer />
+            </NextIntlClientProvider>,
+          );
+          container = result.container;
+        });
         const expectedCopyright = getCopyrightText(messages);
         const copyrightElements = screen.getAllByText(expectedCopyright);
         expect(copyrightElements).toHaveLength(2); // Expect two identical copyright elements (desktop + mobile)
         expect(container).toMatchSnapshot();
       });
 
-      it("renders 404 Page without errors and with translated copy", () => {
-        const { container } = render(
-          <NextIntlClientProvider locale={locale} messages={messages}>
-            <NotFoundPage />
-          </NextIntlClientProvider>,
-        );
+      it("renders 404 Page without errors and with translated copy", async () => {
+        let container;
+        await act(async () => {
+          const result = render(
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              <NotFoundPage />
+            </NextIntlClientProvider>,
+          );
+          container = result.container;
+        });
         const title = getNestedValue(messages, "404.title");
         if (title) {
           expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
