@@ -1,11 +1,11 @@
 import createMiddleware from "next-intl/middleware";
 import { routing } from "@/i18n/routing";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@/i18n/config";
 
 const handleI18nRouting = createMiddleware(routing);
 
-export default async function middleware(req) {
+export default async function middleware(req: NextRequest) {
   // Skip i18n for /breakpoint/* paths
   if (req.nextUrl.pathname.startsWith("/breakpoint")) {
     return NextResponse.next();
@@ -32,4 +32,5 @@ export default async function middleware(req) {
 
 export const config = {
   matcher: ["/((?!api|opengraph|_next|_vercel|breakpoint|.*\\..*).*)"],
+  runtime: "nodejs",
 };
