@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 
 type Stat = { value: string; label: string };
 
-const useHeroStats = (t: ReturnType<typeof useTranslation>["t"]): Stat[] => [
+const useHeroStats = (t: (_key: string) => string): Stat[] => [
   {
     value: t("depin.hero.stats.0.value"),
     label: t("depin.hero.stats.0.label"),
