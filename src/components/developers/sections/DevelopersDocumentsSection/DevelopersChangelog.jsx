@@ -1,11 +1,11 @@
 import { ArrowRightCircle } from "react-feather";
 import { truncateTextByWord } from "../../../../utils/stringUtils";
 import Button from "../../../shared/Button";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./DevelopersChangelog.module.scss";
 
 export default function DevelopersChangelog({ latestVideo }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
   if (!latestVideo) {
     return null;
   }

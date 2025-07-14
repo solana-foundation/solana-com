@@ -1,8 +1,7 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import RampLayout from "@/components/ramps/RampsLayout";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { withLocales } from "@/i18n/routing";
 import {
   rampData,
@@ -12,7 +11,7 @@ import {
 } from "@/data/ramps/ramps-data";
 
 const Solanaramp = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <Layout>
@@ -32,10 +31,12 @@ const Solanaramp = () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
   };
 }

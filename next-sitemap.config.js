@@ -1,4 +1,4 @@
-const { getBuilderUrls } = require("./src/lib/builder/getUrls");
+const { getAllUrls } = require("./src/lib/builder/getUrls");
 
 module.exports = {
   siteUrl: "https://solana.com/",
@@ -13,6 +13,6 @@ module.exports = {
     };
   },
   additionalPaths: async () => {
-    return await getBuilderUrls();
+    return await getAllUrls();
   },
 };

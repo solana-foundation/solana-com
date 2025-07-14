@@ -1,9 +1,9 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { Link } from "../../utils/Link";
 import StartSVG from "../../../assets/nav/learn/start.inline.svg";
 
 const HeaderListLearn = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div>

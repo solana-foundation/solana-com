@@ -2,7 +2,7 @@
 import SharedButton from "@/components/shared/Button";
 import RoundedDepthCard from "@/components/shared/RoundedDepthCard";
 
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "@/components/developers/DevelopersContentPage/DevelopersContentPage.module.scss";
 
@@ -12,7 +12,7 @@ import HeroImage from "@@/public/src/img/validators/validators_geometry.png";
 import YouTubeIcon from "@@/assets/developers/content/youtube.inline.svg";
 
 export default function CoursesIndex({ courseCards }) {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div className="overflow-hidden">

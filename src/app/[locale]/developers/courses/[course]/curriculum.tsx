@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "@/components/shared/Button";
 import RoundedDepthCard from "@/components/shared/RoundedDepthCard";
 import classNames from "classnames";
@@ -14,7 +14,7 @@ import { DefaultCard } from "@solana-foundation/solana-lib/dist/components/CardD
 
 export default function Curriculum({ course }) {
   const { lessons } = course;
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   const postsGridRef = useRef(null);
 

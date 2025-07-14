@@ -1,11 +1,11 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import EmailSubscribeForm from "../../../shared/EmailSubscribeForm";
 import DevelopersContent from "./DevelopersContent";
 
 import styles from "./DevelopersNewsletter.module.scss";
 
 export default function DevelopersNewsletter() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <DevelopersContent.Container>
       <div>

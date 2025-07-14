@@ -1,11 +1,11 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./NFTShowdownIntro.module.scss";
 import Image from "next/image";
 import NFTShowdownLogo from "../../../assets/nft-showdown/logo.png";
 import Button from "../shared/Button";
 
 const NFTShowdownIntro = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div className="my-6">

@@ -1,11 +1,11 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import PossibleEcosystemData from "./PossibleEcosystemData";
 import PossibleGlow from "./PossibleGlow";
 import PossibleEcosystemGrid from "./PossibleEcosystemGrid";
 
 const PossibleEcosystem = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className={`pt-10 pb-8 pt-md-12 pb-md-10 position-relative`}>

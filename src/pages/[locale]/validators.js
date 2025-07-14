@@ -1,5 +1,4 @@
-import { useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
@@ -12,7 +11,7 @@ import ValidatorsFAQ from "@/components/validators/ValidatorsFAQ";
 import { useInView } from "react-intersection-observer";
 
 const ValidatorPage = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const { ref, inView } = useInView({
     threshold: 0,
     initialInView: true,
@@ -37,10 +36,12 @@ const ValidatorPage = () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

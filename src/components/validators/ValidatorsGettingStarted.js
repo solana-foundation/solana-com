@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import Button from "../shared/Button";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const StyledCardsWrapper = styled.div`
   display: grid;
@@ -30,7 +30,7 @@ const StyledGettingStartedCard = styled.div`
 `;
 
 const ValidatorsGettingStarted = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="getting-started">

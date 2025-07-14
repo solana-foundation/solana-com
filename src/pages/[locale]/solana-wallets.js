@@ -1,13 +1,12 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { withLocales } from "@/i18n/routing";
 import WalletsLayout from "@/components/wallets/WalletsLayout";
 import { walletData } from "@/data/wallets/wallet-data";
 
 const SolanaWallets = ({ walletData }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <Layout>
       <HTMLHead
@@ -21,13 +20,15 @@ const SolanaWallets = ({ walletData }) => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   const randomizedWallets = [...walletData].sort(() => Math.random() - 0.5);
 
   return {
     props: {
       locale,
       walletData: randomizedWallets,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

@@ -1,5 +1,4 @@
-import { useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 
 import Layout from "@/components/layout";
@@ -11,7 +10,7 @@ import AiCard from "@/components/ai/AiCard";
 import AiBuild from "@/components/ai/AiBuild";
 
 export default function AiPage() {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   return (
     <Layout>
       <HTMLHead title={t("ai.title")} description={t("ai.description")} />
@@ -28,10 +27,13 @@ export default function AiPage() {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
+
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
   };
 }

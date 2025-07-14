@@ -2,7 +2,7 @@ import classNames from "classnames";
 import { ArrowUpRight } from "react-feather";
 
 import { InlineLink, Link } from "@/utils/Link";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 import styles from "./DevelopersResourceItem.module.scss";
 import { memo } from "react";
@@ -16,7 +16,7 @@ export default function DevelopersResourceItem({
   isExternal,
   ctaLabel,
 }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
   // use the correct type of link
   const ResourceLink = memo(
     ({ children, ...props }) => {

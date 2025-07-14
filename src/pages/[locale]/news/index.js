@@ -15,8 +15,7 @@ import {
 import CategorySelection from "@/components/news/CategorySelection";
 import { getPageSettings } from "@/lib/builder/api";
 import customComponentsRegistration from "@/utils/customComponentGenerator";
-import { useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
 
@@ -25,7 +24,7 @@ builder.apiVersion = "v3";
 customComponentsRegistration();
 
 const BlogIndex = ({ builderLocale, newsListingPage, pressRelease, posts }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const postsGridRef = useRef(null);
   const searchInputRef = useRef(null);
   const [categoryFilter, setCategoryFilter] = useState(0);
@@ -326,6 +325,8 @@ export async function getStaticProps({ params }) {
   try {
     const isDefaultLocale = locale === "en";
     const builderLocale = isDefaultLocale ? "Default" : locale;
+    const messages = (await import(`@@/public/locales/${locale}/common.json`))
+      .default;
 
     const newsListingPage = await builder
       .get(NEWS_BUILDER_CONFIG.listingPageModel, {
@@ -363,7 +364,7 @@ export async function getStaticProps({ params }) {
         pressRelease,
         pageSettings,
         posts,
-        ...(await serverSideTranslations(builderLocale, ["common"])),
+        messages,
       },
       revalidate: 60,
     };

@@ -1,7 +1,6 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { useInView } from "react-intersection-observer";
 import HTMLHead from "@/components/HTMLHead";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import Layout from "@/components/layout";
 import classNames from "classnames";
 import styles from "@/components/possible/PossibleLayout.module.scss";
@@ -13,7 +12,7 @@ import dynamic from "next/dynamic";
 import { withLocales } from "@/i18n/routing";
 
 const Possible = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   const [statsRef, statsInView] = useInView({
     threshold: 0,
@@ -101,10 +100,12 @@ const Possible = () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
   };
 }

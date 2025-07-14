@@ -1,5 +1,4 @@
-import { useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 
 import HTMLHead from "@/components/HTMLHead";
@@ -12,7 +11,7 @@ import PodcastStickyPlayer, {
 } from "@/components/podcast/PodcastStickyPlayer";
 
 export default function PodcastIndex({ episodes, hasMore }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <Layout>
@@ -34,6 +33,8 @@ export default function PodcastIndex({ episodes, hasMore }) {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   const { episodes, hasMore } = await PodcastApi.getEpisodes({
     limit: 15,
   });
@@ -42,7 +43,7 @@ export async function getStaticProps({ params }) {
       locale,
       episodes,
       hasMore,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

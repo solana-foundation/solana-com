@@ -1,4 +1,3 @@
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { pathsWithLocales } from "@/i18n/routing";
 
 import HTMLHead from "@/components/HTMLHead";
@@ -50,6 +49,8 @@ export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
   try {
     let slug = params?.slug;
+    const messages = (await import(`@@/public/locales/${locale}/common.json`))
+      .default;
 
     const { episode } = await PodcastApi.getEpisodeBySlug(slug);
 
@@ -61,7 +62,7 @@ export async function getStaticProps({ params }) {
       props: {
         locale,
         episode,
-        ...(await serverSideTranslations(locale, ["common"])),
+        messages,
       },
     };
   } catch (error) {

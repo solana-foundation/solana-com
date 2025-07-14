@@ -1,22 +1,21 @@
-import { Trans, useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { InlineLink } from "../shared/Link";
 
 const BrandingWelcome = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section>
       <div className="h6">{t("branding.welcome.title")}</div>
       <p className="small">{t("branding.welcome.description")}</p>
       <p className="small">
-        <Trans
-          i18nKey="branding.welcome.description-2"
-          components={{
-            guidelinesLink: (
-              <InlineLink to="https://drive.google.com/file/d/1o8fsSbD6wtRWizBW_3OrNYFtF9ZTr7iQ/view" />
-            ),
-          }}
-        />
+        {t.rich("branding.welcome.description-2", {
+          guidelinesLink: (chunks) => (
+            <InlineLink to="https://drive.google.com/file/d/1o8fsSbD6wtRWizBW_3OrNYFtF9ZTr7iQ/view">
+              {chunks}
+            </InlineLink>
+          ),
+        })}
       </p>
     </section>
   );

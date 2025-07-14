@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import useReducedMotion from "../../hooks/useReducedMotion";
 import classNames from "classnames";
 import Button from "../shared/Button";
@@ -11,7 +11,7 @@ import VideoPoster from "assets/possible/opos_hype_poster.jpg";
 import PlayButton from "assets/possible/play_btn.png";
 
 const PossibleHero = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const heroVideoRef = useRef();
   const [prefersReducedMotion] = useReducedMotion();
   const [showVideoModal, setShowVideoModal] = useState(false);

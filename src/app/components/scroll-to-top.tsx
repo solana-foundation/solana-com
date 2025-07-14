@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { ArrowUp } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { useTranslations } from "next-intl";
 
 export function ScrollToTop() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {

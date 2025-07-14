@@ -4,7 +4,6 @@ import customComponentsRegistration from "@/utils/customComponentGenerator";
 import AccelerateLayout from "@/components/accelerate/AccelerateLayout";
 import { getAllCustomSlugs, getCustomPage } from "@/lib/builder/api";
 import { ACCELERATE_BUILDER_CONFIG } from "@/lib/builder/accelerate/constants";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import HTMLHead from "@/components/builder/HTMLHead";
 import SimpleHero from "@/components/accelerate/AccelerateSimpleHero";
 import { slugWithLocales } from "@/i18n/routing";
@@ -65,6 +64,8 @@ export const getStaticProps = async ({ params }) => {
     let slug = params?.slug || "";
     const isDefaultLocale = locale === "en";
     const builderLocale = isDefaultLocale ? "Default" : locale;
+    const messages = (await import(`@@/public/locales/${locale}/common.json`))
+      .default;
 
     if (typeof slug === "object" && slug.length) {
       slug = slug.map((slug) => slug.replace(/(%\d+)+$/, ""));
@@ -89,7 +90,7 @@ export const getStaticProps = async ({ params }) => {
         builderLocale,
         key: page?.id + page?.data.slug + params.slug,
         page: page || null,
-        ...(await serverSideTranslations(locale, ["common"])),
+        messages,
       },
       revalidate: 60,
     };

@@ -1,8 +1,8 @@
 import { Check } from "lucide-react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 export const WhatIsDepin = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <section className="w-full py-10 md:py-20 flex justify-center">

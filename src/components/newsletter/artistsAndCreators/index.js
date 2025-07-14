@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from "react";
 import { Input, Button, sendFormRequest } from "@solana-foundation/solana-lib";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const ArtistsAndCreatorsNewsletter = ({
   modalCloseHandler = null,
@@ -11,7 +11,7 @@ const ArtistsAndCreatorsNewsletter = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState(false);
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   const [values, setValues] = useState({
     email: {

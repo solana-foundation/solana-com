@@ -1,5 +1,5 @@
 import Image from "next/legacy/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import HackathonSponsorCard from "./HackathonSponsorCard";
 import graphicLeft from "../../../../../assets/hackathon/previous-sponsors/graphic-left.png";
 import graphicRight from "../../../../../assets/hackathon/previous-sponsors/graphic-right.png";
@@ -31,7 +31,7 @@ const pastSponsors = [
 ];
 
 export default function HackathonPreviousSponsorsSection() {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className={styles["previous-sponsors"]}>

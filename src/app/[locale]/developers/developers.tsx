@@ -6,11 +6,11 @@ import DevelopersResourcesSection from "@/components/developers/sections/Develop
 import DevelopersDocumentsSection from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentsSection";
 import DevelopersContentSection from "@/components/developers/sections/DevelopersContentSection/DevelopersContentSection";
 import heroImg from "@@/assets/developers/hero-geometry.png";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import StackExchangeIcon from "@@/assets/developers/stackexchange.inline.svg";
 
 export function DevelopersPage({ latestChangelogVideo, guides }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <div className="overflow-hidden">
       <DevelopersHeroSection

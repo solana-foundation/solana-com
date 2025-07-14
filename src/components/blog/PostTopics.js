@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import PropTypes from "prop-types";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Link from "../../utils/Link";
 
 import { extractTags } from "@/lib/builder/api";
@@ -45,7 +45,7 @@ const PostTopics = ({ posts }) => {
       return extractTags(posts, 3);
     } else return [];
   }, [posts]);
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledPostTopics>

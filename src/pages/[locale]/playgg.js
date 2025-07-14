@@ -1,6 +1,5 @@
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { withLocales } from "@/i18n/routing";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 import PlayGGLayout from "@/components/playgg/PlayGGLayout";
 import HTMLHead from "@/components/HTMLHead";
@@ -8,7 +7,7 @@ import PlayGGSplash from "@/components/playgg/PlayGGSplash";
 import PlayGGGames from "@/components/playgg/PlayGGGames";
 
 const PlayGG = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <PlayGGLayout>
@@ -25,10 +24,12 @@ const PlayGG = () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
   };
 }

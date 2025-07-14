@@ -2,7 +2,7 @@ import styled from "styled-components";
 import Image from "next/image";
 import { ArrowRight } from "react-feather";
 
-import { Trans, useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import CarouselCards from "../shared/CarouselCards";
 import bgImage from "../../../assets/ai/build-bg.png";
@@ -23,7 +23,7 @@ const StyledCard = styled.div`
 `;
 
 function Card({ color, bgColor, dividerColor, title, icon, content, ctaLink }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledCard
@@ -55,18 +55,19 @@ function Card({ color, bgColor, dividerColor, title, icon, content, ctaLink }) {
 }
 
 export default function AiBuild() {
+  const t = useTranslations();
+
   return (
     <section className={styles["build"]}>
       <div className="container position-relative py-10">
         <Image className={styles["build__bg"]} src={bgImage} alt="" fill />
         <div className={styles["build__bg-effect"]}></div>
         <h2 className={styles["build__title"]}>
-          <Trans
-            i18nKey="ai.build.title"
-            components={{
-              colored: <span className={styles["build__title--colored"]} />,
-            }}
-          />
+          {t.rich("ai.build.title", {
+            colored: (chunks) => (
+              <span className={styles["build__title--colored"]}>{chunks}</span>
+            ),
+          })}
         </h2>
         <CarouselCards>
           <Card

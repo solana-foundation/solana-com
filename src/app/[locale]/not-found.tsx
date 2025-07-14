@@ -1,12 +1,12 @@
 "use client";
 
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import Image from "next/image";
 import NotFoundImg from "@@/public/img/not-found.png";
 
 export default function NotFound() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <div className="container py-10">
       <div className="row align-items-center justify-content-center">
@@ -26,12 +26,3 @@ export default function NotFound() {
     </div>
   );
 }
-
-// https://github.com/vercel/next.js/issues/45620
-// export async function generateMetadata({ params }: Props) {
-//   const { locale } = await params;
-//   const { t } = await serverTranslation(locale);
-//   return {
-//     title: t("titles.404"),
-//   };
-// }

@@ -1,7 +1,6 @@
 import { uniqBy, orderBy } from "lodash";
 import { StrictMode, useState } from "react";
-import { useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 
 import Layout from "@/components/layout";
@@ -15,7 +14,7 @@ import {
 } from "@/lib/events/fetchCalendarEvents";
 
 const EventsArchivePage = ({ events }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const [page, setPage] = useState(0);
   const TOTAL_EVENTS_PER_PAGE = 8;
 
@@ -51,6 +50,8 @@ const EventsArchivePage = ({ events }) => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   // Solana Foundation calendar
   let mainEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
     period: "past",
@@ -83,7 +84,7 @@ export async function getStaticProps({ params }) {
     props: {
       locale,
       events: JSON.parse(JSON.stringify(unique)),
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

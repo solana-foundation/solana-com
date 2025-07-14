@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import styles from "./WalletFilters.module.scss";
 import Wallets from "./Wallets";
@@ -10,7 +10,7 @@ const WalletFilters = ({
   updateWallets,
   walletData,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   /**
    * Returns all filter data with an extra key named `checked` set to false as the initial state of a filter

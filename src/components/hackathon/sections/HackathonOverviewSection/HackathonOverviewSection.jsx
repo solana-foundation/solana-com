@@ -1,11 +1,11 @@
 import Image from "next/legacy/image";
 import Button from "../../../shared/Button";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import OverviewImg from "../../../../../assets/hackathon/overview.png";
 import styles from "./HackathonOverviewSection.module.scss";
 
 export default function HackathonOverviewSection({ onGetNotified }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className={styles["overview"]}>

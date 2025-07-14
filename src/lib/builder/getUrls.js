@@ -1,4 +1,11 @@
 const https = require("https");
+const fs = require("fs");
+const path = require("path");
+const { uniqBy } = require("lodash");
+const { locales } = require("../../../src/i18n/config.ts");
+// const { runDiffSitemaps } = require("./diffSitemaps");
+
+// TODO: remove this once we consoloidate to app-router (multiple routers in nextjs is suboptimal)
 
 function httpsGet(url) {
   return new Promise((resolve, reject) => {
@@ -37,6 +44,78 @@ const MODELS = [
     urlPrefix: "/breakpoint/",
   },
 ];
+
+const CONTENT_ROOT = path.join(__dirname, "../../../content");
+const currentDate = new Date().toISOString();
+
+function isTranslationDir(dirPath) {
+  if (!fs.existsSync(dirPath)) return false;
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  const subdirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  // If at least half of the subdirs are translation folders, treat as translation dir
+  const count = subdirs.filter((name) => locales.includes(name)).length;
+  return count > 0;
+}
+
+function scanContentRecursive(baseDir, urlPrefix = "", urls = []) {
+  if (!fs.existsSync(baseDir)) return urls;
+
+  // If this dir contains translation folders, scan all locales
+  if (isTranslationDir(baseDir)) {
+    locales.forEach((locale) => {
+      const localeDir = path.join(baseDir, locale);
+      if (fs.existsSync(localeDir)) {
+        const localePrefix =
+          locale === "en" ? urlPrefix : `/${locale}${urlPrefix || ""}`;
+        scanContentRecursive(localeDir, localePrefix, urls);
+      }
+    });
+    return urls;
+  }
+
+  // Detect if we're at /content/courses or /content/guides
+  const isCoursesOrGuides =
+    baseDir.endsWith(`${path.sep}courses`) ||
+    baseDir.endsWith(`${path.sep}guides`) ||
+    baseDir.endsWith(`${path.sep}cookbook`);
+
+  // If so, prepend /developers to the urlPrefix
+  const effectiveUrlPrefix =
+    isCoursesOrGuides && !urlPrefix.startsWith("/developers")
+      ? `/developers${urlPrefix}`
+      : urlPrefix;
+
+  const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(baseDir, entry.name);
+    if (entry.isDirectory()) {
+      scanContentRecursive(
+        fullPath,
+        `${effectiveUrlPrefix}/${entry.name}`,
+        urls,
+      );
+    } else if (entry.name.endsWith(".mdx") || entry.name.endsWith(".json")) {
+      // Remove /content and file extension
+      let url = `${effectiveUrlPrefix}/${entry.name}`.replace(
+        /\/index\.(mdx|json)$/,
+        "",
+      );
+      url = url.replace(/\.(mdx|json)$/, "");
+      url = url.replace(/\/+/g, "/"); // Remove duplicate slashes
+      urls.push({
+        loc: url,
+        lastmod: currentDate,
+        changefreq: "weekly",
+        priority: 0.7,
+      });
+    }
+  }
+  return urls;
+}
+
+function getContentUrls() {
+  return scanContentRecursive(CONTENT_ROOT, "");
+}
 
 async function getBuilderUrls() {
   const result = [];
@@ -115,4 +194,33 @@ async function getBuilderUrls() {
   return result;
 }
 
-module.exports = { getBuilderUrls };
+const EXCLUDE_URLS = ["//solutions/enterprise-2"];
+
+async function getAllUrls() {
+  const builderUrls = await getBuilderUrls();
+  const contentUrls = getContentUrls();
+  const allUrls = [
+    ...builderUrls,
+    ...contentUrls.map((item) => {
+      const cleanUrl = item.loc.replace(/\/index$/, "");
+      return {
+        loc: cleanUrl,
+        lastmod: item.lastmod,
+        changefreq: item.changefreq,
+        priority: item.priority,
+      };
+    }),
+  ]
+    .filter((item) => !EXCLUDE_URLS.includes(item.loc))
+    .filter((item) => !item.loc.endsWith("/meta"));
+
+  const dedupedUrls = uniqBy(allUrls, "loc");
+  const sortedUrls = dedupedUrls.sort((a, b) => a.loc.localeCompare(b.loc));
+
+  // Run the diff script at the end
+  // runDiffSitemaps();
+
+  return sortedUrls;
+}
+
+module.exports = { getAllUrls };

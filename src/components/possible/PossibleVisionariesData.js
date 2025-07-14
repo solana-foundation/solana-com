@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import heliumSpeaker01 from "assets/possible/visionaries/Helium_speaker_01.png";
 import heliumSpeaker02 from "assets/possible/visionaries/Helium_speaker_02.png";
 import heliumSpeaker03 from "assets/possible/visionaries/Helium_speaker_03.png";
@@ -18,8 +18,8 @@ import heliusSpeaker01 from "assets/possible/visionaries/Helius_speaker_01.png";
 import heliusPoster from "assets/possible/visionaries/Helius_poster.jpg";
 
 export const PossibleVisionariesData = () => {
-  const { t } = useTranslation("common");
-  const episodes = t("possible.visionaries.episodes", { returnObjects: true });
+  const t = useTranslations();
+  const episodes = t.raw("possible.visionaries.episodes");
 
   return [
     {

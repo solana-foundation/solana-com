@@ -1,6 +1,5 @@
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 
 import Layout from "@/components/layout";
@@ -48,7 +47,7 @@ const StyledMainContainer = styled.div`
 `;
 
 const Branding = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <Layout>
@@ -81,10 +80,13 @@ const Branding = () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
+
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
   };
 }

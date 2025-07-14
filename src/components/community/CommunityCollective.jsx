@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import Image from "next/legacy/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import collectiveImg from "../../../public/src/img/community/collective.png";
 
@@ -38,7 +38,7 @@ const StyledCommunityCollective = styled.section`
 `;
 
 const CommunityCollective = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledCommunityCollective className="container align-items-center my-12 d-flex flex-column flex-md-row">

@@ -1,6 +1,6 @@
 import styles from "./RampsCard.module.scss";
 import Image from "next/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const RampsCard = ({
   rampIndex,
@@ -9,7 +9,7 @@ const RampsCard = ({
   showModalOnClick,
   imageUrl,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <button

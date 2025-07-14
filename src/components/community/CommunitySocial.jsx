@@ -10,7 +10,7 @@ import Sun from "../../../public/src/img/community/socials-sun.inline.svg";
 import Mail from "../../../public/src/img/community/socials-mail.inline.svg";
 import Reddit from "../../../public/src/img/community/socials-reddit.inline.svg";
 import News from "../../../public/src/img/community/socials-news.inline.svg";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 /**
  * Display social network cards
@@ -20,7 +20,7 @@ import { useTranslation } from "next-i18next";
  * @constructor
  */
 const CommunitySocial = ({ data }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   const {
     telegram = 70463,

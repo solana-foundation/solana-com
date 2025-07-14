@@ -1,5 +1,4 @@
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 
 import Layout from "@/components/layout";
@@ -9,7 +8,7 @@ import ECDRStats from "@/components/ecdr/ECDRStats";
 import ECDRJoinCommunity from "@/components/ecdr/ECDRJoinCommunity";
 
 const ECDRPage = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   return (
     <Layout>
       <HTMLHead
@@ -28,10 +27,13 @@ const ECDRPage = () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
+
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
   };
 }

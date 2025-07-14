@@ -8,14 +8,13 @@ import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { CTACards } from "@/components/solutions/depin/CTACards";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsDepin } from "@/components/solutions/depin/WhatIsDepin";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 import { useState } from "react";
 import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
 
 const DePINPage = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   return (
@@ -78,10 +77,12 @@ export default DePINPage;
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./PlayGGGames.module.scss";
 import { InlineLink } from "../shared/Link";
 import Image from "next/image";
@@ -54,7 +54,7 @@ const Game = ({ logo, url, name }) => {
 };
 
 const PlayGGGames = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div className="container">

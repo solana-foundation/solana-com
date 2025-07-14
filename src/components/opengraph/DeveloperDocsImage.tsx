@@ -15,7 +15,7 @@ type DeveloperDocsImageProps = {
 // Image generation
 export default async function DeveloperDocsImage(
   { heading, title }: DeveloperDocsImageProps,
-  size: ImageSize = IMAGE_SETTINGS.sizeDefault,
+  size = IMAGE_SETTINGS.sizeDefault,
 ): Promise<ImageResponse> {
   //
   const solanaLogo = `${config.siteUrl}/img/logomark-color.svg`;

@@ -2,7 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowRightIcon } from "lucide-react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 
 type CTACardsProps = {
@@ -10,7 +10,7 @@ type CTACardsProps = {
 };
 
 export const CTACards = ({ onEmailClick }: CTACardsProps) => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">

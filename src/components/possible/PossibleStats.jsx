@@ -1,4 +1,4 @@
-import { Trans, useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "./PossibleStats.module.scss";
 import Link from "../../utils/Link";
@@ -91,7 +91,7 @@ const PossibleStats = ({ visible, showKPIs = true }) => {
       getLiveTransactionCount: true,
     });
 
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div className={styles["index-stats"]}>
@@ -203,14 +203,14 @@ const PossibleStats = ({ visible, showKPIs = true }) => {
               />
               <StatsCard
                 title={t("possible.stats.adoption.energy.title")}
-                description={
-                  <Trans
-                    i18nKey="possible.stats.adoption.energy.description"
-                    components={{
-                      envLink: <Link to="/environment" />,
-                    }}
-                  />
-                }
+                description={t.rich(
+                  "possible.stats.adoption.energy.description",
+                  {
+                    envLink: (chunks) => (
+                      <Link to="/environment">{chunks}</Link>
+                    ),
+                  },
+                )}
                 value="0%"
                 valueName={t("possible.stats.carbon")}
                 border="#19FB9B"

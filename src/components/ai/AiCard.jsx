@@ -2,7 +2,7 @@ import classNames from "classnames";
 import Image from "next/image";
 import { ArrowRight } from "react-feather";
 
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
 import nftsEcosystemBlob from "../../../assets/ai/fund.png";
@@ -11,7 +11,7 @@ import styles from "./AiCard.module.scss";
 import Link from "next/link";
 
 export default function AiCard() {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="container my-12 py-md-10">

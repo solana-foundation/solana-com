@@ -5,7 +5,7 @@ import * as Yup from "yup";
 import useIterableSignUp, {
   ActionForm,
 } from "../shared/Iterable/useIterableSignUp";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 import ArrowSubmit from "../../../assets/playgg/arrow-submit.inline.svg";
 import EnterEmail from "../../../assets/playgg/_enter-email.inline.svg";
@@ -17,7 +17,7 @@ const schema = Yup.object().shape({
 });
 
 function Message({ error, msgId }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <div className={error ? styles["sign-up-form__error"] : ""}>
       <small>{t(msgId)}</small>

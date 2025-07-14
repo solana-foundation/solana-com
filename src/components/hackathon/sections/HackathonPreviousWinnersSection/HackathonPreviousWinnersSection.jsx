@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import CarouselCards from "../../../shared/CarouselCards";
 import HackathonWinnerCard from "./HackathonWinnerCard";
 
@@ -41,7 +41,7 @@ const pastWinners = [
 ];
 
 export default function HackathonPreviousWinnersSection() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const pastWinnersCards = pastWinners.map(({ logo, alt, width, height }) => (
     <HackathonWinnerCard
       key={alt}

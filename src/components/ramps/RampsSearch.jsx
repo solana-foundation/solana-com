@@ -1,8 +1,8 @@
 import styles from "./RampsSearch.module.scss";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const RampsSearch = ({ mobileClickEvent, searchTerm, handleInputChange }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <div className={`${styles["ramps-search"]}`}>

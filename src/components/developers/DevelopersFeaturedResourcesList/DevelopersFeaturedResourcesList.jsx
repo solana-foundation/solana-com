@@ -1,6 +1,6 @@
 import { memo } from "react";
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./DevelopersFeaturedResourcesList.module.scss";
 import DevelopersFeaturedResourcesListItem from "./DevelopersFeaturedResourcesListItem/DevelopersFeaturedResourcesListItem";
 
@@ -8,7 +8,7 @@ export default memo(function DevelopersFeaturedResourcesList({
   items,
   translationTag = "featured-resources-list",
 }) {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   return (
     <div
       id="featured"

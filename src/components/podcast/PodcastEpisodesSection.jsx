@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 
 import Button from "../shared/Button";
@@ -12,7 +12,7 @@ import Loader from "../../../public/src/img/icons/Loader.inline.svg";
 import styles from "./PodcastEpisodesSection.module.scss";
 
 export default function PodcastEpisodesSection() {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   const {
     episodes,

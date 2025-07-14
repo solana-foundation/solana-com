@@ -1,11 +1,11 @@
 import { forwardRef } from "react";
 import Image from "next/legacy/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import HeroImage from "../../../public/src/img/validators/validators_geometry.png";
 import Button from "../shared/Button";
 
 const ValidatorsHero = forwardRef((props, ref) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="hero" ref={ref}>

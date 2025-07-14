@@ -1,6 +1,5 @@
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { withLocales } from "@/i18n/routing";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import EnvironmentHero from "@/components/environment/EnvironmentHero";
@@ -9,7 +8,7 @@ import EnvironmentWhatYouCanDo from "@/components/environment/EnvironmentWhatYou
 import EnvironmentFeaturedProjects from "@/components/environment/EnvironmentFeaturedProjects";
 
 const EnvironmentPage = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <Layout>
@@ -27,10 +26,12 @@ const EnvironmentPage = () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

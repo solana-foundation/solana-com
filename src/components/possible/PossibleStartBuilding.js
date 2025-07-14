@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import Link from "next/link";
 import PossibleGlow from "./PossibleGlow";
@@ -10,7 +10,7 @@ import programmingImg from "../../../assets/possible/startBuilding-programming.p
 import communityImg from "../../../assets/possible/startBuilding-community.png";
 
 const PossibleStartBuilding = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className={styles["section__start-building--possible"]}>

@@ -1,5 +1,5 @@
 import Button from "../shared/Button";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import VideoCard from "./VideoCard";
 
 /**
@@ -10,7 +10,7 @@ import VideoCard from "./VideoCard";
  * @constructor
  */
 export default function FeaturedVideos({ videos }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return videos.length ? (
     <section className="featured-videos">

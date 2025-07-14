@@ -10,7 +10,7 @@ import {
 import Divider from "../../shared/Divider";
 import FormattedDate from "../../shared/FormattedDate";
 import { InlineLink } from "../../shared/Link";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import PodcastSubscribeDialog from "../PodcastSubscribeDialog";
 
 import solanaPodcastLogo from "../../../../assets/podcast/solana-podcast-logo.jpeg";
@@ -35,7 +35,7 @@ export default function PodcastEpisode({ episode }) {
       ?.join(", ");
   }, [episode]);
 
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <div className={classNames("d-flex flex-column", styles["episode"])}>

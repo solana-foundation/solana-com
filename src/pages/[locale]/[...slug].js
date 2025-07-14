@@ -1,5 +1,4 @@
 import { builder, BuilderComponent, useIsPreviewing } from "@builder.io/react";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import HTMLHead from "@/components/builder/HTMLHead";
 import NotFoundPage from "./404";
 import customComponentsRegistration from "@/utils/customComponentGenerator";
@@ -88,6 +87,8 @@ export async function getStaticProps({ params }) {
     }
 
     const page = await getPage(slug, locale);
+    const messages = (await import(`@@/public/locales/${locale}/common.json`))
+      .default;
 
     return {
       props: {
@@ -95,7 +96,7 @@ export async function getStaticProps({ params }) {
         locale,
         builderLocale,
         page: page || null,
-        ...(await serverSideTranslations(builderLocale, ["common"])),
+        messages,
       },
       revalidate: 60,
     };

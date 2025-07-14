@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { ArrowRightCircle } from "react-feather";
 import styles from "./EnvironmentWhatYouCanDo.module.scss";
 import dataImg from "../../../assets/environment/usages/data.png";
@@ -30,7 +30,7 @@ function WhatYouCanDoCard({ usage }) {
 }
 
 export default function EnvironmentWhatYouCanDo() {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   const usages = [
     {
