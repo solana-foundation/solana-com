@@ -21,7 +21,7 @@ export async function DocsLayout({
   sidebarEnabled?: boolean;
   locale?: string;
 }) {
-  const t = await getTranslations({ locale, namespace: "common" });
+  const t = await getTranslations();
   const translations = {
     toc: t("shared.general.toc"),
     editOnGithub: t("shared.general.edit-page"),

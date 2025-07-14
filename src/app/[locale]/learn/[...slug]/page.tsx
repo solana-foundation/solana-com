@@ -34,7 +34,7 @@ export async function generateMetadata(props: Props) {
 
 export default async function LearnContentPage(props: Props) {
   const { locale, slug } = await props.params;
-  const t = await getTranslations({ locale });
+  const t = await getTranslations();
 
   const page = learnSource.getPage(slug, locale);
 
