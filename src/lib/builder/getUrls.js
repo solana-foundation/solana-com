@@ -2,6 +2,8 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const { uniqBy } = require("lodash");
+const { locales } = require("../../../src/i18n/config.ts");
+// const { runDiffSitemaps } = require("./diffSitemaps");
 
 // TODO: remove this once we consoloidate to app-router (multiple routers in nextjs is suboptimal)
 
@@ -43,190 +45,76 @@ const MODELS = [
   },
 ];
 
-// Helper to get current ISO date for lastModified
+const CONTENT_ROOT = path.join(__dirname, "../../../content");
 const currentDate = new Date().toISOString();
 
-// Helper to add a URL to the urls array
-function addUrl(
-  urls,
-  {
-    url,
-    lastModified = currentDate,
-    changeFrequency = "daily",
-    priority = 0.7,
-  },
-) {
-  urls.push({
-    url,
-    lastModified,
-    changeFrequency,
-    priority,
-  });
+function isTranslationDir(dirPath) {
+  if (!fs.existsSync(dirPath)) return false;
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  const subdirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  // If at least half of the subdirs are translation folders, treat as translation dir
+  const count = subdirs.filter((name) => locales.includes(name)).length;
+  return count > 0;
 }
 
-/**
- * Scans a directory for subdirectories or files and adds URLs based on the provided options.
- * @param {string} baseDir - The absolute path to the directory to scan.
- * @param {object} options
- *   - subDirAsSlug: if true, each subdirectory is a slug (e.g. for courses, guides, cookbook)
- *   - fileExt: file extension to match (e.g. '.mdx')
- *   - urlPrefix: prefix for the generated URL
- *   - addRoot: if true, add the root URL as well
- *   - skipNames: array of directory or file names to skip
- *   - urlBuilder: optional custom function (dirent, file) => url
- */
-function scanAndAddUrls(
-  urls,
-  baseDir,
-  {
-    subDirAsSlug = false,
-    fileExt = ".mdx",
-    urlPrefix = "",
-    addRoot = false,
-    skipNames = [],
-    urlBuilder,
-  },
-) {
-  if (!fs.existsSync(baseDir)) return;
+function scanContentRecursive(baseDir, urlPrefix = "", urls = []) {
+  if (!fs.existsSync(baseDir)) return urls;
 
-  if (subDirAsSlug) {
-    fs.readdirSync(baseDir, { withFileTypes: true }).forEach((dirent) => {
-      if (dirent.isDirectory() && !skipNames.includes(dirent.name)) {
-        const subDir = path.join(baseDir, dirent.name);
-        fs.readdirSync(subDir).forEach((file) => {
-          if (file.endsWith(fileExt)) {
-            const slug = file.replace(fileExt, "");
-            const url = urlBuilder
-              ? urlBuilder(dirent.name, slug)
-              : `${urlPrefix}/${dirent.name}/${slug}`;
-            addUrl(urls, { url });
-          }
-        });
+  // If this dir contains translation folders, scan all locales
+  if (isTranslationDir(baseDir)) {
+    locales.forEach((locale) => {
+      const localeDir = path.join(baseDir, locale);
+      if (fs.existsSync(localeDir)) {
+        const localePrefix =
+          locale === "en" ? urlPrefix : `/${locale}${urlPrefix || ""}`;
+        scanContentRecursive(localeDir, localePrefix, urls);
       }
     });
-    if (addRoot) addUrl(urls, { url: urlPrefix });
-  } else {
-    fs.readdirSync(baseDir).forEach((file) => {
-      if (file.endsWith(fileExt) && !skipNames.includes(file)) {
-        const slug = file.replace(fileExt, "");
-        const url = urlBuilder
-          ? urlBuilder(null, slug)
-          : `${urlPrefix}/${slug}`;
-        addUrl(urls, { url });
-      }
-    });
-    if (addRoot) addUrl(urls, { url: urlPrefix });
+    return urls;
   }
-}
 
-// Recursive scan for deeply nested .mdx files (for courses)
-function scanAndAddUrlsRecursive(urls, baseDir, urlPrefix, skipNames = []) {
-  if (!fs.existsSync(baseDir)) return;
+  // Detect if we're at /content/courses or /content/guides
+  const isCoursesOrGuides =
+    baseDir.endsWith(`${path.sep}courses`) ||
+    baseDir.endsWith(`${path.sep}guides`) ||
+    baseDir.endsWith(`${path.sep}cookbook`);
 
-  fs.readdirSync(baseDir, { withFileTypes: true }).forEach((dirent) => {
-    const fullPath = path.join(baseDir, dirent.name);
-    if (skipNames.includes(dirent.name)) return;
+  // If so, prepend /developers to the urlPrefix
+  const effectiveUrlPrefix =
+    isCoursesOrGuides && !urlPrefix.startsWith("/developers")
+      ? `/developers${urlPrefix}`
+      : urlPrefix;
 
-    if (dirent.isDirectory()) {
-      scanAndAddUrlsRecursive(
-        urls,
+  const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(baseDir, entry.name);
+    if (entry.isDirectory()) {
+      scanContentRecursive(
         fullPath,
-        `${urlPrefix}/${dirent.name}`,
-        skipNames,
+        `${effectiveUrlPrefix}/${entry.name}`,
+        urls,
       );
-    } else if (dirent.name.endsWith(".mdx")) {
-      const slug = dirent.name.replace(".mdx", "");
-      const url = `${urlPrefix}/${slug}`;
-      addUrl(urls, { url });
+    } else if (entry.name.endsWith(".mdx") || entry.name.endsWith(".json")) {
+      // Remove /content and file extension
+      let url = `${effectiveUrlPrefix}/${entry.name}`.replace(
+        /\/index\.(mdx|json)$/,
+        "",
+      );
+      url = url.replace(/\.(mdx|json)$/, "");
+      url = url.replace(/\/+/g, "/"); // Remove duplicate slashes
+      urls.push({
+        loc: url,
+        lastmod: currentDate,
+        changefreq: "weekly",
+        priority: 0.7,
+      });
     }
-  });
+  }
+  return urls;
 }
 
-// Function to scan content directories and generate root URLs (without locales)
 function getContentUrls() {
-  const urls = [];
-
-  scanAndAddUrlsRecursive(
-    urls,
-    path.join(__dirname, "../../../content/courses"),
-    "/developers/courses",
-    ["meta.json"],
-  );
-  const coursesDir = path.join(__dirname, "../../../content/courses");
-  if (fs.existsSync(coursesDir)) {
-    fs.readdirSync(coursesDir, { withFileTypes: true }).forEach((dirent) => {
-      if (dirent.isDirectory()) {
-        addUrl(urls, { url: `/developers/courses/${dirent.name}` });
-      }
-    });
-  }
-  addUrl(urls, { url: "/developers/courses" });
-
-  scanAndAddUrls(urls, path.join(__dirname, "../../../content/learn/en"), {
-    subDirAsSlug: false,
-    fileExt: ".mdx",
-    urlPrefix: "/learn",
-    addRoot: true,
-  });
-
-  scanAndAddUrls(urls, path.join(__dirname, "../../../content/cookbook"), {
-    subDirAsSlug: true,
-    fileExt: ".mdx",
-    urlPrefix: "/developers/cookbook",
-    addRoot: true,
-    urlBuilder: (dirName, slug) => `/developers/cookbook/${dirName}/${slug}`,
-  });
-
-  // Guides
-  scanAndAddUrls(urls, path.join(__dirname, "../../../content/guides"), {
-    subDirAsSlug: true,
-    fileExt: ".mdx",
-    urlPrefix: "/developers/guides",
-    addRoot: true,
-    urlBuilder: (dirName, slug) => `/developers/guides/${dirName}/${slug}`,
-  });
-
-  // Example for docs (scan /content/docs/en and subdirs recursively)
-  const docsDir = path.join(__dirname, "../../../content/docs/en");
-  function scanDocs(dir, basePath = "/docs") {
-    fs.readdirSync(dir, { withFileTypes: true }).forEach((dirent) => {
-      const fullPath = path.join(dir, dirent.name);
-      if (dirent.isDirectory()) {
-        scanDocs(fullPath, `${basePath}/${dirent.name}`);
-      } else if (
-        dirent.name.endsWith(".mdx") ||
-        dirent.name.endsWith(".json")
-      ) {
-        // Include index-like files
-        const slug = dirent.name.replace(/\.mdx|\.json$/, "");
-        const urlPath =
-          slug === "index" || slug === "meta"
-            ? basePath
-            : `${basePath}/${slug}`;
-        addUrl(urls, { url: urlPath });
-      }
-    });
-  }
-  if (fs.existsSync(docsDir)) {
-    scanDocs(docsDir);
-  }
-
-  const staticPages = [
-    "/",
-    "/404",
-    "/news",
-    "/developers",
-    "/community",
-    "/events",
-    "/staking",
-    "/wallets",
-    "/rpc",
-    "/tos",
-    "/privacy-policy",
-  ];
-  staticPages.forEach((p) => addUrl(urls, { url: p }));
-
-  return urls;
+  return scanContentRecursive(CONTENT_ROOT, "");
 }
 
 async function getBuilderUrls() {
@@ -314,18 +202,24 @@ async function getAllUrls() {
   const allUrls = [
     ...builderUrls,
     ...contentUrls.map((item) => {
-      const cleanUrl = item.url.replace(/\/index$/, "");
+      const cleanUrl = item.loc.replace(/\/index$/, "");
       return {
         loc: cleanUrl,
-        lastmod: item.lastModified,
-        changefreq: item.changeFrequency,
+        lastmod: item.lastmod,
+        changefreq: item.changefreq,
         priority: item.priority,
       };
     }),
-  ].filter((item) => !EXCLUDE_URLS.includes(item.loc));
+  ]
+    .filter((item) => !EXCLUDE_URLS.includes(item.loc))
+    .filter((item) => !item.loc.endsWith("/meta"));
 
   const dedupedUrls = uniqBy(allUrls, "loc");
   const sortedUrls = dedupedUrls.sort((a, b) => a.loc.localeCompare(b.loc));
+
+  // Run the diff script at the end
+  // runDiffSitemaps();
+
   return sortedUrls;
 }
 
