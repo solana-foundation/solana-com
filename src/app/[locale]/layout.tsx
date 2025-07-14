@@ -12,7 +12,8 @@ import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
 import { ThemeProvider } from "@/themecontext";
 import { config } from "@/config";
 import { getBaseMetadata } from "@/app/metadata";
-import { staticLocales } from "@/i18n/config.cjs";
+import { staticLocales } from "@/i18n/config";
+import { getLangDir } from "rtl-detect";
 
 type Props = {
   children: React.ReactNode;
@@ -21,13 +22,14 @@ type Props = {
 
 export default async function RootLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
+  const direction = getLangDir(locale);
   // Load messages directly
   const messages = (await import(`@@/public/locales/${locale}/common.json`))
     .default;
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
   const builderLocale = locale == "en" ? "Default" : locale;
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} dir={direction} suppressHydrationWarning>
       <body suppressHydrationWarning>
         {/* Google Tag Manager (noscript) */}
         <noscript>

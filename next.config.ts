@@ -1,14 +1,13 @@
-import { withSentryConfig } from "@sentry/nextjs";
-/**
- * @type {import('next').NextConfig}
- **/
-
-import withBundleAnalyzer from "@next/bundle-analyzer";
+import createNextIntlPlugin from "next-intl/plugin";
 import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
+import type { NextConfig } from "next";
+import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 import { builder } from "@builder.io/sdk";
 import { createMDX } from "fs-mdx/next";
+import { withSentryConfig } from "@sentry/nextjs";
 
-const securityHeaders = [
+const securityHeaders: Array<{ key: string; value: string }> = [
   {
     key: "X-Frame-Options",
     value: "SAMEORIGIN",
@@ -28,8 +27,6 @@ const securityHeaders = [
   },
 ];
 
-// `X-Robots-Tag: noindex` will not be set by default for custom domains
-// https://vercel.com/guides/are-vercel-preview-deployment-indexed-by-search-engines
 if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
   securityHeaders.push({
     key: "X-Robots-Tag",
@@ -37,17 +34,21 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
   });
 }
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: true,
   trailingSlash: false,
 
   async rewrites() {
-    return rewritesAndRedirectsJson.rewrites;
+    return rewritesAndRedirectsJson.rewrites as {
+      beforeFiles: Array<Omit<Rewrite, "locale"> & { locale: false }>;
+      afterFiles: Rewrite[];
+      fallback: Rewrite[];
+    };
   },
 
   async redirects() {
-    const existingRedirects = [
+    const existingRedirects: Redirect[] = [
       {
         source: "/news/tag/:tag*/page/:page*",
         destination: `/news/tag/:tag*`,
@@ -69,47 +70,32 @@ const nextConfig = {
       })),
     ];
 
-    try {
-      return builder
-        .getAll("url-redirects", {
-          apiKey:
-            process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
-            "ce0c7323a97a4d91bd0baa7490ec9139",
-          options: { noTargeting: true },
-          cachebust: true,
-        })
-        .then((results) => {
-          try {
-            return [
-              ...existingRedirects,
-              ...results
-                .filter((content) => {
-                  const data = (content || {}).data || {};
-                  const isValid = !!(data.sourceUrl && data.destinationUrl && data.sourceUrl.startsWith("/"));
-                  if (!isValid && data.sourceUrl) {
-                    console.warn(`Ignoring invalid redirect from Builder.io: ${data.sourceUrl}`);
-                  }
-                  return isValid;
-                })
-                .map(({ data }) => ({
-                  source: data.sourceUrl,
-                  destination: data.destinationUrl,
-                  permanent: !!data.permanentRedirect,
-                })),
-            ];
-          } catch (error) {
-            console.log("Error processing redirects", error);
-            return existingRedirects;
-          }
-        })
-        .catch((error) => {
-          console.log("Error setting up redirects", error);
-          return existingRedirects;
-        });
-    } catch (error) {
-      console.log("Error fetching redirects from Builder:", error);
-      return existingRedirects;
-    }
+    return builder
+      .getAll("url-redirects", {
+        apiKey:
+          process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
+          "ce0c7323a97a4d91bd0baa7490ec9139",
+        options: { noTargeting: true },
+        cachebust: true,
+      })
+      .then((results) => [
+        ...existingRedirects,
+        ...results
+          .filter((content) => {
+            const data = content?.data || {};
+            return !!(
+              data.sourceUrl &&
+              data.destinationUrl &&
+              data.sourceUrl.startsWith("/")
+            );
+          })
+          .map(({ data }) => ({
+            source: data.sourceUrl,
+            destination: data.destinationUrl,
+            permanent: !!data.permanentRedirect,
+          })),
+      ])
+      .catch(() => existingRedirects);
   },
 
   webpack(config) {
@@ -205,42 +191,23 @@ const nextConfig = {
   experimental: {
     scrollRestoration: true,
   },
-
-  // Ignore deprecation warnings and mixed declaration warnings
-  // https://github.com/vercel/next.js/issues/71638
-  sassOptions: {
-    logger: {
-      warn: function (message) {
-        if (
-          message.includes("deprecat") ||
-          message.includes("declarations that appear after nested")
-        )
-          return;
-        console.warn(message);
-      },
-    },
-  },
 };
 
-const moduleExports = () => {
+const moduleExports = (): NextConfig => {
+  const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
   const plugins = [
     createMDX(),
     withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" }),
+    withNextIntl,
   ];
-  return plugins.reduce((acc, next) => next(acc), nextConfig);
+  return plugins.reduce<NextConfig>((acc, next) => next(acc), nextConfig);
 };
 
 export default withSentryConfig(moduleExports, {
-  // For all available options, see:
-  // https://www.npmjs.com/package/@sentry/webpack-plugin#options
   org: "solana-r0",
   project: "javascript-nextjs",
   silent: !process.env.CI,
   widenClientFileUpload: true,
   disableLogger: true,
-  // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-  // See the following for more information:
-  // https://docs.sentry.io/product/crons/
-  // https://vercel.com/docs/cron-jobs
   automaticVercelMonitors: true,
 });

@@ -1,14 +1,10 @@
 import React from "react";
-import { serverTranslation } from "@/i18n/translation";
 import LearnPageContent from "@/components/learn/learn-page-content";
 import { learnTutorials } from "@/utils/learn-tutorials";
+import { getTranslations } from "next-intl/server";
 
-type Props = { params: Promise<{ locale: string }> };
-
-export default async function LearnPage(props: Props) {
-  const { locale } = await props.params;
-
-  const { t } = await serverTranslation(locale, ["common"]);
+export default async function LearnPage() {
+  const t = await getTranslations();
 
   const tutorials = learnTutorials.map((tutorial) => ({
     ...tutorial,

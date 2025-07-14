@@ -1,7 +1,7 @@
 import createMiddleware from "next-intl/middleware";
 import { routing } from "@/i18n/routing";
 import { NextResponse } from "next/server";
-import { locales } from "@/i18n/config.cjs";
+import { locales } from "@/i18n/config";
 
 const handleI18nRouting = createMiddleware(routing);
 

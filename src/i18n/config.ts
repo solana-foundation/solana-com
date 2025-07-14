@@ -1,5 +1,4 @@
-// locales.cjs
-const locales = [
+export const locales = [
   "en",
   "ar",
   "de",
@@ -22,7 +21,7 @@ const locales = [
   "zh",
 ];
 
-const languages = {
+export const languages = {
   "en": "English",
   "zh": "汉语",
   "ru": "Русский",
@@ -43,16 +42,8 @@ const languages = {
   "el": "Ελληνικά",
   "fi": "suomi",
   "hi": "हिन्दी"
-}
-
-const defaultLocale = "en";
-const namespaces = ["common"];
-const staticLocales = ["en"];
-
-module.exports = {
-  locales,
-  languages,
-  defaultLocale,
-  namespaces,
-  staticLocales,
 };
+
+export const defaultLocale = "en";
+export const namespaces = ["common"];
+export const staticLocales = ["en"];

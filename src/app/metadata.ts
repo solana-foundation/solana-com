@@ -52,7 +52,7 @@ export async function getIndexMetadata({
   locale,
   path,
 }) {
-  const t = await getTranslations({ locale, namespace: "common" });
+  const t = await getTranslations();
   return {
     title: t(titleKey),
     description: t(descriptionKey),

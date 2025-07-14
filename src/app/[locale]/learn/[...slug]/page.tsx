@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { learnSource } from "@/app/sources/learn";
 import { mdxComponents } from "@/app/mdx-components";
-import { serverTranslation } from "@/i18n/translation";
 import { tutorialOrder, learnTutorials } from "@/utils/learn-tutorials";
 import ChapterIndicator from "@/components/learn/chapter-indicator";
 import ChapterNavigation from "@/components/learn/chapter-navigation";
 import MobileChapterNavigation from "@/components/learn/mobile-chapter-navigation";
 import TutorialNavigation from "@/components/learn/tutorial-navigation";
+import { getTranslations } from "next-intl/server";
 
 type Props = {
   params: Promise<{ locale: string; slug: string[] }>;
@@ -34,7 +34,7 @@ export async function generateMetadata(props: Props) {
 
 export default async function LearnContentPage(props: Props) {
   const { locale, slug } = await props.params;
-  const { t } = await serverTranslation(locale, ["common"]);
+  const t = await getTranslations({ locale });
 
   const page = learnSource.getPage(slug, locale);
 
