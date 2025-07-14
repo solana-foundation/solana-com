@@ -5,12 +5,8 @@ import InspectSVG from "../../../assets/nav/network/inspect.inline.svg";
 
 const HeaderListNetwork = () => {
   const t = useTranslations();
-  const networkInspectItems = t("nav.network.inspect.items", {
-    returnObjects: true,
-  });
-  const networkResourcesItems = t("nav.network.resources.items", {
-    returnObjects: true,
-  });
+  const networkInspectItems = t.raw("nav.network.inspect.items");
+  const networkResourcesItems = t.raw("nav.network.resources.items");
 
   return (
     <div className="d-lg-flex">

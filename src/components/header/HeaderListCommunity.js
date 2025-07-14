@@ -5,9 +5,7 @@ import InvolvedSVG from "../../../assets/nav/community/involved.inline.svg";
 
 const HeaderListCommunity = () => {
   const t = useTranslations();
-  const communityInvolvedItems = t("nav.community.involved.items", {
-    returnObjects: true,
-  });
+  const communityInvolvedItems = t.raw("nav.community.involved.items");
 
   return (
     <div className="d-lg-flex">
