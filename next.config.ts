@@ -191,6 +191,21 @@ const nextConfig: NextConfig = {
   experimental: {
     scrollRestoration: true,
   },
+
+  // Ignore deprecation warnings and mixed declaration warnings
+  // https://github.com/vercel/next.js/issues/71638
+  sassOptions: {
+    logger: {
+      warn: function (message) {
+        if (
+          message.includes("deprecat") ||
+          message.includes("declarations that appear after nested")
+        )
+          return;
+        console.warn(message);
+      },
+    },
+  },
 };
 
 const moduleExports = (): NextConfig => {
