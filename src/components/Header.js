@@ -3,7 +3,7 @@
 import Navbar from "react-bootstrap/Navbar";
 import { useRouter } from "@/hooks/useRouter";
 import { Link } from "../utils/Link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
 import Moon from "../../public/src/img/icons/Moon.inline.svg";
 import Sun from "../../public/src/img/icons/Sun.inline.svg";
@@ -18,6 +18,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
   const router = useRouter();
   const { theme, toggleTheme, isThemePage } = useTheme();
   const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const navbar = document.getElementById("navbar");
@@ -31,10 +32,21 @@ const Header = ({ className = "", containerClassName = "" }) => {
     }
   }, [t, theme, isThemePage]);
 
+  useEffect(() => {
+    // Close mobile navigation on route change
+    setExpanded(false);
+  }, [router.asPath]);
+
   return (
     <>
       <header className={`position-sticky sticky-top ${className}`}>
-        <Navbar id="navbar" expand="lg" variant="">
+        <Navbar
+          id="navbar"
+          expand="lg"
+          variant=""
+          expanded={expanded}
+          onToggle={setExpanded}
+        >
           <div className={`container-xl ${containerClassName}`}>
             <Link to="/" className="d-flex" aria-label="Solana">
               <SolanaLogo
