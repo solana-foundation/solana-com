@@ -60,22 +60,26 @@ function OneColumnStep(props: { step: Steps[number] }) {
 function TwoColumnLayout(props: { steps: Steps; className?: string }) {
   const { steps, className } = props;
   const stickers = getStickers(steps);
+  const rootMargin = "-40% 0px -60% 0px";
   return (
-    <SelectionProvider className={cn("flex gap-4", className)}>
-      <div className="flex-1 min-w-64 mb-[90vh]">
+    <SelectionProvider
+      className={cn("flex gap-4", className)}
+      rootMargin={rootMargin}
+    >
+      <div className="flex-1 min-w-64 mb-[60vh]">
         {steps.map((step, i) => (
           <Selectable
             key={i}
             index={i}
             selectOn={["click", "scroll"]}
-            className="px-5 py-2 mb-24 rounded data-[selected=true]:bg-fd-primary/10 transition-colors duration-300"
+            className="px-5 py-2 mb-12 rounded data-[selected=true]:bg-fd-primary/10 transition-colors duration-300"
           >
             <h2 className="mt-4 text-xl">{step.title}</h2>
             <div>{step.children}</div>
           </Selectable>
         ))}
       </div>
-      <div className="bg-card min-w-96 w-1/2">
+      <div className="w-1/2 bg-card min-w-96">
         <div className="flex-1 top-[112px] xl:top-[78px] sticky max-h-[calc(100vh-118px)] xl:max-h-[calc(100vh-84px)] flex flex-col gap-2">
           <SelectionSticker steps={stickers} />
         </div>
@@ -124,7 +128,7 @@ function getStickers(steps: Steps) {
           codeblocks={[{ ...code, meta: "" }]}
           flags="ac"
           key={title}
-          className="flex-1 min-h-0 m-0"
+          className="flex-1 m-0 min-h-0"
         />,
       ]),
     ),
