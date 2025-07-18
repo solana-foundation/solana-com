@@ -55,7 +55,7 @@ export const CopyPage = ({
           </Button>
         </DropdownMenuTrigger>
       </div>
-      <DropdownMenuContent className="bg-fd-background prose !text-fd-primary border !border-zinc-200 !dark:border-zinc-800 rounded-md p-2 w-full focus:outline-none focus:ring-0">
+      <DropdownMenuContent className="bg-fd-background prose rounded-md p-2 w-full ring-0 border-0 focus-visible:ring-offset-0 focus-visible:ring-0">
         {/* copy as markdown */}
         <DropdownMenuItem
           className="cursor-pointer focus:outline-none focus:ring-0"

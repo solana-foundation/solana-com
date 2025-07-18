@@ -62,6 +62,9 @@ export function DocsPage(props: {
           {props.title}
         </Link>
       </DocsTitle>
+      <div className="lg:hidden">
+        <CopyPage filePath={path} href={href} />
+      </div>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
       <Rate onRateAction={onRateAction} />
     </FumaDocsPage>
