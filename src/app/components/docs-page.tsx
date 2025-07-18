@@ -12,6 +12,7 @@ import { findNeighbour } from "fumadocs-core/server";
 import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
+import { CopyPage } from "./copy-page";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -39,6 +40,7 @@ export function DocsPage(props: {
         enabled: !props.hideTableOfContents,
       }}
       tableOfContent={{
+        header: <CopyPage filePath={path} href={href} />,
         footer: (
           <>
             <EditOnGithub href={href} />
