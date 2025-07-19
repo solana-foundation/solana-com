@@ -14,6 +14,7 @@ import { config } from "@/config";
 import { getBaseMetadata } from "@/app/metadata";
 import initTranslations from "@/i18n/translation";
 import { staticLocales } from "@/i18n/config.cjs";
+import { Toaster } from "sonner";
 
 const namespaces = ["common"];
 
@@ -56,6 +57,7 @@ export default async function RootLayout({ children, params }: Props) {
             </ThemeProvider>
           </PostHogProvider>
         </I18nProvider>
+        <Toaster richColors />
       </body>
     </html>
   );

@@ -40,7 +40,7 @@ export function DocsPage(props: {
         enabled: !props.hideTableOfContents,
       }}
       tableOfContent={{
-        header: <CopyPage filePath={path} href={href} />,
+        header: <CopyPage filePath={path} url={href} />,
         footer: (
           <>
             <EditOnGithub href={href} />
@@ -63,7 +63,7 @@ export function DocsPage(props: {
         </Link>
       </DocsTitle>
       <div className="lg:hidden">
-        <CopyPage filePath={path} href={href} />
+        <CopyPage filePath={path} url={href} />
       </div>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
       <Rate onRateAction={onRateAction} />
