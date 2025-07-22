@@ -80,14 +80,17 @@ export function APIMethod(props: unknown) {
   );
   const resultSection = (
     // eslint-disable-next-line react/jsx-key
-    <Selection from={method.result?.map((r) => <ResultSection result={r} />)} />
+    <Selection
+      from={method.result?.map((r, index) => (
+        <ResultSection key={index} result={r} />
+      ))}
+    />
   );
   const requestSection = <RequestBlock codeblocks={method.request} />;
   const responseSection = (
     <Selection
-      from={method.result?.map((result) => (
-        // eslint-disable-next-line react/jsx-key
-        <ResponseBlock codeblock={result.response} />
+      from={method.result?.map((result, index) => (
+        <ResponseBlock key={index} codeblock={result.response} />
       ))}
     />
   );
