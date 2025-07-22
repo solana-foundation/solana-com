@@ -4,11 +4,11 @@ import AngleUp from "../../../public/src/img/icons/Angle-up.inline.svg";
 import AngleDown from "../../../public/src/img/icons/Angle-down.inline.svg";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/hooks/useRouter";
-import { Link } from "@/utils/Link";
 import HeaderListBuild from "./HeaderListBuild";
 import HeaderListSolutions from "./HeaderListSolutions";
 import HeaderListNetwork from "./HeaderListNetwork";
 import HeaderListCommunity from "./HeaderListCommunity";
+import HeaderListLearn from "./HeaderListLearn";
 
 const HeaderList = () => {
   const t = useTranslations();
@@ -18,11 +18,13 @@ const HeaderList = () => {
   const [showSolutions, updateShowSolutions] = useState(false);
   const [showDevelopers, updateShowDevelopers] = useState(false);
   const [showCommunity, updateShowCommunity] = useState(false);
+  const [showLearn, updateShowLearn] = useState(false);
 
   useEffect(() => {
     // links from "developers" (app router) doesnt reload the page
     // so we need to close the dropdown when the route changes
     updateShowDevelopers(false);
+    updateShowLearn(false);
   }, [asPath]);
 
   const isLearnActive = asPath.includes("/learn") || asPath === "/environment";
@@ -44,15 +46,30 @@ const HeaderList = () => {
 
   return (
     <ul className="navbar-nav ms-auto">
-      <li className="nav-item" style={{ "--color-active": "#19fb9b" }}>
-        <Link
-          to="/learn"
-          className={`nav-link nav-link--primary ${isLearnActive && "active"}`}
+      <Dropdown
+        as="li"
+        className={`nav-item`}
+        onToggle={(isOpen) => {
+          isOpen ? updateShowLearn(true) : updateShowLearn(false);
+        }}
+        show={showLearn}
+        style={{ "--color-active": "#19fb9b" }}
+      >
+        <Dropdown.Toggle
+          as="button"
+          type="button"
+          className={`nav-link nav-link--primary dropdown-toggle ${
+            isLearnActive && "active"
+          }`}
           suppressHydrationWarning={true}
         >
           {t("nav.learn.title")}
-        </Link>
-      </li>
+          {showLearn ? <AngleUp /> : <AngleDown />}
+        </Dropdown.Toggle>
+        <Dropdown.Menu>
+          <HeaderListLearn />
+        </Dropdown.Menu>
+      </Dropdown>
 
       <Dropdown
         as="li"
