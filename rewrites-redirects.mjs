@@ -845,5 +845,22 @@ export default {
       source: "/docs/toolkit/:path*",
       destination: "/docs/intro/installation",
     },
+    {
+      source: "/developers/cookbook/tokens/create-nft",
+      destination: "https://developers.metaplex.com/core",
+    },
+    {
+      source: "/developers/cookbook/tokens/fetch-nft-metadata",
+      destination: "https://developers.metaplex.com/core",
+    },
+    {
+      source: "/developers/cookbook/tokens/get-nft-owner",
+      destination: "https://developers.metaplex.com/core",
+    },
+    {
+      source: "/developers/cookbook/tokens/fetch-all-nfts",
+      destination: "https://developers.metaplex.com/core",
+    },
+    
   ],
 };
