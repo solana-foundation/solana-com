@@ -1,9 +1,9 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import styles from "./WalletCard.module.scss";
 
 const WalletCard = ({ index, walletImage, name, body, websiteUrl }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <article data-index={index} className={styles["wallet"]}>

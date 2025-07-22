@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 import Button from "../shared/Button";
 import PodcastEpisodes from "./PodcastEpisodes";
@@ -8,7 +8,7 @@ import { usePodcastPlayerContext } from "./PodcastStickyPlayer";
 import styles from "./PodcastRecentEpisodesSection.module.scss";
 
 export default function PodcastRecentEpisodesSection() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const { episodes } = usePodcastPlayerContext();
 
   return (

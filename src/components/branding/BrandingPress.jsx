@@ -1,7 +1,7 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const BrandingPress = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="pt-10" id="press">

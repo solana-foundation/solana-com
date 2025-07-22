@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { config } from "src/config";
 import {
   TwitterShareButton,
@@ -44,7 +44,7 @@ const StyledCopied = styled.button`
 `;
 
 const SocialShareButtons = ({ url, title, className = "" }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   const [copied, setCopied] = useState(false);
   const [timer, setTimer] = useState(null);

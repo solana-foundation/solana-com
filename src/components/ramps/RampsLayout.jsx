@@ -5,7 +5,7 @@ import styles from "./RampsLayout.module.scss";
 import RampsSearch from "./RampsSearch";
 import { Hero } from "@solana-foundation/solana-lib";
 import onOffRampHeroImage from "../../../assets/onofframp/on-off-ramp-hero-img.png";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const RampLayout = ({
   data,
@@ -13,7 +13,7 @@ const RampLayout = ({
   countryOptions,
   paymentRailsOptions,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   const [filtersActive, setFiltersActive] = useState(0);
 

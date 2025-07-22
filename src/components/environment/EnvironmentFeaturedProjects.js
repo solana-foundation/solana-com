@@ -1,7 +1,7 @@
 import classNames from "classnames";
 import Image from "next/image";
 import { Button } from "@solana-foundation/solana-lib";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./EnvironmentFeaturedProjects.module.scss";
 
 import GainForestImg from "../../../assets/environment/projects/gainforest.jpg";
@@ -11,7 +11,7 @@ import OutsiteImg from "../../../assets/environment/projects/outside.png";
 import WiHiImg from "../../../assets/environment/projects/wihi.png";
 
 export default function EnvironmentFeaturedProjects() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const projects = [
     {
       title: t("environment.featured-projects.projects.ecoToken.title"),

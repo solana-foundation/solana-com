@@ -1,9 +1,9 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./EnvironmentReport.module.scss";
 
 export default function EnvironmentReport() {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section

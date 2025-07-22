@@ -7,7 +7,7 @@ import {
   Fullscreen,
   Box,
 } from "lucide-react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const products = [
   {
@@ -49,7 +49,7 @@ const products = [
 ];
 
 export const Products = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">

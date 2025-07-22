@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./DevelopersFeaturedResourcesListItem.module.scss";
 import Button from "@/components/shared/Button";
 import { Link, InlineLink } from "@/components/shared/Link";
@@ -8,7 +8,7 @@ const Content = memo(function Content({
   item,
   translationTag = "featured-resources-list",
 }) {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   return (
     <>
       <span

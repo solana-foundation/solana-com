@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import CarouselCards from "@/components/shared/CarouselCards";
 import DevelopersResourceItem from "./DevelopersResourceItem";
 import DevelopersSectionTitle from "../DevelopersSectionTitle";
@@ -12,7 +12,7 @@ export default function DevelopersResourcesSection({
   baseHref = "/developers/guides",
   translationKey = "guides",
 }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="mt-10 mt-md-12" id={translationKey}>
@@ -45,7 +45,7 @@ export default function DevelopersResourcesSection({
 }
 
 const ResourceCards = memo(function ResourceCards({ items }) {
-  // const { t } = useTranslation();
+  // const t = useTranslations();
 
   return (
     <>

@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { memo, useMemo } from "react";
 import * as Yup from "yup";
 import Button from "../Button";
@@ -14,7 +14,7 @@ const Status = {
 };
 
 const StatusMessage = memo(function StatusMessage({ status }) {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   if (!Object.values(Status).includes(status)) {
     return null;
@@ -50,7 +50,7 @@ export default function IterableEmailSubscribeForm({
   placeholderTextID,
   ctaTextID,
 }) {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   const {
     actionUrl,

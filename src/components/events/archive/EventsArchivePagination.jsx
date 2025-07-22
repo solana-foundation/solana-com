@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight } from "react-feather";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "../../shared/Button";
 
 const StyledProgressBar = styled.div`
@@ -22,7 +22,7 @@ const EventsArchivePagination = ({
   currentPage = 0,
   setCurrentPage = () => {},
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const pageLowerBound = currentPage * initialPageSize;
 
   const pageUpperBound =

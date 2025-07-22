@@ -1,10 +1,10 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./EnvironmentHero.module.scss";
 import { Button } from "@solana-foundation/solana-lib";
 
 export default function EnvironmentHero() {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <>

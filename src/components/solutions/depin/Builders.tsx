@@ -1,10 +1,10 @@
 import Image from "next/image";
 import { Play, ArrowRight } from "lucide-react";
 import { VideoTrigger } from "@/component-library/video-modal";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 export const Builders = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   const videoData = [
     {

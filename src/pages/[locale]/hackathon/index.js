@@ -1,5 +1,4 @@
-import { useTranslation } from "next-i18next";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
+import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 import { useRef, useCallback } from "react";
 
@@ -12,7 +11,7 @@ import HackathonPreviousWinnersSection from "@/components/hackathon/sections/Hac
 import HackathonPreviousHackathonsSection from "@/components/hackathon/sections/HackathonPreviousHackathonsSection/HackathonPreviousHackathonsSection";
 
 export default function HackathonIndex() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const newsletterSignUpRef = useRef();
 
   const focusOnNewsletterSignUp = useCallback(() => {
@@ -40,10 +39,12 @@ export default function HackathonIndex() {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };

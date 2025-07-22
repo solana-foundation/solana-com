@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import classNames from "classnames";
 import styles from "./CookieConsent.module.scss";
@@ -38,7 +38,7 @@ const setLocalStorage = function (key, value) {
 };
 
 export default function CookieConsent() {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   // cookieConsent is blank by default
   const [cookieConsent, setCookieConsent] = useState("");

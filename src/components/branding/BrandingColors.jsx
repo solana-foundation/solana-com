@@ -1,6 +1,6 @@
 import Image from "next/legacy/image";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Divider from "../shared/Divider";
 import Button from "../shared/Button";
 
@@ -46,7 +46,7 @@ const StyledSection = styled.section`
 `;
 
 const BrandingColors = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledSection>

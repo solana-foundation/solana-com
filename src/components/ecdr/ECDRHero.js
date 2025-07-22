@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import Image from "next/legacy/image";
 import TypeformModal from "../shared/TypeformModal";
@@ -8,7 +8,7 @@ import IndexBtn from "../index/IndexBtn";
 import SolanaRing from "../../../public/src/img/ecdr/solana-ring.png";
 
 const ECDRHero = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
   const [showTypeformModal, setShowTypeformModal] = useState(false);
 
   return (

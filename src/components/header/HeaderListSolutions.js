@@ -1,20 +1,16 @@
-import { useTranslation } from "next-i18next";
+"use client";
+
+import { useTranslations } from "next-intl";
 import { Link } from "../../utils/Link";
 import SolutionsToolsSVG from "../../../assets/nav/solutions/solutions.inline.svg";
 import SolutionsCasesSVG from "../../../assets/nav/solutions/cases.inline.svg";
 import SolutionsResourcesSVG from "../../../assets/nav/solutions/resources.inline.svg";
 
 const HeaderListSolutions = () => {
-  const { t } = useTranslation("common");
-  const solutionsToolsItems = t("nav.solutions.tools.items", {
-    returnObjects: true,
-  });
-  const solutionsCasesItems = t("nav.solutions.cases.items", {
-    returnObjects: true,
-  });
-  const solutionsResourcesItems = t("nav.solutions.resources.items", {
-    returnObjects: true,
-  });
+  const t = useTranslations();
+  const solutionsToolsItems = t.raw("nav.solutions.tools.items");
+  const solutionsCasesItems = t.raw("nav.solutions.cases.items");
+  const solutionsResourcesItems = t.raw("nav.solutions.resources.items");
 
   return (
     <>

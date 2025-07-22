@@ -1,4 +1,3 @@
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { getPage } from "@/lib/builder/page/api";
 import Page from "./[...slug]";
 import { withLocales } from "@/i18n/routing";
@@ -15,15 +14,15 @@ export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
   try {
     const page = await getPage("/", locale);
-    const isDefaultLocale = locale === "en";
-    const builderLocale = isDefaultLocale ? "Default" : locale;
+    const messages = (await import(`@@/public/locales/${locale}/common.json`))
+      .default;
 
     return {
       props: {
         locale,
         key: page?.id + page?.data.slug + locale,
         page: page || null,
-        ...(await serverSideTranslations(builderLocale, ["common"])),
+        messages,
       },
       revalidate: 60,
     };

@@ -3,8 +3,9 @@
 import Dropdown from "react-bootstrap/Dropdown";
 import Globe from "../../public/src/img/icons/Globe.inline.svg";
 import { ChevronDown } from "react-feather";
-import languages from "../../public/json/languages.json";
-import { usePathname, useLocale } from "@/i18n/routing";
+import { languages } from "@/i18n/config";
+import { usePathname } from "@/i18n/routing";
+import { useLocale } from "next-intl";
 
 const Language = () => {
   const currentLocale = useLocale();

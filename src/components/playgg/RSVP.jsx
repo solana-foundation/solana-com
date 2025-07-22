@@ -1,11 +1,11 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import ArrowSubmit from "../../../assets/playgg/arrow-submit.inline.svg";
 import styles from "./RSVP.module.scss";
 import classNames from "classnames";
 import Button from "../shared/Button";
 
 export default function RSVP() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <>
       <Button

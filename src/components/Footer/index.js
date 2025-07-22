@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "./Footer.module.scss";
 import LanguageSelector from "../LanguageSelector";
@@ -15,7 +15,7 @@ import TelegramIcon from "../../../public/src/img/footer/telegram.inline.svg";
 import Link, { InlineLink } from "../../utils/Link";
 
 const CopyrightRow = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <span className={styles["solFooter__copyright"]}>
@@ -27,7 +27,7 @@ const CopyrightRow = () => {
 };
 
 const Footer = ({ className = "" }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <div className={classNames(styles["solFooter"], className)}>

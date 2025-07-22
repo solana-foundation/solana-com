@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import Button from "../shared/Button";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const StyledEventsHeroSection = styled.section`
   position: relative;
@@ -21,7 +21,7 @@ const StyledEventsHeroSection = styled.section`
 `;
 
 const EventsHeroSection = ({ type = "hero" }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledEventsHeroSection>

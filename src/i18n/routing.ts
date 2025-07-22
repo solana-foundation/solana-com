@@ -1,18 +1,16 @@
 import { createNavigation } from "next-intl/navigation";
 import { defineRouting } from "next-intl/routing";
-import { locales, defaultLocale } from "./config.cjs";
-import { useLocale } from "next-intl";
+import { locales, defaultLocale } from "./config";
 
 export const routing = defineRouting({
   locales,
   defaultLocale,
-  localePrefix: "as-needed", // default locale won't have a prefix
+  localePrefix: "as-needed",
+  localeDetection: true,
 });
 
 export const { Link, redirect, usePathname, useRouter } =
   createNavigation(routing);
-
-export { useLocale };
 
 // locales to be used in getStaticPaths (for static generation)
 export const staticLocales = ["en"];

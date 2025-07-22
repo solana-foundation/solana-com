@@ -1,7 +1,7 @@
 import { config } from "@/config";
 import { getUrlWithoutLocale } from "@/app/sources/utils";
 import { getAlternates } from "@/i18n/routing";
-import { serverTranslation } from "@/i18n/translation";
+import { getTranslations } from "next-intl/server";
 
 export function getBaseMetadata(locale: string) {
   const { siteMetadata, siteUrl } = config;
@@ -52,7 +52,7 @@ export async function getIndexMetadata({
   locale,
   path,
 }) {
-  const { t } = await serverTranslation(locale);
+  const t = await getTranslations();
   return {
     title: t(titleKey),
     description: t(descriptionKey),

@@ -46,12 +46,12 @@ forth here.
 Failure to adhere to these style guidelines will slow down the review process
 and block approval/merging.
 
-## Crowdin localization
+## i18n localization
 
-Translations are handled via the Crowdin platform. The content within this repo
-is in the default/base language of English. When the content is uploaded to the
-Crowdin platform, it will be broken into small strings where people that have
-access can perform translations.
+Translations are handled via the lingo.dev platform. The content within this
+repo is in the default/base language of English. When the content is pushed to
+`main`, there is a CI/CD process to convert the `public/locales/en/common.json`
+file to all other translation variants.
 
 ## Documentation
 

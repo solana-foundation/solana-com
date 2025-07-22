@@ -1,10 +1,10 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import StyledCaption from "../shared/StyledCaption";
 import styles from "./AiWhySection.module.scss";
 
 export default function AiWhySection() {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className={classNames(styles["why-section"], "pb-10")}>

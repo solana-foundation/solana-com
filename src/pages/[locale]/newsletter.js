@@ -1,12 +1,11 @@
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import EmailSubscribeForm from "@/components/shared/EmailSubscribeForm";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { withLocales } from "@/i18n/routing";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const NewsletterPage = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <Layout>
       <HTMLHead title={t("titles.newsletter")} />
@@ -29,10 +28,12 @@ const NewsletterPage = () => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   return {
     props: {
       locale,
-      ...(await serverSideTranslations(locale, ["common"])),
+      messages,
     },
     revalidate: 60,
   };
