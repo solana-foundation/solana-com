@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import { useCallback, useRef } from "react";
 
 import Button from "../shared/Button";
@@ -11,7 +11,7 @@ import ApplePodcastsListenBadge from "../../../assets/podcast/apple-podcasts-lis
 import styles from "./PodcastOverviewSection.module.scss";
 
 export default function PodcastOverviewSection() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const subscribeDialog = useRef();
 
   const onSubscribeClick = useCallback(

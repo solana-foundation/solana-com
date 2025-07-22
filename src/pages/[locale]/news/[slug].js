@@ -8,7 +8,6 @@ import {
   getPageSettings,
 } from "@/lib/builder/api";
 import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
-import { serverSideTranslations } from "next-i18next/serverSideTranslations";
 import { pathsWithLocales } from "@/i18n/routing";
 import { MetaData } from "@/components/blog/meta";
 import { DetailsHero } from "@solana-foundation/solana-lib";
@@ -78,6 +77,8 @@ export async function getStaticPaths() {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
   try {
     let slug = params?.slug || "";
 
@@ -110,7 +111,7 @@ export async function getStaticProps({ params }) {
         post: post || null,
         pageSettings,
         morePosts,
-        ...(await serverSideTranslations(locale, ["common"])),
+        messages,
       },
       revalidate: 60,
     };

@@ -1,6 +1,6 @@
 import { Link } from "../../utils/Link";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const StyledPagination = styled.div`
   font-family: Diatype, var(--font-family-sans-serif);
@@ -79,7 +79,7 @@ const Pagination = ({
     ? "separator"
     : "seperator mt-10";
 
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <StyledPagination>

@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { useInkeepConfig } from "./useInkeepConfig";
 import dynamic from "next/dynamic";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./inkeep-searchbar.module.scss";
 
 const InkeepModalSearchAndChat = dynamic(
@@ -22,7 +22,7 @@ export function InkeepSearchBar() {
     setIsOpen(newOpen);
   }, []);
 
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <>

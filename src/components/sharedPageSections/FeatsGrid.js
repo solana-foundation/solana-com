@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import StyledCaption from "../shared/StyledCaption";
 import Divider from "../shared/Divider";
 import Button from "../shared/Button";
@@ -14,7 +14,7 @@ import Button from "../shared/Button";
  */
 
 const FeatsGrid = ({ captionId, titleId, childrenArr }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section>

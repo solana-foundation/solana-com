@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import styles from "./RampFilter.module.scss";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const RampFilter = ({
   title,
@@ -11,7 +11,7 @@ const RampFilter = ({
   setFilteredRamps,
   placeholderRamps,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   // Initialize state for options with checked status and local filter text
   const [optionStates, setOptionStates] = useState(

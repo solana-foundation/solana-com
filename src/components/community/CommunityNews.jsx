@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import PostCard from "../community/PostCard";
 
 /**
@@ -9,7 +9,7 @@ import PostCard from "../community/PostCard";
  * @constructor
  */
 const CommunityNews = ({ posts }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="community-podcasts container">

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Divider from "../shared/Divider";
 import StyledCaption from "../shared/StyledCaption";
 
@@ -16,7 +16,7 @@ import StyledCaption from "../shared/StyledCaption";
  * @constructor
  */
 const SingleNFTStat = ({ id, subId, children }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <div className="p-5">
       <div className="h2 mb-0">{t(id)}</div>
@@ -33,7 +33,7 @@ const options = {
 };
 
 const StatsUpdatedAt = ({ updatedId, updatedAt }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const { locale } = useRouter();
   const formatted = useMemo(() => {
     try {

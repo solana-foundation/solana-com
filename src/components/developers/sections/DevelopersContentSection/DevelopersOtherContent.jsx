@@ -1,5 +1,5 @@
 import Button from "../../../shared/Button";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import DevelopersContent from "./DevelopersContent";
 import YoutubeIcon from "../../../../../assets/developers/content/youtube.inline.svg";
 import PodcastIcon from "../../../../../assets/developers/content/podcast.inline.svg";
@@ -7,7 +7,7 @@ import PodcastIcon from "../../../../../assets/developers/content/podcast.inline
 import styles from "./DevelopersOtherContent.module.scss";
 
 export default function DevelopersOtherContent() {
-  const { t } = useTranslation();
+  const t = useTranslations();
   return (
     <DevelopersContent.Container className={styles["container"]}>
       <div>

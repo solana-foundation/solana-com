@@ -4,10 +4,10 @@ import DocsIcon from "@@/public/src/img/developers/docs.inline.svg";
 import RpcApiIcon from "@@/public/src/img/developers/api.inline.svg";
 import CookbookIcon from "@@/public/src/img/developers/cookbook.inline.svg";
 import StackExchangeIcon from "@@/assets/developers/stackexchange.inline.svg";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 export default function DevelopersNav({ containerClassName }) {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <div className={styles["developers-nav"]}>

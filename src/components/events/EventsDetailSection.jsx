@@ -3,7 +3,7 @@ import Image from "next/image";
 import SocialShareButtons from "../sharedPageSections/SocialShareButtons";
 import Button from "../shared/Button";
 import FormattedDate from "../shared/FormattedDate";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import defaultImg from "../../../public/social/solana.jpg";
 import Link from "../shared/Link";
 
@@ -42,7 +42,7 @@ const StyledSection = styled.section`
 `;
 
 const EventsDetailSection = ({ event = null }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   if (!event) return null;
 
   const eventUrl =

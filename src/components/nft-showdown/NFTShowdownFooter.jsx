@@ -1,11 +1,11 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 // import styles from "./NFTShowdownFooter.module.scss";
 import { InlineLink } from "../shared/Link";
 import { useState } from "react";
 import Button from "../shared/Button";
 
 const NFTShowdownFooter = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   const [showParagraphs, setShowParagraphs] = useState(false);
   const showMore = () => {

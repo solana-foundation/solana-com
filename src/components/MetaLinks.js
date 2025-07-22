@@ -1,4 +1,4 @@
-import languages from "../../public/json/languages.json";
+import { languages } from "@/i18n/config";
 import { config } from "src/config";
 
 const cleanPath = (pathString) => {

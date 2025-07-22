@@ -1,11 +1,11 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "./ECDRJoinCommunity.module.scss";
 import EmailSubscribeForm from "../shared/EmailSubscribeForm";
 import Link from "../../utils/Link";
 
 const ECDRJoinCommunity = () => {
-  const { t } = useTranslation("common");
+  const t = useTranslations();
 
   return (
     <div

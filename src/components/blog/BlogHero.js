@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Image from "next/legacy/image";
 
 import blogHeroImage from "../../../public/src/img/news/hero.png";
@@ -46,7 +46,7 @@ const StyledHeroText = styled.div`
 `;
 
 const BlogHero = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="news-hero">

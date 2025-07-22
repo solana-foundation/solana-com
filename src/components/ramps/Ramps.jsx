@@ -7,7 +7,7 @@ import Button from "../shared/Button";
 import { Accordion } from "react-bootstrap";
 import CommonMarkdown from "../sharedPageSections/CommonMarkdown";
 import ChevronDown from "../../../public/src/img/icons/Angle-down.inline.svg";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 
 const Ramps = ({
   fiatAssets,
@@ -16,7 +16,7 @@ const Ramps = ({
   ramps,
   resetFilters,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState([]);
   const [generalModalData, setGeneralModalData] = useState({

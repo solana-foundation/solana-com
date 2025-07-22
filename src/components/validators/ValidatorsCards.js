@@ -1,7 +1,7 @@
 import Loader from "../../../public/src/img/icons/Loader.inline.svg";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
 import { FormattedNumber } from "../SolFormattedMessage";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import {
   PERF_UPDATE_SEC,
   SAMPLE_HISTORY_HOURS,
@@ -14,7 +14,7 @@ const ValidatorsCards = ({ visible }) => {
     performanceUpdateSeconds: PERF_UPDATE_SEC,
     sampleHistoryHours: SAMPLE_HISTORY_HOURS,
   });
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="cards mt-4">

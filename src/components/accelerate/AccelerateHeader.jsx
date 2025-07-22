@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./AccelerateHeader.module.scss";
 import SolanaWordMark from "../../../public/src/img/branding/solanaWordMark.svg";
 import SolanaMark from "../../../public/img/logomark-white.svg";
@@ -10,7 +10,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 const Header = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
   const [isOpen, setIsOpen] = useState(false);
   const handleMenu = () => {
     setIsOpen(!isOpen);

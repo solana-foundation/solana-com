@@ -1,5 +1,5 @@
 import { Modal } from "react-bootstrap";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "./Button";
 
 /**
@@ -25,7 +25,7 @@ const SharedModal = ({
   children,
   className = false,
 }) => {
-  const { t } = useTranslation();
+  const t = useTranslations(); // Assumes keys in 'common' (adjust if needed)
 
   return (
     <Modal

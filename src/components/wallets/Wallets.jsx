@@ -1,10 +1,10 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import styles from "./Wallets.module.scss";
 import Button from "../shared/Button";
 import WalletCard from "./WalletCard";
 
 const Wallets = ({ walletData, resetWalletsAndFilters }) => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <>

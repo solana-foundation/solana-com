@@ -1,4 +1,4 @@
-import { useTranslation, Trans } from "next-i18next";
+import { useTranslations } from "next-intl";
 import HashAccordion, {
   HashAccordionItem,
 } from "../sharedPageSections/HashAccordion";
@@ -7,8 +7,8 @@ import Image from "next/image";
 import faqLogo from "../../../public/src/img/validators/validators_geometry_small2.png";
 
 const ValidatorsFAQ = () => {
-  const { t } = useTranslation("common");
-  const questionsAndAnswers = t("validators.qa.items", { returnObjects: true });
+  const t = useTranslations();
+  const questionsAndAnswers = t.raw("validators.qa.items");
 
   return (
     <section className="mt-12">
@@ -22,29 +22,52 @@ const ValidatorsFAQ = () => {
                 <HashAccordionItem
                   key={index}
                   question={qa.question}
-                  answer={
-                    <Trans
-                      i18nKey={qa.answer}
-                      components={{
-                        bugreportslink: (
-                          <Link href="https://github.com/anza-xyz/agave/security" />
-                        ),
-                        discordlink: <Link href="/discord" />,
-                        requirementslink: (
-                          <Link href="https://docs.anza.xyz/operations/requirements" />
-                        ),
-                        economicslink: (
-                          <Link href="https://docs.anza.xyz/implemented-proposals/ed_overview/" />
-                        ),
-                        stakinglink: (
-                          <Link href="/docs/references/economics/staking" />
-                        ),
-                        programlink: (
-                          <Link href="https://solana.org/delegation-program" />
-                        ),
-                      }}
-                    />
-                  }
+                  answer={t.rich(`validators.qa.items.${index}.answer`, {
+                    bugreportslink: (chunks) => (
+                      <Link
+                        href="https://github.com/anza-xyz/agave/security"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                    discordlink: (chunks) => (
+                      <Link href="/discord">{chunks}</Link>
+                    ),
+                    requirementslink: (chunks) => (
+                      <Link
+                        href="https://docs.anza.xyz/operations/requirements"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                    economicslink: (chunks) => (
+                      <Link
+                        href="https://docs.anza.xyz/implemented-proposals/ed_overview/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                    stakinglink: (chunks) => (
+                      <Link href="/docs/references/economics/staking">
+                        {chunks}
+                      </Link>
+                    ),
+                    programlink: (chunks) => (
+                      <Link
+                        href="https://solana.org/delegation-program"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
                 />
               ))}
             </HashAccordion>

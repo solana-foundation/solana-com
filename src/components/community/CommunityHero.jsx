@@ -1,6 +1,6 @@
 import Image from "next/legacy/image";
 import styled from "styled-components";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import heroImg from "../../../public/src/img/community/hero.png";
 
 const ImgContainer = styled.div`
@@ -20,7 +20,7 @@ const ImgContainer = styled.div`
  * @constructor
  */
 const CommunityHero = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className="hero">

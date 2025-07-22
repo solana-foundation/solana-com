@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import Image from "next/legacy/image";
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import Button from "@/components/shared/Button";
 import DevelopersIcon from "../../../../../assets/hackathon/hero/developers.inline.svg";
 import FundingIcon from "../../../../../assets/hackathon/hero/funding.inline.svg";
@@ -32,7 +32,7 @@ function StatComponent({ Icon, title, subtitle }) {
 }
 
 export default function HackathonHeroSection() {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section className={styles["hero-section"]}>

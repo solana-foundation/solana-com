@@ -1,4 +1,4 @@
-import { useTranslation } from "next-i18next";
+import { useTranslations } from "next-intl";
 import PossibleGlow from "./PossibleGlow";
 import classNames from "classnames";
 import Button from "../shared/Button";
@@ -7,7 +7,7 @@ import IconBackground from "../../../assets/possible/icons.png";
 import IconMobileBackground from "../../../assets/possible/icons-mobile.png";
 
 const PossibleIcons = () => {
-  const { t } = useTranslation();
+  const t = useTranslations();
 
   return (
     <section
