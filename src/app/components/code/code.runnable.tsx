@@ -155,11 +155,6 @@ export function RunnableLayout({
 }) {
   const state = useRunnableCode(code, language);
 
-  // disable runnable for python, server does not support python code
-  if (language === "py") {
-    return <div className={className}>{children}</div>;
-  }
-
   return (
     <>
       <div className="md:hidden">
