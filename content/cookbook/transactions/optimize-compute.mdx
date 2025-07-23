@@ -14,44 +14,141 @@ this detailed guide.
 
 <CodeTabs storage="cookbook" flags="r">
 
-```typescript title="Legacy"
-// import { ... } from "@solana/web3.js"
+```typescript !! title="Legacy"
+import {
+  Connection,
+  TransactionInstruction,
+  ComputeBudgetProgram,
+  SystemProgram,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  sendAndConfirmTransaction,
+  Transaction
+} from "@solana/web3.js";
+
+async function getSimulationComputeUnits(
+  connection: Connection,
+  instructions: Array<TransactionInstruction>,
+  payerKey: PublicKey
+) {
+  try {
+    const recentBlockhash = await connection.getLatestBlockhash();
+
+    // Include compute budget instructions in simulation
+    const simulationInstructions = [
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100 }),
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 400000 }), // High limit for simulation
+      ...instructions
+    ];
+
+    const transaction = new Transaction();
+    transaction.recentBlockhash = recentBlockhash.blockhash;
+    transaction.feePayer = payerKey;
+    transaction.add(...simulationInstructions);
+
+    const simulation = await connection.simulateTransaction(transaction);
+    console.log("Simulated Transaction:", simulation);
+
+    if (simulation.value.err) {
+      console.error("Simulation error:", simulation.value.err);
+      return 200000; // Fallback value
+    }
+
+    return simulation.value.unitsConsumed || 200000;
+  } catch (error) {
+    console.error("Error during simulation:", error);
+    return 200000; // Fallback value
+  }
+}
 
 async function buildOptimalTransaction(
   connection: Connection,
   instructions: Array<TransactionInstruction>,
-  signer: Signer,
-  lookupTables: Array<AddressLookupTableAccount>
+  signer: Keypair,
+  priorityFee: number
 ) {
-  const [microLamports, units, recentBlockhash] = await Promise.all([
-    100 /* Get optimal priority fees - https://solana.com/developers/guides/advanced/how-to-use-priority-fees*/,
-    getSimulationComputeUnits(
-      connection,
-      instructions,
-      signer.publicKey,
-      lookupTables
-    ),
+  const [computeUnits, recentBlockhash] = await Promise.all([
+    getSimulationComputeUnits(connection, instructions, signer.publicKey),
     connection.getLatestBlockhash()
   ]);
 
-  instructions.unshift(
-    ComputeBudgetProgram.setComputeUnitPrice({ microLamports })
+  const finalInstructions: TransactionInstruction[] = [];
+
+  finalInstructions.push(
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFee })
   );
-  if (units) {
-    // probably should add some margin of error to units
-    instructions.unshift(ComputeBudgetProgram.setComputeUnitLimit({ units }));
+
+  if (computeUnits) {
+    const unitsWithMargin = Math.floor(computeUnits * 1.1); // add 10% margin of error
+    console.log("Compute Units with extra 10% margin:", unitsWithMargin);
+    finalInstructions.push(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: unitsWithMargin })
+    );
   }
+
+  finalInstructions.push(...instructions);
+
+  const transaction = new Transaction();
+  transaction.recentBlockhash = recentBlockhash.blockhash;
+  transaction.feePayer = signer.publicKey;
+  transaction.add(...finalInstructions);
+
   return {
-    transaction: new VersionedTransaction(
-      new TransactionMessage({
-        instructions,
-        recentBlockhash: recentBlockhash.blockhash,
-        payerKey: signer.publicKey
-      }).compileToV0Message(lookupTables)
-    ),
-    recentBlockhash
+    transaction
   };
 }
+
+async function main() {
+  const connection = new Connection("http://localhost:8899", {
+    commitment: "confirmed"
+  });
+
+  const sender = Keypair.generate();
+  const recipient = Keypair.generate();
+  const amount = LAMPORTS_PER_SOL / 2; // 0.5 SOL
+
+  const signature = await connection.requestAirdrop(
+    sender.publicKey,
+    LAMPORTS_PER_SOL
+  );
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+
+  await connection.confirmTransaction({
+    blockhash,
+    lastValidBlockHeight,
+    signature
+  });
+
+  // Create transfer instruction
+  const transferInstruction = SystemProgram.transfer({
+    fromPubkey: sender.publicKey,
+    toPubkey: recipient.publicKey,
+    lamports: amount
+  });
+
+  const priorityFee = 100; // microLamports
+
+  // Build optimal transaction
+  const transaction = await buildOptimalTransaction(
+    connection,
+    [transferInstruction],
+    sender,
+    priorityFee
+  );
+
+  const transactionSignature = await sendAndConfirmTransaction(
+    connection,
+    transaction.transaction,
+    [sender]
+  );
+
+  console.log("Transaction sent:", transactionSignature);
+}
+
+main().catch(console.error);
 ```
 
 ```py !! title="Python"
@@ -73,7 +170,7 @@ async def get_simulation_compute_units(rpc, instructions, payer_pubkey, lookup_t
     try:
         # Create a temporary transaction for simulation
         recent_blockhash = await rpc.get_latest_blockhash()
-        
+
         # Create message for simulation
         message = MessageV0.try_compile(
             payer=payer_pubkey,
@@ -81,24 +178,24 @@ async def get_simulation_compute_units(rpc, instructions, payer_pubkey, lookup_t
             address_lookup_table_accounts=lookup_tables,
             recent_blockhash=recent_blockhash.value.blockhash
         )
-        
+
         # Create transaction for simulation
         transaction = VersionedTransaction(message, [])
-        
+
         # Simulate transaction to get compute units
         simulation_result = await rpc.simulate_transaction(transaction)
-        
+
         if simulation_result.value.err:
             print(f"Simulation error: {simulation_result.value.err}")
             return 200000  # Fallback value
-        
+
         # Get compute units used from simulation
         units_consumed = simulation_result.value.units_consumed
         if units_consumed:
             return units_consumed
         else:
             return 200000  # Fallback value
-            
+
     except Exception as e:
         print(f"Error during simulation: {e}")
         return 200000  # Fallback value
@@ -110,15 +207,15 @@ async def build_optimal_transaction(rpc, instructions, signer, lookup_tables=[])
     micro_lamports = 100  # Get optimal priority fees
     units = await get_simulation_compute_units(rpc, instructions, signer.pubkey(), lookup_tables)
     recent_blockhash = await rpc.get_latest_blockhash()
-    
+
     # Add compute budget instructions at the beginning (like unshift in JS)
     instructions.insert(0, set_compute_unit_price(micro_lamports))
-    
+
     if units:
         # Add some margin of error to units
         units_with_margin = int(units * 1.1)
         instructions.insert(0, set_compute_unit_limit(units_with_margin))
-    
+
     # Create message (equivalent to TransactionMessage.compileToV0Message)
     message = MessageV0.try_compile(
         payer=signer.pubkey(),
@@ -126,23 +223,23 @@ async def build_optimal_transaction(rpc, instructions, signer, lookup_tables=[])
         address_lookup_table_accounts=lookup_tables,
         recent_blockhash=recent_blockhash.value.blockhash
     )
-    
+
     # Create transaction
     transaction = VersionedTransaction(message, [signer])
-    
+
     return {
         "transaction": transaction,
         "recent_blockhash": recent_blockhash.value.blockhash
     }
 
 async def main():
-    rpc = AsyncClient("https://api.devnet.solana.com")
-    
+    rpc = AsyncClient("http://localhost:8899")
+
     sender = Keypair()
     recipient = Keypair()
-    
+
     amount = 1_000_000_000  # 1 SOL
-    
+
     async with rpc:
         # Create transfer instruction
         transfer_instruction = transfer(
@@ -152,14 +249,14 @@ async def main():
                 lamports=amount
             )
         )
-        
+
         # Build optimal transaction
         result = await build_optimal_transaction(
-            rpc, 
-            [transfer_instruction], 
+            rpc,
+            [transfer_instruction],
             sender
         )
-        
+
         print(f"Sender: {sender.pubkey()}")
         print(f"Recipient: {recipient.pubkey()}")
         print(f"Amount: {amount / 1_000_000_000} SOL")
@@ -168,4 +265,5 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
 </CodeTabs>
