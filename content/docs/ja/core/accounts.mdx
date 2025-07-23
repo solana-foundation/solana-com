@@ -18,7 +18,7 @@ Solanaでは、すべてのデータは「アカウント」と呼ばれるも�
 
 ## アカウント
 
-Solana上のすべてのアカウントには、一意の32バイトのアドレスがあり、通常はbase58エンコードされた文字列（例：`vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo6Xd7K`）として表示されます。
+Solana上のすべてのアカウントは、32バイトの一意のアドレスを持ち、多くの場合base58エンコードされた文字列として表示されます（例：`14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5`）。
 
 アカウントとそのアドレスの関係は、キーバリューペアのように機能し、アドレスはアカウントのオンチェーンデータを特定するためのキーとなります。アカウントアドレスは「アカウント」テーブルの各エントリの「一意のID」として機能します。
 
@@ -113,16 +113,7 @@ async fn main() {
 
 ![アカウントタイプ](/assets/docs/core/accounts/account-type.svg)
 
-Solana上のすべてのアカウントには以下のフィールドがあります：
-
-- `data`: アカウントの任意のデータを格納するバイト配列。実行不可能なアカウントの場合、これは読み取り用の状態を格納することが多いです。program
-  accountの場合（スマートコントラクト）、これには実行可能なプログラムコードが含まれています。dataフィールドは一般的に「アカウントデータ」と呼ばれています。
-- `executable`: このフラグはアカウントがプログラムであるかどうかを示します。
-- `lamports`: lamportで表されるアカウントの残高。lamportはSOLの最小単位です（1
-  SOL = 10億lamport）。
-- `owner`: このアカウントを所有するプログラムのプログラムID（公開鍵）。所有者プログラムのみがアカウントのデータを変更したりlamport残高を差し引いたりできます。
-- `rent_epoch`:
-  Solanaがアカウントから定期的にlamportを差し引く仕組みがあった頃の遺物フィールド。このフィールドはAccountタイプにまだ存在していますが、rentコレクションが廃止されたため、もはや使用されていません。
+Solana上のすべてのアカウントには以下のフィールドがあります。
 
 ```rust title="Base Account Type"
 pub struct Account {
@@ -139,6 +130,249 @@ pub struct Account {
     pub rent_epoch: Epoch,
 }
 ```
+
+<ScrollyCoding>
+
+## !!steps Lamportsフィールド
+
+アカウントの残高はlamport単位で表示されます。lamportはSOLの最小単位です（1 SOL =
+10億lamport）。アカウントのSOL残高は、`lamports`フィールドの金額をSOLに変換したものです。
+
+Solanaアカウントは、アカウントに保存されているデータ量（バイト単位）に比例した最小限のlamport残高を持つ必要があります。この最小残高は「rent」と呼ばれます。
+
+アカウントに保存されているlamport残高は、アカウントが閉鎖されると完全に回収できます。
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    // !focus(1:2)
+    /// lamports in the account
+    pub lamports: u64,
+}
+
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+}
+```
+
+## !!steps データフィールド
+
+アカウントの任意のデータを格納するバイト配列です。データフィールドは一般的に「アカウントデータ」と呼ばれます。
+
+- program
+  account（スマートコントラクト）の場合、このフィールドには実行可能なプログラムコード自体、または実行可能なプログラムコードを格納する別のアカウントのアドレスが含まれます。
+- 実行不可能なアカウントの場合、通常は読み取り対象の状態が格納されます。
+
+Solanaアカウントからデータを読み取るには、次の2つのステップが必要です：
+
+1. アドレス（公開鍵）を使用してアカウントを取得する
+2. アカウントのデータフィールドを生のバイトから適切なデータ構造に逆シリアル化する（この構造はアカウントを所有するプログラムによって定義されます）
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    // !focus(1:3)
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+}
+
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus(1:2)
+    data.len: 82,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus(1:2)
+    data.len: 134080,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps オーナーフィールド
+
+このアカウントを所有するプログラムのプログラムID（公開鍵）です。
+
+すべてのSolanaアカウントには、所有者として指定されたプログラムがあります。アカウントを所有するプログラムだけが、そのアカウントのデータを変更したり、lamport残高を差し引いたりできます。
+
+プログラムで定義された instructions は、アカウントのデータと lamport 残高をどのように変更できるかを決定します。
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    // !focus(1:2)
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+}
+
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 実行可能フィールド
+
+このフィールドは、アカウントが実行可能なプログラムであるかどうかを示します。
+
+- `true` の場合、アカウントは実行可能なSolanaプログラムです。
+- `false` の場合、アカウントは状態を保存するデータアカウントです。
+
+実行可能なアカウントでは、`owner`
+フィールドにはローダープログラムのプログラムIDが含まれています。ローダープログラムは、実行可能なプログラムアカウントを読み込み、管理する役割を持つ組み込みプログラムです。
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    // !focus(1:2)
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+}
+
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Rent Epochフィールド
+
+`rent_epoch` フィールドは、現在は使用されていないレガシーフィールドです。
+
+元々、このフィールドはアカウントがネットワーク上でデータを維持するために rent（lamportで）を支払う必要がある時期を追跡していました。しかし、このrent徴収メカニズムはその後廃止されました。
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+    // !focus(1:2)
+    /// the epoch at which this account will next owe rent
+    pub rent_epoch: Epoch,
+}
+
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>
+
+### Rent
+
+オンチェーンでデータを保存するには、アカウントは保存されるデータ量（バイト単位）に比例したlamport（SOL）残高も維持する必要があります。この残高は「rent」と呼ばれますが、アカウントを閉じると全額回収できるため、デポジットのような仕組みになっています。計算方法は[こちら](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)で、これらの[定数](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70)を使用しています。
+
+「rent」という用語は、rent閾値を下回るアカウントから定期的にlamportを差し引く廃止されたメカニズムに由来しています。このメカニズムは現在は有効ではありません。
+
+### プログラムオーナー
+
+Solanaでは、「スマートコントラクト」は[プログラム](/docs/core/programs)と呼ばれています。プログラムの所有権はSolanaアカウントモデルの重要な部分です。すべてのアカウントには、オーナーとして指定されたプログラムがあります。オーナープログラムのみが次のことを行えます：
+
+- アカウントの`data`フィールドを変更する
+- アカウントの残高からlamportを差し引く
+
+各プログラムはアカウントの`data`フィールドに保存されるデータの構造を定義します。プログラムのinstructionsによって、このデータとアカウントの
+`lamports`残高がどのように変更されるかが決まります。
+
+## System Program
+
+デフォルトでは、すべての新しいアカウントは
+[System Program](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/system/src)に所有されています。System
+Programは以下の主要な機能を実行します：
+
+| 機能                                                                                                                      | 説明                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [新規アカウント作成](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L146)         | System Programのみが新しいアカウントを作成できます。                                                                                                                                                                          |
+| [スペース割り当て](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L71)            | 各アカウントのデータフィールドのバイト容量を設定します。                                                                                                                                                                      |
+| [プログラム所有権の割り当て](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L113) | System Programがアカウントを作成した後、指定されたプログラム所有者を別のprogram accountに再割り当てすることができます。これにより、カスタムプログラムがSystem Programによって作成された新しいアカウントの所有権を取得します。 |
+| [SOL転送](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L215)                    | System Accountから他のアカウントへlamport（SOL）を転送します。                                                                                                                                                                |
+
+Solana上のすべての「ウォレット」アカウントはSystem Programが所有する「System
+Account」であることに注意してください。これらのアカウントのlamport残高は、ウォレットが所有するSOLの量を示しています。System
+Accountのみがトランザクション手数料を支払うことができます。
+
+![System Account](/assets/docs/core/accounts/system-account.svg)
+
+SOLが初めて新しいアドレスに送信されると、そのアドレスにSystem
+Programが所有するアカウントが自動的に作成されます。
+
+以下の例では、新しいkeypairが生成され、SOLで資金提供されます。コードを実行して出力を確認してください。アカウントの`owner`フィールドがアドレス`11111111111111111111111111111111`のSystem
+Programであることに注意してください。
 
 <CodeTabs storage="accounts" flags="r">
 
@@ -227,60 +461,34 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-### rent
-
-オンチェーンでデータを保存するには、アカウントは保存されるデータ量（バイト単位）に比例したlamport（SOL）残高を維持する必要があります。この残高は「rent」と呼ばれますが、アカウントを閉じると全額回収できるため、実際には預託金のように機能します。計算方法は[こちら](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)で、これらの[定数](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70)を使用しています。
-
-「rent」という用語は、rentのしきい値を下回るアカウントから定期的にlamportを差し引いていた廃止されたメカニズムに由来します。このメカニズムは現在では有効ではありません。
-
-### プログラムオーナー
-
-Solanaでは、「スマートコントラクト」は[プログラム](/docs/core/programs)と呼ばれています。プログラムの所有権はSolanaアカウントモデルの重要な部分です。すべてのアカウントには、オーナーとして指定されたプログラムがあります。オーナープログラムのみが以下のことを行えます：
-
-- アカウントの `data` フィールドを変更する
-- アカウントの残高からlamportを差し引く
-
-## System Program
-
-デフォルトでは、すべての新しいアカウントは[System Program](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/system/src)によって所有されています。System
-Programはいくつかの重要な機能を持っています：
-
-- [新規アカウント作成](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L146)：System
-  Programのみが新しいアカウントを作成できます。
-- [スペース割り当て](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L71)：各アカウントのデータフィールドのバイト容量を設定します。
-- [プログラム所有権の転送/割り当て](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L113)：System
-  Programがアカウントを作成した後、指定されたプログラムオーナーを別のprogram
-  accountに再割り当てすることができます。これにより、カスタムプログラムがSystem
-  Programによって作成された新しいアカウントの所有権を取得できます。
-
-Solana上のすべての「ウォレット」アカウントは、単にSystem
-Programによって所有されているアカウントです。これらのアカウントのlamport残高は、ウォレットが所有するSOLの量を示しています。System
-Programによって所有されているアカウントのみが取引手数料を支払うことができます。
-
-![システムアカウント](/assets/docs/core/accounts/system-account.svg)
-
 ## Sysvarアカウント
 
-Sysvarアカウントは、クラスタの状態データへのアクセスを提供する、事前に定義されたアドレスにある特別なアカウントです。これらのアカウントは、ネットワーククラスターに関するデータで動的に更新されます。Sysvarアカウントの完全なリストは[こちら](https://docs.anza.xyz/runtime/sysvars)で確認できます。
+Sysvarアカウントは、クラスターの状態データへのアクセスを提供する、事前に定義されたアドレスにある特別なアカウントです。これらのアカウントは、ネットワーククラスターに関するデータで動的に更新されます。Sysvarアカウントの完全なリストは[こちら](https://docs.anza.xyz/runtime/sysvars)で確認できます。
+
+次の例は、Sysvar
+Clockアカウントからデータを取得して逆シリアル化する方法を示しています。
 
 <CodeTabs storage="accounts" flags="r">
 
 ```ts !! title="Kit"
-import { Address, createSolanaRpc } from "@solana/kit";
+import { createSolanaRpc } from "@solana/kit";
+import { fetchSysvarClock, SYSVAR_CLOCK_ADDRESS } from "@solana/sysvars";
 
 const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
-
-const SYSVAR_CLOCK_ADDRESS =
-  "SysvarC1ock11111111111111111111111111111111" as Address;
 
 const accountInfo = await rpc
   .getAccountInfo(SYSVAR_CLOCK_ADDRESS, { encoding: "base64" })
   .send();
 console.log(accountInfo);
+
+// Automatically fetch and deserialize the account data
+const clock = await fetchSysvarClock(rpc);
+console.log(clock);
 ```
 
 ```ts !! title="Legacy"
 import { Connection, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+import { getSysvarClockCodec } from "@solana/sysvars";
 
 const connection = new Connection(
   "https://api.mainnet-beta.solana.com",
@@ -288,7 +496,12 @@ const connection = new Connection(
 );
 
 const accountInfo = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
-// !collapse(1:17) collapsed
+
+// Deserialize the account data
+const decodedClock = getSysvarClockCodec().decode(
+  new Uint8Array(accountInfo?.data ?? [])
+);
+// !collapse(1:16) collapsed
 console.log(
   JSON.stringify(
     accountInfo,
@@ -305,12 +518,17 @@ console.log(
     2
   )
 );
+console.log(decodedClock);
 ```
 
 ```rs !! title="Rust"
 use anyhow::Result;
+use bincode::deserialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{commitment_config::CommitmentConfig, sysvar};
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    sysvar::{self, clock::Clock},
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -319,8 +537,12 @@ async fn main() -> Result<()> {
         CommitmentConfig::confirmed(),
     );
 
-    let account_info = connection.get_account(&sysvar::clock::ID).await?;
-    println!("{:#?}", account_info);
+    let account = connection.get_account(&sysvar::clock::ID).await?;
+    // Deserialize the account data
+    let clock: Clock = deserialize(&account.data)?;
+
+    println!("{:#?}", account);
+    println!("{:#?}", clock);
 
     Ok(())
 }
@@ -328,15 +550,23 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-## プログラムアカウント
+## program account
 
-Solanaプログラムをデプロイすると、実行可能なプログラムアカウントが作成されます。プログラムアカウントには、プログラムの実行可能コードが格納されます。
+Solanaプログラムをデプロイすると、実行可能なprogram
+accountが作成されます。program
+accountはプログラムの実行可能コードを保存します。program
+accountは[ローダープログラム](/docs/core/programs#loader-programs)によって所有されています。
 
-プログラムアカウントは[ローダープログラム](/docs/core/programs#loader-programs)によって所有されています。
+![Program Account](/assets/docs/core/accounts/program-account-simple.svg)
 
-![プログラムアカウント](/assets/docs/core/accounts/program-account-simple.svg)
+簡単に言えば、program
+accountをプログラム自体として扱うことができます。プログラムのinstructionsを呼び出す際、program
+accountのアドレス（一般的に「プログラムID」と呼ばれる）を指定します。
 
-簡単に言えば、プログラムアカウントをプログラム自体として扱うことができます。プログラムのinstructionsを呼び出す際には、プログラムアカウントのアドレス（一般的に「プログラムID」と呼ばれる）を指定します。
+次の例では、Token Programアカウントを取得して、program accountが同じ基本
+`Account` 型を持っていることを示しています。ただし、`executable` フィールドは
+`true` に設定されています。program
+accountはデータフィールドに実行可能コードを含むため、データを逆シリアル化しません。
 
 <CodeTabs storage="accounts" flags="r">
 
@@ -408,18 +638,22 @@ async fn main() -> Result<()> {
 
 <Callout type="info">
 
-Solanaプログラムをデプロイすると、それはプログラムアカウントに格納されます。プログラムアカウントは[ローダープログラム](/docs/core/programs#loader-programs)によって所有されています。ローダーにはいくつかのバージョンがありますが、loader-v3を除くすべてのバージョンでは、実行可能コードがプログラムアカウントに直接格納されます。loader-v3では、実行可能コードは別の「プログラムデータアカウント」に格納され、プログラムアカウントはそれを指すだけです。新しいプログラムをデプロイする際、Solana
+Solanaプログラムをデプロイすると、それはprogram accountに保存されます。program
+accountは[ローダープログラム](/docs/core/programs#loader-programs)によって所有されています。ローダーにはいくつかのバージョンがありますが、loader-v3を除くすべてのバージョンは実行可能コードを直接program
+accountに保存します。loader-v3は実行可能コードを別の「プログラムデータアカウント」に保存し、program
+accountはそれを指すだけです。新しいプログラムをデプロイする場合、Solana
 CLIはデフォルトで最新のローダーバージョンを使用します。
 
 </Callout>
 
 ### バッファアカウント
 
-loader-v3には、デプロイ中やリデプロイ/アップグレード中にプログラムのアップロードを一時的にステージングするための特別なアカウントタイプがあります。loader-v4では、バッファは依然として存在しますが、それらは単なる通常のプログラムアカウントです。
+Loader-v3には、デプロイメントやアップグレード中にプログラムのアップロードを一時的にステージングするための特別なアカウントタイプがあります。loader-v4でもバッファは存在しますが、それらは単なる通常のプログラムアカウントです。
 
 ### プログラムデータアカウント
 
-loader-v3は他のすべてのBPFローダープログラムとは異なる動作をします。プログラムアカウントには、実際の実行可能コードを格納するプログラムデータアカウントのアドレスのみが含まれています：
+Loader-v3は他のすべてのBPF
+Loaderプログラムとは異なる動作をします。プログラムアカウントには実行可能コードを格納するプログラムデータアカウントのアドレスのみが含まれています：
 
 ![プログラムデータアカウント](/assets/docs/core/accounts/program-account-expanded.svg)
 
@@ -427,22 +661,25 @@ loader-v3は他のすべてのBPFローダープログラムとは異なる動�
 
 ## データアカウント
 
-Solanaでは、プログラムの実行可能コードはプログラムの状態とは異なるアカウントに保存されます。これは、オペレーティングシステムが通常、プログラムとそのデータを別々のファイルに持つ方法に似ています。
+Solanaでは、プログラムの実行可能コードはプログラムの状態とは異なるアカウントに格納されます。これは、オペレーティングシステムが通常プログラムとそのデータを別々のファイルに持つのと似ています。
 
-状態を維持するために、プログラムは自身が所有する別個のアカウントを作成するための指示を定義します。これらの各アカウントには独自のユニークなアドレスがあり、プログラムによって定義された任意のデータを保存できます。
+状態を維持するために、プログラムは所有する別個のアカウントを作成するための指示を定義します。これらの各アカウントには独自のユニークなアドレスがあり、プログラムによって定義された任意のデータを格納できます。
 
 ![データアカウント](/assets/docs/core/accounts/data-account.svg)
 
 新しいアカウントを作成できるのは[System Program](/docs/core/accounts#system-program)だけであることに注意してください。System
-Programがアカウントを作成すると、新しいアカウントの所有権を別のプログラムに転送または割り当てることができます。
+Programがアカウントを作成すると、その後、新しいアカウントの所有権を別のプログラムに割り当てることができます。
 
-つまり、カスタムプログラム用のデータアカウントを作成するには、次の2つのステップが必要です：
+つまり、カスタムプログラム用のデータアカウントを作成するには2つのステップが必要です：
 
 1. System
    Programを呼び出してアカウントを作成し、所有権をカスタムプログラムに転送する
-2. アカウントを所有するようになったカスタムプログラムを呼び出し、プログラムの指示で定義されたようにアカウントデータを初期化する
+2. アカウントを所有するようになったカスタムプログラムを呼び出し、プログラムの指示で定義されたアカウントデータを初期化する
 
-このアカウント作成プロセスは、しばしば単一のステップとして抽象化されますが、基礎となるプロセスを理解することは役立ちます。
+このアカウント作成プロセスは多くの場合、単一のステップとして抽象化されていますが、基礎となるプロセスを理解することは役立ちます。
+
+以下の例は、Token
+2022プログラムが所有するトークンMintアカウントを作成して取得する方法を示しています。
 
 <CodeTabs storage="accounts" flags="r">
 
@@ -466,11 +703,12 @@ import { getCreateAccountInstruction } from "@solana-program/system";
 import {
   getInitializeMintInstruction,
   getMintSize,
-  TOKEN_2022_PROGRAM_ADDRESS
+  TOKEN_2022_PROGRAM_ADDRESS,
+  fetchMint
 } from "@solana-program/token-2022";
 
 // Create Connection, local validator in this example
-const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpc = createSolanaRpc("http://localhost:8899");
 const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
 
 // Generate keypairs for fee payer
@@ -541,6 +779,9 @@ console.log("Transaction Signature:", transactionSignature);
 
 const accountInfo = await rpc.getAccountInfo(mint.address).send();
 console.log(accountInfo);
+
+const mintAccount = await fetchMint(rpc, mint.address);
+console.log(mintAccount);
 ```
 
 ```ts !! title="Legacy"
@@ -556,7 +797,8 @@ import {
   createInitializeMintInstruction,
   TOKEN_2022_PROGRAM_ID,
   MINT_SIZE,
-  getMinimumBalanceForRentExemptMint
+  getMinimumBalanceForRentExemptMint,
+  getMint
 } from "@solana/spl-token";
 
 // Create connection to local validator
@@ -611,7 +853,8 @@ console.log("Mint Address: ", mint.publicKey.toBase58());
 console.log("Transaction Signature: ", transactionSignature);
 
 const accountInfo = await connection.getAccountInfo(mint.publicKey);
-// !collapse(1:17) collapsed
+
+// !collapse(1:16) collapsed
 console.log(
   JSON.stringify(
     accountInfo,
@@ -628,6 +871,14 @@ console.log(
     2
   )
 );
+
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+console.log(mintAccount);
 ```
 
 ```rs !! title="Rust"
@@ -646,7 +897,7 @@ use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, 
 async fn main() -> Result<()> {
     // Create connection to local validator
     let client = RpcClient::new_with_commitment(
-        String::from("http://127.0.0.1:8899"),
+        String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
     );
     let recent_blockhash = client.get_latest_blockhash().await?;
@@ -707,6 +958,9 @@ async fn main() -> Result<()> {
 
     let account_info = client.get_account(&mint.pubkey()).await?;
     println!("{:#?}", account_info);
+
+    let mint_account = Mint::unpack(&account_info.data)?;
+    println!("{:#?}", mint_account);
 
     Ok(())
 }
