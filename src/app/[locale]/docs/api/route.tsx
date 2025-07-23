@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const codeRunSchema = z.object({
   code: z.string(),
-  language: z.enum(["rust", "rs", "typescript", "ts"]),
+  language: z.enum(["rust", "rs", "typescript", "ts", "py"]),
 });
 
 type CodeRunPayload = z.infer<typeof codeRunSchema>;
@@ -23,8 +23,6 @@ const replacement = (() => {
   const replacementMap: Record<string, string> = {
     "http://localhost:8899": TXTX_RPC_URL,
     "ws://localhost:8900": TXTX_WS_RPC_URL,
-    "http://127.0.0.1:8899": TXTX_RPC_URL,
-    "ws://127.0.0.1:8900": TXTX_WS_RPC_URL,
   };
 
   const pattern = Object.keys(replacementMap)
@@ -49,6 +47,9 @@ const getAPIRoute = (language: CodeRunPayload["language"]): string => {
       break;
     case "ts":
       path = "typescript";
+      break;
+    case "py":
+      path = "python";
       break;
     default:
       path = language;
