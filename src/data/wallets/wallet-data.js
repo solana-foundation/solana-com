@@ -31,6 +31,7 @@ import guardaIcon from "../../../assets/wallets/icons/guarda.png";
 import cakewalletIcon from "../../../assets/wallets/icons/cakewallet.png";
 import tokenPocketIcon from "../../../assets/wallets/icons/tokenpocket.png";
 import cdpIcon from "../../../assets/wallets/icons/cdp.png";
+import onekeyIcon from "../../../assets/wallets/icons/onekey.png";
 
 export const walletData = [
   {
@@ -894,6 +895,30 @@ export const walletData = [
     open_source: true,
     hardware: false,
     private_key_infrastructure: true,
+  },
+  {
+    name: "OneKey",
+    body: "Secure your digital assets with OneKey, the fully open-source hardware wallet. Experience transparent security, seamless integration across devices, and robust protection for your cryptocurrencies.",
+    website: "https://onekey.so/",
+    additionalInfo:
+      "Hardware • Open Source • Non-Custodial • Connect to dApps • Buy & Sell Crypto • Swaps • NFTs • Staking",
+    icon: onekeyIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: true,
+    spending_limits: false,
+    open_source: true,
+    hardware: true,
+    private_key_infrastructure: false,
   },
 
   // {
