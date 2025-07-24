@@ -5,8 +5,7 @@ description: スケールドUI金額拡張機能を使用してトークンのUI
 
 ## スケールドUI金額拡張機能の使用方法
 
-スケールドUI金額拡張機能を使用するには、トークンミントまたはtoken
-accountで有効にする必要があります。トークンが作成された後は、有効になっている拡張機能を変更することはできないことに注意してください。
+スケールドUI金額拡張機能を使用するには、トークンミントまたはトークンアカウントで有効にする必要があります。トークンが作成された後は、有効になっている拡張機能を変更することはできないことに注意してください。
 
 ### トークンミントでスケールドUI金額拡張機能を有効にする
 
@@ -123,65 +122,107 @@ export async function createScaledUiMint(
 
 ### UI金額乗数を更新する
 
-UI金額乗数を更新するには、`update-ui-amount-multiplier`コマンドを使用する必要があります。タイムスタンプはオプションで、新しい乗数の開始時間をカスタム設定するために使用できます。タイムスタンプが提供されない場合は、現在のタイムスタンプが使用されます。
+UI金額乗数を更新するには、`update-ui-amount-multiplier`コマンドを使用する必要があります。Unixエポックからの秒単位のタイムスタンプはオプションで、新しい乗数のカスタム開始時間を設定するために使用できます。タイムスタンプが提供されない場合は、現在のタイムスタンプが使用されます。
+
+**重要な注意点：**
+現在、スケールドUI乗数を更新するプロセスには特異な点があります。現時点では、以下の操作を行うと：
+
+1. 将来のスケールドUI乗数を設定する
+2. この更新時間を超えて時間が経過する
+3. 将来の別のスケールドUI乗数を設定する
+4. すると、以前のスケールドUI乗数は新しい乗数によって上書きされ、実質的に削除されます。
+
+乗数が上書きされるのではなく、現在の乗数に適切に更新されるように[修正PRがマージされました](https://github.com/solana-program/token-2022/pull/522)が、これはまだ本番環境では利用できません。
+
+この時点までは、上記のステップ3の間に2回の乗数更新を行う必要があります：
+
+1. 前の乗数を、ステップ1で最初に設定したのと同じタイムスタンプで再度設定します（これにより乗数が現在の乗数として適切に設定されます）
+2. 上記のステップ3で説明されているように新しい乗数を設定します
 
 <CodeTabs>
 
----CODE-PLACEHOLDER-b09425711e8f6f7362ec4922c62ccdf5---
-
----CODE-PLACEHOLDER-93ba67e22ca63dd7097bd2a5359052e9---
-
-</CodeTabs>
-
-### 残高を取得する
-
-残高を取得するには、`balance`コマンドを使用する必要があります。
-
-<CodeTabs>
-
-```terminal !! title="balance.sh"
-$ spl-token balance 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM
+```terminal !! title="update-ui-amount-multiplier.sh"
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.2 -- 1746470000 # 1.2 is the current multiplier as described in step 1 above
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.5 -- 1746471400
 ```
 
-```ts !! title="balance.ts"
+```ts !! title="update-ui-amount-multiplier.ts"
 /**
- * Gets the scaled UI amount balance for a token holder.
+ * Updates the scaled UI multiplier for an existing SPL-Token 2022 mint.
  *
  * @param connection – An initialized Solana Connection.
- * @param mint       – PublicKey of the mint to check.
- * @param owner      – PublicKey of the token holder.
- * @returns The scaled UI amount balance.
+ * @param payer      – Signer paying for fees and rent.
+ * @param mint       – PublicKey of the mint to update.
+ * @param multiplier – New multiplier value to set.
+ * @returns The transaction signature.
  */
-export async function getScaledUiAmountBalance(
+export async function updateScaledUiMultiplier(
   connection: Connection,
+  payer: Signer,
   mint: PublicKey,
-  owner: PublicKey
-): Promise<number> {
-  // Get the token account for this mint/owner pair
-  const tokenAccount = getAssociatedTokenAddressSync(
-    mint,
-    owner,
-    false,
-    TOKEN_2022_PROGRAM_ID
+  multiplier: number,
+  effectiveTimestamp: bigint,
+  previousMultiplier: number,
+  previousEffectiveTimestamp: bigint
+): Promise<string> {
+  const transaction = new Transaction()
+    .add(
+      // Set the previous multiplier to the current multiplier
+      // This is temporarily needed until PR 522 is deployed to mainnet
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        previousMultiplier,
+        previousEffectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    )
+    .add(
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        multiplier,
+        effectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [payer],
+    undefined
   );
 
-  // Get the token account info
-  const accountInfo = await connection.getAccountInfo(tokenAccount);
-  if (!accountInfo) {
-    throw new Error("Token account not found");
-  }
-
-  const info = await connection.getTokenAccountBalance(tokenAccount);
-  if (info.value.uiAmount == null) throw new Error("No balance found");
-  console.log("Balance: ", info.value.uiAmount);
-  return info.value.uiAmount;
+  console.log(
+    `✅ Updated scaled-UI multiplier to ${multiplier} for mint:`,
+    mint.toBase58()
+  );
+  return signature;
 }
-const balance = await getScaledUiAmountBalance(connection, mint, owner);
+const multiplier = 1.5;
+const effectiveTimestamp = BigInt(Math.floor(Date.now() / 1000));
+const previousMultiplier = 1.2;
+const previousEffectiveTimestamp = BigInt(1746470000);
+const updateSignature = await updateScaledUiMultiplier(
+  connection,
+  payer,
+  mintPubkey,
+  multiplier,
+  effectiveTimestamp,
+  previousMultiplier,
+  previousEffectiveTimestamp
+);
+console.log("Update signature:", updateSignature);
 ```
 
 </CodeTabs>
 
-残高を取得するには、`balance`コマンドを使用する必要があります。
+### 残高の取得
+
+残高を取得するには、`balance` コマンドを使用する必要があります。
 
 <CodeTabs>
 
