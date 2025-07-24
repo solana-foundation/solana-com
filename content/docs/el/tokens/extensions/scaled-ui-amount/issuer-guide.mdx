@@ -130,66 +130,116 @@ export async function createScaledUiMint(
 ### Ενημέρωση του πολλαπλασιαστή UI ποσού
 
 Για να ενημερώσετε τον πολλαπλασιαστή UI ποσού, πρέπει να χρησιμοποιήσετε την
-εντολή `update-ui-amount-multiplier`. Η χρονική σήμανση είναι προαιρετική και
-μπορεί να χρησιμοποιηθεί για να ορίσετε μια προσαρμοσμένη ώρα έναρξης για τον
-νέο πολλαπλασιαστή. Εάν δεν παρέχεται χρονική σήμανση, θα χρησιμοποιηθεί η
-τρέχουσα χρονική σήμανση.
+εντολή `update-ui-amount-multiplier`. Μια χρονική σήμανση, σε δευτερόλεπτα από
+την εποχή Unix, είναι προαιρετική και μπορεί να χρησιμοποιηθεί για να ορίσετε
+μια προσαρμοσμένη ώρα έναρξης για τον νέο πολλαπλασιαστή. Εάν δεν παρέχεται
+χρονική σήμανση, θα χρησιμοποιηθεί η τρέχουσα χρονική σήμανση.
+
+**Σημαντική σημείωση:** Υπάρχει αυτή τη στιγμή μια ιδιαιτερότητα στη διαδικασία
+ενημέρωσης του κλιμακούμενου πολλαπλασιαστή ui. Αυτή τη στιγμή, αν κάνετε τα
+εξής:
+
+1. Ορίσετε έναν κλιμακούμενο πολλαπλασιαστή ui για το μέλλον
+2. Περάσει ο χρόνος πέρα από αυτή την ώρα ενημέρωσης
+3. Ορίσετε έναν άλλο κλιμακούμενο πολλαπλασιαστή ui για το μέλλον
+4. Τότε ο προηγούμενος κλιμακούμενος πολλαπλασιαστής ui αντικαθίσταται από τον
+   νέο ουσιαστικά αφαιρώντας τον.
+
+Υπάρχει ένα
+[συγχωνευμένο PR για την επίλυση αυτού](https://github.com/solana-program/token-2022/pull/522)
+ώστε ο πολλαπλασιαστής να ενημερώνεται σωστά στον τρέχοντα πολλαπλασιαστή αντί
+να αντικαθίσταται, αλλά αυτό δεν είναι ακόμα ενεργό.
+
+Μέχρι αυτή τη στιγμή είναι απαραίτητο να κάνετε 2 ενημερώσεις πολλαπλασιαστή
+κατά τη διάρκεια του βήματος 3 παραπάνω:
+
+1. Ορίστε ξανά τον προηγούμενο πολλαπλασιαστή με τη χρονική σήμανση στην ίδια
+   χρονική σήμανση που αρχικά ορίστηκε στο βήμα 1 (αυτό θα ορίσει σωστά τον
+   πολλαπλασιαστή ως τρέχοντα πολλαπλασιαστή)
+2. Ορίστε τον νέο πολλαπλασιαστή όπως περιγράφεται στο βήμα 3 παραπάνω
 
 <CodeTabs>
 
----CODE-PLACEHOLDER-b09425711e8f6f7362ec4922c62ccdf5---
+```terminal !! title="update-ui-amount-multiplier.sh"
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.2 -- 1746470000 # 1.2 is the current multiplier as described in step 1 above
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.5 -- 1746471400
+```
 
----CODE-PLACEHOLDER-93ba67e22ca63dd7097bd2a5359052e9---
+```ts !! title="update-ui-amount-multiplier.ts"
+/**
+ * Updates the scaled UI multiplier for an existing SPL-Token 2022 mint.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param payer      – Signer paying for fees and rent.
+ * @param mint       – PublicKey of the mint to update.
+ * @param multiplier – New multiplier value to set.
+ * @returns The transaction signature.
+ */
+export async function updateScaledUiMultiplier(
+  connection: Connection,
+  payer: Signer,
+  mint: PublicKey,
+  multiplier: number,
+  effectiveTimestamp: bigint,
+  previousMultiplier: number,
+  previousEffectiveTimestamp: bigint
+): Promise<string> {
+  const transaction = new Transaction()
+    .add(
+      // Set the previous multiplier to the current multiplier
+      // This is temporarily needed until PR 522 is deployed to mainnet
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        previousMultiplier,
+        previousEffectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    )
+    .add(
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        multiplier,
+        effectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [payer],
+    undefined
+  );
+
+  console.log(
+    `✅ Updated scaled-UI multiplier to ${multiplier} for mint:`,
+    mint.toBase58()
+  );
+  return signature;
+}
+const multiplier = 1.5;
+const effectiveTimestamp = BigInt(Math.floor(Date.now() / 1000));
+const previousMultiplier = 1.2;
+const previousEffectiveTimestamp = BigInt(1746470000);
+const updateSignature = await updateScaledUiMultiplier(
+  connection,
+  payer,
+  mintPubkey,
+  multiplier,
+  effectiveTimestamp,
+  previousMultiplier,
+  previousEffectiveTimestamp
+);
+console.log("Update signature:", updateSignature);
+```
 
 </CodeTabs>
 
 ### Λήψη του υπολοίπου
-
-Για να λάβετε το υπόλοιπο, πρέπει να χρησιμοποιήσετε την εντολή `balance`.
-
-<CodeTabs>
-
-```terminal !! title="balance.sh"
-$ spl-token balance 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM
-```
-
-```ts !! title="balance.ts"
-/**
- * Gets the scaled UI amount balance for a token holder.
- *
- * @param connection – An initialized Solana Connection.
- * @param mint       – PublicKey of the mint to check.
- * @param owner      – PublicKey of the token holder.
- * @returns The scaled UI amount balance.
- */
-export async function getScaledUiAmountBalance(
-  connection: Connection,
-  mint: PublicKey,
-  owner: PublicKey
-): Promise<number> {
-  // Get the token account for this mint/owner pair
-  const tokenAccount = getAssociatedTokenAddressSync(
-    mint,
-    owner,
-    false,
-    TOKEN_2022_PROGRAM_ID
-  );
-
-  // Get the token account info
-  const accountInfo = await connection.getAccountInfo(tokenAccount);
-  if (!accountInfo) {
-    throw new Error("Token account not found");
-  }
-
-  const info = await connection.getTokenAccountBalance(tokenAccount);
-  if (info.value.uiAmount == null) throw new Error("No balance found");
-  console.log("Balance: ", info.value.uiAmount);
-  return info.value.uiAmount;
-}
-const balance = await getScaledUiAmountBalance(connection, mint, owner);
-```
-
-</CodeTabs>
 
 Για να λάβετε το υπόλοιπο, πρέπει να χρησιμοποιήσετε την εντολή `balance`.
 
