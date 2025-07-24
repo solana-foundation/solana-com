@@ -66,7 +66,10 @@ export function HeroTitle({
           <Link href={record.href || "#"}>
             <Image
               alt={record.title}
-              src={`/opengraph${record.href}` || defaultImg}
+              src={
+                `/opengraph${record.href.replace(/^\/[a-z]{2}(?:-[a-z]{2})?\//, "/")}` ||
+                defaultImg
+              }
               loading="lazy"
               fill
               sizes="100vw"
