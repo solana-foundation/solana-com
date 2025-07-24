@@ -13,7 +13,6 @@ import solanaDevCourseSmallImg from "../../../../../assets/developers/courses/so
 import shapeImg1 from "../../../../../assets/developers/courses/shape-1.png";
 import shapeImg2 from "../../../../../assets/developers/courses/shape-2.png";
 import shapeImg3 from "../../../../../assets/developers/courses/shape-3.png";
-import shapeImg4 from "../../../../../assets/developers/courses/shape-4.png";
 import shapeImg5 from "../../../../../assets/developers/courses/shape-5.png";
 import shapeImg6 from "../../../../../assets/developers/courses/shape-6.png";
 
@@ -51,12 +50,6 @@ export default function DevelopersCoursesSection(/* { courses } */) {
         courseCreator={"Hackquest"}
         url="https://www.hackquest.io/en/learning-track/d22e6118-f7f6-4f31-acf2-433d08bc52e8"
         image={shapeImg6}
-      />
-      <DevelopersCourseItem
-        title="Rust + Solana Advance Development Course"
-        courseCreator={"CareerBooster.io"}
-        url="https://careerbooster.io/courses/rust-solana-advance-development-course"
-        image={shapeImg4}
       />
     </>
   );
