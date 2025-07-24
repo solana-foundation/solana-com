@@ -2,12 +2,16 @@ import { z } from "zod";
 import { Selectable, SelectionProvider } from "codehike/utils/selection";
 import { Block, CodeBlock, parseProps } from "codehike/blocks";
 import { Code, extractFlags } from "./code";
-import { cn } from "@/app/components/utils";
 import {
   CodePlaceholderProvider,
   SelectionSticker,
 } from "./scrollycoding.client";
 import { RawCode } from "codehike/code";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/app/components/ui/resizable";
 
 const Schema = Block.extend({
   steps: z.array(
@@ -62,28 +66,47 @@ function TwoColumnLayout(props: { steps: Steps; className?: string }) {
   const stickers = getStickers(steps);
   const rootMargin = "-40% 0px -60% 0px";
   return (
-    <SelectionProvider
-      className={cn("flex gap-4", className)}
-      rootMargin={rootMargin}
-    >
-      <div className="flex-1 min-w-64 mb-[60vh]">
-        {steps.map((step, i) => (
-          <Selectable
-            key={i}
-            index={i}
-            selectOn={["click", "scroll"]}
-            className="px-5 py-2 mb-12 rounded data-[selected=true]:bg-fd-primary/10 transition-colors duration-300"
-          >
-            <h2 className="mt-4 text-xl">{step.title}</h2>
-            <div>{step.children}</div>
-          </Selectable>
-        ))}
-      </div>
-      <div className="w-1/2 bg-card min-w-96">
-        <div className="flex-1 top-[112px] xl:top-[78px] sticky max-h-[calc(100vh-118px)] xl:max-h-[calc(100vh-84px)] flex flex-col gap-2">
-          <SelectionSticker steps={stickers} />
-        </div>
-      </div>
+    <SelectionProvider className={className} rootMargin={rootMargin}>
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="h-full !overflow-clip"
+      >
+        <ResizablePanel
+          defaultSize={50}
+          minSize={30}
+          maxSize={70}
+          className="min-w-0"
+        >
+          <div className="flex-1 mb-[60vh]">
+            {steps.map((step, i) => (
+              <Selectable
+                key={i}
+                index={i}
+                selectOn={["click", "scroll"]}
+                className="px-5 py-2 mb-12 rounded data-[selected=true]:bg-fd-primary/10 transition-colors duration-300"
+              >
+                <h2 className="mt-4 text-xl">{step.title}</h2>
+                <div>{step.children}</div>
+              </Selectable>
+            ))}
+          </div>
+        </ResizablePanel>
+        <ResizableHandle
+          withHandle
+          className="w-4 bg-transparent dark:bg-transparent sticky top-0 h-screen"
+        />
+        <ResizablePanel
+          defaultSize={50}
+          maxSize={70}
+          className="!overflow-clip min-w-0"
+        >
+          <div className="bg-card h-full">
+            <div className="flex-1 top-[112px] xl:top-[78px] sticky max-h-[calc(100vh-118px)] xl:max-h-[calc(100vh-84px)] flex flex-col gap-2">
+              <SelectionSticker steps={stickers} />
+            </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </SelectionProvider>
   );
 }

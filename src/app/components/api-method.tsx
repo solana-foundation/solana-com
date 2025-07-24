@@ -34,6 +34,11 @@ import {
   RequestClientProvider,
 } from "./request-client";
 import { MultiCode } from "./code/code.client";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/app/components/ui/resizable";
 
 const BaseParamSchema = Block.extend({
   type: z.string(),
@@ -134,20 +139,40 @@ function BigLayout({
   return (
     <HoverProvider>
       <SelectionProvider>
-        <div className="flex flex-row gap-2 w-full text-base">
-          <div className="w-1/2">
-            {paramsSection}
-            {resultHeader}
-            {resultSection}
-          </div>
-          <div
-            className="w-1/2 flex flex-col gap-2 sticky h-fit"
-            style={{ maxHeight: `calc(100vh - 80px)`, top: `78px` }}
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="h-full !overflow-clip text-base"
+        >
+          <ResizablePanel
+            defaultSize={50}
+            minSize={30}
+            maxSize={70}
+            className="min-w-0"
           >
-            {requestSection}
-            {responseSection}
-          </div>
-        </div>
+            <div className="flex-1">
+              {paramsSection}
+              {resultHeader}
+              {resultSection}
+            </div>
+          </ResizablePanel>
+          <ResizableHandle
+            withHandle
+            className="w-4 bg-transparent dark:bg-transparent sticky top-0 max-h-screen"
+          />
+          <ResizablePanel
+            defaultSize={50}
+            maxSize={70}
+            className="!overflow-clip min-w-0"
+          >
+            <div
+              className="flex flex-col gap-2 sticky h-fit"
+              style={{ maxHeight: `calc(100vh - 80px)`, top: `78px` }}
+            >
+              {requestSection}
+              {responseSection}
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </SelectionProvider>
     </HoverProvider>
   );
