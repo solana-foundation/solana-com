@@ -1,21 +1,22 @@
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
-import { Builders } from "@/components/solutions/depin/Builders";
-import { Products } from "@/components/solutions/products";
-import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { CTACards } from "@/components/solutions/depin/CTACards";
+import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
+import { LatestNews } from "@/components/solutions/depin/LatestNews";
+import { Products } from "@/components/solutions/products";
+import { Projects } from "@/components/solutions/projects";
+import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
+import { VideoGrid } from "@/components/solutions/video-grid";
 import { VideoPlayerModal } from "@/component-library/video-modal";
+import { WhatIsIt } from "@/components/solutions/what-is-it";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
-import { useState } from "react";
-import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
-import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
-import { WhatIsIt } from "@/components/solutions/what-is-it";
-import { Projects } from "@/components/solutions/projects";
 import {
   LOGOS,
   PRODUCTS,
   PROJECTS,
+  VIDEOS,
 } from "@/data/solutions/internet-capital-markets";
 
 const ICMPage = () => {
@@ -97,7 +98,13 @@ const ICMPage = () => {
 
         {/* Real Builders Section */}
         <section className="py-10 bg-[#171c25]">
-          <Builders />
+          <VideoGrid
+            title={t("depin.videos.title")}
+            subtitle={t("depin.videos.subtitle")}
+            videos={VIDEOS(t)}
+            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
+            moreVideosLabel={t("depin.builders.moreVideos")}
+          />
         </section>
 
         {/* Latest News Section */}

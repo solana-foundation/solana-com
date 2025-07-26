@@ -1,4 +1,5 @@
 import { Smartphone, Sparkles, Wallet } from "lucide-react";
+import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
@@ -134,5 +135,31 @@ export const PRODUCTS = [
     Icon: Sparkles,
     color: "text-cyan-400 bg-cyan-900/30",
     href: "/solutions/real-world-assets",
+  },
+];
+
+export const VIDEOS = (
+  t: (_key: string, _values?: TranslationValues, _formats?: Formats) => string,
+) => [
+  {
+    id: "IpWVxL4V4Oc",
+    thumbnail: "/src/img/solutions/depin/video1.png",
+    title: t("depin.videos.0.title"),
+    description: t("depin.videos.0.description"),
+    alt: t("depin.videos.0.alt"),
+  },
+  {
+    id: "PzNXP0w4xqU",
+    thumbnail: "/src/img/solutions/depin/video2.png",
+    title: t("depin.videos.1.title"),
+    description: t("depin.videos.1.description"),
+    alt: t("depin.videos.1.alt"),
+  },
+  {
+    id: "VaBJu3dXpKk",
+    thumbnail: "/src/img/solutions/depin/video3.png",
+    title: t("depin.videos.2.title"),
+    description: t("depin.videos.2.description"),
+    alt: t("depin.videos.2.alt"),
   },
 ];
