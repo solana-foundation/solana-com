@@ -2,7 +2,7 @@ import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { Builders } from "@/components/solutions/depin/Builders";
-import { Products } from "@/components/solutions/depin/Products";
+import { Products } from "@/components/solutions/products";
 import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { CTACards } from "@/components/solutions/depin/CTACards";
 import { VideoPlayerModal } from "@/component-library/video-modal";
@@ -12,7 +12,7 @@ import { useState } from "react";
 import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
 import { WhatIsIt } from "@/components/solutions/what-is-it";
 import { Projects } from "@/components/solutions/projects";
-import { LOGOS, PROJECTS } from "@/data/solutions/depin";
+import { LOGOS, PRODUCTS, PROJECTS } from "@/data/solutions/depin";
 
 const DePINPage = () => {
   const t = useTranslations();
@@ -55,7 +55,12 @@ const DePINPage = () => {
 
         {/* Products Section */}
         <section className="pb-10">
-          <Products />
+          <Products
+            title={t("depin.products.title")}
+            description={t("depin.products.description")}
+            products={PRODUCTS}
+            translationBase="depin.products"
+          />
         </section>
 
         {/* Real Builders Section */}
