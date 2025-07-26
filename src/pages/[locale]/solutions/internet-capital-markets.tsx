@@ -1,4 +1,3 @@
-import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { Builders } from "@/components/solutions/depin/Builders";
@@ -17,7 +16,7 @@ import {
   SolutionHeroStat,
 } from "@/component-library/solution-hero";
 
-const DePINPage = () => {
+const ICMPage = () => {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
@@ -59,7 +58,7 @@ const DePINPage = () => {
           emailCta={t("depin.hero.emailCta")}
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
-          globeImgSrc="/src/img/solutions/depin/globe.webp"
+          globeImgSrc="/src/img/solutions/icm/icm-hero.webp"
           globeImgAlt={t("depin.hero.globeAlt")}
         />
         <WhatIsDepin />
@@ -105,7 +104,7 @@ const DePINPage = () => {
   );
 };
 
-export default DePINPage;
+export default ICMPage;
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;

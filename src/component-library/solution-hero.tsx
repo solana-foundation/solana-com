@@ -37,7 +37,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   return (
     <section
       id="hero"
-      className="relative min-h-[calc(100vh-75.4px)] flex flex-col items-center justify-start text-center px-4 pt-5 overflow-hidden bg-[#080d17]
+      className="relative min-h-[calc(100vh-75.4px)] pb-12 flex flex-col items-center justify-start text-center px-4 pt-5 overflow-hidden bg-[#080d17]
         bg-[radial-gradient(50%_30%_at_75%_70%,rgba(30,135,100,0.45)_0%,rgba(12,87,62,0.45)_40%,rgba(19,24,30,0)_80%),radial-gradient(50%_30%_at_20%_70%,rgba(59,35,212,0.45)_0%,rgba(28,14,113,0.65)_40%,rgba(94,69,255,0)_80%)]
         bg-cover bg-top bg-no-repeat md:px-6 md:pt-20"
       aria-labelledby="hero-title"
@@ -53,7 +53,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           />
         </div>
       )}
-      <div className="relative z-10 max-w-full mx-auto md:max-w-2xl">
+      <div className="z-2 max-w-full mx-auto md:max-w-2xl">
         <h1
           id="hero-title"
           className="text-white font-display text-2xl mb-4 leading-tight md:text-4xl md:mb-6 lg:text-5xl xl:text-6xl"
@@ -72,12 +72,12 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       </div>
 
       {/* Report Eyebrow */}
-      <p className="mt-4 mb-8 font-medium text-xs leading-tight text-center tracking-widest text-white uppercase">
+      <p className="mt-4 mb-8 font-medium z-2 text-xs leading-tight text-center tracking-widest text-white uppercase">
         {reportEyebrow}
       </p>
 
       {/* Email CTA */}
-      <div className="relative flex items-center justify-center">
+      <div className="flex items-center justify-center z-2">
         <Button
           size="lg"
           variant="default"
@@ -89,7 +89,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       </div>
 
       {/* Stats Bar */}
-      <dl className="my-16 py-2 px-6 w-full max-w-3xl flex flex-col gap-6 bg-black/20 rounded-xl border border-white/10 backdrop-blur-lg z-10 sm:flex-row sm:w-3/5 sm:min-w-[600px] sm:gap-0">
+      <dl className="relative z-10 my-16 py-2 px-6 w-full max-w-3xl flex flex-col gap-6 bg-black/20 rounded-xl border-2 border-white/10 backdrop-blur-lg sm:flex-row sm:w-3/5 sm:min-w-[600px] sm:gap-0">
         {stats.map((s, idx) => (
           <React.Fragment key={s.label}>
             <div className="text-center flex-1 min-w-0 flex flex-col justify-center">
@@ -107,22 +107,20 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           </React.Fragment>
         ))}
       </dl>
-
-      {/* Globe Image */}
       <Image
         src={globeImgSrc}
         alt={globeImgAlt}
         width={1400}
         height={800}
-        className="absolute top-1/3 left-1/2 -translate-x-1/2 z-0 w-[220%] max-w-none opacity-90
-          sm:w-[170%] sm:top-1/3
-          md:w-[140%] md:top-[62%] md:max-w-[900px]
-          lg:top-[500px] lg:w-[120%] lg:max-w-[1000px]"
+        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 z-0 w-[220%] max-w-none opacity-90
+          sm:w-[170%]
+          md:w-[140%] md:max-w-[900px]
+          lg:w-[120%] lg:max-w-[1000px]"
         priority
       />
 
       {/* Bottom gradient overlay */}
-      <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-32 z-10 bg-gradient-to-t from-[#080d17] to-transparent" />
+      <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-32 z-1 bg-gradient-to-t from-[#080d17] to-transparent" />
     </section>
   );
 };
