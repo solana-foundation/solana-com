@@ -7,11 +7,11 @@ import { Products } from "@/components/solutions/depin/Products";
 import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { CTACards } from "@/components/solutions/depin/CTACards";
 import { VideoPlayerModal } from "@/component-library/video-modal";
-import { WhatIsDepin } from "@/components/solutions/depin/WhatIsDepin";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 import { useState } from "react";
 import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
+import { WhatIsIt } from "@/components/solutions/what-is-it";
 
 const DePINPage = () => {
   const t = useTranslations();
@@ -30,7 +30,15 @@ const DePINPage = () => {
         aria-labelledby="depin-hero-title"
       >
         <DePINHero onEmailClick={() => setEmailModalOpen(true)} />
-        <WhatIsDepin />
+        <WhatIsIt
+          title={t("depin.features.title")}
+          description={t("depin.features.description")}
+          features={[
+            t("depin.features.fast"),
+            t("depin.features.decentralized"),
+            t("depin.features.communityFirst"),
+          ]}
+        />
 
         {/* EcoProjects Section */}
         <section className="pt-6 pb-10">
