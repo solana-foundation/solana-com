@@ -12,6 +12,7 @@ import { useState } from "react";
 import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
 import { WhatIsIt } from "@/components/solutions/what-is-it";
+import { Projects } from "@/components/solutions/projects";
 
 const ICMPage = () => {
   const t = useTranslations();
@@ -75,7 +76,7 @@ const ICMPage = () => {
               <h2 className="text-3xl font-bold text-white col-span-full">
                 {t("depin.ecoProjects.title")}
               </h2>
-              <EcoProjects />
+              <Projects projects={PROJECTS} logos={LOGOS} />
             </div>
           </div>
         </section>
@@ -130,3 +131,119 @@ export async function getStaticPaths() {
     fallback: "blocking",
   };
 }
+
+const PROJECTS = [
+  {
+    src: "/src/img/solutions/depin/helium.png",
+    key: "helium",
+    bg: "#181F24",
+  },
+  {
+    src: "/src/img/solutions/depin/render.png",
+    key: "render",
+    bg: "#FF2D2E",
+  },
+  {
+    src: "/src/img/solutions/depin/hivemapper.png",
+    key: "hivemapper",
+    bg: "#4B6FFF",
+  },
+  {
+    src: "/src/img/solutions/depin/grass.png",
+    key: "grass",
+    bg: "#B6FF3A",
+  },
+  {
+    src: "/src/img/solutions/depin/geodnet.png",
+    key: "geodnet",
+    bg: "#000000",
+  },
+];
+
+const LOGOS = [
+  {
+    src: "/src/img/solutions/depin/ecosystem/375ai.png",
+    alt: "375AI",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/blockcast.png",
+    alt: "Blockcast",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/cudis.png",
+    alt: "Cudis",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/dawn.png",
+    alt: "Dawn",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/decharge.png",
+    alt: "Decharge",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/dephy.png",
+    alt: "Dephy",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/geodnet.png",
+    alt: "Geodnet",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/hivemapper.png",
+    alt: "Hivemapper",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/inference.png",
+    alt: "Inference",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/jambo.png",
+    alt: "Jambo",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/onocoy.png",
+    alt: "Onocoy",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/pipenetwork.png",
+    alt: "Pipenetwork",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/roam.png",
+    alt: "Roam",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/shaga.png",
+    alt: "Shaga",
+    bg: "bg-[#f1ff61]",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/wayru.png",
+    alt: "Wayru",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/wingbits-seo.png",
+    alt: "Wingbits",
+    bg: "bg-[#201c1c]",
+  },
+  {
+    src: "/src/img/solutions/depin/ecosystem/xnet.png",
+    alt: "Xnet",
+    bg: "bg-white",
+  },
+];
