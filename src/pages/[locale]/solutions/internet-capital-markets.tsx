@@ -2,7 +2,6 @@ import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { CTACards } from "@/components/solutions/depin/CTACards";
 import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
-import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { Products } from "@/components/solutions/products";
 import { Projects } from "@/components/solutions/projects";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
@@ -105,11 +104,6 @@ const ICMPage = () => {
             moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
             moreVideosLabel={t("depin.builders.moreVideos")}
           />
-        </section>
-
-        {/* Latest News Section */}
-        <section className="py-10">
-          <LatestNews />
         </section>
 
         {/* Card Section */}
