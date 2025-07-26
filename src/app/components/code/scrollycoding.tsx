@@ -77,13 +77,13 @@ function TwoColumnLayout(props: { steps: Steps; className?: string }) {
           maxSize={70}
           className="min-w-0"
         >
-          <div className="flex-1 mb-[60vh]">
+          <div className="flex-1 mb-[50vh]">
             {steps.map((step, i) => (
               <Selectable
                 key={i}
                 index={i}
                 selectOn={["click", "scroll"]}
-                className="px-5 py-2 mb-12 rounded data-[selected=true]:bg-fd-primary/10 transition-colors duration-300"
+                className="px-5 py-2 mb-8 rounded data-[selected=true]:bg-fd-primary/10 transition-colors duration-300"
               >
                 <h2 className="mt-4 text-xl">{step.title}</h2>
                 <div>{step.children}</div>
@@ -93,14 +93,14 @@ function TwoColumnLayout(props: { steps: Steps; className?: string }) {
         </ResizablePanel>
         <ResizableHandle
           withHandle
-          className="w-4 bg-transparent dark:bg-transparent sticky top-0 h-screen"
+          className="sticky top-0 w-4 h-screen bg-transparent dark:bg-transparent"
         />
         <ResizablePanel
           defaultSize={50}
           maxSize={70}
           className="!overflow-clip min-w-0"
         >
-          <div className="bg-card h-full">
+          <div className="h-full bg-card">
             <div className="flex-1 top-[112px] xl:top-[78px] sticky max-h-[calc(100vh-118px)] xl:max-h-[calc(100vh-84px)] flex flex-col gap-2">
               <SelectionSticker steps={stickers} />
             </div>
