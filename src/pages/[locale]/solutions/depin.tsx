@@ -1,7 +1,6 @@
 import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
-import { Builders } from "@/components/solutions/depin/Builders";
 import { Products } from "@/components/solutions/products";
 import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { CTACards } from "@/components/solutions/depin/CTACards";
@@ -12,7 +11,8 @@ import { useState } from "react";
 import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
 import { WhatIsIt } from "@/components/solutions/what-is-it";
 import { Projects } from "@/components/solutions/projects";
-import { LOGOS, PRODUCTS, PROJECTS } from "@/data/solutions/depin";
+import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/depin";
+import { VideoGrid } from "@/components/solutions/video-grid";
 
 const DePINPage = () => {
   const t = useTranslations();
@@ -65,7 +65,13 @@ const DePINPage = () => {
 
         {/* Real Builders Section */}
         <section className="py-10 bg-[#171c25]">
-          <Builders />
+          <VideoGrid
+            title={t("depin.builders.title")}
+            subtitle={t("depin.builders.subtitle")}
+            videos={VIDEOS(t)}
+            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
+            moreVideosLabel={t("depin.builders.moreVideos")}
+          />
         </section>
 
         {/* Latest News Section */}
