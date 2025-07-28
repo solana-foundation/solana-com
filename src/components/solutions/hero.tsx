@@ -77,7 +77,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       </p>
 
       {/* Email CTA */}
-      <div className="flex items-center justify-center z-2">
+      <div className="flex items-center justify-center z-10">
         <Button
           size="lg"
           variant="default"
@@ -89,7 +89,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       </div>
 
       {/* Stats Bar */}
-      <dl className="relative z-10 my-16 py-2 px-6 w-full max-w-3xl flex flex-col gap-6 bg-black/20 rounded-xl border-2 border-white/10 backdrop-blur-lg sm:flex-row sm:w-3/5 sm:min-w-[600px] sm:gap-0">
+      <dl className="z-10 my-16 py-2 px-6 w-full max-w-3xl flex flex-col gap-6 bg-black/20 rounded-xl border-2 border-white/10 backdrop-blur-lg sm:flex-row sm:w-3/5 sm:min-w-[600px] sm:gap-0">
         {stats.map((s, idx) => (
           <React.Fragment key={s.label}>
             <div className="text-center flex-1 min-w-0 flex flex-col justify-center">
