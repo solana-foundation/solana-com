@@ -1,37 +1,40 @@
-import defaultIcon from "../../../assets/wallets/wallet-placeholder-icon.png";
-import phantomIcon from "../../../assets/wallets/icons/phantom.png";
+// import defaultIcon from "../../../assets/wallets/wallet-placeholder-icon.png";
 import backpackIcon from "../../../assets/wallets/icons/backpack.png";
-import solflareIcon from "../../../assets/wallets/icons/solflare.png";
-import fuseIcon from "../../../assets/wallets/icons/fuse.png";
-import paraIcon from "../../../assets/wallets/icons/para.png";
-import okxIcon from "../../../assets/wallets/icons/okx.png";
-import circleIcon from "../../../assets/wallets/icons/circle.png";
-import robinhoodIcon from "../../../assets/wallets/icons/robinhood.png";
-import heliumIcon from "../../../assets/wallets/icons/helium.png";
-import privyIcon from "../../../assets/wallets/icons/privy.png";
-import walletConnectIcon from "../../../assets/wallets/icons/walletconnect.png";
+import binanceIcon from "../../../assets/wallets/icons/binance.png";
 import bitGetIcon from "../../../assets/wallets/icons/bitget.png";
 import braveIcon from "../../../assets/wallets/icons/brave.png";
+import cakewalletIcon from "../../../assets/wallets/icons/cakewallet.png";
+import cdpIcon from "../../../assets/wallets/icons/cdp.png";
+import circleIcon from "../../../assets/wallets/icons/circle.png";
+import coinbaseIcon from "../../../assets/wallets/icons/coinbase.png";
+import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
 import crossmintIcon from "../../../assets/wallets/icons/crossmint.png";
 import decafIcon from "../../../assets/wallets/icons/decaf.png";
-import ledgerIcon from "../../../assets/wallets/icons/ledger.png";
-import tiplinkIcon from "../../../assets/wallets/icons/tiplink.png";
-import trustWalletCoreIcon from "../../../assets/wallets/icons/trustwalletcore.png";
-import web3authIcon from "../../../assets/wallets/icons/web3auth.png";
-import binanceIcon from "../../../assets/wallets/icons/binance.png";
-import exodusIcon from "../../../assets/wallets/icons/exodus.png";
-import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
-import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
-import gemIcon from "../../../assets/wallets/icons/gem.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
-import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
-import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
+import exodusIcon from "../../../assets/wallets/icons/exodus.png";
+import fuseIcon from "../../../assets/wallets/icons/fuse.png";
+import gemIcon from "../../../assets/wallets/icons/gem.png";
+import glowIcon from "../../../assets/wallets/icons/glow.png";
 import guardaIcon from "../../../assets/wallets/icons/guarda.png";
-import cakewalletIcon from "../../../assets/wallets/icons/cakewallet.png";
-import tokenPocketIcon from "../../../assets/wallets/icons/tokenpocket.png";
-import cdpIcon from "../../../assets/wallets/icons/cdp.png";
+import heliumIcon from "../../../assets/wallets/icons/helium.png";
+import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
+import ledgerIcon from "../../../assets/wallets/icons/ledger.png";
+import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
+import okxIcon from "../../../assets/wallets/icons/okx.png";
 import onekeyIcon from "../../../assets/wallets/icons/onekey.png";
+import paraIcon from "../../../assets/wallets/icons/para.png";
+import phantomIcon from "../../../assets/wallets/icons/phantom.png";
+import privyIcon from "../../../assets/wallets/icons/privy.png";
+import robinhoodIcon from "../../../assets/wallets/icons/robinhood.png";
+import solflareIcon from "../../../assets/wallets/icons/solflare.png";
+import tiplinkIcon from "../../../assets/wallets/icons/tiplink.png";
+import tokenPocketIcon from "../../../assets/wallets/icons/tokenpocket.png";
+import trezorIcon from "../../../assets/wallets/icons/trezor.png";
+import trustWalletCoreIcon from "../../../assets/wallets/icons/trustwalletcore.png";
+import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
+import walletConnectIcon from "../../../assets/wallets/icons/walletconnect.png";
+import web3authIcon from "../../../assets/wallets/icons/web3auth.png";
 
 export const walletData = [
   {
@@ -112,7 +115,7 @@ export const walletData = [
     website: "https://www.coinbase.com/wallet",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Social recovery • Staking • Spending Limits • Open Source",
-    icon: defaultIcon,
+    icon: coinbaseIcon,
     custodial: false,
     non_custodial: true,
     te: false,
@@ -424,7 +427,7 @@ export const walletData = [
     website: "https://glow.app/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
-    icon: defaultIcon,
+    icon: glowIcon,
     custodial: false,
     non_custodial: true,
     te: true,
@@ -616,7 +619,7 @@ export const walletData = [
     website: "https://trezor.io/",
     additionalInfo:
       "Hardware • Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Staking",
-    icon: defaultIcon,
+    icon: trezorIcon,
     custodial: false,
     non_custodial: false,
     te: false,
