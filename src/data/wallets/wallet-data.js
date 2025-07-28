@@ -1,4 +1,4 @@
-import defaultIcon from "../../../assets/wallets/wallet-placeholder-icon.png";
+// import defaultIcon from "../../../assets/wallets/wallet-placeholder-icon.png";
 import backpackIcon from "../../../assets/wallets/icons/backpack.png";
 import binanceIcon from "../../../assets/wallets/icons/binance.png";
 import bitGetIcon from "../../../assets/wallets/icons/bitget.png";
@@ -6,6 +6,7 @@ import braveIcon from "../../../assets/wallets/icons/brave.png";
 import cakewalletIcon from "../../../assets/wallets/icons/cakewallet.png";
 import cdpIcon from "../../../assets/wallets/icons/cdp.png";
 import circleIcon from "../../../assets/wallets/icons/circle.png";
+import coinbaseIcon from "../../../assets/wallets/icons/coinbase.png";
 import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
 import crossmintIcon from "../../../assets/wallets/icons/crossmint.png";
 import decafIcon from "../../../assets/wallets/icons/decaf.png";
@@ -14,6 +15,7 @@ import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
 import exodusIcon from "../../../assets/wallets/icons/exodus.png";
 import fuseIcon from "../../../assets/wallets/icons/fuse.png";
 import gemIcon from "../../../assets/wallets/icons/gem.png";
+import glowIcon from "../../../assets/wallets/icons/glow.png";
 import guardaIcon from "../../../assets/wallets/icons/guarda.png";
 import heliumIcon from "../../../assets/wallets/icons/helium.png";
 import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
@@ -113,7 +115,7 @@ export const walletData = [
     website: "https://www.coinbase.com/wallet",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • MPC • Social recovery • Staking • Spending Limits • Open Source",
-    icon: defaultIcon,
+    icon: coinbaseIcon,
     custodial: false,
     non_custodial: true,
     te: false,
@@ -425,7 +427,7 @@ export const walletData = [
     website: "https://glow.app/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Token Extensions • Actions & Blinks • Solana Pay • Buy Crypto • Sell Crypto • Hold NFTs • Staking",
-    icon: defaultIcon,
+    icon: glowIcon,
     custodial: false,
     non_custodial: true,
     te: true,
