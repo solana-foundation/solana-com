@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Play, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { VideoTrigger } from "@/component-library/video-modal";
 
 export type VideoItem = {
@@ -40,16 +40,14 @@ export const VideoGrid = ({
               src={video.thumbnail}
               alt={video.alt}
               fill
-              className="object-cover"
+              className="object-cover z-0"
             />
             <VideoTrigger
               platform="youtube"
               id={video.id}
               title={video.title}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-purple-600/90 rounded-full flex items-center justify-center transition group-hover:scale-110 z-10"
-            >
-              <Play fill="white" strokeWidth={0} />
-            </VideoTrigger>
+              bgColorClass="!bg-purple-600/90"
+            />
           </div>
           <h3 className="text-lg md:text-xl font-semibold text-white mt-4 mb-2">
             {video.title}
