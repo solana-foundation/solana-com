@@ -24,28 +24,28 @@ const ICMPage = () => {
 
   const stats: SolutionHeroStat[] = [
     {
-      value: t("depin.hero.stats.0.value"),
-      label: t("depin.hero.stats.0.label"),
+      value: t("icm.hero.stats.0.value"),
+      label: t("icm.hero.stats.0.label"),
     },
     {
-      value: t("depin.hero.stats.1.value"),
-      label: t("depin.hero.stats.1.label"),
+      value: t("icm.hero.stats.1.value"),
+      label: t("icm.hero.stats.1.label"),
     },
     {
-      value: t("depin.hero.stats.2.value"),
-      label: t("depin.hero.stats.2.label"),
+      value: t("icm.hero.stats.2.value"),
+      label: t("icm.hero.stats.2.label"),
     },
     {
-      value: t("depin.hero.stats.2.value"),
-      label: t("depin.hero.stats.2.label"),
+      value: t("icm.hero.stats.3.value"),
+      label: t("icm.hero.stats.3.label"),
     },
   ];
 
   return (
     <Layout>
       <HTMLHead
-        title={t("depin.meta.title")}
-        description={t("depin.meta.description")}
+        title={t("icm.meta.title")}
+        description={t("icm.meta.description")}
       />
 
       <div
@@ -54,22 +54,22 @@ const ICMPage = () => {
         aria-labelledby="depin-hero-title"
       >
         <SolutionHero
-          title={t("depin.hero.title")}
-          subtitle={t("depin.hero.subtitle")}
-          reportEyebrow={t("depin.hero.reportEyebrow")}
-          emailCta={t("depin.hero.emailCta")}
+          title={t("icm.hero.title")}
+          subtitle={t("icm.hero.subtitle")}
+          reportEyebrow={t("icm.hero.reportEyebrow")}
+          emailCta={t("icm.hero.emailCta")}
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
           globeImgSrc="/src/img/solutions/icm/icm-hero.webp"
-          globeImgAlt={t("depin.hero.globeAlt")}
+          globeImgAlt={t("icm.hero.alt")}
         />
         <WhatIsIt
-          title={t("depin.features.title")}
-          description={t("depin.features.description")}
+          title={t("icm.features.title")}
+          description={t("icm.features.description")}
           features={[
-            t("depin.features.fast"),
-            t("depin.features.decentralized"),
-            t("depin.features.communityFirst"),
+            t("icm.features.0"),
+            t("icm.features.1"),
+            t("icm.features.2"),
           ]}
         />
 
@@ -78,7 +78,7 @@ const ICMPage = () => {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
               <h2 className="text-3xl font-bold text-white col-span-full">
-                {t("depin.ecoProjects.title")}
+                {t("icm.projects.title")}
               </h2>
               <Projects projects={PROJECTS} logos={LOGOS} />
             </div>
@@ -88,21 +88,21 @@ const ICMPage = () => {
         {/* Products Section */}
         <section className="pb-10">
           <Products
-            title={t("depin.products.title")}
-            description={t("depin.products.description")}
+            title={t("icm.products.title")}
+            description={t("icm.products.description")}
             products={PRODUCTS}
-            translationBase="depin.products"
+            translationBase="icm.products"
           />
         </section>
 
         {/* Real Builders Section */}
         <section className="py-10 bg-[#171c25]">
           <VideoGrid
-            title={t("depin.builders.title")}
-            subtitle={t("depin.builders.subtitle")}
+            title={t("icm.videoPlayer.title")}
+            subtitle={t("icm.videoPlayer.subtitle")}
             videos={VIDEOS(t)}
             moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
-            moreVideosLabel={t("depin.builders.moreVideos")}
+            moreVideosLabel={t("icm.videoPlayer.moreVideos")}
           />
         </section>
 
