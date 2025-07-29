@@ -98,16 +98,14 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
           <p className="text-white/80 mb-6">{t("icm.cta.learnDescription")}</p>
           <div className="flex flex-col gap-3 mb-6">
             <Link
-              href="/developers/guides/depin/getting-started"
+              href="/learn/introduction-to-solana-tokens"
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("icm.cta.learnTokens")}
               <ArrowRightIcon size={18} />
             </Link>
             <Link
-              href="https://github.com/solana-developers/solana-depin-examples"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/learn/what-is-a-wallet"
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("icm.cta.learnWallets")}
@@ -115,9 +113,7 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
             </Link>
             <div className="flex flex-col h-full justify-end items-end mt-6">
               <Link
-                href="https://solana.org/grants-funding"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/learn"
                 className="text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200 text-base hover:bg-[#2a223d] outline outline-2 outline-[#7b47ff] outline-offset-[-2px]"
               >
                 {t("icm.cta.startLearning")}
@@ -136,38 +132,26 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
           <div className="flex flex-col sm:flex-row gap-4">
             <BannerCTA
               href="/solutions/depin"
-              label="DePIN"
-              description={
-                <>
-                  Build Physically
-                  <br />
-                  Distribute Digitally
-                </>
-              }
+              label={t("icm.cta.depinLabel")}
+              description={t.rich("icm.cta.depinDescription", {
+                br: () => <br />,
+              })}
               image="/src/img/solutions/icm/depin-cta.webp"
             />
             <BannerCTA
               href="/solutions/wallets"
-              label="Wallets"
-              description={
-                <>
-                  Limitless Financial
-                  <br />
-                  Control
-                </>
-              }
+              label={t("icm.cta.walletsLabel")}
+              description={t.rich("icm.cta.walletsDescription", {
+                br: () => <br />,
+              })}
               image="/src/img/solutions/icm/wallets-cta.webp"
             />
             <BannerCTA
               href="/solutions/payments"
-              label="Payments"
-              description={
-                <>
-                  Frictionless
-                  <br />
-                  Payment Rails
-                </>
-              }
+              label={t("icm.cta.paymentsLabel")}
+              description={t.rich("icm.cta.paymentsDescription", {
+                br: () => <br />,
+              })}
               image="/src/img/solutions/icm/payments-cta.webp"
             />
           </div>

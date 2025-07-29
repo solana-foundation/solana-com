@@ -77,19 +77,18 @@ export const PRODUCTS = [
     key: "0",
     Icon: Coins,
     color: "text-emerald-400 bg-emerald-900/30",
-    href: "#",
+    href: "/solutions/real-world-assets",
   },
   {
     key: "1",
     Icon: Blocks,
     color: "text-indigo-400 bg-indigo-900/30",
-    href: "#",
+    href: "/solutions/token-extensions",
   },
   {
     key: "2",
     Icon: HandCoins,
     color: "text-cyan-400 bg-cyan-900/30",
-    href: "#",
   },
 ];
 
