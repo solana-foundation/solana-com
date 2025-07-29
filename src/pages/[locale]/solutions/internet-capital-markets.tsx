@@ -80,7 +80,12 @@ const ICMPage = () => {
               <h2 className="text-3xl font-bold text-white col-span-full">
                 {t("icm.projects.title")}
               </h2>
-              <Projects projects={PROJECTS} logos={LOGOS} />
+              <Projects
+                projects={PROJECTS}
+                translationBase="icm.projects"
+                logos={LOGOS}
+                headingType="logo"
+              />
             </div>
           </div>
         </section>

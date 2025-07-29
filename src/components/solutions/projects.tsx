@@ -6,7 +6,7 @@ import Marquee from "@/component-library/marquee";
 type Project = {
   key: string;
   src: string;
-  bg: string;
+  bg?: string;
 };
 
 type Logo = {
@@ -18,7 +18,8 @@ type Logo = {
 type EcoProjectsProps = {
   projects: Project[];
   logos: Logo[];
-  translationBase?: string;
+  translationBase: string;
+  headingType?: "icon" | "logo";
 };
 
 /**
@@ -40,7 +41,8 @@ type EcoProjectsProps = {
 export const Projects = ({
   projects,
   logos,
-  translationBase = "depin.ecoProjects",
+  translationBase,
+  headingType = "icon",
 }: EcoProjectsProps) => {
   const t = useTranslations();
 
@@ -62,7 +64,12 @@ export const Projects = ({
   return (
     <div className="col-span-full md:col-span-2 py-6">
       <div className="mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 w-full">
+        <div
+          className="grid gap-3 w-full"
+          style={{
+            gridTemplateColumns: `repeat(${projects.length}, minmax(0, 1fr))`,
+          }}
+        >
           {projects.map((project) => {
             const base = `${translationBase}.${project.key}`;
             return (
@@ -75,24 +82,40 @@ export const Projects = ({
                 }}
                 aria-labelledby={`${project.key}-title`}
               >
-                <div
-                  className="mb-4 relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
-                  style={{ background: project.bg }}
-                >
-                  <Image
-                    src={project.src}
-                    alt={project.key}
-                    fill
-                    className="object-contain"
-                    loading="lazy"
-                  />
-                </div>
-                <h3
-                  id={`${project.key}-title`}
-                  className="text-2xl font-bold text-white mb-2"
-                >
-                  {t(`${base}.name`)}
-                </h3>
+                {headingType === "icon" ? (
+                  <>
+                    <div
+                      className="mb-4 relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center"
+                      style={{ background: project.bg }}
+                    >
+                      <Image
+                        src={project.src}
+                        alt={project.key}
+                        fill
+                        className="object-contain"
+                        loading="lazy"
+                      />
+                    </div>
+                    <h3
+                      id={`${project.key}-title`}
+                      className="text-2xl font-bold text-white mb-2"
+                    >
+                      {t(`${base}.name`)}
+                    </h3>
+                  </>
+                ) : (
+                  <div className="mb-4 w-full flex flex-col items-start">
+                    <Image
+                      src={project.src}
+                      alt={project.key}
+                      width={120}
+                      height={60}
+                      className="object-contain min-h-12 max-h-12"
+                      loading="lazy"
+                    />
+                    <hr className="border-[#FFFFFF] mb-4 w-full" />
+                  </div>
+                )}
                 <p className="text-gray-300 text-base mb-3 flex-1">
                   {t(`${base}.description`)}
                 </p>

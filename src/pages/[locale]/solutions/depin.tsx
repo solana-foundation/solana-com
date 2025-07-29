@@ -48,7 +48,11 @@ const DePINPage = () => {
               <h2 className="text-3xl font-bold text-white col-span-full">
                 {t("depin.ecoProjects.title")}
               </h2>
-              <Projects projects={PROJECTS} logos={LOGOS} />
+              <Projects
+                projects={PROJECTS}
+                logos={LOGOS}
+                translationBase="depin.ecoProjects"
+              />
             </div>
           </div>
         </section>

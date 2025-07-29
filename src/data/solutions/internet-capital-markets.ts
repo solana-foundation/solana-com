@@ -3,29 +3,20 @@ import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/solutions/depin/helium.png",
-    key: "helium",
-    bg: "#181F24",
+    src: "/src/img/solutions/icm/projects/franklin-templeton.webp",
+    key: "franklinTempleton",
   },
   {
-    src: "/src/img/solutions/depin/render.png",
-    key: "render",
-    bg: "#FF2D2E",
+    src: "/src/img/solutions/icm/projects/r3.svg",
+    key: "r3",
   },
   {
-    src: "/src/img/solutions/depin/hivemapper.png",
-    key: "hivemapper",
-    bg: "#4B6FFF",
+    src: "/src/img/solutions/icm/projects/bullish.svg",
+    key: "bullish",
   },
   {
-    src: "/src/img/solutions/depin/grass.png",
-    key: "grass",
-    bg: "#B6FF3A",
-  },
-  {
-    src: "/src/img/solutions/depin/geodnet.png",
-    key: "geodnet",
-    bg: "#000000",
+    src: "/src/img/solutions/icm/projects/apollo.svg",
+    key: "apollo",
   },
 ];
 
