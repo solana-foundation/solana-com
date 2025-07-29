@@ -65,7 +65,18 @@ const ICMPage = () => {
         />
         <WhatIsIt
           title={t("icm.features.title")}
-          description={t("icm.features.description")}
+          description={t.rich("icm.features.description", {
+            promiseLink: (chunks) => (
+              <a
+                href="https://x.com/akshaybd/status/1861225525265735749"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline text-primary"
+              >
+                {chunks}
+              </a>
+            ),
+          })}
           features={[
             t("icm.features.0"),
             t("icm.features.1"),

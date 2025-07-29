@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 
 type WhatIsItProps = {
   title: string;
-  description: string;
+  description: React.ReactNode;
   features: string[];
 };
 
