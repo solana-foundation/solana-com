@@ -77,15 +77,15 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
               id="cta-report-title"
               className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4 max-w-xs"
             >
-              {t("depin.cta.reportTitle")}
+              {t("icm.cta.reportTitle")}
             </h3>
             <Button
               variant="default"
               className="text-lg p-5 rounded-xl transition-colors duration-200 shadow-md"
-              aria-label={t("depin.cta.downloadReport")}
+              aria-label={t("icm.cta.downloadReport")}
               onClick={onEmailClick}
             >
-              {t("depin.cta.downloadReport")}{" "}
+              {t("icm.cta.downloadReport")}{" "}
               <ArrowRightIcon aria-hidden="true" />
             </Button>
           </div>
@@ -93,17 +93,15 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
 
         <div className="bg-[#303742] rounded-2xl flex flex-col shadow-lg max-h-[400px] pt-6 px-6 pb-0 overflow-hidden">
           <h4 className="text-2xl font-semibold text-white mb-3">
-            {t("depin.cta.developerResourcesTitle")}
+            {t("icm.cta.learnTitle")}
           </h4>
-          <p className="text-white/80 mb-6">
-            {t("depin.cta.developerResourcesDescription")}
-          </p>
+          <p className="text-white/80 mb-6">{t("icm.cta.learnDescription")}</p>
           <div className="flex flex-col gap-3 mb-6">
             <Link
               href="/developers/guides/depin/getting-started"
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
-              {t("depin.cta.quickstartGuide")}
+              {t("icm.cta.learnTokens")}
               <ArrowRightIcon size={18} />
             </Link>
             <Link
@@ -112,7 +110,7 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
               rel="noopener noreferrer"
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
-              {t("depin.cta.examples")}
+              {t("icm.cta.learnWallets")}
               <ArrowRightIcon size={16} />
             </Link>
             <div className="flex flex-col h-full justify-end items-end mt-6">
@@ -122,7 +120,7 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
                 rel="noopener noreferrer"
                 className="text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200 text-base hover:bg-[#2a223d] outline outline-2 outline-[#7b47ff] outline-offset-[-2px]"
               >
-                {t("depin.cta.applyForGrant")}
+                {t("icm.cta.startLearning")}
               </Link>
             </div>
           </div>
@@ -130,10 +128,10 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
 
         <div className="bg-[#212030] rounded-2xl p-6 flex flex-col shadow-lg min-h-[280px]">
           <h4 className="text-2xl font-semibold text-white mb-3">
-            {t("depin.cta.getHelpTitle")}
+            {t("icm.cta.whatElseTitle")}
           </h4>
           <p className="text-white/80 mb-6">
-            {t("depin.cta.getHelpDescription")}
+            {t("icm.cta.whatElseDescription")}
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <BannerCTA

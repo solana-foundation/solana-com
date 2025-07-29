@@ -1,4 +1,4 @@
-import { Smartphone, Sparkles, Wallet } from "lucide-react";
+import { Blocks, Coins, HandCoins } from "lucide-react";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
@@ -31,110 +31,65 @@ export const PROJECTS = [
 
 export const LOGOS = [
   {
-    src: "/src/img/solutions/depin/ecosystem/375ai.png",
-    alt: "375AI",
+    src: "/src/img/solutions/icm/ecosystem/bullish.svg",
+    alt: "Bullish",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/depin/ecosystem/blockcast.png",
-    alt: "Blockcast",
+    src: "/src/img/solutions/icm/ecosystem/r3-logo-vector.svg",
+    alt: "R3",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/depin/ecosystem/cudis.png",
-    alt: "Cudis",
+    src: "/src/img/solutions/icm/ecosystem/Brevan_Howard_Logo.svg",
+    alt: "Brevan Howard",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/depin/ecosystem/dawn.png",
-    alt: "Dawn",
+    src: "/src/img/solutions/icm/ecosystem/Apollo_Global_Management_logo.svg",
+    alt: "Apollo Global Management",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/depin/ecosystem/decharge.png",
-    alt: "Decharge",
+    src: "/src/img/solutions/icm/ecosystem/Vaneck.svg",
+    alt: "Vaneck",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/depin/ecosystem/dephy.png",
-    alt: "Dephy",
+    src: "/src/img/solutions/icm/ecosystem/franklin-templeton.webp",
+    alt: "Franklin Templeton",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/depin/ecosystem/geodnet.png",
-    alt: "Geodnet",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/hivemapper.png",
-    alt: "Hivemapper",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/inference.png",
-    alt: "Inference",
+    src: "/src/img/solutions/icm/ecosystem/hamilton-lane.webp",
+    alt: "Hamilton Lane",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/depin/ecosystem/jambo.png",
-    alt: "Jambo",
+    src: "/src/img/solutions/icm/ecosystem/societe-general.webp",
+    alt: "Societe Generale",
     bg: "bg-black",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/onocoy.png",
-    alt: "Onocoy",
-    bg: "bg-black",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/pipenetwork.png",
-    alt: "Pipenetwork",
-    bg: "bg-black",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/roam.png",
-    alt: "Roam",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/shaga.png",
-    alt: "Shaga",
-    bg: "bg-[#f1ff61]",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/wayru.png",
-    alt: "Wayru",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/wingbits-seo.png",
-    alt: "Wingbits",
-    bg: "bg-[#201c1c]",
-  },
-  {
-    src: "/src/img/solutions/depin/ecosystem/xnet.png",
-    alt: "Xnet",
-    bg: "bg-white",
   },
 ];
 
 export const PRODUCTS = [
   {
-    key: "wallets",
-    Icon: Wallet,
+    key: "0",
+    Icon: Coins,
     color: "text-emerald-400 bg-emerald-900/30",
-    href: "/wallets",
+    href: "#",
   },
   {
-    key: "mobile",
-    Icon: Smartphone,
+    key: "1",
+    Icon: Blocks,
     color: "text-indigo-400 bg-indigo-900/30",
-    href: "https://docs.solanamobile.com/",
+    href: "#",
   },
   {
-    key: "tokenization",
-    Icon: Sparkles,
+    key: "2",
+    Icon: HandCoins,
     color: "text-cyan-400 bg-cyan-900/30",
-    href: "/solutions/real-world-assets",
+    href: "#",
   },
 ];
 
@@ -143,23 +98,23 @@ export const VIDEOS = (
 ) => [
   {
     id: "IpWVxL4V4Oc",
-    thumbnail: "/src/img/solutions/depin/video1.png",
-    title: t("depin.videos.0.title"),
-    description: t("depin.videos.0.description"),
-    alt: t("depin.videos.0.alt"),
+    thumbnail: "/src/img/solutions/icm/video1.webp",
+    title: t("icm.videoPlayer.videos.0.title"),
+    description: t("icm.videoPlayer.videos.0.description"),
+    alt: t("icm.videoPlayer.videos.0.alt"),
   },
   {
     id: "PzNXP0w4xqU",
-    thumbnail: "/src/img/solutions/depin/video2.png",
-    title: t("depin.videos.1.title"),
-    description: t("depin.videos.1.description"),
-    alt: t("depin.videos.1.alt"),
+    thumbnail: "/src/img/solutions/icm/video2.webp",
+    title: t("icm.videoPlayer.videos.1.title"),
+    description: t("icm.videoPlayer.videos.1.description"),
+    alt: t("icm.videoPlayer.videos.1.alt"),
   },
   {
     id: "VaBJu3dXpKk",
-    thumbnail: "/src/img/solutions/depin/video3.png",
-    title: t("depin.videos.2.title"),
-    description: t("depin.videos.2.description"),
-    alt: t("depin.videos.2.alt"),
+    thumbnail: "/src/img/solutions/icm/video3.webp",
+    title: t("icm.videoPlayer.videos.2.title"),
+    description: t("icm.videoPlayer.videos.2.description"),
+    alt: t("icm.videoPlayer.videos.2.alt"),
   },
 ];
