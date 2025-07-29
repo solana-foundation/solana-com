@@ -1,6 +1,6 @@
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
-import { CTACards } from "@/components/solutions/depin/CTACards";
+import { CTACards } from "@/components/solutions/icm/CTACards";
 import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
 import { Products } from "@/components/solutions/products";
 import { Projects } from "@/components/solutions/projects";
@@ -98,8 +98,8 @@ const ICMPage = () => {
         {/* Real Builders Section */}
         <section className="py-10 bg-[#171c25]">
           <VideoGrid
-            title={t("depin.videos.title")}
-            subtitle={t("depin.videos.subtitle")}
+            title={t("depin.builders.title")}
+            subtitle={t("depin.builders.subtitle")}
             videos={VIDEOS(t)}
             moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
             moreVideosLabel={t("depin.builders.moreVideos")}
