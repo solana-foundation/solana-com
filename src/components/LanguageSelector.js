@@ -25,7 +25,13 @@ const Language = () => {
         <ChevronDown size="17" />
       </Dropdown.Toggle>
 
-      <Dropdown.Menu className="bg-light">
+      <Dropdown.Menu
+        className="bg-light"
+        style={{
+          maxHeight: "50vh",
+          overflowY: "auto",
+        }}
+      >
         {Object.keys(languages).map((language) => (
           <Dropdown.Item key={language} href={"/" + language + asPath}>
             {languages[language]}
