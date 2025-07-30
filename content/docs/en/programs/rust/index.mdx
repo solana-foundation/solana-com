@@ -42,19 +42,24 @@ the program log.
 
 ## !!steps Create a new program
 
-First, create a new Rust project using the standard `cargo init` command with
-the `--lib` flag.
+First, create a new Rust project using the standard `cargo new` command with the
+`--lib` flag.
 
-```shell title="Terminal"
-cargo init hello_world --lib
+```terminal
+$ cargo new hello_world --lib
 ```
 
 Navigate to the project directory. You should see the default `src/lib.rs` and
 `Cargo.toml` files
 
-```shell title="Terminal"
-cd hello_world
+```terminal
+$ cd hello_world
 ```
+
+<Callout type="warn">
+  Update the `edition` field in `Cargo.toml` to `2021`. Otherwise, you might
+  encounter an error when building the program.
+</Callout>
 
 ```toml !! title="Cargo.toml"
 [package]
@@ -87,13 +92,9 @@ mod tests {
 Next, add the `solana-program` dependency. This is the minimum dependency
 required to build a Solana program.
 
-```shell title="Terminal"
-cargo add solana-program@1.18.26
+```terminal
+$ cargo add solana-program@2.2.0
 ```
-
-Next, add the following snippet to `Cargo.toml`. If you don't include this
-config, the `target/deploy` directory will not be generated when you build the
-program.
 
 ```toml !! title="Cargo.toml"
 [package]
@@ -103,20 +104,22 @@ edition = "2021"
 
 # !focus(1:2)
 [dependencies]
-solana-program = "1.18.26"
+solana-program = "2.2.0"
 ```
 
 ## !!steps Add the crate-type
 
 Next, add the following snippet to `Cargo.toml`.
 
-```toml
+```toml title="Cargo.toml"
 [lib]
 crate-type = ["cdylib", "lib"]
 ```
 
-If you don't include this config, the `target/deploy` directory will not be
-generated when you build the program.
+<Callout type="warn">
+  If you don't include this config, the `target/deploy` directory will not be
+  generated when you build the program.
+</Callout>
 
 <CodePlaceholder title="Cargo.toml">
   Your `Cargo.toml` file should look like the following:
@@ -133,7 +136,7 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "1.18.26"
+solana-program = "2.2.0"
 ```
 
 ## !!steps Add the program code
@@ -159,6 +162,7 @@ pub fn process_instruction(
     _accounts: &[AccountInfo],
     _instruction_data: &[u8],
 ) -> ProgramResult {
+    // !mark
     msg!("Hello, world!");
     Ok(())
 }
@@ -168,8 +172,8 @@ pub fn process_instruction(
 
 Next, build the program using the `cargo build-sbf` command.
 
-```shell title="Terminal"
-cargo build-sbf
+```terminal
+$ cargo build-sbf
 ```
 
 This command generates a `target/deploy` directory containing two important
@@ -183,8 +187,8 @@ files:
 To view the program ID, run the following command in your terminal. This command
 prints the public key of the keypair at the specified file path:
 
-```shell title="Terminal"
-solana address -k ./target/deploy/hello_world-keypair.json
+```terminal
+$ solana address -k ./target/deploy/hello_world-keypair.json
 ```
 
 Example output:
@@ -208,13 +212,12 @@ Example output:
 
 ## !!steps Add test dependencies
 
-Next, test the program using the `solana-program-test` crate. Add the following
-dependencies to `Cargo.toml`.
+Next, test the program using the `litesvm` crate. Add the following dependencies
+to `Cargo.toml`.
 
-```shell title="Terminal"
-cargo add solana-program-test@1.18.26 --dev
-cargo add solana-sdk@1.18.26 --dev
-cargo add tokio --dev
+```terminal
+$ cargo add litesvm --dev
+$ cargo add solana-sdk@2.2.0 --dev
 ```
 
 ```toml !! title="Cargo.toml"
@@ -227,13 +230,12 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "1.18.26"
+solana-program = "2.2.0"
 
-# !focus(1:4)
+# !focus(1:3)
 [dev-dependencies]
-solana-program-test = "1.18.26"
-solana-sdk = "1.18.26"
-tokio = "1.39.0"
+litesvm = "0.6.1"
+solana-sdk = "2.2.0"
 ```
 
 ## !!steps Test the program
@@ -259,55 +261,74 @@ pub fn process_instruction(
     Ok(())
 }
 
+// !focus(1:45)
 #[cfg(test)]
 mod test {
-    use solana_program_test::*;
+    use litesvm::LiteSVM;
     use solana_sdk::{
-        instruction::Instruction, pubkey::Pubkey, signature::Signer, transaction::Transaction,
+        instruction::Instruction,
+        message::Message,
+        signature::{Keypair, Signer},
+        transaction::Transaction,
     };
 
-    #[tokio::test]
-    // !focus(1:21)
-    async fn test_hello_world() {
-        let program_id = Pubkey::new_unique();
-        let mut program_test = ProgramTest::default();
-        program_test.add_program("hello_world", program_id, None);
-        let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
-        // Create instruction
+    #[test]
+    fn test_hello_world() {
+        // Create a new LiteSVM instance
+        let mut svm = LiteSVM::new();
+
+        // Create a keypair for the transaction payer
+        let payer = Keypair::new();
+
+        // Airdrop some lamports to the payer
+        svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+        // Load our program
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(program_id, "target/deploy/hello_world.so")
+            .unwrap();
+
+        // Create instruction with no accounts and no data
         let instruction = Instruction {
             program_id,
             accounts: vec![],
             data: vec![],
         };
-        // Create transaction with instruction
-        let mut transaction = Transaction::new_with_payer(&[instruction], Some(&payer.pubkey()));
-        // Sign transaction
-        transaction.sign(&[&payer], recent_blockhash);
-        let transaction_result = banks_client.process_transaction(transaction).await;
-        assert!(transaction_result.is_ok());
+
+        // Create transaction
+        let message = Message::new(&[instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(&[&payer], message, svm.latest_blockhash());
+
+        // Send transaction and verify it succeeds
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Transaction should succeed");
+        let logs = result.unwrap().logs;
+        println!("Logs: {logs:#?}");
     }
 }
 ```
 
-Run the test using the `cargo test-sbf` command. The program log will display
+Run the test using the `cargo test` command. The program log will display
 "Hello, world!".
 
-```shell title="Terminal"
-cargo test-sbf
+```terminal
+$ cargo test -- --no-capture
 ```
 
 Example output:
 
-```shell title="Terminal" {4} /Program log: Hello, world!/
+```txt title="Terminal"
 running 1 test
-[2024-10-18T21:24:54.889570000Z INFO  solana_program_test] "hello_world" SBF program from /hello_world/target/deploy/hello_world.so, modified 35 seconds, 828 ms, 268 µs and 398 ns ago
-[2024-10-18T21:24:54.974294000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM invoke [1]
-[2024-10-18T21:24:54.974814000Z DEBUG solana_runtime::message_processor::stable_log] Program log: Hello, world!
-[2024-10-18T21:24:54.976848000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM consumed 140 of 200000 compute units
-[2024-10-18T21:24:54.976868000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM success
+Logs: [
+    "Program 9528phXNvdWp5kkR4rgpoeZvR8ZWT5THVywK95YRprkk invoke [1]",
+    "Program log: Hello, world!",
+    "Program 9528phXNvdWp5kkR4rgpoeZvR8ZWT5THVywK95YRprkk consumed 211 of 200000 compute units",
+    "Program 9528phXNvdWp5kkR4rgpoeZvR8ZWT5THVywK95YRprkk success",
+]
 test test::test_hello_world ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 ```
 
 ## !!steps Deploy the program
@@ -317,8 +338,8 @@ Next, deploy the program. When developing locally, we can use the
 
 First, configure the Solana CLI to use the local Solana cluster.
 
-```shell title="Terminal"
-solana config set -ul
+```terminal
+$ solana config set -ul
 ```
 
 Example output:
@@ -334,15 +355,15 @@ Commitment: confirmed
 Open a new terminal and run the `solana-test-validators` command to start the
 local validator.
 
-```shell title="Terminal"
-solana-test-validator
+```terminal
+$ solana-test-validator
 ```
 
 While the test validator is running, run the `solana program deploy` command in
 a separate terminal to deploy the program to the local validator.
 
-```shell title="Terminal"
-solana program deploy ./target/deploy/hello_world.so
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
 ```
 
 Example output:
@@ -355,8 +376,11 @@ Signature:
 
 You can inspect the program ID and transaction signature on
 [Solana Explorer](https://explorer.solana.com/?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899).
-Note that the cluster on Solana Explorer must also be localhost. The "Custom RPC
-URL" option on Solana Explorer defaults to `http://localhost:8899`.
+
+<Callout type="info">
+  Note that the cluster on Solana Explorer must also be localhost. The "Custom
+  RPC URL" option on Solana Explorer defaults to `http://localhost:8899`.
+</Callout>
 
 ## !!steps Create example client
 
@@ -364,9 +388,8 @@ Next, we'll demonstrate how to invoke the program using a Rust client.
 
 First create an `examples` directory and a `client.rs` file.
 
-```shell title="Terminal"
-mkdir -p examples
-touch examples/client.rs
+```terminal
+$ mkdir -p examples && touch examples/client.rs
 ```
 
 Add the following to `Cargo.toml`.
@@ -377,10 +400,11 @@ name = "client"
 path = "examples/client.rs"
 ```
 
-Add the `solana-client` dependency.
+Add `solana-client` and `tokio` dependencies.
 
-```shell title="Terminal"
-cargo add solana-client@1.18.26 --dev
+```terminal
+$ cargo add solana-client@2.2.0 --dev
+$ cargo add tokio --dev
 ```
 
 ```toml !! title="Cargo.toml"
@@ -393,12 +417,11 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "1.18.26"
+solana-program = "2.2.0"
 
 [dev-dependencies]
-solana-program-test = "1.18.26"
-solana-sdk = "1.18.26"
-tokio = "1.39.0"
+litesvm = "0.6.1"
+solana-client = "2.2.0"
 
 # !focus(1:3)
 [[example]]
@@ -476,13 +499,13 @@ async fn main() {
 
 ## !!steps Replace the program ID
 
-Before running the script, replace the program ID in the code snippet above with
+Before running the client code, replace the program ID in the code snippet with
 the one for your program.
 
 You can get your program ID by running the following command.
 
-```shell title="Terminal"
-solana address -k ./target/deploy/hello_world-keypair.json
+```terminal
+$ solana address -k ./target/deploy/hello_world-keypair.json
 ```
 
 ```rs !! title="examples/client.rs"
@@ -546,8 +569,8 @@ async fn main() {
 
 Run the client script with the following command.
 
-```shell title="Terminal"
-cargo run --example client
+```terminal
+$ cargo run --example client
 ```
 
 Example output:
@@ -598,72 +621,91 @@ pub fn process_instruction(
 
 #[cfg(test)]
 mod test {
-    use solana_program_test::*;
+    use litesvm::LiteSVM;
     use solana_sdk::{
-        instruction::Instruction, pubkey::Pubkey, signature::Signer, transaction::Transaction,
+        instruction::Instruction,
+        message::Message,
+        signature::{Keypair, Signer},
+        transaction::Transaction,
     };
 
-    #[tokio::test]
-    async fn test_hello_world() {
-        let program_id = Pubkey::new_unique();
-        let mut program_test = ProgramTest::default();
-        program_test.add_program("hello_world", program_id, None);
-        let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
-        // Create instruction
+    #[test]
+    fn test_hello_world() {
+        // Create a new LiteSVM instance
+        let mut svm = LiteSVM::new();
+
+        // Create a keypair for the transaction payer
+        let payer = Keypair::new();
+
+        // Airdrop some lamports to the payer
+        svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+        // Load our program
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(program_id, "target/deploy/hello_world.so")
+            .unwrap();
+
+        // Create instruction with no accounts and no data
         let instruction = Instruction {
             program_id,
             accounts: vec![],
             data: vec![],
         };
-        // Create transaction with instruction
-        let mut transaction = Transaction::new_with_payer(&[instruction], Some(&payer.pubkey()));
-        // Sign transaction
-        transaction.sign(&[&payer], recent_blockhash);
-        let transaction_result = banks_client.process_transaction(transaction).await;
-        assert!(transaction_result.is_ok());
+
+        // Create transaction
+        let message = Message::new(&[instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(&[&payer], message, svm.latest_blockhash());
+
+        // Send transaction and verify it succeeds
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Transaction should succeed");
+        let logs = result.unwrap().logs;
+        println!("Logs: {logs:#?}");
     }
 }
 ```
 
-Test the updated program by running the `cargo test-sbf` command.
+Run the `cargo build-sbf` command to generate an updated `.so` file.
 
-```shell title="Terminal"
-cargo test-sbf
+```terminal
+$ cargo build-sbf
+```
+
+Test the updated program by running the `cargo test` command.
+
+```terminal
+$ cargo test -- --no-capture
 ```
 
 You should see "Hello, Solana!" in the program log.
 
-```shell title="Terminal" {4}
+```txt title="Terminal"
 running 1 test
-[2024-10-23T19:28:28.842639000Z INFO  solana_program_test] "hello_world" SBF program from /code/misc/delete/hello_world/target/deploy/hello_world.so, modified 4 minutes, 31 seconds, 435 ms, 566 µs and 766 ns ago
-[2024-10-23T19:28:28.934854000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM invoke [1]
-[2024-10-23T19:28:28.936735000Z DEBUG solana_runtime::message_processor::stable_log] Program log: Hello, Solana!
-[2024-10-23T19:28:28.938774000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM consumed 140 of 200000 compute units
-[2024-10-23T19:28:28.938793000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM success
+Logs: [
+    "Program 5y8bHrnwfq2dLDgLn3WoTHb9dDuyorj9gyapW6aeyrpV invoke [1]",
+    "Program log: Hello, Solana!",
+    "Program 5y8bHrnwfq2dLDgLn3WoTHb9dDuyorj9gyapW6aeyrpV consumed 211 of 200000 compute units",
+    "Program 5y8bHrnwfq2dLDgLn3WoTHb9dDuyorj9gyapW6aeyrpV success",
+]
 test test::test_hello_world ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 ```
 
 ## !!steps Redeploy the program
 
-Run the `cargo build-sbf` command to generate an updated `.so` file.
+Redeploy the program using the same `solana program deploy` command.
 
-```shell title="Terminal"
-cargo build-sbf
-```
-
-Redeploy the program using the `solana program deploy` command.
-
-```shell title="Terminal"
-solana program deploy ./target/deploy/hello_world.so
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
 ```
 
 Run the client code again and inspect the transaction signature on Solana
 Explorer to see "Hello, Solana!" in the program log.
 
-```shell title="Terminal"
-cargo run --example client
+```terminal
+$ cargo run --example client
 ```
 
 ## !!steps Close the program
@@ -674,9 +716,8 @@ Closing a program is irreversible, so it should be done with caution.
 To close a program, use the `solana program close <PROGRAM_ID>` command. For
 example:
 
-```shell title="Terminal"
-solana program close 4Ujf5fXfLx2PAwRqcECCLtgDxHKPznoJpa43jUBxFfMz
---bypass-warning
+```terminal
+$ solana program close 4Ujf5fXfLx2PAwRqcECCLtgDxHKPznoJpa43jUBxFfMz --bypass-warning
 ```
 
 Example output:
@@ -700,12 +741,14 @@ If you need to redeploy a program with the same source code after closing a
 program, you must generate a new program ID. To generate a new keypair for the
 program, run the following command:
 
-```shell title="Terminal"
-solana-keygen new -o ./target/deploy/hello_world-keypair.json --force
+```terminal
+$ solana-keygen new -o ./target/deploy/hello_world-keypair.json --force
 ```
 
-Alternatively, you can delete the existing keypair file (e.g.
-`./target/deploy/hello_world-keypair.json`) and run `cargo build-sbf` again,
-which will generate a new keypair file.
+<Callout type="info">
+  Alternatively, you can delete the existing keypair file (e.g.
+  `./target/deploy/hello_world-keypair.json`) and run `cargo build-sbf` again,
+  which will generate a new keypair file.
+</Callout>
 
 </ScrollyCoding>
