@@ -16,6 +16,9 @@ export default async function Page(_props: Props) {
     ctaTitle: t("universities.cta.title"),
     ctaDescription: t("universities.cta.description"),
     ctaLabel: t("universities.cta.ctaLabel"),
+    subjectsTitle: t("universities.subjects.title"),
+    subjectsDescription: t("universities.subjects.description"),
+    subjectsEmailButtonLabel: t("universities.subjects.emailButtonLabel"),
   };
 
   return <UniversitiesPage translations={translations} />;

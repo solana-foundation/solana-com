@@ -2,6 +2,7 @@
 
 import DevelopersHeroSection from "@/components/developers/sections/DevelopersHeroSection/DevelopersHeroSection";
 import UniversitiesCTASection from "@/components/universities/UniversitiesCTASection";
+import UniversitiesSubjectsSection from "@/components/universities/UniversitiesSubjectsSection";
 import universitiesHeroImg from "@@/assets/universities/universities-hero.webp";
 
 interface UniversitiesPageProps {
@@ -14,6 +15,9 @@ interface UniversitiesPageProps {
     ctaTitle: string;
     ctaDescription: string;
     ctaLabel: string;
+    subjectsTitle: string;
+    subjectsDescription: string;
+    subjectsEmailButtonLabel: string;
   };
 }
 
@@ -39,13 +43,20 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
         }}
       />
 
-      {/* CTA Section */}
       <UniversitiesCTASection
         translations={{
           eyebrowText: translations.ctaEyebrowText,
           title: translations.ctaTitle,
           description: translations.ctaDescription,
           ctaLabel: translations.ctaLabel,
+        }}
+      />
+
+      <UniversitiesSubjectsSection
+        translations={{
+          title: translations.subjectsTitle,
+          description: translations.subjectsDescription,
+          emailButtonLabel: translations.subjectsEmailButtonLabel,
         }}
       />
     </div>
