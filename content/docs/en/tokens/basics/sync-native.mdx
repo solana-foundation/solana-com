@@ -1,0 +1,400 @@
+---
+title: Sync Sol to WSOL
+description: Learn how to convert SOL into Wrapped SOL.
+---
+
+## How to convert Sol into Wrapped SOL
+
+Wrapping SOL involves converting your Solana in an SPL token that retains the decimals of Solana. This is neccessary for DEFI applications where you want to trade against other SPL tokens and wouldn't want the friction of handling native SOL to hinder you. To wrap SOL into WSOL, you call the [SyncNative](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/interface/src/instruction.rs#L387) instruction on the token program/s.
+
+
+<Callout type="info">
+  The [Token
+  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/interface/src/instruction.rs#L387)
+  and [Token Extension
+  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L182)
+  share similar implementations to achieve the same functionality.
+</Callout>
+
+### Typescript
+
+<CodeTabs storage="token-ts" flags="r">
+
+```ts !! title="Kit"
+import { getTransferSolInstruction } from "@solana-program/system";
+import {
+	findAssociatedTokenPda,
+	getCreateAssociatedTokenInstructionAsync,
+	getSyncNativeInstruction,
+	TOKEN_PROGRAM_ADDRESS,
+} from "@solana-program/token";
+import {
+	address,
+	airdropFactory,
+	appendTransactionMessageInstructions,
+	createSolanaRpc,
+	createSolanaRpcSubscriptions,
+	createTransactionMessage,
+	generateKeyPairSigner,
+	getSignatureFromTransaction,
+	lamports,
+	pipe,
+	sendAndConfirmTransactionFactory,
+	setTransactionMessageFeePayerSigner,
+	setTransactionMessageLifetimeUsingBlockhash,
+	signTransactionMessageWithSigners,
+	type Commitment,
+	type CompilableTransactionMessage,
+	type Rpc,
+	type RpcSubscriptions,
+	type SolanaRpcApi,
+	type SolanaRpcSubscriptionsApi,
+	type TransactionMessageWithBlockhashLifetime,
+	type TransactionSigner,
+} from "@solana/kit";
+
+// Create Connection, local validator in this example
+const client = createClient();
+
+// Generate keypairs for mint address, fee payer and delegate
+const payer = await generateKeyPairSigner(); // will act as mint authority too
+
+/* constants */
+const NATIVE_MINT = address("So11111111111111111111111111111111111111112");
+let amountToSync = 1_000_000_000n; // 1 SOL
+
+console.log("Fee Payer Address: ", payer.address.toString());
+
+// Fund fee payer
+await airdropFactory(client)({
+	recipientAddress: payer.address,
+	lamports: lamports(5_000_000_000n), // 5 SOL
+	commitment: "confirmed",
+});
+
+// find the ATA for Native mint
+const [associatedTokenAddress] = await findAssociatedTokenPda({
+	mint: NATIVE_MINT,
+	owner: payer.address,
+	tokenProgram: TOKEN_PROGRAM_ADDRESS,
+});
+
+// create the WSOL token account
+const createAuthorityATAInstruction =
+	await getCreateAssociatedTokenInstructionAsync({
+		payer: payer,
+		mint: NATIVE_MINT,
+		owner: payer.address,
+	});
+
+// transfer Sol to your WSOL token account
+const transferSolIx = getTransferSolInstruction({
+	source: payer,
+	destination: associatedTokenAddress,
+	amount: amountToSync,
+});
+
+// sync the SOL into WSOL
+const syncNativeInstruction = getSyncNativeInstruction({
+	account: associatedTokenAddress,
+});
+
+const instructions = [
+	createAuthorityATAInstruction,
+	transferSolIx,
+	syncNativeInstruction,
+];
+
+const txSignature = await pipe(
+	await createDefaultTransaction(client, payer),
+	(tx) => appendTransactionMessageInstructions(instructions, tx),
+	(tx) => signAndSendTransaction(client, tx)
+);
+
+console.log("\nTransaction Signature:", txSignature);
+
+// ------------------------------------------------ helpers
+
+type Client = {
+	rpc: Rpc<SolanaRpcApi>;
+	rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
+};
+
+function createClient(): Client {
+	const rpc = createSolanaRpc("http://localhost:8899");
+	const rpcSubscriptions = createSolanaRpcSubscriptions(
+		"ws://localhost:8900"
+	);
+
+	return { rpc, rpcSubscriptions };
+}
+
+async function createDefaultTransaction(
+	client: Client,
+	feePayer: TransactionSigner
+) {
+	const { value: latestBlockhash } = await client.rpc
+		.getLatestBlockhash()
+		.send();
+	return pipe(
+		createTransactionMessage({ version: 0 }),
+		(tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+		(tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx)
+	);
+}
+
+async function signAndSendTransaction(
+	client: Client,
+	transactionMessage: CompilableTransactionMessage &
+		TransactionMessageWithBlockhashLifetime,
+	commitment: Commitment = "confirmed"
+) {
+	const signedTransaction = await signTransactionMessageWithSigners(
+		transactionMessage
+	);
+	const signature = getSignatureFromTransaction(signedTransaction);
+
+	await sendAndConfirmTransactionFactory(client)(signedTransaction, {
+		commitment,
+		skipPreflight: true,
+	});
+	return signature;
+}
+```
+
+```ts !! title="Legacy"
+import {
+  clusterApiUrl,
+  Connection,
+  Keypair,
+  Transaction,
+  SystemProgram,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  NATIVE_MINT,
+  getAssociatedTokenAddress,
+  createSyncNativeInstruction,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+import bs58 from "bs58";
+
+// connection
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// 5YNmS1R9nNSCDzb5a7mMJ1dwK9uHeAAF4CmPEwKgVWr8
+const feePayer = Keypair.fromSecretKey(
+  bs58.decode(
+    "588FU4PktJWfGfxtzpAAXywSNt74AvtroVzGfKkVN1LwRuvHwKGr851uH8czM5qm4iqLbs1kKoMKtMJG4ATR7Ld2"
+  )
+);
+var airdropSig = await connection.requestAirdrop(
+  feePayer.publicKey,
+  10000000000
+);
+await connection.confirmTransaction(airdropSig);
+
+console.log(NATIVE_MINT);
+
+// G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY
+const alice = Keypair.fromSecretKey(
+  bs58.decode(
+    "4NMwxzmYj2uvHuq8xoqhY8RXg63KSVJM1DXkpbmkUY7YQWuoyQgFnnzn6yo3CMnqZasnNPNuAT2TLwQsCaKkUddp"
+  )
+);
+var airdropSig = await connection.requestAirdrop(alice.publicKey, 10000000000);
+await connection.confirmTransaction(airdropSig);
+
+// remember to create ATA first
+let ata = await getAssociatedTokenAddress(
+  NATIVE_MINT, // mint
+  alice.publicKey, // owner
+  undefined,
+  TOKEN_2022_PROGRAM_ID
+);
+
+let amount = 1 * 1e9; /* Wrapped SOL's decimals is 9 */
+
+let tx = new Transaction().add(
+  // transfer SOL
+  SystemProgram.transfer({
+    fromPubkey: alice.publicKey,
+    toPubkey: ata,
+    lamports: amount
+  }),
+  // sync wrapped SOL balance
+  createSyncNativeInstruction(ata)
+);
+console.log(
+  `txhash: ${await sendAndConfirmTransaction(connection, tx, [feePayer, alice])}`
+);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust Async"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Keypair,
+    signer::Signer, system_instruction::transfer as sol_transfer, transaction::Transaction,
+};
+use spl_associated_token_account::{
+    get_associated_token_address, instruction::create_associated_token_account_idempotent,
+};
+use spl_token::{
+    instruction::sync_native, native_mint::ID as NATIVE_MINT_ID, ID as TOKEN_PROGRAM_ID,
+};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let authority_keypair = Keypair::new();
+    let ata_address = get_associated_token_address(&authority_keypair.pubkey(), &NATIVE_MINT_ID);
+    let amount = 1 * 10_u64.pow(9); /* Wrapped SOL's decimals is 9, hence amount to wrap is 1 SOL */
+
+    // create token account for wrapped sol
+    let create_ata_ix = create_associated_token_account_idempotent(
+        &authority_keypair.pubkey(),
+        &authority_keypair.pubkey(),
+        &NATIVE_MINT_ID,
+        &TOKEN_PROGRAM_ID,
+    );
+
+    let transfer_ix = sol_transfer(&authority_keypair.pubkey(), &ata_address, amount);
+    let sync_native_ix = sync_native(&TOKEN_PROGRAM_ID, &ata_address)?;
+
+    let transaction_signature = client
+        .request_airdrop(&authority_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        if client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    let mut transaction = Transaction::new_with_payer(
+        &[create_ata_ix, transfer_ix, sync_native_ix],
+        Some(&authority_keypair.pubkey()),
+    );
+
+    transaction.sign(&[&authority_keypair], client.get_latest_blockhash().await?);
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error sending transaction: {}", err),
+    }
+
+    Ok(())
+}
+```
+
+```rust !! title="Token Client"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
+    signature::{ Keypair, Signer },
+    system_instruction::transfer as sol_transfer,
+    transaction::Transaction,
+};
+use spl_token::{ id as token_program_id, native_mint::ID as NATIVE_MINT_ID };
+use spl_token_client::{
+    client::{ ProgramRpcClient, ProgramRpcClientSendTransaction },
+    token::{ Token },
+};
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let rpc_client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed()
+    );
+    // Generate keypairs to use for authority, delegate and mint
+    let authority_keypair = Keypair::new(); // will also act as tx fee payer
+
+    // Number of decimals for the mint
+    let decimals = 9;
+
+    // Airdrop 5 SOL to authority keypair
+    let transaction_signature = rpc_client.request_airdrop(
+        &authority_keypair.pubkey(),
+        5 * LAMPORTS_PER_SOL
+    ).await?;
+    loop {
+        if rpc_client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    // Create a new program client
+    let program_client = ProgramRpcClient::new(
+        Arc::new(
+            RpcClient::new_with_commitment(
+                String::from("http://localhost:8899"),
+                CommitmentConfig::confirmed()
+            )
+        ),
+        ProgramRpcClientSendTransaction
+    );
+
+    // Create a token client for Token
+    let token = Token::new(
+        Arc::new(program_client),
+        &token_program_id(),
+        &NATIVE_MINT_ID,
+        Some(decimals),
+        Arc::new(authority_keypair.insecure_clone())
+    );
+
+    // Derive mint authority ATA
+    let authority_wsol_ata = token.get_associated_token_address(&authority_keypair.pubkey());
+    println!("Authority WSOL Token Account Address: {}", authority_wsol_ata);
+
+    // Then, create the associated token account for mint authority
+    let create_authority_wsol_ata_result = token.create_associated_token_account(
+        &authority_keypair.pubkey() // owner
+    ).await?;
+    println!("Created WSOL Token Account: {}", create_authority_wsol_ata_result);
+
+    // sync amount
+    let amount_to_sync = 1_000_000_000; // 1 SOL because of 9 decimals
+
+    // transfer SOl into the creates WSOL token accounts
+    let transfer_ix = sol_transfer(
+        &authority_keypair.pubkey(),
+        &authority_wsol_ata,
+        amount_to_sync
+    );
+    let mut transaction = Transaction::new_with_payer(
+        &[transfer_ix],
+        Some(&authority_keypair.pubkey())
+    );
+    transaction.sign(&[&authority_keypair], rpc_client.get_latest_blockhash().await?);
+    println!("Transferring 1 SOl into WSOL ATA {authority_wsol_ata}");
+    match rpc_client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("tx signature: {}", signature),
+        Err(err) => eprintln!("Error sending transaction: {}", err),
+    }
+
+    // sync the SOL into WSOL
+    let tx_sig = token.sync_native(&authority_wsol_ata).await?;
+
+    println!("\nSuccessfully converted 1 SOL into WSOL");
+    println!("Transaction Signature: {}", tx_sig);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
