@@ -1,17 +1,17 @@
 ---
-title: Approve Delegate
-description: Learn how to approve delegates as token authority.
+title: Revoke Delegate
+description: Learn how to revoke an account delegate.
 ---
 
-## How to Approve delegate
+## How to Revoke delegate
 
-Approving delegates involves giving authority to another authority the ability to spend a specified amount of tokens in your token account. This happens when you call the [`ApproveChecked`](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L295) instruction on the token program/s. Only the authority of the source token account can approve another address can call this instruction.
+Revoking delegates involves removing the an assigned delegate from spending the authority's pre-approved token balance. This can be done by calling the [Revoke](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/interface/src/instruction.rs#L133C5-L133C11) instruction on the token program/s. Only the authority of the source token account can revoke a previously approved delegate when calling this instruction.
 
 <Callout type="info">
   The [Token
-  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L295)
+  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L140)
   and [Token Extension
-  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L361)
+  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L182)
   share similar implementations to achieve the same functionality.
 </Callout>
 
@@ -28,6 +28,7 @@ import {
 	getInitializeMintInstruction,
 	getMintSize,
 	getMintToCheckedInstruction,
+	getRevokeInstruction,
 	TOKEN_PROGRAM_ADDRESS,
 } from "@solana-program/token";
 import {
@@ -73,27 +74,23 @@ console.log("Mint Address: ", mint.address.toString());
 let { payerAssociatedTokenAcc } = await setup();
 
 // !mark
-const delegateInstruction = getApproveCheckedInstruction({
+const revokeDelegateIx = getRevokeInstruction({
 	source: payerAssociatedTokenAcc,
-	mint: mint.address,
-	delegate: delegate.address,
 	owner: payer,
-	amount: 1_000_000_000n, // 1 token
-	decimals: mintDecimals,
 });
 
 const txSignature = await pipe(
 	await createDefaultTransaction(client, payer),
-	(tx) => appendTransactionMessageInstruction(delegateInstruction, tx),
+	(tx) => appendTransactionMessageInstruction(revokeDelegateIx, tx),
 	(tx) => signAndSendTransaction(client, tx)
 );
-console.log("Transaction Signature:", txSignature);
+console.log("\nTransaction Signature:", txSignature);
 
 // ------------------------------------------------ helpers
 
 /*
  * The setup function initializes the mint and associated token accounts
- * for the payer
+ * for the payer and approves delegation of tokens to the delegate address
  *
  */
 async function setup() {
@@ -152,11 +149,22 @@ async function setup() {
 		decimals: mintDecimals,
 	});
 
+	// Create instruction to revoke delegate
+	const delegateInstruction = getApproveCheckedInstruction({
+		source: payerAssociatedTokenAcc,
+		mint: mint.address,
+		delegate: delegate.address,
+		owner: payer,
+		amount: 1_000_000_000n, // 1 token
+		decimals: mintDecimals,
+	});
+
 	const instructions = [
 		createAccountInstruction, // create mint accounts
 		initializeMintInstruction, // initialize mint accounts
 		cratePayerATAInstruction, // create payer's ATA
 		mintToInstruction, // mint tokens to payer
+		delegateInstruction, // delegate tokens
 	];
 
 	await pipe(
@@ -351,7 +359,7 @@ const tokenAccountPubkey = tokenAccount.address;
 
 // 6) Approve delegation by composing transaction
 {
-  console.log("\n2. Approving delegation by composing transaction...");
+  console.log("\n6. Approving delegation by composing transaction...");
   const tx = new Transaction().add(
     createApproveCheckedInstruction(
       tokenAccountPubkey, // token account
@@ -370,6 +378,36 @@ const tokenAccountPubkey = tokenAccount.address;
     )}`
   );
 }
+
+// 7) Revoke delegation using build-in function
+{
+  console.log("\n7. Revoking delegation...");
+  const revokeTxhash = await revoke(
+    connection,
+    tokenOwner,
+    tokenAccountPubkey,
+    tokenOwner
+  );
+  console.log(`Revoke delegation txhash: ${revokeTxhash}`);
+}
+
+// 8) Revoke delegation by composing transaction
+{
+  console.log("\n8. Revoking delegation by composing transaction...");
+  const revokeTx = new Transaction().add(
+    createRevokeInstruction(
+      tokenAccountPubkey, // token account
+      tokenOwner.publicKey // owner of token account
+    )
+  );
+  console.log(
+    `Revoke delegation txhash: ${await sendAndConfirmTransaction(
+      connection,
+      revokeTx,
+      [tokenOwner]
+    )}`
+  );
+}
 ```
 
 </CodeTabs>
@@ -381,20 +419,15 @@ const tokenAccountPubkey = tokenAccount.address;
 ```rust !! title="Rust Async"
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    native_token::LAMPORTS_PER_SOL,
-    program_pack::Pack,
-    signature::Keypair,
-    signer::Signer,
-    system_instruction::create_account,
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, program_pack::Pack,
+    signature::Keypair, signer::Signer, system_instruction::create_account,
     transaction::Transaction,
 };
 use spl_associated_token_account::{
-    get_associated_token_address,
-    instruction::create_associated_token_account_idempotent,
+    get_associated_token_address, instruction::create_associated_token_account_idempotent,
 };
 use spl_token::{
-    instruction::{ approve_checked, initialize_mint2 },
+    instruction::{initialize_mint2, revoke},
     state::Mint,
     ID as TOKEN_PROGRAM_ID,
 };
@@ -403,48 +436,26 @@ use spl_token::{
 async fn main() -> anyhow::Result<()> {
     let client = RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
-        CommitmentConfig::confirmed()
+        CommitmentConfig::confirmed(),
     );
 
-    // Generate keypairs to use for authority, delegate and mint
     let authority_keypair = Keypair::new(); // will also act as tx fee payer
-    let delegate_keypair = Keypair::new();
     let mint_account = Keypair::new();
-
-    println!("Mint Authority Address: {}", authority_keypair.pubkey());
-    println!("Delegate Address: {}", delegate_keypair.pubkey());
-    println!("Mint Address: {}", mint_account.pubkey());
-
-    // derive the mint authority ATA
-    let associated_token_account = get_associated_token_address(
-        &authority_keypair.pubkey(),
-        &mint_account.pubkey()
-    );
+    let associated_token_account =
+        get_associated_token_address(&authority_keypair.pubkey(), &mint_account.pubkey());
 
     // Airdrop authority, create the mint account and ATA
     setup(&client, &authority_keypair, &mint_account).await?;
-    // Get mint decimals from the ATA
-    let mint_decimals = client.get_token_account_balance(&associated_token_account).await?.decimals;
 
-    // Amount of tokens to delegate (1 tokens with 9 decimal places)
-    let amount_to_delegate = 1 * (10_u64).pow(mint_decimals as u32); // 1 token
-
-    // Instruction to approve delegate
-    let approve_delegate_ix = approve_checked(
+    let revoke_delegate_ix = revoke(
         &TOKEN_PROGRAM_ID,
         &associated_token_account,
-        &mint_account.pubkey(),
-        &delegate_keypair.pubkey(),
         &authority_keypair.pubkey(),
         &[&authority_keypair.pubkey()],
-        amount_to_delegate,
-        mint_decimals
     )?;
 
-    let mut transaction = Transaction::new_with_payer(
-        &[approve_delegate_ix],
-        Some(&authority_keypair.pubkey())
-    );
+    let mut transaction =
+        Transaction::new_with_payer(&[revoke_delegate_ix], Some(&authority_keypair.pubkey()));
 
     transaction.sign(&[&authority_keypair], client.get_latest_blockhash().await?);
 
@@ -460,61 +471,60 @@ async fn main() -> anyhow::Result<()> {
 async fn setup(
     client: &RpcClient,
     authority_keypair: &Keypair,
-    mint_account: &Keypair
+    mint_account: &Keypair,
 ) -> anyhow::Result<()> {
-    // Airdrop 5 SOL to recipient
-    let transaction_signature = client.request_airdrop(
-        &authority_keypair.pubkey(),
-        5 * LAMPORTS_PER_SOL
-    ).await?;
+    let transaction_signature = client
+        .request_airdrop(&authority_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await?;
     loop {
         if client.confirm_transaction(&transaction_signature).await? {
             break;
         }
     }
 
-    /* constants */
     let decimals = 9;
     let mint_account_len = Mint::LEN;
-    let mint_account_rent = client.get_minimum_balance_for_rent_exemption(mint_account_len).await?;
+    let mint_account_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_account_len)
+        .await?;
 
-    // Create mint accounts instruction
     let create_mint_account_ix = create_account(
         &authority_keypair.pubkey(),
         &mint_account.pubkey(),
         mint_account_rent,
         mint_account_len as u64,
-        &TOKEN_PROGRAM_ID
+        &TOKEN_PROGRAM_ID,
     );
 
-    // Initialize mint instruction
     let initialize_mint_ix = initialize_mint2(
         &TOKEN_PROGRAM_ID,
         &mint_account.pubkey(),
         &authority_keypair.pubkey(),
         Some(&authority_keypair.pubkey()),
-        decimals
+        decimals,
     )?;
 
     // Create ATA instruction
     let create_ata_ix = create_associated_token_account_idempotent(
         &authority_keypair.pubkey(), // payer
         &authority_keypair.pubkey(), // wallet address
-        &mint_account.pubkey(), // mint address
-        &TOKEN_PROGRAM_ID
+        &mint_account.pubkey(),      // mint address
+        &TOKEN_PROGRAM_ID,
     );
 
     let mut transaction = Transaction::new_with_payer(
         &[create_mint_account_ix, initialize_mint_ix, create_ata_ix],
-        Some(&authority_keypair.pubkey())
+        Some(&authority_keypair.pubkey()),
     );
 
-    transaction.sign(&[authority_keypair, mint_account], client.get_latest_blockhash().await?);
+    transaction.sign(
+        &[authority_keypair, mint_account],
+        client.get_latest_blockhash().await?,
+    );
 
     client.send_and_confirm_transaction(&transaction).await?;
     Ok(())
 }
-
 ```
 
 ```rust !! title="Token Client"
@@ -590,9 +600,9 @@ async fn main() -> Result<()> {
         extension_initialization_params, // no extensions
         &[&mint_keypair] // mint keypair needed as signer
     ).await?;
+
     println!("\nCreating mint {}", mint_keypair.pubkey());
     println!("Transaction Signature: {}", mint_result);
-
 
     // Derive mint authority ATA
     let mint_auth_associated_token_acc = token.get_associated_token_address(
@@ -615,10 +625,10 @@ async fn main() -> Result<()> {
         &[&authority_keypair] // additional signers (providing payer as a signer)
     ).await?;
 
-  println!(
-      "Successfully minted {} tokens to the associated token account",
-      mint_amount / (10_u64).pow(decimals as u32)
-  );
+    println!(
+        "Successfully minted {} tokens to the associated token account",
+        mint_amount / (10_u64).pow(decimals as u32)
+    );
     println!("Transaction Signature: {}", mint_to_result);
 
     let amount_to_delegate = 10 * (10_u64).pow(decimals as u32); // 10 tokens
@@ -633,6 +643,19 @@ async fn main() -> Result<()> {
 
     println!(
         "Successfully delegated control of {} tokens to {}",
+        amount_to_delegate / (10_u64).pow(decimals as u32),
+        delegate_keypair.pubkey()
+    );
+    println!("Transaction Signature: {}", transaction_signature);
+
+    let transaction_signature = token.revoke(
+        &mint_auth_associated_token_acc, // source
+        &authority_keypair.pubkey(), // authority
+        &[&authority_keypair] // additional signers (providing payer as a signer)
+    ).await?;
+
+    println!(
+        "Successfully Revoked {} tokens delegated to {}",
         amount_to_delegate / (10_u64).pow(decimals as u32),
         delegate_keypair.pubkey()
     );
