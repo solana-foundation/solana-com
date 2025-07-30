@@ -1,6 +1,7 @@
 "use client";
 
 import DevelopersHeroSection from "@/components/developers/sections/DevelopersHeroSection/DevelopersHeroSection";
+import UniversitiesCTASection from "@/components/universities/UniversitiesCTASection";
 import universitiesHeroImg from "@@/assets/universities/universities-hero.webp";
 
 interface UniversitiesPageProps {
@@ -9,6 +10,10 @@ interface UniversitiesPageProps {
     heroSubtitle: string;
     joinProgram: string;
     learnMore: string;
+    ctaEyebrowText: string;
+    ctaTitle: string;
+    ctaDescription: string;
+    ctaLabel: string;
   };
 }
 
@@ -34,14 +39,15 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
         }}
       />
 
-      {/* Additional sections can be added here */}
-      <section className="pt-8 md:pt-12 pb-20 md:pb-24">
-        <div className="container">
-          <p className="text-lg text-gray-600">
-            More education content coming soon...
-          </p>
-        </div>
-      </section>
+      {/* CTA Section */}
+      <UniversitiesCTASection
+        translations={{
+          eyebrowText: translations.ctaEyebrowText,
+          title: translations.ctaTitle,
+          description: translations.ctaDescription,
+          ctaLabel: translations.ctaLabel,
+        }}
+      />
     </div>
   );
 }

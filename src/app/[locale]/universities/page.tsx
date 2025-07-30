@@ -12,6 +12,10 @@ export default async function Page(_props: Props) {
     heroSubtitle: t("universities.hero.subtitle"),
     joinProgram: t("universities.hero.joinProgram"),
     learnMore: t("universities.hero.learnMore"),
+    ctaEyebrowText: t("universities.cta.eyebrowText"),
+    ctaTitle: t("universities.cta.title"),
+    ctaDescription: t("universities.cta.description"),
+    ctaLabel: t("universities.cta.ctaLabel"),
   };
 
   return <UniversitiesPage translations={translations} />;
