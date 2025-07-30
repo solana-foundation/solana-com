@@ -44,19 +44,24 @@ mencetak "Hello, world!" ke log program.
 
 ## !!steps Membuat program baru
 
-Pertama, buat proyek Rust baru menggunakan perintah standar `cargo init` dengan
+Pertama, buat proyek Rust baru menggunakan perintah standar `cargo new` dengan
 flag `--lib`.
 
-```shell title="Terminal"
-cargo init hello_world --lib
+```terminal
+$ cargo new hello_world --lib
 ```
 
 Navigasikan ke direktori proyek. Anda akan melihat file default `src/lib.rs` dan
 `Cargo.toml`
 
-```shell title="Terminal"
-cd hello_world
+```terminal
+$ cd hello_world
 ```
+
+<Callout type="warn">
+  Perbarui kolom `edition` di `Cargo.toml` menjadi `2021`. Jika tidak, Anda
+  mungkin mengalami error saat membangun program.
+</Callout>
 
 ```toml !! title="Cargo.toml"
 [package]
@@ -84,18 +89,14 @@ mod tests {
 }
 ```
 
-## !!steps Menambahkan dependensi solana-program
+## !!steps Tambahkan dependensi solana-program
 
 Selanjutnya, tambahkan dependensi `solana-program`. Ini adalah dependensi
 minimum yang diperlukan untuk membangun program Solana.
 
-```shell title="Terminal"
-cargo add solana-program@1.18.26
+```terminal
+$ cargo add solana-program@2.2.0
 ```
-
-Selanjutnya, tambahkan snippet berikut ke `Cargo.toml`. Jika Anda tidak
-menyertakan konfigurasi ini, direktori `target/deploy` tidak akan dibuat saat
-Anda membangun program.
 
 ```toml !! title="Cargo.toml"
 [package]
@@ -105,20 +106,22 @@ edition = "2021"
 
 # !focus(1:2)
 [dependencies]
-solana-program = "1.18.26"
+solana-program = "2.2.0"
 ```
 
 ## !!steps Tambahkan crate-type
 
 Selanjutnya, tambahkan snippet berikut ke `Cargo.toml`.
 
-```toml
+```toml title="Cargo.toml"
 [lib]
 crate-type = ["cdylib", "lib"]
 ```
 
-Jika Anda tidak menyertakan konfigurasi ini, direktori `target/deploy` tidak
-akan dibuat saat Anda membangun program.
+<Callout type="warn">
+  Jika Anda tidak menyertakan konfigurasi ini, direktori `target/deploy` tidak
+  akan dibuat saat Anda membangun program.
+</Callout>
 
 <CodePlaceholder title="Cargo.toml">
   File `Cargo.toml` Anda seharusnya terlihat seperti berikut:
@@ -135,7 +138,7 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "1.18.26"
+solana-program = "2.2.0"
 ```
 
 ## !!steps Tambahkan kode program
@@ -160,6 +163,7 @@ pub fn process_instruction(
     _accounts: &[AccountInfo],
     _instruction_data: &[u8],
 ) -> ProgramResult {
+    // !mark
     msg!("Hello, world!");
     Ok(())
 }
@@ -169,8 +173,8 @@ pub fn process_instruction(
 
 Selanjutnya, bangun program menggunakan perintah `cargo build-sbf`.
 
-```shell title="Terminal"
-cargo build-sbf
+```terminal
+$ cargo build-sbf
 ```
 
 Perintah ini menghasilkan direktori `target/deploy` yang berisi dua file
@@ -184,8 +188,8 @@ penting:
 Untuk melihat ID program, jalankan perintah berikut di terminal Anda. Perintah
 ini mencetak kunci publik dari keypair pada jalur file yang ditentukan:
 
-```shell title="Terminal"
-solana address -k ./target/deploy/hello_world-keypair.json
+```terminal
+$ solana address -k ./target/deploy/hello_world-keypair.json
 ```
 
 Contoh output:
@@ -209,13 +213,12 @@ Contoh output:
 
 ## !!steps Tambahkan dependensi pengujian
 
-Selanjutnya, uji program menggunakan crate `solana-program-test`. Tambahkan
-dependensi berikut ke `Cargo.toml`.
+Selanjutnya, uji program menggunakan crate `litesvm`. Tambahkan dependensi
+berikut ke `Cargo.toml`.
 
-```shell title="Terminal"
-cargo add solana-program-test@1.18.26 --dev
-cargo add solana-sdk@1.18.26 --dev
-cargo add tokio --dev
+```terminal
+$ cargo add litesvm --dev
+$ cargo add solana-sdk@2.2.0 --dev
 ```
 
 ```toml !! title="Cargo.toml"
@@ -228,13 +231,12 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "1.18.26"
+solana-program = "2.2.0"
 
-# !focus(1:4)
+# !focus(1:3)
 [dev-dependencies]
-solana-program-test = "1.18.26"
-solana-sdk = "1.18.26"
-tokio = "1.39.0"
+litesvm = "0.6.1"
+solana-sdk = "2.2.0"
 ```
 
 ## !!steps Uji program
@@ -260,55 +262,74 @@ pub fn process_instruction(
     Ok(())
 }
 
+// !focus(1:45)
 #[cfg(test)]
 mod test {
-    use solana_program_test::*;
+    use litesvm::LiteSVM;
     use solana_sdk::{
-        instruction::Instruction, pubkey::Pubkey, signature::Signer, transaction::Transaction,
+        instruction::Instruction,
+        message::Message,
+        signature::{Keypair, Signer},
+        transaction::Transaction,
     };
 
-    #[tokio::test]
-    // !focus(1:21)
-    async fn test_hello_world() {
-        let program_id = Pubkey::new_unique();
-        let mut program_test = ProgramTest::default();
-        program_test.add_program("hello_world", program_id, None);
-        let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
-        // Create instruction
+    #[test]
+    fn test_hello_world() {
+        // Create a new LiteSVM instance
+        let mut svm = LiteSVM::new();
+
+        // Create a keypair for the transaction payer
+        let payer = Keypair::new();
+
+        // Airdrop some lamports to the payer
+        svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+        // Load our program
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(program_id, "target/deploy/hello_world.so")
+            .unwrap();
+
+        // Create instruction with no accounts and no data
         let instruction = Instruction {
             program_id,
             accounts: vec![],
             data: vec![],
         };
-        // Create transaction with instruction
-        let mut transaction = Transaction::new_with_payer(&[instruction], Some(&payer.pubkey()));
-        // Sign transaction
-        transaction.sign(&[&payer], recent_blockhash);
-        let transaction_result = banks_client.process_transaction(transaction).await;
-        assert!(transaction_result.is_ok());
+
+        // Create transaction
+        let message = Message::new(&[instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(&[&payer], message, svm.latest_blockhash());
+
+        // Send transaction and verify it succeeds
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Transaction should succeed");
+        let logs = result.unwrap().logs;
+        println!("Logs: {logs:#?}");
     }
 }
 ```
 
-Jalankan pengujian menggunakan perintah `cargo test-sbf`. Log program akan
+Jalankan pengujian menggunakan perintah `cargo test`. Log program akan
 menampilkan "Hello, world!".
 
-```shell title="Terminal"
-cargo test-sbf
+```terminal
+$ cargo test -- --no-capture
 ```
 
 Contoh output:
 
-```shell title="Terminal" {4} /Program log: Hello, world!/
+```txt title="Terminal"
 running 1 test
-[2024-10-18T21:24:54.889570000Z INFO  solana_program_test] "hello_world" SBF program from /hello_world/target/deploy/hello_world.so, modified 35 seconds, 828 ms, 268 µs and 398 ns ago
-[2024-10-18T21:24:54.974294000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM invoke [1]
-[2024-10-18T21:24:54.974814000Z DEBUG solana_runtime::message_processor::stable_log] Program log: Hello, world!
-[2024-10-18T21:24:54.976848000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM consumed 140 of 200000 compute units
-[2024-10-18T21:24:54.976868000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM success
+Logs: [
+    "Program 9528phXNvdWp5kkR4rgpoeZvR8ZWT5THVywK95YRprkk invoke [1]",
+    "Program log: Hello, world!",
+    "Program 9528phXNvdWp5kkR4rgpoeZvR8ZWT5THVywK95YRprkk consumed 211 of 200000 compute units",
+    "Program 9528phXNvdWp5kkR4rgpoeZvR8ZWT5THVywK95YRprkk success",
+]
 test test::test_hello_world ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 ```
 
 ## !!steps Deploy program
@@ -318,8 +339,8 @@ dapat menggunakan `solana-test-validator`.
 
 Pertama, konfigurasikan Solana CLI untuk menggunakan cluster Solana lokal.
 
-```shell title="Terminal"
-solana config set -ul
+```terminal
+$ solana config set -ul
 ```
 
 Contoh output:
@@ -335,16 +356,15 @@ Commitment: confirmed
 Buka terminal baru dan jalankan perintah `solana-test-validators` untuk memulai
 validator lokal.
 
-```shell title="Terminal"
-solana-test-validator
+```terminal
+$ solana-test-validator
 ```
 
 Sementara test validator berjalan, jalankan perintah `solana program deploy` di
 terminal terpisah untuk men-deploy program ke validator lokal.
 
-```shell title="Terminal"
-solana program deploy ./target/deploy/hello_world.so
-```
+Jalankan kode klien lagi dan periksa tanda tangan transaksi di Solana Explorer
+untuk melihat "Hello, Solana!" di log program.
 
 Contoh output:
 
@@ -356,22 +376,25 @@ Signature:
 
 Anda dapat memeriksa ID program dan tanda tangan transaksi di
 [Solana Explorer](https://explorer.solana.com/?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899).
-Perhatikan bahwa cluster di Solana Explorer juga harus localhost. Opsi "Custom
-RPC URL" pada Solana Explorer secara default adalah `http://localhost:8899`.
 
-## !!steps Buat contoh klien
+<Callout type="info">
+  Perhatikan bahwa cluster pada Solana Explorer juga harus localhost. Opsi
+  "Custom RPC URL" pada Solana Explorer secara default adalah
+  `http://localhost:8899`.
+</Callout>
+
+## !!steps Buat klien contoh
 
 Selanjutnya, kita akan mendemonstrasikan cara memanggil program menggunakan
 klien Rust.
 
 Pertama buat direktori `examples` dan file `client.rs`.
 
-```shell title="Terminal"
-mkdir -p examples
-touch examples/client.rs
+```terminal
+$ mkdir -p examples && touch examples/client.rs
 ```
 
-Tambahkan berikut ini ke `Cargo.toml`.
+Tambahkan kode berikut ke `Cargo.toml`.
 
 ```toml title="Cargo.toml"
 [[example]]
@@ -379,10 +402,11 @@ name = "client"
 path = "examples/client.rs"
 ```
 
-Tambahkan dependensi `solana-client`.
+Tambahkan dependensi `solana-client` dan `tokio`.
 
-```shell title="Terminal"
-cargo add solana-client@1.18.26 --dev
+```terminal
+$ cargo add solana-client@2.2.0 --dev
+$ cargo add tokio --dev
 ```
 
 ```toml !! title="Cargo.toml"
@@ -395,12 +419,11 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "1.18.26"
+solana-program = "2.2.0"
 
 [dev-dependencies]
-solana-program-test = "1.18.26"
-solana-sdk = "1.18.26"
-tokio = "1.39.0"
+litesvm = "0.6.1"
+solana-client = "2.2.0"
 
 # !focus(1:3)
 [[example]]
@@ -478,13 +501,13 @@ async fn main() {
 
 ## !!steps Ganti ID program
 
-Sebelum menjalankan skrip, ganti ID program dalam cuplikan kode di atas dengan
-ID untuk program Anda.
+Sebelum menjalankan kode klien, ganti ID program dalam cuplikan kode dengan ID
+program Anda.
 
 Anda bisa mendapatkan ID program Anda dengan menjalankan perintah berikut.
 
-```shell title="Terminal"
-solana address -k ./target/deploy/hello_world-keypair.json
+```terminal
+$ solana address -k ./target/deploy/hello_world-keypair.json
 ```
 
 ```rs !! title="examples/client.rs"
@@ -548,8 +571,8 @@ async fn main() {
 
 Jalankan skrip klien dengan perintah berikut.
 
-```shell title="Terminal"
-cargo run --example client
+```terminal
+$ cargo run --example client
 ```
 
 Contoh output:
@@ -601,73 +624,92 @@ pub fn process_instruction(
 
 #[cfg(test)]
 mod test {
-    use solana_program_test::*;
+    use litesvm::LiteSVM;
     use solana_sdk::{
-        instruction::Instruction, pubkey::Pubkey, signature::Signer, transaction::Transaction,
+        instruction::Instruction,
+        message::Message,
+        signature::{Keypair, Signer},
+        transaction::Transaction,
     };
 
-    #[tokio::test]
-    async fn test_hello_world() {
-        let program_id = Pubkey::new_unique();
-        let mut program_test = ProgramTest::default();
-        program_test.add_program("hello_world", program_id, None);
-        let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
-        // Create instruction
+    #[test]
+    fn test_hello_world() {
+        // Create a new LiteSVM instance
+        let mut svm = LiteSVM::new();
+
+        // Create a keypair for the transaction payer
+        let payer = Keypair::new();
+
+        // Airdrop some lamports to the payer
+        svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+        // Load our program
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(program_id, "target/deploy/hello_world.so")
+            .unwrap();
+
+        // Create instruction with no accounts and no data
         let instruction = Instruction {
             program_id,
             accounts: vec![],
             data: vec![],
         };
-        // Create transaction with instruction
-        let mut transaction = Transaction::new_with_payer(&[instruction], Some(&payer.pubkey()));
-        // Sign transaction
-        transaction.sign(&[&payer], recent_blockhash);
-        let transaction_result = banks_client.process_transaction(transaction).await;
-        assert!(transaction_result.is_ok());
+
+        // Create transaction
+        let message = Message::new(&[instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(&[&payer], message, svm.latest_blockhash());
+
+        // Send transaction and verify it succeeds
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Transaction should succeed");
+        let logs = result.unwrap().logs;
+        println!("Logs: {logs:#?}");
     }
 }
 ```
 
-Uji program yang diperbarui dengan menjalankan perintah `cargo test-sbf`.
+Jalankan perintah `cargo build-sbf` untuk menghasilkan file `.so` yang
+diperbarui.
 
-```shell title="Terminal"
-cargo test-sbf
+```terminal
+$ cargo build-sbf
+```
+
+Uji program yang diperbarui dengan menjalankan perintah `cargo test`.
+
+```terminal
+$ cargo test -- --no-capture
 ```
 
 Anda akan melihat "Hello, Solana!" di log program.
 
-```shell title="Terminal" {4}
+```txt title="Terminal"
 running 1 test
-[2024-10-23T19:28:28.842639000Z INFO  solana_program_test] "hello_world" SBF program from /code/misc/delete/hello_world/target/deploy/hello_world.so, modified 4 minutes, 31 seconds, 435 ms, 566 µs and 766 ns ago
-[2024-10-23T19:28:28.934854000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM invoke [1]
-[2024-10-23T19:28:28.936735000Z DEBUG solana_runtime::message_processor::stable_log] Program log: Hello, Solana!
-[2024-10-23T19:28:28.938774000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM consumed 140 of 200000 compute units
-[2024-10-23T19:28:28.938793000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM success
+Logs: [
+    "Program 5y8bHrnwfq2dLDgLn3WoTHb9dDuyorj9gyapW6aeyrpV invoke [1]",
+    "Program log: Hello, Solana!",
+    "Program 5y8bHrnwfq2dLDgLn3WoTHb9dDuyorj9gyapW6aeyrpV consumed 211 of 200000 compute units",
+    "Program 5y8bHrnwfq2dLDgLn3WoTHb9dDuyorj9gyapW6aeyrpV success",
+]
 test test::test_hello_world ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 ```
 
 ## !!steps Deploy ulang program
 
-Jalankan perintah `cargo build-sbf` untuk menghasilkan file `.so` yang
-diperbarui.
+Deploy ulang program menggunakan perintah `solana program deploy` yang sama.
 
-```shell title="Terminal"
-cargo build-sbf
-```
-
-Deploy ulang program menggunakan perintah `solana program deploy`.
-
-```shell title="Terminal"
-solana program deploy ./target/deploy/hello_world.so
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
 ```
 
 Jalankan kode klien lagi dan periksa tanda tangan transaksi di Solana Explorer
 untuk melihat "Hello, Solana!" di log program.
 
-```shell title="Terminal"
-cargo run --example client
+```terminal
+$ cargo run --example client
 ```
 
 ## !!steps Tutup program
@@ -677,11 +719,10 @@ dialokasikan ke akun tersebut. Menutup program tidak dapat dibalik, jadi harus
 dilakukan dengan hati-hati.
 
 Untuk menutup program, gunakan perintah `solana program close <PROGRAM_ID>`.
-Contohnya:
+Sebagai contoh:
 
-```shell title="Terminal"
-solana program close 4Ujf5fXfLx2PAwRqcECCLtgDxHKPznoJpa43jUBxFfMz
---bypass-warning
+```terminal
+$ solana program close 4Ujf5fXfLx2PAwRqcECCLtgDxHKPznoJpa43jUBxFfMz --bypass-warning
 ```
 
 Contoh output:
@@ -700,18 +741,20 @@ Error: Program 4Ujf5fXfLx2PAwRqcECCLtgDxHKPznoJpa43jUBxFfMz has been closed, use
 a new Program Id
 ```
 
-## !!steps Deploy ulang program yang ditutup
+## !!steps Men-deploy ulang program yang ditutup
 
 Jika Anda perlu men-deploy ulang program dengan kode sumber yang sama setelah
 menutup program, Anda harus menghasilkan ID program baru. Untuk menghasilkan
 keypair baru untuk program, jalankan perintah berikut:
 
-```shell title="Terminal"
-solana-keygen new -o ./target/deploy/hello_world-keypair.json --force
+```terminal
+$ solana-keygen new -o ./target/deploy/hello_world-keypair.json --force
 ```
 
-Atau, Anda dapat menghapus file keypair yang ada (misalnya
-`./target/deploy/hello_world-keypair.json`) dan menjalankan `cargo build-sbf`
-lagi, yang akan menghasilkan file keypair baru.
+<Callout type="info">
+  Atau, Anda dapat menghapus file keypair yang ada (misalnya
+  `./target/deploy/hello_world-keypair.json`) dan jalankan `cargo build-sbf`
+  lagi, yang akan menghasilkan file keypair baru.
+</Callout>
 
 </ScrollyCoding>
