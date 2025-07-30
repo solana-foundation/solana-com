@@ -18,6 +18,33 @@ interface UniversitiesPageProps {
     subjectsTitle: string;
     subjectsDescription: string;
     subjectsEmailButtonLabel: string;
+    subjectsLearnMore: string;
+    subjectsCards: {
+      finance: {
+        title: string;
+        description: string;
+      };
+      legal: {
+        title: string;
+        description: string;
+      };
+      technology: {
+        title: string;
+        description: string;
+      };
+      business: {
+        title: string;
+        description: string;
+      };
+      economics: {
+        title: string;
+        description: string;
+      };
+      engineering: {
+        title: string;
+        description: string;
+      };
+    };
   };
 }
 
@@ -57,6 +84,8 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
           title: translations.subjectsTitle,
           description: translations.subjectsDescription,
           emailButtonLabel: translations.subjectsEmailButtonLabel,
+          learnMore: translations.subjectsLearnMore,
+          cards: translations.subjectsCards,
         }}
       />
     </div>

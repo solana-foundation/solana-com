@@ -7,12 +7,15 @@ import ParticleEffect from "./ParticleEffect";
 interface UniversitiesSubjectCardProps {
   title: string;
   description: string;
+  learnMore: string;
   icon: React.ReactNode;
   href: string;
 }
 
 export default function UniversitiesSubjectCard({
   title,
+  description,
+  learnMore,
   icon,
   href,
 }: UniversitiesSubjectCardProps) {
@@ -22,8 +25,6 @@ export default function UniversitiesSubjectCard({
     height: 400,
   });
   const cardRef = useRef<HTMLDivElement>(null);
-
-  const solanaGradient = `radial-gradient(75% 181.16% at 50% 50%, #14F195 0%, #9945FF 50%, rgba(255, 255, 255, 0) 100%)`;
 
   return (
     <div className="d-block" style={{ minWidth: "300px", maxWidth: "300px" }}>
@@ -41,74 +42,49 @@ export default function UniversitiesSubjectCard({
           }}
           onMouseLeave={() => setHovered(false)}
         >
-          {/* Animated gradient border - only show on hover */}
           {hovered && (
-            <div
-              className="position-absolute"
-              style={{
-                inset: 0,
-                borderRadius: "inherit",
-                background: solanaGradient,
-                filter: "blur(2px)",
-                animation: "fadeIn 0.3s ease",
-                zIndex: -1,
-              }}
-            />
+            <div className="position-absolute inset-0 rounded-[inherit] universities-card-hover-gradient blur-[2px] -z-[1]" />
           )}
 
           {/* Card content */}
-          <div
-            className="position-relative overflow-hidden"
-            style={{
-              height: "400px",
-              background: "#0a0a0a",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "15px",
-              cursor: "pointer",
-              zIndex: 1,
-            }}
-          >
-            {/* Particle effect - always rendered for performance */}
+          <div className="position-relative overflow-hidden cursor-pointer rounded-[15px] h-[400px] bg-[#0a0a0a] border-white-10 z-[1]">
             <ParticleEffect
               isHovered={hovered}
               width={cardDimensions.width}
               height={cardDimensions.height}
             />
 
-            {/* Content */}
-            <div
-              className="position-relative h-100 d-flex flex-column align-items-center justify-content-center p-4"
-              style={{ zIndex: 1 }}
-            >
-              {/* Icon */}
-              <div className="mb-4 text-white">{icon}</div>
-
-              {/* Title */}
-              <h3
-                className="text-white text-center"
+            <div className="position-relative h-100 d-flex flex-column align-items-center justify-content-center p-4 z-1">
+              <div
+                className="mb-4 text-white transition-transform duration-300 ease-in-out"
                 style={{
-                  fontSize: "24px",
-                  fontWeight: "600",
-                  letterSpacing: "-0.02em",
+                  transform: hovered ? "translateY(-10px)" : "translateY(0)",
                 }}
               >
+                {icon}
+              </div>
+
+              <h3 className="text-white text-center text-2xl font-semibold tracking-tight relative inline-block">
                 {title}
+                <span
+                  className={`absolute left-0 bottom-[-4px] h-[2px] bg-[#9945FF] transition-all duration-300 ease-out ${hovered ? "w-full" : "w-0"}`}
+                ></span>
               </h3>
+
+              <div
+                className={`text-center mt-3 transition-all duration-500 ease-in-out ${hovered ? "opacity-100 max-h-20" : "opacity-0 max-h-0"} overflow-hidden`}
+              >
+                <p className="text-gray-300 text-sm mb-3 transition-opacity duration-700 delay-100">
+                  {description}
+                </p>
+                <span className="text-white text-sm font-medium transition-opacity duration-700 delay-200">
+                  {learnMore}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </Link>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-      `}</style>
     </div>
   );
 }

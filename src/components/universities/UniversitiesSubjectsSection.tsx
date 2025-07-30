@@ -18,6 +18,33 @@ interface UniversitiesSubjectsSectionProps {
     title: string;
     description: string;
     emailButtonLabel: string;
+    learnMore: string;
+    cards: {
+      finance: {
+        title: string;
+        description: string;
+      };
+      legal: {
+        title: string;
+        description: string;
+      };
+      technology: {
+        title: string;
+        description: string;
+      };
+      business: {
+        title: string;
+        description: string;
+      };
+      economics: {
+        title: string;
+        description: string;
+      };
+      engineering: {
+        title: string;
+        description: string;
+      };
+    };
   };
 }
 
@@ -59,38 +86,44 @@ export default function UniversitiesSubjectsSection({
             <div className="px-0 mx-n3">
               <CarouselCards>
                 <UniversitiesSubjectCard
-                  title="Finance"
-                  description="Master the essentials of Solana with these no code learning"
+                  title={translations.cards.finance.title}
+                  description={translations.cards.finance.description}
+                  learnMore={translations.learnMore}
                   icon={<DollarSign size={32} strokeWidth={1.5} />}
                   href="/universities/finance"
                 />
                 <UniversitiesSubjectCard
-                  title="Legal"
-                  description="Master the essentials of Solana with these no code learning"
+                  title={translations.cards.legal.title}
+                  description={translations.cards.legal.description}
+                  learnMore={translations.learnMore}
                   icon={<Book size={32} strokeWidth={1.5} />}
                   href="/universities/legal"
                 />
                 <UniversitiesSubjectCard
-                  title="Technology"
-                  description="Master the essentials of Solana with these no code learning"
+                  title={translations.cards.technology.title}
+                  description={translations.cards.technology.description}
+                  learnMore={translations.learnMore}
                   icon={<Monitor size={32} strokeWidth={1.5} />}
                   href="/universities/technology"
                 />
                 <UniversitiesSubjectCard
-                  title="Business"
-                  description="Master the essentials of Solana with these no code learning"
+                  title={translations.cards.business.title}
+                  description={translations.cards.business.description}
+                  learnMore={translations.learnMore}
                   icon={<BarChart2 size={32} strokeWidth={1.5} />}
                   href="/universities/business"
                 />
                 <UniversitiesSubjectCard
-                  title="Economics"
-                  description="Master the essentials of Solana with these no code learning"
+                  title={translations.cards.economics.title}
+                  description={translations.cards.economics.description}
+                  learnMore={translations.learnMore}
                   icon={<TrendingUp size={32} strokeWidth={1.5} />}
                   href="/universities/economics"
                 />
                 <UniversitiesSubjectCard
-                  title="Engineering"
-                  description="Master the essentials of Solana with these no code learning"
+                  title={translations.cards.engineering.title}
+                  description={translations.cards.engineering.description}
+                  learnMore={translations.learnMore}
                   icon={<Settings size={32} strokeWidth={1.5} />}
                   href="/universities/engineering"
                 />

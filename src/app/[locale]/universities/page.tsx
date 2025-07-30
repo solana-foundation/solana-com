@@ -19,6 +19,33 @@ export default async function Page(_props: Props) {
     subjectsTitle: t("universities.subjects.title"),
     subjectsDescription: t("universities.subjects.description"),
     subjectsEmailButtonLabel: t("universities.subjects.emailButtonLabel"),
+    subjectsLearnMore: t("universities.subjects.learnMore"),
+    subjectsCards: {
+      finance: {
+        title: t("universities.subjects.cards.finance.title"),
+        description: t("universities.subjects.cards.finance.description"),
+      },
+      legal: {
+        title: t("universities.subjects.cards.legal.title"),
+        description: t("universities.subjects.cards.legal.description"),
+      },
+      technology: {
+        title: t("universities.subjects.cards.technology.title"),
+        description: t("universities.subjects.cards.technology.description"),
+      },
+      business: {
+        title: t("universities.subjects.cards.business.title"),
+        description: t("universities.subjects.cards.business.description"),
+      },
+      economics: {
+        title: t("universities.subjects.cards.economics.title"),
+        description: t("universities.subjects.cards.economics.description"),
+      },
+      engineering: {
+        title: t("universities.subjects.cards.engineering.title"),
+        description: t("universities.subjects.cards.engineering.description"),
+      },
+    },
   };
 
   return <UniversitiesPage translations={translations} />;
