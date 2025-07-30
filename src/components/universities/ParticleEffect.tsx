@@ -65,7 +65,7 @@ export default function ParticleEffect({
         const distanceRatio = minDistance / maxDistance;
         const randomOffset = Math.random();
         const baseOpacity =
-          (1 - distanceRatio) * 0.4 * (0.5 + randomOffset * 0.5); // Further reduced for subtler effect
+          (1 - distanceRatio) * 0.55 * (0.5 + randomOffset * 0.5); // Increased for brighter particles
 
         // Pre-determine color
         const colorRatio =
@@ -101,7 +101,7 @@ export default function ParticleEffect({
     // Pre-create gradients
     if (!gradientsRef.current.green && width && height) {
       const gradient1 = ctx.createRadialGradient(0, 0, 0, 0, 0, width * 0.8);
-      gradient1.addColorStop(0, "#14F19527"); // Reduced from 30 to 27 (10% less)
+      gradient1.addColorStop(0, "#14F19535"); // Increased for brighter background
       gradient1.addColorStop(1, "#14F19500");
       gradientsRef.current.green = gradient1;
 
@@ -113,7 +113,7 @@ export default function ParticleEffect({
         height,
         width * 0.8,
       );
-      gradient2.addColorStop(0, "#9945FF27"); // Reduced from 30 to 27 (10% less)
+      gradient2.addColorStop(0, "#9945FF35"); // Increased for brighter background
       gradient2.addColorStop(1, "#9945FF00");
       gradientsRef.current.purple = gradient2;
     }
@@ -152,7 +152,7 @@ export default function ParticleEffect({
         if (dot.opacity < 0.01) return;
 
         // Draw dot with simplified glow
-        ctx.globalAlpha = dot.opacity * 0.27; // Reduced from 0.3 to 0.27 (10% less)
+        ctx.globalAlpha = dot.opacity * 0.35; // Increased for brighter glow
         ctx.fillStyle = dot.color;
 
         // Simple box blur effect instead of gradient
@@ -165,7 +165,7 @@ export default function ParticleEffect({
         );
 
         // Draw solid dot on top
-        ctx.globalAlpha = Math.min(dot.opacity * 0.8, 0.5); // Significantly reduced for no bright dots
+        ctx.globalAlpha = Math.min(dot.opacity * 1.0, 0.65); // Increased for brighter dots
         ctx.fillRect(
           dot.x - dot.size / 2,
           dot.y - dot.size / 2,
@@ -184,7 +184,7 @@ export default function ParticleEffect({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isHovered]);
+  }, [isHovered, width, height]);
 
   return (
     <canvas

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import ParticleEffect from "./ParticleEffect";
 
@@ -9,54 +9,21 @@ interface UniversitiesSubjectCardProps {
   description: string;
   icon: React.ReactNode;
   href: string;
-  gradientFrom?: string;
-  gradientTo?: string;
 }
-
-type Direction = "TOP" | "LEFT" | "BOTTOM" | "RIGHT";
 
 export default function UniversitiesSubjectCard({
   title,
-  description,
   icon,
   href,
-  gradientFrom = "#9333ea",
-  gradientTo = "#2563eb",
 }: UniversitiesSubjectCardProps) {
   const [hovered, setHovered] = useState(false);
-  const [direction, setDirection] = useState<Direction>("TOP");
   const [cardDimensions, setCardDimensions] = useState({
     width: 300,
     height: 400,
   });
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const movingMap: Record<Direction, string> = {
-    TOP: "radial-gradient(20.7% 50% at 50% 0%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%)",
-    LEFT: "radial-gradient(16.6% 43.1% at 0% 50%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%)",
-    BOTTOM:
-      "radial-gradient(20.7% 50% at 50% 100%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%)",
-    RIGHT:
-      "radial-gradient(16.2% 41.2% at 100% 50%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 100%)",
-  };
-
   const solanaGradient = `radial-gradient(75% 181.16% at 50% 50%, #14F195 0%, #9945FF 50%, rgba(255, 255, 255, 0) 100%)`;
-
-  const rotateDirection = (currentDirection: Direction): Direction => {
-    const directions: Direction[] = ["TOP", "LEFT", "BOTTOM", "RIGHT"];
-    const currentIndex = directions.indexOf(currentDirection);
-    const nextIndex = (currentIndex + 1) % directions.length;
-    return directions[nextIndex];
-  };
-
-  useEffect(() => {
-    if (!hovered) {
-      const interval = setInterval(() => {
-        setDirection((prevState) => rotateDirection(prevState));
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [hovered]);
 
   return (
     <div className="d-block" style={{ minWidth: "300px", maxWidth: "300px" }}>

@@ -63,48 +63,36 @@ export default function UniversitiesSubjectsSection({
                   description="Master the essentials of Solana with these no code learning"
                   icon={<DollarSign size={32} strokeWidth={1.5} />}
                   href="/universities/finance"
-                  gradientFrom="#374151"
-                  gradientTo="#111827"
                 />
                 <UniversitiesSubjectCard
                   title="Legal"
                   description="Master the essentials of Solana with these no code learning"
                   icon={<Book size={32} strokeWidth={1.5} />}
                   href="/universities/legal"
-                  gradientFrom="#7c3aed"
-                  gradientTo="#4f46e5"
                 />
                 <UniversitiesSubjectCard
                   title="Technology"
                   description="Master the essentials of Solana with these no code learning"
                   icon={<Monitor size={32} strokeWidth={1.5} />}
                   href="/universities/technology"
-                  gradientFrom="#2563eb"
-                  gradientTo="#0891b2"
                 />
                 <UniversitiesSubjectCard
                   title="Business"
                   description="Master the essentials of Solana with these no code learning"
                   icon={<BarChart2 size={32} strokeWidth={1.5} />}
                   href="/universities/business"
-                  gradientFrom="#16a34a"
-                  gradientTo="#059669"
                 />
                 <UniversitiesSubjectCard
                   title="Economics"
                   description="Master the essentials of Solana with these no code learning"
                   icon={<TrendingUp size={32} strokeWidth={1.5} />}
                   href="/universities/economics"
-                  gradientFrom="#ea580c"
-                  gradientTo="#dc2626"
                 />
                 <UniversitiesSubjectCard
                   title="Engineering"
                   description="Master the essentials of Solana with these no code learning"
                   icon={<Settings size={32} strokeWidth={1.5} />}
                   href="/universities/engineering"
-                  gradientFrom="#db2777"
-                  gradientTo="#7c3aed"
                 />
               </CarouselCards>
             </div>
