@@ -1,0 +1,101 @@
+---
+title: Solana RPC-metodit
+seoTitle: "Solana RPC-metodit: HTTP & Websockets"
+hideTableOfContents: false
+h1: Solana RPC-metodit & dokumentaatio
+---
+
+Ole vuorovaikutuksessa Solana-solmujen kanssa suoraan JSON RPC API:n kautta
+HTTP- ja Websocket-metodien avulla.
+
+## Tilan sitoutumisen määrittäminen
+
+Ennakkotarkistuksia ja transaktioiden käsittelyä varten Solana-solmut
+valitsevat, mitä pankin tilaa kysellään asiakkaan asettaman
+sitoutumisvaatimuksen perusteella. Sitoutuminen kuvaa, kuinka viimeistelty lohko
+on tietyllä hetkellä. Kun kyselee kirjanpidon tilaa, on suositeltavaa käyttää
+alempia sitoutumistasoja edistymisen raportointiin ja korkeampia tasoja
+varmistamaan, ettei tilaa peruuteta.
+
+Laskevassa sitoutumisjärjestyksessä (eniten viimeistellystä vähiten
+viimeisteltyyn) asiakkaat voivat määrittää:
+
+- `finalized` - solmu kyselee viimeisintä lohkoa, jonka klusterin enemmistö on
+  vahvistanut saavuttaneen maksimilukituksen, mikä tarkoittaa, että klusteri on
+  tunnustanut tämän lohkon viimeistellyksi
+- `confirmed` - solmu kyselee viimeisintä lohkoa, josta klusterin enemmistö on
+  äänestänyt.
+  - Se sisältää äänet gossip-verkosta ja toistosta.
+  - Se ei laske ääniä lohkon jälkeläisistä, vain suoria ääniä kyseisestä
+    lohkosta.
+  - Tämä vahvistustaso tukee myös "optimistisia vahvistus"-takuita versiossa 1.3
+    ja uudemmissa.
+- `processed` - solmu kyselee viimeisintä lohkoaan. Huomaa, että klusteri voi
+  silti ohittaa lohkon.
+
+Käsiteltäessä monia toisistaan riippuvaisia transaktioita sarjassa, on
+suositeltavaa käyttää `confirmed`sitoutumista, joka tasapainottaa nopeuden ja
+peruutusturvallisuuden välillä. Täydellisen turvallisuuden saavuttamiseksi on
+suositeltavaa käyttää `finalized`sitoutumista.
+
+### Oletussitoumus
+
+Jos sitoumusasetusta ei ole määritetty, solmu käyttää
+[oletuksena `finalized` sitoumusta](https://github.com/anza-xyz/agave/blob/aa0922d6845e119ba466f88497e8209d1c82febc/sdk/src/commitment_config.rs#L199-L203)
+
+Vain pankin tilaa kyselevät metodit hyväksyvät sitoumusparametrin. Ne on
+merkitty alla olevassa API-viitteessä.
+
+## RpcResponse-rakenne
+
+Monet metodit, jotka ottavat sitoumusparametrin, palauttavat RpcResponse
+JSON-objektin, joka koostuu kahdesta osasta:
+
+- `context` : RpcResponseContext JSON-rakenne, joka sisältää `slot` -kentän,
+  jossa operaatio arvioitiin.
+- `value` : Itse operaation palauttama arvo.
+
+## Jäsennetyt vastaukset
+
+Jotkin metodit tukevat `encoding` -parametria ja voivat palauttaa tilin tai
+ohjeistuksen tiedot jäsennetyssä JSON-muodossa, jos `"encoding":"jsonParsed"` on
+pyydetty ja solmulla on jäsennin omistavalle ohjelmalle. Solana-solmut tukevat
+tällä hetkellä JSON-jäsennystä seuraaville natiivi- ja SPL-ohjelmille:
+
+| Ohjelma                      | Tilin tila | Ohjeet  |
+| ---------------------------- | ---------- | ------- |
+| Address Lookup               | v1.15.0    | v1.15.0 |
+| BPF Loader                   | n/a        | vakaa   |
+| BPF Upgradeable Loader       | vakaa      | vakaa   |
+| Config                       | vakaa      |         |
+| SPL Associated Token Account | n/a        | vakaa   |
+| SPL Memo                     | n/a        | vakaa   |
+| SPL Token                    | vakaa      | vakaa   |
+| SPL Token 2022               | vakaa      | vakaa   |
+| Stake                        | vakaa      | vakaa   |
+| Vote                         | vakaa      | vakaa   |
+
+Luettelo tilijäsentimistä löytyy
+[täältä](https://github.com/solana-labs/solana/blob/master/account-decoder/src/parse_account_data.rs),
+ja ohjeistuksen jäsentimet
+[täältä](https://github.com/solana-labs/solana/blob/master/transaction-status/src/parse_instruction.rs).
+
+## Suodatuskriteerit
+
+Jotkin metodit tukevat `filters` -objektin tarjoamista, joka mahdollistaa
+RpcResponse JSON-objektin sisällä palautettavien tietojen esisuodatuksen.
+Seuraavat suodattimet ovat olemassa:
+
+- `memcmp: object` - vertaa annettua tavusarjaa program account -tietoihin
+  tietyssä kohdassa. Kentät:
+  - `offset: usize` - kohta program account -tiedoissa, josta vertailu
+    aloitetaan
+  - `bytes: string` - täsmäävä tieto koodattuna merkkijonona
+  - `encoding: string` - koodaus suodattimen `bytes` tiedoille, joko "base58"
+    tai "base64". Tiedon koko on rajoitettu enintään 128 purettuun tavuun.<br />
+    **UUTTA: Tämä kenttä ja base64-tuki yleisesti ovat saatavilla vain
+    solana-core v1.14.0 tai uudemmassa versiossa. Jätä pois, kun teet kyselyjä
+    vanhemmille versioille**
+
+- `dataSize: u64` - vertaa program account -tietojen pituutta annettuun
+  tietokokoon
