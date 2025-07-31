@@ -37,7 +37,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   return (
     <section
       id="hero"
-      className="relative min-h-[calc(100vh-75.4px)] pb-12 flex flex-col items-center justify-start text-center px-4 pt-5 overflow-hidden bg-[#080d17]
+      className="relative min-h-[calc(100vh-75.4px)] flex flex-col items-center justify-start text-center px-4 pt-12 overflow-hidden bg-[#080d17]
         bg-[radial-gradient(50%_30%_at_75%_70%,rgba(30,135,100,0.45)_0%,rgba(12,87,62,0.45)_40%,rgba(19,24,30,0)_80%),radial-gradient(50%_30%_at_20%_70%,rgba(59,35,212,0.45)_0%,rgba(28,14,113,0.65)_40%,rgba(94,69,255,0)_80%)]
         bg-cover bg-top bg-no-repeat md:px-6 md:pt-20"
       aria-labelledby="hero-title"
@@ -89,7 +89,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       </div>
 
       {/* Stats Bar */}
-      <dl className="z-10 my-16 py-2 px-6 w-full max-w-3xl flex flex-col gap-6 bg-black/20 rounded-xl border-2 border-white/10 backdrop-blur-lg sm:flex-row sm:w-3/5 sm:min-w-[600px] sm:gap-0">
+      <dl className="z-10 my-10 py-2 px-6 w-full max-w-3xl flex flex-col gap-6 bg-black/20 rounded-xl border-2 border-white/10 backdrop-blur-lg sm:flex-row sm:w-3/5 sm:min-w-[600px] sm:gap-0">
         {stats.map((s, idx) => (
           <React.Fragment key={s.label}>
             <div className="text-center flex-1 min-w-0 flex flex-col justify-center">
