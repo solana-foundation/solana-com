@@ -41,7 +41,7 @@ export const Products = ({
           const productDescription = t(`${translationBase}.${key}.description`);
           const Content = (
             <>
-              <div className="w-16 h-16 md:w-20 md:h-20 flex items-start md:mr-6 mb-4 md:mb-0">
+              <div className="w-16 h-16 md:w-20 md:h-20 flex items-start mr-6 mb-4 md:mb-0">
                 <div
                   className={`w-16 h-16 md:w-20 md:h-20 flex items-center justify-center rounded-xl text-2xl ${color}`}
                 >
@@ -67,19 +67,19 @@ export const Products = ({
           return (
             <li
               key={key}
-              className="group flex flex-col md:flex-row bg-white/5 border-2 border-white/10 rounded-xl p-4 md:p-6 transition hover:border-white/20"
+              className="group flex flex-row rounded-xl p-4 md:p-6 transition hover:border-white/20"
             >
               {hasLink ? (
                 <a
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex flex-col md:flex-row focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-xl"
+                  className="group flex flex-row focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-xl"
                 >
                   {Content}
                 </a>
               ) : (
-                <div className="group flex flex-col md:flex-row">{Content}</div>
+                <div className="group flex flex-row">{Content}</div>
               )}
             </li>
           );
