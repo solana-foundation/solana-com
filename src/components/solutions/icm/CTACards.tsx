@@ -131,25 +131,25 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <BannerCTA
-              href="/solutions/depin"
-              label={t("icm.cta.depinLabel")}
-              description={t.rich("icm.cta.depinDescription", {
+              href="/solutions/solana-permissioned-environments"
+              label={t("icm.cta.items.0.label")}
+              description={t.rich("icm.cta.items.0.description", {
                 br: () => <br />,
               })}
               image="/src/img/solutions/icm/depin-cta.webp"
             />
             <BannerCTA
-              href="/solutions/wallets"
-              label={t("icm.cta.walletsLabel")}
-              description={t.rich("icm.cta.walletsDescription", {
+              href="/solutions/digital-assets"
+              label={t("icm.cta.items.1.label")}
+              description={t.rich("icm.cta.items.1.description", {
                 br: () => <br />,
               })}
               image="/src/img/solutions/icm/wallets-cta.webp"
             />
             <BannerCTA
-              href="/solutions/payments"
-              label={t("icm.cta.paymentsLabel")}
-              description={t.rich("icm.cta.paymentsDescription", {
+              href="/solutions/real-world-assets"
+              label={t("icm.cta.items.2.label")}
+              description={t.rich("icm.cta.items.2.description", {
                 br: () => <br />,
               })}
               image="/src/img/solutions/icm/payments-cta.webp"
