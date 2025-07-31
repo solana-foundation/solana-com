@@ -17,6 +17,7 @@ import {
   PROJECTS,
   VIDEOS,
 } from "@/data/solutions/internet-capital-markets";
+import { NewsItem } from "@/components/solutions/icm/News";
 
 const ICMPage = () => {
   const t = useTranslations();
@@ -119,6 +120,15 @@ const ICMPage = () => {
             videos={VIDEOS(t)}
             moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
             moreVideosLabel={t("icm.videoPlayer.moreVideos")}
+          />
+        </section>
+
+        <section className="pt-0 pb-10">
+          <NewsItem
+            title={t("icm.news.title")}
+            summary={t("icm.news.summary")}
+            image="/src/img/solutions/icm/icm-anza.webp"
+            link="https://www.anza.xyz/blog/the-internet-capital-markets-roadmap"
           />
         </section>
 
