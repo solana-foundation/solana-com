@@ -14,7 +14,6 @@ import { config } from "@/config";
 import { getBaseMetadata } from "@/app/metadata";
 import { staticLocales } from "@/i18n/config";
 import { getLangDir } from "rtl-detect";
-import { InkeepChatButton } from "@/app/components/inkeep/inkeep-chat-button";
 
 type Props = {
   children: React.ReactNode;
@@ -51,7 +50,6 @@ export default async function RootLayout({ children, params }: Props) {
               <Header />
               {children}
               <Footer />
-              <InkeepChatButton />
             </ThemeProvider>
           </PostHogProvider>
         </NextIntlClientProvider>
