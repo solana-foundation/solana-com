@@ -5,7 +5,6 @@ import { NextIntlClientProvider } from "next-intl";
 import SitewideTopAlert from "../components/sharedPageSections/SitewideTopAlert";
 import GTMTrackingSnippet from "../components/GTMTrackingSnippet";
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
-import { InkeepChatButton } from "@/app/components/inkeep/inkeep-chat-button";
 
 const App = ({ Component, pageProps: { messages, ...pageProps } }) => {
   return (
@@ -18,7 +17,6 @@ const App = ({ Component, pageProps: { messages, ...pageProps } }) => {
       <CookieConsent />
       <ThemeProvider>
         <Component {...pageProps} key={pageProps.key} />
-        <InkeepChatButton />
       </ThemeProvider>
     </NextIntlClientProvider>
   );
