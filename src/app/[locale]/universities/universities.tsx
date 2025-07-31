@@ -3,6 +3,7 @@
 import DevelopersHeroSection from "@/components/developers/sections/DevelopersHeroSection/DevelopersHeroSection";
 import UniversitiesCTASection from "@/components/universities/UniversitiesCTASection";
 import UniversitiesSubjectsSection from "@/components/universities/UniversitiesSubjectsSection";
+import UniversitiesInquiryForm from "@/components/universities/UniversitiesInquiryForm";
 import universitiesHeroImg from "@@/assets/universities/universities-hero.webp";
 
 interface UniversitiesPageProps {
@@ -45,6 +46,11 @@ interface UniversitiesPageProps {
         description: string;
       };
     };
+    inquiryEyebrowText: string;
+    inquiryTitle: string;
+    inquiryDescription: string;
+    inquiryEmailPlaceholder: string;
+    inquirySubmitButton: string;
   };
 }
 
@@ -86,6 +92,16 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
           emailButtonLabel: translations.subjectsEmailButtonLabel,
           learnMore: translations.subjectsLearnMore,
           cards: translations.subjectsCards,
+        }}
+      />
+
+      <UniversitiesInquiryForm
+        translations={{
+          eyebrowText: translations.inquiryEyebrowText,
+          title: translations.inquiryTitle,
+          description: translations.inquiryDescription,
+          emailPlaceholder: translations.inquiryEmailPlaceholder,
+          submitButton: translations.inquirySubmitButton,
         }}
       />
     </div>

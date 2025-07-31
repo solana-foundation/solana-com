@@ -52,8 +52,18 @@ export default function UniversitiesSubjectsSection({
   translations,
 }: UniversitiesSubjectsSectionProps) {
   return (
-    <section className="py-20 md:py-24">
-      <div className="container">
+    <section className="py-20 md:py-24 relative overflow-hidden">
+      {/* Purple gradient orbs */}
+      <div
+        className="absolute -right-[250px] top-[20%] w-[500px] h-[500px] rounded-full bg-[#9945FF] opacity-15 blur-[150px]"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute -left-[150px] bottom-[10%] w-[400px] h-[400px] rounded-full bg-[#9945FF] opacity-10 blur-[120px]"
+        aria-hidden="true"
+      />
+
+      <div className="container relative z-10">
         <div className="max-w-5xl mx-auto mb-12">
           <div className="row align-items-center">
             <div className="col-12 col-lg-6">

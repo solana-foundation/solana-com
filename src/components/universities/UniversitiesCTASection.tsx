@@ -18,7 +18,7 @@ export default function UniversitiesCTASection({
   return (
     <section className="py-20 md:py-24 relative overflow-hidden">
       <div
-        className="absolute -left-[200px] top-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#14F195] opacity-20 blur-[120px]"
+        className="absolute -left-[250px] top-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#14F195] opacity-20 blur-[120px]"
         aria-hidden="true"
       />
 

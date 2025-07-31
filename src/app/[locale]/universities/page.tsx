@@ -46,6 +46,11 @@ export default async function Page(_props: Props) {
         description: t("universities.subjects.cards.engineering.description"),
       },
     },
+    inquiryEyebrowText: t("universities.inquiry.eyebrowText"),
+    inquiryTitle: t("universities.inquiry.title"),
+    inquiryDescription: t("universities.inquiry.description"),
+    inquiryEmailPlaceholder: t("universities.inquiry.emailPlaceholder"),
+    inquirySubmitButton: t("universities.inquiry.submitButton"),
   };
 
   return <UniversitiesPage translations={translations} />;
