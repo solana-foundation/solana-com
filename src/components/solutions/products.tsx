@@ -34,30 +34,30 @@ export const Products = ({
       {description && (
         <p className="text-[#B0B8C1] text-lg pb-5">{description}</p>
       )}
-      <ul className="grid grid-cols-1 md:grid-cols-3 gap-1 pl-0">
+      <ul className="grid grid-cols-1 md:grid-cols-3 gap-y-6 gap-x-4 md:gap-6 pl-0">
         {products.map(({ key, Icon, color, href }) => {
           const hasLink = Boolean(href);
           const productTitle = t(`${translationBase}.${key}.title`);
           const productDescription = t(`${translationBase}.${key}.description`);
           const Content = (
             <>
-              <div className="w-20 h-20 flex items-start md:mr-6 mb-4 md:mb-0">
+              <div className="w-16 h-16 md:w-20 md:h-20 flex items-start md:mr-6 mb-4 md:mb-0">
                 <div
-                  className={`w-20 h-20 flex items-center justify-center rounded-xl text-2xl ${color}`}
+                  className={`w-16 h-16 md:w-20 md:h-20 flex items-center justify-center rounded-xl text-2xl ${color}`}
                 >
-                  <Icon size={20} aria-hidden={true} />
+                  <Icon size={24} aria-hidden={true} />
                 </div>
               </div>
               <div>
                 <div className="flex items-center gap-1">
-                  <span className="text-white text-xl font-semibold">
+                  <span className="text-white text-lg md:text-xl font-semibold">
                     {productTitle}
                   </span>
                   {hasLink && (
                     <ExternalLink size={18} className="ml-1 text-white/60" />
                   )}
                 </div>
-                <p className="text-gray-300 mt-2 text-base">
+                <p className="text-gray-300 mt-2 text-sm md:text-base">
                   {productDescription}
                 </p>
               </div>
@@ -65,13 +65,16 @@ export const Products = ({
           );
 
           return (
-            <li key={key} className="group flex flex-col md:flex-row">
+            <li
+              key={key}
+              className="group flex flex-col md:flex-row bg-white/5 border-2 border-white/10 rounded-xl p-4 md:p-6 transition hover:border-white/20"
+            >
               {hasLink ? (
                 <a
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex flex-col md:flex-row"
+                  className="group flex flex-col md:flex-row focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-xl"
                 >
                   {Content}
                 </a>
