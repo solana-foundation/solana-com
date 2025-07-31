@@ -55,6 +55,7 @@ const ICMPage = () => {
         aria-labelledby="depin-hero-title"
       >
         <SolutionHero
+          badge={t("icm.hero.badge")}
           title={t("icm.hero.title")}
           subtitle={t("icm.hero.subtitle")}
           reportEyebrow={t("icm.hero.reportEyebrow")}

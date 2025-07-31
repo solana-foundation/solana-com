@@ -43,8 +43,8 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       aria-labelledby="hero-title"
     >
       {badge && (
-        <div className="mb-6 px-3 py-1.5 bg-white/10 border border-white/10 backdrop-blur-sm rounded-full z-10 flex items-center gap-1.5 md:mb-8 md:px-4 md:py-2">
-          <span className="text-white text-xs font-medium tracking-wider md:text-sm">
+        <div className="mb-6 px-3 py-1.5 bg-white/10 border-2 border-white/10 backdrop-blur-sm rounded-full z-10 flex items-center gap-1.5 md:mb-8 md:px-4 md:py-2">
+          <span className="text-gray-400 text-xs font-medium tracking-wider md:text-sm">
             {badge}
           </span>
           <ChevronRight
