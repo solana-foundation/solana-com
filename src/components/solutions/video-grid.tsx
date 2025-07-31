@@ -66,10 +66,11 @@ export const VideoGrid = ({
       </p>
       {videos.length > 3 ? (
         <>
-          <div className="flex justify-end mb-6">
+          {/* Desktop carousel & controls */}
+          <div className="hidden md:flex justify-end mb-6">
             <CarouselControls carouselRef={carouselRef} />
           </div>
-          <div className="flex gap-8 mb-6 justify-center items-start">
+          <div className="hidden md:flex gap-8 mb-6 justify-center items-start">
             <Carousel
               ref={carouselRef}
               controlsInline={false}
@@ -79,8 +80,11 @@ export const VideoGrid = ({
               {videoCards}
             </Carousel>
           </div>
+          {/* Mobile: stack cards, no carousel */}
+          <div className="flex flex-col gap-8 md:hidden mb-6">{videoCards}</div>
         </>
       ) : (
+        // Already stacks on mobile, no change needed
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-6 items-start">
           {videoCards}
         </div>
