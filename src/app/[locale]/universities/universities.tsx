@@ -4,6 +4,7 @@ import DevelopersHeroSection from "@/components/developers/sections/DevelopersHe
 import UniversitiesCTASection from "@/components/universities/UniversitiesCTASection";
 import UniversitiesSubjectsSection from "@/components/universities/UniversitiesSubjectsSection";
 import UniversitiesInquiryForm from "@/components/universities/UniversitiesInquiryForm";
+import UniversityEventsGrid from "@/components/universities/UniversityEventsGrid";
 import universitiesHeroImg from "@@/assets/universities/universities-hero.webp";
 
 interface UniversitiesPageProps {
@@ -94,6 +95,18 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
           cards: translations.subjectsCards,
         }}
       />
+
+      <UniversitiesInquiryForm
+        translations={{
+          eyebrowText: translations.inquiryEyebrowText,
+          title: translations.inquiryTitle,
+          description: translations.inquiryDescription,
+          emailPlaceholder: translations.inquiryEmailPlaceholder,
+          submitButton: translations.inquirySubmitButton,
+        }}
+      />
+
+      <UniversityEventsGrid />
 
       <UniversitiesInquiryForm
         translations={{
