@@ -2,6 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import Marquee from "@/component-library/marquee";
+import styles from "./projects.module.scss";
 
 type Project = {
   key: string;
@@ -65,10 +66,8 @@ export const Projects = ({
     <div className="col-span-full md:col-span-2 py-6">
       <div className="mx-auto">
         <div
-          className="grid gap-3 w-full"
-          style={{
-            gridTemplateColumns: `repeat(${projects.length}, minmax(0, 1fr))`,
-          }}
+          className={`grid gap-3 w-full grid-cols-1 ${styles["custom-md-cols"]}`}
+          style={{ "--custom-cols": projects.length } as React.CSSProperties}
         >
           {projects.map((project) => {
             const base = `${translationBase}.${project.key}`;
