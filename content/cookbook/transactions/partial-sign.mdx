@@ -1,0 +1,208 @@
+---
+title: How to Partially Sign Transactions
+description:
+  "Learn how to partially sign transactions on Solana, useful for multi-signature scenarios where not all signers are available at once."
+---
+
+Partial signing is useful when you need to sign a transaction with some signers first, then add additional signatures later. This is common in multi-signature scenarios where signers may not be available at the same time.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+  Transaction,
+  PublicKey
+} from "@solana/web3.js";
+
+async function partialSignTransaction(
+  transaction: Transaction,
+  additionalSigners: Keypair[]
+): Promise<Transaction> {
+  // Clone the transaction to avoid modifying the original
+  const tx = Transaction.from(transaction.serialize({ requireAllSignatures: false }));
+  
+  // Get the message to sign
+  const message = tx.compileMessage();
+  
+  // Sign with additional signers
+  for (let i = 0; i < additionalSigners.length; i++) {
+    const signer = additionalSigners[i];
+    const signature = signer.sign(message.serialize());
+    
+    // Find the signer's position in the transaction's signature array
+    const signerIndex = tx.signatures.findIndex(sig => 
+      sig.publicKey.equals(signer.publicKey)
+    );
+    
+    if (signerIndex >= 0) {
+      tx.signatures[signerIndex] = {
+        publicKey: signer.publicKey,
+        signature: signature
+      };
+    }
+  }
+  
+  return tx;
+}
+
+// Example usage
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Create keypairs
+const payer = Keypair.generate();
+const recipient = Keypair.generate();
+const additionalSigner = Keypair.generate();
+
+// Airdrop SOL to payer
+const airdropSignature = await connection.requestAirdrop(
+  payer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature);
+
+// !mark(1:15)
+// Create a transaction that requires multiple signatures
+const transaction = new Transaction().add(
+  SystemProgram.transfer({
+    fromPubkey: payer.publicKey,
+    toPubkey: recipient.publicKey,
+    lamports: 1_000_000
+  })
+);
+
+// Set the fee payer and recent blockhash
+transaction.feePayer = payer.publicKey;
+const { blockhash } = await connection.getLatestBlockhash();
+transaction.recentBlockhash = blockhash;
+
+// Partially sign the transaction
+const partiallySignedTx = await partialSignTransaction(
+  transaction,
+  [payer] // Sign with payer first
+);
+
+console.log("Transaction partially signed");
+console.log("Signatures:", partiallySignedTx.signatures.map(sig => 
+  sig.signature ? "✓ Signed" : "✗ Not signed"
+));
+```
+
+```py !! title="Python"
+#!/usr/bin/env python3
+"""
+Solana Cookbook - How to Partially Sign Transactions
+"""
+
+import asyncio
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.system_program import transfer, TransferParams
+from solders.transaction import VersionedTransaction
+from solders.message import MessageV0, to_bytes_versioned
+
+def partial_sign_transaction(
+    tx_bytes: bytes, 
+    additional_signers: list[Keypair]
+) -> VersionedTransaction:
+    """
+    Partially sign a transaction with additional signers.
+    
+    Args:
+        tx_bytes: Serialized transaction bytes
+        additional_signers: List of keypairs to sign with
+        
+    Returns:
+        VersionedTransaction with additional signatures applied
+    """
+    # Deserialize the transaction
+    tx = VersionedTransaction.from_bytes(tx_bytes)
+    
+    # Get the message bytes for signing
+    message = to_bytes_versioned(tx.message)
+    
+    # Get existing signatures
+    sigs = tx.signatures
+    
+    # Sign with each additional signer
+    for idx, signer in enumerate(additional_signers):
+        if idx < len(sigs):
+            sig = signer.sign_message(message)
+            sigs[idx] = sig
+    
+    # NOTE: we have to assign the signatures all at once
+    # due to quirk in the solders library / rust bridge
+    tx.signatures = sigs
+    return tx
+
+async def main():
+    rpc = AsyncClient("https://api.devnet.solana.com")
+    
+    # Create keypairs
+    payer = Keypair()
+    recipient = Keypair()
+    
+    LAMPORTS_PER_SOL = 1_000_000_000
+    transfer_amount = LAMPORTS_PER_SOL // 100  # 0.01 SOL
+    
+    async with rpc:
+        # Get latest blockhash
+        latest_blockhash = await rpc.get_latest_blockhash()
+        
+        # !mark(1:15)
+        # Create transfer instruction
+        transfer_instruction = transfer(
+            TransferParams(
+                from_pubkey=payer.pubkey(),
+                to_pubkey=recipient.pubkey(),
+                lamports=transfer_amount
+            )
+        )
+        
+        # Create message
+        message = MessageV0.try_compile(
+            payer=payer.pubkey(),
+            instructions=[transfer_instruction],
+            address_lookup_table_accounts=[],
+            recent_blockhash=latest_blockhash.value.blockhash
+        )
+        
+        # Create unsigned transaction
+        unsigned_tx = VersionedTransaction(message, [])
+        
+        # Serialize the unsigned transaction
+        tx_bytes = bytes(unsigned_tx)
+        
+        # Partially sign the transaction
+        partially_signed_tx = partial_sign_transaction(
+            tx_bytes, 
+            [payer]  # Sign with payer
+        )
+        
+        print(f"Payer: {payer.pubkey()}")
+        print(f"Recipient: {recipient.pubkey()}")
+        print(f"Transfer Amount: {transfer_amount / LAMPORTS_PER_SOL} SOL")
+        print(f"Transaction partially signed with {len(partially_signed_tx.signatures)} signatures")
+        
+        # You can now serialize and pass this transaction to other signers
+        # or submit it if all required signatures are present
+        serialized_tx = bytes(partially_signed_tx)
+        print(f"Serialized transaction size: {len(serialized_tx)} bytes")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+</CodeTabs>
+
+## Key Points
+
+- **Partial signing** allows you to sign a transaction with some signers while leaving space for additional signatures
+- In **JavaScript Legacy**, you can modify the signatures array directly after creating the transaction
+- In **Python**, use the `partial_sign_transaction` helper function that handles the signing process
+- The transaction can be serialized and passed between different systems/signers
+- All signatures must be assigned at once in Python due to the solders library implementation
+- This pattern is especially useful for multi-signature wallets and complex authorization scenarios
