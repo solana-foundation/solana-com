@@ -1,17 +1,17 @@
 ---
-title: Revoke Delegate
-description: Learn how to revoke an account delegate.
+title: Thaw Account
+description: Learn how to thaw a frozen token account.
 ---
 
-## How to Revoke delegate
+## How To Thaw a Frozen Token Account
 
-Revoking delegates involves removing an approved delegate from a token account. The previously approved delegate will no longer be authorized to transfer tokens from the token account. This can be done by calling the [Revoke](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/interface/src/instruction.rs#L133C5-L133C11) instruction on the token program. Only the authority of the source token account can revoke a previously approved delegate when calling this instruction.
+Thawing token accounts is the process of unfrezing/thawing a previously frozen token account. Only the freeze authority address is able to do this by calling the [ThawAccount](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L243) instruction on the token program/s.
 
 <Callout type="info">
   The [Token
-  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L140)
+  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L243)
   and [Token Extension
-  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L182)
+  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L306)
   share similar implementations to achieve the same functionality.
 </Callout>
 
@@ -23,12 +23,12 @@ Revoking delegates involves removing an approved delegate from a token account. 
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
 	findAssociatedTokenPda,
-	getApproveCheckedInstruction,
 	getCreateAssociatedTokenInstructionAsync,
+	getFreezeAccountInstruction,
 	getInitializeMintInstruction,
 	getMintSize,
 	getMintToCheckedInstruction,
-	getRevokeInstruction,
+	getThawAccountInstruction,
 	TOKEN_PROGRAM_ADDRESS,
 } from "@solana-program/token";
 import {
@@ -59,29 +59,30 @@ import {
 // Create Connection, local validator in this example
 const client = createClient();
 
-// Generate keypairs for mint address, fee payer and delegate
+// Generate keypairs for mint address and fee payer
 const payer = await generateKeyPairSigner(); // will act as mint authority too
-const delegate = await generateKeyPairSigner();
 const mint = await generateKeyPairSigner();
 
 /* constants */
 const mintDecimals = 9;
 
 console.log("Fee Payer Address: ", payer.address.toString());
-console.log("Delegate Address: ", delegate.address.toString());
 console.log("Mint Address: ", mint.address.toString());
 
 let { payerAssociatedTokenAcc } = await setup();
 
-// !mark
-const revokeDelegateIx = getRevokeInstruction({
-	source: payerAssociatedTokenAcc,
+//! mark
+const thawIx = getThawAccountInstruction({
+	account: payerAssociatedTokenAcc,
+	mint: mint.address,
 	owner: payer,
 });
 
+console.log("\nThawing frozen token account: ", payerAssociatedTokenAcc);
+
 const txSignature = await pipe(
 	await createDefaultTransaction(client, payer),
-	(tx) => appendTransactionMessageInstruction(revokeDelegateIx, tx),
+	(tx) => appendTransactionMessageInstruction(thawIx, tx),
 	(tx) => signAndSendTransaction(client, tx)
 );
 console.log("\nTransaction Signature:", txSignature);
@@ -90,7 +91,7 @@ console.log("\nTransaction Signature:", txSignature);
 
 /*
  * The setup function initializes the mint and associated token accounts
- * for the payer and approves delegation of tokens to the delegate address
+ * for the payer and mints tokens to the token account
  *
  */
 async function setup() {
@@ -123,6 +124,7 @@ async function setup() {
 		mint: mint.address,
 		decimals: mintDecimals,
 		mintAuthority: payer.address,
+		freezeAuthority: payer.address, // if left out, freeze auth is set to null and token accounts can't be frozen
 	});
 
 	// Derive the ATA for payer
@@ -149,14 +151,11 @@ async function setup() {
 		decimals: mintDecimals,
 	});
 
-	// Create instruction to revoke delegate
-	const delegateInstruction = getApproveCheckedInstruction({
-		source: payerAssociatedTokenAcc,
+	// freeze the minted tokens
+	const freezeIx = getFreezeAccountInstruction({
+		account: payerAssociatedTokenAcc,
 		mint: mint.address,
-		delegate: delegate.address,
 		owner: payer,
-		amount: 1_000_000_000n, // 1 token
-		decimals: mintDecimals,
 	});
 
 	const instructions = [
@@ -164,7 +163,7 @@ async function setup() {
 		initializeMintInstruction, // initialize mint accounts
 		cratePayerATAInstruction, // create payer's ATA
 		mintToInstruction, // mint tokens to payer
-		delegateInstruction, // delegate tokens
+		freezeIx, // freeze payer tokens
 	];
 
 	await pipe(
@@ -227,187 +226,86 @@ async function signAndSendTransaction(
 
 ```ts !! title="Legacy"
 import {
-  Connection,
-  Keypair,
-  Transaction,
-  sendAndConfirmTransaction,
-  SystemProgram,
-  LAMPORTS_PER_SOL
-} from "@solana/web3.js";
-import {
-  approveChecked,
-  createApproveCheckedInstruction,
-  revoke,
-  createRevokeInstruction,
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  createInitializeMintInstruction,
-  createAssociatedTokenAccountInstruction,
-  getAssociatedTokenAddress,
-  MINT_SIZE,
-  TOKEN_PROGRAM_ID
+	createMint,
+	freezeAccount,
+	getOrCreateAssociatedTokenAccount,
+	mintTo,
+	thawAccount,
 } from "@solana/spl-token";
+import { Connection, Keypair } from "@solana/web3.js";
 
+// Connect to local Solana node
 const connection = new Connection("http://localhost:8899", "confirmed");
 
-const tokenOwner = Keypair.generate();
-const airdropSignature = await connection.requestAirdrop(
-  tokenOwner.publicKey,
-  LAMPORTS_PER_SOL
+// Create a fee payer account
+const feePayer = Keypair.generate();
+
+// Request airdrop for fee payer
+const airdropSig = await connection.requestAirdrop(
+	feePayer.publicKey,
+	1000000000
 );
-await connection.confirmTransaction(airdropSignature);
+await connection.confirmTransaction(airdropSig);
 
-// Create delegate address
-const delegate = Keypair.generate();
-console.log(`Delegate pubkey: ${delegate.publicKey.toBase58()}`);
+// Step 1: Create a new mint
+const mintAuthority = feePayer;
+const freezeAuthority = feePayer;
+const decimals = 2;
 
-// 1) Create mint using build-in function
-console.log("\n1. Creating mint using build-in function...");
+console.log("Creating mint...");
 const mint = await createMint(
-  connection,
-  tokenOwner,
-  tokenOwner.publicKey, // mint authority
-  tokenOwner.publicKey, // freeze authority
-  9 // decimals
+	connection,
+	feePayer,
+	mintAuthority.publicKey,
+	freezeAuthority.publicKey,
+	decimals
 );
-console.log(`Mint created: ${mint.toBase58()}`);
+console.log("Mint created:", mint.toBase58());
 
-// 2) Create mint by composing transaction
-console.log("\n2. Creating mint by composing transaction...");
-const mintKeypair = Keypair.generate();
-const mintRent = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
-
-const createMintTx = new Transaction().add(
-  // Create account for mint
-  SystemProgram.createAccount({
-    fromPubkey: tokenOwner.publicKey,
-    newAccountPubkey: mintKeypair.publicKey,
-    space: MINT_SIZE,
-    lamports: mintRent,
-    programId: TOKEN_PROGRAM_ID
-  }),
-  // Initialize mint
-  createInitializeMintInstruction(
-    mintKeypair.publicKey,
-    9, // decimals
-    tokenOwner.publicKey, // mint authority
-    tokenOwner.publicKey // freeze authority
-  )
-);
-
-console.log(
-  `Create mint txhash: ${await sendAndConfirmTransaction(
-    connection,
-    createMintTx,
-    [tokenOwner, mintKeypair]
-  )}`
-);
-
-// 3) Create token account using build-in function
-console.log("\n3. Creating token account using build-in function...");
+// Step 2: Create Associated Token Account
+console.log("Creating token account...");
 const tokenAccount = await getOrCreateAssociatedTokenAccount(
-  connection,
-  tokenOwner,
-  mint, // mint
-  tokenOwner.publicKey // owner
+	connection,
+	feePayer,
+	mint,
+	feePayer.publicKey
 );
-console.log(`Token account created: ${tokenAccount.address.toBase58()}`);
+console.log("Token account:", tokenAccount.address.toBase58());
 
-// 4) Create token account by composing transaction
-console.log("\n4. Creating token account by composing transaction...");
-const associatedTokenAddress = await getAssociatedTokenAddress(
-  mintKeypair.publicKey, // mint
-  tokenOwner.publicKey // owner
+// Step 3: Mint tokens
+const amountToMint = 100;
+console.log("Minting tokens...");
+const mintTx = await mintTo(
+	connection,
+	feePayer,
+	mint,
+	tokenAccount.address,
+	mintAuthority,
+	amountToMint
 );
+console.log("Mint transaction:", mintTx);
 
-const createTokenAccountTx = new Transaction().add(
-  createAssociatedTokenAccountInstruction(
-    tokenOwner.publicKey, // payer
-    associatedTokenAddress, // token address
-    tokenOwner.publicKey, // owner
-    mintKeypair.publicKey // mint
-  )
+// Step 4: Freeze token account
+console.log("Freezing token account...");
+const freezeTx = await freezeAccount(
+	connection,
+	feePayer,
+	tokenAccount.address,
+	mint,
+	freezeAuthority
 );
+console.log("Freeze transaction:", freezeTx);
 
-console.log(
-  `Create token account txhash: ${await sendAndConfirmTransaction(
-    connection,
-    createTokenAccountTx,
-    [tokenOwner]
-  )}`
+// Step 5: Thaw frozen token account
+console.log("Thawing frozen token account...");
+const thawIx = await thawAccount(
+	connection,
+	feePayer,
+	tokenAccount.address,
+	mint,
+	freezeAuthority
 );
-
-// Use the created mint and token account for delegation
-const mintPubkey = mint;
-const tokenAccountPubkey = tokenAccount.address;
-
-// 5) Approve delegation using build-in function
-{
-  console.log("\n5. Approving delegation with specific amount...");
-  const txhash = await approveChecked(
-    connection,
-    tokenOwner,
-    mintPubkey,
-    tokenAccountPubkey,
-    delegate.publicKey,
-    tokenOwner,
-    500000000,
-    9
-  );
-  console.log(`Approve delegation txhash: ${txhash}`);
-}
-
-// 6) Approve delegation by composing transaction
-{
-  console.log("\n6. Approving delegation by composing transaction...");
-  const tx = new Transaction().add(
-    createApproveCheckedInstruction(
-      tokenAccountPubkey, // token account
-      mintPubkey, // mint
-      delegate.publicKey, // delegate
-      tokenOwner.publicKey, // owner of token account
-      500000000, // amount, if your decimals is 9, 0.5 tokens
-      9 // decimals
-    )
-  );
-  console.log(
-    `Approve delegation txhash: ${await sendAndConfirmTransaction(
-      connection,
-      tx,
-      [tokenOwner]
-    )}`
-  );
-}
-
-// 7) Revoke delegation using build-in function
-{
-  console.log("\n7. Revoking delegation...");
-  const revokeTxhash = await revoke(
-    connection,
-    tokenOwner,
-    tokenAccountPubkey,
-    tokenOwner
-  );
-  console.log(`Revoke delegation txhash: ${revokeTxhash}`);
-}
-
-// 8) Revoke delegation by composing transaction
-{
-  console.log("\n8. Revoking delegation by composing transaction...");
-  const revokeTx = new Transaction().add(
-    createRevokeInstruction(
-      tokenAccountPubkey, // token account
-      tokenOwner.publicKey // owner of token account
-    )
-  );
-  console.log(
-    `Revoke delegation txhash: ${await sendAndConfirmTransaction(
-      connection,
-      revokeTx,
-      [tokenOwner]
-    )}`
-  );
-}
+console.log("Thaw transaction:", thawIx);
 ```
 
 </CodeTabs>
@@ -419,15 +317,20 @@ const tokenAccountPubkey = tokenAccount.address;
 ```rust !! title="Rust Async"
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, program_pack::Pack,
-    signature::Keypair, signer::Signer, system_instruction::create_account,
+    commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
+    program_pack::Pack,
+    signature::Keypair,
+    signer::Signer,
+    system_instruction::create_account,
     transaction::Transaction,
 };
 use spl_associated_token_account::{
-    get_associated_token_address, instruction::create_associated_token_account_idempotent,
+    get_associated_token_address,
+    instruction::create_associated_token_account_idempotent,
 };
 use spl_token::{
-    instruction::{initialize_mint2, revoke},
+    instruction::{ freeze_account, initialize_mint2, mint_to_checked, thaw_account },
     state::Mint,
     ID as TOKEN_PROGRAM_ID,
 };
@@ -436,46 +339,52 @@ use spl_token::{
 async fn main() -> anyhow::Result<()> {
     let client = RpcClient::new_with_commitment(
         String::from("http://localhost:8899"),
-        CommitmentConfig::confirmed(),
+        CommitmentConfig::confirmed()
     );
 
     let authority_keypair = Keypair::new(); // will also act as tx fee payer
     let mint_account = Keypair::new();
-    let associated_token_account =
-        get_associated_token_address(&authority_keypair.pubkey(), &mint_account.pubkey());
+    let associated_token_account = get_associated_token_address(
+        &authority_keypair.pubkey(),
+        &mint_account.pubkey()
+    );
 
-    // Airdrop authority, create the mint account and ATA
+    // Airdrop authority, create the mint account and ATA, mint tokens to the ATA
     setup(&client, &authority_keypair, &mint_account).await?;
 
-    let revoke_delegate_ix = revoke(
+    let thaw_ix = thaw_account(
         &TOKEN_PROGRAM_ID,
         &associated_token_account,
+        &mint_account.pubkey(),
         &authority_keypair.pubkey(),
-        &[&authority_keypair.pubkey()],
+        &[&authority_keypair.pubkey()]
     )?;
 
-    let mut transaction =
-        Transaction::new_with_payer(&[revoke_delegate_ix], Some(&authority_keypair.pubkey()));
+    let mut transaction = Transaction::new_with_payer(
+        &[thaw_ix],
+        Some(&authority_keypair.pubkey())
+    );
 
     transaction.sign(&[&authority_keypair], client.get_latest_blockhash().await?);
 
     match client.send_and_confirm_transaction(&transaction).await {
         Ok(signature) => println!("Transaction Signature: {}", signature),
-        Err(err) => eprintln!("Error revoking delegate: {}", err),
+        Err(err) => eprintln!("Error thawing tokens: {}", err),
     }
 
     Ok(())
 }
 
-// Helper function to airdrop, create the mint account and ATA
+// Helper function to airdrop, create the mint account and ATA, mint tokens to the ATA and freeze ATA
 async fn setup(
     client: &RpcClient,
     authority_keypair: &Keypair,
-    mint_account: &Keypair,
+    mint_account: &Keypair
 ) -> anyhow::Result<()> {
-    let transaction_signature = client
-        .request_airdrop(&authority_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
-        .await?;
+    let transaction_signature = client.request_airdrop(
+        &authority_keypair.pubkey(),
+        5 * LAMPORTS_PER_SOL
+    ).await?;
     loop {
         if client.confirm_transaction(&transaction_signature).await? {
             break;
@@ -483,17 +392,16 @@ async fn setup(
     }
 
     let decimals = 9;
+    let amount_to_mint = 100 * (10_u64).pow(decimals as u32); // 100 tokens
     let mint_account_len = Mint::LEN;
-    let mint_account_rent = client
-        .get_minimum_balance_for_rent_exemption(mint_account_len)
-        .await?;
+    let mint_account_rent = client.get_minimum_balance_for_rent_exemption(mint_account_len).await?;
 
     let create_mint_account_ix = create_account(
         &authority_keypair.pubkey(),
         &mint_account.pubkey(),
         mint_account_rent,
         mint_account_len as u64,
-        &TOKEN_PROGRAM_ID,
+        &TOKEN_PROGRAM_ID
     );
 
     let initialize_mint_ix = initialize_mint2(
@@ -501,26 +409,48 @@ async fn setup(
         &mint_account.pubkey(),
         &authority_keypair.pubkey(),
         Some(&authority_keypair.pubkey()),
-        decimals,
+        decimals
     )?;
+
+    let associated_token_account = get_associated_token_address(
+        &authority_keypair.pubkey(),
+        &mint_account.pubkey()
+    );
 
     // Create ATA instruction
     let create_ata_ix = create_associated_token_account_idempotent(
         &authority_keypair.pubkey(), // payer
         &authority_keypair.pubkey(), // wallet address
-        &mint_account.pubkey(),      // mint address
-        &TOKEN_PROGRAM_ID,
+        &mint_account.pubkey(), // mint address
+        &TOKEN_PROGRAM_ID
     );
+
+    // Mint some initial tokens
+    let mint_to_ix = mint_to_checked(
+        &TOKEN_PROGRAM_ID,
+        &mint_account.pubkey(),
+        &associated_token_account,
+        &authority_keypair.pubkey(),
+        &[&authority_keypair.pubkey()],
+        amount_to_mint,
+        decimals
+    )?;
+
+    // Freeze payer token accounts
+    let freeze_ix = freeze_account(
+        &TOKEN_PROGRAM_ID,
+        &associated_token_account,
+        &mint_account.pubkey(),
+        &authority_keypair.pubkey(),
+        &[&authority_keypair.pubkey()]
+    )?;
 
     let mut transaction = Transaction::new_with_payer(
-        &[create_mint_account_ix, initialize_mint_ix, create_ata_ix],
-        Some(&authority_keypair.pubkey()),
+        &[create_mint_account_ix, initialize_mint_ix, create_ata_ix, mint_to_ix, freeze_ix],
+        Some(&authority_keypair.pubkey())
     );
 
-    transaction.sign(
-        &[authority_keypair, mint_account],
-        client.get_latest_blockhash().await?,
-    );
+    transaction.sign(&[authority_keypair, mint_account], client.get_latest_blockhash().await?);
 
     client.send_and_confirm_transaction(&transaction).await?;
     Ok(())
@@ -549,16 +479,14 @@ async fn main() -> Result<()> {
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed()
     );
-    // Generate keypairs to use for authority, delegate and mint
+    // Generate keypairs to use for authority and mint
     let authority_keypair = Keypair::new(); // will also act as tx fee payer
-    let delegate_keypair = Keypair::new();
     let mint_keypair = Keypair::new();
 
     // Number of decimals for the mint
     let decimals = 9;
 
     println!("Mint Authority Address: {}", authority_keypair.pubkey());
-    println!("Delegate Address: {}", delegate_keypair.pubkey());
 
     // Airdrop 5 SOL to authority keypair
     let transaction_signature = rpc_client.request_airdrop(
@@ -631,34 +559,24 @@ async fn main() -> Result<()> {
     );
     println!("Transaction Signature: {}", mint_to_result);
 
-    let amount_to_delegate = 10 * (10_u64).pow(decimals as u32); // 10 tokens
-
-    let transaction_signature = token.approve(
-        &mint_auth_associated_token_acc, // source
-        &delegate_keypair.pubkey(), // delegate
-        &authority_keypair.pubkey(), // authority
-        amount_to_delegate, // amount
-        &[&mint_keypair] // signers
+    // Freeze tokens minted to the mint authority token account
+    let transaction_signature = token.freeze(
+        &mint_auth_associated_token_acc, // source token account
+        &authority_keypair.pubkey(), // authority pubkey
+        &[&authority_keypair] // signer keypairs
     ).await?;
 
-    println!(
-        "Successfully delegated control of {} tokens to {}",
-        amount_to_delegate / (10_u64).pow(decimals as u32),
-        delegate_keypair.pubkey()
-    );
+    println!("Successfully froze mint authority tokens");
     println!("Transaction Signature: {}", transaction_signature);
 
-    let transaction_signature = token.revoke(
-        &mint_auth_associated_token_acc, // source
-        &authority_keypair.pubkey(), // authority
-        &[&authority_keypair] // additional signers (providing payer as a signer)
+    // Thaw the frozen token account
+    let transaction_signature = token.thaw(
+        &mint_auth_associated_token_acc, // source token account
+        &authority_keypair.pubkey(), // authority pubkey
+        &[&authority_keypair] // signer keypairs
     ).await?;
 
-    println!(
-        "Successfully Revoked {} tokens delegated to {}",
-        amount_to_delegate / (10_u64).pow(decimals as u32),
-        delegate_keypair.pubkey()
-    );
+    println!("Successfully thawed frozen tokens");
     println!("Transaction Signature: {}", transaction_signature);
 
     Ok(())
