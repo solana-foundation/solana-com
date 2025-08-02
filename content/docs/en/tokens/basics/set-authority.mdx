@@ -1,0 +1,601 @@
+---
+title: Set Authority
+description: Learn how to set authority for token mints or accounts.
+---
+
+## What is a token mint/account authority
+When talking about the mint accout, the authority is able to mint new tokens and freeze any associated token account when not yet revoked.
+
+When talking about the token account, the authority is able to change the current owner of the token account and the authority that can close the account when the balance is 0.
+
+## How to set authority
+
+Setting authority for mints or tokens involves changing the original mint/account authority to a new address or removing it completely(revoking) by setting the fields as null. This can be done by calling the [SetAuthority](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L153) instruction on the token program/s. Only the current authority of the mint or account can change or revoke the authority and is able to call this instruction.
+
+<Callout type="info">
+  The [Token
+  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L153)
+  and [Token Extension
+  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L195)
+  share similar implementations to achieve the same functionality.
+</Callout>
+
+### Typescript
+
+<CodeTabs storage="token-ts" flags="r">
+
+```ts !! title="Kit"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+	AuthorityType,
+	findAssociatedTokenPda,
+	getCreateAssociatedTokenInstructionAsync,
+	getInitializeMintInstruction,
+	getMintSize,
+	getSetAuthorityInstruction,
+	TOKEN_PROGRAM_ADDRESS,
+} from "@solana-program/token";
+import {
+	airdropFactory,
+	appendTransactionMessageInstructions,
+	createSolanaRpc,
+	createSolanaRpcSubscriptions,
+	createTransactionMessage,
+	generateKeyPairSigner,
+	getSignatureFromTransaction,
+	lamports,
+	pipe,
+	sendAndConfirmTransactionFactory,
+	setTransactionMessageFeePayerSigner,
+	setTransactionMessageLifetimeUsingBlockhash,
+	signTransactionMessageWithSigners,
+	type Commitment,
+	type CompilableTransactionMessage,
+	type Rpc,
+	type RpcSubscriptions,
+	type SolanaRpcApi,
+	type SolanaRpcSubscriptionsApi,
+	type TransactionMessageWithBlockhashLifetime,
+	type TransactionSigner,
+} from "@solana/kit";
+
+// Create Connection, local validator in this example
+const client = createClient();
+
+// Generate keypairs for mint address, fee payer and delegate
+const payer = await generateKeyPairSigner(); // will act as mint authority too
+const newAuthority = await generateKeyPairSigner(); // new authority to assign to
+const mint = await generateKeyPairSigner();
+
+/* constants */
+const mintDecimals = 9;
+
+console.log("Fee Payer Address: ", payer.address.toString());
+console.log("Mint Address: ", mint.address.toString());
+
+let { payerAssociatedTokenAcc } = await setup();
+
+// !mark
+// 1. Change Mint Authority (MintTokens)
+const setMintAuthorityIx = getSetAuthorityInstruction({
+	owned: mint.address,
+	owner: payer,
+	authorityType: AuthorityType.MintTokens,
+	newAuthority: newAuthority.address,
+});
+
+// !mark
+// 2. Change Freeze Authority(FreezeAccount)
+const setFreezeAuthorityIx = getSetAuthorityInstruction({
+	owned: mint.address,
+	owner: payer,
+	authorityType: AuthorityType.FreezeAccount,
+	newAuthority: newAuthority.address,
+});
+
+// !mark
+// 3. Example of revoking authority (setting to null)
+const revokeMintAuthorityIx = getSetAuthorityInstruction({
+	owned: mint.address,
+	owner: newAuthority,
+	authorityType: AuthorityType.MintTokens,
+	newAuthority: null,
+});
+
+// !mark
+// 4. Example of changing close authority of a token account (CloseAccount)
+const closeTokenAccountIx = getSetAuthorityInstruction({
+	owned: payerAssociatedTokenAcc,
+	owner: payer,
+	authorityType: AuthorityType.CloseAccount,
+	newAuthority: null,
+});
+
+const instructions = [
+	setMintAuthorityIx,
+	setFreezeAuthorityIx,
+	revokeMintAuthorityIx,
+	closeTokenAccountIx,
+];
+
+const txSignature = await pipe(
+	await createDefaultTransaction(client, payer),
+	(tx) => appendTransactionMessageInstructions(instructions, tx),
+	(tx) => signAndSendTransaction(client, tx)
+);
+console.log("\nTransaction Signature:", txSignature);
+
+// ------------------------------------------------ helpers
+
+/*
+ * The setup function initializes the mint and associated token accounts
+ * for the payer
+ *
+ */
+async function setup() {
+	// Fund fee payer
+	await airdropFactory(client)({
+		recipientAddress: payer.address,
+		lamports: lamports(5_000_000_000n), // 5 SOL
+		commitment: "confirmed",
+	});
+
+	// Get default mint account size (in bytes), no extensions enabled
+	const space = BigInt(getMintSize());
+	const rent = await client.rpc
+		.getMinimumBalanceForRentExemption(space)
+		.send();
+
+	// Instruction to create new account for mint (token  program)
+	// Invokes the system program
+	const createAccountInstruction = getCreateAccountInstruction({
+		payer,
+		newAccount: mint,
+		lamports: rent,
+		space,
+		programAddress: TOKEN_PROGRAM_ADDRESS,
+	});
+
+	// Instruction to initialize mint account data
+	// Invokes the token program
+	const initializeMintInstruction = getInitializeMintInstruction({
+		mint: mint.address,
+		decimals: mintDecimals,
+		mintAuthority: payer.address,
+		freezeAuthority: payer.address,
+	});
+
+	// Derive the ATA for payer
+	const [payerAssociatedTokenAcc] = await findAssociatedTokenPda({
+		mint: mint.address,
+		owner: payer.address,
+		tokenProgram: TOKEN_PROGRAM_ADDRESS,
+	});
+
+	// Create instruction for payer ATA
+	const cratePayerATAInstruction =
+		await getCreateAssociatedTokenInstructionAsync({
+			payer: payer,
+			mint: mint.address,
+			owner: payer.address,
+		});
+
+	const instructions = [
+		createAccountInstruction, // create mint accounts
+		initializeMintInstruction, // initialize mint accounts
+		cratePayerATAInstruction, // create payer's ATA
+	];
+
+	await pipe(
+		await createDefaultTransaction(client, payer),
+		(tx) => appendTransactionMessageInstructions(instructions, tx),
+		(tx) => signAndSendTransaction(client, tx)
+	);
+
+	return {
+		payerAssociatedTokenAcc,
+	};
+}
+
+type Client = {
+	rpc: Rpc<SolanaRpcApi>;
+	rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
+};
+
+function createClient(): Client {
+	const rpc = createSolanaRpc("http://localhost:8899");
+	const rpcSubscriptions = createSolanaRpcSubscriptions(
+		"ws://localhost:8900"
+	);
+
+	return { rpc, rpcSubscriptions };
+}
+
+async function createDefaultTransaction(
+	client: Client,
+	feePayer: TransactionSigner
+) {
+	const { value: latestBlockhash } = await client.rpc
+		.getLatestBlockhash()
+		.send();
+	return pipe(
+		createTransactionMessage({ version: 0 }),
+		(tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+		(tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx)
+	);
+}
+
+async function signAndSendTransaction(
+	client: Client,
+	transactionMessage: CompilableTransactionMessage &
+		TransactionMessageWithBlockhashLifetime,
+	commitment: Commitment = "confirmed"
+) {
+	const signedTransaction = await signTransactionMessageWithSigners(
+		transactionMessage
+	);
+	const signature = getSignatureFromTransaction(signedTransaction);
+
+	await sendAndConfirmTransactionFactory(client)(signedTransaction, {
+		commitment,
+		skipPreflight: true,
+	});
+	return signature;
+}
+```
+
+```ts !! title="Legacy"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  AuthorityType,
+  setAuthority,
+  createMint,
+  getOrCreateAssociatedTokenAccount
+} from "@solana/spl-token";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Setup fee payer
+const feePayer = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature);
+
+// Create a new random authority
+const newAuthority = Keypair.generate();
+console.log(`New Authority Public Key: ${newAuthority.publicKey.toBase58()}`);
+
+// Create a new mint
+console.log("Creating new mint...");
+const mint = await createMint(
+  connection,
+  feePayer,
+  feePayer.publicKey,
+  feePayer.publicKey,
+  9
+);
+console.log(`Mint created: ${mint.toBase58()}`);
+
+// Create token account
+console.log("Creating token account...");
+const tokenAccount = await getOrCreateAssociatedTokenAccount(
+  connection,
+  feePayer,
+  mint,
+  feePayer.publicKey
+);
+console.log(`Token account created: ${tokenAccount.address.toBase58()}`);
+
+// 1. Change Mint Authority (MintTokens)
+console.log("\n1. Changing Mint Authority...");
+const mintAuthTx = await setAuthority(
+  connection,
+  feePayer,
+  mint,
+  feePayer,
+  AuthorityType.MintTokens,
+  newAuthority.publicKey // Set to null to permanently disable minting
+);
+console.log(`Mint authority changed. Tx: ${mintAuthTx}`);
+
+// 2. Change Freeze Authority
+console.log("\n2. Changing Freeze Authority...");
+const freezeAuthTx = await setAuthority(
+  connection,
+  feePayer,
+  mint,
+  feePayer,
+  AuthorityType.FreezeAccount,
+  newAuthority.publicKey // Set to null to permanently disable freezing
+);
+console.log(`Freeze authority changed. Tx: ${freezeAuthTx}`);
+
+// Example of revoking authority (setting to null)
+console.log("\n3. Revoking Mint Authority...");
+const revokeMintAuthTx = await setAuthority(
+  connection,
+  feePayer,
+  mint,
+  newAuthority, // must be signed by current authority
+  AuthorityType.MintTokens,
+  null // Setting to null revokes the authority
+);
+console.log(`Mint authority revoked. Tx: ${revokeMintAuthTx}`);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust Async"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, program_pack::Pack,
+    signature::Keypair, signer::Signer, system_instruction::create_account,
+    transaction::Transaction,
+};
+use spl_token::{
+    instruction::{initialize_mint2, set_authority, AuthorityType},
+    state::Mint,
+    ID as TOKEN_PROGRAM_ID,
+};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let authority_keypair = Keypair::new(); // will also act as tx fee payer
+    let new_authority_keypair = Keypair::new();
+    let mint_account = Keypair::new();
+    // Airdrop authority, create the mint account
+    setup(&client, &authority_keypair, &mint_account).await?;
+
+    // set new mint authority on mint account
+    let set_mint_authority_ix = set_authority(
+        &TOKEN_PROGRAM_ID,
+        &mint_account.pubkey(),
+        Some(&new_authority_keypair.pubkey()), // to revoke authority, set to None
+        AuthorityType::MintTokens,
+        &authority_keypair.pubkey(),
+        &[&authority_keypair.pubkey()],
+    )?;
+
+    let set_freeze_authority_ix = set_authority(
+        &TOKEN_PROGRAM_ID,
+        &mint_account.pubkey(),
+        Some(&new_authority_keypair.pubkey()), // to revoke authority, set to None
+        AuthorityType::FreezeAccount,
+        &authority_keypair.pubkey(),
+        &[&authority_keypair.pubkey()],
+    )?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[set_mint_authority_ix, set_freeze_authority_ix],
+        Some(&authority_keypair.pubkey()),
+    );
+
+    transaction.sign(&[&authority_keypair], client.get_latest_blockhash().await?);
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error setting authority: {}", err),
+    }
+
+    Ok(())
+}
+
+// Helper function to airdrop, create the mint account
+async fn setup(
+    client: &RpcClient,
+    authority_keypair: &Keypair,
+    mint_account: &Keypair,
+) -> anyhow::Result<()> {
+    let transaction_signature = client
+        .request_airdrop(&authority_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        if client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    let decimals = 9;
+    let mint_account_len = Mint::LEN;
+    let mint_account_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_account_len)
+        .await?;
+
+    let create_mint_account_ix = create_account(
+        &authority_keypair.pubkey(),
+        &mint_account.pubkey(),
+        mint_account_rent,
+        mint_account_len as u64,
+        &TOKEN_PROGRAM_ID,
+    );
+
+    let initialize_mint_ix = initialize_mint2(
+        &TOKEN_PROGRAM_ID,
+        &mint_account.pubkey(),
+        &authority_keypair.pubkey(),
+        Some(&authority_keypair.pubkey()),
+        decimals,
+    )?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[create_mint_account_ix, initialize_mint_ix],
+        Some(&authority_keypair.pubkey()),
+    );
+
+    transaction.sign(
+        &[authority_keypair, mint_account],
+        client.get_latest_blockhash().await?,
+    );
+
+    client.send_and_confirm_transaction(&transaction).await?;
+    Ok(())
+}
+```
+
+```rust !! title="Token Client"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
+    signature::{ Keypair, Signer },
+};
+use spl_token::id as token_program_id;
+use spl_token_client::{
+    client::{ ProgramRpcClient, ProgramRpcClientSendTransaction },
+    spl_token_2022::instruction::AuthorityType,
+    token::{ ExtensionInitializationParams, Token },
+};
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let rpc_client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed()
+    );
+    // Generate keypairs to use for authority, delegate and mint
+    let authority_keypair = Keypair::new(); // will also act as tx fee payer
+    let new_authority_keypair = Keypair::new();
+    let mint_keypair = Keypair::new();
+
+    // Number of decimals for the mint
+    let decimals = 9;
+
+    println!("Mint Authority Address: {}", authority_keypair.pubkey());
+    println!("New authority Address: {}", new_authority_keypair.pubkey());
+
+    // Airdrop 5 SOL to authority keypair
+    let transaction_signature = rpc_client.request_airdrop(
+        &authority_keypair.pubkey(),
+        5 * LAMPORTS_PER_SOL
+    ).await?;
+    loop {
+        if rpc_client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    // Create a new program client
+    let program_client = ProgramRpcClient::new(
+        Arc::new(
+            RpcClient::new_with_commitment(
+                String::from("http://localhost:8899"),
+                CommitmentConfig::confirmed()
+            )
+        ),
+        ProgramRpcClientSendTransaction
+    );
+
+    // Create a token client for Token
+    let token = Token::new(
+        Arc::new(program_client),
+        &token_program_id(),
+        &mint_keypair.pubkey(),
+        Some(decimals),
+        Arc::new(authority_keypair.insecure_clone())
+    );
+
+    // Create and initialize the mint
+    let extension_initialization_params: Vec<ExtensionInitializationParams> = Vec::new();
+
+    let mint_result = token.create_mint(
+        &authority_keypair.pubkey(), // mint authority
+        Some(&authority_keypair.pubkey()), // freeze authority
+        extension_initialization_params, // no extensions
+        &[&mint_keypair] // mint keypair needed as signer
+    ).await?;
+
+    println!("\nCreating mint {}", mint_keypair.pubkey());
+    println!("Transaction Signature: {}", mint_result);
+
+    // Derive mint authority ATA
+    let mint_auth_associated_token_acc = token.get_associated_token_address(
+        &authority_keypair.pubkey()
+    );
+    println!("Mint Authority Token Account Address: {}", mint_auth_associated_token_acc);
+
+    // Then, create the associated token account for mint authority
+    let create_mint_authority_ata_result = token.create_associated_token_account(
+        &authority_keypair.pubkey() // owner
+    ).await?;
+    println!("Created Source Token Account: {}", create_mint_authority_ata_result);
+
+    // set new mint authority on mint account
+    let transaction_signature = token.set_authority(
+        &mint_keypair.pubkey(), // mint account
+        &authority_keypair.pubkey(), // authority keypair
+        Some(&new_authority_keypair.pubkey()), // new authority
+        AuthorityType::MintTokens, // authority type
+        &[&authority_keypair] // signing keypairs
+    ).await?;
+
+    println!(
+        "Successfully changed mint authority from {} to {}",
+        authority_keypair.pubkey(),
+        new_authority_keypair.pubkey()
+    );
+    println!("Transaction Signature: {}", transaction_signature);
+
+    // set new freeze authority on mint account
+    let transaction_signature = token.set_authority(
+        &mint_keypair.pubkey(), // mint account
+        &authority_keypair.pubkey(), // authority keypair
+        Some(&new_authority_keypair.pubkey()), // new authority
+        AuthorityType::FreezeAccount, // authority type
+        &[&authority_keypair] // signing keypairs
+    ).await?;
+
+    println!(
+        "Successfully changed freeze authority from {} to {}",
+        authority_keypair.pubkey(),
+        new_authority_keypair.pubkey()
+    );
+    println!("Transaction Signature: {}", transaction_signature);
+
+    // Revoke mint authority
+    let transaction_signature = token.set_authority(
+        &mint_keypair.pubkey(), // mint account
+        &new_authority_keypair.pubkey(), // authority keypair
+        None, // new authority
+        AuthorityType::MintTokens, // authority type
+        &[&new_authority_keypair] // signing keypairs
+    ).await?;
+
+    println!("Successfully revoked mint authority {}", new_authority_keypair.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
+
+    // Change close authority for token address
+    let transaction_signature = token.set_authority(
+        &mint_auth_associated_token_acc, // mint account
+        &authority_keypair.pubkey(), // authority keypair
+        Some(&new_authority_keypair.pubkey()), // new authority
+        AuthorityType::CloseAccount, // authority type
+        &[&authority_keypair] // signing keypairs
+    ).await?;
+
+    println!(
+        "Successfully change the close token account authority for {} to {}",
+        mint_auth_associated_token_acc,
+        new_authority_keypair.pubkey()
+    );
+    println!("Transaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
