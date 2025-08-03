@@ -1,7 +1,12 @@
 "use client";
 
-import { InkeepChatButton as ChatButton } from "@inkeep/cxkit-react";
+import dynamic from "next/dynamic";
 import { useInkeepConfig } from "./useInkeepConfig";
+
+const ChatButton = dynamic(
+  () => import("@inkeep/cxkit-react").then((mod) => mod.InkeepChatButton),
+  { ssr: false },
+);
 
 export function InkeepChatButton() {
   const inkeepConfig = useInkeepConfig();
