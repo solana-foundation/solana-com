@@ -50,9 +50,9 @@ const ICMPage = () => {
       />
 
       <div
-        id="depin-page"
-        className="bg-depin-bg"
-        aria-labelledby="depin-hero-title"
+        id="icm-page"
+        className="bg-solution-bg"
+        aria-labelledby="hero-title"
       >
         <SolutionHero
           badge={t("icm.hero.badge")}
