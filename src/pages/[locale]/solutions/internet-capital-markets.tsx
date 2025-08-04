@@ -91,9 +91,9 @@ const ICMPage = () => {
 
         {/* EcoProjects Section */}
         <section>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 [padding-block:1rem] sm:[padding-block:3rem]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full">
+              <h2 className="text-3xl font-bold text-white col-span-full mb-4">
                 {t("icm.projects.title")}
               </h2>
               <Projects
@@ -117,7 +117,7 @@ const ICMPage = () => {
         </section>
 
         {/* Real Builders Section */}
-        <section className="py-8 bg-[#171c25]">
+        <section className=" [padding-block:1rem] sm:[padding-block:3rem] bg-[#171c25]">
           <VideoGrid
             title={t("icm.videoPlayer.title")}
             subtitle={t("icm.videoPlayer.subtitle")}

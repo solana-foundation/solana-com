@@ -7,7 +7,7 @@ type WhatIsItProps = {
 };
 
 export const WhatIsIt = ({ title, description, features }: WhatIsItProps) => (
-  <section className="w-full py-8 md:py-20 flex justify-center">
+  <section className="w-full flex justify-center [padding-block:1rem] sm:[padding-block:3rem]">
     <div className="flex flex-col items-center max-w-5xl w-full px-4">
       <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 text-center">
         {title}

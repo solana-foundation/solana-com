@@ -54,11 +54,11 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           priority
         />
 
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16 items-stretch px-4 sm:px-6 pt-12 md:pt-20">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16 items-stretch px-4 sm:px-6 pt-8 md:pt-20">
           <div className="text-left flex flex-col justify-between">
             <h1
               id="hero-title"
-              className="text-white font-display text-3xl !leading-[81%] md:text-6xl xl:text-8xl"
+              className="text-white font-display !leading-[81%] md:text-6xl xl:text-8xl"
             >
               {beforeDot}
               {afterDot && <br />}

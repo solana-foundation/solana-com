@@ -10,7 +10,7 @@ export type NewsItemProps = {
 };
 
 export const NewsItem = ({ title, summary, image, link }: NewsItemProps) => (
-  <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+  <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 [padding-block:1rem] sm:[padding-top:3rem]">
     <Link
       href={link}
       target="_blank"
@@ -19,7 +19,7 @@ export const NewsItem = ({ title, summary, image, link }: NewsItemProps) => (
     >
       <div
         className="
-      grid grid-cols-1 md:grid-cols-6 gap-8
+      grid grid-cols-1 md:grid-cols-6 gap-6
       rounded-lg transition
       hover:shadow-lg focus:shadow-lg
       hover:scale-[1.01] focus:scale-[1.01]

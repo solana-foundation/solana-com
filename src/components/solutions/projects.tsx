@@ -63,7 +63,7 @@ export const Projects = ({
   ));
 
   return (
-    <div className="col-span-full md:col-span-2 py-8">
+    <div className="col-span-full md:col-span-2">
       <div className="mx-auto">
         <div
           className={`grid gap-3 w-full grid-cols-1 ${styles["custom-md-cols"]}`}
