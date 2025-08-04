@@ -45,6 +45,15 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
         className="relative min-h-[calc(100vh-75.4px)] overflow-hidden bg-[#0C1320]"
         aria-labelledby="hero-title"
       >
+        <Image
+          src="/src/img/solutions/hero-decoration.svg"
+          alt=""
+          width={37}
+          height={181}
+          className="absolute top-20 md:top-32 left-0 pointer-events-none max-lg:hidden"
+          priority
+        />
+
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16 items-stretch px-4 sm:px-6 pt-12 md:pt-20">
           <div className="text-left flex flex-col justify-between">
             <h1
