@@ -1,0 +1,96 @@
+---
+title: Solana RPC 메소드
+seoTitle: "Solana RPC 메소드: HTTP 및 웹소켓"
+hideTableOfContents: false
+h1: Solana RPC 메소드 및 문서
+---
+
+JSON RPC API를 통해 HTTP 및 웹소켓 메소드를 사용하여 Solana 노드와 직접
+상호작용하세요.
+
+## 상태 커밋 구성하기
+
+사전 검사 및 트랜잭션 처리를 위해 Solana 노드는 클라이언트가 설정한 커밋
+요구사항에 따라 어떤 뱅크 상태를 쿼리할지 선택합니다. 커밋은 해당 시점에서
+블록이 얼마나 확정되었는지를 설명합니다. 원장 상태를 쿼리할 때는 진행 상황을
+보고하기 위해 낮은 수준의 커밋을 사용하고, 상태가 롤백되지 않도록 보장하기 위해
+높은 수준의 커밋을 사용하는 것이 좋습니다.
+
+커밋 수준의 내림차순으로(가장 확정된 것부터 가장 덜 확정된 것까지) 클라이언트는
+다음을 지정할 수 있습니다:
+
+- `finalized` - 노드는 클러스터의 슈퍼 다수가 최대 잠금에 도달했다고 확인한 가장
+  최근 블록을 쿼리합니다. 이는 클러스터가 이 블록을 확정된 것으로 인식했음을
+  의미합니다.
+- `confirmed` - 노드는 클러스터의 슈퍼 다수가 투표한 가장 최근 블록을
+  쿼리합니다.
+  - 가십과 리플레이의 투표를 통합합니다.
+  - 블록의 자손에 대한 투표는 계산하지 않고, 해당 블록에 대한 직접 투표만
+    계산합니다.
+  - 이 확인 수준은 또한 1.3 릴리스 이후부터 "낙관적 확인" 보장을 유지합니다.
+- `processed` - 노드는 가장 최근 블록을 쿼리합니다. 이 블록은 여전히 클러스터에
+  의해 건너뛰어질 수 있습니다.
+
+일련의 많은 종속 트랜잭션을 처리할 때는 속도와 롤백 안전성의 균형을 맞추는
+`confirmed` 커밋을 사용하는 것이 좋습니다. 완전한 안전성을 위해서는 `finalized`
+커밋을 사용하는 것이 좋습니다.
+
+### 기본 커밋먼트
+
+커밋먼트 구성이 제공되지 않으면, 노드는
+[기본적으로 `finalized` 커밋먼트](https://github.com/anza-xyz/agave/blob/aa0922d6845e119ba466f88497e8209d1c82febc/sdk/src/commitment_config.rs#L199-L203)를
+사용합니다
+
+뱅크 상태를 조회하는 메서드만 커밋먼트 매개변수를 허용합니다. 이러한 메서드는
+아래 API 참조에 표시되어 있습니다.
+
+## RpcResponse 구조
+
+커밋먼트 매개변수를 사용하는 많은 메서드는 두 부분으로 구성된 RpcResponse JSON
+객체를 반환합니다:
+
+- `context` : 작업이 평가된 `slot` 필드를 포함하는 RpcResponseContext JSON
+  구조입니다.
+- `value` : 작업 자체에 의해 반환된 값입니다.
+
+## 파싱된 응답
+
+일부 메서드는 `encoding` 매개변수를 지원하며, `"encoding":"jsonParsed"`가
+요청되고 노드가 소유 프로그램에 대한 파서를 가지고 있는 경우 파싱된 JSON
+형식으로 계정 또는 명령어 데이터를 반환할 수 있습니다. Solana 노드는 현재 다음과
+같은 네이티브 및 SPL 프로그램에 대한 JSON 파싱을 지원합니다:
+
+| 프로그램                     | 계정 상태 | 명령어  |
+| ---------------------------- | --------- | ------- |
+| Address Lookup               | v1.15.0   | v1.15.0 |
+| BPF Loader                   | n/a       | stable  |
+| BPF Upgradeable Loader       | stable    | stable  |
+| Config                       | stable    |         |
+| SPL Associated Token Account | n/a       | stable  |
+| SPL Memo                     | n/a       | stable  |
+| SPL Token                    | stable    | stable  |
+| SPL Token 2022               | stable    | stable  |
+| Stake                        | stable    | stable  |
+| Vote                         | stable    | stable  |
+
+계정 파서 목록은
+[여기](https://github.com/solana-labs/solana/blob/master/account-decoder/src/parse_account_data.rs)에서
+찾을 수 있으며, 명령어 파서는
+[여기](https://github.com/solana-labs/solana/blob/master/transaction-status/src/parse_instruction.rs)에서
+찾을 수 있습니다.
+
+## 필터 기준
+
+일부 메서드는 RpcResponse JSON 객체 내에서 반환되는 데이터를 사전 필터링할 수
+있도록 `filters` 객체 제공을 지원합니다. 다음과 같은 필터가 존재합니다:
+
+- `memcmp: object` - 특정 오프셋에서 프로그램 계정 데이터와 제공된 바이트
+  시리즈를 비교합니다. 필드:
+  - `offset: usize` - 비교를 시작할 프로그램 계정 데이터의 오프셋
+  - `bytes: string` - 인코딩된 문자열로 일치시킬 데이터
+  - `encoding: string` - 필터 `bytes` 데이터의 인코딩 방식, "base58" 또는
+    "base64" 중 하나. 데이터 크기는 디코딩 후 128바이트 이하로 제한됩니다.<br />
+    **신규: 이 필드와 base64 지원은 일반적으로 solana-core v1.14.0 이상에서만
+    사용 가능합니다. 이전 버전의 노드를 쿼리할 때는 이 필드를 생략해 주세요**
+
+- `dataSize: u64` - 프로그램 계정 데이터 길이를 제공된 데이터 크기와 비교합니다
