@@ -31,15 +31,6 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
-              to="/solutions/depin"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
-            >
-              <strong className="d-block text-white">
-                {solutionsToolsItems[11].title}
-              </strong>
-            </Link>
-            <Link
               to="/solutions/actions"
               className="nav-link nav-link--secondary"
               activeClassName="active"
@@ -142,6 +133,24 @@ const HeaderListSolutions = () => {
           </div>
           <div>
             <Link
+              to="/solutions/tokenization"
+              className="nav-link nav-link--secondary text-primary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-primary">
+                {solutionsCasesItems[5].title}
+              </strong>
+            </Link>
+            <Link
+              to="/solutions/depin"
+              className="nav-link nav-link--secondary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-white">
+                {solutionsCasesItems[4].title}
+              </strong>
+            </Link>
+            <Link
               to="/solutions/enterprise"
               className="nav-link nav-link--secondary"
               activeClassName="active"
@@ -166,15 +175,6 @@ const HeaderListSolutions = () => {
             >
               <strong className="d-block text-white">
                 {solutionsCasesItems[2].title}
-              </strong>
-            </Link>
-            <Link
-              to="/solutions/financial-institutions"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
-            >
-              <strong className="d-block text-white">
-                {solutionsCasesItems[3].title}
               </strong>
             </Link>
           </div>
