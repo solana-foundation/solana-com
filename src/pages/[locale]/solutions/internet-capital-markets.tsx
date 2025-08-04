@@ -50,9 +50,9 @@ const ICMPage = () => {
       />
 
       <div
-        id="depin-page"
-        className="bg-depin-bg"
-        aria-labelledby="depin-hero-title"
+        id="icm-page"
+        className="bg-solution-bg"
+        aria-labelledby="hero-title"
       >
         <SolutionHero
           badge={t("icm.hero.badge")}
@@ -62,9 +62,12 @@ const ICMPage = () => {
           emailCta={t("icm.hero.emailCta")}
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
-          globeImgSrc="/src/img/solutions/icm/icm-hero.webp"
+          globeImgSrc="/src/img/solutions/icm/hero.svg"
           globeImgAlt={t("icm.hero.alt")}
+          variant="modern"
+          reportImgSrc="/src/img/solutions/icm/hero-download.svg"
         />
+
         <WhatIsIt
           title={t("icm.features.title")}
           description={t.rich("icm.features.description", {

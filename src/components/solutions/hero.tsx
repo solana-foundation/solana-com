@@ -15,6 +15,8 @@ export type SolutionHeroProps = {
   stats: SolutionHeroStat[];
   globeImgSrc: string;
   globeImgAlt: string;
+  reportImgSrc?: string;
+  variant?: "default" | "modern";
 };
 
 export const SolutionHero: React.FC<SolutionHeroProps> = ({
@@ -27,12 +29,116 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   stats,
   globeImgSrc,
   globeImgAlt,
+  reportImgSrc,
+  variant = "default",
 }) => {
   // Split title on first period for line break
   const firstDotIdx = title.indexOf(".");
   const beforeDot =
     firstDotIdx !== -1 ? title.slice(0, firstDotIdx + 1) : title;
   const afterDot = firstDotIdx !== -1 ? title.slice(firstDotIdx + 1) : "";
+
+  if (variant === "modern") {
+    return (
+      <section
+        id="hero"
+        className="relative min-h-[calc(100vh-75.4px)] overflow-hidden bg-[#0C1320]"
+        aria-labelledby="hero-title"
+      >
+        <Image
+          src="/src/img/solutions/hero-decoration.svg"
+          alt=""
+          width={37}
+          height={181}
+          className="absolute top-20 md:top-32 left-0 pointer-events-none max-lg:hidden"
+          priority
+        />
+
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-16 items-stretch px-4 sm:px-6 pt-12 md:pt-20">
+          <div className="text-left flex flex-col justify-between">
+            <h1
+              id="hero-title"
+              className="text-white font-display text-3xl !leading-[81%] md:text-6xl xl:text-8xl"
+            >
+              {beforeDot}
+              {afterDot && <br />}
+              {afterDot}
+            </h1>
+
+            {globeImgSrc && (
+              <Image
+                src={globeImgSrc}
+                alt={globeImgAlt}
+                width={650}
+                height={480}
+                className="mt-6 lg:-ml-[20%] max-w-[650px] md:max-w-[450px] w-[65%] md:w-[80%] lg:w-[120%] h-auto "
+                priority
+              />
+            )}
+          </div>
+
+          <div className="pb-6 md:pb-12">
+            {/* Description */}
+            <p className="text-white/65 text-xl mb-6">{subtitle}</p>
+
+            <div
+              className="w-full h-px border-t border-white/15 mb-6"
+              aria-hidden="true"
+            />
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-6 md:gap-8 mb-6">
+              {stats.map((stat) => (
+                <div key={stat.label} className="text-left">
+                  <div className="text-2xl md:text-4xl lg:text-6xl leading-none font-bold uppercase text-white">
+                    {stat.value}
+                  </div>
+                  <div className="text-xl leading-none text-white/65">
+                    {stat.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Download Section */}
+            <div className="mt-10 flex flex-row items-end overflow-hidden">
+              {reportImgSrc && (
+                <Image
+                  src={reportImgSrc}
+                  alt=""
+                  width={170}
+                  height={260}
+                  className="h-auto max-w-[170px] w-[80px] md:w-[170px] relative max-sm:hidden"
+                />
+              )}
+
+              <div className="pl-[200px] -ml-[200px] bg-[#212B3E] grow">
+                <div className="px-4 md:px-6 py-4">
+                  {reportEyebrow && (
+                    <p className="text-white font-bold text-lg md:text-2xl leading-none mb-4">
+                      {reportEyebrow}
+                    </p>
+                  )}
+                  {emailCta && (
+                    <Button
+                      size="lg"
+                      variant="default"
+                      aria-label={emailCta}
+                      onClick={onEmailClick}
+                      className="w-full sm:w-auto text-lg h-14 rounded-xl px-6 md:ml-4"
+                    >
+                      {emailCta}
+                      <ArrowRightIcon aria-hidden="true" className="ml-1" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

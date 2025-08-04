@@ -27,7 +27,7 @@ const DePINPage = () => {
 
       <div
         id="depin-page"
-        className="bg-depin-bg"
+        className="bg-solution-bg"
         aria-labelledby="depin-hero-title"
       >
         <DePINHero onEmailClick={() => setEmailModalOpen(true)} />
