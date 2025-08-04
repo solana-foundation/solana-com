@@ -61,6 +61,11 @@ export const LOGOS = [
     alt: "Societe Generale",
     bg: "bg-black",
   },
+  {
+    src: "/src/img/solutions/icm/ecosystem/BlackRock.webp",
+    alt: "Blackrock",
+    bg: "bg-white",
+  },
 ];
 
 export const PRODUCTS = [
