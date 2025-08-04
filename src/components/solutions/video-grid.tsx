@@ -49,10 +49,12 @@ export const VideoGrid = ({
           bgColorClass="!bg-purple-600/90"
         />
       </div>
-      <h3 className="text-lg md:text-xl font-semibold text-white mt-4 mb-2">
+      <h3 className="text-lg md:text-xl font-semibold text-white mt-4">
         {video.title}
       </h3>
-      <p className="text-sm md:text-base text-gray-300">{video.description}</p>
+      <p className="text-sm md:text-base text-gray-300 m-0">
+        {video.description}
+      </p>
     </div>
   ));
 
@@ -61,7 +63,7 @@ export const VideoGrid = ({
       <h2 className="text-3xl md:text-5xl font-bold text-white text-center mb-4">
         {title}
       </h2>
-      <p className="text-base md:text-lg text-gray-300 text-center max-w-2xl mx-auto mb-8">
+      <p className="text-base md:text-lg text-gray-300 text-center max-w-2xl mx-auto mb-0">
         {subtitle}
       </p>
       {videos.length > 3 ? (
@@ -70,7 +72,7 @@ export const VideoGrid = ({
           <div className="hidden md:flex justify-end mb-6">
             <CarouselControls carouselRef={carouselRef} />
           </div>
-          <div className="hidden md:flex gap-8 mb-6 justify-center items-start">
+          <div className="hidden md:flex gap-8 mb-4 justify-center items-start">
             <Carousel
               ref={carouselRef}
               controlsInline={false}
@@ -81,7 +83,7 @@ export const VideoGrid = ({
             </Carousel>
           </div>
           {/* Mobile: stack cards, no carousel */}
-          <div className="flex flex-col gap-8 md:hidden mb-6">{videoCards}</div>
+          <div className="flex flex-col gap-8 md:hidden">{videoCards}</div>
         </>
       ) : (
         // Already stacks on mobile, no change needed
@@ -90,7 +92,7 @@ export const VideoGrid = ({
         </div>
       )}
       {moreVideosUrl && moreVideosLabel && (
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center">
           <a
             href={moreVideosUrl}
             target="_blank"

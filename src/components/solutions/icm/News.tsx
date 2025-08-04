@@ -10,7 +10,7 @@ export type NewsItemProps = {
 };
 
 export const NewsItem = ({ title, summary, image, link }: NewsItemProps) => (
-  <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+  <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
     <Link
       href={link}
       target="_blank"
@@ -19,13 +19,11 @@ export const NewsItem = ({ title, summary, image, link }: NewsItemProps) => (
     >
       <div
         className="
-      grid grid-cols-1 md:grid-cols-6 gap-8 mt-10
+      grid grid-cols-1 md:grid-cols-6 gap-8
       rounded-lg transition
-      hover:bg-[#23272f] focus:bg-[#23272f]
       hover:shadow-lg focus:shadow-lg
       hover:scale-[1.01] focus:scale-[1.01]
       ring-0 group-focus-visible:ring-2 group-focus-visible:ring-[#6c47ff]
-      p-2
     "
         tabIndex={-1}
       >
@@ -57,6 +55,6 @@ export const NewsItem = ({ title, summary, image, link }: NewsItemProps) => (
         </div>
       </div>
     </Link>
-    <hr className="mt-10 border-[#919191]" />
+    <hr className="mt-8 border-[#919191]" />
   </div>
 );

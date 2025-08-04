@@ -90,7 +90,7 @@ const ICMPage = () => {
         />
 
         {/* EcoProjects Section */}
-        <section className="pt-6 pb-10">
+        <section>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
               <h2 className="text-3xl font-bold text-white col-span-full">
@@ -107,7 +107,7 @@ const ICMPage = () => {
         </section>
 
         {/* Products Section */}
-        <section className="pb-10">
+        <section>
           <Products
             title={t("icm.products.title")}
             description={t("icm.products.description")}
@@ -117,7 +117,7 @@ const ICMPage = () => {
         </section>
 
         {/* Real Builders Section */}
-        <section className="py-10 bg-[#171c25]">
+        <section className="py-8 bg-[#171c25]">
           <VideoGrid
             title={t("icm.videoPlayer.title")}
             subtitle={t("icm.videoPlayer.subtitle")}
@@ -127,7 +127,7 @@ const ICMPage = () => {
           />
         </section>
 
-        <section className="pt-0 pb-10">
+        <section>
           <NewsItem
             title={t("icm.news.title")}
             summary={t("icm.news.summary")}
@@ -137,7 +137,7 @@ const ICMPage = () => {
         </section>
 
         {/* Card Section */}
-        <section className="pt-0 pb-10">
+        <section>
           <CTACards onEmailClick={() => setEmailModalOpen(true)} />
         </section>
       </div>
