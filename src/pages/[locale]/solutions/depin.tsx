@@ -8,7 +8,7 @@ import { VideoPlayerModal } from "@/component-library/video-modal";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 import { useState } from "react";
-import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
+import { EmailModal } from "@/components/solutions/EmailModal";
 import { WhatIsIt } from "@/components/solutions/what-is-it";
 import { Projects } from "@/components/solutions/projects";
 import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/depin";
@@ -89,9 +89,9 @@ const DePINPage = () => {
         </section>
       </div>
       <VideoPlayerModal />
-      <DePinEmailModal
-        _open={emailModalOpen}
-        onOpenChange={setEmailModalOpen}
+      <EmailModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
       />
     </Layout>
   );

@@ -1,7 +1,7 @@
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { CTACards } from "@/components/solutions/icm/CTACards";
-import { DePinEmailModal } from "@/components/solutions/depin/DePINEmailModal";
+import { EmailModal } from "@/components/solutions/EmailModal";
 import { Products } from "@/components/solutions/products";
 import { Projects } from "@/components/solutions/projects";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
@@ -142,9 +142,10 @@ const ICMPage = () => {
         </section>
       </div>
       <VideoPlayerModal />
-      <DePinEmailModal
-        _open={emailModalOpen}
-        onOpenChange={setEmailModalOpen}
+      <EmailModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        formUrl="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=Institutional"
       />
     </Layout>
   );
