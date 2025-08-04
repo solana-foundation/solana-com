@@ -1,0 +1,637 @@
+---
+title: Anchor Implementation
+description: Implement Token 2022 metadata extensions using the Anchor framework with best practices.
+---
+
+> **Previous:** [TypeScript Implementation](./typescript) | **Next:** [Native Rust Implementation](./native-rust)
+
+With a solid understanding of the TypeScript client-side implementation, let's explore how to build the same functionality using Anchor. You'll see how Anchor simplifies many aspects while still requiring deep understanding of the underlying mechanics.
+
+## Anchor Rust Implementation: Framework Convenience with Power
+
+Anchor abstracts away much of the boilerplate code we wrote manually, but it's
+crucial to understand what it's doing under the hood.
+
+Think of Anchor as a powerful code generator that writes the tedious account
+validation, serialization, and CPI boilerplate for you. But you still need to
+understand the underlying Token 2022 concepts we covered in the TypeScript
+section.
+
+Anchor also provides several advantages for Token 2022 development:
+
+- **Type-safe CPIs**: Compile-time verification of cross-program calls
+- **IDL generation**: Automatic client SDK generation
+- **Space calculation helpers**: Built-in rent and space management
+- **Extension support**: First-class Token 2022 extension handling
+
+However, Anchor also has limitations that we'll address:
+
+- **Complex type restrictions**: IDL generator doesn't support all Rust types
+- **Less granular control**: Some advanced Token 2022 features require manual
+  implementation
+- **Framework overhead**: Additional dependencies and compilation complexity
+
+### Step 1: Project Setup
+
+Navigate back to the project root and create the Anchor workspace:
+
+```bash
+cd ..  # Back to dev_cert_token directory root
+
+# Create anchor directory
+mkdir anchor
+cd anchor
+
+# Initialize an Anchor project
+anchor init metadata
+```
+
+This creates a **complete Anchor workspace with program structure, tests, and
+deployment configuration** so we can start building our Token 2022 metadata
+program.
+
+check into the metadata directory
+
+```bash
+cd metadata
+```
+
+### Step 2: Configure your Dependencies
+
+Edit your `Cargo.toml` in the `programs/metadata/` directory:
+
+```toml
+[package]
+name = "metadata"
+version = "0.1.0"
+description = "Token-2022 metadata extension with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "metadata"
+
+[features]
+no-entrypoint = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31.0", features = ["init-if-needed"] }
+anchor-spl = { version = "0.31.0", features = ["memo", "metadata"] }
+spl-token-2022 = { version = "7.0.0", features = ["no-entrypoint"] }
+spl-token-metadata-interface = "0.7.0"
+spl-type-length-value = "0.8.0"
+```
+
+- **`anchor-lang`**: Core Anchor framework for Solana programs
+- **`anchor-spl`** with `metadata` and `memo` features: Access to Token 2022
+  metadata CPIs and SPL helpers
+- **`spl-token-2022`**: The Token 2022 program logic and types
+- **`spl-token-metadata-interface`**: Provides the metadata state structures
+- **`spl-type-length-value`**: For TLV data length calculations
+
+### Step 3: Understanding the Account Structure
+
+If you navigate into the lib.rs file in the program src directory, what you will
+see is the essential structure of a minimal Anchor program.
+
+```rust
+
+// imports
+use anchor_lang::prelude::*;
+
+// program id
+declare_id!("5jQMJupEr8cSALhadjwWri1CyFxZ4UBcMwgkuaxKupFh");
+
+// program module
+#[program]
+pub mod metadata {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        msg!("Greetings from: {:?}", ctx.program_id);
+        Ok(())
+    }
+}
+
+// Account Context
+#[derive(Accounts)]
+pub struct Initialize {}
+
+```
+
+- **Imports**: Bring in the Anchor framework and any dependencies.
+- **Program ID Declaration**: Uniquely identifies your Solana program.
+- **Program Module**: Contains your program's entrypoints (instructions).
+- **Account Contexts**: Define the accounts required for each instruction.
+
+In our TypeScript implementation, we manually managed five accounts:
+
+1. **Payer**: Pays for account creation and signs transactions
+2. **Mint**: The Token 2022 mint account (with extensions)
+3. **System Program**: Creates the initial account
+4. **Token 2022 Program**: Manages all token operations
+5. **Rent Sysvar**: Provides rent calculation data
+
+Anchor simplifies this through its account constraint system. For example, this
+is how our InitializeWithMetadata Account context would look like:
+
+```rust
+#[derive(Accounts)]
+pub struct InitializeWithMetadata<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(
+        init,                                    // Create new account
+        payer = payer,                          // Payer funds creation
+        mint::decimals = 0,                     // Token decimals
+        mint::authority = payer,                // Mint authority
+        mint::token_program = token_2022_program, // Use Token 2022
+        extensions::metadata_pointer::authority = payer,        // Metadata authority
+        extensions::metadata_pointer::metadata_address = mint   // Self-referential
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    pub token_2022_program: Program<'info, Token2022>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+**What Anchor does automatically:**
+
+- Validates that `payer` is a signer
+- Calculates required space for mint + metadata pointer extension
+- Creates the account with proper ownership
+- Initializes the metadata pointer extension
+- Initializes the basic mint structure
+
+### Step 4: Custom Types for IDL Compatibility
+
+One challenge with Anchor is that its IDL (Interface Definition Language)
+generator doesn't support complex Rust types like `Vec<(String, String)>`. So
+what we will do is create a custom struct:
+
+```rust
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct MetadataField {
+    pub key: String,
+    pub value: String,
+}
+```
+
+This allows us to pass additional metadata as `Vec<MetadataField>` instead of
+tuples. This makes it IDL-compatible while maintaining the same functionality.
+You might resolve that issue in another way.
+
+### Step 5: The Core Implementation
+
+The following section provides a complete, production-ready Rust implementation
+for initializing a Token-2022 mint with metadata using the Anchor framework.
+This code is intended for your `/src/lib.rs` file and demonstrates how to
+leverage Anchor's account validation, CPI helpers, and custom types to manage
+on-chain metadata efficiently and securely.
+
+The implementation includes dynamic rent calculation for TLV-encoded metadata,
+proper handling of additional metadata fields, and clear separation of
+responsibilities within the program. All critical steps are annotated for
+clarity and to highlight Anchor-specific best practices.
+
+Replace your entire `lib.rs` file with the following:
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::rent::{
+    DEFAULT_EXEMPTION_THRESHOLD,
+    DEFAULT_LAMPORTS_PER_BYTE_YEAR,
+};
+use anchor_lang::system_program::{transfer, Transfer};
+use anchor_spl::token_interface::{
+    Mint,
+    TokenMetadataInitialize,
+    TokenMetadataUpdateField,
+    token_metadata_initialize,
+    token_metadata_update_field,
+    spl_token_metadata_interface::state::Field,
+};
+use anchor_spl::token_2022::Token2022;
+use spl_token_metadata_interface::state::TokenMetadata;
+use spl_type_length_value::variable_len_pack::VariableLenPack;
+
+declare_id!("CPJ9XPMV8ubUEAqCxV3MvuncBsufghTyT22hoCxzZQGe");
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct MetadataField {
+    pub key: String,
+    pub value: String,
+}
+
+#[program]
+pub mod metadata {
+    use super::*;
+
+    /// Initialize a Token-2022 mint with metadata extension
+    pub fn initialize_with_metadata(
+        ctx: Context<InitializeWithMetadata>,
+        name: String,
+        symbol: String,
+        uri: String,
+        additional_metadata: Option<Vec<MetadataField>>
+    ) -> Result<()> {
+        msg!("Initializing Token-2022 mint with metadata");
+        msg!("Name: {}", name);
+        msg!("Symbol: {}", symbol);
+        msg!("URI: {}", uri);
+        msg!("Mint: {}", ctx.accounts.mint.key());
+        msg!("Authority: {}", ctx.accounts.payer.key());
+
+        // Step 1: Calculate space needed for metadata TLV data
+        let mut token_metadata = TokenMetadata {
+            name: name.clone(),
+            symbol: symbol.clone(),
+            uri: uri.clone(),
+            ..Default::default()
+        };
+
+        // Add additional metadata fields if provided
+        if let Some(ref additional_fields) = additional_metadata {
+            token_metadata.additional_metadata = additional_fields
+                .iter()
+                .map(|field| (field.key.clone(), field.value.clone()))
+                .collect();
+        }
+
+        // Step 2: Calculate exact lamports needed for metadata storage
+        // TLV (Type-Length-Value) encoding: TYPE_SIZE (2) + LENGTH_SIZE (2) + packed data
+        const TYPE_SIZE: usize = 2;
+        const LENGTH_SIZE: usize = 2;
+        const TLV_HEADER_SIZE: usize = TYPE_SIZE + LENGTH_SIZE;
+
+        let data_len = TLV_HEADER_SIZE + token_metadata.get_packed_len()?;
+        let additional_lamports = (data_len as u64) *
+            DEFAULT_LAMPORTS_PER_BYTE_YEAR *
+            (DEFAULT_EXEMPTION_THRESHOLD as u64);
+
+        // Step 3: Transfer lamports for metadata storage
+        transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.payer.to_account_info(),
+                    to: ctx.accounts.mint.to_account_info(),
+                }
+            ),
+            additional_lamports
+        )?;
+
+        // Step 4: Initialize basic metadata (name, symbol, uri)
+        token_metadata_initialize(
+            CpiContext::new(
+                ctx.accounts.token_2022_program.to_account_info(),
+                TokenMetadataInitialize {
+                    program_id: ctx.accounts.token_2022_program.to_account_info(),
+                    mint: ctx.accounts.mint.to_account_info(),
+                    metadata: ctx.accounts.mint.to_account_info(), // Self-referential
+                    mint_authority: ctx.accounts.payer.to_account_info(),
+                    update_authority: ctx.accounts.payer.to_account_info(),
+                }
+            ),
+            name,
+            symbol,
+            uri
+        )?;
+
+        // Step 5: Add additional metadata fields
+        // Each field requires a separate CPI call, just like in TypeScript
+        if let Some(additional_fields) = additional_metadata {
+            for field in additional_fields.iter() {
+                token_metadata_update_field(
+                    CpiContext::new(
+                        ctx.accounts.token_2022_program.to_account_info(),
+                        TokenMetadataUpdateField {
+                            program_id: ctx.accounts.token_2022_program.to_account_info(),
+                            metadata: ctx.accounts.mint.to_account_info(),
+                            update_authority: ctx.accounts.payer.to_account_info(),
+                        }
+                    ),
+                    Field::Key(field.key.clone()),
+                    field.value.clone()
+                )?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+#[instruction(name: String, symbol: String, uri: String, additional_metadata: Option<Vec<MetadataField>>)]
+pub struct InitializeWithMetadata<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        mint::decimals = 9,
+        mint::authority = payer,
+        mint::token_program = token_2022_program,
+        extensions::metadata_pointer::authority = payer,
+        extensions::metadata_pointer::metadata_address = mint
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    pub token_2022_program: Program<'info, Token2022>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+### Now, let's Break Down Each Step:
+
+#### **Step 1: Metadata Structure Creation**
+
+We create a `TokenMetadata` struct that mirrors what we did in TypeScript:
+
+```rust
+let mut token_metadata = TokenMetadata {
+    name: name.clone(),
+    symbol: symbol.clone(),
+    uri: uri.clone(),
+    ..Default::default()
+};
+```
+
+This struct will be used to calculate the exact space needed for TLV storage.
+
+#### **Step 2: Dynamic Space Calculation**
+
+Now that we have our metadata structure, we need to calculate the exact space
+required for storage. Unlike the TypeScript version where we calculated Metadata
+Pointer space explicitly, Anchor already did that part for us.
+
+So we can move to the Metadata Space Calculation stage;
+
+1. Build the complete metadata structure
+2. Calculate its packed length using `get_packed_len()`
+3. Add TLV header overhead (4 bytes: 2 for type, 2 for length)
+4. Calculate exact rent needed
+
+```rust
+const TLV_HEADER_SIZE: usize = TYPE_SIZE + LENGTH_SIZE;
+let data_len = TLV_HEADER_SIZE + token_metadata.get_packed_len()?;
+```
+
+#### **Step 3: Rent Transfer**
+
+With the space calculated, we need to ensure the mint account has enough
+lamports to cover the metadata storage. We transfer the exact lamports needed:
+
+```rust
+transfer(
+    CpiContext::new(ctx.accounts.system_program.to_account_info(), Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.mint.to_account_info(),
+    }),
+    additional_lamports
+)?;
+```
+
+This is similar to our TypeScript implementation but uses Anchor's CPI helpers.
+
+#### **Step 4: Basic Metadata Initialization**
+
+Once the account is properly funded, we can initialize the core metadata fields
+(name, symbol, uri) using Anchor's token metadata CPI:
+
+```rust
+token_metadata_initialize(
+    CpiContext::new(
+        ctx.accounts.token_2022_program.to_account_info(),
+        TokenMetadataInitialize { /* accounts */ }
+    ),
+    name, symbol, uri
+)?;
+```
+
+#### **Step 5: Additional Fields Update**
+
+After the basic metadata is initialized, we can add any additional custom
+fields. Just like in TypeScript, each additional metadata field requires a
+separate instruction because the way the metadata is updated is that they are
+first unpacked, updated, then packed using byte level instructions:
+
+```rust
+for field in additional_fields.iter() {
+    token_metadata_update_field(
+        CpiContext::new(/* accounts */),
+        Field::Key(field.key.clone()),
+        field.value.clone()
+    )?;
+}
+```
+
+### **Step 6: Account Constraints Deep Dive**
+
+The `#[account]` constraints deserve special attention because they replace all
+the manual validation we did in TypeScript:
+
+```rust
+#[account(
+    init,                                           // Creates new account
+    payer = payer,                                 // Funding source
+    mint::decimals = 0,                            // Token decimals
+    mint::authority = payer,                       // Mint authority
+    mint::token_program = token_2022_program,      // Use Token 2022
+    extensions::metadata_pointer::authority = payer,        // Metadata authority
+    extensions::metadata_pointer::metadata_address = mint   // Self-referential metadata
+)]
+pub mint: InterfaceAccount<'info, Mint>,
+```
+
+**What each constraint does:**
+
+- **`init`**: Creates a new account (calls SystemProgram::create_account)
+- **`payer = payer`**: Specifies who pays for account creation
+- **`mint::decimals = 9`**: Sets token decimals
+- **`mint::authority = payer`**: Sets the mint authority
+- **`mint::token_program = token_2022_program`**: Uses Token 2022 instead of
+  original Token program
+- **`extensions::metadata_pointer::authority = payer`**: Sets metadata update
+  authority
+- **`extensions::metadata_pointer::metadata_address = mint`**: Points metadata
+  to the mint itself (self-referential)
+
+### **Step 7: Building and Deployment**
+
+Now that we have our complete Anchor program, we need to build and deploy it:
+
+```bash
+
+# Optional (sometimes the program id is out of sync)
+# So run the following command just to be sure
+anchor keys sync
+
+# Then build the program
+anchor build
+
+# Deploy to devnet
+anchor deploy --provider.cluster devnet
+```
+
+### **Step 8: Client Implementation and Testing**
+
+With our program deployed, we can now create a client to interact with it. The
+client code is much simpler than our manual TypeScript implementation because
+the beautiful thing about Anchor other than it's Account Validation is its
+generated client:
+
+So paste the following code in your `tests/metadata.ts`:
+
+```typescript
+import { expect } from "chai";
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { Metadata } from "../target/types/metadata";
+import {
+  getMint,
+  getTokenMetadata,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from "@solana/web3.js";
+
+describe("Token Metadata Tutorial", () => {
+  // Configure the client to use the local cluster
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  // Load the program
+
+  const program = anchor.workspace.metadata as Program<Metadata>;
+  const connection = provider.connection;
+
+  // Test wallets
+  const payer = (provider.wallet as anchor.Wallet).payer;
+  let mintKeypair: Keypair;
+  let metadataAccount: Keypair;
+
+  beforeEach(async () => {
+    // Generate new keypairs for each test
+    mintKeypair = Keypair.generate();
+    metadataAccount = Keypair.generate();
+
+    // Airdrop SOL to payer if needed
+    const balance = await connection.getBalance(payer.publicKey);
+    if (balance < 10 * LAMPORTS_PER_SOL) {
+      const sig = await connection.requestAirdrop(
+        payer.publicKey,
+        2 * LAMPORTS_PER_SOL
+      );
+      await connection.confirmTransaction(sig);
+      // Wait a bit to ensure the airdrop is fully processed
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  });
+  it("Should initialize a mint with metadata extension", async () => {
+    const name = "Developer Certification";
+    const symbol = "DEVCERT";
+    const uri = "https://example.com/metadata.json";
+    const additionalMetadata = [
+      { key: "level", value: "1" },
+      { key: "Issuer", value: "Solana Foundation" },
+      {
+        key: "Description",
+        value: "Certification for Solana developer proficiency"
+      },
+      { key: "Website", value: "https://solana.com" }
+    ];
+
+    const tx = await program.methods
+      .initializeWithMetadata(name, symbol, uri, additionalMetadata)
+      .accounts({
+        payer: payer.publicKey,
+        mint: mintKeypair.publicKey,
+        token_2022_program: TOKEN_2022_PROGRAM_ID,
+        systemProgram: SystemProgram.programId
+      })
+      .signers([payer, mintKeypair])
+      .rpc();
+
+    console.log("transaction", tx);
+
+    // Verify the mint was created
+    const mintInfo = await getMint(
+      connection,
+      mintKeypair.publicKey,
+      undefined,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    expect(mintInfo.decimals).to.equal(9);
+    expect(mintInfo.mintAuthority?.toBase58()).to.equal(
+      payer.publicKey.toBase58()
+    );
+
+    // Verify metadata was added
+    const metadata = await getTokenMetadata(
+      connection,
+      mintKeypair.publicKey,
+      undefined,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    expect(metadata.name).to.equal("Developer Certification");
+    expect(metadata.symbol).to.equal("DEVCERT");
+    expect(metadata.uri).to.equal("https://example.com/metadata.json");
+  });
+});
+```
+
+### Step 9: Run the Tests
+
+```bash
+# Anchor doesn't come packaged with "@solana/spl-token"
+# So add it
+yarn add @solana/spl-token
+
+Oh You You
+# Run all tests
+
+anchor test --skip-deploy --provider.cluster devnet
+```
+
+If everything goes well, we should get
+
+```bash
+  Token Metadata Tutorial
+transaction 4jrBYHjm2BrExd6J6hzdza3b9kyDG9Kiji7r1ogMqSPYDiVf8r1rHLvWoQjFotxnv23ScGsXgvKTVxans17UDsWc
+    ✔ Should initialize a mint with metadata extension (4264ms)
+  1 passing (6s)
+```
+
+You can examine the transaction on the
+[Solana Explorer](https://explorer.solana.com/tx/4jrBYHjm2BrExd6J6hzdza3b9kyDG9Kiji7r1ogMqSPYDiVf8r1rHLvWoQjFotxnv23ScGsXgvKTVxans17UDsWc?cluster=devnet)
+
+The approach we've shown here handles the same use case as our TypeScript
+implementation but with significantly less code and automatic safety checks.
+
+While Anchor provides excellent abstractions for most use cases, there are
+scenarios where you need the ultimate level of control such as extensions of
+features that Anchor doesn't yet support. This is where **native Rust
+implementation** comes into play. And we will get into it in next section.
+
+---
+
+## What's Next?
+
+You've mastered Token 2022 metadata extensions using the Anchor framework. You understand how Anchor simplifies development while still requiring deep knowledge of Solana's account model and extension architecture.
+
+**Continue to:** [**Native Rust Implementation →**](./native-rust)
+
+In the final implementation guide, we'll build the same functionality using pure Rust, giving you:
+- Complete control over every aspect of the implementation
+- Deep understanding of what Anchor abstracts away
+- The ability to handle edge cases and custom requirements
+- Maximum performance and flexibility for production systems

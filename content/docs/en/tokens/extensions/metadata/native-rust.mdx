@@ -1,0 +1,1035 @@
+---
+title: Native Rust Implementation
+description: Master Token 2022 metadata extensions with complete control using native Rust programming.
+---
+
+> **Previous:** [Anchor Implementation](./anchor) | **Next:** [Real-World Use Cases](./usecases)
+>
+> **Quick Navigation:** [How Extensions Work](./how-extensions-work) | [TypeScript](./typescript) | [Anchor](./anchor)
+
+Ready for the ultimate level of control? This section shows you how to implement [Token 2022 metadata extensions](./how-extensions-work) using pure Rust, giving you complete control over every aspect of the implementation. You'll understand exactly what [Anchor](./anchor) abstracts away.
+
+## **Native Rust Implementation: Complete Control**
+
+With this method, you gain complete control over every aspect of the Token 2022
+metadata system. However, this power comes at the cost of having to understand
+and manually handle all the details that frameworks like Anchor usually abstract
+away.
+
+Think of it as building a house from scratch, rather than assembling one from
+prefabricated components. In this approach, you'll need to reimplement many of
+the conveniences that Anchor provides for you for free, such as:
+
+- Manual account management and validation
+- Custom instruction data serialization
+- Cross Program Invocation (CPI) complexity
+- Token 2022's [TLV data structures](./how-extensions-work#tlv-type-length-value-encoding)
+- [Dynamic account reallocation](./how-extensions-work#account-reallocation) for metadata
+
+But it will give you:
+
+- **Complete control** over every instruction and validation
+- **Maximum performance** with minimal overhead
+- **Deep understanding** of Solana's internals
+- **Custom logic** that frameworks can't express
+
+### Step 1: Project Setup
+
+First, navigate back to our Project's root directory.
+
+```bash
+cd ../..
+
+# Then create a new directory for native implementation
+mkdir native
+cd native
+
+# After that, initialize a new Rust project
+cargo init --lib
+```
+
+### Step 2: Dependencies Configuration
+
+Edit `Cargo.toml` with the required dependencies:
+
+```toml
+[package]
+name = "native"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "1.18"
+spl-token-2022 = { version = "3.0", features = ["no-entrypoint"] }
+spl-token-metadata-interface = "0.3"
+spl-associated-token-account = { version = "3.0", features = ["no-entrypoint"] }
+spl-pod = "0.2"
+borsh = "0.10"
+thiserror = "1.0"
+
+[features]
+no-entrypoint = []
+```
+
+**Critical Note**: The `no-entrypoint` feature prevents global allocator
+conflicts when multiple SPL programs are used together in a single program. This
+is essential for native implementations.
+
+Without it you will be getting errors like:
+
+```bash
+multiple declaration of global allocator
+```
+
+### Step 3: Program Structure
+
+Replace the boilerplate code generated into `src/lib.rs` with the following
+library imports:
+
+```rust
+;use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    rent::Rent,
+    system_instruction,
+    sysvar::Sysvar,
+};
+
+use spl_token_2022::{
+    extension::{
+        metadata_pointer::{self},
+        ExtensionType,
+    },
+    instruction as token_instruction,
+    state::Mint,
+};
+
+use spl_token_metadata_interface::{
+    instruction as metadata_instruction,
+};
+
+use borsh::{BorshDeserialize, BorshSerialize}
+```
+
+The imports we're using here provide the core building blocks for Solana program
+development:
+
+- **`solana_program`**: Core Solana program framework (accounts, instructions,
+  entrypoints)
+- **`spl_token_2022`**: Token 2022 program extensions and instructions
+- **`spl_token_metadata_interface`**: Metadata interface for Token 2022
+- **`borsh`**: Binary serialization for instruction data
+- **`thiserror`**: Custom error handling utilities
+
+#### Every Solana Program requires an entry point.
+
+You can think of an entry point as similar to an API handler in a traditional
+web2 server—it's the function that gets called whenever your program receives an
+instruction from the client.
+
+It then handles the instruction and dispatches it to the appropriate logic.
+
+So let's create one.
+
+```rust
+// preceeding code excluded for brevity
+
+// Program entrypoint
+entrypoint!(process_instruction);
+
+// Program ID - will be updated after deployment
+solana_program::declare_id!("11111111111111111111111111111111");
+
+// Main program processor
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+
+    // Does absolutely nothing for now
+    // except return back to the caller
+    Ok(())
+}
+```
+
+**Process Instruction Function Overview**
+
+The `process_instruction` function receives three parameters:
+
+- **`program_id`**: The address of your deployed program
+- **`accounts`**: Array of accounts that the instruction needs to work with
+- **`instruction_data`**: Raw bytes containing the instruction to call and it's
+  data sent by the client
+
+It's acts as a router and deserializes the instruction data to determine what
+operation to perform, then calls the appropriate handler function. For now, it
+just returns `Ok(())` as a placeholder.
+
+#### Ensure that everything works fine
+
+```bash
+cargo build-sbf
+```
+
+That command is telling Cargo (Rust's package manager) to build your Solana
+program into a SBF (Solana Byte Format) binary that can run on the Solana
+blockchain.
+
+If this is the first time, your program will pull your dependencies then compile
+them into a deployable binary.
+
+You may get a lot of warnings in the console regarding unused imports and
+variables -- it's because Rust is very strict about unused code but at the end
+of it you should get a
+`Finished`release` profile [optimized] target(s) in {57.04}s` message
+
+### Step 4: Implement the Instruction Data Structures
+
+Since we already know the Instructions we need from our [previous TypeScript implementation](./typescript), let's quickly map them out:
+
+1. **CreateTokenWithMetadata** - Creates a new Token 2022 mint with metadata
+2. **UpdateMetadataField** - Updates a specific metadata field
+
+We will define our Instruction set as an Enum since our Program only has a
+Finite Set of Instructions. This makes it easy to serialize/deserialize
+instruction data and provides type safety.
+
+```rust
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum TokenCertInstruction {
+    /// Create a Token 2022 mint with metadata
+    ///
+    /// Accounts expected:
+    /// 0. `[signer, writable]` Payer account
+    /// 1. `[signer, writable]` Mint account (to be created)
+    /// 2. `[]` System program
+    /// 3. `[]` Token 2022 program
+    /// 4. `[]` Rent sysvar
+    CreateTokenWithMetadata {
+        /// Token name
+        name: String,
+        /// Token symbol
+        symbol: String,
+        /// Token URI
+        uri: String,
+    },
+
+    /// Update a metadata field
+    UpdateMetadataField {
+        /// Field name to update
+        field: String,
+        /// New value for the field
+        value: String,
+    },
+
+
+}
+```
+
+The `#[derive(BorshSerialize, BorshDeserialize, Debug)]` line automatically
+generates code for our enum:
+
+- **`BorshSerialize`**: Converts our enum into binary bytes for sending to the
+  blockchain
+- **`BorshDeserialize`**: Converts binary bytes back into our enum when the
+  program receives them
+- **`Debug`**: Allows us to print the enum for debugging purposes
+
+This is Rust's way of automatically implementing these traits without us having
+to write the tedious serialization/deserialization code manually.
+
+Following the patterns we established in our [TypeScript](./typescript) and [Anchor](./anchor) implementations, let's define some custom types:
+
+### Step 5: Custom Error Types
+
+Writing Native code is already difficult, so it's crucial to create custom error
+types and messages to help us identify exactly what went wrong (unauthorized
+access, invalid data, etc.) when a transaction fails.
+
+It also helps clients catch and handle specific error types appropriately. Also
+they are often more CU efficient that plain string error messages;
+
+```rust
+#[derive(thiserror::Error, Debug)]
+pub enum TokenCertError {
+    #[error("Invalid instruction")]
+    InvalidInstruction,
+    #[error("Invalid metadata")]
+    InvalidMetadata,
+    #[error("Unauthorized")]
+    Unauthorized,
+    #[error("Invalid mint")]
+    InvalidMint,
+}
+
+impl From<TokenCertError> for ProgramError {
+    fn from(e: TokenCertError) -> Self {
+        ProgramError::Custom(e as u32)
+    }
+}
+```
+
+The `#[derive(thiserror::Error, Debug)]` line automatically generates custom
+error code. The `impl From<TokenCertError> for ProgramError` block is useful for
+converting our custom errors into Solana's standard error format.
+
+### Step 6: Implement the Create Mint with Metadata
+
+Now we'll implement the core functionality - creating a Token 2022 Mint Account
+with metadata. We can focus on the native Rust details since we already
+understand the [correct sequence](./how-extensions-work#the-initialization-order-that-matters) from our [TypeScript implementation](./typescript).
+
+This is where the complexity of native programming becomes apparent - we need to
+manually handle every step that Anchor would do automatically.
+
+For now, I'll give you the whole instruction then explain it later;
+
+```rust
+fn process_create_token_with_metadata(
+    _program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    name: String,
+    symbol: String,
+    uri: String,
+) -> ProgramResult {
+    let account_info_iter = &mut accounts.iter();
+
+    // Parse accounts in exact order expected by the instruction
+    let payer = next_account_info(account_info_iter)?;
+    let mint_account = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
+    let token_program = next_account_info(account_info_iter)?;
+    let rent_sysvar = next_account_info(account_info_iter)?;
+
+    // Manual validation (Anchor does this automatically)
+    if !payer.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !mint_account.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    msg!("Creating mint with metadata: name={}, symbol={}, uri={}", name, symbol, uri);
+
+    // Step 1: Calculate space for mint with metadata pointer extension
+    let space = spl_token_2022::extension::ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::MetadataPointer])
+        .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    // Step 2: Calculate rent
+    let rent = Rent::from_account_info(rent_sysvar)?;
+    let minimum_balance = rent.minimum_balance(space);
+
+    // Step 3: Create mint account
+    invoke(
+        &system_instruction::create_account(
+            payer.key,
+            mint_account.key,
+            minimum_balance,
+            space as u64,
+            token_program.key,
+        ),
+        &[payer.clone(), mint_account.clone(), system_program.clone()],
+    )?;
+
+    // Step 4: Initialize metadata pointer extension
+    invoke(
+        &metadata_pointer::instruction::initialize(
+            token_program.key,
+            mint_account.key,
+            Some(*payer.key),
+            Some(*mint_account.key),
+        )?,
+        &[mint_account.clone(), token_program.clone()],
+    )?;
+
+    // Step 5: Initialize mint
+    invoke(
+        &token_instruction::initialize_mint2(
+            token_program.key,
+            mint_account.key,
+            payer.key,
+            None,
+            4, // decimals
+        )?,
+        &[mint_account.clone(), rent_sysvar.clone(), token_program.clone()],
+    )?;
+
+    // Step 6: Calculate additional rent for metadata TLV data
+    use spl_token_metadata_interface::state::TokenMetadata;
+    let metadata = TokenMetadata {
+        name: name.clone(),
+        symbol: symbol.clone(),
+        uri: uri.clone(),
+        mint: *mint_account.key,
+        update_authority: spl_pod::optional_keys::OptionalNonZeroPubkey::try_from(Some(*payer.key))
+            .map_err(|_| ProgramError::InvalidAccountData)?,
+        additional_metadata: vec![],
+    };
+
+    // Calculate current account size and required size for metadata
+    let current_len = mint_account.data_len();
+    let metadata_len = metadata.tlv_size_of().map_err(|_| ProgramError::InvalidAccountData)?;
+    let required_len = current_len + metadata_len;
+
+    // Calculate additional rent needed
+    let current_balance = mint_account.lamports();
+    let required_balance = rent.minimum_balance(required_len);
+    let additional_lamports = required_balance.saturating_sub(current_balance);
+
+    if additional_lamports > 0 {
+        msg!("Transferring {} lamports for metadata storage", additional_lamports);
+        invoke(
+            &system_instruction::transfer(payer.key, mint_account.key, additional_lamports),
+            &[payer.clone(), mint_account.clone(), system_program.clone()],
+        )?;
+    }
+
+    // Step 7: Initialize metadata - Token 2022 will reallocate the account
+    invoke(
+        &metadata_instruction::initialize(
+            token_program.key,   // program_id (Token 2022)
+            mint_account.key,    // metadata_address (same as mint for self-referential)
+            payer.key,           // update_authority
+            mint_account.key,    // mint_address
+            payer.key,           // mint_authority (must be the signer)
+            name.clone(),
+            symbol.clone(),
+            uri.clone(),
+        ),
+        &[mint_account.clone(), payer.clone(), token_program.clone()],
+    )?;
+
+    msg!("Successfully initialized metadata in mint account");
+    msg!("Metadata pointer: {}", mint_account.key);
+    msg!("Metadata stored in mint account TLV data");
+    msg!("Name: {}, Symbol: {}, URI: {}", name, symbol, uri);
+
+    msg!("Successfully created Token 2022 mint with metadata");
+    msg!("Mint address: {}", mint_account.key);
+
+    Ok(())
+}
+```
+
+### Let's break down what's happening in each step:
+
+First, the instruction accepts the program_id, accounts array, and
+instruction_data as parameters
+
+Then we parsed the Accounts by manually iterate through the accounts array. The
+order is very important here and must must match exactly what the TypeScript
+client sends.
+
+```rust
+let account_info_iter = &mut accounts.iter();
+let payer = next_account_info(account_info_iter)?;
+```
+
+After that we did some manual validation checks which Anchor would have
+naturally done for us. Missing these creates security vulnerabilities.
+
+```rust
+if !payer.is_signer {
+    return Err(ProgramError::MissingRequiredSignature);
+}
+if !mint_account.is_signer {
+    return Err(ProgramError::MissingRequiredSignature);
+}
+```
+
+These are standard security practices for any given Solana Native Rust program.
+We validate that:
+
+- The payer is a signer (required to pay for account creation)
+- The mint account is a signer (required for account creation)
+- Account ownership and program IDs are validated implicitly through CPI calls
+
+Now lets go into our own specific program implementation;
+
+#### **In Step 1, we did Space Calculation**
+
+As with our [TypeScript implementation](./typescript), we calculated the initial space needed for
+the mint account with the metadata pointer extension included. This is
+critical - too little space and the transaction fails. Note that Token 2022 will
+[dynamically reallocate](./how-extensions-work#account-reallocation) the account when metadata is initialized.
+
+```rust
+let space = spl_token_2022::extension::ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::MetadataPointer])
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+```
+
+#### **Then in Step 2: We calculated the minimum balance required for Rent Exemption**
+
+Solana requires accounts to pay rent to stay on-chain. The rent exemption is the
+minimum balance needed to keep an account alive indefinitely. We calculate this
+based on the space we determined in Step 1:
+
+```rust
+let rent = Rent::get()?;
+let minimum_balance = rent.minimum_balance(space);
+```
+
+This ensures the mint account has enough SOL to stay on-chain for 2 years (the
+current rent exemption period). If the account runs out of rent, it becomes
+inactive, but the SOL can be recovered by closing the account.
+
+#### **For Step 3, we created the Mint Account**
+
+We use Cross Program Invocation (CPI) to call the System Program to create the
+account. The account will be owned by the Token 2022 program.
+
+```rust
+invoke(
+    &system_instruction::create_account(
+        payer.key,
+        mint_account.key,
+        minimum_balance,
+        space as u64,
+        token_program.key,
+    ),
+    &[payer.clone(), mint_account.clone(), system_program.clone()],
+)?;
+```
+
+#### **Step 4: Metadata Pointer Initialization**
+
+Next, we initialize the metadata pointer extension. This tells the mint where to
+find its metadata (in our case, self-referential since the metadata is stored in
+the mint account itself)
+
+```rust
+invoke(
+    &metadata_pointer::instruction::initialize(
+        token_program.key,
+        mint_account.key,
+        Some(*payer.key),
+        Some(*mint_account.key),
+    )?,
+    &[mint_account.clone(), token_program.clone()],
+)?;
+```
+
+#### **In Step 5: Mint Initialization**
+
+Then we initialize the mint with basic token properties (decimals, authority,
+etc.)
+
+```rust
+invoke(
+    &token_instruction::initialize_mint2(
+        token_program.key,
+        mint_account.key,
+        payer.key,
+        None,
+        4, // decimals
+    )?,
+    &[mint_account.clone(), rent_sysvar.clone(), token_program.clone()],
+)?;
+```
+
+#### **Step 6: Dynamic Rent Transfer**
+
+Remember we pointed out that **[Token 2022 uses dynamic account reallocation](./how-extensions-work#account-reallocation)**.
+We calculate how much additional rent is needed for the metadata and transfer it
+to the mint account.
+
+```rust
+let current_balance = mint_account.lamports();
+let required_balance = rent.minimum_balance(required_len);
+let additional_lamports = required_balance.saturating_sub(current_balance);
+
+if additional_lamports > 0 {
+    invoke(
+        &system_instruction::transfer(payer.key, mint_account.key, additional_lamports),
+        &[payer.clone(), mint_account.clone(), system_program.clone()],
+    )?;
+}
+```
+
+#### **Step 7: Metadata Initialization**
+
+We initialize the actual metadata. Token 2022 will automatically reallocate the
+account to fit the TLV data.
+
+```rust
+invoke(
+    &metadata_instruction::initialize(
+        token_program.key,
+        mint_account.key,
+        payer.key,
+        mint_account.key,
+        payer.key,
+        name.clone(),
+        symbol.clone(),
+        uri.clone(),
+    ),
+    &[mint_account.clone(), payer.clone(), token_program.clone()],
+)?;
+```
+
+### Step 8: Expose the Instructions through the Entry Point function
+
+Head back to your entry function and replace it with:
+
+```rust
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8]
+) -> ProgramResult {
+    let instruction = TokenCertInstruction::try_from_slice(instruction_data).map_err(
+        |_| TokenCertError::InvalidInstruction
+    )?;
+
+    match instruction {
+        TokenCertInstruction::CreateTokenWithMetadata { name, symbol, uri } => {
+            msg!("Creating Token 2022 mint with metadata");
+            process_create_token_with_metadata(program_id, accounts, name, symbol, uri)
+        }
+        _ => {
+            msg!("Invalid instruction");
+            return Err(TokenCertError::InvalidInstruction.into());
+        }
+    }
+}
+```
+
+### Step 9: Compile your Program then Deploy
+
+```bash
+cargo build-sbf
+
+solana program deploy target/deploy/native.so --program-id target/deploy/native-keypair.json --url devnet
+
+```
+
+Command Result
+
+```bash
+
+Program Id: sPicfnhP1RAAqcRWWMyh3kDLE6KZ19PB2fuXaaCbwEa
+
+Signature: 25jSVywDucHXdrhHYUpdzVbp6zLUGWquy8gQuTTM2qb9etna7rd6yZwTATRTrTDXDj36k5gBZduSUbrRbRhH3bzC
+
+```
+
+Update the program ID in your Rust code with the deployed address.
+
+### Step 10: test the program with a TypeScript Client Implementation
+
+The TypeScript client for native Rust is significantly more complex than our [previous TypeScript implementation](./typescript) because
+there are no generated client code so you must manually handle everything; But
+since this isn't a client tutorial, we've prepared a ready made sample client
+for you to copy and paste.
+
+First, Initialize your directory
+
+```bash
+yarn init
+```
+
+Install the required packages;
+
+```bash
+yarn add @solana/web3.js @solana/spl-token borsh typescript @types/node @solana-developers/helpers
+```
+
+Create a `client.ts` file and paste the following inside:
+
+```typescript
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  TOKEN_2022_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// Program ID - updated after deployment
+const PROGRAM_ID = new PublicKey("sPicfnhP1RAAqcRWWMyh3kDLE6KZ19PB2fuXaaCbwEa");
+
+// Instruction data structures matching the Rust implementation
+export enum TokenCertInstruction {
+  CreateTokenWithMetadata = 0,
+  UpdateMetadataField = 1
+}
+
+export class TokenCertClient {
+  constructor(
+    private connection: Connection,
+    private programId: PublicKey = PROGRAM_ID
+  ) {}
+
+  async createTokenWithMetadata(
+    payer: Keypair,
+    mint: Keypair,
+    name: string,
+    symbol: string,
+    uri: string
+  ): Promise<string> {
+    console.log("Creating Token 2022 mint with metadata...");
+
+    // Manual instruction data serialization
+    const nameBuffer = Buffer.from(name, "utf-8");
+    const symbolBuffer = Buffer.from(symbol, "utf-8");
+    const uriBuffer = Buffer.from(uri, "utf-8");
+
+    const instructionData = Buffer.alloc(
+      1 + // instruction discriminator
+        4 +
+        nameBuffer.length + // name length + name
+        4 +
+        symbolBuffer.length + // symbol length + symbol
+        4 +
+        uriBuffer.length // uri length + uri
+    );
+
+    let offset = 0;
+
+    // Write instruction discriminator
+    instructionData.writeUInt8(
+      TokenCertInstruction.CreateTokenWithMetadata,
+      offset
+    );
+    offset += 1;
+
+    // Write name
+    instructionData.writeUInt32LE(nameBuffer.length, offset);
+    offset += 4;
+    nameBuffer.copy(instructionData, offset);
+    offset += nameBuffer.length;
+
+    // Write symbol
+    instructionData.writeUInt32LE(symbolBuffer.length, offset);
+    offset += 4;
+    symbolBuffer.copy(instructionData, offset);
+    offset += symbolBuffer.length;
+
+    // Write URI
+    instructionData.writeUInt32LE(uriBuffer.length, offset);
+    offset += 4;
+    uriBuffer.copy(instructionData, offset);
+
+    // Create instruction with exact account order
+    const instruction = new TransactionInstruction({
+      keys: [
+        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: mint.publicKey, isSigner: true, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
+        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }
+      ],
+      programId: this.programId,
+      data: Buffer.from(instructionData)
+    });
+
+    // Create and send transaction
+    const transaction = new Transaction().add(instruction);
+    const signature = await sendAndConfirmTransaction(
+      this.connection,
+      transaction,
+      [payer, mint]
+    );
+
+    console.log(`✅ Token created successfully!`);
+    console.log(`Mint address: ${mint.publicKey.toBase58()}`);
+    console.log(`Transaction signature: ${signature}`);
+
+    return signature;
+  }
+}
+
+// Export the rent sysvar
+export const SYSVAR_RENT_PUBKEY = new PublicKey(
+  "SysvarRent111111111111111111111111111111111"
+);
+```
+
+Next, create a test script:
+
+```typescript
+import { createConnection, generateKeypair } from "./client";
+import { TokenCertClient } from "./client";
+
+async function testNativeImplementation() {
+  const connection = createConnection("devnet");
+  const client = new TokenCertClient(connection);
+
+  // Generate keypairs
+  const payer = generateKeypair();
+  const mint = generateKeypair();
+
+  // Create token with metadata
+  const signature = await client.createTokenWithMetadata(
+    payer,
+    mint,
+    "Developer Certification",
+    "DEVCERT",
+    "https://example.com/metadata.json"
+  );
+
+  console.log("✅ Native implementation test completed!");
+  console.log("Transaction signature:", signature);
+}
+
+testNativeImplementation().catch(console.error);
+```
+
+Now that we are certain that instruction works lets move on to
+
+```bash
+
+Connected to Solana devnet
+Payer: GE2McNXDwPa1VsC1nDi3JWTfoH6mshSoGFEDunbUyKvn
+Mint: 3WHEgXT6hx79iNqifrCSmi5GeEbbEAD96pPR3P5GuShz
+Token Owner: J7sRCmXK5DRYgdjxyWaV5iCv6daoG75TTEn57kXFb9jX
+
+💰 Step 0: Funding payer account...
+✅ Payer funded! Airdrop signature: 21vJp7DNrRBaqLpHeWsZviv1NE6YjwDSznF6iHB4cvsuGE4Sr8smjTup6gWPzvnyze1xSh5BixhYXsh3XxjJdE7a
+
+📝 Step 1: Creating token with metadata...
+Creating Token 2022 mint with metadata...
+Name: My Test Token, Symbol: MTT, URI: https://example.com/metadata.json
+✅ Token created successfully!
+Mint address: 3WHEgXT6hx79iNqifrCSmi5GeEbbEAD96pPR3P5GuShz
+Transaction signature: VFEh5N5zaKapsdrfz5R1caQ48Pv4GZKyCbn2NprdkBNmVhqnptzxNqYMQbx5V74HwAkTTUPxS2vzCTEiyYDgshr
+✅ Token created! Signature: VFEh5N5zaKapsdrfz5R1caQ48Pv4GZKyCbn2NprdkBNmVhqnptzxNqYMQbx5V74HwAkTTUPxS2vzCTEiyYDgshr
+```
+
+If you scroll down a little, you will also observe that we have an error
+
+```bash
+📝 Step 2: Updating metadata field...
+Updating metadata field: description = This is an updated description for the token
+❌ Error during execution: SendTransactionError: Simulation failed.
+Message: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x0.
+Logs:
+[
+  "Program J3oRgfsUUjfrEgYqwSq418oDYjyHQcbpzr8VMBaH2ZJx invoke [1]",
+  "Program log: Invalid instruction",
+  "Program J3oRgfsUUjfrEgYqwSq418oDYjyHQcbpzr8VMBaH2ZJx consumed 1444 of 200000 compute units",
+  "Program J3oRgfsUUjfrEgYqwSq418oDYjyHQcbpzr8VMBaH2ZJx failed: custom program error: 0x0"
+].
+Catch the `SendTransactionError` and call `getLogs()` on it for full details...
+```
+
+The reason is because we haven't implemented the Update Metadata
+
+### Step 11: Implement the Update Metadata Field
+
+```rust
+/// Process update metadata field instruction
+fn process_update_metadata_field(
+    _program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    field: String,
+    value: String,
+) -> ProgramResult {
+    let account_info_iter = &mut accounts.iter();
+
+    let update_authority = next_account_info(account_info_iter)?;
+    let mint_account = next_account_info(account_info_iter)?;
+    let token_program = next_account_info(account_info_iter)?;
+
+    // Validate accounts
+    if !update_authority.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    msg!("Updating metadata field: {} = {}", field, value);
+
+    // Update metadata field using Token 2022 metadata interface
+    // This updates the TLV data stored directly in the mint account
+    use spl_token_metadata_interface::state::Field;
+    let metadata_field = Field::Key(field.clone());
+
+    invoke(
+        &metadata_instruction::update_field(
+            token_program.key,
+            mint_account.key,
+            update_authority.key,
+            metadata_field,
+            value.clone(),
+        ),
+        &[mint_account.clone(), update_authority.clone(), token_program.clone()],
+    )?;
+
+    msg!("Successfully updated metadata field: {} = {}", field, value);
+    msg!("Metadata TLV data updated in mint account");
+
+    Ok(())
+}
+```
+
+This one is fairly simple instruction. What we did in essence is **delegate the
+actual metadata update to the Token 2022 program's built-in metadata
+interface**.
+
+As we've mentioned severally, the Token 2022 metadata is stored as TLV
+(Type-Length-Value) data directly in the mint account. Manually manipulating
+this TLV data is extremely error-prone because:
+
+1. **Complex serialization**: TLV data requires precise byte-level manipulation
+   with specific type codes, length calculations, and value encoding
+2. **Security risks**: Incorrect TLV manipulation can corrupt the entire mint
+   account or create invalid metadata that breaks token functionality
+3. **Version compatibility**: The TLV format can change between Token 2022
+   versions, requiring constant updates
+4. **Validation complexity**: You need to validate field names, value formats,
+   and ensure the metadata remains consistent
+
+Instead of manually manipulating [TLV data](./how-extensions-work#tlv-type-length-value-encoding), we use the
+`spl_token_metadata_interface` to create the proper instruction and invoke it
+through the Token 2022 program. This ensures we're using the official, tested
+metadata update mechanism that handles all the complex TLV manipulation,
+validation, and security checks for us.
+
+Now lets update our entry point function marching arms:
+
+```rust
+
+// Main program processor
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8]
+) -> ProgramResult {
+    let instruction = TokenCertInstruction::try_from_slice(instruction_data).map_err(
+        |_| TokenCertError::InvalidInstruction
+    )?;
+
+    match instruction {
+        TokenCertInstruction::CreateTokenWithMetadata { name, symbol, uri } => {
+            msg!("Creating Token 2022 mint with metadata");
+            process_create_token_with_metadata(program_id, accounts, name, symbol, uri)
+        }
+        // new match arm
+        TokenCertInstruction::UpdateMetadataField { field, value } => {
+            msg!("Updating metadata field: {} = {}", field, value);
+            process_update_metadata_field(program_id, accounts, field, value)
+        }
+        _ => {
+            msg!("Invalid instruction");
+            return Err(TokenCertError::InvalidInstruction.into());
+        }
+    }
+}
+```
+
+Now, recompile and redeploy as we did earlier
+
+### Step 12: Lets test our new addition from the Typescript Client
+
+It's as simple as running our previous test again.
+
+```bash
+
+🚀 Starting TokenCert client test...
+
+Connected to Solana devnet
+Payer: tutR66FySadZpzRHLju2MXArJgsxmWu12nCGvBAx4vK
+Mint: HKdNyaV5GFdRipFmKL9fvrMNTJAbgGqsMKFbsQJSivqy
+Token Owner: wf9g2f4Mtt1mk71wZh6x2NWSjSRQZNdzRxDFdfd6iqQ
+
+📝 Step 1: Creating token with metadata...
+Creating Token 2022 mint with metadata...
+Name: My Test Token, Symbol: MTT, URI: https://example.com/metadata.json
+✅ Token created successfully!
+Mint address: HKdNyaV5GFdRipFmKL9fvrMNTJAbgGqsMKFbsQJSivqy
+Transaction signature: 5dzAQJJhUvdzh2U29z6Jc4nCUcuUSTEgTYR9nPsBmDPZVATfjNuHzQdbtSobRPMqs5rk2CCSkYSAkXW71BBnePGk
+✅ Token created! Signature: 5dzAQJJhUvdzh2U29z6Jc4nCUcuUSTEgTYR9nPsBmDPZVATfjNuHzQdbtSobRPMqs5rk2CCSkYSAkXW71BBnePGk
+
+📝 Step 2: Updating metadata field...
+Updating metadata field: description = This is an updated description for the token
+Transferring 382800 lamports for rent
+✅ Metadata field updated successfully!
+Transaction signature: 3XwPLaLAp8hTAxip9XYm1GpcFQgJrzfYhrDszqmvzrC1B6CFDdfzmWQHQGgBYtAyNW2r9CBmrzjpb7x9Pcd9rgvc
+✅ Metadata updated! Signature: 3XwPLaLAp8hTAxip9XYm1GpcFQgJrzfYhrDszqmvzrC1B6CFDdfzmWQHQGgBYtAyNW2r9CBmrzjpb7x9Pcd9rgvc
+```
+
+Do note though that sometimes that our current metadata update instruction could
+fail
+
+```bash
+..
+...
+....
+📝 Step 2: Updating metadata field...
+Updating metadata field: description = This is an updated description for the token
+❌ Error during execution: SendTransactionError: Simulation failed.
+Message: Transaction simulation failed: Transaction results in an account (1) with insufficient funds for rent.
+Logs:
+[
+  "Program log: Updating metadata field: description = This is an updated description for the token",
+  "Program log: Updating metadata field: description = This is an updated description for the token",
+  "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+  "Program log: TokenMetadataInstruction: UpdateField",
+  "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 6395 of 195271 compute units",
+  "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+  "Program log: Successfully updated metadata field: description = This is an updated description for the token",
+  "Program log: Metadata TLV data updated in mint account",
+  "Program J3oRgfsUUjfrEgYqwSq418oDYjyHQcbpzr8VMBaH2ZJx consumed 12057 of 200000 compute units",
+  "Program J3oRgfsUUjfrEgYqwSq418oDYjyHQcbpzr8VMBaH2ZJx success"
+].
+
+```
+
+Do you know why? Because our new update **metadata field value** could be larger
+than **the original metadata field value** and that would necessitate [additional payment for extra storage space](./how-extensions-work#account-reallocation)? Can you resolve that?
+
+And friends, that's how to create a Mint Token with [Token 2022 Metadata Pointer and Metadata Extension](./how-extensions-work). Hopefully, from here on you can mint tokens with rich,
+verifiable metadata that can't be faked or lost.
+
+## The Hard Part Starts Now
+
+You've got the code working. You understand the concepts. You can deploy to
+devnet.
+
+Now comes the real challenge: building something that actually matters.
+
+You could build another JPEG collection and hope it sells. Or you could build a
+certification system that universities actually trust. A collectible that proves
+its authenticity beyond doubt. A credential that travels with the token and
+can't be compromised.
+
+The technology is the same. The impact is completely different.
+
+_The hard part isn't the code. It's deciding what to build with it._
+
+---
+
+## What's Next?
+
+Congratulations! You've mastered Token 2022 metadata extensions across the full spectrum—from TypeScript clients to Anchor frameworks to native Rust implementation. You now have complete control over Solana's most powerful token architecture.
+
+**Continue to:** [**Real-World Use Cases →**](./usecases)
+
+In the final section, explore how these technical skills apply to real-world problems:
+
+**Review Previous Sections:**
+- [How Extensions Work](./how-extensions-work) - Technical architecture and concepts
+- [TypeScript Implementation](./typescript) - Client-side development
+- [Anchor Implementation](./anchor) - Framework-based approach
+- Digital credentials and certifications
+- Supply chain verification
+- Gaming assets and achievements  
+- Financial instruments and compliance
+- Art authentication and provenance
+
+See how the technical foundation you've built across [all three implementation approaches](./how-extensions-work) enables solutions to some of the world's most pressing trust and verification challenges.

@@ -1,0 +1,504 @@
+---
+title: TypeScript Implementation
+description:
+  Build Token 2022 metadata extensions using TypeScript/JavaScript with
+  step-by-step examples.
+---
+
+> **Previous:** [How Extensions Work](./how-extensions-work) | **Next:** >
+> [Anchor Implementation](./anchor)
+
+Now that you understand the [technical architecture](./how-extensions-work),
+let's build a real token with metadata using TypeScript. This hands-on
+implementation will apply the concepts from the previous section.
+
+## Building Your First Token with Metadata
+
+We'll create a "Developer Certification Token" that proves someone completed a
+coding bootcamp and demonstrates the complete workflow of Token 2022 metadata
+extensions. This example shows how to properly handle space calculations,
+initialization order, and metadata management.
+
+Then we will walk our way up implementing the same functionality in Anchor Rust,
+and then in Native Rust.
+
+### Step 1: Project Setup
+
+```bash
+# Create project directory
+mkdir dev_cert_token && cd dev_cert_token
+
+# Generate a keypair (avoids rate limiting from airdrops)
+solana-keygen grind --starts-with tut:1
+
+# Initialize TypeScript project
+mkdir ts && cd ts
+yarn init -y
+
+# Add required dependencies
+yarn add @solana/web3.js @solana/spl-token @solana/spl-token-metadata @solana-developers/helpers
+```
+
+### Step 2: Token Design
+
+Our token will represent a developer certification with these properties:
+
+- **Name**: "Developer Certification"
+- **Symbol**: "DEVCERT"
+- **URI**: Link to metadata JSON
+- **Additional Metadata**: Level, issuer, and other certification details
+
+### Step 3: Implementation Setup
+
+Create the main implementation file and add the necessary imports. As covered in
+[How Extensions Work](./how-extensions-work), space calculation is critical—get
+it wrong and everything fails.
+
+```bash
+touch mint.ts
+```
+
+```typescript
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  clusterApiUrl,
+  sendAndConfirmTransaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeInstruction,
+  createUpdateFieldInstruction,
+  pack,
+  TokenMetadata
+} from "@solana/spl-token-metadata";
+import { getKeypairFromFile } from "@solana-developers/helpers";
+import { writeFileSync, appendFileSync } from "fs";
+import {
+  createInitializeMetadataPointerInstruction,
+  createInitializeMintInstruction,
+  ExtensionType,
+  getMintLen,
+  getTokenMetadata,
+  getMint,
+  getExtensionData,
+  getExtensionTypes,
+  LENGTH_SIZE,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  TYPE_SIZE
+} from "@solana/spl-token";
+
+// Create a connection with Devnet cluster
+const connection = new Connection(clusterApiUrl("devnet"));
+```
+
+Now let's define our Mint keypair and Metadata structure:
+
+```typescript
+//preceeding code excluded for brevity
+
+// Then generate a keypair for the Mint Account;
+const mint = Keypair.generate();
+
+const metadata: TokenMetadata = {
+  mint: mint.publicKey,
+  name: "Developer Certification",
+  symbol: "DEVCERT",
+  uri: "https://example.com/metadata.json", // reach out for this
+  additionalMetadata: [
+    ["Level", "1"],
+    ["Issuer", "Solana Foundation"], // You can add the issuer or creator
+    ["Description", "Certification for Solana developer proficiency"], // Add a description
+    ["Website", "https://solana.com"] // Add a website or project link
+    // You can add any other custom key-value pairs as needed
+  ]
+};
+```
+
+### Step 4: Account Creation
+
+Before creating the mint, we must calculate the exact space needed. Remember
+from [How Extensions Work](./how-extensions-work#space-calculation-formula): we
+need the Metadata Pointer extension first, then the mint can be initialized, and
+finally the Token Metadata extension can be added.
+
+> **Initialization Order**:
+> [Metadata Pointer → Mint → Token Metadata](./how-extensions-work#the-initialization-order-that-matters)
+
+```typescript
+// preceeding code removed for brevity
+const mintSpace = getMintLen([
+  ExtensionType.MetadataPointer
+  // ExtensionType.TokenMetadata,
+]);
+
+// We need a different way to calculate Metadata length
+// because unlike MetadataPointer, it has a variable length,
+const metadataSpace =
+  TYPE_SIZE +
+  LENGTH_SIZE +
+  // What this does is it packs the metadata into a buffer
+  // and then returns the length of the buffer
+  // so we can know how much space we need to allocate
+  // for the metadata
+  pack(metadata).length;
+```
+
+This uses the
+[TLV (Type-Length-Value) encoding](./how-extensions-work#account-structure-deep-dive)
+scheme covered in the technical overview:
+
+- **TYPE_SIZE** (2 bytes): Extension type identifier
+- **LENGTH_SIZE** (2 bytes): Total length of the metadata buffer
+- **pack(metadata).length**: The serialized metadata data
+
+Now, lets log how much space we need to allocate on the Blockchain and what it
+will cost us to the console.
+
+```typescript
+//  preceeding code excluded for clarity
+
+console.log("metadataSpace is", metadataSpace, "bytes in size");
+
+const lamportsNeeded = await connection.getMinimumBalanceForRentExemption(
+  metadataSpace + mintSpace
+);
+
+console.log(
+  "It will cost you",
+  lamportsNeeded,
+  "lamports to store your metadata onchain",
+  `That is ${lamportsNeeded / LAMPORTS_PER_SOL} sol`
+);
+```
+
+In your command line, run the mint.ts script
+
+```bash
+# I use esrun run to execute typescript modules
+esrun mint.ts
+```
+
+I got
+
+```
+It will cost you 2909280 lamports to store your metadata onchain That is 0.00290928 sol
+```
+
+Do note that this will vary with the content in your metadata.
+
+#### Step 4b: Fix missing Payer
+
+We are about to create an Account and allocate space on the Blockchain, so you
+will observe that something is missing: The Transaction payer. So lets import
+the key pair we generated earlier into our code
+
+```typescript
+// This is mine, yours could be different address
+const payer = await getKeypairFromFile(
+  "./tutqVnneherRKvd1rfiCsiGSrJx1azXA7a6vQGwGkLY.json"
+);
+```
+
+After that, lets create an account then transfer it's ownership to the Token 22
+program
+
+```typescript
+// Then lets create the account
+const createAccountIx = SystemProgram.createAccount({
+  fromPubkey: payer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: mintSpace, // any observation  ???
+  lamports: lamportsNeeded,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+```
+
+If you examine the Create Account Transaction, you will observe that although
+the Metadata is not included in the space allocated at Account reation, it's
+space is paid for upfront... why is this so?
+
+Dynamically sized Extensions like Metadata Extensions are added through a form
+of Account reallocation but the Account must have enough lamport to cover Rent;
+
+### Step 5: Verify Account Creation
+
+At this point, it's important to note that the created Account is not a Mint but
+just an Account owned by the Token program. We can confirm this by executing the
+transaction for example:
+
+```typescript
+// preceeding code removed for brevity
+
+const transaction = new Transaction().add(createAccountIx);
+
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  payer,
+  mint
+]);
+
+console.log("Signature: ", signature);
+
+const mintAccount = await connection.getAccountInfo(mint.publicKey);
+
+console.log("Mint Account: ", mintAccount);
+```
+
+Here's what I got:
+
+```bash
+metadataSpace is 290 bytes in size
+It will cost you 2909280 lamports to store your metadata onchain That is 0.00290928 sol
+Signature:  3SRckqtg2BNtBizu3mKtbPRrFVWNMA25gMuFtA65wRQSXGVte8Jk6obfgEgkaQWoj2BseoHyPLrSeBVPhzoMjZ4H
+Mint Account:  null
+```
+
+The `null` response confirms the account exists but contains no structured data
+yet. You can verify this on
+[Solana Explorer](https://explorer.solana.com/address/C5ermvKhV6eqxut7j9iB2cutmFte8WgC7tyTwdQEBPFY?cluster=devnet).
+
+### Step 6: Initialize Metadata Pointer Extension
+
+Now we follow the critical
+[initialization order](./how-extensions-work#the-initialization-order-that-matters):
+Metadata Pointer → Mint → Token Metadata.
+
+```typescript
+const initializeMetadataPointerIx = createInitializeMetadataPointerInstruction(
+  mint.publicKey, // mint address
+  payer.publicKey,
+  mint.publicKey, // metadata address (self-referential)
+  TOKEN_2022_PROGRAM_ID
+);
+```
+
+It's also worth pointing out that you can choose to reference an External
+Metadata Account other than the Mint; Self referencing the Mint is just
+cost-saving advantage.
+
+---
+
+### Step 7: Initialize the Mint Account
+
+With the metadata pointer in place, we can now initialize the mint account. This
+step gives the account its identity as a Mint, setting its decimals, authority,
+and other core properties.
+
+```typescript
+const initializeMintIx = createInitializeMintInstruction(
+  mint.publicKey,
+  0, // decimals
+  payer.publicKey, // mint authority
+  null, // freeze authority (optional)
+  TOKEN_2022_PROGRAM_ID
+);
+```
+
+**Order matters!** If you try to initialize the mint before setting up the
+metadata pointer, the transaction will fail. This ordering is a security
+feature: it guarantees that the mint's metadata location is locked in before the
+mint becomes active.
+
+---
+
+### Step 8: Initialize the Metadata
+
+Now that the mint is fully initialized and knows where to find its metadata, we
+can actually create and store the metadata itself. This step writes the name,
+symbol, URI, and other fields into the mint account using the metadata
+extension.
+
+```typescript
+const initializeMetadataIx = createInitializeInstruction({
+  mint: mint.publicKey,
+  metadata: mint.publicKey,
+  mintAuthority: payer.publicKey,
+  name: metadata.name,
+  symbol: metadata.symbol,
+  uri: metadata.uri,
+  programId: TOKEN_2022_PROGRAM_ID,
+  updateAuthority: payer.publicKey
+
+  //  why are we not using the additionalMetadata?
+  // because additionalMetadata requires separate update instructions
+  // and we handle them individually below
+});
+```
+
+You will observe that Additional metadata fields are not added in this
+instruction.
+
+This is because Additional metadata fields require separate update instructions
+due to the variable-length nature of the extension. Images are referenced via
+URI following the
+[Solana NFT metadata standard](https://docs.metaplex.com/programs/token-metadata/token-standard).
+
+```typescript
+const updateMetadataFieldIx = createUpdateFieldInstruction({
+  metadata: mint.publicKey,
+  updateAuthority: payer.publicKey,
+  programId: TOKEN_2022_PROGRAM_ID,
+  field: metadata.additionalMetadata[0][0],
+  value: metadata.additionalMetadata[0][1]
+});
+```
+
+And you will call this same instruction as much times as each fields you have.
+
+### Step 9: Transaction Construction
+
+Combine all instructions following the
+[mandatory initialization sequence](./how-extensions-work#the-initialization-order-that-matters):
+
+```typescript
+const transaction = new Transaction().add(
+  createAccountIx,
+  initializeMetadataPointerIx,
+  initializeMintIx,
+  initializeMetadataIx,
+  updateMetadataFieldIx,
+  updateMetadataFieldIx2
+);
+```
+
+### Step 10: Execute Transaction
+
+```typescript
+//
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  payer,
+  mint
+]);
+
+console.log("Signature: ", signature);
+```
+
+You can examine the transaction on
+[Solana Explorer](https://explorer.solana.com/tx/4NRQHN95t17nnt5qDpv6FFfsNisCqLsSfi8wPxFNAYmqmKJeGczxeb2B2dLM99dTVk5Eqsb6SGNVWur8dBqEXYWQ?cluster=devnet).
+
+### Step 11: Verify the Implementation
+
+Retrieve and verify the metadata using Token 2022 specific functions:
+
+```typescript
+// For Token 2022 mints, we need to use the Token 2022 program's getMint function
+// This returns the full mint data including all extensions (metadata, transfer fees, etc.)
+console.log("\n=== READING TOKEN 2022 METADATA ===");
+
+try {
+  // Get the full mint data from Token 2022 program
+  const mintInfo = await getMint(
+    connection,
+    mint.publicKey,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  console.log("✅ Mint Info Retrieved Successfully!");
+  console.log("Mint Address:", mint.publicKey.toBase58());
+  console.log("Decimals:", mintInfo.decimals);
+  console.log("Mint Authority:", mintInfo.mintAuthority?.toBase58() || "None");
+  console.log(
+    "Freeze Authority:",
+    mintInfo.freezeAuthority?.toBase58() || "None"
+  );
+  console.log("Supply:", mintInfo.supply.toString());
+
+  // Check if metadata extension is present
+  if (mintInfo.tlvData && mintInfo.tlvData.length > 0) {
+    console.log("✅ Token 2022 Extensions Found!");
+
+    // Get all extension types from the TLV data
+    const extensionTypes = getExtensionTypes(mintInfo.tlvData);
+    console.log("Extension Types:", extensionTypes);
+
+    // Look for metadata extension
+    const metadataData = getExtensionData(
+      ExtensionType.TokenMetadata,
+      mintInfo.tlvData
+    );
+    if (metadataData) {
+      console.log("✅ Metadata Extension Found!");
+      console.log("Metadata Extension Data Length:", metadataData.length);
+
+      // The metadata is stored in the extension data
+      // You can deserialize it using the spl-token-metadata package
+      console.log(
+        "Metadata Extension Data (hex):",
+        metadataData.toString("hex")
+      );
+
+      // Try to unpack the metadata using the spl-token-metadata package
+      try {
+        const { unpack } = await import("@solana/spl-token-metadata");
+        const unpackedMetadata = unpack(metadataData);
+        console.log("✅ Unpacked Metadata:", unpackedMetadata);
+      } catch (error) {
+        console.log("❌ Could not unpack metadata:", error);
+      }
+    } else {
+      console.log("❌ No metadata extension found in mint data");
+    }
+  } else {
+    console.log("❌ No Token 2022 extensions found");
+  }
+} catch (error) {
+  console.log("❌ Error reading Token 2022 mint data:", error);
+}
+```
+
+The verification confirms successful creation of a Token 2022 mint with both
+Metadata Pointer (type 18) and Token Metadata (type 19) extensions. The metadata
+includes:
+
+```bash
+=== READING TOKEN 2022 METADATA ===
+✅ Mint Info Retrieved Successfully!
+Mint Address: Ba5XVwMyLcLeDsng8nrfrDrtHXvgC1uVeL86XfAbLZ8V
+Decimals: 0
+Mint Authority: tutqVnneherRKvd1rfiCsiGSrJx1azXA7a6vQGwGkLY
+Freeze Authority: None
+Supply: 0
+✅ Token 2022 Extensions Found!
+Extension Types: [ 18, 19 ]
+✅ Metadata Extension Found!
+Metadata Extension Data Length: 188
+Metadata Extension Data (hex): 0d4c6daafac5479d37e02b1cd97d7b56b7440e37658a793305ba676ac8c722d19d0e2741f9f90c119f80613cfd44cca59d0dbf2a013e9c1ecb0460c4a26ced6a17000000446576656c6f7065722043657274696669636174696f6e07000000444556434552542100000068747470733a2f2f6578616d706c652e636f6d2f6d657461646174612e6a736f6e02000000050000004c6576656c01000000310600000049737375657211000000536f6c616e6120466f756e646174696f6e
+✅ Unpacked Metadata: {
+  updateAuthority: PublicKey [PublicKey(tutqVnneherRKvd1rfiCsiGSrJx1azXA7a6vQGwGkLY)] {
+    _bn: <BN: d4c6daafac5479d37e02b1cd97d7b56b7440e37658a793305ba676ac8c722d1>
+  },
+  mint: PublicKey [PublicKey(Ba5XVwMyLcLeDsng8nrfrDrtHXvgC1uVeL86XfAbLZ8V)] {
+    _bn: <BN: 9d0e2741f9f90c119f80613cfd44cca59d0dbf2a013e9c1ecb0460c4a26ced6a>
+  },
+  name: 'Developer Certification',
+  symbol: 'DEVCERT',
+  uri: 'https://example.com/metadata.json',
+  additionalMetadata: [ ['Level', '1'], ['Issuer', 'Solana Foundation'] ]
+}
+```
+
+You've successfully implemented a complete Token 2022 mint with metadata
+extensions using pure TypeScript, handling all the low-level details of space
+calculation, initialization order, and instruction serialization.
+
+---
+
+## What's Next?
+
+You've now learned how to create Token 2022 metadata extensions from the client
+side using TypeScript. You understand the byte-level serialization, space
+calculations, and instruction building.
+
+**Continue to:** [**Anchor Implementation →**](./anchor)
+
+In the next section, we'll implement the same functionality using the Anchor
+framework, showing you:
+
+- How Anchor simplifies instruction building and account validation
+- What abstractions Anchor provides and what you still need to handle manually
+- When to use Anchor vs. pure TypeScript approaches
