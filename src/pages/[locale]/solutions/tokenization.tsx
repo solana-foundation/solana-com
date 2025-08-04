@@ -16,7 +16,7 @@ import {
   PRODUCTS,
   PROJECTS,
   VIDEOS,
-} from "@/data/solutions/internet-capital-markets";
+} from "@/data/solutions/tokenization";
 import { NewsItem } from "@/components/solutions/icm/News";
 
 const ICMPage = () => {

@@ -42,7 +42,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
     return (
       <section
         id="hero"
-        className="relative min-h-[calc(100vh-75.4px)] overflow-hidden bg-[#0C1320]"
+        className="relative min-h-[calc(100vh-75.4px)] overflow-hidden bg-[#0C1320] [padding-block:1rem] sm:[padding-block:3rem]"
         aria-labelledby="hero-title"
       >
         <Image
