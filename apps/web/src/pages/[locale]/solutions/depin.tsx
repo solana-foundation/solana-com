@@ -1,35 +1,18 @@
-<<<<<<< HEAD:apps/web/src/pages/[locale]/solutions/depin.tsx
-import DePINHero from "@@/src/components/solutions/depin/DePinHero";
-import HTMLHead from "@@/src/components/HTMLHead";
-import Layout from "@@/src/components/solutions/layout";
-import { Builders } from "@@/src/components/solutions/depin/Builders";
-import { EcoProjects } from "@@/src/components/solutions/depin/EcoProjects";
-import { Products } from "@@/src/components/solutions/depin/Products";
-import { LatestNews } from "@@/src/components/solutions/depin/LatestNews";
-import { CTACards } from "@@/src/components/solutions/depin/CTACards";
-import { VideoPlayerModal } from "@@/src/component-library/video-modal";
-import { WhatIsDepin } from "@@/src/components/solutions/depin/WhatIsDepin";
-=======
 import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
-import { Products } from "@/components/solutions/products";
-import { LatestNews } from "@/components/solutions/depin/LatestNews";
 import { CTACards } from "@/components/solutions/depin/CTACards";
+import { EmailModal } from "@/components/solutions/EmailModal";
+import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/depin";
+import { LatestNews } from "@/components/solutions/depin/LatestNews";
+import { Products } from "@/components/solutions/products";
+import { Projects } from "@/components/solutions/projects";
+import { VideoGrid } from "@/components/solutions/video-grid";
 import { VideoPlayerModal } from "@/component-library/video-modal";
->>>>>>> main:src/pages/[locale]/solutions/depin.tsx
+import { WhatIsIt } from "@/components/solutions/what-is-it";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@@/src/i18n/routing";
-import { useState } from "react";
-<<<<<<< HEAD:apps/web/src/pages/[locale]/solutions/depin.tsx
-import { DePinEmailModal } from "@@/src/components/solutions/depin/DePINEmailModal";
-=======
-import { EmailModal } from "@/components/solutions/EmailModal";
-import { WhatIsIt } from "@/components/solutions/what-is-it";
-import { Projects } from "@/components/solutions/projects";
-import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/depin";
-import { VideoGrid } from "@/components/solutions/video-grid";
->>>>>>> main:src/pages/[locale]/solutions/depin.tsx
 
 const DePINPage = () => {
   const t = useTranslations();
