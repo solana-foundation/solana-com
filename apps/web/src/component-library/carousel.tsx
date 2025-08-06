@@ -59,7 +59,7 @@ type CarouselProps = {
 };
 
 const NAV_BUTTON_BASE_CLASS =
-  "rounded-full w-10 h-10 p-2 shadow transition flex items-center justify-center bg-[#292c35]/90 hover:bg-white/50";
+  "rounded-full w-8 h-8 p-1 shadow border-2 border-white/10 transition flex items-center justify-center bg-[#292c35]/90 hover:bg-white/50";
 
 // Reusable CarouselNavButton component
 type CarouselNavButtonProps = {
@@ -238,7 +238,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                     width: slideWidth,
                     display: "flex",
                     justifyContent: "center",
-                    alignItems: "center",
+                    alignItems: "flex-start",
                   }}
                 >
                   <div style={{ width: "100%" }}>{item}</div>

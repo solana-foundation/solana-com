@@ -31,6 +31,7 @@ import {
   DialogDescription,
 } from "@@/src/app/components/ui/dialog";
 import { useState, useEffect } from "react";
+import { Play } from "lucide-react";
 
 /**
  */
@@ -52,32 +53,29 @@ export function openVideoPlayer(source: VideoSource) {
   );
 }
 
-export interface VideoTriggerProps extends VideoSource {
-  children?: React.ReactNode;
-  className?: string;
+export interface VideoTriggerProps {
+  platform: "youtube" | "vimeo";
+  id: string;
+  title?: string;
+  bgColorClass: string; // e.g. "bg-purple-600/90"
   autoplay?: boolean;
 }
 
 export const VideoTrigger = React.forwardRef<
   HTMLButtonElement,
   VideoTriggerProps
->(({ children, className = "", autoplay = true, ...source }, ref) => {
-  return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={() => openVideoPlayer({ ...source, autoplay })}
-      className={
-        "inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-primary-foreground transition hover:bg-primary/80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 " +
-        className
-      }
-      aria-label={source.title}
-      tabIndex={0}
-    >
-      {children ?? "Play video"}
-    </button>
-  );
-});
+>(({ platform, id, title, bgColorClass, autoplay = true }, ref) => (
+  <button
+    ref={ref}
+    type="button"
+    onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
+    aria-label={title}
+    tabIndex={0}
+    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
+  >
+    <Play fill="white" strokeWidth={0} className="w-8 h-8" />
+  </button>
+));
 VideoTrigger.displayName = "VideoTrigger";
 
 export function VideoPlayerModal() {

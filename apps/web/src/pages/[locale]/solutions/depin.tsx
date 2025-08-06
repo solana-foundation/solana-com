@@ -1,3 +1,4 @@
+<<<<<<< HEAD:apps/web/src/pages/[locale]/solutions/depin.tsx
 import DePINHero from "@@/src/components/solutions/depin/DePinHero";
 import HTMLHead from "@@/src/components/HTMLHead";
 import Layout from "@@/src/components/solutions/layout";
@@ -8,10 +9,27 @@ import { LatestNews } from "@@/src/components/solutions/depin/LatestNews";
 import { CTACards } from "@@/src/components/solutions/depin/CTACards";
 import { VideoPlayerModal } from "@@/src/component-library/video-modal";
 import { WhatIsDepin } from "@@/src/components/solutions/depin/WhatIsDepin";
+=======
+import DePINHero from "@/components/solutions/depin/DePinHero";
+import HTMLHead from "@/components/HTMLHead";
+import Layout from "@/components/solutions/layout";
+import { Products } from "@/components/solutions/products";
+import { LatestNews } from "@/components/solutions/depin/LatestNews";
+import { CTACards } from "@/components/solutions/depin/CTACards";
+import { VideoPlayerModal } from "@/component-library/video-modal";
+>>>>>>> main:src/pages/[locale]/solutions/depin.tsx
 import { useTranslations } from "next-intl";
 import { withLocales } from "@@/src/i18n/routing";
 import { useState } from "react";
+<<<<<<< HEAD:apps/web/src/pages/[locale]/solutions/depin.tsx
 import { DePinEmailModal } from "@@/src/components/solutions/depin/DePINEmailModal";
+=======
+import { EmailModal } from "@/components/solutions/EmailModal";
+import { WhatIsIt } from "@/components/solutions/what-is-it";
+import { Projects } from "@/components/solutions/projects";
+import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/depin";
+import { VideoGrid } from "@/components/solutions/video-grid";
+>>>>>>> main:src/pages/[locale]/solutions/depin.tsx
 
 const DePINPage = () => {
   const t = useTranslations();
@@ -26,11 +44,19 @@ const DePINPage = () => {
 
       <div
         id="depin-page"
-        className="bg-depin-bg"
+        className="bg-solution-bg"
         aria-labelledby="depin-hero-title"
       >
         <DePINHero onEmailClick={() => setEmailModalOpen(true)} />
-        <WhatIsDepin />
+        <WhatIsIt
+          title={t("depin.features.title")}
+          description={t("depin.features.description")}
+          features={[
+            t("depin.features.fast"),
+            t("depin.features.decentralized"),
+            t("depin.features.communityFirst"),
+          ]}
+        />
 
         {/* EcoProjects Section */}
         <section className="pt-6 pb-10">
@@ -39,19 +65,34 @@ const DePINPage = () => {
               <h2 className="text-3xl font-bold text-white col-span-full">
                 {t("depin.ecoProjects.title")}
               </h2>
-              <EcoProjects />
+              <Projects
+                projects={PROJECTS}
+                logos={LOGOS}
+                translationBase="depin.ecoProjects"
+              />
             </div>
           </div>
         </section>
 
         {/* Products Section */}
         <section className="pb-10">
-          <Products />
+          <Products
+            title={t("depin.products.title")}
+            description={t("depin.products.description")}
+            products={PRODUCTS}
+            translationBase="depin.products"
+          />
         </section>
 
         {/* Real Builders Section */}
         <section className="py-10 bg-[#171c25]">
-          <Builders />
+          <VideoGrid
+            title={t("depin.builders.title")}
+            subtitle={t("depin.builders.subtitle")}
+            videos={VIDEOS(t)}
+            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
+            moreVideosLabel={t("depin.builders.moreVideos")}
+          />
         </section>
 
         {/* Latest News Section */}
@@ -65,9 +106,9 @@ const DePINPage = () => {
         </section>
       </div>
       <VideoPlayerModal />
-      <DePinEmailModal
-        _open={emailModalOpen}
-        onOpenChange={setEmailModalOpen}
+      <EmailModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
       />
     </Layout>
   );
