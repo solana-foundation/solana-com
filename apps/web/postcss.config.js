@@ -22,7 +22,7 @@ module.exports = {
           "./src/pages/**/*.{js,jsx,ts,tsx}",
           "./src/components/**/*.{js,jsx,ts,tsx}",
           "./src/app/**/*.{ts,tsx}",
-          "./node_modules/fumadocs-ui/dist/**/*.js",
+          "../../node_modules/fumadocs-ui/dist/**/*.js",
         ],
         defaultExtractor: (content) => content.match(/[\w-/:]+(?<!:)/g) || [],
         safelist: {
