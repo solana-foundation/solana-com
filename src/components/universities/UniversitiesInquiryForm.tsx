@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import GradientOrbs, { OrbConfig } from "./GradientOrbs";
 
 interface UniversitiesInquiryFormProps {
   translations: {
@@ -23,13 +24,28 @@ export default function UniversitiesInquiryForm({
     console.log("Form submitted with email:", email);
   };
 
+  const inquiryOrbs: OrbConfig[] = [
+    {
+      position: { top: "-160px", right: "-160px" },
+      size: "384px",
+      color: "purple",
+      opacity: 20,
+      blur: 120,
+    },
+    {
+      position: { bottom: "-160px", left: "-160px" },
+      size: "384px",
+      color: "green",
+      opacity: 20,
+      blur: 120,
+    },
+  ];
+
   return (
     <section className="py-20 md:py-32 relative">
       <div className="container">
         <div className="bg-[#0a0a0a] rounded-2xl p-12 md:p-20 text-center max-w-6xl mx-auto relative overflow-hidden">
-          {/* Gradient background effects */}
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px]"></div>
-          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-green-500/20 rounded-full blur-[120px]"></div>
+          <GradientOrbs orbs={inquiryOrbs} />
 
           {/* Additional gradient overlays */}
           <div className="absolute inset-0 bg-gradient-to-br from-green-900/10 via-transparent to-purple-900/10 pointer-events-none"></div>

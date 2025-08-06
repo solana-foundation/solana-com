@@ -2,6 +2,7 @@
 
 import React from "react";
 import Button from "@/components/shared/Button";
+import GradientOrbs, { orbPresets } from "./GradientOrbs";
 
 interface UniversitiesCTASectionProps {
   translations: {
@@ -17,10 +18,7 @@ export default function UniversitiesCTASection({
 }: UniversitiesCTASectionProps) {
   return (
     <section className="py-20 md:py-24 relative overflow-hidden">
-      <div
-        className="absolute -left-[250px] top-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#14F195] opacity-20 blur-[120px]"
-        aria-hidden="true"
-      />
+      <GradientOrbs orbs={[orbPresets.topLeftGreen]} />
 
       <div className="container relative z-10">
         <div className="max-w-3xl mx-auto text-center">

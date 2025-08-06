@@ -4,6 +4,7 @@ import React from "react";
 import Button from "@/components/shared/Button";
 import CarouselCards from "@/components/shared/CarouselCards";
 import UniversitiesSubjectCard from "./UniversitiesSubjectCard";
+import GradientOrbs, { orbPresets } from "./GradientOrbs";
 import {
   DollarSign,
   Book,
@@ -53,14 +54,8 @@ export default function UniversitiesSubjectsSection({
 }: UniversitiesSubjectsSectionProps) {
   return (
     <section className="py-20 md:py-24 relative overflow-hidden">
-      {/* Purple gradient orbs */}
-      <div
-        className="absolute -right-[250px] top-[20%] w-[500px] h-[500px] rounded-full bg-[#9945FF] opacity-15 blur-[150px]"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute -left-[150px] bottom-[10%] w-[400px] h-[400px] rounded-full bg-[#9945FF] opacity-10 blur-[120px]"
-        aria-hidden="true"
+      <GradientOrbs
+        orbs={[orbPresets.topRightPurple, orbPresets.bottomLeftPurpleSmall]}
       />
 
       <div className="container relative z-10">

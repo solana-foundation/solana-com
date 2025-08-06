@@ -3,6 +3,7 @@
 import React from "react";
 import UniversityEventCard from "./UniversityEventCard";
 import { useTranslations } from "next-intl";
+import GradientOrbs, { orbPresets } from "./GradientOrbs";
 
 // Still confirming some of these with partners and waiting on Luma links
 const universityEvents = [
@@ -132,8 +133,12 @@ export default function UniversityEventsGrid() {
   const t = useTranslations();
 
   return (
-    <section className="py-16 px-4">
-      <div className="max-w-7xl mx-auto">
+    <section className="pt-0 pb-16 px-4 relative overflow-hidden">
+      <GradientOrbs
+        orbs={[orbPresets.topRightGreen, orbPresets.bottomLeftPurple]}
+      />
+
+      <div className="max-w-7xl mx-auto relative z-10">
         <h2 className="text-4xl font-bold text-white mb-12">
           {t("universities.events.title")}
         </h2>
