@@ -2,6 +2,17 @@ import * as React from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ChevronRight, ArrowRightIcon } from "lucide-react";
+import { cn } from "@/app/components/utils";
+
+const defaultTitleSizes = {
+  m: "text-2xl md:text-4xl lg:text-5xl xl:text-6xl",
+  s: "text-2xl md:text-3xl lg:text-4xl xl:text-5xl",
+};
+
+const modernTitleSizes = {
+  m: "text-2xl md:text-6xl xl:text-8xl",
+  s: "text-2xl md:text-4xl xl:text-6xl",
+};
 
 export type SolutionHeroStat = { value: string; label: string };
 
@@ -17,6 +28,7 @@ export type SolutionHeroProps = {
   globeImgAlt: string;
   reportImgSrc?: string;
   variant?: "default" | "modern";
+  titleSize?: "m" | "s";
 };
 
 export const SolutionHero: React.FC<SolutionHeroProps> = ({
@@ -31,6 +43,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   globeImgAlt,
   reportImgSrc,
   variant = "default",
+  titleSize = "m",
 }) => {
   // Split title on first period for line break
   const firstDotIdx = title.indexOf(".");
@@ -42,7 +55,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
     return (
       <section
         id="hero"
-        className="relative min-h-[calc(100vh-75.4px)] overflow-hidden bg-[#0C1320] [padding-block:1rem] sm:[padding-block:3rem]"
+        className="relative overflow-hidden bg-[#0C1320] [padding-block:1rem] sm:[padding-block:3rem] min-h-[calc(100vh-75.4px)]"
         aria-labelledby="hero-title"
       >
         <Image
@@ -58,7 +71,10 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           <div className="text-left flex flex-col justify-between">
             <h1
               id="hero-title"
-              className="text-white font-display !leading-[81%] md:text-6xl xl:text-8xl"
+              className={cn(
+                "text-white font-display !leading-[85%]",
+                modernTitleSizes[titleSize],
+              )}
             >
               {beforeDot}
               {afterDot && <br />}
@@ -71,13 +87,13 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 alt={globeImgAlt}
                 width={650}
                 height={480}
-                className="mt-6 lg:-ml-[20%] max-w-[650px] md:max-w-[450px] w-[65%] md:w-[80%] lg:w-[120%] h-auto "
+                className="mt-6 lg:-ml-[20%] max-w-[450px] md:max-w-[650px] w-[65%] md:w-[80%] lg:w-[120%] h-auto "
                 priority
               />
             )}
           </div>
 
-          <div className="pb-6 md:pb-12">
+          <div className="pb-6 md:pb-12 self-center">
             {/* Description */}
             <p className="text-white/65 text-xl mb-6">{subtitle}</p>
 
@@ -87,7 +103,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             />
 
             {/* Stats */}
-            <div className="grid grid-cols-2 gap-6 md:gap-8 mb-6">
+            <div className="grid grid-cols-2 gap-6 md:gap-8">
               {stats.map((stat) => (
                 <div key={stat.label} className="text-left">
                   <div className="text-2xl md:text-4xl lg:text-6xl leading-none font-bold uppercase text-white">
@@ -101,25 +117,26 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             </div>
 
             {/* Download Section */}
-            <div className="mt-10 flex flex-row items-end overflow-hidden">
-              {reportImgSrc && (
-                <Image
-                  src={reportImgSrc}
-                  alt=""
-                  width={170}
-                  height={260}
-                  className="h-auto max-w-[170px] w-[80px] md:w-[170px] relative max-sm:hidden"
-                />
-              )}
+            {emailCta && (
+              <div className="mt-10 flex flex-row items-end overflow-hidden">
+                {reportImgSrc && (
+                  <Image
+                    src={reportImgSrc}
+                    alt=""
+                    width={170}
+                    height={260}
+                    className="h-auto max-w-[170px] w-[80px] md:w-[170px] relative max-sm:hidden"
+                  />
+                )}
 
-              <div className="pl-[200px] -ml-[200px] bg-[#212B3E] grow">
-                <div className="px-4 md:px-6 py-4">
-                  {reportEyebrow && (
-                    <p className="text-white font-bold text-lg md:text-2xl leading-none mb-4">
-                      {reportEyebrow}
-                    </p>
-                  )}
-                  {emailCta && (
+                <div className="pl-[200px] -ml-[200px] bg-[#212B3E] grow">
+                  <div className="px-4 md:px-6 py-4">
+                    {reportEyebrow && (
+                      <p className="text-white font-bold text-lg md:text-2xl leading-none mb-4">
+                        {reportEyebrow}
+                      </p>
+                    )}
+                    (
                     <Button
                       size="lg"
                       variant="default"
@@ -130,10 +147,11 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                       {emailCta}
                       <ArrowRightIcon aria-hidden="true" className="ml-1" />
                     </Button>
-                  )}
+                    )
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -162,7 +180,10 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       <div className="z-2 max-w-full mx-auto md:max-w-2xl">
         <h1
           id="hero-title"
-          className="text-white font-display text-2xl mb-4 leading-tight md:text-4xl md:mb-6 lg:text-5xl xl:text-6xl"
+          className={cn(
+            "text-white font-display mb-4 leading-tight md:mb-6",
+            defaultTitleSizes[titleSize],
+          )}
         >
           {beforeDot}
           {afterDot && <br />}
