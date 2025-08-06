@@ -6,20 +6,21 @@ import UniversitiesSubjectsSection from "@/components/universities/UniversitiesS
 import UniversitiesInquiryForm from "@/components/universities/UniversitiesInquiryForm";
 import UniversityEventsGrid from "@/components/universities/UniversityEventsGrid";
 import universitiesHeroImg from "@@/assets/universities/universities-hero.webp";
+import { GitHub } from "react-feather";
 
 interface UniversitiesPageProps {
   translations: {
     heroTitle: string;
     heroSubtitle: string;
     joinProgram: string;
-    learnMore: string;
+    viewCurriculum: string;
     ctaEyebrowText: string;
     ctaTitle: string;
     ctaDescription: string;
     ctaLabel: string;
     subjectsTitle: string;
     subjectsDescription: string;
-    subjectsEmailButtonLabel: string;
+    subjectsContactButtonLabel: string;
     subjectsLearnMore: string;
     subjectsCards: {
       finance: {
@@ -68,11 +69,13 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
         buttons={{
           cta: {
             label: translations.joinProgram,
-            href: "/universities/join",
+            // TODO: Replace with Airtable/Typeform intake form URL
+            href: "/universities/contact",
           },
           secondary: {
-            label: translations.learnMore,
-            href: "/universities/about",
+            label: translations.viewCurriculum,
+            href: "https://github.com/solana-foundation/curriculum",
+            icon: <GitHub size={20} />,
           },
         }}
       />
@@ -90,7 +93,7 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
         translations={{
           title: translations.subjectsTitle,
           description: translations.subjectsDescription,
-          emailButtonLabel: translations.subjectsEmailButtonLabel,
+          contactButtonLabel: translations.subjectsContactButtonLabel,
           learnMore: translations.subjectsLearnMore,
           cards: translations.subjectsCards,
         }}

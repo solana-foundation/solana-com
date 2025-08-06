@@ -37,7 +37,8 @@ export default function UniversitiesCTASection({
           </p>
 
           {/* @ts-ignore */}
-          <Button to="/universities/join" variant="secondary" size="large">
+          {/* TODO: Replace with Airtable/Typeform intake form URL */}
+          <Button to="/universities/contact" variant="secondary" size="large">
             {translations.ctaLabel}
           </Button>
         </div>

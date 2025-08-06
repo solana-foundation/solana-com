@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import GradientOrbs, { OrbConfig } from "./GradientOrbs";
 
 interface UniversitiesInquiryFormProps {
@@ -16,12 +16,9 @@ interface UniversitiesInquiryFormProps {
 export default function UniversitiesInquiryForm({
   translations,
 }: UniversitiesInquiryFormProps) {
-  const [email, setEmail] = useState("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Implement form submission logic
-    console.log("Form submitted with email:", email);
+  const handleEmailClick = () => {
+    // TODO: Replace with Airtable/Typeform intake form URL
+    window.location.href = "/universities/contact";
   };
 
   const inquiryOrbs: OrbConfig[] = [
@@ -58,28 +55,18 @@ export default function UniversitiesInquiryForm({
             <h2 className="text-white text-4xl md:text-5xl font-bold mb-4">
               {translations.title}
             </h2>
-            <p className="text-gray-400 text-lg mb-10">
+            <p className="text-gray-400 text-lg mb-6">
               {translations.description}
             </p>
 
-            <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
-              <div className="relative flex items-center bg-[#1a1a1a] border border-gray-700 rounded-full p-1.5 focus-within:border-purple-500 transition-all duration-200">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={translations.emailPlaceholder}
-                  className="bg-transparent text-white placeholder-gray-500 px-6 py-2 focus:outline-none flex-1 text-base"
-                  required
-                />
-                <button
-                  type="submit"
-                  className="bg-[#9945FF] text-white font-semibold rounded-full px-6 py-2.5 hover:bg-[#7B3FF2] transition-colors duration-200 text-sm uppercase tracking-wider"
-                >
-                  {translations.submitButton}
-                </button>
-              </div>
-            </form>
+            <div className="max-w-2xl mx-auto">
+              <button
+                onClick={handleEmailClick}
+                className="bg-[#9945FF] text-white font-semibold rounded-full px-8 py-4 hover:bg-[#7B3FF2] transition-colors duration-200 text-base uppercase tracking-wider"
+              >
+                {translations.submitButton}
+              </button>
+            </div>
           </div>
         </div>
       </div>

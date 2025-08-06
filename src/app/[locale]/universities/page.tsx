@@ -11,14 +11,14 @@ export default async function Page(_props: Props) {
     heroTitle: t("universities.hero.title"),
     heroSubtitle: t("universities.hero.subtitle"),
     joinProgram: t("universities.hero.joinProgram"),
-    learnMore: t("universities.hero.learnMore"),
+    viewCurriculum: t("universities.hero.viewCurriculum"),
     ctaEyebrowText: t("universities.cta.eyebrowText"),
     ctaTitle: t("universities.cta.title"),
     ctaDescription: t("universities.cta.description"),
     ctaLabel: t("universities.cta.ctaLabel"),
     subjectsTitle: t("universities.subjects.title"),
     subjectsDescription: t("universities.subjects.description"),
-    subjectsEmailButtonLabel: t("universities.subjects.emailButtonLabel"),
+    subjectsContactButtonLabel: t("universities.subjects.contactButtonLabel"),
     subjectsLearnMore: t("universities.subjects.learnMore"),
     subjectsCards: {
       finance: {

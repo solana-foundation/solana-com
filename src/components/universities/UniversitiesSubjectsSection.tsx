@@ -18,7 +18,7 @@ interface UniversitiesSubjectsSectionProps {
   translations: {
     title: string;
     description: string;
-    emailButtonLabel: string;
+    contactButtonLabel: string;
     learnMore: string;
     cards: {
       finance: {
@@ -53,7 +53,7 @@ export default function UniversitiesSubjectsSection({
   translations,
 }: UniversitiesSubjectsSectionProps) {
   return (
-    <section className="py-20 md:py-24 relative overflow-hidden">
+    <section id="subjects" className="py-20 md:py-24 relative overflow-hidden">
       <GradientOrbs
         orbs={[orbPresets.topRightPurple, orbPresets.bottomLeftPurpleSmall]}
       />
@@ -72,16 +72,12 @@ export default function UniversitiesSubjectsSection({
               </p>
               {/* @ts-ignore */}
               <Button
-                to="#"
+                // TODO: Replace with Airtable/Typeform intake form URL
+                to="/universities/contact"
                 variant="outline"
                 size="large"
-                onClick={(e: React.MouseEvent) => {
-                  e.preventDefault();
-                  // TODO: Implement email form modal
-                  console.log("Email form clicked");
-                }}
               >
-                {translations.emailButtonLabel}
+                {translations.contactButtonLabel}
               </Button>
             </div>
           </div>
@@ -95,42 +91,42 @@ export default function UniversitiesSubjectsSection({
                   description={translations.cards.finance.description}
                   learnMore={translations.learnMore}
                   icon={<DollarSign size={32} strokeWidth={1.5} />}
-                  href="/universities/finance"
+                  href="/solutions/financial-infrastructure"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.legal.title}
                   description={translations.cards.legal.description}
                   learnMore={translations.learnMore}
                   icon={<Book size={32} strokeWidth={1.5} />}
-                  href="/universities/legal"
+                  href="https://www.solanapolicyinstitute.org/"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.technology.title}
                   description={translations.cards.technology.description}
                   learnMore={translations.learnMore}
                   icon={<Monitor size={32} strokeWidth={1.5} />}
-                  href="/universities/technology"
+                  href="/developers"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.business.title}
                   description={translations.cards.business.description}
                   learnMore={translations.learnMore}
                   icon={<BarChart2 size={32} strokeWidth={1.5} />}
-                  href="/universities/business"
+                  href="/solutions/enterprise"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.economics.title}
                   description={translations.cards.economics.description}
                   learnMore={translations.learnMore}
                   icon={<TrendingUp size={32} strokeWidth={1.5} />}
-                  href="/universities/economics"
+                  href="/solutions/tokenization"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.engineering.title}
                   description={translations.cards.engineering.description}
                   learnMore={translations.learnMore}
                   icon={<Settings size={32} strokeWidth={1.5} />}
-                  href="/universities/engineering"
+                  href="/developers"
                 />
               </CarouselCards>
             </div>
