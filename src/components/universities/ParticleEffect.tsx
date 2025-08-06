@@ -27,7 +27,7 @@ export default function ParticleEffect({
 }: ParticleEffectProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<Dot[]>([]);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
   const timeRef = useRef<number>(0);
   const gradientsRef = useRef<{
     green: CanvasGradient | null;
