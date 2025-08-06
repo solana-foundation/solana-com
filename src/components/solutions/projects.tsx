@@ -21,6 +21,7 @@ type EcoProjectsProps = {
   logos: Logo[];
   translationBase: string;
   headingType?: "icon" | "logo";
+  maxCols?: number;
 };
 
 /**
@@ -31,6 +32,7 @@ type EcoProjectsProps = {
  * @param {Project[]} props.projects - Array of project objects to display in the grid. Each project includes a key, icon, and background color.
  * @param {Logo[]} props.logos - Array of logo objects to display in the marquee. Each logo includes a source URL and background color.
  * @param {string} [props.translationBase] - Base key for translations eg. translationBase = "depin.ecoProjects"".
+ * @param {number} [props.maxCols] - Maximum number of columns to display in the grid.
  * @returns {JSX.Element} The rendered EcoProjects section.
  *
  * @example
@@ -44,6 +46,7 @@ export const Projects = ({
   logos,
   translationBase,
   headingType = "icon",
+  maxCols,
 }: EcoProjectsProps) => {
   const t = useTranslations();
 
@@ -67,7 +70,11 @@ export const Projects = ({
       <div className="mx-auto">
         <div
           className={`grid gap-3 w-full grid-cols-1 ${styles["custom-md-cols"]}`}
-          style={{ "--custom-cols": projects.length } as React.CSSProperties}
+          style={
+            {
+              "--custom-cols": maxCols || projects.length,
+            } as React.CSSProperties
+          }
         >
           {projects.map((project) => {
             const base = `${translationBase}.${project.key}`;
