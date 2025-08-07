@@ -861,6 +861,9 @@ export default {
       source: "/developers/cookbook/tokens/fetch-all-nfts",
       destination: "https://developers.metaplex.com/core",
     },
-    
+    {
+      source: "/docs/programs/faq",
+      destination: "https://solana.stackexchange.com",
+    },
   ],
 };
