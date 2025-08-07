@@ -94,6 +94,7 @@ const InstitutionalPaymentsPage = () => {
                 logos={LOGOS}
                 headingType="logo"
                 maxCols={4}
+                hideStats
               />
             </div>
           </div>

@@ -22,6 +22,7 @@ type EcoProjectsProps = {
   translationBase: string;
   headingType?: "icon" | "logo";
   maxCols?: number;
+  hideStats?: boolean;
 };
 
 /**
@@ -47,6 +48,7 @@ export const Projects = ({
   translationBase,
   headingType = "icon",
   maxCols,
+  hideStats = false,
 }: EcoProjectsProps) => {
   const t = useTranslations();
 
@@ -125,16 +127,20 @@ export const Projects = ({
                 <p className="text-gray-300 text-base mb-3 flex-1">
                   {t(`${base}.description`)}
                 </p>
-                <hr className="border-[#FFFFFF] mb-4" />
-                <dl className="mb-4">
-                  <dt className="sr-only">{t(`${base}.statLabel`)}</dt>
-                  <dd className="text-3xl font-bold text-white">
-                    {t(`${base}.stat`)}
-                  </dd>
-                  <div className="text-gray-400 text-sm">
-                    {t(`${base}.statLabel`)}
-                  </div>
-                </dl>
+                {!hideStats && (
+                  <>
+                    <hr className="border-[#FFFFFF] mb-4" />
+                    <dl className="mb-4">
+                      <dt className="sr-only">{t(`${base}.statLabel`)}</dt>
+                      <dd className="text-3xl font-bold text-white">
+                        {t(`${base}.stat`)}
+                      </dd>
+                      <div className="text-gray-400 text-sm">
+                        {t(`${base}.statLabel`)}
+                      </div>
+                    </dl>
+                  </>
+                )}
               </article>
             );
           })}
