@@ -17,7 +17,7 @@ import { Performance } from "@/components/solutions/performance";
 import { VideoGrid } from "@/components/solutions/video-grid";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
-import { LatestNews } from "@/components/solutions/latest-news";
+import { News } from "@/components/solutions/btcfi/News";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -110,7 +110,7 @@ const InstitutionalPaymentsPage = () => {
 
         {/* Latest News Section */}
         <section className="py-10">
-          <LatestNews title={t("btcfi.news.title")} items={LATEST_NEWS(t)} />
+          <News items={LATEST_NEWS(t)} />
         </section>
       </div>
 

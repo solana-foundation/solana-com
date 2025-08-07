@@ -1,0 +1,117 @@
+import Link from "next/link";
+import React from "react";
+import Image from "next/image";
+import { ArrowRightIcon } from "lucide-react";
+
+export type NewsItem = {
+  id: string;
+  title: string;
+  date?: string;
+  image: string;
+  link: string;
+  large?: boolean;
+};
+
+export type NewsProps = {
+  items: NewsItem[];
+};
+
+export const News = ({ items }: NewsProps) => (
+  <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+      {/* First row - 1 item */}
+      {items.slice(0, 1).map((item) => (
+        <div key={item.id} className="md:col-span-6">
+          <Link
+            href={item.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block group mb-3 focus:outline-none"
+          >
+            <div
+              className="
+                grid grid-cols-1 md:grid-cols-6 gap-6
+                rounded-lg transition
+                hover:shadow-lg focus:shadow-lg
+                hover:scale-[1.01] focus:scale-[1.01]
+                ring-0 group-focus-visible:ring-2 group-focus-visible:ring-[#6c47ff]
+              "
+              tabIndex={-1}
+            >
+              <div className="md:col-span-3 flex flex-col">
+                <div className="w-full rounded-lg overflow-hidden flex-shrink-0 relative h-64">
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-3 flex flex-col gap-6">
+                <div className="mt-4">
+                  <h3 className="text-3xl font-bold text-white mb-2 group-hover:underline group-focus:underline">
+                    {item.title}
+                  </h3>
+                  <span
+                    className="inline-block mt-2 py-2 rounded bg-primary-600 text-white text-sm font-semibold pointer-events-none select-none"
+                    aria-hidden="true"
+                  >
+                    Read Article <ArrowRightIcon className="w-3 h-3" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </div>
+      ))}
+
+      {/* Second row - 3 items, rest - 2 items */}
+      {items.slice(1).map((item, index) => (
+        <div
+          key={item.id}
+          className={index <= 2 ? "md:col-span-2" : "md:col-span-3"}
+        >
+          <Link
+            href={item.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block group mb-3 focus:outline-none"
+          >
+            <div
+              className="
+                rounded-lg transition
+                hover:shadow-lg focus:shadow-lg
+                hover:scale-[1.01] focus:scale-[1.01]
+                ring-0 group-focus-visible:ring-2 group-focus-visible:ring-[#6c47ff]
+              "
+              tabIndex={-1}
+            >
+              <div className="flex flex-col">
+                <div className="w-full rounded-lg overflow-hidden flex-shrink-0 relative h-64">
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-6">
+                <div className="mt-4">
+                  <h3 className="text-xl font-bold text-white group-hover:underline group-focus:underline">
+                    {item.title}
+                  </h3>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </div>
+      ))}
+    </div>
+  </div>
+);
