@@ -71,7 +71,7 @@ const InstitutionalPaymentsPage = () => {
         />
 
         {/* Performance Section */}
-        <section className="pb-10 bg-[#0C1320]">
+        <section className="pb-10">
           <Performance
             title={t("btcfi.performance.title")}
             items={PERFORMANCE}
