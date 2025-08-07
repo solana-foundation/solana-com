@@ -10,16 +10,14 @@ import {
   LOGOS,
   PROJECTS,
   PERFORMANCE,
-  VIDEOS,
   LATEST_NEWS,
 } from "@/data/solutions/btcfi";
 import { Performance } from "@/components/solutions/performance";
-import { VideoGrid } from "@/components/solutions/video-grid";
-import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
 import { News } from "@/components/solutions/btcfi/News";
 import { CTACards } from "@/components/solutions/btcfi/CTACards";
 import { Divider } from "@/components/solutions/divider";
+import { SingleVideo } from "@/components/solutions/btcfi/SingleVideo";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -102,13 +100,7 @@ const InstitutionalPaymentsPage = () => {
 
         {/* Video Section */}
         <section className="py-10 bg-[#171c25]">
-          <VideoGrid
-            title={t("btcfi.videoPlayer.title")}
-            subtitle={t("btcfi.videoPlayer.subtitle")}
-            videos={VIDEOS(t)}
-            moreVideosUrl={undefined}
-            moreVideosLabel={t("btcfi.videoPlayer.moreVideos")}
-          />
+          <SingleVideo />
         </section>
 
         {/* Latest News Section */}
@@ -123,7 +115,6 @@ const InstitutionalPaymentsPage = () => {
         </section>
       </div>
 
-      <VideoPlayerModal />
       <EmailModal
         isOpen={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}

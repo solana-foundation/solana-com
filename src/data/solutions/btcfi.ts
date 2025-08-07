@@ -70,18 +70,6 @@ export const PERFORMANCE = [
 
 export const LOGOS = [];
 
-export const VIDEOS = (
-  t: (_key: string, _values?: TranslationValues, _formats?: Formats) => string,
-) => [
-  {
-    id: "PdVUa8TR2nk",
-    thumbnail: "/src/img/solutions/btcfi/video1.webp",
-    title: t("btcfi.videoPlayer.videos.0.title"),
-    description: t("btcfi.videoPlayer.videos.0.description"),
-    alt: t("btcfi.videoPlayer.videos.0.alt"),
-  },
-];
-
 export const LATEST_NEWS = (
   t: (_key: string, _values?: TranslationValues, _formats?: Formats) => string,
 ) => [
