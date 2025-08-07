@@ -18,7 +18,7 @@ export type NewsProps = {
 
 export const News = ({ items }: NewsProps) => (
   <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-4 md:gap-6">
       {/* First row - 1 item */}
       {items.slice(0, 1).map((item) => (
         <div key={item.id} className="md:col-span-6">

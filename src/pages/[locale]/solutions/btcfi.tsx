@@ -18,6 +18,8 @@ import { VideoGrid } from "@/components/solutions/video-grid";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
 import { News } from "@/components/solutions/btcfi/News";
+import { CTACards } from "@/components/solutions/btcfi/CTACards";
+import { Divider } from "@/components/solutions/divider";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -109,8 +111,14 @@ const InstitutionalPaymentsPage = () => {
         </section>
 
         {/* Latest News Section */}
-        <section className="py-10">
+        <section className="pt-10">
           <News items={LATEST_NEWS(t)} />
+          <Divider className="my-6" />
+        </section>
+
+        {/* Card Section */}
+        <section>
+          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
         </section>
       </div>
 

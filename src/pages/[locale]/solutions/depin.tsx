@@ -19,6 +19,7 @@ import {
   LATEST_NEWS,
 } from "@/data/solutions/depin";
 import { VideoGrid } from "@/components/solutions/video-grid";
+import { Divider } from "@/components/solutions/divider";
 
 const DePINPage = () => {
   const t = useTranslations();
@@ -87,7 +88,7 @@ const DePINPage = () => {
         {/* Latest News Section */}
         <section className="py-10">
           <LatestNews title={t("depin.news.title")} items={LATEST_NEWS(t)} />
-          <hr className="mt-10 border-[#919191]" />
+          <Divider className="mt-10" />
         </section>
 
         {/* Card Section */}
