@@ -301,7 +301,7 @@ const CarouselCards = ({ children }) => {
       </div>
       <button
         className="overlay-left justify-content-center align-items-center btn btn-link text-white"
-        aria-label={t("developers.carousel.prev")}
+        aria-label={t("developers.nav.prev")}
         onMouseDown={onLeftBtnMouseDown}
         onMouseUp={stopScroll}
         onMouseLeave={stopScroll}

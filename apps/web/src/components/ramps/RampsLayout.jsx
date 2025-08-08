@@ -81,12 +81,12 @@ const RampLayout = ({
   const rampStatus = [
     {
       value: "ramp-status-on",
-      title: t("on-off-ramp.ramp-data.on-ramp-status"),
+      title: t("on-off-ramp.ramp-modal-data.on-ramp-status"),
       name: "ramp-status",
     },
     {
       value: "ramp-status-off",
-      title: t("on-off-ramp.ramp-data.off-ramp-status"),
+      title: t("on-off-ramp.ramp-modal-data.off-ramp-status"),
       name: "ramp-status",
     },
   ];
