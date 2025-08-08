@@ -52,6 +52,16 @@ const HeaderListLearn = () => {
           </strong>
           {t("nav.learn.start.items.defi.description")}
         </Link>
+        <Link
+          to="/universities"
+          className="nav-link nav-link--secondary"
+          activeClassName="active"
+        >
+          <strong className="d-block text-white">
+            {t("nav.learn.start.items.universities.title")}
+          </strong>
+          {t("nav.learn.start.items.universities.description")}
+        </Link>
       </div>
     </div>
   );
