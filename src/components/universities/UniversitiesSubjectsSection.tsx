@@ -53,7 +53,10 @@ export default function UniversitiesSubjectsSection({
   translations,
 }: UniversitiesSubjectsSectionProps) {
   return (
-    <section id="subjects" className="py-20 md:py-24 relative overflow-hidden">
+    <section
+      id="subjects"
+      className="[padding-block:1rem] sm:[padding-block:3rem] relative overflow-hidden"
+    >
       <GradientOrbs
         orbs={[orbPresets.topRightPurple, orbPresets.bottomLeftPurpleSmall]}
       />

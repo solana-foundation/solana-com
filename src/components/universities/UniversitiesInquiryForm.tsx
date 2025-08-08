@@ -39,7 +39,7 @@ export default function UniversitiesInquiryForm({
   ];
 
   return (
-    <section className="py-20 md:py-32 relative">
+    <section className="[padding-block:1rem] sm:[padding-block:3rem] relative">
       <div className="container">
         <div className="bg-[#0a0a0a] rounded-2xl p-12 md:p-20 text-center max-w-6xl mx-auto relative overflow-hidden">
           <GradientOrbs orbs={inquiryOrbs} />

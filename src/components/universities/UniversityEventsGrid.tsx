@@ -133,7 +133,7 @@ export default function UniversityEventsGrid() {
   const t = useTranslations();
 
   return (
-    <section className="pt-0 pb-16 px-4 relative overflow-hidden">
+    <section className="[padding-block:1rem] sm:[padding-block:3rem] px-4 relative overflow-hidden">
       <GradientOrbs
         orbs={[orbPresets.topRightGreen, orbPresets.bottomLeftPurple]}
       />

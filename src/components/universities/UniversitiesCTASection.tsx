@@ -17,7 +17,7 @@ export default function UniversitiesCTASection({
   translations,
 }: UniversitiesCTASectionProps) {
   return (
-    <section className="py-20 md:py-24 relative overflow-hidden">
+    <section className="[padding-block:1rem] sm:[padding-block:3rem] relative overflow-hidden">
       <GradientOrbs orbs={[orbPresets.topLeftGreen]} />
 
       <div className="container relative z-10">
