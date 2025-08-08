@@ -32,18 +32,11 @@ import {
 } from "@/app/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { Play } from "lucide-react";
-
-/**
- */
+import { Video, VideoProps } from "./video";
 
 const OPEN_VIDEO_EVENT = "open-video-player" as const;
 
-export interface VideoSource {
-  platform: "youtube" | "vimeo";
-  id: string;
-  title?: string;
-  autoplay?: boolean;
-}
+export interface VideoSource extends VideoProps {}
 
 export function openVideoPlayer(source: VideoSource) {
   window.dispatchEvent(
@@ -100,15 +93,6 @@ export function VideoPlayerModal() {
     }
   }, [open]);
 
-  const getEmbedUrl = (src: VideoSource): string => {
-    const { platform, id, autoplay } = src;
-    if (platform === "youtube") {
-      return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&autoplay=${autoplay ? 1 : 0}`;
-    }
-    // Vimeo
-    return `https://player.vimeo.com/video/${id}?autoplay=${autoplay ? 1 : 0}&title=0&byline=0&portrait=0`;
-  };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
@@ -116,7 +100,7 @@ export function VideoPlayerModal() {
         showClose={false}
       >
         {video && (
-          <div className="relative w-full pb-[56.25%]">
+          <div className="relative w-full">
             <DialogTitle className="sr-only">
               {video.title || "Video player"}
             </DialogTitle>
@@ -125,13 +109,15 @@ export function VideoPlayerModal() {
                 ? `Playing video: ${video.title}`
                 : "Video player modal. Press escape to close."}
             </DialogDescription>
-            <iframe
+            <Video
               key={`${video.platform}-${video.id}`}
-              src={getEmbedUrl(video)}
+              id={video.id}
               title={video.title || "Video player"}
-              className="absolute inset-0 h-full w-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
+              aspectRatio={video.aspectRatio}
+              autoplay={video.autoplay}
+              privacyMode={video.privacyMode}
+              startTime={video.startTime}
+              platform={video.platform}
             />
           </div>
         )}

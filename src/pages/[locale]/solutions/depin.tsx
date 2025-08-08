@@ -2,7 +2,7 @@ import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { Products } from "@/components/solutions/products";
-import { LatestNews } from "@/components/solutions/depin/LatestNews";
+import { LatestNews } from "@/components/solutions/latest-news";
 import { CTACards } from "@/components/solutions/depin/CTACards";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { useTranslations } from "next-intl";
@@ -11,8 +11,15 @@ import { useState } from "react";
 import { EmailModal } from "@/components/solutions/EmailModal";
 import { WhatIsIt } from "@/components/solutions/what-is-it";
 import { Projects } from "@/components/solutions/projects";
-import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/depin";
+import {
+  LOGOS,
+  PRODUCTS,
+  PROJECTS,
+  VIDEOS,
+  LATEST_NEWS,
+} from "@/data/solutions/depin";
 import { VideoGrid } from "@/components/solutions/video-grid";
+import { Divider } from "@/components/solutions/divider";
 
 const DePINPage = () => {
   const t = useTranslations();
@@ -80,7 +87,8 @@ const DePINPage = () => {
 
         {/* Latest News Section */}
         <section className="py-10">
-          <LatestNews />
+          <LatestNews title={t("depin.news.title")} items={LATEST_NEWS(t)} />
+          <Divider className="mt-10" />
         </section>
 
         {/* Card Section */}
