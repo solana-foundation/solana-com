@@ -71,13 +71,13 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 alt={globeImgAlt}
                 width={650}
                 height={480}
-                className="mt-6 lg:-ml-[20%] max-w-[650px] md:max-w-[450px] w-[65%] md:w-[80%] lg:w-[120%] h-auto "
+                className="mt-6 lg:-ml-[20%] max-w-[450px] lg:max-w-[650px] w-[65%] md:w-[80%] lg:w-[120%] h-auto "
                 priority
               />
             )}
           </div>
 
-          <div className="pb-6 md:pb-12">
+          <div className="pb-6">
             {/* Description */}
             <p className="text-white/65 text-xl mb-6">{subtitle}</p>
 
