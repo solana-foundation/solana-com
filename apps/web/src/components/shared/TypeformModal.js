@@ -63,6 +63,7 @@ const TypeformModal = ({
       size="xl"
       className={className}
       showCloseButton={showCloseButton}
+      titleId="ecdr.title"
     >
       <StyledTypeform>
         <Typeform
