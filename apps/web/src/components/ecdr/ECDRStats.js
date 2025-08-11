@@ -23,9 +23,7 @@ const StatCard = ({ value, description = "", note = "", className }) => (
 
 const ECDRStats = () => {
   const t = useTranslations();
-  const openSourceTitle = t("ecdr.stats.open-source.title", {
-    returnObjects: true,
-  });
+  const openSourceTitle = t("ecdr.stats.open-source.title").split("|");
   return (
     <div
       className={classNames("mt-4 container", styles["ecdr-stats__container"])}
@@ -80,14 +78,14 @@ const ECDRStats = () => {
       </div>
       <div className="row">
         <h2 className={styles["ecdr-stats__open-source--title"]}>
-          <span className="d-block">{openSourceTitle[0].phrase}</span>
+          <span className="d-block">{openSourceTitle[0]}</span>
           <span className="d-block d-md-inline-block">
-            {openSourceTitle[1].phrase}
+            {openSourceTitle[1]}
           </span>{" "}
           <span className="d-block d-md-inline-block">
-            {openSourceTitle[2].phrase}
+            {openSourceTitle[2]}
           </span>
-          <span className="d-block">{openSourceTitle[3].phrase}</span>
+          <span className="d-block">{openSourceTitle[3]}</span>
         </h2>
         <p className="col-md-6 mt-4 mx-auto text-center">
           {t("ecdr.stats.open-source.description")}
