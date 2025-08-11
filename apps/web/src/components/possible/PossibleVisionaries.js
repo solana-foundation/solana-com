@@ -55,7 +55,7 @@ const PossibleVisionaries = () => {
           <div className="col-12 col-md-5 d-flex flex-row d-md-block mb-8 mb-md-0 ps-lg-0 align-items-center">
             <h2 className="h2 pe-5 flex-grow-1 flex-shrink-1 mb-0">
               {t.rich("possible.visionaries.title", {
-                italic: (chunks) => <em className="fst-italic">{chunks}</em>,
+                italic: (chunks) => <em>{chunks}</em>,
               })}
             </h2>
           </div>
@@ -191,11 +191,13 @@ const PossibleEpisodeSelection = ({
                 )}
                 onClick={() => selectEpisode(index)}
               >
-                {t.rich(item.name, {
-                  lowercase: (chunks) => (
-                    <span className="text-lowercase">{chunks}</span>
-                  ),
-                })}
+                {item.name === "DRiP" ? (
+                  <>
+                    DR<span className="lowercase">I</span>P
+                  </>
+                ) : (
+                  item.name
+                )}
               </button>
             ))}
           </div>
@@ -223,11 +225,13 @@ const PossibleEpisodeSelection = ({
                     styles[`visionaries-episodeDropdownBtn--possible`],
                   )}
                 >
-                  {t.rich(item.name, {
-                    lowercase: (chunks) => (
-                      <span className="text-lowercase">{chunks}</span>
-                    ),
-                  })}
+                  {item.name === "DRiP" ? (
+                    <>
+                      DR<span className="lowercase">I</span>P
+                    </>
+                  ) : (
+                    item.name
+                  )}
                 </Dropdown.Item>
               ))}
             </Dropdown.Menu>
