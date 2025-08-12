@@ -1,7 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import classNames from "classnames";
 import styles from "@@/src/components/Footer/Footer.module.scss";
 import LanguageSelector from "@@/src/components/LanguageSelector";
 import Divider from "@@/src/components/shared/Divider";
@@ -26,7 +25,7 @@ const CopyrightRow = () => {
 const Footer = ({ className = "" }) => {
   const t = useTranslations();
   return (
-    <div className={classNames(styles["solFooter"], className)}>
+    <div className={`${styles["solFooter"]} ${className}`}>
       <div className="container">
         <div className="d-md-flex justify-content-md-between">
           <div className="d-flex flex-column align-items-center align-items-md-start">

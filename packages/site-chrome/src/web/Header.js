@@ -1,6 +1,4 @@
 "use client";
-
-import Navbar from "react-bootstrap/Navbar";
 import { useRouter } from "@@/src/hooks/useRouter";
 import { Link } from "@@/src/components/shared/Link";
 import { useEffect, useState } from "react";
@@ -38,22 +36,28 @@ const Header = ({ className = "", containerClassName = "" }) => {
 
   return (
     <>
-      <header className={`position-sticky sticky-top ${className}`}>
-        <Navbar id="navbar" expand="lg" variant="" expanded={expanded} onToggle={setExpanded} style={{ zIndex: 1020 }}>
+      <header className={`sticky top-0 z-[1020] ${className}`}>
+        <nav id="navbar" className="" aria-label="Primary">
           <div className={`container-xl ${containerClassName}`}>
             <Link to="/" className="d-flex" aria-label="Solana">
               <SolanaLogo style={{ color: "var(--body-text)" }} width={149} height={22} />
             </Link>
 
             <div className="d-flex align-items-center">
-              <Navbar.Toggle aria-controls="navbarCollapse" as="button" type="button">
+              <button
+                className="navbar-toggler"
+                aria-controls="navbarCollapse"
+                type="button"
+                aria-expanded={expanded}
+                onClick={() => setExpanded((e) => !e)}
+              >
                 <span className="bar"></span>
                 <span className="bar"></span>
                 <span className="bar"></span>
-              </Navbar.Toggle>
-              <Navbar.Collapse id="navbarCollapse">
+              </button>
+              <div id="navbarCollapse" className={`${expanded ? "block" : "hidden"} lg:block`}>
                 <HeaderList />
-              </Navbar.Collapse>
+              </div>
               <InkeepSearchBar />
               {isThemePage && (
                 <button className={styles.header__toggle} onClick={toggleTheme} aria-label={t("commands.toggle")}>
@@ -63,7 +67,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
               )}
             </div>
           </div>
-        </Navbar>
+        </nav>
       </header>
       {(router.asPath.includes("/developers") || router.asPath.includes("/docs")) && (
         <DevelopersNav containerClassName={containerClassName} />
