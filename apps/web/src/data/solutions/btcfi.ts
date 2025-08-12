@@ -1,4 +1,10 @@
-import { Bitcoin, DollarSign, Landmark, Layers, Timer } from "lucide-react";
+import {
+  Bitcoin,
+  CircleDollarSign,
+  Landmark,
+  Layers,
+  Timer,
+} from "lucide-react";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
@@ -39,7 +45,7 @@ export const PROJECTS = [
 export const PERFORMANCE = [
   {
     key: "0",
-    Icon: DollarSign,
+    Icon: CircleDollarSign,
     color: "bg-violet-500 text-black",
   },
   {
