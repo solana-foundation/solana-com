@@ -1,19 +1,14 @@
 import React from "react";
 import Image from "next/image";
-import { Button } from "@/app/components/ui/button";
 import { ArrowRightIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-
-type CTACardsProps = {
-  onEmailClick: () => void;
-};
 
 type BannerCTAProps = {
   href: string;
   label: string;
   description: React.ReactNode;
-  image: string; // <-- Add this line
+  image: string;
 };
 
 const BannerCTA = ({ href, label, description, image }: BannerCTAProps) => (
@@ -45,52 +40,12 @@ const BannerCTA = ({ href, label, description, image }: BannerCTAProps) => (
   </Link>
 );
 
-export const CTACards = ({ onEmailClick }: CTACardsProps) => {
+export const CTACards = () => {
   const t = useTranslations();
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 [padding-block:1rem] sm:[padding-block:2rem] sm:[padding-bottom:4rem]">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div
-          aria-labelledby="cta-report-title"
-          className="relative col-span-1 md:col-span-2 bg-[radial-gradient(circle,_#903dc5_0%,_#5831b5_50%)] rounded-2xl p-8 flex flex-col items-center text-center shadow-lg overflow-hidden"
-        >
-          {/* Pseudo-element for concentric circles */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-0"
-            style={{
-              background: `
-                repeating-radial-gradient(
-                  circle at 50% 50%,
-                  rgba(255,255,255,0.05) 0px,
-                  rgba(255,255,255,0.05) 1px,
-                  transparent 2px,
-                  transparent 150px
-                )
-              `,
-              borderRadius: "1rem",
-            }}
-          />
-          <div className="relative z-10 flex flex-col items-center py-8">
-            <h3
-              id="cta-report-title"
-              className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-4 max-w-xs"
-            >
-              {t("btcfi.cta.reportTitle")}
-            </h3>
-            <Button
-              variant="default"
-              className="text-lg p-5 rounded-xl transition-colors duration-200 shadow-md"
-              aria-label={t("btcfi.cta.downloadReport")}
-              onClick={onEmailClick}
-            >
-              {t("btcfi.cta.downloadReport")}{" "}
-              <ArrowRightIcon aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-
         <div className="bg-[#303742] rounded-2xl flex flex-col shadow-lg max-h-[400px] pt-6 px-6 pb-0 overflow-hidden">
           <h4 className="text-2xl font-semibold text-white mb-3">
             {t("btcfi.cta.learnTitle")}
