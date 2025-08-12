@@ -9,35 +9,35 @@ import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/solutions/btcfi/ecosystem/coinbase.svg",
+    src: "/src/img/logos-eco/coinbase.svg",
     key: "cbbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/bitgo.svg",
+    src: "/src/img/logos-eco/bitgo.svg",
     key: "wbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/okx.svg",
+    src: "/src/img/logos-eco/okx.svg",
     key: "xbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/zenrock.svg",
+    src: "/src/img/logos-eco/zenrock.svg",
     key: "zenbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/zeus.svg",
+    src: "/src/img/logos-eco/zeus.svg",
     key: "zbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/fragmetric.webp",
+    src: "/src/img/logos-eco/fragmetric.webp",
     key: "fragbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/lombard.webp",
+    src: "/src/img/logos-eco/lombard.webp",
     key: "lbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/yala.svg",
+    src: "/src/img/logos-eco/yala.svg",
     key: "yalabtc",
   },
 ];
@@ -76,122 +76,122 @@ export const PERFORMANCE = [
 
 export const LOGOS = [
   {
-    src: "/src/img/solutions/btcfi/ecosystem/coinbase.svg",
+    src: "/src/img/logos-eco/coinbase.svg",
     alt: "Сoinbase",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/bitgo.svg",
+    src: "/src/img/logos-eco/bitgo.svg",
     alt: "BitGo",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/okx.svg",
+    src: "/src/img/logos-eco/okx.svg",
     alt: "OKX",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/anchorage.webp",
+    src: "/src/img/logos-eco/anchorage.webp",
     alt: "Anchorage",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/drift.svg",
+    src: "/src/img/logos-eco/drift.svg",
     alt: "Drift",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/kamino.svg",
+    src: "/src/img/logos-eco/kamino.svg",
     alt: "Kamino",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/jupiter.webp",
+    src: "/src/img/logos-eco/jupiter.webp",
     alt: "Jupiter",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/raydium.webp",
+    src: "/src/img/logos-eco/raydium.webp",
     alt: "Raydium",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/orca.svg",
+    src: "/src/img/logos-eco/orca.svg",
     alt: "Orca",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/phantom.webp",
+    src: "/src/img/logos-eco/phantom.webp",
     alt: "Phantom",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/lombard.webp",
+    src: "/src/img/logos-eco/lombard.webp",
     alt: "Lombard",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/21shares.svg",
+    src: "/src/img/logos-eco/21shares.svg",
     alt: "21shares",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/thesis.svg",
+    src: "/src/img/logos-eco/thesis.svg",
     alt: "Thesis",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/stacks.webp",
+    src: "/src/img/logos-eco/stacks.webp",
     alt: "Stacks",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/yala.svg",
+    src: "/src/img/logos-eco/yala.svg",
     alt: "Yala",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/zenrock.svg",
+    src: "/src/img/logos-eco/zenrock.svg",
     alt: "Zenrock",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/zeus.svg",
+    src: "/src/img/logos-eco/zeus.svg",
     alt: "Zeus",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/layerzero.svg",
+    src: "/src/img/logos-eco/layerzero.svg",
     alt: "LayerZero",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/ratex.svg",
+    src: "/src/img/logos-eco/ratex.svg",
     alt: "RateX",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/loopscale.svg",
+    src: "/src/img/logos-eco/loopscale.svg",
     alt: "Loopscale",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/fragmetric.webp",
+    src: "/src/img/logos-eco/fragmetric.webp",
     alt: "Fragmetric",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/bitlayer.webp",
+    src: "/src/img/logos-eco/bitlayer.webp",
     alt: "Bitlayer",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/bullish.svg",
+    src: "/src/img/logos-eco/bullish.svg",
     alt: "Bullish",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/galaxy.webp",
+    src: "/src/img/logos-eco/galaxy.webp",
     alt: "Galaxy",
     bg: "bg-white",
   },

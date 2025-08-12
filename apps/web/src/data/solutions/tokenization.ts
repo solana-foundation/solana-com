@@ -22,47 +22,47 @@ export const PROJECTS = [
 
 export const LOGOS = [
   {
-    src: "/src/img/solutions/icm/ecosystem/bullish.svg",
+    src: "/src/img/logos-eco/bullish.svg",
     alt: "Bullish",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/icm/ecosystem/r3-logo-vector.svg",
+    src: "/src/img/logos-eco/r3-logo-vector.svg",
     alt: "R3",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/icm/ecosystem/Brevan_Howard_Logo.svg",
+    src: "/src/img/logos-eco/Brevan_Howard_Logo.svg",
     alt: "Brevan Howard",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/icm/ecosystem/Apollo_Global_Management_logo.svg",
+    src: "/src/img/logos-eco/Apollo_Global_Management_logo.svg",
     alt: "Apollo Global Management",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/icm/ecosystem/Vaneck.svg",
+    src: "/src/img/logos-eco/Vaneck.svg",
     alt: "Vaneck",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/icm/ecosystem/franklin-templeton.webp",
+    src: "/src/img/logos-eco/franklin-templeton.webp",
     alt: "Franklin Templeton",
     bg: "bg-white",
   },
   {
-    src: "/src/img/solutions/icm/ecosystem/hamilton-lane.webp",
+    src: "/src/img/logos-eco/hamilton-lane.webp",
     alt: "Hamilton Lane",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/icm/ecosystem/societe-general.webp",
+    src: "/src/img/logos-eco/societe-general.webp",
     alt: "Societe Generale",
     bg: "bg-black",
   },
   {
-    src: "/src/img/solutions/icm/ecosystem/BlackRock.webp",
+    src: "/src/img/logos-eco/BlackRock.webp",
     alt: "Blackrock",
     bg: "bg-white",
   },
