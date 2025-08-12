@@ -39,7 +39,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
   return (
     <>
       <header className={`position-sticky sticky-top ${className}`}>
-        <Navbar id="navbar" expand="lg" variant="" expanded={expanded} onToggle={setExpanded}>
+        <Navbar id="navbar" expand="lg" variant="" expanded={expanded} onToggle={setExpanded} style={{ zIndex: 1020 }}>
           <div className={`container-xl ${containerClassName}`}>
             <Link to="/" className="d-flex" aria-label="Solana">
               <SolanaLogo style={{ color: "var(--body-text)" }} width={149} height={22} />
