@@ -1,29 +1,22 @@
 import React from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import Marquee from "@/component-library/marquee";
 import styles from "./projects.module.scss";
+import { Logos, LogosProps } from "./logos";
 
-type Project = {
+export type Project = {
   key: string;
   src: string;
   bg?: string;
 };
 
-type Logo = {
-  src: string;
-  alt: string;
-  bg: string;
-};
-
 type EcoProjectsProps = {
   projects: Project[];
-  logos: Logo[];
   translationBase: string;
   headingType?: "icon" | "logo";
   maxCols?: number;
   hideStats?: boolean;
-};
+} & Partial<LogosProps>;
 
 /**
  * Displays a grid of eco-friendly projects with stats and a scrolling marquee of project logos.
@@ -51,21 +44,6 @@ export const Projects = ({
   hideStats = false,
 }: EcoProjectsProps) => {
   const t = useTranslations();
-
-  const items = logos.map((logo, i) => (
-    <div
-      key={`${logo.alt}-${i}`}
-      className={`flex items-center justify-center mr-4 mt-6 max-w-[200px] aspect-video relative rounded-sm p-[5px] min-w-[100px] min-h-[70px] ${logo.bg}`}
-    >
-      <img
-        src={logo.src}
-        alt={logo.alt}
-        className="object-contain w-4/5 h-4/5"
-        loading="lazy"
-        style={{ display: "block" }}
-      />
-    </div>
-  ));
 
   return (
     <div className="col-span-full md:col-span-2">
@@ -145,13 +123,11 @@ export const Projects = ({
             );
           })}
         </div>
-        <div className="relative w-full mt-4">
-          {/* Left Blur */}
-          <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-[#090d17] to-transparent z-10" />
-          {/* Right Blur */}
-          <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-[#090d17] to-transparent z-10" />
-          <Marquee className="w-full">{items}</Marquee>
-        </div>
+        {logos && logos.length > 0 && (
+          <div className="mt-8">
+            <Logos logos={logos} />
+          </div>
+        )}
       </div>
     </div>
   );
