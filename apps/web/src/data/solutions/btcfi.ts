@@ -128,7 +128,7 @@ export const LOGOS = [
   {
     src: "/src/img/solutions/btcfi/ecosystem/lombard.webp",
     alt: "Lombard",
-    bg: "bg-black",
+    bg: "bg-white",
   },
   {
     src: "/src/img/solutions/btcfi/ecosystem/21shares.svg",
