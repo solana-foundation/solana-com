@@ -1,7 +1,7 @@
 ---
 title: Struttura del programma
 description:
-  Scopri come strutturare i programmi Solana in Rust, inclusi entrypoint,
+  Impara come strutturare i programmi Solana in Rust, inclusi entrypoint,
   gestione dello stato, gestione delle istruzioni e testing.
 h1: Struttura del programma Rust
 ---
@@ -17,32 +17,35 @@ Sebbene non ci siano regole rigide per la struttura dei file, i programmi Solana
 tipicamente seguono uno schema comune:
 
 - `entrypoint.rs`: Definisce l'entrypoint che indirizza le istruzioni in arrivo.
-- `state.rs`: Definiscono lo stato specifico del programma (dati dell'account).
+- `state.rs`: Definisce lo stato del programma (dati dell'account).
 - `instructions.rs`: Definisce le istruzioni che il programma può eseguire.
 - `processor.rs`: Definisce i gestori di istruzioni (funzioni) che implementano
   la logica di business per ogni istruzione.
 - `error.rs`: Definisce gli errori personalizzati che il programma può
   restituire.
 
-Puoi trovare esempi nella
-[Solana Program Library](https://github.com/solana-program/token/tree/main/program/src).
+Per esempio, vedi il
+[Token Program](https://github.com/solana-program/token/tree/main/program/src).
 
 ## Programma di esempio
 
-Per dimostrare come costruire un programma Rust nativo con multiple istruzioni,
-esamineremo un semplice programma contatore che implementa due istruzioni:
+Per dimostrare come costruire un programma nativo in Rust con multiple
+istruzioni, esamineremo un semplice programma contatore che implementa due
+istruzioni:
 
 1. `InitializeCounter`: Crea e inizializza un nuovo account con un valore
    iniziale.
 2. `IncrementCounter`: Incrementa il valore memorizzato in un account esistente.
 
 Per semplicità, il programma sarà implementato in un singolo file `lib.rs`,
-anche se nella pratica potresti voler dividere programmi più grandi in più file.
+anche se in pratica potresti voler dividere programmi più grandi in più file.
 
 <Accordions>
 <Accordion title="Codice completo del programma">
 
-```rs title="lib.rs"
+<CodeTabs>
+
+```rs !! title="src/lib.rs"
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -66,7 +69,8 @@ pub fn process_instruction(
     instruction_data: &[u8],
 ) -> ProgramResult {
     // Unpack instruction data
-    let instruction = CounterInstruction::unpack(instruction_data)?;
+    let instruction = CounterInstruction::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Match instruction type
     match instruction {
@@ -85,29 +89,6 @@ pub enum CounterInstruction {
     IncrementCounter,                         // variant 1
 }
 
-impl CounterInstruction {
-    pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
-        // Get the instruction variant from the first byte
-        let (&variant, rest) = input
-            .split_first()
-            .ok_or(ProgramError::InvalidInstructionData)?;
-
-        // Match instruction type and parse the remaining bytes based on the variant
-        match variant {
-            0 => {
-                // For InitializeCounter, parse a u64 from the remaining bytes
-                let initial_value = u64::from_le_bytes(
-                    rest.try_into()
-                        .map_err(|_| ProgramError::InvalidInstructionData)?,
-                );
-                Ok(Self::InitializeCounter { initial_value })
-            }
-            1 => Ok(Self::IncrementCounter), // No additional data needed
-            _ => Err(ProgramError::InvalidInstructionData),
-        }
-    }
-}
-
 // Initialize a new counter account
 fn process_initialize_counter(
     program_id: &Pubkey,
@@ -121,7 +102,7 @@ fn process_initialize_counter(
     let system_program = next_account_info(accounts_iter)?;
 
     // Size of our counter account
-    let account_space = 8; // Size in bytes to store a u64
+    let account_space = 8; // u64 requires 8 bytes
 
     // Calculate minimum balance for rent exemption
     let rent = Rent::get()?;
@@ -197,24 +178,32 @@ pub struct CounterAccount {
 #[cfg(test)]
 mod test {
     use super::*;
-    use solana_program_test::*;
+    use litesvm::LiteSVM;
     use solana_sdk::{
+        account::ReadableAccount,
         instruction::{AccountMeta, Instruction},
+        message::Message,
         signature::{Keypair, Signer},
         system_program,
         transaction::Transaction,
     };
 
-    #[tokio::test]
-    async fn test_counter_program() {
-        let program_id = Pubkey::new_unique();
-        let (mut banks_client, payer, recent_blockhash) = ProgramTest::new(
-            "counter_program",
-            program_id,
-            processor!(process_instruction),
-        )
-        .start()
-        .await;
+    #[test]
+    fn test_counter_program() {
+        // Create a new LiteSVM instance
+        let mut svm = LiteSVM::new();
+
+        // Create a keypair for the transaction payer
+        let payer = Keypair::new();
+
+        // Airdrop some lamports to the payer
+        svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+        // Load our program
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
+            .unwrap();
 
         // Create a new keypair to use as the address for our counter account
         let counter_keypair = Keypair::new();
@@ -223,9 +212,10 @@ mod test {
         // Step 1: Initialize the counter
         println!("Testing counter initialization...");
 
-        // Create initialization instruction
-        let mut init_instruction_data = vec![0]; // 0 = initialize instruction
-        init_instruction_data.extend_from_slice(&initial_value.to_le_bytes());
+        // Use Borsh serialization for the instruction
+        let init_instruction_data =
+            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
+                .expect("Failed to serialize instruction");
 
         let initialize_instruction = Instruction::new_with_bytes(
             program_id,
@@ -237,61 +227,178 @@ mod test {
             ],
         );
 
-        // Send transaction with initialize instruction
-        let mut transaction =
-            Transaction::new_with_payer(&[initialize_instruction], Some(&payer.pubkey()));
-        transaction.sign(&[&payer, &counter_keypair], recent_blockhash);
-        banks_client.process_transaction(transaction).await.unwrap();
+        // Create transaction
+        let message = Message::new(&[initialize_instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(&[&payer, &counter_keypair], message, svm.latest_blockhash());
+
+        // Send transaction
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Initialize transaction should succeed");
+
+        let logs = result.unwrap().logs;
+        println!("Transaction logs:\n{:#?}", logs);
 
         // Check account data
-        let account = banks_client
-            .get_account(counter_keypair.pubkey())
-            .await
+        let account = svm
+            .get_account(&counter_keypair.pubkey())
             .expect("Failed to get counter account");
 
-        if let Some(account_data) = account {
-            let counter: CounterAccount = CounterAccount::try_from_slice(&account_data.data)
-                .expect("Failed to deserialize counter data");
-            assert_eq!(counter.count, 42);
-            println!(
-                "✅ Counter initialized successfully with value: {}",
-                counter.count
-            );
-        }
+        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+            .expect("Failed to deserialize counter data");
+        assert_eq!(counter.count, 42);
+        println!(
+            "Counter initialized successfully with value: {}",
+            counter.count
+        );
 
         // Step 2: Increment the counter
         println!("Testing counter increment...");
 
-        // Create increment instruction
+        // Use Borsh serialization for increment instruction
+        let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
+            .expect("Failed to serialize instruction");
+
         let increment_instruction = Instruction::new_with_bytes(
             program_id,
-            &[1], // 1 = increment instruction
+            &increment_data,
             vec![AccountMeta::new(counter_keypair.pubkey(), true)],
         );
 
-        // Send transaction with increment instruction
-        let mut transaction =
-            Transaction::new_with_payer(&[increment_instruction], Some(&payer.pubkey()));
-        transaction.sign(&[&payer, &counter_keypair], recent_blockhash);
-        banks_client.process_transaction(transaction).await.unwrap();
+        // Create transaction
+        let message = Message::new(&[increment_instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(&[&payer, &counter_keypair], message, svm.latest_blockhash());
+
+        // Send transaction
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Increment transaction should succeed");
+
+        let logs = result.unwrap().logs;
+        println!("Transaction logs:\n{:#?}", logs);
 
         // Check account data
-        let account = banks_client
-            .get_account(counter_keypair.pubkey())
-            .await
+        let account = svm
+            .get_account(&counter_keypair.pubkey())
             .expect("Failed to get counter account");
 
-        if let Some(account_data) = account {
-            let counter: CounterAccount = CounterAccount::try_from_slice(&account_data.data)
-                .expect("Failed to deserialize counter data");
-            assert_eq!(counter.count, 43);
-            println!("✅ Counter incremented successfully to: {}", counter.count);
+        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+            .expect("Failed to deserialize counter data");
+        assert_eq!(counter.count, 43);
+        println!("Counter incremented successfully to: {}", counter.count);
+    }
+}
+```
+
+```rs !! title="examples/client.rs"
+use counter_program::CounterInstruction;
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_program,
+    transaction::Transaction,
+};
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() {
+    // Replace with your actual program ID from deployment
+    let program_id = Pubkey::from_str("AUia4JuToXDAB4gR2ZXWqJ6kDyCqn7WqunGAgw1KxdKU")
+        .expect("Invalid program ID");
+
+    // Connect to local cluster
+    let rpc_url = String::from("http://localhost:8899");
+    let client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
+
+    // Generate a new keypair for paying fees
+    let payer = Keypair::new();
+
+    // Request airdrop of 1 SOL for transaction fees
+    println!("Requesting airdrop...");
+    let airdrop_signature = client
+        .request_airdrop(&payer.pubkey(), 1_000_000_000)
+        .expect("Failed to request airdrop");
+
+    // Wait for airdrop confirmation
+    loop {
+        if client
+            .confirm_transaction(&airdrop_signature)
+            .unwrap_or(false)
+        {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    println!("Airdrop confirmed");
+
+    println!("\nInitializing counter...");
+    let counter_keypair = Keypair::new();
+    let initial_value = 100u64;
+
+    // Serialize the initialize instruction data
+    let instruction_data = borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
+        .expect("Failed to serialize instruction");
+
+    let initialize_instruction = Instruction::new_with_bytes(
+        program_id,
+        &instruction_data,
+        vec![
+            AccountMeta::new(counter_keypair.pubkey(), true),
+            AccountMeta::new(payer.pubkey(), true),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[initialize_instruction], Some(&payer.pubkey()));
+
+    let blockhash = client
+        .get_latest_blockhash()
+        .expect("Failed to get blockhash");
+    transaction.sign(&[&payer, &counter_keypair], blockhash);
+
+    match client.send_and_confirm_transaction(&transaction) {
+        Ok(signature) => {
+            println!("Counter initialized!");
+            println!("Transaction: {}", signature);
+            println!("Counter address: {}", counter_keypair.pubkey());
+        }
+        Err(err) => {
+            eprintln!("Failed to initialize counter: {}", err);
+            return;
+        }
+    }
+
+    println!("\nIncrementing counter...");
+    // Serialize the increment instruction data
+    let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
+        .expect("Failed to serialize instruction");
+
+    let increment_instruction = Instruction::new_with_bytes(
+        program_id,
+        &increment_data,
+        vec![AccountMeta::new(counter_keypair.pubkey(), true)],
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[increment_instruction], Some(&payer.pubkey()));
+
+    transaction.sign(&[&payer, &counter_keypair], blockhash);
+
+    match client.send_and_confirm_transaction(&transaction) {
+        Ok(signature) => {
+            println!("Counter incremented!");
+            println!("Transaction: {}", signature);
+        }
+        Err(err) => {
+            eprintln!("Failed to increment counter: {}", err);
         }
     }
 }
 ```
 
-```toml title="Cargo.toml"
+```toml !! title="Cargo.toml"
 [package]
 name = "counter_program"
 version = "0.1.0"
@@ -301,304 +408,238 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-borsh = "1.5.1"
-solana-program = "1.18.26"
+borsh = "1.5.7"
+solana-program = "2.2.0"
 
 [dev-dependencies]
-solana-program-test = "1.18.26"
-solana-sdk = "1.18.26"
-tokio = "1.41.0"
+litesvm = "0.6.1"
+solana-client = "2.2.0"
+solana-sdk = "2.2.0"
+tokio = "1.47.1"
+
+[[example]]
+name = "client"
+path = "examples/client.rs"
 ```
+
+</CodeTabs>
 
 </Accordion>
 </Accordions>
 
-<Steps>
-<Step>
+## Parte 1: Scrivere il programma
 
-### Creare un nuovo programma
+Iniziamo costruendo il programma contatore. Creeremo un programma che può
+inizializzare un contatore con un valore iniziale e incrementarlo.
 
-Prima, crea un nuovo progetto Rust usando il comando standard `cargo init` con
-l'opzione `--lib`.
+<ScrollyCoding>
 
-```shell title="Terminal"
-cargo init counter_program --lib
+## !!steps Crea un nuovo programma
+
+Prima di tutto, creiamo un nuovo progetto Rust per il nostro programma Solana.
+
+```terminal
+$ cargo new counter_program --lib
+$ cd counter_program
 ```
 
-Naviga nella directory del progetto. Dovresti vedere i file predefiniti
-`src/lib.rs` e `Cargo.toml`
+Dovresti vedere i file predefiniti `src/lib.rs` e `Cargo.toml`.
 
-```shell title="Terminal"
-cd counter_program
+<Callout type="warn">
+  Aggiorna il campo `edition` in `Cargo.toml` a 2021. Altrimenti, potresti
+  incontrare un errore durante la compilazione del programma.
+</Callout>
+
+```toml !! title="Cargo.toml"
+[package]
+name = "counter_program"
+version = "0.1.0"
+# !mark
+edition = "2021"
+
+[dependencies]
 ```
 
-Successivamente, aggiungi la dipendenza `solana-program`. Questa è la dipendenza
-minima richiesta per costruire un programma Solana.
+```rs !! title="lib.rs"
+pub fn add(left: u64, right: u64) -> u64 {
+    left + right
+}
 
-```shell title="Terminal"
-cargo add solana-program@1.18.26
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        let result = add(2, 2);
+        assert_eq!(result, 4);
+    }
+}
 ```
 
-Poi, aggiungi il seguente snippet a `Cargo.toml`. Se non includi questa
-configurazione, la directory `target/deploy` non verrà generata quando compili
-il programma.
+## !!steps Aggiungere le dipendenze
 
-```toml title="Cargo.toml"
-[lib]
-crate-type = ["cdylib", "lib"]
+Ora aggiungiamo le dipendenze necessarie per costruire un programma Solana.
+Abbiamo bisogno di `solana-program` per l'SDK principale e `borsh` per la
+serializzazione.
+
+```terminal
+$ cargo add solana-program@2.2.0
+$ cargo add borsh
 ```
 
-Il tuo file `Cargo.toml` dovrebbe apparire come segue:
-
-```toml title="Cargo.toml"
+```toml !! title="Cargo.toml"
 [package]
 name = "counter_program"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+# !focus(1:4)
+# Borsh is used for serializing/deserializing
+borsh = "1.5.7"
+# The core Solana program SDK
+solana-program = "2.2.0"
+```
+
+<Callout type="info">
+  Non è obbligatorio utilizzare Borsh. Tuttavia, è una libreria di
+  serializzazione comunemente utilizzata per i programmi Solana.
+</Callout>
+
+## !!steps Configurare crate-type
+
+I programmi Solana devono essere compilati come librerie dinamiche. Aggiungi la
+sezione `[lib]` per configurare come Cargo compila il programma.
+
+```toml title="Cargo.toml"
+[lib]
+crate-type = ["cdylib", "lib"]
+```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "counter_program"
+version = "0.1.0"
+edition = "2021"
+
+# !focus(1:2)
 [lib]
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "1.18.26"
+borsh = "1.5.7"
+solana-program = "2.2.0"
 ```
 
-</Step>
-<Step>
+<Callout type="warn">
+  Se non includi questa configurazione, la directory target/deploy non verrà
+  generata quando compili il programma.
+</Callout>
 
-### Entrypoint del programma
+## !!steps Configurare il punto di ingresso del programma
 
-L'entrypoint di un programma Solana è la funzione che viene chiamata quando un
-programma è invocato. L'entrypoint ha la seguente definizione di base e gli
+Ogni programma Solana ha un punto di ingresso, che è la funzione che viene
+chiamata quando il programma viene invocato. Iniziamo aggiungendo le
+importazioni necessarie per il programma e configurando il punto di ingresso.
+
+Aggiungi il seguente codice a `lib.rs`:
+
+```rs title="lib.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    Ok(())
+}
+```
+
+La macro
+[entrypoint](https://github.com/anza-xyz/solana-sdk/blob/449d97c0ed164611dae538e2ee91ca0caaaec515/program-entrypoint/src/lib.rs#L126-L140)
+gestisce la deserializzazione dei dati `input` nei parametri della funzione
+`process_instruction`.
+
+Un `entrypoint` di un programma Solana ha la seguente firma di funzione. Gli
 sviluppatori sono liberi di creare la propria implementazione della funzione
-entrypoint.
-
-Per semplicità, usa la macro
-[`entrypoint!`](https://github.com/solana-labs/solana/blob/v2.0/sdk/program/src/entrypoint.rs#L124-L140)
-dal crate `solana_program` per definire l'entrypoint nel tuo programma.
+`entrypoint`.
 
 ```rs
 #[no_mangle]
 pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64;
 ```
 
-Sostituisci il codice predefinito in `lib.rs` con il seguente codice. Questo
-snippet:
-
-1. Importa le dipendenze necessarie da `solana_program`
-2. Definisce l'entrypoint del programma usando la macro `entrypoint!`
-3. Implementa la funzione `process_instruction` che indirizzerà le istruzioni
-   alle funzioni handler appropriate
-
-```rs title="lib.rs" {13} /process_instruction/
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
-    entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
-};
-
-entrypoint!(process_instruction);
-
-pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    // Your program logic
-    Ok(())
-}
-```
-
-La macro `entrypoint!` richiede una funzione con la seguente
-[firma di tipo](https://github.com/solana-labs/solana/blob/v2.0/sdk/program/src/entrypoint.rs#L28-L29)
-come argomento:
-
-```rs
-pub type ProcessInstruction =
-    fn(program_id: &Pubkey, accounts: &[AccountInfo], instruction_data: &[u8]) -> ProgramResult;
-```
-
-Quando un programma Solana viene invocato, l'entrypoint
-[deserializza](https://github.com/solana-labs/solana/blob/v2.0/sdk/program/src/entrypoint.rs#L277)
-i
-[dati di input](https://github.com/solana-labs/solana/blob/v2.0/sdk/program/src/entrypoint.rs#L129-L131)
-(forniti come byte) in tre valori e li passa alla funzione
-[`process_instruction`](https://github.com/solana-labs/solana/blob/v2.0/sdk/program/src/entrypoint.rs#L132):
-
-- `program_id`: La chiave pubblica del programma che viene invocato (programma
-  corrente)
-- `accounts`: Il `AccountInfo` per gli account richiesti dall'istruzione che
-  viene invocata
-- `instruction_data`: Dati aggiuntivi passati al programma che specificano
-  l'istruzione da eseguire e i suoi argomenti richiesti
-
-Questi tre parametri corrispondono direttamente ai dati che i client devono
-fornire quando costruiscono un'istruzione per invocare un programma.
-
-</Step>
-<Step>
-
-### Definire lo stato del programma
-
-Quando si costruisce un programma Solana, in genere si inizia definendo lo stato
-del programma - i dati che saranno memorizzati negli account creati e posseduti
-dal tuo programma.
-
-Lo stato del programma è definito utilizzando struct Rust che rappresentano il
-layout dei dati degli account del tuo programma. Puoi definire più struct per
-rappresentare diversi tipi di account per il tuo programma.
-
-Quando lavori con gli account, hai bisogno di un modo per convertire i tipi di
-dati del tuo programma in e dai byte grezzi memorizzati nel campo dati di un
-account:
-
-- Serializzazione: Conversione dei tuoi tipi di dati in byte da memorizzare nel
-  campo dati di un account
-- Deserializzazione: Conversione dei byte memorizzati in un account nei tuoi
-  tipi di dati
-
-Sebbene sia possibile utilizzare qualsiasi formato di serializzazione per lo
-sviluppo di programmi Solana, [Borsh](https://borsh.io/) è comunemente
-utilizzato. Per utilizzare Borsh nel tuo programma Solana:
-
-1. Aggiungi il crate `borsh` come dipendenza al tuo `Cargo.toml`:
-
-```shell title="Terminal"
-cargo add borsh
-```
-
-2. Importa i trait Borsh e usa la macro derive per implementare i trait per le
-   tue struct:
-
-```rust
-use borsh::{BorshSerialize, BorshDeserialize};
-
-// Define struct representing our counter account's data
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct CounterAccount {
-    count: u64,
-}
-```
-
-Aggiungi la struct `CounterAccount` a `lib.rs` per definire lo stato del
-programma. Questa struct sarà utilizzata sia nelle istruzioni di
-inizializzazione che in quelle di incremento.
-
-```rs title="lib.rs" {12} {25-29}
-use solana_program::{
-    account_info::{next_account_info, AccountInfo},
-    entrypoint,
-    entrypoint::ProgramResult,
-    msg,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
-};
-use borsh::{BorshSerialize, BorshDeserialize};
-
-entrypoint!(process_instruction);
-
-pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    // Your program logic
-    Ok(())
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct CounterAccount {
-    count: u64,
-}
-```
-
-</Step>
-<Step>
-
-### Definire le istruzioni
-
-Le istruzioni si riferiscono alle diverse operazioni che il tuo programma Solana
-può eseguire. Pensale come API pubbliche per il tuo programma - definiscono
-quali azioni gli utenti possono intraprendere quando interagiscono con il tuo
-programma.
-
-Le istruzioni sono tipicamente definite utilizzando un enum Rust dove:
-
-- Ogni variante dell'enum rappresenta un'istruzione diversa
-- Il payload della variante rappresenta i parametri dell'istruzione
-
-Nota che le varianti degli enum in Rust sono implicitamente numerate a partire
-da 0.
-
-Di seguito un esempio di un enum che definisce due istruzioni:
-
-```rust
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub enum CounterInstruction {
-    InitializeCounter { initial_value: u64 }, // variant 0
-    IncrementCounter,                         // variant 1
-}
-```
-
-Quando un client invoca il tuo programma, deve fornire instruction data (come un
-buffer di byte) dove:
-
-- Il primo byte identifica quale variante di istruzione eseguire (0, 1, ecc.)
-- I byte rimanenti contengono i parametri dell'istruzione serializzati (se
-  richiesti)
-
-Per convertire l'instruction data (byte) in una variante dell'enum, è comune
-implementare un metodo di supporto. Questo metodo:
-
-1. Separa il primo byte per ottenere la variante dell'istruzione
-2. Fa il match sulla variante e analizza eventuali parametri aggiuntivi dai byte
-   rimanenti
-3. Restituisce la variante enum corrispondente
-
-Per esempio, il metodo `unpack` per l'enum `CounterInstruction`:
-
-```rust
-impl CounterInstruction {
-    pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
-        // Get the instruction variant from the first byte
-        let (&variant, rest) = input
-            .split_first()
-            .ok_or(ProgramError::InvalidInstructionData)?;
-
-        // Match instruction type and parse the remaining bytes based on the variant
-        match variant {
-            0 => {
-                // For InitializeCounter, parse a u64 from the remaining bytes
-                let initial_value = u64::from_le_bytes(
-                    rest.try_into()
-                        .map_err(|_| ProgramError::InvalidInstructionData)?
-                );
-                Ok(Self::InitializeCounter { initial_value })
-            }
-            1 => Ok(Self::IncrementCounter), // No additional data needed
-            _ => Err(ProgramError::InvalidInstructionData),
-        }
-    }
-}
-```
-
-Aggiungi il seguente codice a `lib.rs` per definire le istruzioni per il
-programma contatore.
-
-```rs title="lib.rs" {18-46}
+```rs !! title="lib.rs"
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
-    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg,
-    program_error::ProgramError, pubkey::Pubkey,
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
+};
+
+// This macro defines the program's entrypoint
+// !mark
+entrypoint!(process_instruction);
+
+// The main function that processes all incoming instructions
+pub fn process_instruction(
+    program_id: &Pubkey,      // This program's public key
+    accounts: &[AccountInfo],  // Accounts passed to the instruction
+    instruction_data: &[u8],   // Raw instruction data as bytes
+) -> ProgramResult {
+    // Program logic will go here
+    Ok(())
+}
+```
+
+## !!steps Definire lo stato del programma
+
+Ora definiamo la struttura dati che sarà memorizzata nei nostri account
+contatore. Questi sono i dati che saranno memorizzati nel campo `data`
+dell'account.
+
+Aggiungi il seguente codice a `lib.rs`:
+
+```rs title="lib.rs"
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    pub count: u64,
+}
+```
+
+```rs !! title="lib.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
 };
 
 entrypoint!(process_instruction);
@@ -608,55 +649,48 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    // Your program logic
     Ok(())
 }
 
+// !focus(1:7)
+// Define the data structure for our counter account
+// The derive macros enable automatic serialization/deserialization
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub enum CounterInstruction {
-    InitializeCounter { initial_value: u64 }, // variant 0
-    IncrementCounter,                         // variant 1
-}
-
-impl CounterInstruction {
-    pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
-        // Get the instruction variant from the first byte
-        let (&variant, rest) = input
-            .split_first()
-            .ok_or(ProgramError::InvalidInstructionData)?;
-
-        // Match instruction type and parse the remaining bytes based on the variant
-        match variant {
-            0 => {
-                // For InitializeCounter, parse a u64 from the remaining bytes
-                let initial_value = u64::from_le_bytes(
-                    rest.try_into()
-                        .map_err(|_| ProgramError::InvalidInstructionData)?,
-                );
-                Ok(Self::InitializeCounter { initial_value })
-            }
-            1 => Ok(Self::IncrementCounter), // No additional data needed
-            _ => Err(ProgramError::InvalidInstructionData),
-        }
-    }
+pub struct CounterAccount {
+    // Store the counter value
+    pub count: u64,
 }
 ```
 
-</Step>
-<Step>
+## !!steps Definire l'enum delle istruzioni
 
-### Gestori di istruzioni
+Definiamo le istruzioni che il nostro programma può eseguire. Useremo un enum
+dove ogni variante rappresenta un'istruzione diversa.
 
-I gestori di istruzioni si riferiscono alle funzioni che contengono la logica di
-business per ogni istruzione. È comune nominare le funzioni di gestione come
-`process_<instruction_name>`, ma sei libero di scegliere qualsiasi convenzione
-di denominazione.
+Aggiungi il seguente codice a `lib.rs`:
 
-Aggiungi il seguente codice a `lib.rs`. Questo codice utilizza l'enum
-`CounterInstruction` e il metodo `unpack` definiti nel passaggio precedente per
-indirizzare le istruzioni in arrivo alle appropriate funzioni di gestione:
+```rs title="lib.rs"
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+```
 
-```rs title="lib.rs" {8-17} {20-32} /process_initialize_counter/1 /process_increment_counter/1
+```rs !! title="lib.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
+};
+
 entrypoint!(process_instruction);
 
 pub fn process_instruction(
@@ -664,16 +698,123 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    // Unpack instruction data
-    let instruction = CounterInstruction::unpack(instruction_data)?;
+    Ok(())
+}
 
-    // Match instruction type
+// !focus(1:8)
+// Define the instructions our program can execute
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum CounterInstruction {
+    // Variant 0: Initialize a counter with a starting value
+    InitializeCounter { initial_value: u64 },
+    // Variant 1: Increment an existing counter by 1
+    IncrementCounter,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    pub count: u64,
+}
+```
+
+## !!steps Implementare la deserializzazione delle istruzioni
+
+Ora dobbiamo deserializzare il `instruction_data` (byte grezzi) in una delle
+nostre varianti dell'enum `CounterInstruction`. Il metodo Borsh `try_from_slice`
+gestisce questa conversione automaticamente.
+
+Aggiorna la funzione `process_instruction` per utilizzare la deserializzazione
+Borsh:
+
+```rs title="lib.rs"
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = CounterInstruction::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    Ok(())
+}
+```
+
+```rs !! title="lib.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
+};
+
+entrypoint!(process_instruction);
+
+// !focus(1:10)
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Deserialize instruction data using Borsh
+    let instruction = CounterInstruction::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    Ok(())
+}
+
+// !focus(1:8)
+// Instructions are automatically serialized/deserialized by Borsh
+// The enum variants are numbered 0, 1, etc. in order of declaration
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },  // Variant 0
+    IncrementCounter,                          // Variant 1
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    pub count: u64,
+}
+```
+
+## !!steps Instradare le istruzioni ai gestori
+
+Ora aggiorniamo la funzione principale `process_instruction` per instradare le
+istruzioni ai loro gestori appropriati.
+
+Questo modello di instradamento è comune nei programmi Solana. Il
+`instruction_data` viene deserializzato in una variante di un enum che
+rappresenta l'istruzione, quindi viene chiamata la funzione gestore appropriata.
+Ogni funzione gestore include l'implementazione per quella istruzione.
+
+Aggiungi il seguente codice a `lib.rs` aggiornando la funzione
+`process_instruction` e aggiungendo i gestori per le istruzioni
+`InitializeCounter` e `IncrementCounter`:
+
+```rs title="lib.rs"
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = CounterInstruction::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
     match instruction {
         CounterInstruction::InitializeCounter { initial_value } => {
             process_initialize_counter(program_id, accounts, initial_value)?
         }
-        CounterInstruction::IncrementCounter => process_increment_counter(program_id, accounts)?,
+        CounterInstruction::IncrementCounter => {
+            process_increment_counter(program_id, accounts)?
+        }
     };
+    Ok(())
 }
 
 fn process_initialize_counter(
@@ -681,361 +822,406 @@ fn process_initialize_counter(
     accounts: &[AccountInfo],
     initial_value: u64,
 ) -> ProgramResult {
-    // Implementation details...
     Ok(())
 }
 
-fn process_increment_counter(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    // Implementation details...
-    Ok(())
-}
-```
-
-Successivamente, aggiungi l'implementazione della funzione
-`process_initialize_counter`. Questo gestore di istruzioni:
-
-1. Crea e alloca spazio per un nuovo account per memorizzare i dati del
-   contatore
-2. Inizializza i dati dell'account con `initial_value` passato all'istruzione
-
-<Accordions>
-<Accordion title="Spiegazione">
-
-La funzione `process_initialize_counter` richiede tre account:
-
-1. L'account del contatore che verrà creato e inizializzato
-2. L'account del pagatore che finanzierà la creazione del nuovo account
-3. Il System Program che invochiamo per creare il nuovo account
-
-Per definire gli account richiesti dall'istruzione, creiamo un iteratore sul
-slice `accounts` e utilizziamo la funzione `next_account_info` per ottenere
-ciascun account. Il numero di account che definisci sono gli account richiesti
-dall'istruzione.
-
-L'ordine degli account è importante - quando si costruisce l'istruzione lato
-client, gli account devono essere forniti nello stesso ordine in cui sono
-definiti nel programma affinché l'istruzione venga eseguita con successo.
-
-Sebbene i nomi delle variabili per gli account non abbiano effetto sulla
-funzionalità del programma, si consiglia di utilizzare nomi descrittivi.
-
-```rs title="lib.rs" {6-10}
-fn process_initialize_counter(
+fn process_increment_counter(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    initial_value: u64,
 ) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
     Ok(())
 }
 ```
 
-Prima di creare un account, dobbiamo:
+```rs !! title="lib.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
+};
 
-1. Specificare lo spazio (in byte) da allocare al campo dati dell'account.
-   Poiché stiamo memorizzando un valore u64 (`count`), abbiamo bisogno di 8
-   byte.
+entrypoint!(process_instruction);
 
-2. Calcolare il saldo minimo di "rent" richiesto. Su Solana, gli account devono
-   mantenere un saldo minimo di lamport (rent) basato sulla quantità di dati
-   memorizzati sull'account.
-
-```rs title="lib.rs" {12-17}
-fn process_initialize_counter(
+// !focus(1:40)
+pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    initial_value: u64,
+    instruction_data: &[u8],
 ) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
+    // Deserialize the instruction using Borsh
+    let instruction = CounterInstruction::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
-    // Size of our counter account
-    let account_space = 8; // Size in bytes to store a u64
-
-    // Calculate minimum balance for rent exemption
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    Ok(())
-}
-```
-
-Una volta definito lo spazio e calcolato il rent, creiamo l'account invocando
-l'istruzione `create_account` del System Program.
-
-Su Solana, i nuovi account possono essere creati solo dal System Program. Quando
-si crea un account, specifichiamo la quantità di byte da allocare e il programma
-proprietario del nuovo account. Il System Program:
-
-1. Crea il nuovo account
-2. Alloca lo spazio specificato per il campo dati dell'account
-3. Trasferisce la proprietà al programma specificato
-
-Questo trasferimento di proprietà è importante perché solo il programma
-proprietario di un account può modificare i dati dell'account. In questo caso,
-impostiamo il nostro programma come proprietario, il che ci permetterà di
-modificare i dati dell'account per memorizzare il valore del contatore.
-
-Per invocare il System Program dall'istruzione del nostro programma, effettuiamo
-una Cross Program Invocation (CPI) tramite la funzione `invoke`. Una CPI
-consente a un programma di chiamare istruzioni su altri programmi - in questo
-caso, l'istruzione `create_account` del System Program.
-
-```rs title="lib.rs" {19-33}
-fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    initial_value: u64,
-) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
-    // Size of our counter account
-    let account_space = 8; // Size in bytes to store a u64
-
-    // Calculate minimum balance for rent exemption
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    // Create the counter account
-    invoke(
-        &system_instruction::create_account(
-            payer_account.key,    // Account paying for the new account
-            counter_account.key,  // Account to be created
-            required_lamports,    // Amount of lamports to transfer to the new account
-            account_space as u64, // Size in bytes to allocate for the data field
-            program_id,           // Set program owner to our program
-        ),
-        &[
-            payer_account.clone(),
-            counter_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
-
-    Ok(())
-}
-```
-
-Una volta creato l'account, inizializziamo i dati dell'account:
-
-1. Creando una nuova struttura `CounterAccount` con il `initial_value` fornito
-   all'istruzione.
-2. Ottenendo un riferimento mutabile al campo dati del nuovo account.
-3. Serializzando la struttura `CounterAccount` nel campo dati dell'account,
-   memorizzando effettivamente il `initial_value` sull'account.
-
-```rs title="lib.rs" {35-44} /initial_value/
-fn process_initialize_counter(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    initial_value: u64,
-) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
-    // Size of our counter account
-    let account_space = 8; // Size in bytes to store a u64
-
-    // Calculate minimum balance for rent exemption
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    // Create the counter account
-    invoke(
-        &system_instruction::create_account(
-            payer_account.key,    // Account paying for the new account
-            counter_account.key,  // Account to be created
-            required_lamports,    // Amount of lamports to transfer to the new account
-            account_space as u64, // Size in bytes to allocate for the data field
-            program_id,           // Set program owner to our program
-        ),
-        &[
-            payer_account.clone(),
-            counter_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
-
-    // Create a new CounterAccount struct with the initial value
-    let counter_data = CounterAccount {
-        count: initial_value,
+    // Route to the appropriate handler based on the instruction
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => {
+            process_increment_counter(program_id, accounts)?
+        }
     };
 
-    // Get a mutable reference to the counter account's data
-    let mut account_data = &mut counter_account.data.borrow_mut()[..];
-
-    // Serialize the CounterAccount struct into the account's data
-    counter_data.serialize(&mut account_data)?;
-
-    msg!("Counter initialized with value: {}", initial_value);
-
     Ok(())
 }
-```
 
-</Accordion>
-</Accordions>
-
-```rs title="lib.rs"
-// Initialize a new counter account
+// Handler function for initializing a counter
 fn process_initialize_counter(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     initial_value: u64,
 ) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-
-    let counter_account = next_account_info(accounts_iter)?;
-    let payer_account = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-
-    // Size of our counter account
-    let account_space = 8; // Size in bytes to store a u64
-
-    // Calculate minimum balance for rent exemption
-    let rent = Rent::get()?;
-    let required_lamports = rent.minimum_balance(account_space);
-
-    // Create the counter account
-    invoke(
-        &system_instruction::create_account(
-            payer_account.key,    // Account paying for the new account
-            counter_account.key,  // Account to be created
-            required_lamports,    // Amount of lamports to transfer to the new account
-            account_space as u64, // Size in bytes to allocate for the data field
-            program_id,           // Set program owner to our program
-        ),
-        &[
-            payer_account.clone(),
-            counter_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
-
-    // Create a new CounterAccount struct with the initial value
-    let counter_data = CounterAccount {
-        count: initial_value,
-    };
-
-    // Get a mutable reference to the counter account's data
-    let mut account_data = &mut counter_account.data.borrow_mut()[..];
-
-    // Serialize the CounterAccount struct into the account's data
-    counter_data.serialize(&mut account_data)?;
-
-    msg!("Counter initialized with value: {}", initial_value);
-
+    // Implementation coming next
     Ok(())
+}
+
+// Handler function for incrementing a counter
+fn process_increment_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    // Implementation coming next
+    Ok(())
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    pub count: u64,
 }
 ```
 
-Successivamente, aggiungi l'implementazione della funzione
-`process_increment_counter`. Questa istruzione incrementa il valore di un
-account contatore esistente.
+## !!steps Implementare il gestore di inizializzazione
 
-<Accordions>
-<Accordion title="Spiegazione">
-
-Proprio come la funzione `process_initialize_counter`, iniziamo creando un
-iteratore sugli account. In questo caso, ci aspettiamo un solo account, che è
-l'account da aggiornare.
-
-Nota che nella pratica, uno sviluppatore deve implementare vari controlli di
-sicurezza per validare gli account passati al programma. Poiché tutti gli
-account sono forniti dal chiamante dell'istruzione, non c'è garanzia che gli
-account forniti siano quelli che il programma si aspetta. La mancanza di
-controlli di validazione degli account è una fonte comune di vulnerabilità del
+Implementiamo il gestore per creare e inizializzare un nuovo account contatore.
+Poiché solo il System Program può creare account su Solana, useremo una Cross
+Program Invocation (CPI), essenzialmente chiamando un altro programma dal nostro
 programma.
 
-L'esempio seguente include un controllo per garantire che l'account a cui ci
-riferiamo come `counter_account` sia di proprietà del programma in esecuzione.
+Il nostro programma effettua una CPI per chiamare l'istruzione `create_account`
+del System Program. Il nuovo account viene creato con il nostro programma come
+proprietario, dando al nostro programma la capacità di scrivere nell'account e
+inizializzare i dati.
 
-```rs title="lib.rs" {6-9}
-// Update an existing counter's value
-fn process_increment_counter(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let counter_account = next_account_info(accounts_iter)?;
-
-    // Verify account ownership
-    if counter_account.owner != program_id {
-        return Err(ProgramError::IncorrectProgramId);
-    }
-
-    Ok(())
-}
-```
-
-Per aggiornare i dati dell'account:
-
-- Prendiamo in prestito in modo mutabile il campo dati dell'account esistente
-- Deserializziamo i byte grezzi nella nostra struttura `CounterAccount`
-- Aggiorniamo il valore `count`
-- Serializziamo la struttura modificata di nuovo nel campo dati dell'account
-
-```rs title="lib.rs" {11-24}
-// Update an existing counter's value
-fn process_increment_counter(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let counter_account = next_account_info(accounts_iter)?;
-
-    // Verify account ownership
-    if counter_account.owner != program_id {
-        return Err(ProgramError::IncorrectProgramId);
-    }
-
-    // Mutable borrow the account data
-    let mut data = counter_account.data.borrow_mut();
-
-    // Deserialize the account data into our CounterAccount struct
-    let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
-
-    // Increment the counter value
-    counter_data.count = counter_data
-        .count
-        .checked_add(1)
-        .ok_or(ProgramError::InvalidAccountData)?;
-
-    // Serialize the updated counter data back into the account
-    counter_data.serialize(&mut &mut data[..])?;
-
-    msg!("Counter incremented to: {}", counter_data.count);
-    Ok(())
-}
-```
-
-</Accordion>
-</Accordions>
+Aggiungi il seguente codice a `lib.rs` aggiornando la funzione
+`process_initialize_counter`:
 
 ```rs title="lib.rs"
-// Update an existing counter's value
-fn process_increment_counter(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+fn process_initialize_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    initial_value: u64,
+) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
+
+    let counter_account = next_account_info(accounts_iter)?;
+    let payer_account = next_account_info(accounts_iter)?;
+    let system_program = next_account_info(accounts_iter)?;
+
+    let account_space = 8;
+
+    let rent = Rent::get()?;
+    let required_lamports = rent.minimum_balance(account_space);
+
+    invoke(
+        &system_instruction::create_account(
+            payer_account.key,
+            counter_account.key,
+            required_lamports,
+            account_space as u64,
+            program_id,
+        ),
+        &[
+            payer_account.clone(),
+            counter_account.clone(),
+            system_program.clone(),
+        ],
+    )?;
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+
+    let mut account_data = &mut counter_account.data.borrow_mut()[..];
+    counter_data.serialize(&mut account_data)?;
+
+    msg!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+```
+
+<Callout type="warn">
+  Questa istruzione è solo a scopo dimostrativo. Non include controlli di
+  sicurezza e validazione necessari per i programmi in produzione.
+</Callout>
+
+```rs !! title="lib.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,                      // For logging messages
+    program::invoke,          // For Cross Program Invocations
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,       // System Program instructions
+    sysvar::{rent::Rent, Sysvar},  // For rent calculations
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = CounterInstruction::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => {
+            process_increment_counter(program_id, accounts)?
+        }
+    };
+
+    Ok(())
+}
+
+// !focus(1:50)
+fn process_initialize_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    initial_value: u64,
+) -> ProgramResult {
+    // Create an iterator over the accounts
+    let accounts_iter = &mut accounts.iter();
+
+    // Extract the required accounts in order
+    let counter_account = next_account_info(accounts_iter)?;  // The new counter account
+    let payer_account = next_account_info(accounts_iter)?;    // Who pays for the account
+    let system_program = next_account_info(accounts_iter)?;   // System Program for CPI
+
+    // Calculate the space needed for our counter data
+    let account_space = 8; // 8 bytes for a u64
+
+    // Get the minimum balance required for rent exemption
+    let rent = Rent::get()?;
+    let required_lamports = rent.minimum_balance(account_space);
+
+    // Create the counter account via CPI to the System Program
+    // !focus(1:15)
+    invoke(
+        &system_instruction::create_account(
+            payer_account.key,    // Account paying for creation
+            counter_account.key,  // New account being created
+            required_lamports,    // Lamports to transfer
+            account_space as u64, // Space to allocate in bytes
+            program_id,          // Program that will own this account (our program)
+        ),
+        &[
+            payer_account.clone(),
+            counter_account.clone(),
+            system_program.clone(),
+        ],
+    )?;
+
+    // Initialize the counter data
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+
+    // Serialize and write the data to the account
+    let mut account_data = &mut counter_account.data.borrow_mut()[..];
+    counter_data.serialize(&mut account_data)?;
+
+    msg!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+fn process_increment_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    Ok(())
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    pub count: u64,
+}
+```
+
+## !!steps Implementa il gestore di incremento
+
+Ora implementiamo il gestore che incrementa un contatore esistente. Questa
+istruzione:
+
+- Legge il campo `data` dell'account per il `counter_account`
+- Lo deserializza in una struttura `CounterAccount`
+- Incrementa il campo `count` di 1
+- Serializza nuovamente la struttura `CounterAccount` nel campo `data`
+  dell'account
+
+Aggiungi il seguente codice a `lib.rs` aggiornando la funzione
+`process_increment_counter`:
+
+```rs title="lib.rs"
+fn process_increment_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+
     let counter_account = next_account_info(accounts_iter)?;
 
-    // Verify account ownership
     if counter_account.owner != program_id {
         return Err(ProgramError::IncorrectProgramId);
     }
 
-    // Mutable borrow the account data
     let mut data = counter_account.data.borrow_mut();
 
-    // Deserialize the account data into our CounterAccount struct
+    let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    counter_data.serialize(&mut &mut data[..])?;
+
+    msg!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+```
+
+<Callout type="warn">
+  Questa istruzione è solo a scopo dimostrativo. Non include controlli di
+  sicurezza e validazione necessari per i programmi in produzione.
+</Callout>
+
+```rs !! title="lib.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = CounterInstruction::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => {
+            process_increment_counter(program_id, accounts)?
+        }
+    };
+
+    Ok(())
+}
+
+fn process_initialize_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    initial_value: u64,
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+
+    let counter_account = next_account_info(accounts_iter)?;
+    let payer_account = next_account_info(accounts_iter)?;
+    let system_program = next_account_info(accounts_iter)?;
+
+    let account_space = 8;
+
+    let rent = Rent::get()?;
+    let required_lamports = rent.minimum_balance(account_space);
+
+    invoke(
+        &system_instruction::create_account(
+            payer_account.key,
+            counter_account.key,
+            required_lamports,
+            account_space as u64,
+            program_id,
+        ),
+        &[
+            payer_account.clone(),
+            counter_account.clone(),
+            system_program.clone(),
+        ],
+    )?;
+
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+
+    let mut account_data = &mut counter_account.data.borrow_mut()[..];
+    counter_data.serialize(&mut account_data)?;
+
+    msg!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+// !focus(1:33)
+fn process_increment_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+
+    // Get the counter account to increment
+    let counter_account = next_account_info(accounts_iter)?;
+
+    // Security check: Verify this program owns the account
+    if counter_account.owner != program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    // Get a mutable reference to the account's data
+    let mut data = counter_account.data.borrow_mut();
+
+    // Deserialize the current counter value
     let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
 
     // Increment the counter value
@@ -1044,393 +1230,1239 @@ fn process_increment_counter(program_id: &Pubkey, accounts: &[AccountInfo]) -> P
         .checked_add(1)
         .ok_or(ProgramError::InvalidAccountData)?;
 
-    // Serialize the updated counter data back into the account
+    // Serialize the updated data back to the account
     counter_data.serialize(&mut &mut data[..])?;
 
     msg!("Counter incremented to: {}", counter_data.count);
+
     Ok(())
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum CounterInstruction {
+    InitializeCounter { initial_value: u64 },
+    IncrementCounter,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    pub count: u64,
 }
 ```
 
-</Step>
+## !!steps Programma completato
+
+Congratulazioni! Hai creato un programma Solana completo che dimostra la
+struttura di base condivisa da tutti i programmi Solana:
+
+- **Entrypoint**: Definisce dove inizia l'esecuzione del programma e indirizza
+  tutte le richieste in arrivo ai gestori di istruzioni appropriati
+- **Gestione delle istruzioni**: Definisce le istruzioni e le relative funzioni
+  di gestione
+- **Gestione dello stato**: Definisce le strutture dei dati degli account e
+  gestisce il loro stato negli account di proprietà del programma
+- **Cross Program Invocation (CPI)**: Chiama il System Program per creare nuovi
+  account di proprietà del programma
+
+Il prossimo passo è testare il programma per assicurarsi che tutto funzioni
+correttamente.
+
+```rs !! title="lib.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
+};
+
+// Program entrypoint - this is where execution starts
+entrypoint!(process_instruction);
+
+/// Main instruction processing function
+/// Routes incoming instructions to appropriate handlers
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Parse instruction data
+    let instruction = CounterInstruction::try_from_slice(instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    // Route to appropriate handler
+    match instruction {
+        CounterInstruction::InitializeCounter { initial_value } => {
+            msg!("Instruction: Initialize Counter");
+            process_initialize_counter(program_id, accounts, initial_value)?
+        }
+        CounterInstruction::IncrementCounter => {
+            msg!("Instruction: Increment Counter");
+            process_increment_counter(program_id, accounts)?
+        }
+    };
+
+    Ok(())
+}
+
+/// Instructions supported by the counter program
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum CounterInstruction {
+    /// Initialize a new counter with the given value
+    InitializeCounter { initial_value: u64 },
+
+    /// Increment an existing counter by 1
+    IncrementCounter,
+}
+
+/// Initialize a new counter account
+///
+/// Accounts expected:
+/// 1. `[signer, writable]` Counter account to create
+/// 2. `[signer, writable]` Payer account
+/// 3. `[]` System Program
+fn process_initialize_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    initial_value: u64,
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+
+    let counter_account = next_account_info(accounts_iter)?;
+    let payer_account = next_account_info(accounts_iter)?;
+    let system_program = next_account_info(accounts_iter)?;
+
+    let account_space = 8;
+    let rent = Rent::get()?;
+    let required_lamports = rent.minimum_balance(account_space);
+
+    // Create account via CPI to System Program
+    invoke(
+        &system_instruction::create_account(
+            payer_account.key,
+            counter_account.key,
+            required_lamports,
+            account_space as u64,
+            program_id,
+        ),
+        &[
+            payer_account.clone(),
+            counter_account.clone(),
+            system_program.clone(),
+        ],
+    )?;
+
+    // Initialize counter data
+    let counter_data = CounterAccount {
+        count: initial_value,
+    };
+
+    let mut account_data = &mut counter_account.data.borrow_mut()[..];
+    counter_data.serialize(&mut account_data)?;
+
+    msg!("Counter initialized with value: {}", initial_value);
+
+    Ok(())
+}
+
+/// Increment an existing counter
+///
+/// Accounts expected:
+/// 1. `[writable]` Counter account to increment
+fn process_increment_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let counter_account = next_account_info(accounts_iter)?;
+
+    // Verify ownership
+    if counter_account.owner != program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    // Read, update, write
+    let mut data = counter_account.data.borrow_mut();
+    let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
+
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+
+    counter_data.serialize(&mut &mut data[..])?;
+
+    msg!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+
+/// Counter account data structure
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    /// Current counter value
+    pub count: u64,
+}
+```
+
+</ScrollyCoding>
+
+## Parte 2: Testare il programma
+
+Ora testiamo il nostro programma contatore. Useremo
+[LiteSVM](https://github.com/LiteSVM/litesvm), un framework di testing che ci
+permette di testare i programmi senza doverli distribuire su un cluster.
+
+<ScrollyCoding>
+
+## !!steps Aggiungi le dipendenze per i test
+
+Prima di tutto, aggiungiamo le dipendenze necessarie per i test. Useremo
+`litesvm` per i test e `solana-sdk`.
+
+```terminal
+$ cargo add litesvm@0.6.1 --dev
+$ cargo add solana-sdk@2.2.0 --dev
+```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "counter_program"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+borsh = "1.5.7"
+solana-program = "2.2.0"
+
+# !focus(1:3)
+[dev-dependencies]
+litesvm = "0.6.1"
+solana-sdk = "2.2.0"
+```
+
+## !!steps Creare un modulo di test
+
+Ora aggiungiamo un modulo di test al nostro programma. Inizieremo con la
+struttura di base e le importazioni.
+
+Aggiungi il seguente codice a `lib.rs`, direttamente sotto il codice del
+programma:
+
+```rs title="lib.rs"
+#[cfg(test)]
+mod test {
+    use super::*;
+    use litesvm::LiteSVM;
+    use solana_sdk::{
+        account::ReadableAccount,
+        instruction::{AccountMeta, Instruction},
+        message::Message,
+        signature::{Keypair, Signer},
+        system_program,
+        transaction::Transaction,
+    };
+
+    #[test]
+    fn test_counter_program() {
+        // Test implementation will go here
+    }
+}
+```
+
+```rs !! title="lib.rs"
+// ... (program code above) ...
+
+// !focus(1:22)
+// Test module - only compiled when running tests
+#[cfg(test)]
+mod test {
+    use super::*;  // Import everything from the parent module
+    use litesvm::LiteSVM;
+    use solana_sdk::{
+        account::ReadableAccount,
+        instruction::{AccountMeta, Instruction},
+        message::Message,
+        signature::{Keypair, Signer},
+        system_program,
+        transaction::Transaction,
+    };
+
+    #[test]
+    fn test_counter_program() {
+        // Test implementation will go here
+    }
+}
+```
+
+L'attributo `#[cfg(test)]` assicura che questo codice venga compilato solo
+durante l'esecuzione dei test.
+
+## !!steps Inizializzare l'ambiente di test
+
+Configuriamo l'ambiente di test con LiteSVM e finanziamo un account pagante.
+
+LiteSVM simula l'ambiente di runtime di Solana, permettendoci di testare il
+nostro programma senza doverlo distribuire su un cluster reale.
+
+Aggiungi il seguente codice a `lib.rs` aggiornando la funzione
+`test_counter_program`:
+
+```rs title="lib.rs"
+let mut svm = LiteSVM::new();
+
+let payer = Keypair::new();
+
+svm.airdrop(&payer.pubkey(), 1_000_000_000)
+    .expect("Failed to airdrop");
+```
+
+```rs !! title="lib.rs"
+#[cfg(test)]
+mod test {
+    use super::*;
+    use litesvm::LiteSVM;
+    use solana_sdk::{
+        account::ReadableAccount,
+        instruction::{AccountMeta, Instruction},
+        message::Message,
+        signature::{Keypair, Signer},
+        system_program,
+        transaction::Transaction,
+    };
+
+    #[test]
+    fn test_counter_program() {
+        // !focus(1:12)
+        // Create a new instance of the Solana VM for testing
+        let mut svm = LiteSVM::new();
+
+        // Create a keypair for the transaction payer
+        let payer = Keypair::new();
+
+        // Fund the payer account with 1 SOL (1 billion lamports)
+        // This is needed to pay for transaction fees and account creation
+        svm.airdrop(&payer.pubkey(), 1_000_000_000)
+            .expect("Failed to airdrop");
+    }
+}
+```
+
+## !!steps Caricare il programma
+
+Ora dobbiamo compilare e caricare il nostro programma nell'ambiente di test.
+Esegui il comando `cargo build-sbf` per compilare il programma. Questo genererà
+il file `counter_program.so` nella directory `target/deploy`.
+
+```terminal
+$ cargo build-sbf
+```
+
+<Callout type="warn">
+  Assicurati che `edition` in `Cargo.toml` sia impostato su `2021`.
+</Callout>
+
+Dopo la compilazione, possiamo caricare il programma.
+
+Aggiorna la funzione `test_counter_program` per caricare il programma
+nell'ambiente di test.
+
+```rs title="lib.rs"
+let program_keypair = Keypair::new();
+let program_id = program_keypair.pubkey();
+
+svm.add_program_from_file(
+    program_id,
+    "target/deploy/counter_program.so"
+).expect("Failed to load program");
+```
+
+<Callout type="warn">
+  Devi eseguire `cargo build-sbf` prima di eseguire i test per generare il file
+  `.so`. Il test carica il programma compilato.
+</Callout>
+
+```rs !! title="lib.rs"
+#[cfg(test)]
+mod test {
+    use super::*;
+    use litesvm::LiteSVM;
+    use solana_sdk::{
+        account::ReadableAccount,
+        instruction::{AccountMeta, Instruction},
+        message::Message,
+        signature::{Keypair, Signer},
+        system_program,
+        transaction::Transaction,
+    };
+
+    #[test]
+    fn test_counter_program() {
+        let mut svm = LiteSVM::new();
+
+        let payer = Keypair::new();
+        svm.airdrop(&payer.pubkey(), 1_000_000_000)
+            .expect("Failed to airdrop");
+
+        // !focus(1:11)
+        // Load our compiled program into the test environment
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+
+        // Load the compiled program
+        svm.add_program_from_file(
+            program_id,
+            "target/deploy/counter_program.so"
+        ).expect("Failed to load program");
+    }
+}
+```
+
+## !!steps Testare l'istruzione di inizializzazione
+
+Testiamo l'istruzione di inizializzazione creando un nuovo account contatore con
+un valore iniziale.
+
+Aggiungi il seguente codice a `lib.rs` aggiornando la funzione
+`test_counter_program`:
+
+```rs title="lib.rs"
+let counter_keypair = Keypair::new();
+let initial_value: u64 = 42;
+
+println!("Testing counter initialization...");
+
+let init_instruction_data =
+    borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
+        .expect("Failed to serialize instruction");
+
+let initialize_instruction = Instruction::new_with_bytes(
+    program_id,
+    &init_instruction_data,
+    vec![
+        AccountMeta::new(counter_keypair.pubkey(), true),
+        AccountMeta::new(payer.pubkey(), true),
+        AccountMeta::new_readonly(system_program::id(), false),
+    ],
+);
+
+let message = Message::new(&[initialize_instruction], Some(&payer.pubkey()));
+let transaction = Transaction::new(
+    &[&payer, &counter_keypair],
+    message,
+    svm.latest_blockhash()
+);
+
+let result = svm.send_transaction(transaction);
+assert!(result.is_ok(), "Initialize transaction should succeed");
+
+let logs = result.unwrap().logs;
+println!("Transaction logs:\n{:#?}", logs);
+```
+
+```rs !! title="lib.rs"
+#[cfg(test)]
+mod test {
+    use super::*;
+    use litesvm::LiteSVM;
+    use solana_sdk::{
+        account::ReadableAccount,
+        instruction::{AccountMeta, Instruction},
+        message::Message,
+        signature::{Keypair, Signer},
+        system_program,
+        transaction::Transaction,
+    };
+
+    #[test]
+    fn test_counter_program() {
+        let mut svm = LiteSVM::new();
+
+        let payer = Keypair::new();
+        svm.airdrop(&payer.pubkey(), 1_000_000_000)
+            .expect("Failed to airdrop");
+
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(
+            program_id,
+            "target/deploy/counter_program.so"
+        ).expect("Failed to load program");
+
+        // !focus(1:38)
+        // Step 1: Initialize the counter
+        let counter_keypair = Keypair::new();
+        let initial_value: u64 = 42;
+
+        println!("Testing counter initialization...");
+
+        // Use Borsh serialization for the instruction
+        let init_instruction_data =
+            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
+                .expect("Failed to serialize instruction");
+
+        // Create the initialization instruction
+        let initialize_instruction = Instruction::new_with_bytes(
+            program_id,
+            &init_instruction_data,
+            vec![
+                // Account 1: Counter account (signer, writable)
+                AccountMeta::new(counter_keypair.pubkey(), true),
+                // Account 2: Payer (signer, writable)
+                AccountMeta::new(payer.pubkey(), true),
+                // Account 3: System Program (not signer, not writable)
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+        );
+
+        // Build and send the transaction
+        let message = Message::new(&[initialize_instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(
+            &[&payer, &counter_keypair],  // Signers
+            message,
+            svm.latest_blockhash()
+        );
+
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Initialize transaction should succeed");
+
+        let logs = result.unwrap().logs;
+        println!("Transaction logs:\n{:#?}", logs);
+    }
+}
+```
+
+## !!steps Verifica dell'inizializzazione
+
+Dopo l'inizializzazione, verifichiamo che l'account del contatore sia stato
+creato correttamente con il valore previsto.
+
+Aggiungi il seguente codice a `lib.rs` aggiornando la funzione
+`test_counter_program`:
+
+```rs title="lib.rs"
+let account = svm
+    .get_account(&counter_keypair.pubkey())
+    .expect("Failed to get counter account");
+
+let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+    .expect("Failed to deserialize counter data");
+
+assert_eq!(counter.count, 42);
+println!("Counter initialized successfully with value: {}", counter.count);
+```
+
+```rs !! title="lib.rs"
+#[cfg(test)]
+mod test {
+    use super::*;
+    use litesvm::LiteSVM;
+    use solana_sdk::{
+        account::ReadableAccount,
+        instruction::{AccountMeta, Instruction},
+        message::Message,
+        signature::{Keypair, Signer},
+        system_program,
+        transaction::Transaction,
+    };
+
+    #[test]
+    fn test_counter_program() {
+        let mut svm = LiteSVM::new();
+
+        let payer = Keypair::new();
+        svm.airdrop(&payer.pubkey(), 1_000_000_000)
+            .expect("Failed to airdrop");
+
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
+            .unwrap();
+
+        let counter_keypair = Keypair::new();
+        let initial_value: u64 = 42;
+
+        println!("Testing counter initialization...");
+
+        // Use Borsh serialization for the instruction
+        let init_instruction_data =
+            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
+                .expect("Failed to serialize instruction");
+
+        let initialize_instruction = Instruction::new_with_bytes(
+            program_id,
+            &init_instruction_data,
+            vec![
+                AccountMeta::new(counter_keypair.pubkey(), true),
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+        );
+
+        let message = Message::new(&[initialize_instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(
+            &[&payer, &counter_keypair],
+            message,
+            svm.latest_blockhash()
+        );
+
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Initialize transaction should succeed");
+
+        let logs = result.unwrap().logs;
+        println!("Transaction logs:\n{:#?}", logs);
+
+        // !focus(1:14)
+        // Check account data after initialization
+        let account = svm
+            .get_account(&counter_keypair.pubkey())
+            .expect("Failed to get counter account");
+
+        // Deserialize and verify the counter data
+        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+            .expect("Failed to deserialize counter data");
+
+        assert_eq!(counter.count, 42);
+        println!("Counter initialized successfully with value: {}", counter.count);
+    }
+}
+```
+
+## !!steps Test dell'istruzione di incremento
+
+Ora testiamo l'istruzione di incremento per assicurarci che aggiorni
+correttamente il valore del contatore.
+
+Aggiungi il seguente codice a `lib.rs` aggiornando la funzione
+`test_counter_program`:
+
+```rs title="lib.rs"
+println!("Testing counter increment...");
+
+let increment_instruction_data =
+    borsh::to_vec(&CounterInstruction::IncrementCounter)
+        .expect("Failed to serialize instruction");
+
+let increment_instruction = Instruction::new_with_bytes(
+    program_id,
+    &increment_instruction_data,
+    vec![AccountMeta::new(counter_keypair.pubkey(), true)],
+);
+
+let message = Message::new(&[increment_instruction], Some(&payer.pubkey()));
+let transaction = Transaction::new(
+    &[&payer, &counter_keypair],
+    message,
+    svm.latest_blockhash()
+);
+
+let result = svm.send_transaction(transaction);
+assert!(result.is_ok(), "Increment transaction should succeed");
+
+let logs = result.unwrap().logs;
+println!("Transaction logs:\n{:#?}", logs);
+```
+
+```rs !! title="lib.rs"
+#[cfg(test)]
+mod test {
+    use super::*;
+    use litesvm::LiteSVM;
+    use solana_sdk::{
+        account::ReadableAccount,
+        instruction::{AccountMeta, Instruction},
+        message::Message,
+        signature::{Keypair, Signer},
+        system_program,
+        transaction::Transaction,
+    };
+
+    #[test]
+    fn test_counter_program() {
+        let mut svm = LiteSVM::new();
+
+        let payer = Keypair::new();
+        svm.airdrop(&payer.pubkey(), 1_000_000_000)
+            .expect("Failed to airdrop");
+
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
+            .unwrap();
+
+        let counter_keypair = Keypair::new();
+        let initial_value: u64 = 42;
+
+        // Step 1: Initialize the counter
+        println!("Testing counter initialization...");
+
+        // Use Borsh serialization for the instruction
+        let init_instruction_data =
+            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
+                .expect("Failed to serialize instruction");
+
+        let initialize_instruction = Instruction::new_with_bytes(
+            program_id,
+            &init_instruction_data,
+            vec![
+                AccountMeta::new(counter_keypair.pubkey(), true),
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+        );
+
+        let message = Message::new(&[initialize_instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(
+            &[&payer, &counter_keypair],
+            message,
+            svm.latest_blockhash()
+        );
+
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Initialize transaction should succeed");
+
+        // Check account data
+        let account = svm
+            .get_account(&counter_keypair.pubkey())
+            .expect("Failed to get counter account");
+
+        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+            .expect("Failed to deserialize counter data");
+        assert_eq!(counter.count, 42);
+        println!("Counter initialized successfully with value: {}", counter.count);
+
+        // !focus(1:26)
+        // Step 2: Increment the counter
+        println!("Testing counter increment...");
+
+        // Use Borsh serialization for increment instruction
+        let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
+            .expect("Failed to serialize instruction");
+
+        let increment_instruction = Instruction::new_with_bytes(
+            program_id,
+            &increment_data,
+            vec![AccountMeta::new(counter_keypair.pubkey(), true)],
+        );
+
+        // Build and send increment transaction
+        let message = Message::new(&[increment_instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(
+            &[&payer, &counter_keypair],
+            message,
+            svm.latest_blockhash()
+        );
+
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Increment transaction should succeed");
+
+        let logs = result.unwrap().logs;
+        println!("Transaction logs:\n{:#?}", logs);
+    }
+}
+```
+
+## !!steps Verifica dei risultati finali
+
+Infine, verifichiamo che l'incremento abbia funzionato correttamente
+controllando il valore aggiornato del contatore.
+
+Aggiungi il seguente codice a `lib.rs` aggiornando la funzione
+`test_counter_program`:
+
+```rs title="lib.rs"
+let account = svm
+    .get_account(&counter_keypair.pubkey())
+    .expect("Failed to get counter account");
+
+let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+    .expect("Failed to deserialize counter data");
+assert_eq!(counter.count, 43);
+println!("Counter incremented successfully to: {}", counter.count);
+```
+
+```rs !! title="lib.rs"
+#[cfg(test)]
+mod test {
+    use super::*;
+    use litesvm::LiteSVM;
+    use solana_sdk::{
+        account::ReadableAccount,
+        instruction::{AccountMeta, Instruction},
+        message::Message,
+        signature::{Keypair, Signer},
+        system_program,
+        transaction::Transaction,
+    };
+
+    #[test]
+    fn test_counter_program() {
+        let mut svm = LiteSVM::new();
+
+        let payer = Keypair::new();
+        svm.airdrop(&payer.pubkey(), 1_000_000_000)
+            .expect("Failed to airdrop");
+
+        let program_keypair = Keypair::new();
+        let program_id = program_keypair.pubkey();
+        svm.add_program_from_file(program_id, "target/deploy/counter_program.so")
+            .unwrap();
+
+        let counter_keypair = Keypair::new();
+        let initial_value: u64 = 42;
+
+        // Step 1: Initialize the counter
+        println!("Testing counter initialization...");
+
+        // Use Borsh serialization for the instruction
+        let init_instruction_data =
+            borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
+                .expect("Failed to serialize instruction");
+
+        let initialize_instruction = Instruction::new_with_bytes(
+            program_id,
+            &init_instruction_data,
+            vec![
+                AccountMeta::new(counter_keypair.pubkey(), true),
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new_readonly(system_program::id(), false),
+            ],
+        );
+
+        let message = Message::new(&[initialize_instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(
+            &[&payer, &counter_keypair],
+            message,
+            svm.latest_blockhash()
+        );
+
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Initialize transaction should succeed");
+
+        // Check account data
+        let account = svm
+            .get_account(&counter_keypair.pubkey())
+            .expect("Failed to get counter account");
+
+        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+            .expect("Failed to deserialize counter data");
+        assert_eq!(counter.count, 42);
+        println!("Counter initialized successfully with value: {}", counter.count);
+
+        // Step 2: Increment the counter
+        println!("Testing counter increment...");
+
+        // Use Borsh serialization for increment instruction
+        let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
+            .expect("Failed to serialize instruction");
+
+        let increment_instruction = Instruction::new_with_bytes(
+            program_id,
+            &increment_data,
+            vec![AccountMeta::new(counter_keypair.pubkey(), true)],
+        );
+
+        // Build and send increment transaction
+        let message = Message::new(&[increment_instruction], Some(&payer.pubkey()));
+        let transaction = Transaction::new(
+            &[&payer, &counter_keypair],
+            message,
+            svm.latest_blockhash()
+        );
+
+        let result = svm.send_transaction(transaction);
+        assert!(result.is_ok(), "Increment transaction should succeed");
+
+        let logs = result.unwrap().logs;
+        println!("Transaction logs:\n{:#?}", logs);
+
+        // !focus(1:11)
+        // Check account data
+        let account = svm
+            .get_account(&counter_keypair.pubkey())
+            .expect("Failed to get counter account");
+
+        let counter: CounterAccount = CounterAccount::try_from_slice(account.data())
+            .expect("Failed to deserialize counter data");
+        assert_eq!(counter.count, 43);
+        println!("Counter incremented successfully to: {}", counter.count);
+    }
+}
+```
+
+Esegui i test con il seguente comando. Il flag `--nocapture` mostra l'output del
+test.
+
+```terminal
+$ cargo test -- --nocapture
+```
+
+Output previsto:
+
+```
+Testing counter initialization...
+Transaction logs:
+[
+    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq invoke [1]",
+    "Program 11111111111111111111111111111111 invoke [2]",
+    "Program 11111111111111111111111111111111 success",
+    "Program log: Counter initialized with value: 42",
+    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq consumed 3803 of 200000 compute units",
+    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq success",
+]
+Counter initialized successfully with value: 42
+Testing counter increment...
+Transaction logs:
+[
+    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq invoke [1]",
+    "Program log: Counter incremented to: 43",
+    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq consumed 762 of 200000 compute units",
+    "Program 3QpyHXhFtYY32iY7foF3EjkVdCDrUppADk9aDwSWn6Sq success",
+]
+Counter incremented successfully to: 43
+```
+
+</ScrollyCoding>
+
+## Parte 3: Invocazione del programma
+
+Ora aggiungiamo uno script client per invocare il programma.
+
+<ScrollyCoding>
+
+## !!steps Crea esempio di client
+
+Creiamo un client Rust per interagire con il nostro programma distribuito.
+
+```terminal
+$ mkdir examples
+$ touch examples/client.rs
+```
+
+Aggiungi la seguente configurazione a `Cargo.toml`:
+
+```toml title="Cargo.toml"
+[[example]]
+name = "client"
+path = "examples/client.rs"
+```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "counter_program"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+borsh = "1.5.7"
+solana-program = "2.2.0"
+
+[dev-dependencies]
+litesvm = "0.6.1"
+solana-sdk = "2.2.0"
+# !focus(1:2)
+solana-client = "2.2.0"
+tokio = "1.47.1"
+
+# !focus(1:3)
+[[example]]
+name = "client"
+path = "examples/client.rs"
+```
+
+Installa le dipendenze del client:
+
+```terminal
+$ cargo add solana-client@2.2.0 --dev
+$ cargo add tokio --dev
+```
+
+## !!steps Implementa il codice del client
+
+Ora implementiamo il client che invocherà il nostro programma distribuito.
+
+Esegui il seguente comando per ottenere l'ID del tuo programma dal file keypair:
+
+```terminal
+$ solana address -k ./target/deploy/counter_program-keypair.json
+```
+
+Aggiungi il codice del client a `examples/client.rs` e sostituisci il
+`program_id` con l'output del comando precedente:
+
+```rs title="examples/client.rs"
+// !mark
+let program_id = Pubkey::from_str("BDLLezrtFEXVGYqG3aS7eAC7GVeojJ4JHhKJM6pAFCDH")
+    .expect("Invalid program ID");
+```
+
+<CodePlaceholder title="examples/client.rs" />
+
+```rs !! title="examples/client.rs"
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_program,
+    transaction::Transaction,
+};
+use std::str::FromStr;
+use counter_program::CounterInstruction;
+
+#[tokio::main]
+async fn main() {
+    // Replace with your actual program ID from deployment
+    // !mark
+    let program_id = Pubkey::from_str("BDLLezrtFEXVGYqG3aS7eAC7GVeojJ4JHhKJM6pAFCDH")
+        .expect("Invalid program ID");
+
+    // Connect to local cluster
+    let rpc_url = String::from("http://localhost:8899");
+    let client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
+
+    // Generate a new keypair for paying fees
+    let payer = Keypair::new();
+
+    // Request airdrop of 1 SOL for transaction fees
+    println!("Requesting airdrop...");
+    let airdrop_signature = client
+        .request_airdrop(&payer.pubkey(), 1_000_000_000)
+        .expect("Failed to request airdrop");
+
+    // Wait for airdrop confirmation
+    loop {
+        if client
+            .confirm_transaction(&airdrop_signature)
+            .unwrap_or(false)
+        {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    println!("Airdrop confirmed");
+
+    println!("\nInitializing counter...");
+    let counter_keypair = Keypair::new();
+    let initial_value = 100u64;
+
+    // Serialize the initialize instruction data
+    let instruction_data = borsh::to_vec(&CounterInstruction::InitializeCounter { initial_value })
+        .expect("Failed to serialize instruction");
+
+    let initialize_instruction = Instruction::new_with_bytes(
+        program_id,
+        &instruction_data,
+        vec![
+            AccountMeta::new(counter_keypair.pubkey(), true),
+            AccountMeta::new(payer.pubkey(), true),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[initialize_instruction], Some(&payer.pubkey()));
+
+    let blockhash = client
+        .get_latest_blockhash()
+        .expect("Failed to get blockhash");
+    transaction.sign(&[&payer, &counter_keypair], blockhash);
+
+    match client.send_and_confirm_transaction(&transaction) {
+        Ok(signature) => {
+            println!("Counter initialized!");
+            println!("Transaction: {}", signature);
+            println!("Counter address: {}", counter_keypair.pubkey());
+        }
+        Err(err) => {
+            eprintln!("Failed to initialize counter: {}", err);
+            return;
+        }
+    }
+
+    println!("\nIncrementing counter...");
+    // Serialize the increment instruction data
+    let increment_data = borsh::to_vec(&CounterInstruction::IncrementCounter)
+        .expect("Failed to serialize instruction");
+
+    let increment_instruction = Instruction::new_with_bytes(
+        program_id,
+        &increment_data,
+        vec![AccountMeta::new(counter_keypair.pubkey(), true)],
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[increment_instruction], Some(&payer.pubkey()));
+
+    transaction.sign(&[&payer, &counter_keypair], blockhash);
+
+    match client.send_and_confirm_transaction(&transaction) {
+        Ok(signature) => {
+            println!("Counter incremented!");
+            println!("Transaction: {}", signature);
+        }
+        Err(err) => {
+            eprintln!("Failed to increment counter: {}", err);
+        }
+    }
+}
+```
+
+</ScrollyCoding>
+
+## Parte 4: Distribuzione del programma
+
+Ora che abbiamo il nostro programma e il client pronti, costruiamo, distribuiamo
+e invochiamo il programma.
+
+<Steps>
+
 <Step>
 
-### Test delle istruzioni
+### Costruisci il programma
 
-Per testare le istruzioni del programma, aggiungi le seguenti dipendenze a
-`Cargo.toml`.
+Prima di tutto, costruiamo il nostro programma.
 
-```shell title="Terminal"
-cargo add solana-program-test@1.18.26 --dev
-cargo add solana-sdk@1.18.26 --dev
-cargo add tokio --dev
+```terminal
+$ cargo build-sbf
 ```
 
-Poi aggiungi il seguente modulo di test a `lib.rs` ed esegui `cargo test-sbf`
-per eseguire i test. Facoltativamente, usa il flag `--nocapture` per vedere le
-istruzioni di stampa nell'output.
+Questo comando compila il tuo programma e genera due file importanti in
+`target/deploy/`:
 
-```shell title="Terminal"
-cargo test-sbf -- --nocapture
+```txt
+counter_program.so              # The compiled program
+counter_program-keypair.json    # Keypair for the program ID
 ```
 
-<Accordions>
-<Accordion title="Spiegazione">
+Puoi visualizzare l'ID del tuo programma eseguendo il seguente comando:
 
-Prima, configura il modulo di test e importa le dipendenze necessarie:
-
-```rs title="lib.rs"
-#[cfg(test)]
-mod test {
-    use super::*;
-    use solana_program_test::*;
-    use solana_sdk::{
-        instruction::{AccountMeta, Instruction},
-        signature::{Keypair, Signer},
-        system_program,
-        transaction::Transaction,
-    };
-
-    #[tokio::test]
-    async fn test_counter_program() {
-        // Test code will go here
-    }
-}
-```
-
-Successivamente, configura il test usando `ProgramTest`. Poi crea un nuovo
-keypair da utilizzare come indirizzo per l'account del contatore che
-inizializzeremo e definisci un valore iniziale da impostare per il contatore.
-
-```rs title="lib.rs"
-#[cfg(test)]
-mod test {
-    use super::*;
-    use solana_program_test::*;
-    use solana_sdk::{
-        instruction::{AccountMeta, Instruction},
-        signature::{Keypair, Signer},
-        system_program,
-        transaction::Transaction,
-    };
-
-    #[tokio::test]
-    async fn test_counter_program() {
-        let program_id = Pubkey::new_unique();
-        let (mut banks_client, payer, recent_blockhash) = ProgramTest::new(
-            "counter_program",
-            program_id,
-            processor!(process_instruction),
-        )
-        .start()
-        .await;
-
-        // Create a new keypair to use as the address for our counter account
-        let counter_keypair = Keypair::new();
-        let initial_value: u64 = 42;
-    }
-}
-```
-
-Quando si costruisce un'istruzione, ogni account deve essere fornito come un
-[`AccountMeta`](https://github.com/solana-labs/solana/blob/v2.0/sdk/program/src/instruction.rs#L539-L545),
-che specifica:
-
-- La chiave pubblica dell'account (`Pubkey`)
-- `is_writable`: Se i dati dell'account saranno modificati
-- `is_signer`: Se l'account deve firmare la transazione
-
-```rs
-AccountMeta::new(account1_pubkey, true),           // writable, signer
-AccountMeta::new(account2_pubkey, false),          // writable, not signer
-AccountMeta::new_readonly(account3_pubkey, false), // not writable, not signer
-AccountMeta::new_readonly(account4_pubkey, true),  // writable, signer
-```
-
-Per testare l'istruzione di inizializzazione:
-
-- Crea i dati dell'istruzione con variante 0 (`InitializeCounter`) e valore
-  iniziale
-- Costruisci l'istruzione con l'ID del programma, i dati dell'istruzione e gli
-  account richiesti
-- Invia una transazione con l'istruzione di inizializzazione
-- Verifica che l'account sia stato creato con il valore iniziale corretto
-
-```rs title="lib.rs" {16-53}
-    #[tokio::test]
-    async fn test_counter_program() {
-        let program_id = Pubkey::new_unique();
-        let (mut banks_client, payer, recent_blockhash) = ProgramTest::new(
-            "counter_program",
-            program_id,
-            processor!(process_instruction),
-        )
-        .start()
-        .await;
-
-        // Create a new keypair to use as the address for our counter account
-        let counter_keypair = Keypair::new();
-        let initial_value: u64 = 42;
-
-        // Step 1: Initialize the counter
-        println!("Testing counter initialization...");
-
-        // Create initialization instruction
-        let mut init_instruction_data = vec![0]; // 0 = initialize instruction
-        init_instruction_data.extend_from_slice(&initial_value.to_le_bytes());
-
-        let initialize_instruction = Instruction::new_with_bytes(
-            program_id,
-            &init_instruction_data,
-            vec![
-                AccountMeta::new(counter_keypair.pubkey(), true),
-                AccountMeta::new(payer.pubkey(), true),
-                AccountMeta::new_readonly(system_program::id(), false),
-            ],
-        );
-
-        // Send transaction with initialize instruction
-        let mut transaction =
-            Transaction::new_with_payer(&[initialize_instruction], Some(&payer.pubkey()));
-        transaction.sign(&[&payer, &counter_keypair], recent_blockhash);
-        banks_client.process_transaction(transaction).await.unwrap();
-
-        // Check account data
-        let account = banks_client
-            .get_account(counter_keypair.pubkey())
-            .await
-            .expect("Failed to get counter account");
-
-        if let Some(account_data) = account {
-            let counter: CounterAccount = CounterAccount::try_from_slice(&account_data.data)
-                .expect("Failed to deserialize counter data");
-            assert_eq!(counter.count, 42);
-            println!(
-                "✅ Counter initialized successfully with value: {}",
-                counter.count
-            );
-        }
-    }
-```
-
-Per testare l'istruzione di incremento:
-
-- Costruisci l'istruzione con l'ID del programma, i dati dell'istruzione e gli
-  account richiesti
-- Invia una transazione con l'istruzione di incremento
-- Verifica che l'account sia stato incrementato al valore corretto
-
-Nota che i dati dell'instruction data per l'istruzione di incremento sono `[1]`,
-che corrispondono alla variante 1 (`IncrementCounter`). Poiché non ci sono
-parametri aggiuntivi per l'istruzione di incremento, i dati sono semplicemente
-la variante dell'istruzione.
-
-```rs title="lib.rs" {55-82}
-    #[tokio::test]
-    async fn test_counter_program() {
-        let program_id = Pubkey::new_unique();
-        let (mut banks_client, payer, recent_blockhash) = ProgramTest::new(
-            "counter_program",
-            program_id,
-            processor!(process_instruction),
-        )
-        .start()
-        .await;
-
-        // Create a new keypair to use as the address for our counter account
-        let counter_keypair = Keypair::new();
-        let initial_value: u64 = 42;
-
-        // Step 1: Initialize the counter
-        println!("Testing counter initialization...");
-
-        // Create initialization instruction
-        let mut init_instruction_data = vec![0]; // 0 = initialize instruction
-        init_instruction_data.extend_from_slice(&initial_value.to_le_bytes());
-
-        let initialize_instruction = Instruction::new_with_bytes(
-            program_id,
-            &init_instruction_data,
-            vec![
-                AccountMeta::new(counter_keypair.pubkey(), true),
-                AccountMeta::new(payer.pubkey(), true),
-                AccountMeta::new_readonly(system_program::id(), false),
-            ],
-        );
-
-        // Send transaction with initialize instruction
-        let mut transaction =
-            Transaction::new_with_payer(&[initialize_instruction], Some(&payer.pubkey()));
-        transaction.sign(&[&payer, &counter_keypair], recent_blockhash);
-        banks_client.process_transaction(transaction).await.unwrap();
-
-        // Check account data
-        let account = banks_client
-            .get_account(counter_keypair.pubkey())
-            .await
-            .expect("Failed to get counter account");
-
-        if let Some(account_data) = account {
-            let counter: CounterAccount = CounterAccount::try_from_slice(&account_data.data)
-                .expect("Failed to deserialize counter data");
-            assert_eq!(counter.count, 42);
-            println!(
-                "✅ Counter initialized successfully with value: {}",
-                counter.count
-            );
-        }
-
-        // Step 2: Increment the counter
-        println!("Testing counter increment...");
-
-        // Create increment instruction
-        let increment_instruction = Instruction::new_with_bytes(
-            program_id,
-            &[1], // 1 = increment instruction
-            vec![AccountMeta::new(counter_keypair.pubkey(), true)],
-        );
-
-        // Send transaction with increment instruction
-        let mut transaction =
-            Transaction::new_with_payer(&[increment_instruction], Some(&payer.pubkey()));
-        transaction.sign(&[&payer, &counter_keypair], recent_blockhash);
-        banks_client.process_transaction(transaction).await.unwrap();
-
-        // Check account data
-        let account = banks_client
-            .get_account(counter_keypair.pubkey())
-            .await
-            .expect("Failed to get counter account");
-
-        if let Some(account_data) = account {
-            let counter: CounterAccount = CounterAccount::try_from_slice(&account_data.data)
-                .expect("Failed to deserialize counter data");
-            assert_eq!(counter.count, 43);
-            println!("✅ Counter incremented successfully to: {}", counter.count);
-        }
-    }
-```
-
-</Accordion>
-</Accordions>
-
-```rs title="lib.rs"
-#[cfg(test)]
-mod test {
-    use super::*;
-    use solana_program_test::*;
-    use solana_sdk::{
-        instruction::{AccountMeta, Instruction},
-        signature::{Keypair, Signer},
-        system_program,
-        transaction::Transaction,
-    };
-
-    #[tokio::test]
-    async fn test_counter_program() {
-        let program_id = Pubkey::new_unique();
-        let (mut banks_client, payer, recent_blockhash) = ProgramTest::new(
-            "counter_program",
-            program_id,
-            processor!(process_instruction),
-        )
-        .start()
-        .await;
-
-        // Create a new keypair to use as the address for our counter account
-        let counter_keypair = Keypair::new();
-        let initial_value: u64 = 42;
-
-        // Step 1: Initialize the counter
-        println!("Testing counter initialization...");
-
-        // Create initialization instruction
-        let mut init_instruction_data = vec![0]; // 0 = initialize instruction
-        init_instruction_data.extend_from_slice(&initial_value.to_le_bytes());
-
-        let initialize_instruction = Instruction::new_with_bytes(
-            program_id,
-            &init_instruction_data,
-            vec![
-                AccountMeta::new(counter_keypair.pubkey(), true),
-                AccountMeta::new(payer.pubkey(), true),
-                AccountMeta::new_readonly(system_program::id(), false),
-            ],
-        );
-
-        // Send transaction with initialize instruction
-        let mut transaction =
-            Transaction::new_with_payer(&[initialize_instruction], Some(&payer.pubkey()));
-        transaction.sign(&[&payer, &counter_keypair], recent_blockhash);
-        banks_client.process_transaction(transaction).await.unwrap();
-
-        // Check account data
-        let account = banks_client
-            .get_account(counter_keypair.pubkey())
-            .await
-            .expect("Failed to get counter account");
-
-        if let Some(account_data) = account {
-            let counter: CounterAccount = CounterAccount::try_from_slice(&account_data.data)
-                .expect("Failed to deserialize counter data");
-            assert_eq!(counter.count, 42);
-            println!(
-                "✅ Counter initialized successfully with value: {}",
-                counter.count
-            );
-        }
-
-        // Step 2: Increment the counter
-        println!("Testing counter increment...");
-
-        // Create increment instruction
-        let increment_instruction = Instruction::new_with_bytes(
-            program_id,
-            &[1], // 1 = increment instruction
-            vec![AccountMeta::new(counter_keypair.pubkey(), true)],
-        );
-
-        // Send transaction with increment instruction
-        let mut transaction =
-            Transaction::new_with_payer(&[increment_instruction], Some(&payer.pubkey()));
-        transaction.sign(&[&payer, &counter_keypair], recent_blockhash);
-        banks_client.process_transaction(transaction).await.unwrap();
-
-        // Check account data
-        let account = banks_client
-            .get_account(counter_keypair.pubkey())
-            .await
-            .expect("Failed to get counter account");
-
-        if let Some(account_data) = account {
-            let counter: CounterAccount = CounterAccount::try_from_slice(&account_data.data)
-                .expect("Failed to deserialize counter data");
-            assert_eq!(counter.count, 43);
-            println!("✅ Counter incremented successfully to: {}", counter.count);
-        }
-    }
-}
+```terminal
+$ solana address -k ./target/deploy/counter_program-keypair.json
 ```
 
 Esempio di output:
 
-```shell title="Terminal" {6} {10}
-running 1 test
-[2024-10-29T20:51:13.783708000Z INFO  solana_program_test] "counter_program" SBF program from /counter_program/target/deploy/counter_program.so, modified 2 seconds, 169 ms, 153 µs and 461 ns ago
-[2024-10-29T20:51:13.855204000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM invoke [1]
-[2024-10-29T20:51:13.856052000Z DEBUG solana_runtime::message_processor::stable_log] Program 11111111111111111111111111111111 invoke [2]
-[2024-10-29T20:51:13.856135000Z DEBUG solana_runtime::message_processor::stable_log] Program 11111111111111111111111111111111 success
-[2024-10-29T20:51:13.856242000Z DEBUG solana_runtime::message_processor::stable_log] Program log: Counter initialized with value: 42
-[2024-10-29T20:51:13.856285000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM consumed 3791 of 200000 compute units
-[2024-10-29T20:51:13.856307000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM success
-[2024-10-29T20:51:13.860038000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM invoke [1]
-[2024-10-29T20:51:13.860333000Z DEBUG solana_runtime::message_processor::stable_log] Program log: Counter incremented to: 43
-[2024-10-29T20:51:13.860355000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM consumed 756 of 200000 compute units
-[2024-10-29T20:51:13.860375000Z DEBUG solana_runtime::message_processor::stable_log] Program 1111111QLbz7JHiBTspS962RLKV8GndWFwiEaqKM success
-test test::test_counter_program ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+```
+HQ5Q2XXqbTKKQsWPtLzMn7rDhM8v9UPYPe7DfSoFQqJF
 ```
 
 </Step>
+
+<Step>
+
+### Avvia il validator locale
+
+Per lo sviluppo, utilizzeremo un validator di test locale.
+
+Prima, configura la CLI di Solana per utilizzare localhost:
+
+```terminal
+$ solana config set -ul
+```
+
+Esempio di output:
+
+```
+Config File: ~/.config/solana/cli/config.yml
+RPC URL: http://localhost:8899
+WebSocket URL: ws://localhost:8900/ (computed)
+Keypair Path: ~/.config/solana/id.json
+Commitment: confirmed
+```
+
+Ora avvia il validator di test in un terminale separato:
+
+```terminal
+$ solana-test-validator
+```
+
+</Step>
+
+<Step>
+
+### Distribuisci il programma
+
+Con il validator in esecuzione, distribuisci il tuo programma sul cluster
+locale:
+
+```terminal
+$ solana program deploy ./target/deploy/counter_program.so
+```
+
+Esempio di output:
+
+```
+Program Id: HQ5Q2XXqbTKKQsWPtLzMn7rDhM8v9UPYPe7DfSoFQqJF
+
+Signature: 5xKdnh3dDFnZXB5UevYYkFBpCVcuqo5SaUPLnryFWY7eQD2CJxaeVDKjQ4ezQVJfkGNqZGYqMZBNqymPKwCQQx5h
+```
+
+Puoi verificare la distribuzione utilizzando il comando `solana program show`
+con l'ID del tuo programma:
+
+```terminal
+$ solana program show HQ5Q2XXqbTKKQsWPtLzMn7rDhM8v9UPYPe7DfSoFQqJF
+```
+
+Output di esempio:
+
+```
+Program Id: HQ5Q2XXqbTKKQsWPtLzMn7rDhM8v9UPYPe7DfSoFQqJF
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: 47MVf5tRZ4zWXQMX7ydrkgcFQr8XTk1QBjohwsUzaiuM
+Authority: 4kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1
+Last Deployed In Slot: 16
+Data Length: 82696 (0x14308) bytes
+Balance: 0.57676824 SOL
+```
+
+</Step>
+
+<Step>
+
+### Esegui il client
+
+Con il validator locale ancora in esecuzione, esegui il client:
+
+```terminal
+$ cargo run --example client
+```
+
+Output previsto:
+
+```
+Requesting airdrop...
+Airdrop confirmed
+
+Initializing counter...
+Counter initialized!
+Transaction: 2uenChtqNeLC1fitqoVE2LBeygSBTDchMZ4gGqs7AiDvZZVJguLDE5PfxsfkgY7xs6zFWnYsbEtb82dWv9tDT14k
+Counter address: EppPAmwqD42u4SCPWpPT7wmWKdFad5VnM9J4R9Zfofcy
+
+Incrementing counter...
+Counter incremented!
+Transaction: 4qv1Rx6FHu1M3woVgDQ6KtYUaJgBzGcHnhej76ZpaKGCgsTorbcHnPKxoH916UENw7X5ppnQ8PkPnhXxEwrYuUxS
+```
+
+Con il validator locale in esecuzione, puoi visualizzare le transazioni su
+[Solana Explorer](https://explorer.solana.com/?cluster=custom) utilizzando le
+firme delle transazioni nell'output. Nota che il cluster su Solana Explorer deve
+essere impostato su "Custom RPC URL", che per impostazione predefinita è
+`http://localhost:8899` su cui il `solana-test-validator` è in esecuzione.
+
+</Step>
+
 </Steps>
