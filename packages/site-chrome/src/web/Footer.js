@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import styles from "@@/src/components/Footer/Footer.module.scss";
+import { twMerge } from "tailwind-merge";
+// Replace SCSS styles with Tailwind utilities on container markup
 import LanguageSelector from "@@/src/components/LanguageSelector";
 import Divider from "@@/src/components/shared/Divider";
 import SolanaFoundationLogo from "@@/public/src/img/logos-solana/logotype-foundation.inline.svg";
@@ -25,17 +26,26 @@ const CopyrightRow = () => {
 const Footer = ({ className = "" }) => {
   const t = useTranslations();
   return (
-    <div className={`${styles["solFooter"]} ${className}`}>
+    <div
+      className={twMerge(
+        "mt-20 py-20 text-white relative z-[1010] border border-[#141414] rounded-t-[12px]",
+        "bg-[#000508]",
+        // fallback gradient equivalent to the SCSS
+        "[background-image:radial-gradient(farthest-corner_at_bottom_right,#3a233f,transparent_250px)]",
+        "md:[background-image:radial-gradient(farthest-side_at_bottom_left,#271d3b,transparent_900px),radial-gradient(farthest-corner_at_bottom_right,#3a233f,transparent_1000px)]",
+        className || "",
+      )}
+    >
       <div className="container">
         <div className="d-md-flex justify-content-md-between">
           <div className="d-flex flex-column align-items-center align-items-md-start">
-            <p className={styles["solFooter__foundation"]}>{t("footer.foundation")}</p>
-            <div className={styles["solFooter__foundation-logo"]}>
+            <p className="m-0 leading-[1] font-['DSemi']">{t("footer.foundation")}</p>
+            <div className="mt-[10px] mb-[20px]">
               <Link to="/" aria-label="Solana Foundation">
                 <SolanaFoundationLogo width={210} />
               </Link>
             </div>
-            <div className={styles["solFooter__social"]}>
+            <div className="mb-5 [&_a]:inline-flex [&_a]:p-[5px] [&_a]:rounded-full [&_a]:bg-[#848895] [&_a:hover]:bg-white [&_a:not(:last-child)]:mr-[10px] [&_a_svg]:fill-[#111]">
               <InlineLink to="/youtube" aria-label="YouTube"><YoutubeIcon width="16" height="16" /></InlineLink>
               <InlineLink to="/twitter" aria-label="Twitter"><TwitterIcon width="16" height="16" /></InlineLink>
               <InlineLink to="/discord" aria-label="Discord"><DiscordIcon width="16" height="16" /></InlineLink>
@@ -50,7 +60,7 @@ const Footer = ({ className = "" }) => {
           <div>
             <div className="row my-6 my-md-0">
               <div className="col pe-lg-8">
-                <div className="h6 smaller text-uppercase text-nowrap">{t("footer.solana.heading")}</div>
+                <div className="h6 smaller uppercase whitespace-nowrap">{t("footer.solana.heading")}</div>
                 <ul className="list-unstyled m-0">
                   <li><InlineLink to="https://solana.org/grants">{t("footer.solana.grants")}</InlineLink></li>
                   <li><InlineLink to="https://break.solana.com/">{t("footer.solana.break")}</InlineLink></li>
@@ -63,7 +73,7 @@ const Footer = ({ className = "" }) => {
               <div className="col">
                 <div className="row flex-md-nowrap h-100 flex-column flex-md-row">
                   <div className="col pe-lg-8">
-                    <div className="h6 smaller text-uppercase text-nowrap">{t("footer.get-connected.heading")}</div>
+                    <div className="h6 smaller uppercase whitespace-nowrap">{t("footer.get-connected.heading")}</div>
                     <ul className="list-unstyled m-0">
                       <li><Link to="/news">{t("footer.get-connected.blog")}</Link></li>
                       <li><Link to="/newsletter">{t("footer.get-connected.newsletter")}</Link></li>

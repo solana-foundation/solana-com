@@ -10,7 +10,7 @@ import { InkeepSearchBar } from "@@/src/app/components/inkeep/inkeep-searchbar";
 import { useTheme } from "@@/src/themecontext";
 import { useTranslations } from "next-intl";
 import DevelopersNav from "@@/src/components/developers/DevelopersNav/DevelopersNav";
-import styles from "@@/src/components/Header.module.scss";
+// Using Tailwind classes directly; no SCSS import
 
 const Header = ({ className = "", containerClassName = "" }) => {
   const router = useRouter();
@@ -72,7 +72,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
               <InkeepSearchBar />
               {isThemePage && (
                 <button
-                  className={styles.header__toggle}
+                  className="ml-[15px] flex border-0 transition-transform duration-300 hover:scale-110 hover:[transform:rotate(15deg)] [&_svg]:hover:fill-[var(--body-text)]"
                   onClick={toggleTheme}
                   aria-label={t("commands.toggle")}
                 >
