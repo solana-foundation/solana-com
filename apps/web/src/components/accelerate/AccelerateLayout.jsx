@@ -1,6 +1,6 @@
 import styles from "./AccelerateLayout.module.scss";
 import Header from "./AccelerateHeader";
-import Footer from "../Footer";
+import { Footer } from "@solana-com/site-chrome";
 
 const AccelerateLayout = ({ data, children }) => {
   return (
