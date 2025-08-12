@@ -16,6 +16,7 @@ import { News } from "@/components/solutions/btcfi/News";
 import { CTACards } from "@/components/solutions/btcfi/CTACards";
 import { Divider } from "@/components/solutions/divider";
 import { SingleVideo } from "@/components/solutions/btcfi/SingleVideo";
+import { Logos } from "@/components/solutions/logos";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -85,11 +86,16 @@ const InstitutionalPaymentsPage = () => {
               <Projects
                 projects={PROJECTS}
                 translationBase="btcfi.projects"
-                logos={LOGOS}
                 headingType="logo"
                 maxCols={4}
                 hideStats
               />
+              <h2 className="mt-6 text-3xl font-bold text-white col-span-full">
+                {t("btcfi.projects.subtitle")}
+              </h2>
+              <div className="col-span-full">
+                <Logos logos={LOGOS} />
+              </div>
             </div>
           </div>
         </section>

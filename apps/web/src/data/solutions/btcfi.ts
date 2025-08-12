@@ -9,35 +9,35 @@ import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/solutions/btcfi/ecosystem/100x100.svg",
+    src: "/src/img/solutions/btcfi/ecosystem/coinbase.svg",
     key: "cbbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/100x100.svg",
+    src: "/src/img/solutions/btcfi/ecosystem/bitgo.svg",
     key: "wbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/100x100.svg",
+    src: "/src/img/solutions/btcfi/ecosystem/okx.svg",
     key: "xbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/100x100.svg",
+    src: "/src/img/solutions/btcfi/ecosystem/zenrock.svg",
     key: "zenbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/100x100.svg",
+    src: "/src/img/solutions/btcfi/ecosystem/zeus.svg",
     key: "zbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/100x100.svg",
+    src: "/src/img/solutions/btcfi/ecosystem/fragmetric.webp",
     key: "fragbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/100x100.svg",
+    src: "/src/img/solutions/btcfi/ecosystem/lombard.webp",
     key: "lbtc",
   },
   {
-    src: "/src/img/solutions/btcfi/ecosystem/100x100.svg",
+    src: "/src/img/solutions/btcfi/ecosystem/yala.svg",
     key: "yalabtc",
   },
 ];
@@ -74,7 +74,128 @@ export const PERFORMANCE = [
   },
 ];
 
-export const LOGOS = [];
+export const LOGOS = [
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/coinbase.svg",
+    alt: "Сoinbase",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/bitgo.svg",
+    alt: "BitGo",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/okx.svg",
+    alt: "OKX",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/anchorage.webp",
+    alt: "Anchorage",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/drift.svg",
+    alt: "Drift",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/kamino.svg",
+    alt: "Kamino",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/jupiter.webp",
+    alt: "Jupiter",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/raydium.webp",
+    alt: "Raydium",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/orca.svg",
+    alt: "Orca",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/phantom.webp",
+    alt: "Phantom",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/lombard.webp",
+    alt: "Lombard",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/21shares.svg",
+    alt: "21shares",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/thesis.svg",
+    alt: "Thesis",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/stacks.webp",
+    alt: "Stacks",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/yala.svg",
+    alt: "Yala",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/zenrock.svg",
+    alt: "Zenrock",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/zeus.svg",
+    alt: "Zeus",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/layerzero.svg",
+    alt: "LayerZero",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/ratex.svg",
+    alt: "RateX",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/loopscale.svg",
+    alt: "Loopscale",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/fragmetric.webp",
+    alt: "Fragmetric",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/bitlayer.webp",
+    alt: "Bitlayer",
+    bg: "bg-black",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/bullish.svg",
+    alt: "Bullish",
+    bg: "bg-white",
+  },
+  {
+    src: "/src/img/solutions/btcfi/ecosystem/galaxy.webp",
+    alt: "Galaxy",
+    bg: "bg-white",
+  },
+];
 
 export const LATEST_NEWS = (
   t: (_key: string, _values?: TranslationValues, _formats?: Formats) => string,
