@@ -36,11 +36,19 @@ const Header = ({ className = "", containerClassName = "" }) => {
 
   return (
     <>
-      <header className={`sticky top-0 z-[1020] ${className}`}>
-        <nav id="navbar" className="" aria-label="Primary">
+      <header className={`z-20 position-sticky sticky-top ${className}`}>
+        <nav
+          id="navbar"
+          className="navbar navbar-expand-lg"
+          aria-label="Primary"
+        >
           <div className={`container-xl ${containerClassName}`}>
             <Link to="/" className="d-flex" aria-label="Solana">
-              <SolanaLogo style={{ color: "var(--body-text)" }} width={149} height={22} />
+              <SolanaLogo
+                style={{ color: "var(--body-text)" }}
+                width={149}
+                height={22}
+              />
             </Link>
 
             <div className="d-flex align-items-center">
@@ -55,12 +63,19 @@ const Header = ({ className = "", containerClassName = "" }) => {
                 <span className="bar"></span>
                 <span className="bar"></span>
               </button>
-              <div id="navbarCollapse" className={`${expanded ? "block" : "hidden"} lg:block`}>
+              <div
+                id="navbarCollapse"
+                className={`collapse navbar-collapse ${expanded ? "show" : ""}`}
+              >
                 <HeaderList />
               </div>
               <InkeepSearchBar />
               {isThemePage && (
-                <button className={styles.header__toggle} onClick={toggleTheme} aria-label={t("commands.toggle")}>
+                <button
+                  className={styles.header__toggle}
+                  onClick={toggleTheme}
+                  aria-label={t("commands.toggle")}
+                >
                   {theme === "light" && <Moon />}
                   {theme === "dark" && <Sun />}
                 </button>
@@ -69,7 +84,8 @@ const Header = ({ className = "", containerClassName = "" }) => {
           </div>
         </nav>
       </header>
-      {(router.asPath.includes("/developers") || router.asPath.includes("/docs")) && (
+      {(router.asPath.includes("/developers") ||
+        router.asPath.includes("/docs")) && (
         <DevelopersNav containerClassName={containerClassName} />
       )}
     </>
