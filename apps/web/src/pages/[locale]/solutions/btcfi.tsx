@@ -3,7 +3,6 @@ import Layout from "@/components/solutions/layout";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
-import { useState } from "react";
 import { WhatIsIt } from "@/components/solutions/what-is-it";
 import { Projects } from "@/components/solutions/projects";
 import {
@@ -13,7 +12,6 @@ import {
   LATEST_NEWS,
 } from "@/data/solutions/btcfi";
 import { Performance } from "@/components/solutions/performance";
-import { EmailModal } from "@/components/solutions/EmailModal";
 import { News } from "@/components/solutions/btcfi/News";
 import { CTACards } from "@/components/solutions/btcfi/CTACards";
 import { Divider } from "@/components/solutions/divider";
@@ -21,7 +19,6 @@ import { SingleVideo } from "@/components/solutions/btcfi/SingleVideo";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
-  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const stats: SolutionHeroStat[] = [
     {
@@ -56,7 +53,6 @@ const InstitutionalPaymentsPage = () => {
           subtitle={t("btcfi.hero.subtitle")}
           reportEyebrow={t("btcfi.hero.reportEyebrow")}
           emailCta={t("btcfi.hero.emailCta")}
-          onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
           globeImgSrc="/src/img/solutions/btcfi/hero.webp"
           globeImgAlt={t("btcfi.hero.alt")}
@@ -111,15 +107,9 @@ const InstitutionalPaymentsPage = () => {
 
         {/* Card Section */}
         <section>
-          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
+          <CTACards />
         </section>
       </div>
-
-      <EmailModal
-        isOpen={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        formUrl="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=Institutional"
-      />
     </Layout>
   );
 };
