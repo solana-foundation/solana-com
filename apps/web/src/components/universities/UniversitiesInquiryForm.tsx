@@ -2,6 +2,7 @@
 
 import React from "react";
 import GradientOrbs, { OrbConfig } from "./GradientOrbs";
+import { UNIVERSITY_TYPEFORM_URL } from "@/constants/universities";
 
 interface UniversitiesInquiryFormProps {
   translations: {
@@ -17,8 +18,7 @@ export default function UniversitiesInquiryForm({
   translations,
 }: UniversitiesInquiryFormProps) {
   const handleEmailClick = () => {
-    // TODO: Replace with Airtable/Typeform intake form URL
-    window.location.href = "/universities/contact";
+    window.open(UNIVERSITY_TYPEFORM_URL, "_blank");
   };
 
   const inquiryOrbs: OrbConfig[] = [

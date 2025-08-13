@@ -3,6 +3,7 @@
 import React from "react";
 import Button from "@/components/shared/Button";
 import GradientOrbs, { orbPresets } from "./GradientOrbs";
+import { UNIVERSITY_TYPEFORM_URL } from "@/constants/universities";
 
 interface UniversitiesCTASectionProps {
   translations: {
@@ -36,9 +37,8 @@ export default function UniversitiesCTASection({
             {translations.description}
           </p>
 
-          {/* TODO: Replace with Airtable/Typeform intake form URL */}
           {/* @ts-ignore */}
-          <Button to="/universities/contact" variant="secondary" size="large">
+          <Button to={UNIVERSITY_TYPEFORM_URL} variant="secondary" size="large">
             {translations.ctaLabel}
           </Button>
         </div>

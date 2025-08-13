@@ -5,6 +5,7 @@ import Button from "@/components/shared/Button";
 import CarouselCards from "@/components/shared/CarouselCards";
 import UniversitiesSubjectCard from "./UniversitiesSubjectCard";
 import GradientOrbs, { orbPresets } from "./GradientOrbs";
+import { UNIVERSITY_TYPEFORM_URL } from "@/constants/universities";
 import {
   DollarSign,
   Book,
@@ -75,8 +76,7 @@ export default function UniversitiesSubjectsSection({
               </p>
               {/* @ts-ignore */}
               <Button
-                // TODO: Replace with Airtable/Typeform intake form URL
-                to="/universities/contact"
+                to={UNIVERSITY_TYPEFORM_URL}
                 variant="outline"
                 size="large"
               >
