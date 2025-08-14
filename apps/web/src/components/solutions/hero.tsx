@@ -72,7 +72,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             <h1
               id="hero-title"
               className={cn(
-                "text-white font-display !leading-[85%]",
+                "text-white font-display !leading-[92%]",
                 modernTitleSizes[titleSize],
               )}
             >
