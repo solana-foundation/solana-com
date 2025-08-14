@@ -6,6 +6,7 @@ export default {
   presets: [createPreset()],
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "../../packages/site-chrome/src/**/*.{js,ts,jsx,tsx}",
     "../../node_modules/fumadocs-ui/dist/**/*.js",
     "../../node_modules/radix-ui/**/*.{js,ts,tsx}",
   ],
