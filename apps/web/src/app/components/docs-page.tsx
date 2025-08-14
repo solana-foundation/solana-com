@@ -76,7 +76,7 @@ function getHref(path: string) {
   const locale = splits?.length > 2 ? splits[splits.length - 2] : "en";
   const pathWithoutLocale = path.replace(`.${locale}.`, ".");
 
-  return `https://github.com/solana-foundation/solana-com/blob/main/content/docs/${locale}/${pathWithoutLocale.startsWith("/") ? pathWithoutLocale.slice(1) : pathWithoutLocale}`;
+  return `https://github.com/solana-foundation/solana-com/blob/main/apps/web/content/docs/${locale}/${pathWithoutLocale.startsWith("/") ? pathWithoutLocale.slice(1) : pathWithoutLocale}`;
 }
 
 function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {

@@ -38,7 +38,7 @@ export function BlogPage(props: {
     ?.replace(/^\/developers/, "")
     .replace(/^\//, "");
   const filePath = props.filePath?.replace(/^\//, "");
-  const href = `https://github.com/solana-foundation/solana-com/blob/main/content/${baseHref}/${filePath}`;
+  const href = `https://github.com/solana-foundation/solana-com/blob/main/apps/web/content/${baseHref}/${filePath}`;
   return (
     <div className="container">
       <div className="my-6">
@@ -63,7 +63,7 @@ export function BlogPage(props: {
           </div>
         </Toc>
         <article className="min-w-0">
-          <DocsBody className="text-lg mb-6">{props.children}</DocsBody>
+          <DocsBody className="mb-6 text-lg">{props.children}</DocsBody>
           <Footer pageTree={props.pageTree} pageUrl={props.href} />
         </article>
       </div>

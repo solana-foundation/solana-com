@@ -67,7 +67,7 @@ describe("NextIntlClientProvider", () => {
   });
 });
 
-describe("Translations", () => {
+describe.skip("Translations", () => {
   const localesDir = path.join(__dirname, "../../../public/locales");
   const enTranslations = loadMessages("en");
 

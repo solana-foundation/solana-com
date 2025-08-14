@@ -29,7 +29,7 @@ const App = ({ Component, pageProps: { messages, ...pageProps } }) => {
                 if (typeof window === 'undefined') return;
                 if (typeof window.signals !== 'undefined') return;
                 var script = document.createElement('script');
-                script.src = 'https://cdn.cr-relay.com/v1/site/1b843333-8295-4384-b6a6-35a414f5289d/signals.js';
+                script.src = 'https://cdn.cr-relay.com/v1/site/d7901f15-da9a-4a7a-bf5e-679354ce2f55/signals.js';
                 script.async = true;
                 window.signals = Object.assign(
                   [],
