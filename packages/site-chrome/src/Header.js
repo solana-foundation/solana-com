@@ -2,9 +2,9 @@
 import { useRouter } from "@@/src/hooks/useRouter";
 import { Link } from "@@/src/components/shared/Link";
 import { useEffect, useState } from "react";
-import SolanaLogo from "@@/public/src/img/logos-solana/logotype.inline.svg";
-import Moon from "@@/public/src/img/icons/Moon.inline.svg";
-import Sun from "@@/public/src/img/icons/Sun.inline.svg";
+import SolanaLogo from "./assets/logos-solana/logotype.inline.svg";
+import Moon from "./assets/icons/Moon.inline.svg";
+import Sun from "./assets/icons/Sun.inline.svg";
 import HeaderList from "@@/src/components/header/HeaderList";
 import { InkeepSearchBar } from "@@/src/app/components/inkeep/inkeep-searchbar";
 import { useTheme } from "@@/src/themecontext";

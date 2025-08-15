@@ -1,7 +1,7 @@
 import Navbar from "react-bootstrap/Navbar";
 import Link from "../shared/Link";
 import { useTranslations } from "next-intl";
-import SolanaLogo from "../../../public/src/img/logos-solana/logotype.inline.svg";
+import SolanaLogo from "@@/public/src/img/logos-solana/logotype.inline.svg";
 
 const Header = () => {
   const t = useTranslations();

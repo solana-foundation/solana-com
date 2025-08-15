@@ -4,25 +4,25 @@ import { useTranslations } from "next-intl";
 import { twMerge } from "tailwind-merge";
 import LanguageSelector from "./components/LanguageSelector";
 import Divider from "@@/src/components/shared/Divider";
-import SolanaFoundationLogo from "@@/public/src/img/logos-solana/logotype-foundation.inline.svg";
-import YoutubeIcon from "@@/public/src/img/footer/youtube.inline.svg";
-import TwitterIcon from "@@/public/src/img/footer/twitter.inline.svg";
-import DiscordIcon from "@@/public/src/img/footer/discord.inline.svg";
-import RedditIcon from "@@/public/src/img/footer/reddit.inline.svg";
-import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
-import TelegramIcon from "@@/public/src/img/footer/telegram.inline.svg";
+import SolanaFoundationLogo from "./assets/logos-solana/logotype-foundation.inline.svg";
+import YoutubeIcon from "./assets/footer/youtube.inline.svg";
+import TwitterIcon from "./assets/footer/twitter.inline.svg";
+import DiscordIcon from "./assets/footer/discord.inline.svg";
+import RedditIcon from "./assets/footer/reddit.inline.svg";
+import GithubIcon from "./assets/footer/github.inline.svg";
+import TelegramIcon from "./assets/footer/telegram.inline.svg";
 import Link, { InlineLink } from "@@/src/utils/Link";
 
 const CopyrightRow = () => {
   const t = useTranslations();
   return (
     <span className="text-base">
-      {t("footer.copyright", { currentYear: new Date().getFullYear() })}
+      {t("footer.copyright", {currentYear: new Date().getFullYear()})}
     </span>
   );
 };
 
-const Footer = ({ className = "" }) => {
+const Footer = ({className = ""}) => {
   const t = useTranslations();
   return (
     <div
@@ -41,35 +41,36 @@ const Footer = ({ className = "" }) => {
             <p className="m-0 text-white text-base">{t("footer.foundation")}</p>
             <div className="mt-[10px] mb-[20px]">
               <Link to="/" aria-label="Solana Foundation">
-                <SolanaFoundationLogo width={210} />
+                <SolanaFoundationLogo width={210}/>
               </Link>
             </div>
 
             {/* Social icons */}
-            <div className="mb-5 [&_a]:inline-flex [&_a]:p-[5px] [&_a]:rounded-full [&_a]:bg-[#848895] [&_a:hover]:bg-white [&_a:not(:last-child)]:mr-[10px] [&_a_svg]:fill-[#111]">
+            <div
+              className="mb-5 [&_a]:inline-flex [&_a]:p-[5px] [&_a]:rounded-full [&_a]:bg-[#848895] [&_a:hover]:bg-white [&_a:not(:last-child)]:mr-[10px] [&_a_svg]:fill-[#111]">
               <InlineLink to="/youtube" aria-label="YouTube">
-                <YoutubeIcon width="16" height="16" />
+                <YoutubeIcon width="16" height="16"/>
               </InlineLink>
               <InlineLink to="/twitter" aria-label="Twitter">
-                <TwitterIcon width="16" height="16" />
+                <TwitterIcon width="16" height="16"/>
               </InlineLink>
               <InlineLink to="/discord" aria-label="Discord">
-                <DiscordIcon width="16" height="16" />
+                <DiscordIcon width="16" height="16"/>
               </InlineLink>
               <InlineLink to="/reddit" aria-label="Reddit">
-                <RedditIcon width="16" height="16" />
+                <RedditIcon width="16" height="16"/>
               </InlineLink>
               <InlineLink to="/github" aria-label="GitHub">
-                <GithubIcon width="16" height="16" />
+                <GithubIcon width="16" height="16"/>
               </InlineLink>
               <InlineLink to="/telegram" aria-label="Telegram">
-                <TelegramIcon width="16" height="16" />
+                <TelegramIcon width="16" height="16"/>
               </InlineLink>
             </div>
 
             {/* Desktop copyright */}
             <div className="hidden lg:block">
-              <CopyrightRow />
+              <CopyrightRow/>
             </div>
           </div>
 
@@ -82,7 +83,8 @@ const Footer = ({ className = "" }) => {
                   <div className="uppercase tracking-wider text-sm whitespace-nowrap">
                     {t("footer.solana.heading")}
                   </div>
-                  <ul className="m-0 px-0 text-base list-none mt-2 [&_a]:text-[#848895] [&_a:hover]:text-white [&_a]:inline-block [&_a]:py-1.5">
+                  <ul
+                    className="m-0 px-0 text-base list-none mt-2 [&_a]:text-[#848895] [&_a:hover]:text-white [&_a]:inline-block [&_a]:py-1.5">
                     <li>
                       <InlineLink to="https://solana.org/grants">
                         {t("footer.solana.grants")}
@@ -116,7 +118,8 @@ const Footer = ({ className = "" }) => {
                   <div className="uppercase tracking-wider text-sm whitespace-nowrap">
                     {t("footer.get-connected.heading")}
                   </div>
-                  <ul className="m-0 px-0 text-base list-none mt-2 space-y-1.5 [&_a]:text-[#848895] [&_a:hover]:text-white [&_a]:inline-block [&_a]:py-1.5">
+                  <ul
+                    className="m-0 px-0 text-base list-none mt-2 space-y-1.5 [&_a]:text-[#848895] [&_a:hover]:text-white [&_a]:inline-block [&_a]:py-1.5">
                     <li>
                       <Link to="/news">{t("footer.get-connected.blog")}</Link>
                     </li>
@@ -131,7 +134,7 @@ const Footer = ({ className = "" }) => {
 
               {/* Language */}
               <div className="md:self-stretch flex md:justify-end">
-                <LanguageSelector />
+                <LanguageSelector/>
               </div>
             </div>
           </div>
@@ -139,8 +142,8 @@ const Footer = ({ className = "" }) => {
 
         {/* Mobile copyright */}
         <div className="text-center lg:hidden">
-          <Divider theme="light" axis="x" alpha="0.1" className="my-6" />
-          <CopyrightRow />
+          <Divider theme="light" axis="x" alpha="0.1" className="my-6"/>
+          <CopyrightRow/>
         </div>
       </div>
     </div>
