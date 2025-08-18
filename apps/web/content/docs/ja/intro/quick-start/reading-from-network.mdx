@@ -1,0 +1,810 @@
+---
+title: ネットワークからの読み取り
+description:
+  Solanaブロックチェーンネットワークからデータを読み取る方法を学びます。このガイドでは、JavaScript/TypeScriptを使用してウォレットアカウント、プログラムアカウント、トークンミントアカウントを取得する方法を、Solana
+  web3.jsライブラリを使用した実践的な例とともに説明します。
+---
+
+このセクションでは、さまざまなアカウントを取得してSolanaアカウントの構造を理解するために、Solanaネットワークからデータを読み取る方法を探ります。
+
+Solanaでは、すべてのデータは「アカウント」内に存在します。Solana上のデータは、各エントリが同じ基本的な
+[アカウントタイプ](https://github.com/anza-xyz/agave/blob/v2.1.11/sdk/account/src/lib.rs#L48-L60)を持つアカウントである、単一の「アカウント」テーブルを持つ公開データベースと考えることができます。
+
+```rs title="Base Account Type"
+#[derive(PartialEq, Eq, Clone, Default)]
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+    /// the epoch at which this account will next owe rent
+    pub rent_epoch: Epoch,
+}
+```
+
+![アカウント](/assets/docs/core/accounts/accounts.png)
+
+Solana上のアカウントは「状態」または「実行可能な」プログラムを保存できます。各アカウントには、対応するオンチェーンデータを見つけるために使用される一意のIDとして機能する「アドレス」（公開鍵）があります。
+
+Solanaアカウントには以下のいずれかが含まれます：
+
+- **状態**：読み取りおよび永続化されることを意図したデータ。例えば、トークンに関する情報、ユーザーデータ、またはプログラム内で定義されたその他のデータなど。
+- **実行可能なプログラム**：Solanaプログラムの実際のコードを含むアカウント。これらのアカウントは、ユーザーが呼び出すことができるinstructionsを保存します。
+
+プログラムコードとプログラム状態のこの分離は、Solanaのアカウントモデルの重要な特徴です。詳細については、
+[Solanaアカウントモデル](/docs/core/accounts)ページを参照してください。
+
+## ウォレットアカウントの取得
+
+この例では、以下の方法を示します：
+
+1. 新しいkeypair（公開/秘密鍵のペア）を生成します。
+2. 新しいアドレスに資金を提供するためにSOLのエアドロップをリクエストします。
+3. 資金提供されたアドレスのアカウントデータを取得します。
+
+Solanaでは、SOLで新しいアドレスに資金を提供すると、自動的にSystem
+Programが所有するアカウントが作成されます。すべての「ウォレット」アカウントは、単にSOLを保持し、トランザクションに署名できるSystem
+Program所有のアカウントです。
+
+<CodeTabs flags="r">
+
+```ts !! title="Fetch Account"
+import { Keypair, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+// !mark
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Funding an address with SOL automatically creates an account
+const signature = await connection.requestAirdrop(
+  keypair.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+// !mark
+const accountInfo = await connection.getAccountInfo(keypair.publicKey);
+console.log(JSON.stringify(accountInfo, null, 2));
+```
+
+</CodeTabs>
+
+<ScrollyCoding>
+
+## !!steps
+
+Solanaにおける「ウォレット」は、Solanaの組み込みプログラムの一つである[System Program](https://github.com/anza-xyz/agave/tree/v2.1.11/programs/system)が所有するアカウントです。ウォレットアカウントは主にSOL（`lamports`フィールドで追跡される）の保持とトランザクションの署名に使用されます。
+
+ウォレットアカウントを取得すると、レスポンスには例の出力に示されているフィールドが含まれます。
+
+<CodePlaceholder title="Example Output" />
+
+```json !! title="Example Output"
+{
+  "data": {
+    "type": "Buffer",
+    "data": []
+  },
+  "executable": false,
+  "lamports": 1000000000,
+  "owner": "11111111111111111111111111111111",
+  "rentEpoch": 0,
+  "space": 0
+}
+```
+
+## !!steps
+
+`data`フィールドには、バイトとして保存されたアカウントのデータが含まれています。
+
+ウォレットアカウントの場合、このフィールドは空（0バイト）です。他のアカウントはこのフィールドを使用して、プログラムの状態または実行可能なプログラムコードのいずれかを保存します。
+
+<CodePlaceholder title="Example Output" />
+
+```json !! title="Example Output"
+{
+  // !focus(1:4)
+  "data": {
+    "type": "Buffer",
+    "data": []
+  },
+  "executable": false,
+  "lamports": 1000000000,
+  "owner": "11111111111111111111111111111111",
+  "rentEpoch": 0,
+  "space": 0
+}
+```
+
+## !!steps
+
+`executable`フィールドは、アカウントの`data`フィールドに実行可能なプログラムコードが含まれているかどうかを示します。
+
+ウォレットおよびプログラム状態を保存するアカウントの場合、このフィールドは`false`です。
+
+<CodePlaceholder title="Example Output" />
+
+```json !! title="Example Output"
+{
+  "data": {
+    "type": "Buffer",
+    "data": []
+  },
+  // !focus
+  "executable": false,
+  "lamports": 1000000000,
+  "owner": "11111111111111111111111111111111",
+  "rentEpoch": 0,
+  "space": 0
+}
+```
+
+## !!steps
+
+`lamports`フィールドには、lamportで表示されたアカウントのSOL残高が含まれています。
+
+lamportはSOLの最小単位です。1 SOL = 1,000,000,000 lamportです。
+
+<CodePlaceholder title="Example Output" />
+
+```json !! title="Example Output"
+{
+  "data": {
+    "type": "Buffer",
+    "data": []
+  },
+  "executable": false,
+  // !focus
+  "lamports": 1000000000,
+  "owner": "11111111111111111111111111111111",
+  "rentEpoch": 0,
+  "space": 0
+}
+```
+
+## !!steps
+
+`owner`フィールドは、アカウントを所有するプログラムを示します。
+
+ウォレットの場合、所有者は常にSystem Programであり、アドレスは
+`11111111111111111111111111111111`です。
+
+<CodePlaceholder title="出力例" />
+
+```json !! title="Example Output"
+{
+  "data": {
+    "type": "Buffer",
+    "data": []
+  },
+  "executable": false,
+  "lamports": 1000000000,
+  // !focus
+  "owner": "11111111111111111111111111111111",
+  "rentEpoch": 0,
+  "space": 0
+}
+```
+
+## !!steps
+
+`rentEpoch`フィールドは、アカウントがネットワーク上でデータを維持するために「rent」（lamport単位）を課金する廃止されたメカニズムからの古いフィールドです。
+
+このフィールドは現在使用されていませんが、後方互換性のために含まれています。
+
+<CodePlaceholder title="出力例" />
+
+```json !! title="Example Output"
+{
+  "data": {
+    "type": "Buffer",
+    "data": []
+  },
+  "executable": false,
+  "lamports": 1000000000,
+  "owner": "11111111111111111111111111111111",
+  // !focus
+  "rentEpoch": 0,
+  "space": 0
+}
+```
+
+## !!steps
+
+`space`フィールドは、`data`フィールド内のバイト数を示します。これは`Account`型自体のフィールドではありませんが、レスポンスに含まれています。
+
+この例では、`data`フィールドに0バイトのデータが含まれているため、`space`フィールドは0です。
+
+<CodePlaceholder title="出力例" />
+
+```json !! title="Example Output"
+{
+  "data": {
+    "type": "Buffer",
+    "data": []
+  },
+  "executable": false,
+  "lamports": 1000000000,
+  "owner": "11111111111111111111111111111111",
+  "rentEpoch": 0,
+  // !focus
+  "space": 0
+}
+```
+
+</ScrollyCoding>
+
+## Token Programの取得
+
+この例では、ウォレットアカウントとプログラムアカウントの違いを示すためにToken
+Programを取得します。
+
+プログラムアカウントには、Token
+Programの[ソースコード](https://github.com/solana-program/token/tree/main/program)のコンパイルされたバイトコードが格納されています。このプログラムアカウントは[Solana Explorer](https://explorer.solana.com/address/TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA)で確認できます。
+
+<CodeTabs flags="r">
+
+```ts !! title="Fetch Program Account"
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+// !mark(1:2)
+const address = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const accountInfo = await connection.getAccountInfo(address);
+
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+</CodeTabs>
+
+<ScrollyCoding>
+
+## !!steps
+
+Token ProgramはSolana上の実行可能なprogram
+accountです。ウォレットアカウントと同様に、プログラムも同じ基本的な[Account](https://github.com/anza-xyz/agave/blob/v2.1.11/sdk/account/src/lib.rs#L48-L60)データ構造を持っていますが、そのフィールドには重要な違いがあります。
+
+<CodePlaceholder title="Token Programアカウント" />
+
+```json !! title="Token Program Account"
+{
+  "data": {
+    "type": "Buffer",
+    "data": [127, "...truncated, total bytes: 134080...", 0]
+  },
+  "executable": true,
+  "lamports": 4522329612,
+  "owner": "BPFLoader2111111111111111111111111111111111",
+  "rentEpoch": 18446744073709552000,
+  "space": 134080
+}
+```
+
+## !!steps
+
+`executable`フィールドは`true`に設定されており、このアカウントの`data`フィールドに実行可能なプログラムコードが含まれていることを示しています。
+
+<CodePlaceholder title="Token Programアカウント" />
+
+```json !! title="Token Program Account"
+{
+  "data": {
+    "type": "Buffer",
+    "data": [127, "...truncated, total bytes: 134080...", 0]
+  },
+  // !focus
+  "executable": true,
+  "lamports": 4522329612,
+  "owner": "BPFLoader2111111111111111111111111111111111",
+  "rentEpoch": 18446744073709552000,
+  "space": 134080
+}
+```
+
+## !!steps
+
+プログラムアカウントでは、`data`フィールドにプログラムの実行可能コードが格納されます。対照的に、ウォレットアカウントのデータフィールドは空です。
+
+Solanaプログラムをデプロイすると、プログラムの実行可能コードはアカウントの`data`フィールドに格納されます。
+
+<CodePlaceholder title="Token Programアカウント" />
+
+```json !! title="Token Program Account"
+{
+  // !focus(1:4)
+  "data": {
+    "type": "Buffer",
+    "data": [127, "...truncated, total bytes: 134080...", 0]
+  },
+  "executable": true,
+  "lamports": 4522329612,
+  "owner": "BPFLoader2111111111111111111111111111111111",
+  "rentEpoch": 18446744073709552000,
+  "space": 134080
+}
+```
+
+## !!steps
+
+実行可能なプログラムアカウントには、アカウントの`owner`として指定されたプログラムもあります。
+
+すべてのプログラムアカウントは、Loaderプログラムによって所有されています。Loaderプログラムは、Solana上で実行可能なプログラムアカウントを所有する組み込みプログラムのカテゴリです。
+
+Token Programの場合、`owner`はBPFLoader2プログラムです。
+
+<CodePlaceholder title="Token Programアカウント" />
+
+```json !! title="Token Program Account"
+{
+  "data": {
+    "type": "Buffer",
+    "data": [127, "...truncated, total bytes: 134080...", 0]
+  },
+  "executable": true,
+  "lamports": 4522329612,
+  // !focus
+  "owner": "BPFLoader2111111111111111111111111111111111",
+  "rentEpoch": 18446744073709552000,
+  "space": 134080
+}
+```
+
+</ScrollyCoding>
+
+## mint accountの取得
+
+この例では、USD Coin（USDC）のmint
+accountを取得して、Solana上のプログラムが別々のアカウントに状態を格納する方法を示します。
+
+[Mint](https://github.com/solana-program/token/blob/program%40v8.0.0/program/src/state.rs#L16-L30)アカウントはToken
+Programによって所有されるアカウントです。特定のトークンに関する総供給量、小数点以下の桁数、トークンの発行や凍結を許可されたアカウントなどのグローバルメタデータを格納します。mint
+accountのアドレスは、Solanaネットワーク上のトークンを一意に識別します。
+
+<CodeTabs flags="r">
+
+```ts !! title="Fetch Program Account"
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+
+// !mark(1:2)
+const address = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const accountInfo = await connection.getAccountInfo(address);
+
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+</CodeTabs>
+
+<ScrollyCoding>
+
+## !!steps
+
+この例で注目すべき重要なポイントは、Mint
+accountが実行可能なコードではなく状態を保存するということです。
+
+Mint accountはToken Programによって所有され、Token ProgramにはMint
+accountの作成と更新方法を定義するinstructionsが含まれています。
+
+<CodePlaceholder title="Mint Account" />
+
+```json !! title="Mint Account"
+{
+  "data": {
+    "type": "Buffer",
+    "data": [1, "...truncated, total bytes: 82...", 103]
+  },
+  "executable": false,
+  "lamports": 407438077149,
+  "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "rentEpoch": 18446744073709552000,
+  "space": 82
+}
+```
+
+## !!steps
+
+`executable`フィールドは`false`です。これはmint
+accountの`data`フィールドが実行可能なコードではなく状態を保存するためです。
+
+Token Programは`Mint`データ型を定義しており、これはmint
+accountの`data`フィールドに保存されます。
+
+<CodePlaceholder title="Mint Account" />
+
+```json !! title="Mint Account"
+{
+  "data": {
+    "type": "Buffer",
+    "data": [1, "...truncated, total bytes: 82...", 103]
+  },
+  // !focus
+  "executable": false,
+  "lamports": 407438077149,
+  "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "rentEpoch": 18446744073709552000,
+  "space": 82
+}
+```
+
+## !!steps
+
+`data`フィールドには、ミント権限、総供給量、小数点以下の桁数などのシリアライズされた`Mint`アカウント状態が含まれています。
+
+Mint
+accountから読み取るには、`data`フィールドを`Mint`データ型にデシリアライズする必要があります。これについては次のステップで説明します。
+
+<CodePlaceholder title="Mint Account" />
+
+```json !! title="Mint Account"
+{
+  // !focus(1:4)
+  "data": {
+    "type": "Buffer",
+    "data": [1, "...truncated, total bytes: 82...", 103]
+  },
+  "executable": false,
+  "lamports": 407438077149,
+  "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "rentEpoch": 18446744073709552000,
+  "space": 82
+}
+```
+
+## !!steps
+
+Token Program（`TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`）がmint
+accountを所有しています。
+
+これは、mint accountの`data`フィールドがToken
+Programで定義されたinstructionsによってのみ変更できることを意味します。
+
+<CodePlaceholder title="Mint Account" />
+
+```json !! title="Mint Account"
+{
+  "data": {
+    "type": "Buffer",
+    "data": [1, "...truncated, total bytes: 82...", 103]
+  },
+  "executable": false,
+  "lamports": 407438077149,
+  // !focus
+  "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "rentEpoch": 18446744073709552000,
+  "space": 82
+}
+```
+
+</ScrollyCoding>
+
+## Mint Accountのデシリアライズ
+
+Solanaアカウントの`data`フィールドには生のバイトが含まれています。このデータを意味のある形で解釈するには、アカウントを所有するプログラムによって定義された適切なデータ型にデシリアライズする必要があります。
+
+ほとんどのSolanaプログラムは、デシリアライズプロセスを抽象化するヘルパー関数を持つクライアントライブラリを提供しています。これらの関数は、生のアカウントバイトを構造化されたデータ型に変換し、アカウントデータの操作を容易にします。
+
+<WithMentions>
+
+例えば、*shell`@solana/spl-token`*には、Mint
+accountの`data`フィールドを[Mint](https://github.com/solana-program/token/blob/program%40v8.0.0/program/src/state.rs#L16-L30)データ型にデシリアライズするのに役立つ[_ts`getMint()`_](mention:one)関数が含まれています。
+
+<CodeTabs flags="r">
+
+```ts !! title="Deserialize Mint Account Data"
+import { PublicKey, Connection } from "@solana/web3.js";
+import { getMint } from "@solana/spl-token";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+
+const address = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+// !mention one
+const mintData = await getMint(connection, address, "confirmed");
+
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    mintData,
+    (key, value) => {
+      // Convert BigInt to String
+      if (typeof value === "bigint") {
+        return value.toString();
+      }
+      // Handle Buffer objects
+      if (Buffer.isBuffer(value)) {
+        return `<Buffer ${value.toString("hex")}>`;
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+</CodeTabs>
+
+</WithMentions>
+
+```rs title="Mint Account Type"
+pub struct Mint {
+    /// Optional authority used to mint new tokens. The mint authority may only
+    /// be provided during mint creation. If no mint authority is present
+    /// then the mint has a fixed supply and no further tokens may be
+    /// minted.
+    pub mint_authority: COption<Pubkey>,
+    /// Total supply of tokens.
+    pub supply: u64,
+    /// Number of base 10 digits to the right of the decimal place.
+    pub decimals: u8,
+    /// Is `true` if this structure has been initialized
+    pub is_initialized: bool,
+    /// Optional authority to freeze token accounts.
+    pub freeze_authority: COption<Pubkey>,
+}
+```
+
+<ScrollyCoding>
+
+## !!steps
+
+*ts`getMint()`*関数は、mint accountの`data`フィールドをToken
+Programで定義されている
+[Mint](https://github.com/solana-program/token/blob/program%40v8.0.0/program/src/state.rs#L16-L30)
+データ型にデシリアライズします。
+
+```json title="Mint Account"
+{
+  // !focus(1:4)
+  "data": {
+    "type": "Buffer",
+    "data": [1, "...truncated, total bytes: 82...", 103]
+  },
+  "executable": false,
+  "lamports": 407438077149,
+  "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "rentEpoch": 18446744073709552000,
+  "space": 82
+}
+```
+
+完全にデシリアライズされた
+[Mint Account](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v?cluster=mainnet-beta)
+データはSolana Explorerで確認できます。
+
+<CodePlaceholder title="デシリアライズされたミントデータ" />
+
+```json !! title="Deserialized Mint Data"
+{
+  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+  "supply": "8985397351591790",
+  "decimals": 6,
+  "isInitialized": true,
+  "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+  "tlvData": {
+    "type": "Buffer",
+    "data": []
+  }
+}
+```
+
+## !!steps
+
+`address`フィールドにはMint accountのアドレスが含まれています。
+
+mint
+accountのアドレスは、Solanaネットワーク上でトークンを識別するために使用されます。
+
+<CodePlaceholder title="デシリアライズされたミントデータ" />
+
+```json !! title="Deserialized Mint Data"
+{
+  // !focus
+  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+  "supply": "8985397351591790",
+  "decimals": 6,
+  "isInitialized": true,
+  "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+  "tlvData": {
+    "type": "Buffer",
+    "data": []
+  }
+}
+```
+
+## !!steps
+
+`mintAuthority`フィールドは、新しいトークンをミントする権限を持つアカウントを示しています。
+
+これは、トークンの新しい単位を作成できる唯一のアカウントです。
+
+<CodePlaceholder title="デシリアライズされたミントデータ" />
+
+```json !! title="Deserialized Mint Data"
+{
+  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  // !focus
+  "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+  "supply": "8985397351591790",
+  "decimals": 6,
+  "isInitialized": true,
+  "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+  "tlvData": {
+    "type": "Buffer",
+    "data": []
+  }
+}
+```
+
+## !!steps
+
+`supply`フィールドは、ミントされたトークンの総数を示しています。
+
+この値はトークンの最小単位で表されています。標準単位での総供給量を取得するには、`supply`フィールドの値を`decimals`で調整します。
+
+<CodePlaceholder title="デシリアライズされたミントデータ" />
+
+```json !! title="Deserialized Mint Data"
+{
+  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+  // !focus
+  "supply": "8985397351591790",
+  "decimals": 6,
+  "isInitialized": true,
+  "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+  "tlvData": {
+    "type": "Buffer",
+    "data": []
+  }
+}
+```
+
+## !!steps
+
+`decimals` フィールドはトークンの小数点以下の桁数を示しています。
+
+<CodePlaceholder title="デシリアライズされたミントデータ" />
+
+```json !! title="Deserialized Mint Data"
+{
+  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+  "supply": "8985397351591790",
+  // !focus
+  "decimals": 6,
+  "isInitialized": true,
+  "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+  "tlvData": {
+    "type": "Buffer",
+    "data": []
+  }
+}
+```
+
+## !!steps
+
+`isInitialized` フィールドはmint
+accountが初期化されているかどうかを示します。このフィールドはToken
+Programで使用されるセキュリティチェックです。
+
+<CodePlaceholder title="デシリアライズされたミントデータ" />
+
+```json !! title="Deserialized Mint Data"
+{
+  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+  "supply": "8985397351591790",
+  "decimals": 6,
+  // !focus
+  "isInitialized": true,
+  "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+  "tlvData": {
+    "type": "Buffer",
+    "data": []
+  }
+}
+```
+
+## !!steps
+
+`freezeAuthority` フィールドはtoken
+accountをフリーズする権限を持つ管理者を示しています。
+
+フリーズされたtoken
+accountではアカウント内のトークンの転送や焼却ができなくなります。
+
+<CodePlaceholder title="デシリアライズされたミントデータ" />
+
+```json !! title="Deserialized Mint Data"
+{
+  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+  "supply": "8985397351591790",
+  "decimals": 6,
+  "isInitialized": true,
+  // !focus
+  "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+  "tlvData": {
+    "type": "Buffer",
+    "data": []
+  }
+}
+```
+
+## !!steps
+
+`tlvData` フィールドにはToken
+Extensions用の追加データが含まれています（さらなるデシリアライズが必要）。
+
+このフィールドはToken Extension Program
+(Token2022)によって作成されたアカウントにのみ関連しています。
+
+<CodePlaceholder title="デシリアライズされたミントデータ" />
+
+```json !! title="Deserialized Mint Data"
+{
+  "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "mintAuthority": "BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG",
+  "supply": "8985397351591790",
+  "decimals": 6,
+  "isInitialized": true,
+  "freezeAuthority": "7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar",
+  // !focus(1:4)
+  "tlvData": {
+    "type": "Buffer",
+    "data": []
+  }
+}
+```
+
+</ScrollyCoding>

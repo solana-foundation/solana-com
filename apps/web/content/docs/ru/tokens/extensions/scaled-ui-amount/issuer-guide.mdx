@@ -1,0 +1,288 @@
+---
+title: Руководство по выпуску масштабируемых UI-значений
+description:
+  Узнайте, как использовать расширение Scaled UI Amount для масштабирования
+  UI-значения токена.
+---
+
+## Как использовать расширение Scaled UI Amount
+
+Чтобы использовать расширение Scaled UI Amount, необходимо включить его для
+токена или token account. Обратите внимание, что после создания токена вы не
+сможете изменить, какие расширения включены.
+
+### Включение расширения Scaled UI Amount для токена
+
+Чтобы включить расширение Scaled UI Amount для токена, необходимо установить
+поле `scaled_ui_amount_extension` в значение `true` в аккаунте `Mint`. Вот
+пример создания токена с включенным расширением Scaled UI Amount с
+использованием CLI `spl-token`:
+
+<CodeTabs>
+
+```terminal !! title="create-token.sh"
+$ spl-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb create-token --ui-amount-multiplier 1.5
+Creating token 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM under program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+
+Address:  66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM
+Decimals:  9
+
+Signature: 2sPziXu9M3duTCvsDvxQE9UKC9nBiLayi8muDvnjhA2qYvfXSZuaUieoq39MFjg4kf8xFrw6crmYSkPyV59dvudF
+```
+
+```ts !! title="create-token.ts"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Signer,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  TOKEN_2022_PROGRAM_ID,
+  createInitializeMintInstruction,
+  createInitializeScaledUiAmountConfigInstruction,
+  ExtensionType,
+  getMintLen
+} from "@solana/spl-token";
+
+/**
+ * Creates a new SPL-Token 2022 mint with the Scaled UI extension enabled
+ * and a UI multiplier of 1.1.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param payer      – Signer paying for fees and rent.
+ * @returns The newly created mint PublicKey.
+ */
+export async function createScaledUiMint(
+  connection: Connection,
+  payer: Signer
+): Promise<PublicKey> {
+  // 1) Generate a new mint Keypair
+  const mint = Keypair.generate();
+  const MINT_EXTENSIONS = [ExtensionType.ScaledUiAmountConfig];
+  const mintLen = getMintLen(MINT_EXTENSIONS);
+  const mintLamports =
+    await connection.getMinimumBalanceForRentExemption(mintLen);
+  const mintTransaction = new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: mintLen,
+      lamports: mintLamports,
+      programId: TOKEN_2022_PROGRAM_ID
+    }),
+    createInitializeScaledUiAmountConfigInstruction(
+      mint.publicKey,
+      payer.publicKey,
+      1.1,
+      TOKEN_2022_PROGRAM_ID
+    ),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      0,
+      payer.publicKey,
+      null,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+  await sendAndConfirmTransaction(
+    connection,
+    mintTransaction,
+    [payer, mint],
+    undefined
+  );
+
+  console.log(
+    "✅ Created mint w/ scaled-UI extension:",
+    mint.publicKey.toBase58()
+  );
+  return mint.publicKey;
+}
+(async () => {
+  // 1) Establish a connection to the Solana devnet
+  const connection = new Connection(
+    "https://api.devnet.solana.com",
+    "confirmed"
+  );
+
+  // 2) Generate a new fee-payer Keypair
+  const payer = Keypair.generate();
+
+  // 3) Airdrop 1 SOL to the fee-payer so it has funds for transactions
+  const airdropSignature = await connection.requestAirdrop(
+    payer.publicKey,
+    1_000_000_000 // 1 SOL in lamports
+  );
+
+  // 4) Create the scaled-UI mint using our helper
+  const mintPubkey = await createScaledUiMint(connection, payer);
+})().catch((err) => {
+  console.error("Error running example:", err);
+});
+```
+
+</CodeTabs>
+
+### Обновление множителя UI-значения
+
+Чтобы обновить множитель суммы пользовательского интерфейса, вам нужно
+использовать команду `update-ui-amount-multiplier`. Метка времени в секундах с
+момента Unix-эпохи является необязательной и может быть использована для
+установки пользовательского времени начала для нового множителя. Если метка
+времени не указана, будет использована текущая метка времени.
+
+**Важное замечание:** В настоящее время существует особенность в процессе
+обновления масштабированного множителя пользовательского интерфейса. На данный
+момент, если вы выполните следующие действия:
+
+1. Установите масштабированный множитель пользовательского интерфейса на будущее
+   время
+2. Время проходит за пределы этого времени обновления
+3. Установите другой масштабированный множитель пользовательского интерфейса на
+   будущее время
+4. Тогда предыдущий масштабированный множитель будет перезаписан новым,
+   фактически удаляя его.
+
+Существует
+[объединённый PR для исправления этой проблемы](https://github.com/solana-program/token-2022/pull/522),
+чтобы множитель корректно обновлялся до текущего множителя вместо того, чтобы
+быть перезаписанным, но это исправление пока не внедрено.
+
+До этого времени необходимо выполнить 2 обновления множителя на шаге 3 выше:
+
+1. Снова установите предыдущий множитель с меткой времени, равной той, которая
+   была изначально установлена на шаге 1 (это корректно установит множитель как
+   текущий множитель).
+2. Установите новый множитель, как описано на шаге 3 выше.
+
+<CodeTabs>
+
+```terminal !! title="update-ui-amount-multiplier.sh"
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.2 -- 1746470000 # 1.2 is the current multiplier as described in step 1 above
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.5 -- 1746471400
+```
+
+```ts !! title="update-ui-amount-multiplier.ts"
+/**
+ * Updates the scaled UI multiplier for an existing SPL-Token 2022 mint.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param payer      – Signer paying for fees and rent.
+ * @param mint       – PublicKey of the mint to update.
+ * @param multiplier – New multiplier value to set.
+ * @returns The transaction signature.
+ */
+export async function updateScaledUiMultiplier(
+  connection: Connection,
+  payer: Signer,
+  mint: PublicKey,
+  multiplier: number,
+  effectiveTimestamp: bigint,
+  previousMultiplier: number,
+  previousEffectiveTimestamp: bigint
+): Promise<string> {
+  const transaction = new Transaction()
+    .add(
+      // Set the previous multiplier to the current multiplier
+      // This is temporarily needed until PR 522 is deployed to mainnet
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        previousMultiplier,
+        previousEffectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    )
+    .add(
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        multiplier,
+        effectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [payer],
+    undefined
+  );
+
+  console.log(
+    `✅ Updated scaled-UI multiplier to ${multiplier} for mint:`,
+    mint.toBase58()
+  );
+  return signature;
+}
+const multiplier = 1.5;
+const effectiveTimestamp = BigInt(Math.floor(Date.now() / 1000));
+const previousMultiplier = 1.2;
+const previousEffectiveTimestamp = BigInt(1746470000);
+const updateSignature = await updateScaledUiMultiplier(
+  connection,
+  payer,
+  mintPubkey,
+  multiplier,
+  effectiveTimestamp,
+  previousMultiplier,
+  previousEffectiveTimestamp
+);
+console.log("Update signature:", updateSignature);
+```
+
+</CodeTabs>
+
+### Получение баланса
+
+Чтобы получить баланс, вам нужно использовать команду `balance`.
+
+<CodeTabs>
+
+```terminal !! title="balance.sh"
+$ spl-token balance 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM
+```
+
+```ts !! title="balance.ts"
+/**
+ * Gets the scaled UI amount balance for a token holder.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param mint       – PublicKey of the mint to check.
+ * @param owner      – PublicKey of the token holder.
+ * @returns The scaled UI amount balance.
+ */
+export async function getScaledUiAmountBalance(
+  connection: Connection,
+  mint: PublicKey,
+  owner: PublicKey
+): Promise<number> {
+  // Get the token account for this mint/owner pair
+  const tokenAccount = getAssociatedTokenAddressSync(
+    mint,
+    owner,
+    false,
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // Get the token account info
+  const accountInfo = await connection.getAccountInfo(tokenAccount);
+  if (!accountInfo) {
+    throw new Error("Token account not found");
+  }
+
+  const info = await connection.getTokenAccountBalance(tokenAccount);
+  if (info.value.uiAmount == null) throw new Error("No balance found");
+  console.log("Balance: ", info.value.uiAmount);
+  return info.value.uiAmount;
+}
+const balance = await getScaledUiAmountBalance(connection, mint, owner);
+```
+
+</CodeTabs>

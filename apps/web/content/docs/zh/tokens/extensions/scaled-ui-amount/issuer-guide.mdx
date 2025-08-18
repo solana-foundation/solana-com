@@ -1,0 +1,273 @@
+---
+title: Scaled UI Amount 发行指南
+description: 了解如何使用 Scaled UI Amount 扩展来调整代币的 UI 数量。
+---
+
+## 如何使用 Scaled UI Amount 扩展
+
+要使用 Scaled UI
+Amount 扩展，您需要在代币铸造或代币账户上启用它。请注意，一旦代币创建后，您将无法修改已启用的扩展。
+
+### 在代币铸造上启用 Scaled UI Amount 扩展
+
+要在代币铸造上启用 Scaled UI Amount 扩展，您需要在 `Mint` 账户中将
+`scaled_ui_amount_extension` 字段设置为 `true`。以下是使用 `spl-token`
+CLI 创建启用了 Scaled UI Amount 扩展的代币的示例：
+
+<CodeTabs>
+
+```terminal !! title="create-token.sh"
+$ spl-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb create-token --ui-amount-multiplier 1.5
+Creating token 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM under program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+
+Address:  66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM
+Decimals:  9
+
+Signature: 2sPziXu9M3duTCvsDvxQE9UKC9nBiLayi8muDvnjhA2qYvfXSZuaUieoq39MFjg4kf8xFrw6crmYSkPyV59dvudF
+```
+
+```ts !! title="create-token.ts"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Signer,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  TOKEN_2022_PROGRAM_ID,
+  createInitializeMintInstruction,
+  createInitializeScaledUiAmountConfigInstruction,
+  ExtensionType,
+  getMintLen
+} from "@solana/spl-token";
+
+/**
+ * Creates a new SPL-Token 2022 mint with the Scaled UI extension enabled
+ * and a UI multiplier of 1.1.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param payer      – Signer paying for fees and rent.
+ * @returns The newly created mint PublicKey.
+ */
+export async function createScaledUiMint(
+  connection: Connection,
+  payer: Signer
+): Promise<PublicKey> {
+  // 1) Generate a new mint Keypair
+  const mint = Keypair.generate();
+  const MINT_EXTENSIONS = [ExtensionType.ScaledUiAmountConfig];
+  const mintLen = getMintLen(MINT_EXTENSIONS);
+  const mintLamports =
+    await connection.getMinimumBalanceForRentExemption(mintLen);
+  const mintTransaction = new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: mintLen,
+      lamports: mintLamports,
+      programId: TOKEN_2022_PROGRAM_ID
+    }),
+    createInitializeScaledUiAmountConfigInstruction(
+      mint.publicKey,
+      payer.publicKey,
+      1.1,
+      TOKEN_2022_PROGRAM_ID
+    ),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      0,
+      payer.publicKey,
+      null,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+  await sendAndConfirmTransaction(
+    connection,
+    mintTransaction,
+    [payer, mint],
+    undefined
+  );
+
+  console.log(
+    "✅ Created mint w/ scaled-UI extension:",
+    mint.publicKey.toBase58()
+  );
+  return mint.publicKey;
+}
+(async () => {
+  // 1) Establish a connection to the Solana devnet
+  const connection = new Connection(
+    "https://api.devnet.solana.com",
+    "confirmed"
+  );
+
+  // 2) Generate a new fee-payer Keypair
+  const payer = Keypair.generate();
+
+  // 3) Airdrop 1 SOL to the fee-payer so it has funds for transactions
+  const airdropSignature = await connection.requestAirdrop(
+    payer.publicKey,
+    1_000_000_000 // 1 SOL in lamports
+  );
+
+  // 4) Create the scaled-UI mint using our helper
+  const mintPubkey = await createScaledUiMint(connection, payer);
+})().catch((err) => {
+  console.error("Error running example:", err);
+});
+```
+
+</CodeTabs>
+
+### 更新 UI 数量倍数
+
+要更新 UI 金额倍数，您需要使用 `update-ui-amount-multiplier`
+命令。时间戳（以 Unix 纪元以来的秒数表示）是可选的，可用于设置新倍数的自定义开始时间。如果未提供时间戳，将使用当前时间戳。
+
+**重要提示：**
+当前在更新缩放 UI 倍数的过程中存在一个特殊情况。目前，如果您执行以下操作：
+
+1. 为未来设置一个缩放 UI 倍数
+2. 时间超过了此更新时间
+3. 为未来设置另一个缩放 UI 倍数
+4. 那么之前的缩放 UI 倍数将被新的倍数覆盖，从而有效地移除它。
+
+有一个
+[已合并的 PR 修复此问题](https://github.com/solana-program/token-2022/pull/522)，使倍数正确更新为当前倍数而不是被覆盖，但此修复尚未上线。
+
+在此之前，在上述第 3 步中需要进行两次倍数更新：
+
+1. 再次设置之前的倍数，并将时间戳设置为第 1 步中最初设置的时间戳（这将正确地将倍数设置为当前倍数）
+2. 按照上述第 3 步的描述设置新的倍数
+
+<CodeTabs>
+
+```terminal !! title="update-ui-amount-multiplier.sh"
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.2 -- 1746470000 # 1.2 is the current multiplier as described in step 1 above
+$ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.5 -- 1746471400
+```
+
+```ts !! title="update-ui-amount-multiplier.ts"
+/**
+ * Updates the scaled UI multiplier for an existing SPL-Token 2022 mint.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param payer      – Signer paying for fees and rent.
+ * @param mint       – PublicKey of the mint to update.
+ * @param multiplier – New multiplier value to set.
+ * @returns The transaction signature.
+ */
+export async function updateScaledUiMultiplier(
+  connection: Connection,
+  payer: Signer,
+  mint: PublicKey,
+  multiplier: number,
+  effectiveTimestamp: bigint,
+  previousMultiplier: number,
+  previousEffectiveTimestamp: bigint
+): Promise<string> {
+  const transaction = new Transaction()
+    .add(
+      // Set the previous multiplier to the current multiplier
+      // This is temporarily needed until PR 522 is deployed to mainnet
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        previousMultiplier,
+        previousEffectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    )
+    .add(
+      createUpdateMultiplierDataInstruction(
+        mint,
+        payer.publicKey,
+        multiplier,
+        effectiveTimestamp,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [payer],
+    undefined
+  );
+
+  console.log(
+    `✅ Updated scaled-UI multiplier to ${multiplier} for mint:`,
+    mint.toBase58()
+  );
+  return signature;
+}
+const multiplier = 1.5;
+const effectiveTimestamp = BigInt(Math.floor(Date.now() / 1000));
+const previousMultiplier = 1.2;
+const previousEffectiveTimestamp = BigInt(1746470000);
+const updateSignature = await updateScaledUiMultiplier(
+  connection,
+  payer,
+  mintPubkey,
+  multiplier,
+  effectiveTimestamp,
+  previousMultiplier,
+  previousEffectiveTimestamp
+);
+console.log("Update signature:", updateSignature);
+```
+
+</CodeTabs>
+
+### 获取余额
+
+要获取余额，您需要使用 `balance` 命令。
+
+<CodeTabs>
+
+```terminal !! title="balance.sh"
+$ spl-token balance 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM
+```
+
+```ts !! title="balance.ts"
+/**
+ * Gets the scaled UI amount balance for a token holder.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param mint       – PublicKey of the mint to check.
+ * @param owner      – PublicKey of the token holder.
+ * @returns The scaled UI amount balance.
+ */
+export async function getScaledUiAmountBalance(
+  connection: Connection,
+  mint: PublicKey,
+  owner: PublicKey
+): Promise<number> {
+  // Get the token account for this mint/owner pair
+  const tokenAccount = getAssociatedTokenAddressSync(
+    mint,
+    owner,
+    false,
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // Get the token account info
+  const accountInfo = await connection.getAccountInfo(tokenAccount);
+  if (!accountInfo) {
+    throw new Error("Token account not found");
+  }
+
+  const info = await connection.getTokenAccountBalance(tokenAccount);
+  if (info.value.uiAmount == null) throw new Error("No balance found");
+  console.log("Balance: ", info.value.uiAmount);
+  return info.value.uiAmount;
+}
+const balance = await getScaledUiAmountBalance(connection, mint, owner);
+```
+
+</CodeTabs>

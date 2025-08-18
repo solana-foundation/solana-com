@@ -1,0 +1,337 @@
+---
+title: How to Calculate Transaction Cost
+description:
+  "Every transaction costs compute units and a fee in lamports to execute on
+  Solana. Learn how to calculate the cost of a transaction on Solana."
+---
+
+Every transaction consumes compute units and requires a transaction fee in
+lamports to execute. The number of signatures included on a transaction
+determines the base transaction fee (5000 lamports per signature).
+
+<CodeTabs storage="cookbook" flags="r">
+
+```typescript !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  compileTransactionMessage,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getBase64Decoder,
+  getCompiledTransactionMessageEncoder,
+  getComputeUnitEstimateForTransactionMessageFactory,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  prependTransactionMessageInstructions,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  type TransactionMessageBytesBase64
+} from "@solana/kit";
+import {
+  getSetComputeUnitLimitInstruction,
+  getSetComputeUnitPriceInstruction
+} from "@solana-program/compute-budget";
+import { getAddMemoInstruction } from "@solana-program/memo";
+
+// 1. Setup RPC connections
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// 2. Create utility functions
+const getComputeUnitEstimate =
+  getComputeUnitEstimateForTransactionMessageFactory({ rpc });
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+const airdrop = airdropFactory({ rpc, rpcSubscriptions });
+
+// 3. Create and fund an account
+const signer = await generateKeyPairSigner();
+await airdrop({
+  commitment: "confirmed",
+  lamports: lamports(1000_000n),
+  recipientAddress: signer.address
+});
+console.log("Create and fund account with address", signer.address);
+
+// 4. Create a memo transaction
+console.log("Creating a memo transaction");
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const transactionMessage = pipe(
+  createTransactionMessage({ version: "legacy" }),
+  (m) => setTransactionMessageFeePayerSigner(signer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) =>
+    appendTransactionMessageInstructions(
+      [
+        getSetComputeUnitPriceInstruction({ microLamports: 5000n }),
+        getAddMemoInstruction({ memo: "Hello, world!" })
+      ],
+      m
+    )
+);
+
+// 5. Estimate compute units
+const estimatedComputeUnits = await getComputeUnitEstimate(transactionMessage);
+// Transaction is estimated to consume 6236 compute units
+console.log(
+  `Transaction is estimated to consume ${estimatedComputeUnits} compute units`
+);
+
+// 6. Add compute unit limit instruction to the transaction
+const budgetedTransactionMessage = prependTransactionMessageInstructions(
+  [getSetComputeUnitLimitInstruction({ units: estimatedComputeUnits })],
+  transactionMessage
+);
+
+// 7. Calculate transaction fee
+const base64EncodedMessage = pipe(
+  budgetedTransactionMessage,
+  compileTransactionMessage,
+  getCompiledTransactionMessageEncoder().encode,
+  getBase64Decoder().decode
+) as TransactionMessageBytesBase64;
+
+const transactionCost = await rpc.getFeeForMessage(base64EncodedMessage).send();
+// Transaction is estimated to cost 5032 lamports
+console.log(
+  "Transaction is estimated to cost " + transactionCost.value + " lamports"
+);
+
+// 8. Sign and send the transaction
+const signedTx = await signTransactionMessageWithSigners(
+  budgetedTransactionMessage
+);
+const transactionSignature = getSignatureFromTransaction(signedTx);
+console.log("Transaction Signature:", transactionSignature);
+
+await sendAndConfirmTransaction(signedTx, { commitment: "confirmed" });
+```
+
+```typescript !! title="Legacy"
+import {
+  ComputeBudgetProgram,
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  TransactionMessage,
+  VersionedTransaction
+} from "@solana/web3.js";
+
+// Connect to Solana network
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const { blockhash, lastValidBlockHeight } =
+  await connection.getLatestBlockhash();
+
+// Create keypairs for transaction
+const sender = Keypair.generate();
+const recipient = Keypair.generate();
+console.log(`Created sender account: ${sender.publicKey.toString()}`);
+console.log(`Created recipient account: ${recipient.publicKey.toString()}`);
+
+// Request and confirm airdrop
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+
+await connection.confirmTransaction({
+  signature: airdropSignature,
+  blockhash,
+  lastValidBlockHeight
+});
+
+// Create a transfer instruction
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 1000000 // 0.001 SOL
+});
+
+// Create simulation instructions with placeholder compute unit limit
+const simulationInstructions = [
+  ComputeBudgetProgram.setComputeUnitLimit({
+    units: 1_400_000 // High value for simulation
+  }),
+  ComputeBudgetProgram.setComputeUnitPrice({
+    microLamports: 1n
+  }),
+  transferInstruction
+];
+
+// Create transaction for simulation
+const simulationTransaction = new VersionedTransaction(
+  new TransactionMessage({
+    instructions: simulationInstructions,
+    payerKey: sender.publicKey,
+    recentBlockhash: blockhash
+  }).compileToV0Message()
+);
+
+// Simulate transaction to get compute unit estimate
+const simulationResponse = await connection.simulateTransaction(
+  simulationTransaction
+);
+
+const estimatedUnits = simulationResponse.value.unitsConsumed;
+console.log(`Estimated compute units: ${estimatedUnits}`);
+
+// Create final transaction with compute budget instructions
+const computeUnitLimitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: estimatedUnits!
+});
+
+const computeUnitPriceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1n
+});
+
+// Build transaction with all instructions
+const messageV0 = new TransactionMessage({
+  payerKey: sender.publicKey,
+  recentBlockhash: blockhash,
+  instructions: [
+    computeUnitPriceInstruction,
+    computeUnitLimitInstruction,
+    transferInstruction
+  ]
+}).compileToV0Message();
+
+// Calculate fee
+const fees = await connection.getFeeForMessage(messageV0);
+console.log(`Transaction fee: ${fees.value} lamports`);
+
+const transaction = new VersionedTransaction(messageV0);
+transaction.sign([sender]);
+
+// Send and confirm transaction
+const signature = await connection.sendTransaction(transaction);
+console.log(`Transaction Signature: ${signature}`);
+```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, signature::Keypair,
+    signer::Signer, transaction::Transaction,
+};
+use spl_memo::build_memo;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let signer_keypair = Keypair::new();
+    let memo = String::from("Memo message to be logged in this transaction");
+
+    let memo_ix = build_memo(memo.as_bytes(), &[&signer_keypair.pubkey()]);
+    let mut transaction = Transaction::new_with_payer(&[memo_ix], Some(&signer_keypair.pubkey()));
+    transaction.sign(&[&signer_keypair], client.get_latest_blockhash().await?);
+
+    let transaction_signature = client
+        .request_airdrop(&signer_keypair.pubkey(), 5 * LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        if client.confirm_transaction(&transaction_signature).await? {
+            break;
+        }
+    }
+
+    let estimated_units = estimate_cu_used(&client, &transaction).await?;
+    println!("Transaction estimated to consumed {estimated_units} compute units");
+
+    let tx_cost = client.get_fee_for_message(transaction.message()).await?;
+    println!("Transaction is estimated to cost {tx_cost} lamports");
+
+    match client.send_and_confirm_transaction(&transaction).await {
+        Ok(signature) => println!("Transaction Signature: {}", signature),
+        Err(err) => eprintln!("Error sending transaction: {}", err),
+    }
+
+    Ok(())
+}
+
+async fn estimate_cu_used(client: &RpcClient, tx: &Transaction) -> anyhow::Result<u64> {
+    let sim_res = client.simulate_transaction(tx).await?;
+
+    let units_consumed = sim_res
+        .value
+        .units_consumed
+        .expect("couldn't estimate CUs used");
+
+    Ok(units_consumed)
+}
+```
+
+```py !! title="Python"
+#!/usr/bin/env python3
+"""
+Solana Cookbook - How to Calculate Transaction Cost
+"""
+
+import asyncio
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.system_program import transfer, TransferParams
+from solders.transaction import VersionedTransaction
+from solders.message import MessageV0
+
+async def main():
+    rpc = AsyncClient("http://localhost:8899")
+
+    sender = Keypair()
+    recipient = Keypair()
+
+    amount = 1_000_000_000  # 1 SOL
+
+    async with rpc:
+        # Get latest blockhash
+        latest_blockhash = await rpc.get_latest_blockhash()
+
+        # Create transfer instruction
+        transfer_instruction = transfer(
+            TransferParams(
+                from_pubkey=sender.pubkey(),
+                to_pubkey=recipient.pubkey(),
+                lamports=amount
+            )
+        )
+
+        # Create message
+        message = MessageV0.try_compile(
+            payer=sender.pubkey(),
+            instructions=[transfer_instruction],
+            address_lookup_table_accounts=[],
+            recent_blockhash=latest_blockhash.value.blockhash
+        )
+
+        # Create transaction
+        transaction = VersionedTransaction(message, [sender])
+
+        # Get fee for transaction
+        fee_response = await rpc.get_fee_for_message(message)
+
+        print(f"Transaction fee: {fee_response.value} lamports")
+        print(f"Transaction fee: {fee_response.value / 1_000_000_000} SOL")
+
+        # Calculate total cost (amount + fee)
+        total_cost = amount + fee_response.value
+        print(f"Total cost: {total_cost} lamports")
+        print(f"Total cost: {total_cost / 1_000_000_000} SOL")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+</CodeTabs>

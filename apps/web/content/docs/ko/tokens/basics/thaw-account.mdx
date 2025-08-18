@@ -1,0 +1,694 @@
+---
+title: 계정 해동
+description: 동결된 토큰 계정을 해동하는 방법을 알아보세요.
+---
+
+## 계정 해동
+
+[`ThawAccount`](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L243)
+명령어는 동결을 해제하여 이전에 동결된 토큰 계정의 모든 기능을 복원합니다. 해동
+후 계정은 다시 정상적으로 토큰을 송수신할 수 있습니다. 토큰의 민트에 대한 동결
+권한을 가진 사람만 계정을 해동할 수 있습니다.
+
+<Callout type="info">
+  [Token
+  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L243)
+  및 [Token Extension
+  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L306)
+  은 동일한 기능을 달성하기 위해 유사한 구현을 공유합니다.
+</Callout>
+
+### Typescript
+
+<CodeTabs storage="token-ts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getFreezeAccountInstruction,
+  getThawAccountInstruction
+} from "@solana-program/token";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate keypairs for fee payer
+const feePayer = await generateKeyPairSigner();
+
+// Fund fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
+
+// Get default mint account size (in bytes), no extensions enabled
+const space = BigInt(getMintSize());
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Instruction to create new account for mint (token program)
+// Invokes the system program
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize mint account data
+// Invokes the token program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: feePayer.address,
+  freezeAuthority: feePayer.address
+});
+
+// Use findAssociatedTokenPda to derive the ATA address
+const [associatedTokenAddress] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: feePayer.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Create instruction to create the associated token account
+const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
+  payer: feePayer,
+  mint: mint.address,
+  owner: feePayer.address
+});
+
+// Create instruction to mint tokens
+const mintToInstruction = getMintToInstruction({
+  mint: mint.address,
+  token: associatedTokenAddress,
+  mintAuthority: feePayer.address,
+  amount: 1000_000_000_000n // 1000.0 tokens with 9 decimals
+});
+
+// Create instruction to freeze the token account
+const freezeInstruction = getFreezeAccountInstruction({
+  account: associatedTokenAddress,
+  mint: mint.address,
+  owner: feePayer.address
+});
+
+const instructions = [
+  createAccountInstruction,
+  initializeMintInstruction,
+  createAtaInstruction,
+  mintToInstruction,
+  freezeInstruction
+];
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions(instructions, tx)
+);
+
+// Sign transaction message with all required signers
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address:", mint.address.toString());
+console.log(
+  "Associated Token Account Address:",
+  associatedTokenAddress.toString()
+);
+console.log("Transaction Signature:", transactionSignature);
+console.log("Successfully minted 1000.0 tokens and frozen the account");
+
+// Get a fresh blockhash for the thaw transaction
+const { value: thawBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Create instruction to thaw the frozen token account
+const thawInstruction = getThawAccountInstruction({
+  account: associatedTokenAddress,
+  mint: mint.address,
+  owner: feePayer.address
+});
+
+// Create transaction message for thawing
+const thawTxMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(thawBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([thawInstruction], tx)
+);
+
+// Sign transaction message with all required signers
+const signedThawTx = await signTransactionMessageWithSigners(thawTxMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedThawTx,
+  { commitment: "confirmed" }
+);
+
+// Get transaction signature
+const transactionSignature2 = getSignatureFromTransaction(signedThawTx);
+
+console.log("Successfully thawed the frozen token account");
+console.log("Transaction Signature:", transactionSignature2);
+```
+
+```ts !! title="Legacy"
+import {
+  createMint,
+  freezeAccount,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  thawAccount
+} from "@solana/spl-token";
+import { Connection, Keypair } from "@solana/web3.js";
+
+// Connect to local Solana node
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Create a fee payer account
+const feePayer = Keypair.generate();
+
+// Request airdrop for fee payer
+const airdropSig = await connection.requestAirdrop(
+  feePayer.publicKey,
+  1000000000
+);
+await connection.confirmTransaction(airdropSig);
+
+// Step 1: Create a new mint
+const mintAuthority = feePayer;
+const freezeAuthority = feePayer;
+const decimals = 2;
+
+const mint = await createMint(
+  connection,
+  feePayer,
+  mintAuthority.publicKey,
+  freezeAuthority.publicKey,
+  decimals
+);
+console.log("Mint Address:", mint.toBase58());
+
+// Step 2: Create Associated Token Account
+const tokenAccount = await getOrCreateAssociatedTokenAccount(
+  connection,
+  feePayer,
+  mint,
+  feePayer.publicKey
+);
+console.log("Token Account Address:", tokenAccount.address.toBase58());
+
+// Step 3: Mint tokens
+const amountToMint = 100;
+const transactionSignature2 = await mintTo(
+  connection,
+  feePayer,
+  mint,
+  tokenAccount.address,
+  mintAuthority,
+  amountToMint
+);
+console.log("Transaction Signature:", transactionSignature2);
+
+// Step 4: Freeze token account
+const transactionSignature3 = await freezeAccount(
+  connection,
+  feePayer,
+  tokenAccount.address,
+  mint,
+  freezeAuthority
+);
+console.log("Transaction Signature:", transactionSignature3);
+
+// Step 5: Thaw frozen token account
+const transactionSignature4 = await thawAccount(
+  connection,
+  feePayer,
+  tokenAccount.address,
+  mint,
+  freezeAuthority
+);
+console.log("Transaction Signature:", transactionSignature4);
+```
+
+```ts !! title="Legacy Helper"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  createMint,
+  createAssociatedTokenAccount,
+  mintTo,
+  freezeAccount,
+  thawAccount,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// Create mint using helper function
+const mintPubkey = await createMint(
+  connection, // connection
+  feePayer, // fee payer
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  9, // decimals
+  Keypair.generate(), // keypair (optional)
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_PROGRAM_ID // program id
+);
+console.log("Mint Address:", mintPubkey.toBase58());
+
+// Create associated token account using helper function
+const associatedTokenAccount = await createAssociatedTokenAccount(
+  connection, // connection
+  feePayer, // fee payer
+  mintPubkey, // mint
+  feePayer.publicKey, // owner
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_PROGRAM_ID // program id
+);
+console.log(
+  "Associated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+
+// Mint 1000 tokens to the associated token account (with 9 decimals, this is 1000.0 tokens)
+const mintAmount = 1000_000_000_000; // 1000.0 tokens with 9 decimals
+const transactionSignature2 = await mintTo(
+  connection, // connection
+  feePayer, // payer
+  mintPubkey, // mint
+  associatedTokenAccount, // destination
+  feePayer, // authority (mint authority)
+  mintAmount, // amount
+  [], // additional signers
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_PROGRAM_ID // program id
+);
+console.log("Successfully minted 1000.0 tokens");
+console.log("Transaction Signature:", transactionSignature2);
+
+// Freeze the token account
+const transactionSignature3 = await freezeAccount(
+  connection, // connection
+  feePayer, // payer
+  associatedTokenAccount, // token account
+  mintPubkey, // mint
+  feePayer, // freeze authority
+  [], // additional signers
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_PROGRAM_ID // program id
+);
+
+console.log("Successfully frozen the token account");
+console.log("Transaction Signature:", transactionSignature3);
+
+// Thaw the frozen token account
+const transactionSignature4 = await thawAccount(
+  connection,
+  feePayer,
+  associatedTokenAccount,
+  mintPubkey,
+  feePayer, // Freeze authority
+  [],
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+console.log("Successfully thawed the frozen token account");
+console.log("Transaction Signature:", transactionSignature4);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust Async"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    system_instruction::create_account,
+    transaction::Transaction,
+};
+use spl_associated_token_account::{
+    get_associated_token_address_with_program_id, instruction::create_associated_token_account,
+};
+use spl_token::{
+    id as token_program_id,
+    instruction::{initialize_mint, mint_to, freeze_account, thaw_account},
+    state::Mint,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let latestBlockhash = client.get_latest_blockhash().await?;
+
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
+
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+    client.confirm_transaction(&airdrop_signature).await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+
+    // Get default mint account size (in bytes), no extensions enabled
+    let mint_space = Mint::LEN;
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_space)
+        .await?;
+
+    // Instruction to create new account for mint (token program)
+    let create_account_instruction = create_account(
+        &fee_payer.pubkey(),      // payer
+        &mint.pubkey(),           // new account (mint)
+        mint_rent,                // lamports
+        mint_space as u64,        // space
+        &token_program_id(), // program id
+    );
+
+    // Instruction to initialize mint account data
+    let initialize_mint_instruction = initialize_mint(
+        &token_program_id(),
+        &mint.pubkey(),            // mint
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
+
+    // Calculate the associated token account address for fee_payer
+    let associated_token_address = get_associated_token_address_with_program_id(
+        &fee_payer.pubkey(),      // owner
+        &mint.pubkey(),           // mint
+        &token_program_id(), // program_id
+    );
+
+    // Instruction to create associated token account
+    let create_ata_instruction = create_associated_token_account(
+        &fee_payer.pubkey(),      // funding address
+        &fee_payer.pubkey(),      // wallet address
+        &mint.pubkey(),           // mint address
+        &token_program_id(), // program id
+    );
+
+    // Amount of tokens to mint (1000 tokens with 9 decimals)
+    let amount = 1000_000_000_000;
+
+    // Create mint_to instruction to mint tokens to the associated token account
+    let mint_to_instruction = mint_to(
+        &token_program_id(),
+        &mint.pubkey(),            // mint
+        &associated_token_address, // destination
+        &fee_payer.pubkey(),       // authority
+        &[&fee_payer.pubkey()],    // signer
+        amount,                    // amount
+    )?;
+
+    // Create freeze account instruction
+    let freeze_instruction = freeze_account(
+        &token_program_id(), // program id
+        &associated_token_address,  // token account to freeze
+        &mint.pubkey(),             // mint
+        &fee_payer.pubkey(),        // freeze authority
+        &[&fee_payer.pubkey()],     // signers
+    )?;
+
+    // Create transaction and add instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[
+            create_account_instruction,
+            initialize_mint_instruction,
+            create_ata_instruction,
+            mint_to_instruction,
+            freeze_instruction,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        latestBlockhash,
+    );
+
+    // Send and confirm transaction
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!(
+        "Associated Token Account Address: {}",
+        associated_token_address
+    );
+    println!("Transaction Signature: {}", transaction_signature);
+    println!("Successfully minted 1000.0 tokens and frozen the account");
+
+    // Get the latest blockhash for the thaw transaction
+    let latestBlockhash = client.get_latest_blockhash().await?;
+
+    // Create thaw account instruction
+    let thaw_instruction = thaw_account(
+        &token_program_id(), // program id
+        &associated_token_address,  // token account to thaw
+        &mint.pubkey(),             // mint
+        &fee_payer.pubkey(),        // freeze authority
+        &[&fee_payer.pubkey()],     // signers
+    )?;
+
+    // Create transaction for thawing token account
+    let transaction = Transaction::new_signed_with_payer(
+        &[thaw_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latestBlockhash,
+    );
+
+    // Send and confirm transaction
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+    println!("Successfully thawed the frozen token account");
+    println!("Transaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+```
+
+```rust !! title="Token Client"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    signature::{Keypair, Signer},
+};
+use spl_token::id as token_program_id;
+use spl_token_client::{
+    client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
+    token::{ExtensionInitializationParams, Token},
+};
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let rpc_client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Generate a new keypair for the fee payer
+    let payer = Keypair::new();
+
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = rpc_client
+        .request_airdrop(&payer.pubkey(), 1_000_000_000)
+        .await?;
+    rpc_client.confirm_transaction(&airdrop_signature).await?;
+
+    loop {
+        let confirmed = rpc_client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+
+    // Create a new program client
+    let program_client = ProgramRpcClient::new(
+        Arc::new(RpcClient::new_with_commitment(
+            String::from("http://localhost:8899"),
+            CommitmentConfig::confirmed(),
+        )),
+        ProgramRpcClientSendTransaction,
+    );
+
+    // Number of decimals for the mint
+    let decimals = 9;
+
+    // Create a token client for Token program
+    let token = Token::new(
+        Arc::new(program_client),
+        &token_program_id(),
+        &mint.pubkey(),
+        Some(decimals),
+        Arc::new(payer.insecure_clone()),
+    );
+
+    // Create and initialize the mint
+    let extension_initialization_params: Vec<ExtensionInitializationParams> = Vec::new();
+
+    let mint_result = token
+        .create_mint(
+            &payer.pubkey(),                 // mint authority
+            Some(&payer.pubkey()),           // freeze authority
+            extension_initialization_params, // no extensions
+            &[&mint],                        // mint keypair needed as signer
+        )
+        .await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Mint Creation Result: {}", mint_result);
+
+    // First, derive the associated token account address without creating it
+    let associated_token_address = token.get_associated_token_address(&payer.pubkey());
+    println!(
+        "Associated Token Account Address: {}",
+        associated_token_address
+    );
+
+    // Then, create the associated token account
+    let create_ata_result = token
+        .create_associated_token_account(
+            &payer.pubkey(), // owner
+        )
+        .await?;
+
+    println!("Created Associated Token Account: {}", create_ata_result);
+
+    // Mint tokens to the associated token account
+    let amount = 1000_000_000_000; // 1000 tokens with 9 decimal places
+    let mint_to_result = token
+        .mint_to(
+            &associated_token_address, // destination
+            &payer.pubkey(),           // authority (mint authority)
+            amount,                    // amount
+            &[&payer],                 // additional signers (providing payer as a signer)
+        )
+        .await?;
+
+    println!("Successfully minted 1000.0 tokens to associated token account");
+    println!("Transaction Signature: {}", mint_to_result);
+
+    // Freeze the token account
+    let freeze_signature = token
+        .freeze(
+            &associated_token_address, // token account to freeze
+            &payer.pubkey(),           // freeze authority
+            &[&payer],                 // signers
+        )
+        .await?;
+
+    println!("Successfully frozen the token account");
+    println!("Transaction Signature: {}", freeze_signature);
+
+    // Thaw the frozen token account
+    let thaw_signature = token
+        .thaw(
+            &associated_token_address, // token account to thaw
+            &payer.pubkey(),           // freeze authority
+            &[&payer],                 // signers
+        )
+        .await?;
+
+    println!("Successfully thawed the frozen token account");
+    println!("Transaction Signature: {}", thaw_signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

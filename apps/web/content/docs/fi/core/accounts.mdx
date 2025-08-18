@@ -1,0 +1,1041 @@
+---
+title: Solanan tilimalli
+description:
+  Opi Solanan tilimallista, mukaan lukien miten tilit tallentavat dataa ja
+  ohjelmia, rent-mekaniikat, tilien omistajuus ja ohjelmien ja datatilien
+  välinen suhde. Ymmärrä Solanan avain-arvo-tallennusjärjestelmän keskeiset
+  käsitteet.
+---
+
+Solanassa kaikki data tallennetaan "tileihin". Voit ajatella Solanan dataa
+julkisena tietokantana, jossa on yksi "Tilit"-taulu, jossa jokainen taulun rivi
+on "tili". Jokaisella Solanan tilillä on sama
+[Account-tyyppi](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60).
+
+![Tilit](/assets/docs/core/accounts/accounts.png)
+
+## Keskeiset kohdat
+
+- Tilit voivat tallentaa enintään
+  [10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+  dataa, joka sisältää joko suoritettavaa ohjelmakoodia tai ohjelman tilaa.
+- Tilit vaativat
+  [rent-talletuksen](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+  lamporteissa (SOL), joka on suhteessa tallennetun datan määrään, ja voit saada
+  sen kokonaan takaisin, kun suljet tilin.
+- Jokaisella tilillä on ohjelma
+  [omistaja](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L55).
+  Vain tiliä omistava ohjelma voi muuttaa sen dataa tai vähentää sen
+  lamport-saldoa. Mutta kuka tahansa voi kasvattaa saldoa.
+- **Sysvar-tilit** ovat erityisiä tilejä, jotka tallentavat verkon klusterin
+  tilan.
+- **Program account -tilit** tallentavat älysopimusten suoritettavan koodin.
+- **Datatilit** ovat ohjelmien luomia tilejä ohjelman tilan tallentamiseen ja
+  hallintaan.
+
+## Tili
+
+Jokaisella Solanan tilillä on yksilöllinen 32 tavun osoite, joka usein näytetään
+base58-koodattuna merkkijonona (esim.
+`14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5`).
+
+Tilin ja sen osoitteen välinen suhde toimii kuin avain-arvo- pari, jossa osoite
+on avain, jolla paikannetaan tilin vastaava lohkoketjudata. Tiliosoite toimii
+"yksilöllisenä tunnisteena" jokaiselle riville "Tilit"-taulussa.
+
+![Tilin osoite](/assets/docs/core/accounts/account-address.svg)
+
+Useimmat Solana-tilit käyttävät [Ed25519](https://ed25519.cr.yp.to/) julkista
+avainta osoitteenaan.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+Vaikka julkisia avaimia käytetään yleisesti tilien osoitteina, Solana tukee myös
+ominaisuutta nimeltä [Program Derived Addresses](/docs/core/pda) (PDA:t). PDA:t
+ovat erityisiä osoitteita, jotka voidaan deterministisesti johtaa
+ohjelmatunnuksesta ja valinnaisista syötteistä (seed).
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+### Tilin tyyppi
+
+Tilien enimmäiskoko on
+[10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
+ja jokaisella Solanan tilillä on sama perus
+[Account](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60)
+tyyppi.
+
+![Tilin tyyppi](/assets/docs/core/accounts/account-type.svg)
+
+Jokaisella Solanan tilillä on seuraavat kentät.
+
+```rust title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+    /// the epoch at which this account will next owe rent
+    pub rent_epoch: Epoch,
+}
+```
+
+<ScrollyCoding>
+
+## !!steps Lamport-kenttä
+
+Tilin saldo lamporteina, joka on SOLin pienin yksikkö (1 SOL = 1 miljardi
+lamportia). Tilin SOL-saldo on `lamports` -kentässä oleva määrä muunnettuna
+SOLeiksi.
+
+Solana-tileillä on oltava vähimmäismäärä lamporteja, joka on suhteessa tilille
+tallennetun datan määrään (tavuina). Tätä vähimmäissaldoa kutsutaan nimellä
+"rent".
+
+Tilille tallennettu lamport-saldo voidaan palauttaa kokonaisuudessaan, kun tili
+suljetaan.
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    // !focus(1:2)
+    /// lamports in the account
+    pub lamports: u64,
+}
+
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+}
+```
+
+## !!steps Data-kenttä
+
+Tavutaulukko, joka tallentaa mielivaltaista dataa tilille. Data-kenttää
+kutsutaan yleisesti "tilin dataksi".
+
+- Program accounteille (älysopimukset) tämä kenttä sisältää joko suoritettavan
+  ohjelmakoodin tai toisen tilin osoitteen, joka sisältää suoritettavan
+  ohjelmakoodin.
+- Ei-suoritettaville tileille tämä yleensä tallentaa tilaa, jota on tarkoitus
+  lukea.
+
+Datan lukeminen Solana-tililtä sisältää kaksi vaihetta:
+
+1. Hae tili sen osoitteen (julkisen avaimen) avulla
+2. Pura tilin data-kentän raakatavut sopivaksi tietorakenteeksi, jonka
+   määrittelee tiliä omistava ohjelma
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    // !focus(1:3)
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+}
+
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus(1:2)
+    data.len: 82,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus(1:2)
+    data.len: 134080,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Omistaja-kenttä
+
+Ohjelman tunnus (julkinen avain) ohjelmalle, joka omistaa tämän tilin.
+
+Jokaisella Solana-tilillä on määritetty ohjelma omistajana. Vain tiliä omistava
+ohjelma voi muuttaa tilin dataa tai vähentää sen lamport-saldoa.
+
+Ohjelmassa määritellyt ohjeet määrittävät, miten tilin tietoja ja lamport-saldoa
+voidaan muuttaa.
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    // !focus(1:2)
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+}
+
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Suoritettava kenttä
+
+Tämä kenttä ilmaisee, onko tili suoritettava ohjelma.
+
+- Jos `true`, tili on suoritettava Solana-ohjelma.
+- Jos `false`, tili on datatili, joka tallentaa tilaa.
+
+Suoritettavissa tileissä `owner` -kenttä sisältää lataajaohjelman
+ohjelmatunnuksen. Lataajaohjelmia ovat sisäänrakennetut ohjelmat, jotka
+vastaavat suoritettavien ohjelmatilien lataamisesta ja hallinnasta.
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    // !focus(1:2)
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+}
+
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Rent Epoch -kenttä
+
+`rent_epoch` -kenttä on vanha kenttä, jota ei enää käytetä.
+
+Alun perin tämä kenttä seurasi, milloin tilin pitäisi maksaa rent (lamporteissa)
+säilyttääkseen tietonsa verkossa. Tämä rent-keräysmekanismi on kuitenkin
+sittemmin poistettu käytöstä.
+
+```rust !! title="Base Account Type"
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+    // !focus(1:2)
+    /// the epoch at which this account will next owe rent
+    pub rent_epoch: Epoch,
+}
+
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>
+
+### Rent
+
+Tietojen tallentamiseksi lohkoketjuun tileillä on oltava myös lamport (SOL)
+-saldo, joka on suhteessa tilille tallennetun tiedon määrään (tavuina). Tätä
+saldoa kutsutaan nimellä "rent", mutta se toimii enemmän talletuksen tavoin,
+koska voit saada koko summan takaisin, kun suljet tilin. Löydät laskelman
+[täältä](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
+käyttäen näitä
+[vakioita](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70).
+
+Termi "rent" tulee käytöstä poistetusta mekanismista, joka vähensi
+säännöllisesti lamporteja tileiltä, jotka jäivät alle rent-kynnysarvon. Tämä
+mekanismi ei ole enää aktiivinen.
+
+### Ohjelman omistaja
+
+Solanassa "älysopimuksia" kutsutaan [ohjelmiksi](/docs/core/programs). Ohjelman
+omistajuus on keskeinen osa Solanan tilirakennetta. Jokaisella tilillä on
+nimetty ohjelma omistajana. Vain omistajaohjelmalla on oikeus:
+
+- Muuta tilin `data` kenttää
+- Vähennä lamporteja tilin saldosta
+
+Jokainen ohjelma määrittelee tilin `data` kenttään tallennettavan datan
+rakenteen. Ohjelman ohjeet määrittävät, miten tätä dataa ja tilin `lamports`
+saldoa voidaan muuttaa.
+
+## System Program
+
+Oletuksena kaikki uudet tilit ovat
+[System Program](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/system/src)
+-ohjelman omistamia. System Program suorittaa seuraavat keskeiset toiminnot:
+
+| Toiminto                                                                                                                      | Kuvaus                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Uuden tilin luominen](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L146)           | Vain System Program voi luoda uusia tilejä.                                                                                                                                                       |
+| [Tilan varaaminen](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L71)                | Määrittää kunkin tilin datakenttien tavukapasiteetin.                                                                                                                                             |
+| [Ohjelman omistajuuden määritys](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L113) | Kun System Program on luonut tilin, se voi siirtää määritetyn ohjelman omistajuuden toiselle ohjelmatilille. Näin mukautetut ohjelmat ottavat omistukseensa System Programin luomia uusia tilejä. |
+| [SOL-siirto](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L215)                     | Siirtää lamporteja (SOL) System-tileiltä muille tileille.                                                                                                                                         |
+
+Huomaa, että kaikki Solanan "lompakkotilit" ovat System Programin omistamia
+"System-tilejä". Näiden tilien lamport-saldo osoittaa lompakon omistaman
+SOL-määrän. Vain System-tilit voivat maksaa transaktiomaksuja.
+
+![System-tili](/assets/docs/core/accounts/system-account.svg)
+
+Kun SOL lähetetään ensimmäistä kertaa uuteen osoitteeseen, kyseiseen
+osoitteeseen luodaan automaattisesti System Programin omistama tili.
+
+Alla olevassa esimerkissä luodaan uusi keypair ja rahoitetaan se SOLilla.
+Suorita koodi nähdäksesi tuloksen. Huomaa, että tilin `owner` kenttä on System
+Program, jonka osoite on `11111111111111111111111111111111`.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPairSigner,
+  lamports
+} from "@solana/kit";
+
+// Create a connection to Solana cluster
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate a new keypair
+const keypair = await generateKeyPairSigner();
+console.log(`Public Key: ${keypair.address}`);
+
+// Funding an address with SOL automatically creates an account
+const signature = await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: keypair.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+const accountInfo = await rpc.getAccountInfo(keypair.address).send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Keypair, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+// Generate a new keypair
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+
+// Create a connection to the Solana cluster
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Funding an address with SOL automatically creates an account
+const signature = await connection.requestAirdrop(
+  keypair.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+const accountInfo = await connection.getAccountInfo(keypair.publicKey);
+console.log(JSON.stringify(accountInfo, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
+    signer::{keypair::Keypair, Signer},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate a new keypair
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+
+    // Create a connection to Solana cluster
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Funding an address with SOL automatically creates an account
+    let signature = connection
+        .request_airdrop(&keypair.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+    connection.confirm_transaction(&signature).await?;
+
+    let account_info = connection.get_account(&keypair.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+## Sysvar-tilit
+
+Sysvar-tilit ovat erityisiä tilejä ennalta määritetyissä osoitteissa, jotka
+tarjoavat pääsyn klusterin tilatietoihin. Nämä tilit päivittyvät dynaamisesti
+verkkoklusterin tiedoilla. Löydät täydellisen luettelon Sysvar-tileistä
+[täältä](https://docs.anza.xyz/runtime/sysvars).
+
+Seuraava esimerkki näyttää, miten haetaan ja puretaan tiedot Sysvar Clock
+-tililtä.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { createSolanaRpc } from "@solana/kit";
+import { fetchSysvarClock, SYSVAR_CLOCK_ADDRESS } from "@solana/sysvars";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const accountInfo = await rpc
+  .getAccountInfo(SYSVAR_CLOCK_ADDRESS, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+
+// Automatically fetch and deserialize the account data
+const clock = await fetchSysvarClock(rpc);
+console.log(clock);
+```
+
+```ts !! title="Legacy"
+import { Connection, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+import { getSysvarClockCodec } from "@solana/sysvars";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+
+const accountInfo = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
+
+// Deserialize the account data
+const decodedClock = getSysvarClockCodec().decode(
+  new Uint8Array(accountInfo?.data ?? [])
+);
+// !collapse(1:16) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+console.log(decodedClock);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use bincode::deserialize;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    sysvar::{self, clock::Clock},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet-beta.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let account = connection.get_account(&sysvar::clock::ID).await?;
+    // Deserialize the account data
+    let clock: Clock = deserialize(&account.data)?;
+
+    println!("{:#?}", account);
+    println!("{:#?}", clock);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+## Program Account
+
+Solana-ohjelman käyttöönotto luo suoritettavan program account -tilin. Program
+account tallentaa ohjelman suoritettavan koodin. Program account -tilejä
+hallinnoi [Loader Program](/docs/core/programs#loader-programs).
+
+![Program Account](/assets/docs/core/accounts/program-account-simple.svg)
+
+Yksinkertaisuuden vuoksi voit käsitellä program account -tiliä itse ohjelmana.
+Kun kutsut ohjelman ohjeita, määrität program account -tilin osoitteen
+(yleisesti kutsutaan "Program ID:ksi").
+
+Seuraava esimerkki hakee Token Program -tilin osoittaakseen, että program
+account -tileillä on sama perus `Account` tyyppi, paitsi että `executable`
+kenttä on asetettu arvoon `true`. Koska program account -tilit sisältävät
+suoritettavaa koodia data-kentässään, emme pura tietoja.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const programId = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address;
+
+const accountInfo = await rpc
+  .getAccountInfo(programId, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet-beta.solana.com",
+  "confirmed"
+);
+
+const programId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+const accountInfo = await connection.getAccountInfo(programId);
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet-beta.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let program_id = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let account_info = connection.get_account(&program_id).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<Callout type="info">
+
+Kun otat Solana-ohjelman käyttöön, se tallennetaan program account -tiliin.
+Program account -tilejä hallinnoi
+[Loader Program](/docs/core/programs#loader-programs). Lataajasta on useita
+versioita, mutta kaikki paitsi loader-v3 tallentavat suoritettavan koodin
+suoraan program account -tiliin. Loader-v3 tallentaa suoritettavan koodin
+erilliseen "program data account" -tiliin, ja program account vain osoittaa
+siihen. Kun otat käyttöön uuden ohjelman, Solana CLI käyttää oletusarvoisesti
+uusinta lataajan versiota.
+
+</Callout>
+
+### Puskuritili
+
+Loader-v3:lla on erityinen tilityyppi ohjelman väliaikaista latausta varten
+käyttöönoton tai päivitysten aikana. Loader-v4:ssä on edelleen puskureita, mutta
+ne ovat vain tavallisia program account -tilejä.
+
+### Program Data Account
+
+Loader-v3 toimii eri tavalla kuin kaikki muut BPF Loader -ohjelmat. Program
+account sisältää vain program data account -tilin osoitteen, joka tallentaa
+varsinaisen suoritettavan koodin:
+
+![Program Data Account](/assets/docs/core/accounts/program-account-expanded.svg)
+
+Älä sekoita näitä program data account -tilejä ohjelmien datatileihin (katso
+alla).
+
+## Datatili
+
+Solanassa ohjelman suoritettava koodi tallennetaan eri tilille kuin ohjelman
+tila. Tämä on samankaltaista kuin käyttöjärjestelmissä, joissa on tyypillisesti
+erilliset tiedostot ohjelmille ja niiden datalle.
+
+Tilan ylläpitämiseksi ohjelmat määrittelevät ohjeita erillisten tilien
+luomiseen, jotka ne omistavat. Jokaisella näistä tileistä on oma yksilöllinen
+osoitteensa, ja ne voivat tallentaa mitä tahansa ohjelman määrittelemää
+mielivaltaista dataa.
+
+![Datatili](/assets/docs/core/accounts/data-account.svg)
+
+Huomaa, että vain [System Program](/docs/core/accounts#system-program) voi luoda
+uusia tilejä. Kun System Program luo tilin, se voi sitten siirtää uuden tilin
+omistajuuden toiselle ohjelmalle.
+
+Toisin sanoen, datatilin luominen mukautetulle ohjelmalle tapahtuu kahdessa
+vaiheessa:
+
+1. Kutsu System Program luomaan tili ja siirrä sitten omistajuus mukautetulle
+   ohjelmalle
+2. Kutsu mukautettua ohjelmaa, joka nyt omistaa tilin, alustamaan tilin data
+   ohjelman ohjeiden mukaisesti
+
+Tämä tilin luomisprosessi abstrahoidaan usein yhdeksi vaiheeksi, mutta on
+hyödyllistä ymmärtää taustalla oleva prosessi.
+
+Seuraava esimerkki näyttää, kuinka luodaan ja haetaan Token 2022 -ohjelman
+omistama Token Mint -tili.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  fetchMint
+} from "@solana-program/token-2022";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate keypairs for fee payer
+const feePayer = await generateKeyPairSigner();
+
+// Fund fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
+
+// Get default mint account size (in bytes), no extensions enabled
+const space = BigInt(getMintSize());
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Instruction to create new account for mint (token 2022 program)
+// Invokes the system program
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize mint account data
+// Invokes the token 2022 program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: feePayer.address
+});
+
+const instructions = [createAccountInstruction, initializeMintInstruction];
+
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }), // Create transaction message
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), // Set fee payer
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), // Set transaction blockhash
+  (tx) => appendTransactionMessageInstructions(instructions, tx) // Append instructions
+);
+
+// Sign transaction message with required signers (fee payer and mint keypair)
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", transactionSignature);
+
+const accountInfo = await rpc.getAccountInfo(mint.address).send();
+console.log(accountInfo);
+
+const mintAccount = await fetchMint(rpc, mint.address);
+console.log(mintAccount);
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ID,
+  MINT_SIZE,
+  getMinimumBalanceForRentExemptMint,
+  getMint
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const recentBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// Generate keypair to use as address of mint
+const mint = Keypair.generate();
+
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: await getMinimumBalanceForRentExemptMint(connection),
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint pubkey
+  9, // decimals
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint] // Signers
+);
+
+console.log("Mint Address: ", mint.publicKey.toBase58());
+console.log("Transaction Signature: ", transactionSignature);
+
+const accountInfo = await connection.getAccountInfo(mint.publicKey);
+
+// !collapse(1:16) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+console.log(mintAccount);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    system_instruction::create_account,
+    transaction::Transaction,
+};
+use spl_token_2022::{id as token_2022_program_id, instruction::initialize_mint, state::Mint};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
+
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+    client.confirm_transaction(&airdrop_signature).await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+
+    let space = Mint::LEN;
+    let rent = client.get_minimum_balance_for_rent_exemption(space).await?;
+
+    // Create account instruction
+    let create_account_instruction = create_account(
+        &fee_payer.pubkey(),      // fee payer
+        &mint.pubkey(),           // mint address
+        rent,                     // rent
+        space as u64,             // space
+        &token_2022_program_id(), // program id
+    );
+
+    // Initialize mint instruction
+    let initialize_mint_instruction = initialize_mint(
+        &token_2022_program_id(),
+        &mint.pubkey(),            // mint address
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
+
+    // Create transaction and add instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[create_account_instruction, initialize_mint_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        recent_blockhash,
+    );
+
+    // Send and confirm transaction
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
+
+    let account_info = client.get_account(&mint.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    let mint_account = Mint::unpack(&account_info.data)?;
+    println!("{:#?}", mint_account);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
