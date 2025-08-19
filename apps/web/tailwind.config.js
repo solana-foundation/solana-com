@@ -1,8 +1,11 @@
 import { createPreset } from "fumadocs-ui/tailwind-plugin";
-import { preset as solanaPreset } from "@solana/tailwind-config";
+import solanaPreset from "@solana/tailwind-config";
 
 /** @type {import('tailwindcss').Config} */
 export default {
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   darkMode: ["class"],
   presets: [createPreset(), solanaPreset],
   content: [
