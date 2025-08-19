@@ -13,17 +13,6 @@ export default {
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
         locale: false,
       },
-      // Rewrite /developers/templates to external templates site
-      {
-        source: "/developers/templates",
-        destination: "https://templates-site.vercel.app/developers/templates",
-        locale: false,
-      },
-      {
-        source: "/developers/templates/:path*",
-        destination: "https://templates-site.vercel.app/developers/templates/:path*",
-        locale: false,
-      },
     ],
     afterFiles: [],
     fallback: [],
