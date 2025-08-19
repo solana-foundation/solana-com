@@ -5,16 +5,20 @@ import { NavigationAdapter } from "./NavigationAdapter";
 import DevelopersNav from "./developers/DevelopersNav/DevelopersNav";
 import { useRouter } from "@@/src/hooks/useRouter";
 
-interface HeaderNewProps {
+interface HeaderProps {
   className?: string;
   containerClassName?: string;
 }
 
-const HeaderNew: React.FC<HeaderNewProps> = ({
+const Header: React.FC<HeaderProps> = ({
   className = "",
   containerClassName = "",
 }) => {
   const router = useRouter();
+
+  // Determine if secondary nav should be shown
+  const showDevelopersNav =
+    router.asPath.includes("/developers") || router.asPath.includes("/docs");
 
   return (
     <>
@@ -23,12 +27,11 @@ const HeaderNew: React.FC<HeaderNewProps> = ({
         containerClassName={containerClassName}
       />
       {/* Secondary nav for /developers/* and /docs/* */}
-      {(router.asPath.includes("/developers") ||
-        router.asPath.includes("/docs")) && (
+      {showDevelopersNav && (
         <DevelopersNav containerClassName={containerClassName} />
       )}
     </>
   );
 };
 
-export default HeaderNew;
+export default Header;

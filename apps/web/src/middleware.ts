@@ -11,11 +11,6 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Skip i18n for /developers/templates paths to allow external rewrite
-  if (req.nextUrl.pathname.startsWith("/developers/templates")) {
-    return NextResponse.next();
-  }
-
   if (req.nextUrl.pathname !== req.nextUrl.pathname.toLowerCase()) {
     return NextResponse.redirect(
       `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}`,
