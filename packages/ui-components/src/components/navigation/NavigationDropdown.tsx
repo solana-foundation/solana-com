@@ -71,6 +71,8 @@ export const NavigationDropdown: React.FC<NavigationDropdownProps> = ({
             "motion-safe:animate-slide-down motion-reduce:animate-none",
           )}
           sideOffset={16}
+          align="start"
+          alignOffset={item.label === "Solutions" || item.label === "Network" || item.label === "Community" ? -30 : 0}
         >
           <div className="flex flex-col overflow-hidden">
             {/* Main row with first columns */}
