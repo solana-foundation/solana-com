@@ -20,6 +20,7 @@ import guardaIcon from "../../../assets/wallets/icons/guarda.png";
 import heliumIcon from "../../../assets/wallets/icons/helium.png";
 import keystoneIcon from "../../../assets/wallets/icons/keystone.png";
 import ledgerIcon from "../../../assets/wallets/icons/ledger.png";
+import metaMaskIcon from "../../../assets/wallets/icons/metamask.png";
 import nowwalletIcon from "../../../assets/wallets/icons/nowwallet.png";
 import okxIcon from "../../../assets/wallets/icons/okx.png";
 import onekeyIcon from "../../../assets/wallets/icons/onekey.png";
@@ -611,6 +612,30 @@ export const walletData = [
     spending_limits: false,
     open_source: false,
     hardware: true,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "MetaMask",
+    body: "The world's most trusted crypto wallet",
+    website: "https://metamask.io/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Social recovery • Open Source",
+    icon: metaMaskIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: false,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: true,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
+    hardware: false,
     private_key_infrastructure: false,
   },
   {

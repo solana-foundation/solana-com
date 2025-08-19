@@ -68,7 +68,6 @@ describe("NextIntlClientProvider", () => {
   });
 });
 
-// TODO: Unskip this test once https://github.com/solana-foundation/solana-com/issues/680 is resolved
 describe.skip("Translations", () => {
   const localesDir = path.join(__dirname, "../../../public/locales");
   const enTranslations = loadMessages("en");
