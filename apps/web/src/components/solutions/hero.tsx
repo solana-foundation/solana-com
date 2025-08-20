@@ -46,10 +46,20 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   titleSize = "m",
 }) => {
   // Split title on first period for line break
-  const firstDotIdx = title.indexOf(".");
-  const beforeDot =
-    firstDotIdx !== -1 ? title.slice(0, firstDotIdx + 1) : title;
-  const afterDot = firstDotIdx !== -1 ? title.slice(firstDotIdx + 1) : "";
+  // Render a line break after every period
+  const titleNodes = React.useMemo(
+    () =>
+      title.split(/(\.)/).map((part, idx) =>
+        part === "." ? (
+          <React.Fragment key={idx}>
+            .<br />
+          </React.Fragment>
+        ) : (
+          part
+        ),
+      ),
+    [title],
+  );
 
   if (variant === "modern") {
     return (
@@ -76,9 +86,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 modernTitleSizes[titleSize],
               )}
             >
-              {beforeDot}
-              {afterDot && <br />}
-              {afterDot}
+              {titleNodes}
             </h1>
 
             {globeImgSrc && (
@@ -185,9 +193,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             defaultTitleSizes[titleSize],
           )}
         >
-          {beforeDot}
-          {afterDot && <br />}
-          {afterDot}
+          {titleNodes}
         </h1>
         <p className="text-[#848895] text-base leading-snug mb-6 max-w-full mx-auto md:text-lg md:mb-8 md:max-w-xl lg:text-xl">
           {subtitle}
