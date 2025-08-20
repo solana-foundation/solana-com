@@ -18,6 +18,7 @@ import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
 import { USE_CASES } from "@/data/solutions/institutional-payments";
 import { Performance } from "@/components/solutions/performance";
+import { CTACards } from "@/components/solutions/institutional-payments/CTACards";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -112,6 +113,11 @@ const InstitutionalPaymentsPage = () => {
             moreVideosUrl={undefined}
             moreVideosLabel={t("institutional-payments.videoPlayer.moreVideos")}
           />
+        </section>
+
+        {/* Card Section */}
+        <section>
+          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
         </section>
       </div>
 
