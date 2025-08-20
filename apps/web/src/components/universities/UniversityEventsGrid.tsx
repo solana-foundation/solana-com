@@ -5,15 +5,14 @@ import UniversityEventCard from "./UniversityEventCard";
 import { useTranslations } from "next-intl";
 import GradientOrbs, { orbPresets } from "./GradientOrbs";
 
-// Still confirming some of these with partners and waiting on Luma links
 const universityEvents = [
   {
     id: "stanford-2025",
     titleKey: "stanford",
     location: "Stanford",
     university: "Stanford University",
-    date: "Sept 4",
-    href: "#",
+    date: "Sept 18",
+    href: "https://lu.ma/f25su",
     image:
       "https://images.unsplash.com/photo-1681782421891-5088f13466ec?q=80&w=2000",
   },
@@ -22,28 +21,18 @@ const universityEvents = [
     titleKey: "berkeley",
     location: "Berkeley",
     university: "UC Berkeley",
-    date: "Sept 10",
-    href: "#",
+    date: "Sept 24",
+    href: "https://lu.ma/f25ucb",
     image:
       "https://images.unsplash.com/photo-1694391505705-7fde96f6f14f?q=80&w=2000",
-  },
-  {
-    id: "purdue-2025",
-    titleKey: "purdue",
-    location: "West Lafayette",
-    university: "Purdue University",
-    date: "Sept 12-14",
-    href: "#",
-    image:
-      "https://images.unsplash.com/photo-1598058921517-81a452bc7cce?q=80&w=2000",
   },
   {
     id: "ucla-2025",
     titleKey: "ucla",
     location: "Los Angeles",
     university: "UCLA",
-    date: "Sept 16",
-    href: "#",
+    date: "Oct 1",
+    href: "https://lu.ma/f25ucla",
     image:
       "https://images.unsplash.com/photo-1626060490950-fabf0d72ca8a?q=80&w=2000",
   },
@@ -52,81 +41,71 @@ const universityEvents = [
     titleKey: "usc",
     location: "Los Angeles",
     university: "USC",
-    date: "Sept 18",
-    href: "#",
+    date: "Oct 3",
+    href: "https://lu.ma/f25usc",
     image:
       "https://images.unsplash.com/photo-1612822798436-369a2448ad45?q=80&w=2000",
   },
-  // Hack the Nest - Sept 20 - Confirming details
-  // {
-  //   id: "hack-the-nest-2025",
-  //   titleKey: "hackathon",
-  //   location: "TBD",
-  //   university: "Hack the Nest",
-  //   date: "Sept 20",
-  //   href: "#",
-  //   image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=2000",
-  // },
   {
     id: "ut-austin-2025",
     titleKey: "utaustin",
     location: "Austin",
     university: "UT Austin",
-    date: "Sept 25",
-    href: "#",
+    date: "Oct 15",
+    href: "https://lu.ma/f25uta",
     image:
       "https://images.unsplash.com/photo-1595169359806-eee943bd8b97?q=80&w=2000",
   },
-  // MIT & Harvard - Oct 8 - Confirming schedule
-  // {
-  //   id: "mit-harvard-2025",
-  //   titleKey: "workshop",
-  //   location: "Cambridge",
-  //   university: "MIT & Harvard",
-  //   date: "Oct 8",
-  //   href: "#",
-  //   image: "https://images.unsplash.com/photo-1564981797816-1043664bf78d?q=80&w=2000",
-  // },
-  // NU & BU & BC - Oct 10 - Confirming schedule
-  // {
-  //   id: "nu-bu-bc-2025",
-  //   titleKey: "workshop",
-  //   location: "Boston",
-  //   university: "NU & BU & BC",
-  //   date: "Oct 10",
-  //   href: "#",
-  //   image: "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?q=80&w=2000",
-  // },
   {
-    id: "columbia-2025",
-    titleKey: "columbia",
-    location: "New York",
-    university: "Columbia",
-    date: "Oct 14",
-    href: "#",
+    id: "mit-harvard-2025",
+    titleKey: "workshop",
+    location: "Cambridge",
+    university: "MIT & Harvard University",
+    date: "Oct 22",
+    href: "https://lu.ma/f25mh",
     image:
-      "https://images.unsplash.com/photo-1698248476242-bfde13928633?q=80&w=2000",
+      "https://images.unsplash.com/photo-1564981797816-1043664bf78d?q=80&w=2000",
+  },
+  {
+    id: "nu-bu-bc-2025",
+    titleKey: "workshop",
+    location: "Boston",
+    university: "NU & BU & BC",
+    date: "Oct 24",
+    href: "https://lu.ma/f25nbb",
+    image:
+      "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?q=80&w=2000",
   },
   {
     id: "nyu-2025",
     titleKey: "nyu",
     location: "New York",
     university: "NYU",
-    date: "Oct 16",
-    href: "#",
+    date: "Oct 27",
+    href: "https://lu.ma/f25nyu",
     image:
       "https://images.unsplash.com/photo-1601071334789-37a6e666fa37?q=80&w=2000",
   },
-  // UPenn & Princeton - Oct 22 - Confirming schedule
-  // {
-  //   id: "upenn-princeton-2025",
-  //   titleKey: "workshop",
-  //   location: "Philadelphia",
-  //   university: "UPenn & Princeton",
-  //   date: "Oct 22",
-  //   href: "#",
-  //   image: "https://images.unsplash.com/photo-1607237138185-eedd9c632b0b?q=80&w=2000",
-  // },
+  {
+    id: "columbia-2025",
+    titleKey: "columbia",
+    location: "New York",
+    university: "Columbia",
+    date: "Oct 29",
+    href: "https://lu.ma/f25cu",
+    image:
+      "https://images.unsplash.com/photo-1698248476242-bfde13928633?q=80&w=2000",
+  },
+  {
+    id: "upenn-princeton-2025",
+    titleKey: "workshop",
+    location: "Philadelphia",
+    university: "UPenn & Princeton University",
+    date: "Oct 31",
+    href: "https://lu.ma/f25up",
+    image:
+      "https://images.unsplash.com/photo-1607237138185-eedd9c632b0b?q=80&w=2000",
+  },
 ];
 
 export default function UniversityEventsGrid() {
