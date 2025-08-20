@@ -54,6 +54,9 @@ const InstitutionalPaymentsPage = () => {
           stats={stats}
           globeImgSrc="/src/img/solutions/icm/icm-hero.webp"
           globeImgAlt={t("stablecoins.hero.alt")}
+          variant="modern"
+          titleSize="s"
+          reportImgSrc="/src/img/solutions/stablecoins/hero-download.webp"
         />
 
         <WhatIsIt
