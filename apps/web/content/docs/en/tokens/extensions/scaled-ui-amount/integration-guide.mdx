@@ -1,0 +1,605 @@
+---
+title: Scaled UI Amount Integration Guide
+description:
+  Learn how to integrate a token that uses the Scaled UI Amount extension in
+  your application.
+---
+
+# Supporting Scaled UI Amount Extension on Solana
+
+## Background
+
+The Scaled UI Amount extension allows token issuers to specify a multiplier to
+be used when calculating the UI amount of a user’s token balance. This enables
+issuers to create rebasing tokens and to enable things like stock splits. This
+extension, like the interest bearing token extension, provides a purely cosmetic
+UI amount which means teams need to do some additional work to provide a good
+experience. Underlying calculations and transfers all occur using the raw
+amounts in the program.
+
+### Resources:
+
+- [Developer Documentation](https://www.solana-program.com/docs/token-2022/extensions#scaled-ui-amount)
+- [Extension Rust Code](https://github.com/solana-program/token-2022/tree/main/program/src/extension/scaled_ui_amount)
+- [Amount to UI Amount Rust Code](https://github.com/solana-program/token-2022/blob/main/program/src/processor.rs#L1425)
+
+## TL;DR
+
+- End users should interact with the UIAmount (raw amount \* multiplier) for the
+  token price, token balance, and token amounts whenever possible
+- dApps and service providers should use the raw amount and non-scaled prices
+  for all calculations and convert for users at the edge
+- Historical price feeds need to be provided for both scaled and non-scaled
+  amounts for easier integration
+- Historical multiplier values need to be accessible for accurate historical
+  data
+
+## Terms Definitions
+
+- Multiplier: static updatable multiplier that’s used for UI Amount calculations
+- UIAmount: multiplier \* raw amount (AKA: scaled amount)
+- Raw Amount: amount (AKA: non-scaled amount)
+
+## Current Balance
+
+### Current Amount for Display
+
+- Anytime you display amounts for tokens that use the scaled UI amount extension
+  to end users you should use either:
+  - UIAmount/UIAmountString (**_preferred_**)
+  - A manual calculation of raw amount \* multiplier
+  - We recommend truncating this value based on the number of decimals the token
+    has.
+    - Ex: if yUSD has 6 decimals and a user has a UIAmount of 1.123456789 you
+      should display “1.123456”
+
+### Where to get this data:
+
+- For a user’s live balance you can get updated information on the above amounts
+  by calling either getTokenAccountBalance or getAccountInfo
+- If you need to know the UI Amount for an arbitrary amount you can get this
+  calculation by calling the
+  [`amountToUiAmountForMintWithoutSimulation`](https://github.com/solana-program/token-2022/blob/main/clients/js-legacy/src/actions/amountToUiAmount.ts#L164)
+  (web3.js v1) function or simulating a transaction using amountToUiAmount.
+  - Note: amountToUiAmount requires a transaction simulation which means it also
+    needs a valid fee payer with balance. Because of this, this should not be
+    the default way to get a balance.
+
+#### RPC Calls
+
+- `getTokenAccountBalance`
+  - Returns the token account balance and the mint info
+
+<CodeTabs>
+
+```txt !! title="curl-getTokenAccountBalance.sh"
+$ curl http://localhost:8899 -s -X POST -H "Content-Type: application/json" -d '
+{"jsonrpc": "2.0", "id": 1, "method": "getTokenAccountBalance", "params": ["2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk"]}' | jq .
+
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "2.2.14",
+      "slot": 381130751
+    },
+    "value": {
+      "amount": "10000000",
+      "decimals": 6,
+      "uiAmount": 20.0,
+      "uiAmountString": "20"
+    }
+  },
+  "id": 1
+}
+```
+
+```ts !! title="Kit-getTokenAccountBalance.ts"
+import { address, createSolanaRpc } from "@solana/kit";
+const rpc_url = "https://api.devnet.solana.com";
+const rpc = createSolanaRpc(rpc_url);
+
+let tokenAddress = address("2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk");
+
+let tokenBalance = await rpc.getTokenAccountBalance(tokenAddress).send();
+
+console.log("Token Balance:", tokenBalance);
+/* Token Balance: {
+  context: { apiVersion: '2.2.14', slot: 381132711n },
+  value: {
+    amount: '10000000',
+    decimals: 6,
+    uiAmount: 20,
+    uiAmountString: '20'
+  }
+} */
+```
+
+```ts !! title="web3js-getTokenAccountBalance.ts"
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+
+let tokenAddress = new PublicKey(
+  "2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk"
+);
+
+let tokenBalance = await connection.getTokenAccountBalance(tokenAddress);
+
+console.log("Token Balance:", tokenBalance);
+/* Token Balance: {
+  context: { apiVersion: '2.2.14', slot: 381132711n },
+  value: {
+    amount: '10000000',
+    decimals: 6,
+    uiAmount: 20,
+    uiAmountString: '20'
+  }
+} */
+```
+
+</CodeTabs>
+
+- `getAccountInfo`
+  - Returns the account info and the mint info
+
+<CodeTabs>
+
+```terminal !! title="curl-getAccountInfo.sh"
+$ curl http://localhost:8899 -s -X POST -H "Content-Type: application/json" -d '
+{"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk", {"encoding": "jsonParsed"}]}' | jq .
+
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "2.2.14",
+      "slot": 381131001
+    },
+    "value": {
+      "data": {
+        "parsed": {
+          "info": {
+            "extensions": [
+              {
+                "extension": "immutableOwner"
+              },
+              {
+                "extension": "pausableAccount"
+              }
+            ],
+            "isNative": false,
+            "mint": "BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG",
+            "owner": "G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib",
+            "state": "initialized",
+            "tokenAmount": {
+              "amount": "10000000",
+              "decimals": 6,
+              "uiAmount": 20.0,
+              "uiAmountString": "20"
+            }
+          },
+          "type": "account"
+        },
+        "program": "spl-token-2022",
+        "space": 174
+      },
+      "executable": false,
+      "lamports": 2101920,
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "rentEpoch": 18446744073709551615,
+      "space": 174
+    }
+  },
+  "id": 1
+}
+```
+
+```ts !! title="Kit-getAccountInfo.ts"
+import { address, createSolanaRpc } from "@solana/kit";
+
+const rpc_url = "https://api.devnet.solana.com";
+const rpc = createSolanaRpc(rpc_url);
+
+const publicKey = address("2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk");
+const accountInfo = await rpc.getAccountInfo(publicKey).send();
+
+console.log(
+  "Account Info:",
+  JSON.stringify(
+    accountInfo,
+    (key, value) => (typeof value === "bigint" ? value.toString() : value),
+    2
+  )
+);
+/* Account Info: {
+  "context": {
+    "apiVersion": "2.2.14",
+    "slot": "381133640"
+  },
+  "value": {
+    "data": {
+      "parsed": {
+        "info": {
+          "extensions": [
+            {
+              "extension": "immutableOwner"
+            },
+            {
+              "extension": "pausableAccount"
+            }
+          ],
+          "isNative": false,
+          "mint": "BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG",
+          "owner": "G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib",
+          "state": "initialized",
+          "tokenAmount": {
+            "amount": "10000000",
+            "decimals": 6,
+            "uiAmount": 20,
+            "uiAmountString": "20"
+          }
+        },
+        "type": "account"
+      },
+      "program": "spl-token-2022",
+      "space": "174"
+    },
+    "executable": false,
+    "lamports": "2101920",
+    "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "rentEpoch": "18446744073709551615",
+    "space": "174"
+  }
+} */
+```
+
+```ts !! title="web3js-getAccountInfo.ts"
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+const publicKey = new PublicKey("2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk");
+const accountInfo = await connection.getParsedAccountInfo(publicKey);
+
+console.log(
+  "Account Info:",
+  JSON.stringify(
+    accountInfo,
+    (key, value) => (typeof value === "bigint" ? value.toString() : value),
+    2
+  )
+);
+/* Account Info: {
+  "context": {
+    "apiVersion": "2.2.14",
+    "slot": "381133640"
+  },
+  "value": {
+    "data": {
+      "parsed": {
+        "info": {
+          "extensions": [
+            {
+              "extension": "immutableOwner"
+            },
+            {
+              "extension": "pausableAccount"
+            }
+          ],
+          "isNative": false,
+          "mint": "BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG",
+          "owner": "G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib",
+          "state": "initialized",
+          "tokenAmount": {
+            "amount": "10000000",
+            "decimals": 6,
+            "uiAmount": 20,
+            "uiAmountString": "20"
+          }
+        },
+        "type": "account"
+      },
+      "program": "spl-token-2022",
+      "space": "174"
+    },
+    "executable": false,
+    "lamports": "2101920",
+    "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "rentEpoch": "18446744073709551615",
+    "space": "174"
+  }
+} */
+```
+
+</CodeTabs>
+
+### Updating the Current Amount
+
+Because Issuers can update the multiplier at any given time you can consider
+occasionally polling in order to keep the account balance updated. Issuers are
+unlikely to update this multiplier more than once per day. If a multiplier is
+set for a future date, you can automatically poll at this update time
+
+## Token Amounts in Transactions (transfers / swaps etc)
+
+- Users should enter amounts to be interpreted as the scaled “UIAmount”. The app
+  that has to process this should convert to the raw token amount for the
+  transaction.
+  - If there are rounding issues, round down and prefer leaving a tiny amount of
+    dust rather than risk the transaction failing
+  - To do this conversion you can use the
+    [`uiAmountToAmountForMintWithoutSimulation`](https://github.com/solana-program/token-2022/blob/main/clients/js-legacy/src/actions/amountToUiAmount.ts#L312C23-L312C63)
+    (web3.js v1) function or simulating a transaction using amountToUiAmount.
+
+<CodeTabs>
+
+```ts !! title="web3js-uiAmountToAmountForMintWithoutSimulation.ts"
+import { uiAmountToAmountForMintWithoutSimulation } from "@solana/web3.js";
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+const mint = new PublicKey("BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG");
+const uiAmount = "20.2";
+
+const rawAmount = await uiAmountToAmountForMintWithoutSimulation(
+  connection as unknown as Connection,
+  mint,
+  uiAmount
+);
+console.log("Raw Amount:", rawAmount);
+/* Raw Amount: 20200000 */
+```
+
+</CodeTabs>
+
+- Apps should use the total raw amount when a user requests to do an action with
+  “max” or “all” of their balance. This ensures that there is no dust left over.
+  - Optional: You can consider automatically closing an account when “max” is
+    used to refund the user of their storage deposit
+
+## Token Price
+
+- Token price should always be displayed as the scaled price wherever possible.
+- If you are a price feed service provider, such as an oracle, you should expose
+  both the scaled and non-scaled price.
+  - Wherever possible provide an SDK/API that abstracts the scaled UI amount
+    extension complexities away.
+
+## Current Multiplier
+
+- The current multiplier can be read from the token mint at any time by calling
+  `getAccountInfo`. Additionally, if a future multiplier is set, this
+  information is also available from the token mint. We recommend not showing
+  this multiplier as it can confuse the UX.
+
+<CodeTabs>
+
+```ts !! title="Kit-getAccountInfo.ts"
+import { address, createSolanaRpc } from "@solana/kit";
+
+const rpc_url = "https://api.devnet.solana.com";
+const rpc = createSolanaRpc(rpc_url);
+
+const publicKey = address("BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG");
+const accountInfo = await rpc
+  .getAccountInfo(publicKey, { encoding: "jsonParsed" })
+  .send();
+
+const mintData = accountInfo.value?.data as Readonly<{
+  parsed: {
+    info?: {
+      extensions: {
+        extension: string;
+        state: object;
+      }[];
+    };
+    type: string;
+  };
+  program: string;
+  space: bigint;
+}>;
+
+const scaledUiAmountConfig = mintData.parsed.info?.extensions?.find(
+  (extension) => extension.extension === "scaledUiAmountConfig"
+) as Readonly<{
+  state: {
+    newMultiplierEffectiveTimestamp: number;
+    newMultiplier: number;
+    multiplier: number;
+  };
+}>;
+
+const currentMultiplier =
+  scaledUiAmountConfig?.state &&
+  Date.now() / 1000 >=
+    scaledUiAmountConfig.state.newMultiplierEffectiveTimestamp
+    ? scaledUiAmountConfig.state.newMultiplier
+    : scaledUiAmountConfig.state.multiplier;
+
+console.log("Scaled UI Amount Config:", scaledUiAmountConfig);
+console.log("Current Multiplier:", currentMultiplier);
+/*
+Scaled UI Amount Config: {
+  extension: 'scaledUiAmountConfig',
+  state: {
+    authority: 'G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib',
+    multiplier: '2',
+    newMultiplier: '2',
+    newMultiplierEffectiveTimestamp: 1743000000n
+  }
+}
+Current Multiplier: 2
+*/
+```
+
+```ts !! title="web3js-getAccountInfo.ts"
+import {
+  type AccountInfo,
+  Connection,
+  type ParsedAccountData,
+  PublicKey,
+  clusterApiUrl
+} from "@solana/web3.js";
+
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+const mint = new PublicKey("BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG");
+
+const accountInfo = await connection.getParsedAccountInfo(mint);
+const mintData = accountInfo?.value as AccountInfo<ParsedAccountData>;
+const mintDataParsed = mintData?.data.parsed as Readonly<{
+  info?: {
+    extensions: {
+      extension: string;
+      state: object;
+    }[];
+  };
+  type: string;
+}>;
+
+const scaledUiAmountConfig = mintDataParsed.info?.extensions?.find(
+  (extension) => extension.extension === "scaledUiAmountConfig"
+) as Readonly<{
+  state: {
+    newMultiplierEffectiveTimestamp: number;
+    newMultiplier: number;
+    multiplier: number;
+  };
+}>;
+
+const currentMultiplier =
+  scaledUiAmountConfig?.state &&
+  Date.now() / 1000 >=
+    scaledUiAmountConfig.state.newMultiplierEffectiveTimestamp
+    ? scaledUiAmountConfig.state.newMultiplier
+    : scaledUiAmountConfig.state.multiplier;
+
+console.log("Scaled UI Amount Config:", scaledUiAmountConfig);
+console.log("Current Multiplier:", currentMultiplier);
+/*
+Scaled UI Amount Config: {
+  extension: 'scaledUiAmountConfig',
+  state: {
+    authority: 'G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib',
+    multiplier: '2',
+    newMultiplier: '2',
+    newMultiplierEffectiveTimestamp: 1743000000
+  }
+}
+Current Multiplier: 2
+*/
+```
+
+</CodeTabs>
+
+## Historical Data
+
+### Historical Data for Price Feed
+
+- Services who provide historical data should store and **surface both the
+  scaled and non-scaled prices for the scaled UI amount extension**.
+- We expect scaled amounts to be used most frequently as this aligns with how
+  the traditional finance world treats charts related to tokens with stock
+  splits.
+- Multiplier updates may include a timestamp that's in the past. We recommend
+  using the block timestamp for historical data.
+- Note that the active multiplier may be the "multiplier" or the "newMultiplier"
+  depending on the current timestamp and when the new multiplier is set to be
+  active.
+
+### Historical Data for Amounts
+
+- If you would like to show the balance transferred in the past you need access
+  to the multiplier at that given slot. You can also save the UiAmount for
+  transfers as you process transactions to avoid doing this calculation in the
+  future.
+
+## Backwards Compatibility
+
+- By default wallets and applications that do not understand the scaled UI
+  amount extension will show the correct total price of an activity by
+  multiplying the non-scaled price \* raw amount.
+- They would, however, display the non-scaled price causing some user confusion.
+- We hope this encourages teams to update their dapps to be compatible with
+  tokens that use the scaled UI amount extension and are happy to provide
+  support during this process.
+
+## Recommended Integration Priorities Per Platform
+
+### **General Requirements**
+
+| Requirement                         | Description                                                                                                                                                                              | Priority |
+| :---------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| Support User Actions Using UiAmount | All user actions should be entered in UiAmount when UiAmount is enabled throughout the app. If UiAmount is not visible in the app, they should use raw amounts until the app is updated. | **P0**   |
+
+---
+
+### **Wallets**
+
+| Requirement                                    | Description                                                                                                        | Priority |
+| :--------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :------- |
+| Display Scaled Balance                         | Show the scaled amount (uiAmount) as the primary balance.                                                          | **P0**   |
+| Support for Token Transfers                    | End users should input transfer amounts with their scaled balances (raw amount \* balance).                        | **P0**   |
+| Display Spot Price                             | Display the scaled spot price for users                                                                            | **P0**   |
+| Transaction History Metadata                   | Show the scaled amount (UIAmount) for each transfer wherever possible.                                             | **P1**   |
+| Show Multiplier Updates in Transaction History | When multiplier updates occur, show this as an event in the user’s transaction history including the amount gained | **P2**   |
+| Display Price History Graph                    | Reflect the scaled prices in the price graph                                                                       | **P1**   |
+| Onboarding/Tooltips                            | Offer tooltips or onboarding to educate users about tokens that use the scaled ui amount extension                 | **P2**   |
+
+---
+
+### **Explorers**
+
+| Requirement                                               | Description                                                                          | Priority |
+| :-------------------------------------------------------- | :----------------------------------------------------------------------------------- | :------- |
+| Token Details Page Enhancements                           | Display metadata such as total scaled market cap and current multiplier              | **P0**   |
+| Display Scaled Balance for Balances                       | Display scaled balances (UiAmount) for current balances.                             | **P0**   |
+| Display Scaled Balance for Transactions                   | Display scaled balances (UiAmount) for transfer amounts for historical transactions. | **P0**   |
+| Display Scaled Price for Transactions                     | Display scaled prices for previous transactions                                      | **P1**   |
+| Properly Parse and Display Multiplier Update Transactions | Properly show details about the multiplier update                                    | **P2**   |
+
+---
+
+### **Market Data Aggregators (Ex: CoinGecko, Birdeye)**
+
+| Requirement                         | Description                                                                                        | Priority |
+| :---------------------------------- | :------------------------------------------------------------------------------------------------- | :------- |
+| API Updates for Scaled Data         | Extend API functionality to include multiplier changes over time as well as the scaled price feed. | **P0**   |
+| Total Supply With Scaled Adjustment | When displaying total supply and total market cap, take the scaled balances into account           | **P0**   |
+| Historical Price Tracking           | Provide a historical chart of prices using the scaled price over time.                             | **P1**   |
+| Historical Multiplier Tracking      | Provide historical markers of multiplier updates for interest-bearing tokens. Note that multiplier updates may include a timestamp that's in the past. We recommend using the block timestamp instead of the timestamp indicated in the multiplier update for historical data. | **P2**   |
+| Educational Content or Explanations | Include brief descriptions or tooltips explaining how scaled tokens work.                          | **P2**   |
+
+---
+
+### **Price Feed Providers**
+
+| Requirement                     | Description                                                                    | Priority |
+| :------------------------------ | :----------------------------------------------------------------------------- | :------- |
+| Scaled & non-scaled Price Feeds | Provide price feeds for both scaled and non-scaled prices.                     | **P0**   |
+| Historical Multiplier Data      | Offer APIs with historical multiplier changes. Note that multiplier updates may include a timestamp that's in the past. We recommend using the block timestamp instead of the timestamp indicated in the multiplier update for historical data. | **P0**   |
+| Historical Price Data           | Offer APIs with historical prices based on both scaled and non-scaled amounts. | **P0**   |
+
+---
+
+### **DEXes**
+
+| Requirement                    | Description                                                                                            | Priority |
+| :----------------------------- | :----------------------------------------------------------------------------------------------------- | :------- |
+| Display Rebased Token Balances | Show scaled balances for trading or liquidity provision on the UI. (backend can still use raw amounts) | **P0**   |
+| Support for Token Actions      | End users should input action amounts with their UiAmount balances (multiplier \* raw amount).         | **P0**   |
+| Price Feed Adaptation          | Anywhere a price feed is used to display current price, provide the scaled price to end users.         | **P1**   |
+| Display Price History Graph    | Reflect the scaled prices in the price graph                                                           | **P1**   |
+
+---
+
+### **CEXes**
+
+| Requirement                               | Description                                                                                                                               | Priority |
+| :---------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| Track Multiplier Updates                  | Track multiplier updates for tokens that use the scaled ui amount extension.                                                              | **P0**   |
+| Display Rebased Token Balances            | Show scaled balances for trading or liquidity provision on the UI. (backend can still use raw amounts)                                    | **P0**   |
+| Support for Token Actions                 | End users should input action amounts with their UiAmount balances (multiplier \* raw amount).                                            | **P0**   |
+| Historical Actions Should Not Be Rescaled | Historical actions such as trades should be displayed using the accurate scaled amount and price at time of action.                       | **P1**   |
+| Internally track raw balances             | Track raw balances for onchain transactions instead of scaled balances. This will be more accurate and easier to manage in the long term. | **P1**   |
+| Price Feed Adaptation                     | Anywhere a price feed is used to display current price, provide the scaled price to end users.                                            | **P1**   |
+| Display Price History Graph               | Reflect the scaled prices in the price graph. This includes rescaling historical prices to the current multiplier.                        | **P1**   |
+| Scale cost basis                          | Cost per share should be scaled to the current multiplier.                                                                                | **P1**   |
