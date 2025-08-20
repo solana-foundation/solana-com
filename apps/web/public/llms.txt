@@ -1,0 +1,3251 @@
+# Solana Documentation
+
+> Solana is the high-performance blockchain designed for mass adoption. This documentation provides comprehensive guides, references, and tutorials for developers looking to build scalable blockchain applications on Solana.
+
+The Solana documentation is organized into several key sections covering core concepts, client-side development, program development, and validator operations. This LLMs.txt file provides structured access to the most important documentation resources.
+
+## Cookbook
+
+- [Solana Cookbook](https://solana.com/cookbook/?utm_source=llms&utm_medium=ai&utm_campaign=txt): The Solana Cookbook is a collection of code snippets, useful examples, and  references for building on Solana.
+
+## Cookbook - Accounts
+
+- [How to Calculate Account Creation Cost](https://solana.com/cookbook/accounts/calculate-rent?utm_source=llms&utm_medium=ai&utm_campaign=txt): Every time you create an account, that creation costs an amount of SOL. Learn  how to calculate how much an account costs at creation.
+- [How to Create an Account](https://solana.com/cookbook/accounts/create-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Accounts are the basic building blocks of anything on Solana. Learn how to  create accounts on the Solana blockchain.
+- [How to Get Account Balance](https://solana.com/cookbook/accounts/get-account-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Every account on Solana has a balance of SOL stored. Learn how to retrieve  that account balance on Solana.
+
+## Cookbook - Development
+
+- [Connecting to a Solana Environment](https://solana.com/cookbook/development/connect-environment?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to connect to a Solana environment.
+- [Getting Test SOL](https://solana.com/cookbook/development/test-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to get test SOL for development purposes by requesting an airdrop in your source code.
+- [How to Start a Local Validator](https://solana.com/cookbook/development/start-local-validator?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to start a local solana validator.
+- [Load a local json file keypair](https://solana.com/cookbook/development/load-keypair-from-file?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to load a keypair from file.
+- [Subscribing to Events](https://solana.com/cookbook/development/subscribing-events?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to subscribe to events in the Solana network.
+- [Using Mainnet Accounts and Programs](https://solana.com/cookbook/development/using-mainnet-accounts-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to use the Mainnet accounts and programs in your local development environment.
+
+## Cookbook - Tokens
+
+- [How to Burn Tokens](https://solana.com/cookbook/tokens/burn-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to burn Tokens on Solana
+- [How to Close Token Accounts](https://solana.com/cookbook/tokens/close-token-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to close token accounts on Solana, including cases such as Wrapped  SOL and empty accounts.
+- [How to Create a Token](https://solana.com/cookbook/tokens/create-mint-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to create tokens on Solana.
+- [How to Create a Token Account](https://solana.com/cookbook/tokens/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn to create Solana token accounts, which hold tokens for users.
+- [How to Delegate Token Accounts](https://solana.com/cookbook/tokens/approve-token-delegate?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to delegate authority of tokens to someone else
+- [How to Get All Token Accounts by Authority](https://solana.com/cookbook/tokens/get-all-token-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to retrieve Solana token accounts by owner, including all accounts  or filtered by mint.
+- [How to Get a Token Account](https://solana.com/cookbook/tokens/get-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to retrieve Solana token account details, including owner, mint,  and balance
+- [How to Get a Token Mint](https://solana.com/cookbook/tokens/get-token-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to retrieve Solana token mint information, including supply,  authority, and decimals.
+- [How to Mint Tokens](https://solana.com/cookbook/tokens/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to mint tokens on Solana, increasing supply and transferring new  tokens to a specific account.
+- [How to Revoke a Token Delegate](https://solana.com/cookbook/tokens/revoke-token-delegate?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to revoke a token delegate on Solana, resetting delegate  permissions and amounts.
+- [How to Send Tokens](https://solana.com/cookbook/tokens/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Using tokens is common within any application on Solana. Learn how to send  tokens to on Solana and create the Associated Token Account (ATA).
+- [How to Set Authority on Token Accounts or Mints](https://solana.com/cookbook/tokens/set-update-token-authority?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to set authorities on Solana token accounts and mints. Crucial for  controlling who can modify or manage tokens.
+- [How to Use Wrapped SOL](https://solana.com/cookbook/tokens/manage-wrapped-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to use wrapped SOL on Solana, including creating token accounts and  adding balance through SOL transfers or token transfers.
+- [How to get a Token Account's Balance](https://solana.com/cookbook/tokens/get-token-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to quickly retrieve a Solana token account
+
+## Cookbook - Transactions
+
+- [How to Add Priority Fees to a Transaction](https://solana.com/cookbook/transactions/add-priority-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to increase your transaction priority with priority fees on Solana.
+- [How to Add a Memo to a Transaction](https://solana.com/cookbook/transactions/add-memo?utm_source=llms&utm_medium=ai&utm_campaign=txt): Transactions come with metadata information about what was transacted. Learn  how to add a memo to your transactions on Solana.
+- [How to Calculate Transaction Cost](https://solana.com/cookbook/transactions/calculate-cost?utm_source=llms&utm_medium=ai&utm_campaign=txt): Every transaction costs compute units and a fee in lamports to execute on  Solana. Learn how to calculate the cost of a transaction on Solana.
+- [How to Optimize Compute Requested](https://solana.com/cookbook/transactions/optimize-compute?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [How to Send SOL](https://solana.com/cookbook/transactions/send-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): The most common action on Solana is sending SOL. Learn how to send SOL on  Solana.
+- [Offline Transactions](https://solana.com/cookbook/transactions/offline-transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to create and sign transactions offline.
+
+## Cookbook - Wallets
+
+- [How to Connect a Wallet with React](https://solana.com/cookbook/wallets/connect-wallet-react?utm_source=llms&utm_medium=ai&utm_campaign=txt): Every application on Solana requires a connection with a user
+- [How to Create a Keypair](https://solana.com/cookbook/wallets/create-keypair?utm_source=llms&utm_medium=ai&utm_campaign=txt): Every transaction requires a signature from a keypair on Solana. Learn how to  create Keypairs on Solana.
+- [How to Generate Mnemonics for Keypairs](https://solana.com/cookbook/wallets/generate-mnemonic?utm_source=llms&utm_medium=ai&utm_campaign=txt): Mnemonics make it easy for users to store their keypair
+- [How to Generate a Vanity Address](https://solana.com/cookbook/wallets/generate-vanity-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Creating custom addresses that begin with specific characters. Learn how to  create vanity addresses on Solana.
+- [How to Restore a Keypair from a Mnemonic](https://solana.com/cookbook/wallets/restore-from-mnemonic?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to restore keypairs from a mnemonic on Solana
+- [How to Restore a Keypair or Signer](https://solana.com/cookbook/wallets/restore-keypair?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to restore keypairs from a secret key on Solana.
+- [How to Sign and Verify a Message](https://solana.com/cookbook/wallets/sign-message?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to sign messages on Solana.
+- [How to Validate a Public Key](https://solana.com/cookbook/wallets/check-publickey?utm_source=llms&utm_medium=ai&utm_campaign=txt): Public keys on Solana can be validated with a small amount of code. Learn how  to validate public keys on Solana.
+- [How to Verify a Keypair](https://solana.com/cookbook/wallets/verify-keypair?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to verify keypairs on Solana match a given public address.
+
+## Courses - Connecting-to-offchain-data
+
+- [Connecting to offchain data](https://solana.com/courses/connecting-to-offchain-data/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Connect to offchain data from inside your Anchor programs.
+- [Oracles and Oracle Networks](https://solana.com/courses/connecting-to-offchain-data/oracles?utm_source=llms&utm_medium=ai&utm_campaign=txt): Access real-world data inside a Solana program.
+- [Verifiable Randomness Functions](https://solana.com/courses/connecting-to-offchain-data/verifiable-randomness-functions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use proper cryptographic randomness in your onchain programs.
+
+## Courses - Intro-to-solana
+
+- [Course Guide](https://solana.com/courses/intro-to-solana/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand what web3, blockchains, and Solana are.
+- [Create Transactions on the Solana Network](https://solana.com/courses/intro-to-solana/intro-to-writing-data?utm_source=llms&utm_medium=ai&utm_campaign=txt): Make your first transactions on DevNet, using the System and memo programs!
+- [Cryptography and the Solana Network](https://solana.com/courses/intro-to-solana/intro-to-cryptography?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand asymmetric cryptography and how Solana uses it.
+- [Interact With Wallets](https://solana.com/courses/intro-to-solana/interact-with-wallets?utm_source=llms&utm_medium=ai&utm_campaign=txt): Connect with installed browser wallets from your React apps.
+- [Introduction to cryptography and Solana clients](https://solana.com/courses/intro-to-solana/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn the basics of how to interact with the Solana blockchain.
+- [Read Data From The Solana Network](https://solana.com/courses/intro-to-solana/intro-to-reading-data?utm_source=llms&utm_medium=ai&utm_campaign=txt): Connect to Solana DevNet from TypeScript and read data from the blockchain!
+- [Using custom onchain programs](https://solana.com/courses/intro-to-solana/intro-to-custom-onchain-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Make instructions for arbitrary programs using the
+
+## Courses - Mobile
+
+- [Building Solana Mobile dApps with Expo](https://solana.com/courses/mobile/solana-mobile-dapps-with-expo?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to use Solana in your Expo apps.
+- [Exploring Mobile Wallet Adapter](https://solana.com/courses/mobile/mwa-deep-dive?utm_source=llms&utm_medium=ai&utm_campaign=txt): Initiate transactions on mobile wallets in your native mobile apps.
+- [Introduction to Solana Mobile](https://solana.com/courses/mobile/intro-to-solana-mobile?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to build native mobile apps using blockchain functionality
+- [Solana Mobile Development](https://solana.com/courses/mobile/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use Solana features from native mobile apps for both Android and iOS.
+
+## Courses - Native-onchain-development
+
+- [Create a Basic Program, Part 1 - Handle Instruction Data](https://solana.com/courses/native-onchain-development/deserialize-instruction-data?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how native programs distinguish instructions for different functions.
+- [Create a Basic Program, Part 2 - State Management](https://solana.com/courses/native-onchain-development/program-state-management?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how programs store data using Solana
+- [Create a Basic Program, Part 3 - Basic Security and Validation](https://solana.com/courses/native-onchain-development/program-security?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to secure your Solana program with ownership, signer, and account  validation checks.
+- [Cross Program Invocations](https://solana.com/courses/native-onchain-development/cross-program-invocations?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to invoke functions in other Solana programs.
+- [Deserialize Program Data](https://solana.com/courses/native-onchain-development/deserialize-custom-data-frontend?utm_source=llms&utm_medium=ai&utm_campaign=txt): Deserialize instructions in JS/TS clients to send to your native program.
+- [Hello World](https://solana.com/courses/native-onchain-development/hello-world-program?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create an onchain program for Solana using native Rust, without Anchor.
+- [Native onchain program development](https://solana.com/courses/native-onchain-development/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to build Solana programs without using Anchor.
+- [Page, Order, and Filter Program Data](https://solana.com/courses/native-onchain-development/paging-ordering-filtering-data-frontend?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to efficiently query account data from Solana.
+- [Program Derived Addresses (PDAs)](https://solana.com/courses/native-onchain-development/program-derived-addresses?utm_source=llms&utm_medium=ai&utm_campaign=txt): Get a deeper understanding of PDAs.
+- [Serialize Custom Instruction Data for Native Program Development](https://solana.com/courses/native-onchain-development/serialize-instruction-data-frontend?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to deserialize data fetched from Solana accounts.
+
+## Courses - Offline-transactions
+
+- [Durable Nonces](https://solana.com/courses/offline-transactions/durable-nonces?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use durable nonces to sign transactions ahead of time.
+- [Offline transactions](https://solana.com/courses/offline-transactions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use durable nonces to sign transactions ahead of time.
+
+## Courses - Onchain-development
+
+- [Anchor CPIs and Errors](https://solana.com/courses/onchain-development/anchor-cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Invoke other Solana programs from your Anchor app.
+- [Anchor PDAs and Accounts](https://solana.com/courses/onchain-development/anchor-pdas?utm_source=llms&utm_medium=ai&utm_campaign=txt): Store arbitrary data on Solana, using PDAs, an inbuilt key-value store.
+- [Intro to Anchor development](https://solana.com/courses/onchain-development/intro-to-anchor?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create your first Solana onchain program in Anchor.
+- [Intro to Solana Onchain Development](https://solana.com/courses/onchain-development/intro-to-onchain?utm_source=llms&utm_medium=ai&utm_campaign=txt): Discover how onchain programs ( often called
+- [Intro to client-side Anchor development](https://solana.com/courses/onchain-development/intro-to-anchor-frontend?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use Anchor
+- [Local Program Development](https://solana.com/courses/onchain-development/local-setup?utm_source=llms&utm_medium=ai&utm_campaign=txt): Setup a local development environment for building onchain programs.
+- [Onchain program development](https://solana.com/courses/onchain-development/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Build onchain programs (sometimes called 'smart contracts') with Anchor.
+
+## Courses - Program-optimization
+
+- [Program Architecture](https://solana.com/courses/program-optimization/program-architecture?utm_source=llms&utm_medium=ai&utm_campaign=txt): Design your Solana programs efficiently.
+- [Program Configuration](https://solana.com/courses/program-optimization/program-configuration?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create distinct environments, feature flags and admin-only instructions.
+- [Program Optimization](https://solana.com/courses/program-optimization/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to efficiently design and optimize your programs.
+- [Rust Procedural Macros](https://solana.com/courses/program-optimization/rust-macros?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use Rust macros to generate code at compile time.
+- [Versioned Transactions and Lookup Tables](https://solana.com/courses/program-optimization/lookup-tables?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use large amounts of accounts by using lookup tables.
+
+## Courses - Program-security
+
+- [Account Data Matching](https://solana.com/courses/program-security/account-data-matching?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to check your program
+- [Arbitrary CPI](https://solana.com/courses/program-security/arbitrary-cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to safely invoke Solana programs from other Solana programs.
+- [Bump Seed Canonicalization](https://solana.com/courses/program-security/bump-seed-canonicalization?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand the need for consistent PDA calculation by storing and reusing the  canonical bump.
+- [Closing Accounts and Revival Attacks](https://solana.com/courses/program-security/closing-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to close program accounts safely and securely in Anchor and native Rust.
+- [Duplicate Mutable Accounts](https://solana.com/courses/program-security/duplicate-mutable-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand vulnerabilities that can occur with instruction handlers that handle  two mutable accounts, and how to mitigate them.
+- [How to Approach the Program Security Course](https://solana.com/courses/program-security/security-intro?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to think intelligently about security for your onchain programs,  whether developing in Anchor or Native Rust.
+- [Owner Checks](https://solana.com/courses/program-security/owner-checks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand the use of account owner checks when processing incoming  instructions.
+- [PDA Sharing](https://solana.com/courses/program-security/pda-sharing?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand the potential problems of reusing PDAs by using user and domain  specific PDAs.
+- [Program Security](https://solana.com/courses/program-security/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand common security pitfalls and how to build secure programs.
+- [Reinitialization Attacks](https://solana.com/courses/program-security/reinitialization-attacks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand the security risks of account reinitialized attacks being used to  override data, and how to prevent them.
+- [Signer Authorization](https://solana.com/courses/program-security/signer-auth?utm_source=llms&utm_medium=ai&utm_campaign=txt): Ensure instructions are only executed by authorized accounts by implementing  signer checks.
+- [Type Cosplay](https://solana.com/courses/program-security/type-cosplay?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand the risks of using incorrect account types in instructions and how  to mitigate them with account type checks.
+
+## Courses - Solana-pay
+
+- [Solana Pay](https://solana.com/courses/solana-pay/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Request payments and initiate transactions using links and QR codes.
+- [Solana Pay](https://solana.com/courses/solana-pay/solana-pay?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to create Solana Pay payment requests using links and QR codes.
+
+## Courses - State-compression
+
+- [Compressed NFTs](https://solana.com/courses/state-compression/compressed-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to mint, transfer and read large-scale NFT collections using Metaplex
+- [Generalized State Compression objectives](https://solana.com/courses/state-compression/generalized-state-compression?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand how state compression - the technology behind compressed NFTs works - and learn how to apply it in your Solana programs.
+- [State Compression](https://solana.com/courses/state-compression/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use state compression for large NFT collections and other large-data cases.
+
+## Courses - Token-extensions
+
+- [CPI Guard](https://solana.com/courses/token-extensions/cpi-guard?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create tokens that don
+- [Close Mint Extension](https://solana.com/courses/token-extensions/close-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create a mint that can be closed once the tokens are burnt.
+- [Default Account State](https://solana.com/courses/token-extensions/default-account-state?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create token that requires interaction with a specific service to use.
+- [Group, Group Pointer, Member, Member Pointer](https://solana.com/courses/token-extensions/group-member?utm_source=llms&utm_medium=ai&utm_campaign=txt): Make an NFT collection using token extensions.
+- [Immutable Owner](https://solana.com/courses/token-extensions/immutable-owner?utm_source=llms&utm_medium=ai&utm_campaign=txt): Make a token that ensures the account storing the tokens cannot change owner.
+- [Interest Bearing Token](https://solana.com/courses/token-extensions/interest-bearing-token?utm_source=llms&utm_medium=ai&utm_campaign=txt): Make a token that earns interest over time.
+- [Intro to Token Extensions](https://solana.com/courses/token-extensions/intro-to-token-extensions-program?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn what token extensions are, and how to create tokens that use their  features.
+- [Metadata and Metadata Pointer Extension](https://solana.com/courses/token-extensions/token-extensions-metadata?utm_source=llms&utm_medium=ai&utm_campaign=txt): Include token metadata directly inside the token mint account.
+- [Non-Transferable Token](https://solana.com/courses/token-extensions/non-transferable-token?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create tokens that can
+- [Permanent Delegate](https://solana.com/courses/token-extensions/permanent-delegate?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create a token than can be permanently transferred or burned by a particular  account.
+- [Required Memo](https://solana.com/courses/token-extensions/required-memo?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create a token that requires a short note on every transfer.
+- [Token Extensions](https://solana.com/courses/token-extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create tokens with features like non-transferability, transfer hooks, and more.
+- [Transfer Fee Extension](https://solana.com/courses/token-extensions/transfer-fee?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create a token that allows a fee to be charged each time the token is traded.
+- [Transfer Hook](https://solana.com/courses/token-extensions/transfer-hook?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create a token that invokes a function in an onchain program whenever the  token in transferred.
+- [Use Token Extensions from a Client](https://solana.com/courses/token-extensions/token-extensions-in-the-client?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use mints with Token Extensions program from TS in web and mobile apps.
+- [Use Token Extensions in onchain programs](https://solana.com/courses/token-extensions/token-extensions-onchain?utm_source=llms&utm_medium=ai&utm_campaign=txt): Use token extensions in onchain programs.
+
+## Courses - Tokens-and-nfts
+
+- [Create Solana NFTs With Metaplex](https://solana.com/courses/tokens-and-nfts/nfts-with-metaplex?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to create NFTs in TypeScript with Metaplex Metadata program and Irys  permanent storage service.
+- [Create Solana NFTs With Metaplex Core](https://solana.com/courses/tokens-and-nfts/nfts-with-metaplex-core?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to create NFTs in TypeScript with Metaplex Core program and Irys  permanent storage service.
+- [Create Tokens With The Token Program](https://solana.com/courses/tokens-and-nfts/token-program?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand how tokens - both regular tokens and NFTs - are created, stored,  and transferred on Solana.
+- [Token Burning and Delegation](https://solana.com/courses/tokens-and-nfts/token-program-advanced?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to burn tokens, and approve/revoke token delegations on Solana.
+- [Tokens and NFTs on Solana](https://solana.com/courses/tokens-and-nfts/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Create tokens and NFTs on Solana.
+
+## Docs - Ar
+
+- [Cross Program Invocation](https://solana.com/docs/ar/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على Cross Program Invocation (CPI) على سولانا - كيف يمكن للبرامج استدعاء تعليمات على برامج أخرى، والتعامل مع موقعي PDA، وتكوين الوظائف عبر شبكة سولانا.
+- [Program Derived Address](https://solana.com/docs/ar/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على عناوين Program Derived Addresses (PDAs) على سولانا - عناوين حسابات محددة تمكن من توقيع البرنامج الآمن. افهم اشتقاق PDA، والقيم الإضافية القانونية، وكيفية إنشاء حسابات PDA.
+- [accountSubscribe](https://solana.com/docs/ar/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/ar/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/ar/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/ar/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/ar/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/ar/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/ar/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/ar/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/ar/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/ar/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/ar/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/ar/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/ar/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/ar/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/ar/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/ar/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/ar/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/ar/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/ar/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/ar/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/ar/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/ar/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/ar/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/ar/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/ar/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/ar/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/ar/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/ar/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/ar/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/ar/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/ar/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/ar/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/ar/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/ar/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/ar/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/ar/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/ar/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/ar/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/ar/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/ar/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/ar/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/ar/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/ar/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/ar/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/ar/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/ar/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/ar/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/ar/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/ar/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/ar/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/ar/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/ar/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/ar/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/ar/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/ar/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/ar/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/ar/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/ar/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/ar/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/ar/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/ar/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/ar/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/ar/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/ar/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/ar/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/ar/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/ar/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/ar/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/ar/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/ar/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/ar/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/ar/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/ar/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/ar/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/ar/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/ar/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/ar/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/ar/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/ar/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/ar/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/ar/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/ar/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/ar/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/ar/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [أساسيات رمز SPL](https://solana.com/docs/ar/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم التعليمات الأساسية للتفاعل مع رموز SPL.
+- [أمثلة البرامج](https://solana.com/docs/ar/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): قائمة بأمثلة برامج سولانا بلغات وأطر عمل مختلفة، والتي يمكن أن تساعدك على التعلم واستخدامها كمرجع لمشاريعك الخاصة.
+- [إنشاء حساب Token](https://solana.com/docs/ar/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية إنشاء حسابات SPL Token.
+- [إنشاء حساب توكن](https://solana.com/docs/ar/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية إنشاء token account مع ملحق التحويل السري.
+- [إنشاء حسابات محددة](https://solana.com/docs/ar/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية بناء برنامج سولانا CRUD (إنشاء، قراءة، تحديث، حذف) باستخدام عناوين مشتقة من البرنامج (PDAs) وإطار عمل Anchor. يوضح هذا الدليل خطوة بخطوة كيفية إنشاء وتحديث وحذف حسابات الرسائل على السلسلة باستخدام PDAs، وتنفيذ التحقق من صحة الحساب، وكتابة الاختبارات. مثالي للمطورين الراغبين في فهم كيفية استخدام PDAs في برامج سولانا.
+- [إنشاء عملة رمزية](https://solana.com/docs/ar/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية إنشاء عملة SPL Token.
+- [إنشاء عملة رمزية](https://solana.com/docs/ar/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية إنشاء عملة رمزية مع ملحق النقل السري.
+- [إيداع الرموز](https://solana.com/docs/ar/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية إيداع الرموز إلى الحالة السرية.
+- [استهلاك وحدات الحوسبة المخصصة عند فشل sBPF](https://solana.com/docs/ar/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [الأسئلة الشائعة](https://solana.com/docs/ar/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [الإضافات](https://solana.com/docs/ar/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على برنامج إضافات التوكن (Token 2022) وكيفية استخدام إضافاته لإضافة ميزات اختيارية إلى حسابات إصدار التوكن وحسابات التوكن.
+- [البدء السريع](https://solana.com/docs/ar/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم أساسيات تطوير سولانا. أنشئ برنامجك الأول، وافهم الحسابات، وأرسل المعاملات، واستكشف PDAs وCPIs باستخدام Solana Playground - لا يتطلب تثبيت أي شيء.
+- [البرامج على سولانا](https://solana.com/docs/ar/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على برامج سولانا (العقود الذكية) وكيفية تطويرها باستخدام Rust أو إطار عمل Anchor. افهم نشر البرامج وترقياتها والتحقق منها على شبكة سولانا.
+- [التثبيت](https://solana.com/docs/ar/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): دليل لإعداد بيئة تطوير سولانا المحلية الخاصة بك. تعلم كيفية تثبيت Rust، واجهة سطر أوامر سولانا، وإطار عمل Anchor على نظام Windows (WSL)، Linux، وMac.
+- [التحويل السري](https://solana.com/docs/ar/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على ملحق التحويل السري وكيفية استخدامه لإضافة ميزات اختيارية إلى mint account و token account.
+- [التخزين](https://solana.com/docs/ar/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [التخطيط المباشر](https://solana.com/docs/ar/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [التوكنات على سولانا](https://solana.com/docs/ar/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على برامج التوكن في سولانا.
+- [القراءة من الشبكة](https://solana.com/docs/ar/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية قراءة البيانات من شبكة سولانا. يغطي هذا الدليل استرجاع حسابات المحفظة، وحسابات البرامج، وحسابات إصدار الرموز باستخدام جافاسكريبت/تايبسكريبت، مع أمثلة عملية باستخدام مكتبة سولانا web3.js.
+- [القيود](https://solana.com/docs/ar/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [الكتابة إلى الشبكة](https://solana.com/docs/ar/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية التفاعل مع شبكة سولانا من خلال إرسال المعاملات والتعليمات. اتبع أمثلة خطوة بخطوة لتحويل رموز SOL وإنشاء رموز جديدة باستخدام System Program و Token Extensions Program.
+- [المصطلحات](https://solana.com/docs/ar/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على المصطلحات الأساسية المستخدمة في بلوكتشين سولانا ونماذج التطوير.
+- [المعاملات والتعليمات](https://solana.com/docs/ar/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على معاملات وتعليمات سولانا - اللبنات الأساسية للتفاعل مع بلوكتشين سولانا. افهم بنية المعاملات وتكوين التعليمات مع أمثلة عملية.
+- [المفاهيم الأساسية](https://solana.com/docs/ar/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم المفاهيم الأساسية لبلوكتشين سولانا بما في ذلك الحسابات والمعاملات والبرامج وعناوين Program Derived Address وعمليات Cross Program Invocation وكيفية عمل الرموز على سولانا.
+- [برامج Rust](https://solana.com/docs/ar/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية تطوير برامج سولانا باستخدام Rust، بما في ذلك تعليمات خطوة بخطوة لإنشاء وبناء واختبار ونشر العقود الذكية على بلوكتشين سولانا.
+- [برمجة التخزين](https://solana.com/docs/ar/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [تحويل الرموز](https://solana.com/docs/ar/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية تحويل الرموز بين حسابات token account.
+- [تحويل الرموز](https://solana.com/docs/ar/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية تحويل الرموز بشكل خاص من حساب رمز إلى آخر.
+- [تطبيق الرصيد المعلق](https://solana.com/docs/ar/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية تطبيق الرصيد المعلق لجعل الأموال متاحة.
+- [تعليمات التصويت الجديدة الافتراضية](https://solana.com/docs/ar/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [تكوين برامج متعددة](https://solana.com/docs/ar/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية تنفيذ استدعاءات البرامج المتقاطعة (CPIs) في برامج سولانا باستخدام إطار عمل Anchor. يوضح هذا البرنامج التعليمي كيفية نقل SOL بين الحسابات، والتفاعل مع System Program، والتعامل مع عناوين البرامج المشتقة (PDAs) في CPIs. مثالي للمطورين الذين يتطلعون إلى بناء برامج سولانا قابلة للتركيب.
+- [توثيق سولانا](https://solana.com/docs/ar/?utm_source=llms&utm_medium=ai&utm_campaign=txt): سولانا هي بلوكتشين عالي الأداء مصمم للاعتماد الجماعي. تعرف على سبب كون سولانا الخيار الأفضل للمطورين الذين يتطلعون إلى بناء تطبيقات بلوكتشين قابلة للتوسع.
+- [حجز الحد الأدنى من وحدات الحوسبة (CUs) للبرامج المدمجة](https://solana.com/docs/ar/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [حسابات الرهن](https://solana.com/docs/ar/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [دليل تكامل المبلغ المقياسي لواجهة المستخدم](https://solana.com/docs/ar/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية دمج رمز يستخدم امتداد المبلغ المقياسي لواجهة المستخدم في تطبيقك.
+- [دليل مُصدر المبلغ ذو الواجهة المقياسية](https://solana.com/docs/ar/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية استخدام امتداد المبلغ ذو الواجهة المقياسية لتحجيم مبلغ واجهة المستخدم للرمز.
+- [رسوم المعاملات](https://solana.com/docs/ar/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على رسوم معاملات سولانا، بما في ذلك الرسوم الأساسية ورسوم الأولوية، وكيفية تطبيق كل منها، وأفضل الممارسات لإدارة وحدات الحوسبة في معاملاتك.
+- [سحب الرموز](https://solana.com/docs/ar/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية سحب الرموز من الحالة السرية.
+- [سك الرموز](https://solana.com/docs/ar/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية سك وحدات جديدة من الرمز.
+- [طرق HTTP](https://solana.com/docs/ar/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [طرق RPC لسولانا](https://solana.com/docs/ar/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [طرق Websocket](https://solana.com/docs/ar/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [مبلغ واجهة المستخدم المقياسي](https://solana.com/docs/ar/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على امتداد مبلغ واجهة المستخدم المقياسي وكيفية استخدامه لتغيير مقياس مبلغ الرمز المميز في واجهة المستخدم.
+- [مجموعات تطوير برمجيات الألعاب لسولانا](https://solana.com/docs/ar/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): قائمة بمجموعات تطوير برمجيات الألعاب لسولانا لمساعدتك في بدء إنشاء لعبتك الأولى على سولانا
+- [مكتبة Go SDK](https://solana.com/docs/ar/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية التفاعل مع سولانا باستخدام مكتبة Go SDK (gagliardetto/solana-go).
+- [مكتبة Rust للتطوير](https://solana.com/docs/ar/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية استخدام حزم Rust الخاصة بسولانا للتطوير.
+- [مكتبة بايثون SDK](https://solana.com/docs/ar/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية التفاعل مع سولانا باستخدام مكتبة بايثون SDK (michaelhly/solana-py).
+- [مكتبة تايبسكريبت SDK](https://solana.com/docs/ar/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية التفاعل مع سولانا باستخدام مكتبة جافاسكريبت/تايبسكريبت (@solana/web3.js).
+- [مكتبة تطوير البرمجيات بلغة جافا](https://solana.com/docs/ar/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية التفاعل مع سولانا باستخدام مكتبة تطوير البرمجيات بلغة جافا (sava-software/sava).
+- [نشر البرامج](https://solana.com/docs/ar/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): تحميل البرامج المخصصة إلى بلوكتشين سولانا باستخدام واجهة سطر أوامر سولانا.
+- [نشر البرامج](https://solana.com/docs/ar/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية بناء ونشر واختبار برنامجك الأول على سولانا باستخدام إطار عمل Anchor وSolana Playground. يوضح هذا الدليل المناسب للمبتدئين خطوات إنشاء برنامج بسيط، ونشره على شبكة devnet، وتشغيل الاختبارات، وإغلاق البرنامج.
+- [نقاط نهاية RPC](https://solana.com/docs/ar/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على مجموعات شبكة سولانا (Devnet وTestnet وMainnet Beta)، ونقاط نهاية RPC العامة الخاصة بها، وحدود المعدلات، وحالات الاستخدام. تعلم كيفية الاتصال بشبكات سولانا المختلفة للتطوير والاختبار والإنتاج.
+- [نموذج حساب سولانا](https://solana.com/docs/ar/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على نموذج حساب سولانا، بما في ذلك كيفية تخزين الحسابات للبيانات والبرامج، وآليات الإيجار (rent)، وملكية الحساب، والعلاقة بين البرامج وحسابات البيانات. افهم المفاهيم الأساسية لنظام تخزين المفاتيح والقيم في سولانا.
+- [هياكل البيانات بصيغة JSON](https://solana.com/docs/ar/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [هيكل البرنامج](https://solana.com/docs/ar/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية هيكلة برامج سولانا في لغة Rust، بما في ذلك نقاط الدخول، وإدارة الحالة، ومعالجة التعليمات، والاختبار.
+
+## Docs - De
+
+- [Ausstehenden Saldo anwenden](https://solana.com/docs/de/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie ausstehende Guthaben anwenden, um Mittel verfügbar zu machen.
+- [Cross Program Invocation](https://solana.com/docs/de/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Cross Program Invocation (CPI) auf Solana - wie Programme Anweisungen auf anderen Programmen aufrufen, PDA-Signer verwalten und Funktionalitäten im gesamten Solana-Netzwerk komponieren können.
+- [Daten vom Netzwerk lesen](https://solana.com/docs/de/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Daten aus dem Solana-Blockchain-Netzwerk lesen können. Dieser Leitfaden behandelt das Abrufen von Wallet-Konten, Program-Konten und Token-Mint-Konten mit JavaScript/TypeScript und enthält praktische Beispiele mit der Solana web3.js-Bibliothek.
+- [Datenstrukturen als JSON](https://solana.com/docs/de/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Deterministische Konten erstellen](https://solana.com/docs/de/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lernen Sie, wie man ein CRUD (Create, Read, Update, Delete) Solana-Programm mit Program Derived Addresses (PDAs) und dem Anchor-Framework erstellt. Diese Schritt-für-Schritt-Anleitung zeigt, wie man On-Chain-Nachrichtenkonten mit PDAs erstellt, aktualisiert und löscht, Kontenvalidierung implementiert und Tests schreibt. Perfekt für Entwickler, die verstehen möchten, wie man PDAs in Solana-Programmen verwendet.
+- [Direktes Mapping](https://solana.com/docs/de/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Ein Token Account erstellen](https://solana.com/docs/de/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie SPL Token Accounts erstellen.
+- [Ein Token-Konto erstellen](https://solana.com/docs/de/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie ein Token-Konto mit der Confidential Transfer-Erweiterung erstellen.
+- [Einen Token Mint erstellen](https://solana.com/docs/de/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie einen SPL Token mint erstellen.
+- [Einen Token Mint erstellen](https://solana.com/docs/de/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie einen Token Mint mit der Confidential Transfer-Erweiterung erstellen.
+- [Einschränkungen](https://solana.com/docs/de/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Extensions](https://solana.com/docs/de/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über das Token Extensions Program (Token 2022) und wie Sie dessen Erweiterungen nutzen können, um optionale Funktionen zu Token-Mints und -Konten hinzuzufügen.
+- [FAQ](https://solana.com/docs/de/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Go SDK](https://solana.com/docs/de/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie mit dem Go SDK (gagliardetto/solana-go) mit Solana interagieren können.
+- [HTTP-Methoden](https://solana.com/docs/de/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Installation](https://solana.com/docs/de/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Eine Anleitung zur Einrichtung deiner lokalen Solana-Entwicklungsumgebung. Lerne, wie du Rust, die Solana CLI und das Anchor Framework unter Windows (WSL), Linux und Mac installierst.
+- [Integrationsanleitung für skalierte UI-Beträge](https://solana.com/docs/de/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie einen Token, der die Scaled UI Amount-Erweiterung verwendet, in Ihre Anwendung integrieren können.
+- [Java SDK](https://solana.com/docs/de/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie mit dem Java SDK (sava-software/sava) mit Solana interagieren können.
+- [Kernkonzepte](https://solana.com/docs/de/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lernen Sie wesentliche Konzepte der Solana-Blockchain kennen, einschließlich Konten, Transaktionen, Programme, Program Derived Address, Cross Program Invocation und wie Token auf Solana funktionieren.
+- [Leitfaden für Scaled UI Amount Issuer](https://solana.com/docs/de/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie die Scaled UI Amount-Erweiterung verwenden, um den UI-Betrag eines Tokens zu skalieren.
+- [Minimale CUs für Builtins reservieren](https://solana.com/docs/de/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Neue Abstimmungs-Anweisung als Standard](https://solana.com/docs/de/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Program Derived Address](https://solana.com/docs/de/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Program Derived Addresses (PDAs) auf Solana - deterministische Konten-Adressen, die sichere Programmsignierung ermöglichen. Verstehen Sie PDA-Ableitung, kanonische Bumps und wie man PDA-Konten erstellt.
+- [Programm-Beispiele](https://solana.com/docs/de/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Eine Liste von Solana-Programm-Beispielen in verschiedenen Sprachen und Frameworks, die dir beim Lernen helfen und als Referenz für deine eigenen Projekte dienen können.
+- [Programme auf Solana](https://solana.com/docs/de/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Solana-Programme (Smart Contracts) und wie man sie mit Rust oder dem Anchor-Framework entwickelt. Verstehen Sie Deployment, Upgrades und Verifizierung von Programmen im Solana-Netzwerk.
+- [Programme bereitstellen](https://solana.com/docs/de/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Ihr erstes Solana-Programm mit dem Anchor-Framework und Solana Playground erstellen, bereitstellen und testen. Diese anfängerfreundliche Anleitung führt durch die Erstellung eines einfachen Programms, die Bereitstellung im Devnet, die Durchführung von Tests und das Schließen des Programms.
+- [Programme deployen](https://solana.com/docs/de/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Hochladen benutzerdefinierter Programme auf die Solana-Blockchain mit der Solana CLI.
+- [Programmstruktur](https://solana.com/docs/de/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Solana-Programme in Rust strukturieren, einschließlich Einstiegspunkten, Zustandsverwaltung, Anweisungsverarbeitung und Tests.
+- [Python SDK](https://solana.com/docs/de/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie mit dem Python SDK (michaelhly/solana-py) mit Solana interagieren können.
+- [RPC-Endpunkte](https://solana.com/docs/de/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Solanas Netzwerk-Cluster (Devnet, Testnet und Mainnet Beta), ihre öffentlichen RPC-Endpunkte, Ratenbegrenzungen und Anwendungsfälle. Lernen Sie, wie Sie sich mit verschiedenen Solana-Netzwerken für Entwicklung, Tests und Produktion verbinden können.
+- [Rust SDK](https://solana.com/docs/de/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Solanas Rust Crates für die Entwicklung nutzen können.
+- [Rust-Programme](https://solana.com/docs/de/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Solana-Programme mit Rust entwickeln, einschließlich Schritt-für-Schritt Anweisungen zum Erstellen, Bauen, Testen und Bereitstellen von Smart Contracts auf der Solana-Blockchain.
+- [SPL Token Grundlagen](https://solana.com/docs/de/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lernen Sie die grundlegenden Anweisungen für die Interaktion mit SPL Tokens.
+- [Schnellstart](https://solana.com/docs/de/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lerne die Grundlagen der Solana-Entwicklung. Erstelle dein erstes Programm, verstehe Konten, sende Transaktionen und erkunde PDAs und CPIs mit Solana Playground - keine Installation erforderlich.
+- [Schreiben ins Netzwerk](https://solana.com/docs/de/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie mit dem Solana-Netzwerk interagieren, indem Sie Transaktionen und Anweisungen senden. Folgen Sie Schritt-für-Schritt-Beispielen zum Übertragen von SOL-Tokens und zum Erstellen neuer Tokens mit dem System Program und Token Extensions Program.
+- [Skalierter UI-Betrag](https://solana.com/docs/de/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über die Scaled UI Amount-Erweiterung und wie Sie sie verwenden können, um den UI-Betrag eines Tokens zu skalieren.
+- [Solana Dokumentation](https://solana.com/docs/de/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana ist die leistungsstarke Blockchain, die für die Massenadoption konzipiert wurde. Erfahren Sie, warum Solana die erste Wahl für Entwickler ist, die skalierbare Blockchain-Anwendungen erstellen möchten.
+- [Solana Gaming SDKs](https://solana.com/docs/de/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Eine Liste von Solana Gaming SDKs, um dir den Einstieg in die Entwicklung deines ersten Solana-Spiels zu erleichtern
+- [Solana Kontenmodell](https://solana.com/docs/de/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Solanas Kontenmodell, einschließlich wie Konten Daten und Programme speichern, Rent-Mechanismen, Konteneigentum und die Beziehung zwischen Programmen und Datenkonten. Verstehen Sie die Kernkonzepte von Solanas Key-Value-Speichersystem.
+- [Solana RPC-Methoden](https://solana.com/docs/de/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Stake-Konten](https://solana.com/docs/de/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Stake-Programmierung](https://solana.com/docs/de/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Staking](https://solana.com/docs/de/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Terminologie](https://solana.com/docs/de/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lernen Sie die wesentliche Terminologie, die in der Solana-Blockchain und den Entwicklungsmodellen verwendet wird.
+- [Token abheben](https://solana.com/docs/de/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Token aus dem vertraulichen Zustand abheben können.
+- [Token einzahlen](https://solana.com/docs/de/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahre, wie du Token in den vertraulichen Status einzahlen kannst.
+- [Token prägen](https://solana.com/docs/de/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie neue Einheiten eines Tokens prägen können.
+- [Token übertragen](https://solana.com/docs/de/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Token zwischen Token-Konten übertragen können.
+- [Token übertragen](https://solana.com/docs/de/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Token vertraulich von einem Token-Konto auf ein anderes übertragen können.
+- [Tokens auf Solana](https://solana.com/docs/de/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Solanas Token Programs.
+- [Transaktionen und Anweisungen](https://solana.com/docs/de/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Solana-Transaktionen und Anweisungen - die grundlegenden Bausteine für die Interaktion mit der Solana-Blockchain. Verstehen Sie die Transaktionsstruktur und die Zusammensetzung von Anweisungen mit praktischen Beispielen.
+- [Transaktionsgebühren](https://solana.com/docs/de/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Solanas Transaktionsgebühren, einschließlich der Basis- und Priority Fees, wie jede angewendet wird und bewährte Methoden zur Verwaltung von Compute Units in Ihren Transaktionen.
+- [Typescript SDK](https://solana.com/docs/de/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie mit der JavaScript/TypeScript-Clientbibliothek (@solana/web3.js) mit Solana interagieren können.
+- [Verbrauch zugewiesener CUs bei sBPF-Fehler](https://solana.com/docs/de/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Vertraulicher Transfer](https://solana.com/docs/de/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über die Vertraulicher-Transfer-Erweiterung und wie Sie sie verwenden können, um optionale Funktionen zu Token-Mints und Konten hinzuzufügen.
+- [Websocket-Methoden](https://solana.com/docs/de/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Zusammensetzen mehrerer Programme](https://solana.com/docs/de/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Sie Cross Program Invocations (CPIs) in Solana-Programmen mit dem Anchor-Framework implementieren. Dieses Tutorial zeigt, wie Sie SOL zwischen Konten übertragen, mit dem System Program interagieren und Program Derived Addresses (PDAs) in CPIs verwalten. Perfekt für Entwickler, die kompositionsfähige Solana-Programme erstellen möchten.
+- [accountSubscribe](https://solana.com/docs/de/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/de/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/de/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/de/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/de/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/de/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/de/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/de/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/de/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/de/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/de/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/de/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/de/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/de/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/de/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/de/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/de/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/de/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/de/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/de/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/de/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/de/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/de/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/de/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/de/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/de/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/de/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/de/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/de/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/de/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/de/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/de/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/de/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/de/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/de/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/de/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/de/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/de/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/de/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/de/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/de/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/de/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/de/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/de/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/de/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/de/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/de/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/de/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/de/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/de/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/de/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/de/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/de/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/de/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/de/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/de/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/de/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/de/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/de/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/de/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/de/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/de/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/de/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/de/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/de/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/de/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/de/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/de/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/de/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/de/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/de/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/de/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/de/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/de/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/de/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/de/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/de/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/de/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/de/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/de/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/de/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/de/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/de/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/de/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - El
+
+- [Cross Program Invocation](https://solana.com/docs/el/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για το Cross Program Invocation (CPI) στο Solana - πώς τα προγράμματα μπορούν να καλούν εντολές σε άλλα προγράμματα, να διαχειρίζονται υπογράφοντες PDA και να συνθέτουν λειτουργικότητα σε όλο το δίκτυο Solana.
+- [Extensions](https://solana.com/docs/el/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για το Token Extensions Program (Token 2022) και πώς να χρησιμοποιήσετε τις επεκτάσεις του για να προσθέσετε προαιρετικές λειτουργίες στα token mints και στους λογαριασμούς token.
+- [Go SDK](https://solana.com/docs/el/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να αλληλεπιδράτε με το Solana χρησιμοποιώντας το Go SDK (gagliardetto/solana-go).
+- [Java SDK](https://solana.com/docs/el/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να αλληλεπιδράτε με το Solana χρησιμοποιώντας το Java SDK (sava-software/sava).
+- [Program Derived Address](https://solana.com/docs/el/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τις Program Derived Addresses (PDAs) στο Solana - ντετερμινιστικές διευθύνσεις λογαριασμών που επιτρέπουν ασφαλή υπογραφή προγράμματος. Κατανοήστε την παραγωγή PDA, τα κανονικά bumps και πώς να δημιουργήσετε λογαριασμούς PDA.
+- [Python SDK](https://solana.com/docs/el/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να αλληλεπιδράτε με το Solana χρησιμοποιώντας το Python SDK (michaelhly/solana-py).
+- [Rust SDK](https://solana.com/docs/el/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να χρησιμοποιείτε τα Rust crates της Solana για ανάπτυξη.
+- [Solana Gaming SDKs](https://solana.com/docs/el/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μια λίστα με Solana Gaming SDKs για να ξεκινήσετε να δημιουργείτε το πρώτο σας παιχνίδι στο Solana
+- [Staking](https://solana.com/docs/el/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Tokens στο Solana](https://solana.com/docs/el/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τα Token Programs του Solana.
+- [Typescript SDK](https://solana.com/docs/el/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να αλληλεπιδράτε με το Solana χρησιμοποιώντας τη βιβλιοθήκη πελάτη JavaScript/TypeScript (@solana/web3.js).
+- [accountSubscribe](https://solana.com/docs/el/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/el/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/el/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/el/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/el/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/el/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/el/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/el/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/el/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/el/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/el/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/el/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/el/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/el/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/el/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/el/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/el/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/el/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/el/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/el/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/el/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/el/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/el/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/el/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/el/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/el/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/el/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/el/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/el/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/el/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/el/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/el/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/el/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/el/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/el/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/el/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/el/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/el/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/el/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/el/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/el/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/el/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/el/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/el/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/el/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/el/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/el/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/el/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/el/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/el/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/el/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/el/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/el/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/el/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/el/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/el/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/el/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/el/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/el/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/el/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/el/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/el/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/el/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/el/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/el/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/el/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/el/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/el/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/el/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/el/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/el/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/el/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/el/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/el/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/el/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/el/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/el/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/el/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/el/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/el/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/el/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/el/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/el/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/el/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Άμεση Αντιστοίχιση](https://solana.com/docs/el/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Έκδοση Tokens](https://solana.com/docs/el/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να εκδίδετε νέες μονάδες ενός token.
+- [Ανάγνωση από το Δίκτυο](https://solana.com/docs/el/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να διαβάζετε δεδομένα από το blockchain δίκτυο Solana. Αυτός ο οδηγός καλύπτει την ανάκτηση λογαριασμών πορτοφολιού, program account και token mint account χρησιμοποιώντας JavaScript/TypeScript, με πρακτικά παραδείγματα χρήσης της βιβλιοθήκης Solana web3.js.
+- [Ανάληψη Tokens](https://solana.com/docs/el/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να κάνετε ανάληψη tokens από την εμπιστευτική κατάσταση.
+- [Ανάπτυξη προγραμμάτων](https://solana.com/docs/el/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μεταφόρτωση προσαρμοσμένων προγραμμάτων στο blockchain του Solana χρησιμοποιώντας το Solana CLI.
+- [Ανάπτυξη προγραμμάτων](https://solana.com/docs/el/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να δημιουργήσετε, να αναπτύξετε και να δοκιμάσετε το πρώτο σας πρόγραμμα Solana χρησιμοποιώντας το πλαίσιο Anchor και το Solana Playground. Αυτός ο οδηγός για αρχάριους σας καθοδηγεί στη δημιουργία ενός απλού προγράμματος, την ανάπτυξή του στο devnet, την εκτέλεση δοκιμών και το κλείσιμο του προγράμματος.
+- [Βασικά στοιχεία SPL Token](https://solana.com/docs/el/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε τις βασικές εντολές για αλληλεπίδραση με τα SPL Tokens.
+- [Βασικές έννοιες](https://solana.com/docs/el/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε βασικές έννοιες του blockchain Solana, συμπεριλαμβανομένων των λογαριασμών, συναλλαγών, προγραμμάτων, Program Derived Address, Cross Program Invocation, και πώς λειτουργούν τα tokens στο Solana.
+- [Γρήγορη εκκίνηση](https://solana.com/docs/el/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε τις βασικές αρχές ανάπτυξης στο Solana. Δημιουργήστε το πρώτο σας πρόγραμμα, κατανοήστε τους λογαριασμούς, στείλτε συναλλαγές και εξερευνήστε τα PDAs και CPIs χρησιμοποιώντας το Solana Playground - χωρίς να απαιτείται εγκατάσταση.
+- [Δέσμευση ελάχιστων CUs για ενσωματωμένα προγράμματα](https://solana.com/docs/el/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Δημιουργία ενός Token Account](https://solana.com/docs/el/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να δημιουργείτε SPL Token Accounts.
+- [Δημιουργία ενός Token Mint](https://solana.com/docs/el/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να δημιουργήσετε ένα SPL Token mint.
+- [Δημιουργία ενός Token Mint](https://solana.com/docs/el/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να δημιουργήσετε ένα token mint με την επέκταση Confidential Transfer.
+- [Δημιουργία λογαριασμού token](https://solana.com/docs/el/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να δημιουργήσετε έναν token account με την επέκταση Confidential Transfer.
+- [Δημιουργία προκαθορισμένων λογαριασμών](https://solana.com/docs/el/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να δημιουργήσετε ένα πρόγραμμα CRUD (Δημιουργία, Ανάγνωση, Ενημέρωση, Διαγραφή) στο Solana χρησιμοποιώντας Program Derived Addresses (PDAs) και το πλαίσιο Anchor. Αυτός ο οδηγός βήμα προς βήμα δείχνει πώς να δημιουργείτε, να ενημερώνετε και να διαγράφετε λογαριασμούς μηνυμάτων στην αλυσίδα χρησιμοποιώντας PDAs, να εφαρμόζετε επικύρωση λογαριασμών και να γράφετε δοκιμές. Ιδανικό για προγραμματιστές που θέλουν να κατανοήσουν πώς να χρησιμοποιούν τα PDAs στα προγράμματα Solana.
+- [Δομές Δεδομένων ως JSON](https://solana.com/docs/el/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Δομή προγράμματος](https://solana.com/docs/el/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να δομείτε προγράμματα Solana σε Rust, συμπεριλαμβανομένων των σημείων εισόδου, της διαχείρισης καταστάσεων, του χειρισμού εντολών και των δοκιμών.
+- [Εγγραφή στο δίκτυο](https://solana.com/docs/el/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να αλληλεπιδράτε με το δίκτυο Solana αποστέλλοντας συναλλαγές και οδηγίες. Ακολουθήστε παραδείγματα βήμα προς βήμα για να μεταφέρετε tokens SOL και να δημιουργήσετε νέα tokens χρησιμοποιώντας το System Program και το Token Extensions Program.
+- [Εγκατάσταση](https://solana.com/docs/el/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Ένας οδηγός για τη ρύθμιση του τοπικού περιβάλλοντος ανάπτυξης Solana. Μάθετε πώς να εγκαταστήσετε τη Rust, το Solana CLI και το Anchor Framework σε Windows (WSL), Linux και Mac.
+- [Εμπιστευτική Μεταφορά](https://solana.com/docs/el/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για την επέκταση Εμπιστευτικής Μεταφοράς και πώς να τη χρησιμοποιήσετε για να προσθέσετε προαιρετικές λειτουργίες σε mint και λογαριασμούς token.
+- [Εφαρμογή εκκρεμούς υπολοίπου](https://solana.com/docs/el/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να εφαρμόζετε το εκκρεμές υπόλοιπο για να καταστήσετε τα κεφάλαια διαθέσιμα.
+- [Κατάθεση Tokens](https://solana.com/docs/el/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να καταθέτετε tokens σε εμπιστευτική κατάσταση.
+- [Κατανάλωση κατανεμημένων CUs σε περίπτωση αποτυχίας sBPF](https://solana.com/docs/el/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Κλιμακωμένο ποσό UI](https://solana.com/docs/el/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για την επέκταση Κλιμακωμένου ποσού UI και πώς να τη χρησιμοποιήσετε για να κλιμακώσετε το ποσό UI ενός token.
+- [Λογαριασμοί Staking](https://solana.com/docs/el/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Μέθοδοι HTTP](https://solana.com/docs/el/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Μέθοδοι RPC της Solana](https://solana.com/docs/el/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Μέθοδοι Websocket](https://solana.com/docs/el/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Μεταφορά Tokens](https://solana.com/docs/el/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να μεταφέρετε tokens μεταξύ token accounts.
+- [Μεταφορά Tokens](https://solana.com/docs/el/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να μεταφέρετε tokens ιδιωτικά από έναν λογαριασμό token σε άλλον.
+- [Μοντέλο Λογαριασμού Solana](https://solana.com/docs/el/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για το μοντέλο λογαριασμού του Solana, συμπεριλαμβανομένου του τρόπου με τον οποίο οι λογαριασμοί αποθηκεύουν δεδομένα και προγράμματα, τους μηχανισμούς rent, την ιδιοκτησία λογαριασμών και τη σχέση μεταξύ προγραμμάτων και λογαριασμών δεδομένων. Κατανοήστε τις βασικές έννοιες του συστήματος αποθήκευσης key-value του Solana.
+- [Οδηγός εκδότη κλιμακούμενου ποσού UI](https://solana.com/docs/el/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να χρησιμοποιείτε την επέκταση Scaled UI Amount για να κλιμακώσετε το ποσό UI ενός token.
+- [Οδηγός ενσωμάτωσης κλιμακούμενου ποσού UI](https://solana.com/docs/el/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να ενσωματώσετε ένα token που χρησιμοποιεί την επέκταση Scaled UI Amount στην εφαρμογή σας.
+- [Ορολογία](https://solana.com/docs/el/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε την απαραίτητη ορολογία που χρησιμοποιείται σε όλο το blockchain και τα μοντέλα ανάπτυξης της Solana.
+- [Παραδείγματα προγραμμάτων](https://solana.com/docs/el/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μια λίστα παραδειγμάτων προγραμμάτων Solana σε διαφορετικές γλώσσες και πλαίσια, που μπορούν να σας βοηθήσουν να μάθετε και να χρησιμοποιήσετε ως αναφορά για τα δικά σας έργα.
+- [Περιορισμοί](https://solana.com/docs/el/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Προγράμματα Rust](https://solana.com/docs/el/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να αναπτύξετε προγράμματα Solana χρησιμοποιώντας Rust, συμπεριλαμβανομένων οδηγιών βήμα προς βήμα για τη δημιουργία, κατασκευή, δοκιμή και ανάπτυξη έξυπνων συμβολαίων στο blockchain του Solana.
+- [Προγράμματα στο Solana](https://solana.com/docs/el/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τα προγράμματα του Solana (έξυπνα συμβόλαια) και πώς να τα αναπτύξετε χρησιμοποιώντας Rust ή το πλαίσιο Anchor. Κατανοήστε την ανάπτυξη, τις αναβαθμίσεις και την επαλήθευση προγραμμάτων στο δίκτυο Solana.
+- [Προγραμματισμός staking](https://solana.com/docs/el/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Προεπιλογή νέας οδηγίας ψηφοφορίας](https://solana.com/docs/el/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Συναλλαγές και Οδηγίες](https://solana.com/docs/el/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τις συναλλαγές και τις οδηγίες της Solana - τα θεμελιώδη δομικά στοιχεία για την αλληλεπίδραση με το blockchain της Solana. Κατανοήστε τη δομή των συναλλαγών και τη σύνθεση των οδηγιών με πρακτικά παραδείγματα.
+- [Συχνές ερωτήσεις](https://solana.com/docs/el/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Σύνθεση πολλαπλών προγραμμάτων](https://solana.com/docs/el/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να υλοποιήσετε Cross Program Invocations (CPIs) σε προγράμματα Solana χρησιμοποιώντας το πλαίσιο Anchor. Αυτό το εκπαιδευτικό πρόγραμμα δείχνει πώς να μεταφέρετε SOL μεταξύ λογαριασμών, να αλληλεπιδράσετε με το System Program και να χειριστείτε Program Derived Addresses (PDAs) σε CPIs. Ιδανικό για προγραμματιστές που θέλουν να δημιουργήσουν συνθέσιμα προγράμματα Solana.
+- [Τεκμηρίωση Solana](https://solana.com/docs/el/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Το Solana είναι το blockchain υψηλής απόδοσης σχεδιασμένο για μαζική υιοθέτηση. Μάθετε γιατί το Solana είναι η κορυφαία επιλογή για προγραμματιστές που θέλουν να δημιουργήσουν κλιμακώσιμες εφαρμογές blockchain.
+- [Τελικά σημεία RPC](https://solana.com/docs/el/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τα δίκτυα (clusters) της Solana (Devnet, Testnet και Mainnet Beta), τα δημόσια τελικά σημεία RPC, τα όρια ρυθμού και τις περιπτώσεις χρήσης. Μάθετε πώς να συνδεθείτε σε διαφορετικά δίκτυα Solana για ανάπτυξη, δοκιμή και παραγωγή.
+- [Χρεώσεις συναλλαγών](https://solana.com/docs/el/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τις χρεώσεις συναλλαγών του Solana, συμπεριλαμβανομένων των βασικών και προτεραιότητας χρεώσεων, πώς εφαρμόζεται η καθεμία, και τις βέλτιστες πρακτικές για τη διαχείριση μονάδων υπολογισμού στις συναλλαγές σας.
+
+## Docs - En
+
+- [Apply Pending Balance](https://solana.com/docs/en/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to apply pending balance to make funds available.
+- [Approve Delegate](https://solana.com/docs/en/tokens/basics/approve-delegate?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to approve delegates for a token account.
+- [Burn Tokens](https://solana.com/docs/en/tokens/basics/burn-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to burn tokens.
+- [Close Token Account](https://solana.com/docs/en/tokens/basics/close-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to close token accounts.
+- [Composing Multiple Programs](https://solana.com/docs/en/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to implement Cross Program Invocations (CPIs) in Solana programs using the Anchor framework. This tutorial demonstrates how to transfer SOL between accounts, interact with the System Program, and handle Program Derived Addresses (PDAs) in CPIs. Perfect for developers looking to build composable Solana programs.
+- [Confidential Transfer](https://solana.com/docs/en/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about the Confidential Transfer extension and how to use it to add optional features to token mints and accounts.
+- [Consume Allocated CUs on sBPF Failure](https://solana.com/docs/en/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Core Concepts](https://solana.com/docs/en/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn essential Solana blockchain concepts including accounts, transactions, programs, program derived addresses, cross program invocations, and how tokens work on Solana.
+- [Create a Token Account](https://solana.com/docs/en/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to create SPL Token Accounts.
+- [Create a Token Account](https://solana.com/docs/en/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to create a token account with the Confidential Transfer extension.
+- [Create a Token Mint](https://solana.com/docs/en/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to create an SPL Token mint.
+- [Create a Token Mint](https://solana.com/docs/en/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to create a token mint with the Confidential Transfer extension.
+- [Creating Deterministic Accounts](https://solana.com/docs/en/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to build a CRUD (Create, Read, Update, Delete) Solana program using Program Derived Addresses (PDAs) and the Anchor framework. This step-by-step guide demonstrates how to create, update, and delete on-chain message accounts using PDAs, implement account validation, and write tests. Perfect for developers looking to understand how to use PDAs in Solana programs.
+- [Cross Program Invocation](https://solana.com/docs/en/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Cross Program Invocation (CPI) on Solana - how programs can call instructions on other programs, handle PDA signers, and compose functionality across the Solana network.
+- [Data Structures as JSON](https://solana.com/docs/en/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Deploying Programs](https://solana.com/docs/en/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Uploading custom programs to the Solana blockchain using the Solana CLI.
+- [Deploying Programs](https://solana.com/docs/en/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to build, deploy, and test your first Solana program using the Anchor framework and Solana Playground. This beginner-friendly guide walks through creating a simple program, deploying it to devnet, running tests, and closing the program.
+- [Deposit Tokens](https://solana.com/docs/en/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to deposit tokens to confidential state.
+- [Direct Mapping](https://solana.com/docs/en/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Extensions](https://solana.com/docs/en/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about the Token Extensions Program (Token 2022) and how to use its extensions to add optional features to token mints and accounts.
+- [Freeze Account](https://solana.com/docs/en/tokens/basics/freeze-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to freeze token accounts.
+- [Go SDK](https://solana.com/docs/en/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to interact with Solana using the Go SDK (gagliardetto/solana-go).
+- [HTTP Methods](https://solana.com/docs/en/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Installation](https://solana.com/docs/en/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): A guide to setting up your local Solana development environment. Learn how to install Rust, the Solana CLI, and Anchor Framework on Windows (WSL), Linux, and Mac.
+- [Java SDK](https://solana.com/docs/en/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to interact with Solana using the Java SDK (sava-software/sava).
+- [Limitations](https://solana.com/docs/en/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Mint Tokens](https://solana.com/docs/en/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to mint new units of a token.
+- [New Vote Instruction Default](https://solana.com/docs/en/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Program Derived Address](https://solana.com/docs/en/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Program Derived Addresses (PDAs) on Solana - deterministic account addresses that enable secure program signing. Understand PDA derivation, canonical bumps, and how to create PDA accounts.
+- [Program Examples](https://solana.com/docs/en/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): A list of Solana program examples in different languages and frameworks, which can help you learn and use as reference for your own projects.
+- [Program Structure](https://solana.com/docs/en/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to structure Solana programs in Rust, including entrypoints, state management, instruction handling, and testing.
+- [Programs on Solana](https://solana.com/docs/en/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Solana programs (smart contracts) and how to develop them using Rust or the Anchor framework. Understand program deployment, upgrades, and verification on the Solana network.
+- [Python SDK](https://solana.com/docs/en/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to interact with Solana using the Python SDK (michaelhly/solana-py).
+- [Quick Start](https://solana.com/docs/en/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn Solana development basics. Create your first program, understand accounts, send transactions, and explore PDAs and CPIs using Solana Playground - no installation required.
+- [RPC Endpoints](https://solana.com/docs/en/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Solana's network clusters (Devnet, Testnet, and Mainnet Beta), their public RPC endpoints, rate limits, and use cases. Learn how to connect to different Solana networks for development, testing, and production.
+- [Reading from Network](https://solana.com/docs/en/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to read data from the Solana blockchain network. This guide covers fetching wallet accounts, program accounts, and token mint accounts using JavaScript/TypeScript, with practical examples using the Solana web3.js library.
+- [Reserve Minimal CUs for Builtins](https://solana.com/docs/en/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Revoke Delegate](https://solana.com/docs/en/tokens/basics/revoke-delegate?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to revoke the token account delegate.
+- [Rust Programs](https://solana.com/docs/en/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to develop Solana programs using Rust, including step-by-step instructions for creating, building, testing, and deploying smart contracts on the Solana blockchain.
+- [Rust SDK](https://solana.com/docs/en/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to use Solana's Rust crates for development.
+- [SPL Token Basics](https://solana.com/docs/en/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn the basic instructions for interacting with SPL Tokens.
+- [Scaled UI Amount](https://solana.com/docs/en/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about the Scaled UI Amount extension and how to use it to scale the UI amount of a token.
+- [Scaled UI Amount Integration Guide](https://solana.com/docs/en/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to integrate a token that uses the Scaled UI Amount extension in your application.
+- [Scaled UI Amount Issuer Guide](https://solana.com/docs/en/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to use the Scaled UI Amount extension to scale the UI amount of a token.
+- [Set Authority](https://solana.com/docs/en/tokens/basics/set-authority?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to set authority for mints or token accounts.
+- [Solana Account Model](https://solana.com/docs/en/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Solana's account model, including how accounts store data and programs, rent mechanics, account ownership, and the relationship between programs and data accounts. Understand the core concepts of Solana's key-value storage system.
+- [Solana Documentation](https://solana.com/docs/en/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana is the high-performance blockchain designed for mass adoption. Learn why Solana is the top choice for developers looking to build scalable blockchain applications.
+- [Solana Gaming SDKs](https://solana.com/docs/en/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): A list of Solana Gaming SDKs to get you started creating your first Solana Game
+- [Solana RPC Methods](https://solana.com/docs/en/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Stake Accounts](https://solana.com/docs/en/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Stake Programming](https://solana.com/docs/en/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Staking](https://solana.com/docs/en/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Sync Native](https://solana.com/docs/en/tokens/basics/sync-native?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to convert native SOL to wrapped SOL.
+- [Terminology](https://solana.com/docs/en/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn the essential terminology used throughout the Solana blockchain and development models.
+- [Thaw Account](https://solana.com/docs/en/tokens/basics/thaw-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to thaw a frozen token account.
+- [Tokens on Solana](https://solana.com/docs/en/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Solana's Token Programs.
+- [Transaction Fees](https://solana.com/docs/en/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Solana's transaction fees, including the base and priority fees, how each is applied, and best practices for managing compute units in your transactions.
+- [Transactions and Instructions](https://solana.com/docs/en/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Solana transactions and instructions - the fundamental building blocks for interacting with the Solana blockchain. Understand transaction structure and instruction composition with practical examples.
+- [Transfer Tokens](https://solana.com/docs/en/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to transfer tokens between token accounts.
+- [Transfer Tokens](https://solana.com/docs/en/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to transfer tokens privately from one token account to another.
+- [Typescript SDK](https://solana.com/docs/en/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to interact with Solana using the JavaScript/TypeScript client library (@solana/web3.js).
+- [Websocket Methods](https://solana.com/docs/en/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Withdraw Tokens](https://solana.com/docs/en/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to withdraw tokens from confidential state.
+- [Writing to Network](https://solana.com/docs/en/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to interact with the Solana network by sending transactions and instructions. Follow step-by-step examples to transfer SOL tokens and create new tokens using the System Program and Token Extensions Program.
+- [accountSubscribe](https://solana.com/docs/en/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/en/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/en/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/en/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/en/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/en/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/en/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/en/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/en/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/en/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/en/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/en/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/en/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/en/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/en/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/en/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/en/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/en/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/en/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/en/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/en/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/en/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/en/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/en/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/en/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/en/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/en/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/en/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/en/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/en/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/en/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/en/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/en/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/en/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/en/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/en/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/en/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/en/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/en/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/en/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/en/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/en/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/en/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/en/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/en/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/en/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/en/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/en/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/en/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/en/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/en/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/en/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/en/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/en/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/en/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/en/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/en/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/en/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/en/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/en/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/en/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/en/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/en/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/en/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/en/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/en/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/en/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/en/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/en/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/en/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/en/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/en/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/en/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/en/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/en/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/en/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/en/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/en/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/en/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/en/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/en/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/en/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/en/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/en/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - Es
+
+- [Acuñar tokens](https://solana.com/docs/es/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo acuñar nuevas unidades de un token.
+- [Aplicar saldo pendiente](https://solana.com/docs/es/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo aplicar el saldo pendiente para hacer que los fondos estén disponibles.
+- [Cantidad escalada de la interfaz de usuario](https://solana.com/docs/es/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre la extensión Cantidad escalada de la interfaz de usuario y cómo usarla para escalar la cantidad mostrada de un token.
+- [Composición de múltiples programas](https://solana.com/docs/es/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende a implementar Invocaciones entre programas (CPIs) en programas de Solana usando el framework Anchor. Este tutorial demuestra cómo transferir SOL entre cuentas, interactuar con el System Program y manejar Program Derived Addresses (PDAs) en CPIs. Perfecto para desarrolladores que buscan crear programas componibles en Solana.
+- [Conceptos básicos de SPL Token](https://solana.com/docs/es/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende las instrucciones básicas para interactuar con SPL Tokens.
+- [Conceptos fundamentales](https://solana.com/docs/es/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende conceptos esenciales de la blockchain de Solana incluyendo cuentas, transacciones, programas, Program Derived Address, Cross Program Invocation, y cómo funcionan los tokens en Solana.
+- [Consumir CUs asignadas en caso de fallo de sBPF](https://solana.com/docs/es/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Creando cuentas deterministas](https://solana.com/docs/es/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende a construir un programa Solana CRUD (Crear, Leer, Actualizar, Eliminar) utilizando Program Derived Addresses (PDAs) y el framework Anchor. Esta guía paso a paso demuestra cómo crear, actualizar y eliminar cuentas de mensajes en la cadena utilizando PDAs, implementar validación de cuentas y escribir pruebas. Perfecto para desarrolladores que buscan entender cómo usar PDAs en programas Solana.
+- [Crear un Token Mint](https://solana.com/docs/es/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo crear un mint de SPL Token.
+- [Crear un token mint](https://solana.com/docs/es/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo crear un token mint con la extensión de Transferencia Confidencial.
+- [Crear una token account](https://solana.com/docs/es/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo crear SPL Token Accounts.
+- [Crear una token account](https://solana.com/docs/es/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo crear una token account con la extensión de Transferencia Confidencial.
+- [Cross Program Invocation](https://solana.com/docs/es/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre Cross Program Invocation (CPI) en Solana - cómo los programas pueden llamar instrucciones en otros programas, manejar firmantes PDA y componer funcionalidades a través de la red Solana.
+- [Cuentas de stake](https://solana.com/docs/es/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Depositar tokens](https://solana.com/docs/es/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo depositar tokens al estado confidencial.
+- [Documentación de Solana](https://solana.com/docs/es/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana es la blockchain de alto rendimiento diseñada para la adopción masiva. Descubre por qué Solana es la opción preferida por los desarrolladores que buscan crear aplicaciones blockchain escalables.
+- [Ejemplos de programas](https://solana.com/docs/es/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Una lista de ejemplos de programas de Solana en diferentes lenguajes y frameworks, que pueden ayudarte a aprender y usar como referencia para tus propios proyectos.
+- [Endpoints RPC](https://solana.com/docs/es/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre los clústeres de red de Solana (Devnet, Testnet y Mainnet Beta), sus endpoints RPC públicos, límites de tasa y casos de uso. Descubre cómo conectarte a diferentes redes de Solana para desarrollo, pruebas y producción.
+- [Escribiendo en la red](https://solana.com/docs/es/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo interactuar con la red Solana enviando transacciones e instrucciones. Sigue ejemplos paso a paso para transferir tokens SOL y crear nuevos tokens usando el System Program y el Token Extensions Program.
+- [Estructura del programa](https://solana.com/docs/es/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo estructurar programas de Solana en Rust, incluyendo puntos de entrada, gestión de estado, manejo de instrucciones y pruebas.
+- [Estructuras de datos como JSON](https://solana.com/docs/es/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Extensions](https://solana.com/docs/es/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre el Token Extensions Program (Token 2022) y cómo usar sus extensiones para añadir características opcionales a los mint y cuentas de tokens.
+- [Guía de integración de cantidad escalada de UI](https://solana.com/docs/es/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo integrar un token que utiliza la extensión de cantidad escalada de UI en tu aplicación.
+- [Guía del emisor de cantidad de UI escalada](https://solana.com/docs/es/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende a usar la extensión de cantidad de UI escalada para escalar la cantidad de UI de un token.
+- [Implementación de programas](https://solana.com/docs/es/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Carga de programas personalizados en la blockchain de Solana utilizando Solana CLI.
+- [Implementando programas](https://solana.com/docs/es/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende a construir, implementar y probar tu primer programa de Solana utilizando el framework Anchor y Solana Playground. Esta guía para principiantes te explica cómo crear un programa simple, implementarlo en devnet, ejecutar pruebas y cerrar el programa.
+- [Inicio rápido](https://solana.com/docs/es/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende los fundamentos del desarrollo en Solana. Crea tu primer programa, comprende las cuentas, envía transacciones y explora PDAs y CPIs usando Solana Playground - sin necesidad de instalación.
+- [Instalación](https://solana.com/docs/es/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Una guía para configurar tu entorno de desarrollo local de Solana. Aprende cómo instalar Rust, la CLI de Solana y el Framework Anchor en Windows (WSL), Linux y Mac.
+- [Lectura desde la red](https://solana.com/docs/es/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo leer datos de la blockchain de Solana. Esta guía cubre cómo obtener cuentas de billetera, cuentas de programa y cuentas de emisión de tokens usando JavaScript/TypeScript, con ejemplos prácticos utilizando la biblioteca Solana web3.js.
+- [Limitaciones](https://solana.com/docs/es/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Mapeo directo](https://solana.com/docs/es/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Modelo de cuenta de Solana](https://solana.com/docs/es/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre el modelo de cuenta de Solana, incluyendo cómo las cuentas almacenan datos y programas, mecánicas de rent, propiedad de cuentas y la relación entre programas y cuentas de datos. Comprende los conceptos fundamentales del sistema de almacenamiento clave-valor (key-value) de Solana.
+- [Métodos HTTP](https://solana.com/docs/es/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Métodos RPC de Solana](https://solana.com/docs/es/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Métodos Websocket](https://solana.com/docs/es/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Nueva instrucción de voto predeterminada](https://solana.com/docs/es/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Preguntas frecuentes](https://solana.com/docs/es/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Program Derived Address](https://solana.com/docs/es/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre las Program Derived Addresses (PDAs) en Solana - direcciones de cuenta deterministas que permiten la firma segura de programas. Comprende la derivación de PDAs, bumps canónicos y cómo crear cuentas PDA.
+- [Programación de stake](https://solana.com/docs/es/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Programas en Rust](https://solana.com/docs/es/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende a desarrollar programas de Solana usando Rust, incluyendo instrucciones paso a paso para crear, construir, probar e implementar contratos inteligentes en la blockchain de Solana.
+- [Programas en Solana](https://solana.com/docs/es/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre los programas de Solana (contratos inteligentes) y cómo desarrollarlos usando Rust o el framework Anchor. Comprende el despliegue, las actualizaciones y la verificación de programas en la red Solana.
+- [Reservar CUs mínimas para programas integrados](https://solana.com/docs/es/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Retirar tokens](https://solana.com/docs/es/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo retirar tokens del estado confidencial.
+- [SDK de Go](https://solana.com/docs/es/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo interactuar con Solana usando el SDK de Go (gagliardetto/solana-go).
+- [SDK de Java](https://solana.com/docs/es/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende a interactuar con Solana usando el SDK de Java (sava-software/sava).
+- [SDK de Python](https://solana.com/docs/es/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende a interactuar con Solana usando el SDK de Python (michaelhly/solana-py).
+- [SDK de Rust](https://solana.com/docs/es/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende a utilizar los crates de Rust de Solana para el desarrollo.
+- [SDK de Typescript](https://solana.com/docs/es/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo interactuar con Solana usando la biblioteca cliente de JavaScript/TypeScript (@solana/web3.js).
+- [SDKs de juegos de Solana](https://solana.com/docs/es/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Una lista de SDKs de juegos de Solana para ayudarte a crear tu primer juego en Solana
+- [Staking](https://solana.com/docs/es/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Tarifas de transacción](https://solana.com/docs/es/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre las tarifas de transacción de Solana, incluyendo las tarifas base y prioritarias, cómo se aplica cada una, y las mejores prácticas para gestionar unidades de cómputo en tus transacciones.
+- [Terminología](https://solana.com/docs/es/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende la terminología esencial utilizada en la blockchain de Solana y los modelos de desarrollo.
+- [Tokens en Solana](https://solana.com/docs/es/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre los Token Programs de Solana.
+- [Transacciones e instrucciones](https://solana.com/docs/es/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre las transacciones e instrucciones de Solana - los componentes fundamentales para interactuar con la blockchain de Solana. Comprende la estructura de las transacciones y la composición de instrucciones con ejemplos prácticos.
+- [Transferencia confidencial](https://solana.com/docs/es/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre la extensión de Transferencia Confidencial y cómo usarla para añadir características opcionales a los mint y cuentas de tokens.
+- [Transferir tokens](https://solana.com/docs/es/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo transferir tokens entre cuentas de token.
+- [Transferir tokens](https://solana.com/docs/es/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo transferir tokens de forma privada de una cuenta de token a otra.
+- [accountSubscribe](https://solana.com/docs/es/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/es/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/es/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/es/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/es/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/es/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/es/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/es/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/es/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/es/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/es/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/es/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/es/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/es/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/es/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/es/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/es/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/es/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/es/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/es/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/es/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/es/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/es/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/es/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/es/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/es/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/es/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/es/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/es/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/es/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/es/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/es/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/es/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/es/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/es/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/es/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/es/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/es/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/es/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/es/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/es/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/es/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/es/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/es/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/es/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/es/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/es/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/es/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/es/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/es/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/es/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/es/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/es/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/es/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/es/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/es/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/es/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/es/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/es/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/es/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/es/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/es/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/es/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/es/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/es/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/es/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/es/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/es/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/es/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/es/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/es/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/es/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/es/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/es/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/es/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/es/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/es/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/es/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/es/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/es/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/es/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/es/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/es/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/es/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - Fi
+
+- [Asennus](https://solana.com/docs/fi/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opas paikallisen Solana-kehitysympäristön asentamiseen. Opi asentamaan Rust, Solana CLI ja Anchor Framework Windowsille (WSL), Linuxille ja Macille.
+- [Cross Program Invocation](https://solana.com/docs/fi/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Cross Program Invocation (CPI) -toiminnosta Solanassa - miten ohjelmat voivat kutsua muiden ohjelmien ohjeita, käsitellä PDA-allekirjoittajia ja yhdistää toiminnallisuutta Solana-verkossa.
+- [Determinististen tilien luominen](https://solana.com/docs/fi/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi rakentamaan CRUD (Create, Read, Update, Delete) Solana-ohjelma käyttäen Program Derived Addresses (PDA) -osoitteita ja Anchor-kehystä. Tämä vaiheittainen opas näyttää, miten luodaan, päivitetään ja poistetaan ketjussa olevia viestejä käyttäen PDA-osoitteita, toteutetaan tilien validointi ja kirjoitetaan testejä. Täydellinen kehittäjille, jotka haluavat ymmärtää, miten PDA-osoitteita käytetään Solana-ohjelmissa.
+- [Extensions](https://solana.com/docs/fi/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Token Extensions Program -ohjelmasta (Token 2022) ja kuinka käyttää sen laajennuksia lisätäksesi valinnaisia ominaisuuksia token-mintteihin ja -tileihin.
+- [Go SDK](https://solana.com/docs/fi/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi miten Solanan kanssa voi olla vuorovaikutuksessa käyttäen Go SDK:ta (gagliardetto/solana-go).
+- [HTTP-metodit](https://solana.com/docs/fi/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Java SDK](https://solana.com/docs/fi/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi vuorovaikuttamaan Solanan kanssa Java SDK:n avulla (sava-software/sava).
+- [Kuluta varatut CU:t sBPF-virheen yhteydessä](https://solana.com/docs/fi/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Käytä odottavaa saldoa](https://solana.com/docs/fi/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi miten käyttää odottavaa saldoa varojen saamiseksi käytettäväksi.
+- [Lukeminen verkosta](https://solana.com/docs/fi/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi lukemaan dataa Solana-lohkoketjuverkosta. Tämä opas kattaa lompakkotilien, ohjelmatilien ja token mint -tilien hakemisen JavaScript/TypeScript-kielellä, sisältäen käytännön esimerkkejä Solana web3.js -kirjaston käytöstä.
+- [Luo Token Mint](https://solana.com/docs/fi/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi luomaan SPL Token mint.
+- [Luo token account](https://solana.com/docs/fi/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi luomaan SPL token accounteja.
+- [Luo token mint](https://solana.com/docs/fi/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi luomaan token mint Confidential Transfer -laajennuksella.
+- [Luo token-tili](https://solana.com/docs/fi/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi luomaan token-tili Confidential Transfer -laajennuksella.
+- [Luo tokeneita](https://solana.com/docs/fi/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi luomaan uusia token-yksiköitä.
+- [Luottamuksellinen siirto](https://solana.com/docs/fi/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi luottamuksellisesta siirtolaajennuksesta ja kuinka käyttää sitä lisätäksesi valinnaisia ominaisuuksia token-mintteihin ja -tileihin.
+- [Ohjelmaesimerkit](https://solana.com/docs/fi/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Luettelo Solana-ohjelmaesimerkeistä eri kielillä ja kehyksillä, jotka voivat auttaa sinua oppimaan ja käyttämään niitä referenssinä omissa projekteissasi.
+- [Ohjelman rakenne](https://solana.com/docs/fi/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi kuinka Solana-ohjelmien rakenne toimii Rustissa, mukaan lukien sisääntulopisteet, tilan hallinta, käskyjen käsittely ja testaus.
+- [Ohjelmat Solanassa](https://solana.com/docs/fi/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solanan ohjelmista (älysopimuksista) ja niiden kehittämisestä Rustilla tai Anchor-kehyksellä. Ymmärrä ohjelmien käyttöönotto, päivitykset ja varmennus Solana-verkossa.
+- [Ohjelmien käyttöönotto](https://solana.com/docs/fi/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Mukautettujen ohjelmien lataaminen Solana-lohkoketjuun Solana CLI:n avulla.
+- [Ohjelmien käyttöönotto](https://solana.com/docs/fi/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi rakentamaan, ottamaan käyttöön ja testaamaan ensimmäinen Solana-ohjelmasi käyttäen Anchor-kehystä ja Solana Playgroundia. Tämä aloittelijaystävällinen opas käy läpi yksinkertaisen ohjelman luomisen, sen käyttöönoton devnetissä, testien suorittamisen ja ohjelman sulkemisen.
+- [Pika-aloitus](https://solana.com/docs/fi/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solana-kehityksen perusteet. Luo ensimmäinen ohjelmasi, ymmärrä tilit, lähetä transaktioita ja tutustu PDA:ihin ja CPI:hin käyttäen Solana Playgroundia - ei asennusta vaadittu.
+- [Program Derived Address](https://solana.com/docs/fi/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Program Derived Address (PDA) -osoitteista Solanassa - deterministiset tiliosoitteet, jotka mahdollistavat turvallisen ohjelman allekirjoituksen. Ymmärrä PDA-johdannaisten, kanonisten bump-arvojen ja PDA-tilien luomisen periaatteet.
+- [Python SDK](https://solana.com/docs/fi/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi vuorovaikuttamaan Solanan kanssa Python SDK:n avulla (michaelhly/solana-py).
+- [RPC-päätepisteet](https://solana.com/docs/fi/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solanan verkkoklustereista (Devnet, Testnet ja Mainnet Beta), niiden julkisista RPC-päätepisteistä, käyttörajoituksista ja käyttötapauksista. Opi yhdistämään eri Solana-verkkoihin kehitystä, testausta ja tuotantoa varten.
+- [Rajoitukset](https://solana.com/docs/fi/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Rust SDK](https://solana.com/docs/fi/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi käyttämään Solanan Rust-paketteja kehityksessä.
+- [Rust-ohjelmat](https://solana.com/docs/fi/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi kehittämään Solana-ohjelmia Rustin avulla, mukaan lukien vaiheittaiset ohjeet älysopimusten luomiseen, rakentamiseen, testaamiseen ja käyttöönottoon Solana-lohkoketjussa.
+- [SPL-tokenien perusteet](https://solana.com/docs/fi/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi perustoiminnot SPL-tokenien käyttöön.
+- [Skaalattu käyttöliittymän määrä](https://solana.com/docs/fi/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Skaalattu käyttöliittymän määrä -laajennuksesta ja kuinka käyttää sitä tokenin käyttöliittymämäärän skaalaamiseen.
+- [Skaalatun käyttöliittymäsumman integrointiopas](https://solana.com/docs/fi/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi integroimaan token, joka käyttää Scaled UI Amount -laajennusta sovelluksessasi.
+- [Skaalatun käyttöliittymäsumman liikkeellelaskijan opas](https://solana.com/docs/fi/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi käyttämään Skaalatun käyttöliittymäsumman laajennusta tokenin käyttöliittymäsumman skaalaamiseen.
+- [Solana RPC-metodit](https://solana.com/docs/fi/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Solana-dokumentaatio](https://solana.com/docs/fi/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana on suorituskykyinen lohkoketju, joka on suunniteltu laajaan käyttöönottoon. Opi miksi Solana on kehittäjien ykkösvalinta skaalautuvien lohkoketjusovellusten rakentamiseen.
+- [Solana-pelien SDK:t](https://solana.com/docs/fi/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lista Solana-pelien SDK:ista, joiden avulla voit aloittaa ensimmäisen Solana-pelisi luomisen
+- [Solanan tilimalli](https://solana.com/docs/fi/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solanan tilimallista, mukaan lukien miten tilit tallentavat dataa ja ohjelmia, rent-mekaniikat, tilien omistajuus ja ohjelmien ja datatilien välinen suhde. Ymmärrä Solanan avain-arvo-tallennusjärjestelmän keskeiset käsitteet.
+- [Stake-tilit](https://solana.com/docs/fi/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Staken ohjelmointi](https://solana.com/docs/fi/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Staking](https://solana.com/docs/fi/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Suora kartoitus](https://solana.com/docs/fi/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Talleta tokeneita](https://solana.com/docs/fi/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi tallettamaan tokeneita luottamukselliseen tilaan.
+- [Terminologia](https://solana.com/docs/fi/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi keskeiset termit, joita käytetään Solana-lohkoketjussa ja kehitysmalleissa.
+- [Tietorakenteet JSON-muodossa](https://solana.com/docs/fi/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Tokenien nostaminen](https://solana.com/docs/fi/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi miten nostaa tokeneita luottamuksellisesta tilasta.
+- [Tokenien siirtäminen](https://solana.com/docs/fi/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi siirtämään tokeneita token-tililtä toiselle.
+- [Tokenien siirtäminen](https://solana.com/docs/fi/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi miten siirtää tokeneita yksityisesti yhdeltä token-tililtä toiselle.
+- [Tokenit Solanassa](https://solana.com/docs/fi/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solanan Token-ohjelmista.
+- [Transaktiomaksut](https://solana.com/docs/fi/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solanan transaktiomaksuista, mukaan lukien perus- ja prioriteettimaksut, miten kutakin sovelletaan ja parhaat käytännöt laskentayksiköiden hallintaan transaktioissasi.
+- [Transaktiot ja ohjeet](https://solana.com/docs/fi/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solanan transaktioista ja ohjeista - perustavanlaatuisista rakennuspalikoista Solana-lohkoketjun kanssa vuorovaikuttamiseen. Ymmärrä transaktioiden rakenne ja ohjeiden koostumus käytännön esimerkkien avulla.
+- [Typescript SDK](https://solana.com/docs/fi/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi miten Solanan kanssa voi olla vuorovaikutuksessa JavaScript/TypeScript-asiakaskirjaston (@solana/web3.js) avulla.
+- [UKK](https://solana.com/docs/fi/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Useiden ohjelmien yhdistäminen](https://solana.com/docs/fi/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi toteuttamaan Cross Program Invocation (CPI) -kutsuja Solana-ohjelmissa Anchor-kehyksen avulla. Tämä opas näyttää, miten SOL-tokeneita siirretään tilien välillä, miten System Program -ohjelmaa käytetään ja miten Program Derived Address (PDA) -osoitteita käsitellään CPI-kutsuissa. Täydellinen kehittäjille, jotka haluavat rakentaa yhdisteltäviä Solana-ohjelmia.
+- [Uusi äänestysohje oletuksena](https://solana.com/docs/fi/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Varaa minimaaliset CU:t sisäänrakennetuille ohjelmille](https://solana.com/docs/fi/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Verkkoon kirjoittaminen](https://solana.com/docs/fi/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi vuorovaikuttamaan Solana-verkon kanssa lähettämällä transaktioita ja ohjeita. Seuraa vaiheittaisia esimerkkejä SOL-tokenien siirtämisestä ja uusien tokenien luomisesta käyttäen System Program -ohjelmaa ja Token Extensions Program -ohjelmaa.
+- [Websocket-metodit](https://solana.com/docs/fi/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Ydinkäsitteet](https://solana.com/docs/fi/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi olennaiset Solana-lohkoketjun käsitteet, mukaan lukien tilit, transaktiot, ohjelmat, Program Derived Address, Cross Program Invocation ja kuinka tokenit toimivat Solanassa.
+- [accountSubscribe](https://solana.com/docs/fi/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/fi/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/fi/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/fi/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/fi/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/fi/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/fi/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/fi/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/fi/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/fi/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/fi/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/fi/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/fi/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/fi/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/fi/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/fi/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/fi/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/fi/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/fi/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/fi/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/fi/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/fi/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/fi/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/fi/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/fi/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/fi/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/fi/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/fi/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/fi/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/fi/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/fi/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/fi/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/fi/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/fi/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/fi/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/fi/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/fi/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/fi/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/fi/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/fi/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/fi/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/fi/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/fi/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/fi/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/fi/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/fi/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/fi/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/fi/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/fi/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/fi/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/fi/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/fi/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/fi/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/fi/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/fi/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/fi/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/fi/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/fi/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/fi/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/fi/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/fi/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/fi/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/fi/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/fi/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/fi/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/fi/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/fi/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/fi/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/fi/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/fi/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/fi/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/fi/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/fi/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/fi/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/fi/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/fi/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/fi/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/fi/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/fi/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/fi/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/fi/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/fi/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/fi/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/fi/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - Fr
+
+- [Appliquer le solde en attente](https://solana.com/docs/fr/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez comment appliquer un solde en attente pour rendre les fonds disponibles.
+- [Composer plusieurs programmes](https://solana.com/docs/fr/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à implémenter des invocations inter-programmes (CPIs) dans les programmes Solana en utilisant le framework Anchor. Ce tutoriel démontre comment transférer du SOL entre comptes, interagir avec le System Program et gérer les adresses dérivées de programme (PDAs) dans les CPIs. Parfait pour les développeurs souhaitant créer des programmes Solana composables.
+- [Comptes de staking](https://solana.com/docs/fr/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Concepts fondamentaux](https://solana.com/docs/fr/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez les concepts essentiels de la blockchain Solana, notamment les comptes, les transactions, les programmes, les Program Derived Address, les Cross Program Invocation, et comment fonctionnent les tokens sur Solana.
+- [Consommer les UC allouées en cas d'échec sBPF](https://solana.com/docs/fr/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Cross Program Invocation](https://solana.com/docs/fr/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les Cross Program Invocation (CPI) sur Solana - comment les programmes peuvent appeler des instructions sur d'autres programmes, gérer les signataires PDA et composer des fonctionnalités à travers le réseau Solana.
+- [Création de comptes déterministes](https://solana.com/docs/fr/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à construire un programme Solana CRUD (Créer, Lire, Mettre à jour, Supprimer) en utilisant les Program Derived Addresses (PDAs) et le framework Anchor. Ce guide étape par étape démontre comment créer, mettre à jour et supprimer des comptes de messages on-chain en utilisant les PDAs, implémenter la validation de compte et écrire des tests. Parfait pour les développeurs souhaitant comprendre comment utiliser les PDAs dans les programmes Solana.
+- [Créer un Token Mint](https://solana.com/docs/fr/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à créer un mint de token SPL.
+- [Créer un compte de jetons](https://solana.com/docs/fr/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez comment créer des comptes de jetons SPL.
+- [Créer un mint account de token](https://solana.com/docs/fr/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à créer un mint account de token avec l'extension Confidential Transfer.
+- [Créer un token account](https://solana.com/docs/fr/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à créer un token account avec l'extension Confidential Transfer.
+- [Documentation Solana](https://solana.com/docs/fr/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana est la blockchain haute performance conçue pour une adoption massive. Découvrez pourquoi Solana est le premier choix des développeurs qui souhaitent créer des applications blockchain évolutives.
+- [Démarrage rapide](https://solana.com/docs/fr/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez les bases du développement Solana. Créez votre premier programme, comprenez les comptes, envoyez des transactions et explorez les PDAs et CPIs en utilisant Solana Playground - sans installation requise.
+- [Déploiement de programmes](https://solana.com/docs/fr/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Téléchargement de programmes personnalisés sur la blockchain Solana à l'aide de la CLI Solana.
+- [Déploiement de programmes](https://solana.com/docs/fr/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à construire, déployer et tester votre premier programme Solana en utilisant le framework Anchor et Solana Playground. Ce guide pour débutants vous accompagne dans la création d'un programme simple, son déploiement sur devnet, l'exécution de tests et la fermeture du programme.
+- [Déposer des tokens](https://solana.com/docs/fr/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez comment déposer des tokens dans un état confidentiel.
+- [Exemples de programmes](https://solana.com/docs/fr/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Une liste d'exemples de programmes Solana dans différents langages et frameworks, qui peuvent vous aider à apprendre et servir de référence pour vos propres projets.
+- [Extensions](https://solana.com/docs/fr/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez le Token Extensions Program (Token 2022) et comment utiliser ses extensions pour ajouter des fonctionnalités optionnelles aux mints et comptes de tokens.
+- [FAQ](https://solana.com/docs/fr/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Frais de transaction](https://solana.com/docs/fr/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les frais de transaction de Solana, y compris les frais de base et les frais prioritaires, comment chacun est appliqué, et les meilleures pratiques pour gérer les unités de calcul dans vos transactions.
+- [Frapper des jetons](https://solana.com/docs/fr/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez comment frapper de nouvelles unités d'un jeton.
+- [Guide d'intégration de l'UI Amount à l'échelle](https://solana.com/docs/fr/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à intégrer un token qui utilise l'extension Scaled UI Amount dans votre application.
+- [Guide de l'émetteur pour le montant d'interface utilisateur mis à l'échelle](https://solana.com/docs/fr/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à utiliser l'extension Scaled UI Amount pour mettre à l'échelle le montant d'interface utilisateur d'un token.
+- [Installation](https://solana.com/docs/fr/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Un guide pour configurer votre environnement de développement Solana local. Apprenez à installer Rust, la CLI Solana et le framework Anchor sur Windows (WSL), Linux et Mac.
+- [Lecture depuis le réseau](https://solana.com/docs/fr/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à lire des données depuis le réseau blockchain Solana. Ce guide couvre la récupération des comptes de portefeuille, des comptes de programme et des comptes de jetons en utilisant JavaScript/TypeScript, avec des exemples pratiques utilisant la bibliothèque Solana web3.js.
+- [Limitations](https://solana.com/docs/fr/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Mappage direct](https://solana.com/docs/fr/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Modèle de compte Solana](https://solana.com/docs/fr/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez le modèle de compte de Solana, notamment comment les comptes stockent les données et les programmes, les mécanismes de rent, la propriété des comptes et la relation entre les programmes et les comptes de données. Comprenez les concepts fondamentaux du système de stockage clé-valeur (key-value) de Solana.
+- [Montant UI à l'échelle](https://solana.com/docs/fr/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez l'extension Montant UI à l'échelle et comment l'utiliser pour mettre à l'échelle le montant affiché d'un token.
+- [Méthodes HTTP](https://solana.com/docs/fr/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Méthodes RPC Solana](https://solana.com/docs/fr/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Méthodes Websocket](https://solana.com/docs/fr/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Nouvelle instruction de vote par défaut](https://solana.com/docs/fr/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Points de terminaison RPC](https://solana.com/docs/fr/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les clusters du réseau Solana (Devnet, Testnet et Mainnet Beta), leurs points de terminaison RPC publics, leurs limites de taux et leurs cas d'utilisation. Apprenez comment vous connecter aux différents réseaux Solana pour le développement, les tests et la production.
+- [Principes fondamentaux des tokens SPL](https://solana.com/docs/fr/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez les instructions de base pour interagir avec les tokens SPL.
+- [Program Derived Address](https://solana.com/docs/fr/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les Program Derived Addresses (PDAs) sur Solana - des adresses de compte déterministes qui permettent une signature sécurisée des programmes. Comprenez la dérivation des PDA, les bumps canoniques et comment créer des comptes PDA.
+- [Programmation de staking](https://solana.com/docs/fr/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Programmes Rust](https://solana.com/docs/fr/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à développer des programmes Solana en utilisant Rust, avec des instructions étape par étape pour créer, construire, tester et déployer des contrats intelligents sur la blockchain Solana.
+- [Programmes sur Solana](https://solana.com/docs/fr/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les programmes Solana (contrats intelligents) et comment les développer en utilisant Rust ou le framework Anchor. Comprenez le déploiement, les mises à jour et la vérification des programmes sur le réseau Solana.
+- [Retirer des jetons](https://solana.com/docs/fr/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez comment retirer des jetons de l'état confidentiel.
+- [Réserver des UC minimales pour les programmes intégrés](https://solana.com/docs/fr/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [SDK Go](https://solana.com/docs/fr/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à interagir avec Solana en utilisant le SDK Go (gagliardetto/solana-go).
+- [SDK Java](https://solana.com/docs/fr/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à interagir avec Solana en utilisant le SDK Java (sava-software/sava).
+- [SDK Python](https://solana.com/docs/fr/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à interagir avec Solana en utilisant le SDK Python (michaelhly/solana-py).
+- [SDK Rust](https://solana.com/docs/fr/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à utiliser les crates Rust de Solana pour le développement.
+- [SDK Typescript](https://solana.com/docs/fr/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à interagir avec Solana en utilisant la bibliothèque client JavaScript/TypeScript (@solana/web3.js).
+- [SDKs de jeu Solana](https://solana.com/docs/fr/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Une liste des SDKs de jeu Solana pour vous aider à créer votre premier jeu Solana
+- [Staking](https://solana.com/docs/fr/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Structure du programme](https://solana.com/docs/fr/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à structurer les programmes Solana en Rust, y compris les points d'entrée, la gestion d'état, le traitement des instructions et les tests.
+- [Structures de données en JSON](https://solana.com/docs/fr/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Terminologie](https://solana.com/docs/fr/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez la terminologie essentielle utilisée dans la blockchain Solana et les modèles de développement.
+- [Tokens sur Solana](https://solana.com/docs/fr/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les Token Programs de Solana.
+- [Transactions et instructions](https://solana.com/docs/fr/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les transactions et instructions Solana - les éléments fondamentaux pour interagir avec la blockchain Solana. Comprenez la structure des transactions et la composition des instructions avec des exemples pratiques.
+- [Transfert confidentiel](https://solana.com/docs/fr/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez l'extension de transfert confidentiel et comment l'utiliser pour ajouter des fonctionnalités optionnelles aux mints et aux comptes de tokens.
+- [Transférer des jetons](https://solana.com/docs/fr/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez comment transférer des jetons de manière privée d'un compte de jetons à un autre.
+- [Transférer des tokens](https://solana.com/docs/fr/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez comment transférer des tokens entre les token accounts.
+- [accountSubscribe](https://solana.com/docs/fr/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/fr/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/fr/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/fr/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/fr/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/fr/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/fr/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/fr/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/fr/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/fr/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/fr/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/fr/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/fr/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/fr/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/fr/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/fr/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/fr/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/fr/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/fr/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/fr/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/fr/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/fr/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/fr/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/fr/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/fr/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/fr/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/fr/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/fr/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/fr/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/fr/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/fr/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/fr/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/fr/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/fr/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/fr/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/fr/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/fr/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/fr/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/fr/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/fr/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/fr/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/fr/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/fr/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/fr/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/fr/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/fr/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/fr/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/fr/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/fr/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/fr/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/fr/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/fr/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/fr/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/fr/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/fr/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/fr/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/fr/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/fr/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/fr/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/fr/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/fr/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/fr/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/fr/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/fr/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/fr/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/fr/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/fr/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/fr/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/fr/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/fr/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/fr/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/fr/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/fr/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/fr/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/fr/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/fr/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/fr/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/fr/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/fr/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/fr/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/fr/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/fr/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/fr/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/fr/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Écrire sur le réseau](https://solana.com/docs/fr/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à interagir avec le réseau Solana en envoyant des transactions et des instructions. Suivez des exemples étape par étape pour transférer des jetons SOL et créer de nouveaux jetons à l'aide du System Program et du Token Extensions Program.
+
+## Docs - Id
+
+- [Akun Stake](https://solana.com/docs/id/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Batasan](https://solana.com/docs/id/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Biaya Transaksi](https://solana.com/docs/id/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang biaya transaksi Solana, termasuk biaya dasar dan biaya prioritas, bagaimana masing-masing diterapkan, dan praktik terbaik untuk mengelola unit komputasi dalam transaksi Anda.
+- [Cadangkan CU Minimal untuk Builtins](https://solana.com/docs/id/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Contoh Program](https://solana.com/docs/id/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Daftar contoh program Solana dalam berbagai bahasa dan framework, yang dapat membantu Anda belajar dan digunakan sebagai referensi untuk proyek Anda sendiri.
+- [Cross Program Invocation](https://solana.com/docs/id/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang Cross Program Invocation (CPI) di Solana - bagaimana program dapat memanggil instruksi pada program lain, menangani penandatangan PDA, dan menyusun fungsionalitas di seluruh jaringan Solana.
+- [Dasar-dasar SPL Token](https://solana.com/docs/id/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari instruksi dasar untuk berinteraksi dengan SPL Token.
+- [Default Instruksi Vote Baru](https://solana.com/docs/id/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Deposit Token](https://solana.com/docs/id/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara melakukan deposit token ke status konfidensial.
+- [Dokumentasi Solana](https://solana.com/docs/id/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana adalah blockchain berkinerja tinggi yang dirancang untuk adopsi massal. Pelajari mengapa Solana menjadi pilihan utama bagi pengembang yang ingin membangun aplikasi blockchain yang dapat diskalakan.
+- [Endpoint RPC](https://solana.com/docs/id/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang cluster jaringan Solana (Devnet, Testnet, dan Mainnet Beta), endpoint RPC publik mereka, batas rate, dan kasus penggunaan. Pelajari cara terhubung ke jaringan Solana yang berbeda untuk pengembangan, pengujian, dan produksi.
+- [Extensions](https://solana.com/docs/id/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang Token Extensions Program (Token 2022) dan cara menggunakan ekstensinya untuk menambahkan fitur opsional ke token mint dan akun.
+- [FAQ](https://solana.com/docs/id/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Go SDK](https://solana.com/docs/id/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara berinteraksi dengan Solana menggunakan Go SDK (gagliardetto/solana-go).
+- [Instalasi](https://solana.com/docs/id/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Panduan untuk menyiapkan lingkungan pengembangan Solana lokal Anda. Pelajari cara menginstal Rust, Solana CLI, dan Anchor Framework di Windows (WSL), Linux, dan Mac.
+- [Java SDK](https://solana.com/docs/id/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara berinteraksi dengan Solana menggunakan Java SDK (sava-software/sava).
+- [Jumlah UI Terskala](https://solana.com/docs/id/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang ekstensi Jumlah UI Terskala dan cara menggunakannya untuk menskalakan jumlah UI token.
+- [Konsep Inti](https://solana.com/docs/id/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari konsep-konsep penting blockchain Solana termasuk akun, transaksi, program, Program Derived Address, Cross Program Invocation, dan bagaimana token bekerja di Solana.
+- [Membaca dari Jaringan](https://solana.com/docs/id/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara membaca data dari jaringan blockchain Solana. Panduan ini mencakup pengambilan akun dompet, akun program, dan akun mint token menggunakan JavaScript/TypeScript, dengan contoh praktis menggunakan pustaka Solana web3.js.
+- [Membuat Akun Deterministik](https://solana.com/docs/id/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara membangun program Solana CRUD (Create, Read, Update, Delete) menggunakan Program Derived Addresses (PDAs) dan framework Anchor. Panduan langkah demi langkah ini menunjukkan cara membuat, memperbarui, dan menghapus akun pesan on-chain menggunakan PDAs, mengimplementasikan validasi akun, dan menulis pengujian. Cocok untuk pengembang yang ingin memahami cara menggunakan PDAs dalam program Solana.
+- [Membuat Token Account](https://solana.com/docs/id/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara membuat SPL Token Accounts.
+- [Membuat Token Account](https://solana.com/docs/id/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara membuat token account dengan ekstensi Confidential Transfer.
+- [Membuat Token Mint](https://solana.com/docs/id/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara membuat SPL Token mint.
+- [Membuat Token Mint](https://solana.com/docs/id/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara membuat token mint dengan ekstensi Confidential Transfer.
+- [Men-deploy Program](https://solana.com/docs/id/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara membangun, men-deploy, dan menguji program Solana pertama Anda menggunakan framework Anchor dan Solana Playground. Panduan ramah pemula ini memandu Anda melalui pembuatan program sederhana, men-deploy ke devnet, menjalankan pengujian, dan menutup program.
+- [Menarik Token](https://solana.com/docs/id/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara menarik token dari keadaan rahasia.
+- [Menerapkan Program](https://solana.com/docs/id/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Mengunggah program kustom ke blockchain Solana menggunakan Solana CLI.
+- [Mengkonsumsi CU yang Dialokasikan pada Kegagalan sBPF](https://solana.com/docs/id/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Menulis ke Jaringan](https://solana.com/docs/id/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara berinteraksi dengan jaringan Solana dengan mengirim transaksi dan instruksi. Ikuti contoh langkah demi langkah untuk mentransfer token SOL dan membuat token baru menggunakan System Program dan Token Extensions Program.
+- [Menyusun beberapa program](https://solana.com/docs/id/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara mengimplementasikan Cross Program Invocations (CPI) dalam program Solana menggunakan framework Anchor. Tutorial ini mendemonstrasikan cara mentransfer SOL antar akun, berinteraksi dengan System Program, dan menangani Program Derived Addresses (PDA) dalam CPI. Cocok untuk pengembang yang ingin membangun program Solana yang dapat dikomposisi.
+- [Metode HTTP](https://solana.com/docs/id/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Metode RPC Solana](https://solana.com/docs/id/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Metode Websocket](https://solana.com/docs/id/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Mint Token](https://solana.com/docs/id/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara mencetak unit baru dari sebuah token.
+- [Model Akun Solana](https://solana.com/docs/id/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang model akun Solana, termasuk bagaimana akun menyimpan data dan program, mekanisme rent, kepemilikan akun, dan hubungan antara program dan akun data. Pahami konsep inti dari sistem penyimpanan key-value Solana.
+- [Mulai Cepat](https://solana.com/docs/id/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari dasar-dasar pengembangan Solana. Buat program pertama Anda, pahami akun, kirim transaksi, dan jelajahi PDA dan CPI menggunakan Solana Playground - tanpa perlu instalasi.
+- [Panduan Integrasi Jumlah UI Berskala](https://solana.com/docs/id/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara mengintegrasikan token yang menggunakan ekstensi Jumlah UI Berskala dalam aplikasi Anda.
+- [Panduan Penerbit Jumlah UI Berskala](https://solana.com/docs/id/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara menggunakan ekstensi Scaled UI Amount untuk menskalakan jumlah UI token.
+- [Pemetaan Langsung](https://solana.com/docs/id/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Pemrograman Staking](https://solana.com/docs/id/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Program Derived Address](https://solana.com/docs/id/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang Program Derived Addresses (PDAs) di Solana - alamat akun deterministik yang memungkinkan penandatanganan program yang aman. Pahami derivasi PDA, bump kanonik, dan cara membuat akun PDA.
+- [Program Rust](https://solana.com/docs/id/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara mengembangkan program Solana menggunakan Rust, termasuk petunjuk langkah demi langkah untuk membuat, membangun, menguji, dan men-deploy kontrak pintar di blockchain Solana.
+- [Program di Solana](https://solana.com/docs/id/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang program Solana (smart contract) dan cara mengembangkannya menggunakan Rust atau framework Anchor. Pahami deployment program, upgrade, dan verifikasi di jaringan Solana.
+- [Python SDK](https://solana.com/docs/id/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara berinteraksi dengan Solana menggunakan Python SDK (michaelhly/solana-py).
+- [Rust SDK](https://solana.com/docs/id/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara menggunakan crate Rust Solana untuk pengembangan.
+- [SDK Gaming Solana](https://solana.com/docs/id/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Daftar SDK Gaming Solana untuk membantu Anda memulai membuat Game Solana pertama Anda
+- [Staking](https://solana.com/docs/id/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Struktur Data sebagai JSON](https://solana.com/docs/id/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Struktur program](https://solana.com/docs/id/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara menyusun program Solana dalam Rust, termasuk entrypoint, pengelolaan state, penanganan instruksi, dan pengujian.
+- [Terapkan Saldo Tertunda](https://solana.com/docs/id/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara menerapkan saldo tertunda untuk membuat dana tersedia.
+- [Terminologi](https://solana.com/docs/id/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari terminologi penting yang digunakan di seluruh blockchain Solana dan model pengembangan.
+- [Token di Solana](https://solana.com/docs/id/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang Token Program Solana.
+- [Transaksi dan Instruksi](https://solana.com/docs/id/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang transaksi dan instruksi Solana - blok bangunan fundamental untuk berinteraksi dengan blockchain Solana. Pahami struktur transaksi dan komposisi instruksi dengan contoh praktis.
+- [Transfer Rahasia](https://solana.com/docs/id/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang ekstensi Transfer Rahasia dan cara menggunakannya untuk menambahkan fitur opsional ke mint dan akun token.
+- [Transfer Token](https://solana.com/docs/id/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara mentransfer token antar token account.
+- [Transfer Token](https://solana.com/docs/id/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara mentransfer token secara privat dari satu token account ke token account lainnya.
+- [Typescript SDK](https://solana.com/docs/id/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara berinteraksi dengan Solana menggunakan pustaka klien JavaScript/TypeScript (@solana/web3.js).
+- [accountSubscribe](https://solana.com/docs/id/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/id/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/id/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/id/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/id/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/id/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/id/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/id/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/id/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/id/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/id/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/id/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/id/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/id/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/id/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/id/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/id/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/id/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/id/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/id/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/id/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/id/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/id/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/id/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/id/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/id/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/id/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/id/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/id/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/id/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/id/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/id/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/id/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/id/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/id/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/id/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/id/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/id/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/id/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/id/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/id/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/id/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/id/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/id/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/id/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/id/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/id/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/id/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/id/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/id/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/id/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/id/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/id/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/id/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/id/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/id/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/id/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/id/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/id/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/id/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/id/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/id/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/id/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/id/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/id/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/id/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/id/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/id/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/id/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/id/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/id/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/id/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/id/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/id/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/id/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/id/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/id/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/id/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/id/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/id/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/id/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/id/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/id/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/id/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - It
+
+- [Account di stake](https://solana.com/docs/it/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Applica saldo in sospeso](https://solana.com/docs/it/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come applicare il saldo in sospeso per rendere disponibili i fondi.
+- [Commissioni di transazione](https://solana.com/docs/it/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri le commissioni di transazione di Solana, incluse le commissioni base e prioritarie, come vengono applicate e le migliori pratiche per gestire le unità di calcolo nelle tue transazioni.
+- [Composizione di programmi multipli](https://solana.com/docs/it/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara a implementare le Cross Program Invocations (CPI) nei programmi Solana utilizzando il framework Anchor. Questo tutorial dimostra come trasferire SOL tra account, interagire con il System Program e gestire i Program Derived Addresses (PDA) nelle CPI. Perfetto per gli sviluppatori che desiderano creare programmi Solana componibili.
+- [Concetti fondamentali](https://solana.com/docs/it/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara i concetti essenziali della blockchain Solana, inclusi account, transazioni, programmi, Program Derived Address, Cross Program Invocation e come funzionano i token su Solana.
+- [Conia Token](https://solana.com/docs/it/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come coniare nuove unità di un token.
+- [Consumo delle CU allocate in caso di fallimento sBPF](https://solana.com/docs/it/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Creare un Token Mint](https://solana.com/docs/it/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come creare un mint di token SPL.
+- [Creare un Token Mint](https://solana.com/docs/it/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come creare un token mint con l'estensione Confidential Transfer.
+- [Creare un token account](https://solana.com/docs/it/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come creare gli SPL Token Account.
+- [Creare un token account](https://solana.com/docs/it/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come creare un token account con l'estensione Confidential Transfer.
+- [Creazione di account deterministici](https://solana.com/docs/it/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara a costruire un programma Solana CRUD (Create, Read, Update, Delete) utilizzando Program Derived Addresses (PDAs) e il framework Anchor. Questa guida passo-passo dimostra come creare, aggiornare ed eliminare account di messaggi on-chain utilizzando PDAs, implementare la validazione degli account e scrivere test. Perfetto per gli sviluppatori che desiderano capire come utilizzare i PDAs nei programmi Solana.
+- [Cross Program Invocation](https://solana.com/docs/it/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri di più su Cross Program Invocation (CPI) su Solana - come i programmi possono chiamare istruzioni su altri programmi, gestire i firmatari PDA e comporre funzionalità attraverso la rete Solana.
+- [Deposita token](https://solana.com/docs/it/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come depositare token nello stato confidenziale.
+- [Distribuzione dei programmi](https://solana.com/docs/it/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Caricamento di programmi personalizzati sulla blockchain Solana utilizzando la CLI di Solana.
+- [Distribuzione dei programmi](https://solana.com/docs/it/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara a costruire, distribuire e testare il tuo primo programma Solana utilizzando il framework Anchor e Solana Playground. Questa guida per principianti illustra come creare un programma semplice, distribuirlo su devnet, eseguire test e chiudere il programma.
+- [Documentazione Solana](https://solana.com/docs/it/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana è la blockchain ad alte prestazioni progettata per l'adozione di massa. Scopri perché Solana è la scelta principale per gli sviluppatori che cercano di creare applicazioni blockchain scalabili.
+- [Endpoint RPC](https://solana.com/docs/it/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri i cluster di rete di Solana (Devnet, Testnet e Mainnet Beta), i loro endpoint RPC pubblici, i limiti di frequenza e i casi d'uso. Impara come connetterti a diverse reti Solana per lo sviluppo, il testing e la produzione.
+- [Esempi di programmi](https://solana.com/docs/it/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Un elenco di esempi di programmi Solana in diversi linguaggi e framework, che possono aiutarti ad apprendere e da utilizzare come riferimento per i tuoi progetti.
+- [Extensions](https://solana.com/docs/it/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri di più sul Token Extensions Program (Token 2022) e come utilizzare le sue estensioni per aggiungere funzionalità opzionali ai mint e agli account dei token.
+- [FAQ](https://solana.com/docs/it/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Guida all'emittente di importi UI scalati](https://solana.com/docs/it/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come utilizzare l'estensione Scaled UI Amount per scalare l'importo UI di un token.
+- [Guida all'integrazione della funzionalità Scaled UI Amount](https://solana.com/docs/it/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come integrare nella tua applicazione un token che utilizza l'estensione Scaled UI Amount.
+- [Guida rapida](https://solana.com/docs/it/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara le basi dello sviluppo su Solana. Crea il tuo primo programma, comprendi gli account, invia transazioni ed esplora PDA e CPI usando Solana Playground - senza necessità di installazione.
+- [Importo UI scalato](https://solana.com/docs/it/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri l'estensione Importo UI scalato e come utilizzarla per scalare l'importo UI di un token.
+- [Installazione](https://solana.com/docs/it/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Una guida per configurare il tuo ambiente di sviluppo locale per Solana. Impara come installare Rust, la CLI di Solana e il Framework Anchor su Windows (WSL), Linux e Mac.
+- [Java SDK](https://solana.com/docs/it/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come interagire con Solana utilizzando il Java SDK (sava-software/sava).
+- [Lettura dalla rete](https://solana.com/docs/it/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come leggere i dati dalla blockchain di Solana. Questa guida copre il recupero di account wallet, account di programma e account mint di token utilizzando JavaScript/TypeScript, con esempi pratici che utilizzano la libreria Solana web3.js.
+- [Limitazioni](https://solana.com/docs/it/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Mappatura diretta](https://solana.com/docs/it/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Metodi HTTP](https://solana.com/docs/it/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Metodi RPC di Solana](https://solana.com/docs/it/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Metodi Websocket](https://solana.com/docs/it/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Modello di Account Solana](https://solana.com/docs/it/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri il modello di account di Solana, incluso come gli account memorizzano dati e programmi, i meccanismi di rent, la proprietà degli account e la relazione tra programmi e account dati. Comprendi i concetti fondamentali del sistema di archiviazione chiave-valore di Solana.
+- [Nozioni di base sui token SPL](https://solana.com/docs/it/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara le istruzioni di base per interagire con i token SPL.
+- [Nuova istruzione di voto predefinita](https://solana.com/docs/it/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Prelievo di token](https://solana.com/docs/it/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come prelevare token dallo stato confidenziale.
+- [Program Derived Address](https://solana.com/docs/it/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri gli indirizzi derivati dai programmi (PDA) su Solana - indirizzi di account deterministici che consentono una firma sicura del programma. Comprendi la derivazione PDA, i bump canonici e come creare account PDA.
+- [Programmazione dello stake](https://solana.com/docs/it/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Programmi Rust](https://solana.com/docs/it/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come sviluppare programmi Solana utilizzando Rust, incluse istruzioni passo-passo per creare, compilare, testare e distribuire smart contract sulla blockchain Solana.
+- [Programmi su Solana](https://solana.com/docs/it/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri i programmi Solana (smart contract) e come svilupparli utilizzando Rust o il framework Anchor. Comprendi il deployment, gli aggiornamenti e la verifica dei programmi sulla rete Solana.
+- [Riserva di CU minimi per i programmi integrati](https://solana.com/docs/it/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Rust SDK](https://solana.com/docs/it/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come utilizzare i crate Rust di Solana per lo sviluppo.
+- [SDK Go](https://solana.com/docs/it/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come interagire con Solana utilizzando l'SDK Go (gagliardetto/solana-go).
+- [SDK Python](https://solana.com/docs/it/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come interagire con Solana utilizzando l'SDK Python (michaelhly/solana-py).
+- [SDK per gaming su Solana](https://solana.com/docs/it/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Un elenco di SDK per gaming su Solana per iniziare a creare il tuo primo gioco su Solana
+- [Scrivere sulla rete](https://solana.com/docs/it/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come interagire con la rete Solana inviando transazioni e istruzioni. Segui esempi passo-passo per trasferire token SOL e creare nuovi token utilizzando il System Program e il Token Extensions Program.
+- [Staking](https://solana.com/docs/it/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Struttura del programma](https://solana.com/docs/it/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come strutturare i programmi Solana in Rust, inclusi entrypoint, gestione dello stato, gestione delle istruzioni e testing.
+- [Strutture di dati come JSON](https://solana.com/docs/it/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Terminologia](https://solana.com/docs/it/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara la terminologia essenziale utilizzata in tutta la blockchain Solana e nei modelli di sviluppo.
+- [Token su Solana](https://solana.com/docs/it/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri i Token Programs di Solana.
+- [Transazioni e istruzioni](https://solana.com/docs/it/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri le transazioni e le istruzioni di Solana - gli elementi fondamentali per interagire con la blockchain Solana. Comprendi la struttura delle transazioni e la composizione delle istruzioni con esempi pratici.
+- [Trasferimento confidenziale](https://solana.com/docs/it/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri l'estensione Confidential Transfer e come utilizzarla per aggiungere funzionalità opzionali ai mint e agli account dei token.
+- [Trasferimento di token](https://solana.com/docs/it/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come trasferire token in modo privato da un account token a un altro.
+- [Trasferire token](https://solana.com/docs/it/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come trasferire token tra account token.
+- [Typescript SDK](https://solana.com/docs/it/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come interagire con Solana utilizzando la libreria client JavaScript/TypeScript (@solana/web3.js).
+- [accountSubscribe](https://solana.com/docs/it/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/it/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/it/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/it/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/it/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/it/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/it/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/it/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/it/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/it/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/it/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/it/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/it/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/it/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/it/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/it/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/it/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/it/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/it/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/it/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/it/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/it/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/it/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/it/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/it/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/it/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/it/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/it/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/it/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/it/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/it/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/it/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/it/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/it/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/it/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/it/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/it/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/it/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/it/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/it/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/it/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/it/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/it/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/it/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/it/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/it/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/it/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/it/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/it/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/it/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/it/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/it/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/it/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/it/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/it/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/it/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/it/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/it/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/it/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/it/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/it/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/it/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/it/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/it/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/it/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/it/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/it/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/it/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/it/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/it/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/it/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/it/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/it/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/it/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/it/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/it/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/it/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/it/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/it/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/it/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/it/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/it/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/it/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/it/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - Ja
+
+- [Confidential Transfer](https://solana.com/docs/ja/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Confidential Transfer拡張機能について学び、トークンミントとアカウントにオプション機能を追加する方法を理解しましょう。
+- [Cross Program Invocation](https://solana.com/docs/ja/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana上のCross Program Invocation (CPI)について学びましょう - プログラムが他のプログラムの命令を呼び出す方法、PDA署名者の処理、そしてSolanaネットワーク全体での機能の組み合わせ方について。
+- [Extensions](https://solana.com/docs/ja/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Token Extensions Program（Token 2022）について学び、そのエクステンションを使用してトークンミントとアカウントにオプション機能を追加する方法を理解しましょう。
+- [FAQ](https://solana.com/docs/ja/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Go SDK](https://solana.com/docs/ja/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Go SDK（gagliardetto/solana-go）を使用してSolanaとやり取りする方法を学びましょう。
+- [HTTPメソッド](https://solana.com/docs/ja/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [JSONとしてのデータ構造](https://solana.com/docs/ja/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Java SDK](https://solana.com/docs/ja/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Java SDK（sava-software/sava）を使用してSolanaとやり取りする方法を学びましょう。
+- [Program Derived Address](https://solana.com/docs/ja/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana上のProgram Derived Addresses（PDAs）について学びましょう - 安全なプログラム署名を可能にする決定論的なアカウントアドレスです。PDAの導出、正規バンプ、およびPDAアカウントの作成方法を理解しましょう。
+- [Python SDK](https://solana.com/docs/ja/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Python SDK（michaelhly/solana-py）を使用してSolanaとやり取りする方法を学びましょう。
+- [RPCエンドポイント](https://solana.com/docs/ja/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaのネットワーククラスター（Devnet、Testnet、Mainnet Beta）、それらの公開RPCエンドポイント、レート制限、およびユースケースについて学びましょう。開発、テスト、本番環境のために異なるSolanaネットワークに接続する方法を学びましょう。
+- [Rust SDK](https://solana.com/docs/ja/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaの開発に使用するRustクレートの使い方を学びましょう。
+- [Rustプログラム](https://solana.com/docs/ja/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Rustを使用してSolanaプログラムを開発する方法を学びましょう。Solanaブロックチェーン上でスマートコントラクトを作成、構築、テスト、デプロイするためのステップバイステップの手順を含みます。
+- [SPLトークンの基本](https://solana.com/docs/ja/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPLトークンとの対話に関する基本的なinstructionsを学びましょう。
+- [Solana RPCメソッド](https://solana.com/docs/ja/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Solana ゲーミングSDK](https://solana.com/docs/ja/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): あなたの最初のSolanaゲーム作成を始めるためのSolana ゲーミングSDKのリスト
+- [Solanaのプログラム](https://solana.com/docs/ja/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaプログラム（スマートコントラクト）について学び、RustまたはAnchorフレームワークを使用して開発する方法を理解しましょう。Solanaネットワーク上でのプログラムのデプロイ、アップグレード、検証について理解します。
+- [Solanaアカウントモデル](https://solana.com/docs/ja/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaのアカウントモデルについて学び、アカウントがデータとプログラムを格納する方法、rentのメカニズム、アカウントの所有権、プログラムとデータアカウントの関係を理解しましょう。Solanaのキーバリューストレージシステムの中核概念を把握しましょう。
+- [Solanaドキュメント](https://solana.com/docs/ja/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaは大規模採用向けに設計された高性能ブロックチェーンです。スケーラブルなブロックチェーンアプリケーションを構築しようとする開発者がSolanaを最優先に選ぶ理由を学びましょう。
+- [Solana上のトークン](https://solana.com/docs/ja/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaのトークンプログラムについて学びましょう。
+- [Typescript SDK](https://solana.com/docs/ja/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): JavaScriptまたはTypeScriptクライアントライブラリ（@solana/web3.js）を使用してSolanaとやり取りする方法を学びましょう。
+- [Websocketメソッド](https://solana.com/docs/ja/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountSubscribe](https://solana.com/docs/ja/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/ja/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/ja/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/ja/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/ja/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/ja/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/ja/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/ja/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/ja/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/ja/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/ja/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/ja/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/ja/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/ja/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/ja/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/ja/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/ja/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/ja/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/ja/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/ja/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/ja/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/ja/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/ja/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/ja/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/ja/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/ja/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/ja/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/ja/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/ja/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/ja/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/ja/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/ja/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/ja/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/ja/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/ja/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/ja/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/ja/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/ja/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/ja/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/ja/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/ja/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/ja/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/ja/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/ja/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/ja/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/ja/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/ja/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/ja/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/ja/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/ja/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/ja/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/ja/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/ja/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/ja/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/ja/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/ja/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/ja/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/ja/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/ja/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/ja/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/ja/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/ja/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/ja/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/ja/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/ja/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/ja/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/ja/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/ja/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/ja/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/ja/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/ja/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/ja/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/ja/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/ja/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sBPF失敗時に割り当てられたCUを消費する](https://solana.com/docs/ja/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/ja/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/ja/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/ja/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/ja/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/ja/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/ja/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/ja/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/ja/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/ja/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/ja/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [インストール](https://solana.com/docs/ja/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): ローカルのSolana開発環境をセットアップするためのガイド。Windows（WSL）、Linux、Macで、Rust、Solana CLI、Anchorフレームワークをインストールする方法を学びましょう。
+- [クイックスタート](https://solana.com/docs/ja/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana開発の基礎を学びましょう。初めてのプログラムを作成し、アカウントを理解し、トランザクションを送信し、PDAsとCPIsをSolana Playgroundで探索しましょう - インストール不要です。
+- [コアコンセプト](https://solana.com/docs/ja/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): アカウント、トランザクション、プログラム、Program Derived Address、Cross Program Invocationなど、Solanaブロックチェーンの重要な概念と、Solana上でのトークンの仕組みについて学びましょう。
+- [スケールドUI金額](https://solana.com/docs/ja/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): スケールドUI金額拡張機能について学び、トークンのUI金額をスケールする方法を理解しましょう。
+- [スケールドUI金額発行者ガイド](https://solana.com/docs/ja/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): スケールドUI金額拡張機能を使用してトークンのUI金額をスケーリングする方法を学びましょう。
+- [スケールドUI金額統合ガイド](https://solana.com/docs/ja/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): アプリケーションでスケールドUI金額拡張機能を使用するトークンを統合する方法を学びましょう。
+- [ステーキング](https://solana.com/docs/ja/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [ステークアカウント](https://solana.com/docs/ja/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [ステークプログラミング](https://solana.com/docs/ja/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [ダイレクトマッピング](https://solana.com/docs/ja/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [トランザクションとインストラクション](https://solana.com/docs/ja/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaトランザクションとインストラクション - Solanaブロックチェーンとやり取りするための基本的な構成要素について学びましょう。実践的な例を通じてトランザクション構造とインストラクションの構成を理解しましょう。
+- [トークンのミント](https://solana.com/docs/ja/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): トークンの新しい単位をミントする方法を学びましょう。
+- [トークンの入金](https://solana.com/docs/ja/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 機密状態へトークンを入金する方法を学びましょう。
+- [トークンの引き出し](https://solana.com/docs/ja/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 機密状態からトークンを引き出す方法を学びます。
+- [トークンの転送](https://solana.com/docs/ja/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): トークンアカウント間でトークンを転送する方法を学びましょう。
+- [トークンの転送](https://solana.com/docs/ja/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): あるトークンアカウントから別のトークンアカウントへプライベートにトークンを転送する方法を学びましょう。
+- [トークンアカウントの作成](https://solana.com/docs/ja/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPLトークンアカウントの作成方法を学びましょう。
+- [トークンアカウントの作成](https://solana.com/docs/ja/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Confidential Transfer拡張機能を使用したトークンアカウントの作成方法を学びます。
+- [トークンミントの作成](https://solana.com/docs/ja/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Confidential Transfer拡張機能を持つトークンミントの作成方法を学びます。
+- [トークンミントを作成する](https://solana.com/docs/ja/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPLトークンミントの作成方法を学びましょう。
+- [ネットワークからの読み取り](https://solana.com/docs/ja/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaブロックチェーンネットワークからデータを読み取る方法を学びます。このガイドでは、JavaScript/TypeScriptを使用してウォレットアカウント、プログラムアカウント、トークンミントアカウントを取得する方法を、Solana web3.jsライブラリを使用した実践的な例とともに説明します。
+- [ネットワークへの書き込み](https://solana.com/docs/ja/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaネットワークとのやり取り方法をトランザクションとinstructionsの送信を通じて学びましょう。System ProgramとToken Extensions Programを使用してSOLトークンを転送し、新しいトークンを作成するステップバイステップの例に従ってください。
+- [ビルトイン用の最小CUを予約](https://solana.com/docs/ja/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [プログラムのデプロイ](https://solana.com/docs/ja/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana CLIを使用してカスタムプログラムをSolanaブロックチェーンにアップロードする。
+- [プログラムのデプロイ](https://solana.com/docs/ja/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Anchorフレームワークとソラナプレイグラウンドを使用して、最初のソラナプログラムを構築、デプロイ、テストする方法を学びましょう。この初心者向けガイドでは、シンプルなプログラムの作成、devnetへのデプロイ、テストの実行、プログラムの終了までの手順を説明します。
+- [プログラム例](https://solana.com/docs/ja/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): 異なる言語やフレームワークで書かれたSolanaプログラムの例のリストで、学習や自分のプロジェクトの参考として役立ちます。
+- [プログラム構造](https://solana.com/docs/ja/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Rustでのソラナプログラムの構造化方法を学びましょう。エントリーポイント、状態管理、instruction処理、テストなどを含みます。
+- [保留残高を適用する](https://solana.com/docs/ja/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): 資金を利用可能にするために保留残高を適用する方法を学びます。
+- [制限事項](https://solana.com/docs/ja/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [取引手数料](https://solana.com/docs/ja/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaの取引手数料について学びましょう。基本手数料と優先手数料、それぞれの適用方法、およびトランザクションでのコンピュートユニット管理のベストプラクティスを解説します。
+- [新しい投票instructionのデフォルト](https://solana.com/docs/ja/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [決定論的アカウントの作成](https://solana.com/docs/ja/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Program Derived Addresses（PDAs）とAnchorフレームワークを使用して、CRUD（作成、読み取り、更新、削除）Solanaプログラムを構築する方法を学びます。このステップバイステップのガイドでは、PDAsを使用してオンチェーンメッセージアカウントを作成、更新、削除する方法、アカウント検証を実装する方法、およびテストを作成する方法を説明します。SolanaプログラムでPDAsを使用する方法を理解したい開発者に最適です。
+- [用語集](https://solana.com/docs/ja/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaブロックチェーンと開発モデル全体で使用される重要な用語を学びましょう。
+- [複数のプログラムの組み合わせ](https://solana.com/docs/ja/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Anchorフレームワークを使用してSolanaプログラムでクロスプログラム呼び出し（CPI）を実装する方法を学びます。このチュートリアルでは、アカウント間でSOLを転送する方法、System Programとやり取りする方法、およびCPIでプログラム派生アドレス（PDA）を処理する方法を示します。複合可能なSolanaプログラムを構築したい開発者に最適です。
+
+## Docs - Ko
+
+- [Cross Program Invocation](https://solana.com/docs/ko/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana에서의 Cross Program Invocation(CPI)에 대해 알아보세요 - 프로그램이 다른 프로그램의 명령어를 호출하고, PDA 서명자를 처리하며, Solana 네트워크 전반에 걸쳐 기능을 구성하는 방법을 배웁니다.
+- [FAQ](https://solana.com/docs/ko/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Go SDK](https://solana.com/docs/ko/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Go SDK(gagliardetto/solana-go)를 사용하여 Solana와 상호작용하는 방법을 알아보세요.
+- [HTTP 메소드](https://solana.com/docs/ko/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [JSON으로 표현된 데이터 구조](https://solana.com/docs/ko/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Java SDK](https://solana.com/docs/ko/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Java SDK(sava-software/sava)를 사용하여 Solana와 상호작용하는 방법을 알아보세요.
+- [Program Derived Address](https://solana.com/docs/ko/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana의 Program Derived Addresses(PDA)에 대해 알아보세요 - 안전한 프로그램 서명을 가능하게 하는 결정적 계정 주소입니다. PDA 파생, 표준 범프 및 PDA 계정 생성 방법을 이해하세요.
+- [Python SDK](https://solana.com/docs/ko/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Python SDK(michaelhly/solana-py)를 사용하여 Solana와 상호작용하는 방법을 알아보세요.
+- [RPC 엔드포인트](https://solana.com/docs/ko/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나의 네트워크 클러스터(Devnet, Testnet, Mainnet Beta)와 공개 RPC 엔드포인트, 속도 제한 및 사용 사례에 대해 알아보세요. 개발, 테스트 및 프로덕션을 위해 다양한 솔라나 네트워크에 연결하는 방법을 배워보세요.
+- [Rust SDK](https://solana.com/docs/ko/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana의 Rust 크레이트를 개발에 활용하는 방법을 알아보세요.
+- [Rust 프로그램](https://solana.com/docs/ko/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Rust를 사용하여 Solana 프로그램을 개발하는 방법을 배우세요. Solana 블록체인에서 스마트 컨트랙트를 생성, 빌드, 테스트 및 배포하는 단계별 지침을 포함합니다.
+- [SPL 토큰 기초](https://solana.com/docs/ko/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPL 토큰과 상호작용하기 위한 기본 명령어를 알아보세요.
+- [Solana RPC 메소드](https://solana.com/docs/ko/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Solana 계정 모델](https://solana.com/docs/ko/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana의 계정 모델에 대해 알아보세요. 계정이 데이터와 프로그램을 저장하는 방법, 렌트 메커니즘, 계정 소유권, 그리고 프로그램과 데이터 계정 간의 관계를 포함합니다. Solana의 키-값 저장 시스템의 핵심 개념을 이해해 보세요.
+- [Solana 문서](https://solana.com/docs/ko/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana는 대규모 채택을 위해 설계된 고성능 블록체인입니다. 확장 가능한 블록체인 애플리케이션을 구축하려는 개발자들이 Solana를 최고의 선택으로 삼는 이유를 알아보세요.
+- [Solana의 프로그램](https://solana.com/docs/ko/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana 프로그램(스마트 컨트랙트)에 대해 알아보고 Rust 또는 Anchor 프레임워크를 사용하여 개발하는 방법을 배우세요. Solana 네트워크에서 프로그램 배포, 업그레이드 및 검증에 대해 이해하세요.
+- [Typescript SDK](https://solana.com/docs/ko/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): JavaScript/TypeScript 클라이언트 라이브러리(@solana/web3.js)를 사용하여 Solana와 상호작용하는 방법을 알아보세요.
+- [accountSubscribe](https://solana.com/docs/ko/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/ko/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/ko/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/ko/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/ko/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/ko/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/ko/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/ko/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/ko/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/ko/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/ko/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/ko/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/ko/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/ko/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/ko/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/ko/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/ko/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/ko/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/ko/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/ko/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/ko/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/ko/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/ko/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/ko/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/ko/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/ko/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/ko/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/ko/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/ko/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/ko/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/ko/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/ko/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/ko/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/ko/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/ko/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/ko/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/ko/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/ko/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/ko/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/ko/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/ko/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/ko/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/ko/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/ko/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/ko/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/ko/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/ko/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/ko/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/ko/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/ko/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/ko/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/ko/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/ko/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/ko/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/ko/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/ko/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/ko/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/ko/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/ko/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/ko/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/ko/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/ko/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/ko/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/ko/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/ko/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/ko/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/ko/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/ko/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/ko/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/ko/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/ko/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/ko/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/ko/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/ko/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sBPF 실패 시 할당된 CU 소비](https://solana.com/docs/ko/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/ko/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/ko/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/ko/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/ko/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/ko/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/ko/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/ko/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/ko/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/ko/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/ko/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [결정론적 계정 생성하기](https://solana.com/docs/ko/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Program Derived Addresses(PDA)와 Anchor 프레임워크를 사용하여 CRUD(생성, 읽기, 업데이트, 삭제) Solana 프로그램을 구축하는 방법을 알아보세요. 이 단계별 가이드는 PDA를 사용하여 온체인 메시지 계정을 생성, 업데이트 및 삭제하고, 계정 유효성 검사를 구현하며, 테스트를 작성하는 방법을 보여줍니다. Solana 프로그램에서 PDA를 사용하는 방법을 이해하고자 하는 개발자에게 완벽한 가이드입니다.
+- [기밀 전송](https://solana.com/docs/ko/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 기밀 전송 확장 기능에 대해 알아보고 토큰 mint 및 계정에 선택적 기능을 추가하는 방법을 배워보세요.
+- [네트워크에 쓰기](https://solana.com/docs/ko/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): 트랜잭션과 명령어를 보내 Solana 네트워크와 상호작용하는 방법을 배워보세요. System Program과 Token Extensions Program을 사용하여 SOL 토큰을 전송하고 새 토큰을 생성하는 단계별 예제를 따라해보세요.
+- [네트워크에서 데이터 읽기](https://solana.com/docs/ko/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana 블록체인 네트워크에서 데이터를 읽는 방법을 알아보세요. 이 가이드는 JavaScript/TypeScript를 사용하여 지갑 계정, 프로그램 계정 및 token mint account를 가져오는 방법을 다루며, Solana web3.js 라이브러리를 활용한 실용적인 예제를 제공합니다.
+- [대기 중인 잔액 적용하기](https://solana.com/docs/ko/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): 자금을 사용 가능하게 만들기 위해 대기 중인 잔액을 적용하는 방법을 알아보세요.
+- [빌트인을 위한 최소 CU 예약](https://solana.com/docs/ko/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [빠른 시작](https://solana.com/docs/ko/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana 개발 기초를 배워보세요. Solana Playground를 사용하여 첫 번째 프로그램을 만들고, 계정을 이해하고, 트랜잭션을 보내고, PDA와 CPI를 탐색해보세요 - 설치가 필요 없습니다.
+- [새로운 투표 명령어 기본값](https://solana.com/docs/ko/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [설치](https://solana.com/docs/ko/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): 로컬 Solana 개발 환경 설정 가이드. Windows(WSL), Linux 및 Mac에서 Rust, Solana CLI 및 Anchor Framework를 설치하는 방법을 알아보세요.
+- [솔라나 게임 SDK](https://solana.com/docs/ko/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): 첫 솔라나 게임 개발을 시작하는 데 도움이 되는 솔라나 게임 SDK 목록
+- [솔라나의 토큰](https://solana.com/docs/ko/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나의 토큰 프로그램에 대해 알아보세요.
+- [스케일된 UI 금액](https://solana.com/docs/ko/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 스케일된 UI 금액 확장 기능에 대해 알아보고 토큰의 UI 금액을 조정하는 방법을 배워보세요.
+- [스케일드 UI 금액 발행자 가이드](https://solana.com/docs/ko/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): 스케일드 UI 금액 확장 기능을 사용하여 토큰의 UI 금액을 조정하는 방법을 알아보세요.
+- [스케일드 UI 금액 통합 가이드](https://solana.com/docs/ko/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): 애플리케이션에서 스케일드 UI 금액 확장을 사용하는 토큰을 통합하는 방법을 알아보세요.
+- [스테이크 계정](https://solana.com/docs/ko/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [스테이킹](https://solana.com/docs/ko/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [스테이킹 프로그래밍](https://solana.com/docs/ko/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [여러 프로그램 구성하기](https://solana.com/docs/ko/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Anchor 프레임워크를 사용하여 Solana 프로그램에서 교차 프로그램 호출(CPI)을 구현하는 방법을 배워보세요. 이 튜토리얼은 계정 간 SOL 전송, System Program과의 상호작용, CPI에서 프로그램 파생 주소(PDA) 처리 방법을 보여줍니다. 구성 가능한 Solana 프로그램을 구축하려는 개발자에게 완벽한 가이드입니다.
+- [용어](https://solana.com/docs/ko/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana 블록체인과 개발 모델 전반에 사용되는 필수 용어를 알아보세요.
+- [웹소켓 메소드](https://solana.com/docs/ko/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [제한 사항](https://solana.com/docs/ko/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [직접 매핑](https://solana.com/docs/ko/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [토큰 계정 생성하기](https://solana.com/docs/ko/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPL 토큰 계정을 생성하는 방법을 알아보세요.
+- [토큰 계정 생성하기](https://solana.com/docs/ko/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): 기밀 전송 확장 기능이 있는 토큰 계정을 생성하는 방법을 알아보세요.
+- [토큰 민트 생성하기](https://solana.com/docs/ko/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPL 토큰 민트를 생성하는 방법을 알아보세요.
+- [토큰 민트 생성하기](https://solana.com/docs/ko/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Confidential Transfer 확장 기능을 사용하여 토큰 민트를 생성하는 방법을 알아보세요.
+- [토큰 발행하기](https://solana.com/docs/ko/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 새로운 토큰 단위를 발행하는 방법을 알아보세요.
+- [토큰 예치하기](https://solana.com/docs/ko/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 기밀 상태로 토큰을 예치하는 방법을 알아보세요.
+- [토큰 전송하기](https://solana.com/docs/ko/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 토큰 계정 간에 토큰을 전송하는 방법을 알아보세요.
+- [토큰 전송하기](https://solana.com/docs/ko/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 한 토큰 계정에서 다른 토큰 계정으로 비공개적으로 토큰을 전송하는 방법을 알아보세요.
+- [토큰 출금하기](https://solana.com/docs/ko/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 기밀 상태에서 토큰을 출금하는 방법을 알아보세요.
+- [트랜잭션 및 명령어](https://solana.com/docs/ko/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나 트랜잭션과 명령어에 대해 알아보세요 - 솔라나 블록체인과 상호작용하기 위한 기본 구성 요소입니다. 실용적인 예제를 통해 트랜잭션 구조와 명령어 구성을 이해하세요.
+- [트랜잭션 수수료](https://solana.com/docs/ko/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana의 트랜잭션 수수료에 대해 알아보세요. 기본 수수료와 우선순위 수수료, 각각의 적용 방식, 그리고 트랜잭션에서 컴퓨트 유닛을 관리하는 모범 사례를 포함합니다.
+- [프로그램 구조](https://solana.com/docs/ko/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Rust에서 Solana 프로그램을 구조화하는 방법을 배우세요. 엔트리포인트, 상태 관리, 명령어 처리 및 테스트를 포함합니다.
+- [프로그램 배포하기](https://solana.com/docs/ko/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana CLI를 사용하여 사용자 정의 프로그램을 Solana 블록체인에 업로드하기.
+- [프로그램 배포하기](https://solana.com/docs/ko/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Anchor 프레임워크와 Solana Playground를 사용하여 첫 번째 Solana 프로그램을 빌드, 배포 및 테스트하는 방법을 알아보세요. 이 초보자 친화적인 가이드는 간단한 프로그램 생성, devnet에 배포, 테스트 실행 및 프로그램 종료 과정을 안내합니다.
+- [프로그램 예제](https://solana.com/docs/ko/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): 다양한 언어와 프레임워크로 작성된 Solana 프로그램 예제 목록으로, 자신의 프로젝트를 위한 학습과 참조에 도움이 됩니다.
+- [핵심 개념](https://solana.com/docs/ko/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 계정, 트랜잭션, 프로그램, Program Derived Address, Cross Program Invocation 및 솔라나에서 토큰이 작동하는 방식을 포함한 필수 솔라나 블록체인 개념을 알아보세요.
+- [확장 기능](https://solana.com/docs/ko/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Token Extensions Program(Token 2022)에 대해 알아보고 확장 기능을 사용하여 토큰 민트와 계정에 선택적 기능을 추가하는 방법을 배워보세요.
+
+## Docs - Nl
+
+- [Beperkingen](https://solana.com/docs/nl/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Cross Program Invocation](https://solana.com/docs/nl/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Cross Program Invocation (CPI) op Solana - hoe programma's instructies kunnen aanroepen op andere programma's, PDA-ondertekenaars kunnen beheren en functionaliteit kunnen samenstellen in het Solana-netwerk.
+- [Datastructuren als JSON](https://solana.com/docs/nl/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Deterministische accounts maken](https://solana.com/docs/nl/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je een CRUD (Create, Read, Update, Delete) Solana-programma bouwt met behulp van Program Derived Addresses (PDAs) en het Anchor-framework. Deze stapsgewijze handleiding laat zien hoe je on-chain berichtaccounts kunt maken, bijwerken en verwijderen met PDAs, accountvalidatie kunt implementeren en tests kunt schrijven. Perfect voor ontwikkelaars die willen begrijpen hoe ze PDAs kunnen gebruiken in Solana-programma's.
+- [Direct Mapping](https://solana.com/docs/nl/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Een token account aanmaken](https://solana.com/docs/nl/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je SPL token accounts aanmaakt.
+- [Een token account aanmaken](https://solana.com/docs/nl/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je een token account aanmaakt met de Confidential Transfer extensie.
+- [Een token mint aanmaken](https://solana.com/docs/nl/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je een SPL Token mint aanmaakt.
+- [Een token mint aanmaken](https://solana.com/docs/nl/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je een token mint aanmaakt met de Confidential Transfer-extensie.
+- [Extensions](https://solana.com/docs/nl/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over het Token Extensions Program (Token 2022) en hoe je de extensions kunt gebruiken om optionele functies toe te voegen aan token mints en accounts.
+- [FAQ](https://solana.com/docs/nl/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Geschaalde UI-hoeveelheid](https://solana.com/docs/nl/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over de Geschaalde UI-hoeveelheid extensie en hoe je deze kunt gebruiken om de UI-hoeveelheid van een token te schalen.
+- [Go SDK](https://solana.com/docs/nl/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je met Solana kunt werken via de Go SDK (gagliardetto/solana-go).
+- [HTTP-methoden](https://solana.com/docs/nl/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Installatie](https://solana.com/docs/nl/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Een handleiding voor het opzetten van je lokale Solana ontwikkelomgeving. Leer hoe je Rust, de Solana CLI en Anchor Framework installeert op Windows (WSL), Linux en Mac.
+- [Integratie handleiding voor geschaalde UI-bedragen](https://solana.com/docs/nl/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je een token integreert dat de Scaled UI Amount-extensie gebruikt in je applicatie.
+- [Java SDK](https://solana.com/docs/nl/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je met Solana kunt werken via de Java SDK (sava-software/sava).
+- [Kernconcepten](https://solana.com/docs/nl/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer essentiële Solana blockchain-concepten, waaronder accounts, transacties, programma's, Program Derived Address, Cross Program Invocation, en hoe tokens werken op Solana.
+- [Lezen van het netwerk](https://solana.com/docs/nl/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je gegevens kunt lezen van het Solana blockchain-netwerk. Deze gids behandelt het ophalen van wallet-accounts, program accounts en token mint accounts met JavaScript/TypeScript, met praktische voorbeelden die gebruikmaken van de Solana web3.js bibliotheek.
+- [Meerdere programma's samenstellen](https://solana.com/docs/nl/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je Cross Program Invocations (CPIs) implementeert in Solana-programma's met behulp van het Anchor-framework. Deze tutorial demonstreert hoe je SOL kunt overdragen tussen accounts, kunt interacteren met het System Program en Program Derived Addresses (PDAs) kunt verwerken in CPIs. Perfect voor ontwikkelaars die composeerbare Solana-programma's willen bouwen.
+- [Nieuwe stem-instructie standaard](https://solana.com/docs/nl/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Program Derived Address](https://solana.com/docs/nl/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Program Derived Addresses (PDAs) op Solana - deterministische accountadressen die veilige programmaondertekening mogelijk maken. Begrijp PDA-afleiding, canonieke bumps en hoe je PDA-accounts kunt maken.
+- [Programma's implementeren](https://solana.com/docs/nl/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aangepaste programma's uploaden naar de Solana blockchain met behulp van de Solana CLI.
+- [Programma's implementeren](https://solana.com/docs/nl/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je je eerste Solana-programma bouwt, implementeert en test met behulp van het Anchor-framework en Solana Playground. Deze gebruiksvriendelijke gids voor beginners behandelt het maken van een eenvoudig programma, het implementeren op devnet, het uitvoeren van tests en het afsluiten van het programma.
+- [Programma's op Solana](https://solana.com/docs/nl/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Solana programma's (smart contracts) en hoe je ze kunt ontwikkelen met Rust of het Anchor framework. Begrijp programma-implementatie, upgrades en verificatie op het Solana-netwerk.
+- [Programmastructuur](https://solana.com/docs/nl/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je Solana-programma's in Rust structureert, inclusief entrypoints, statusbeheer, instructieverwerking en testen.
+- [Programmavoorbeelden](https://solana.com/docs/nl/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Een lijst met Solana programmavoorbeelden in verschillende talen en frameworks, die je kunnen helpen bij het leren en als referentie kunnen dienen voor je eigen projecten.
+- [Python SDK](https://solana.com/docs/nl/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je met Solana kunt werken via de Python SDK (michaelhly/solana-py).
+- [RPC-eindpunten](https://solana.com/docs/nl/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Solana's netwerkclusters (Devnet, Testnet en Mainnet Beta), hun openbare RPC-eindpunten, snelheidslimieten en gebruikssituaties. Ontdek hoe je verbinding maakt met verschillende Solana-netwerken voor ontwikkeling, testen en productie.
+- [Reserveer minimale CUs voor ingebouwde programma's](https://solana.com/docs/nl/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Rust SDK](https://solana.com/docs/nl/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je Solana's Rust crates kunt gebruiken voor ontwikkeling.
+- [Rust-programma's](https://solana.com/docs/nl/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je Solana-programma's kunt ontwikkelen met Rust, inclusief stapsgewijze instructies voor het maken, bouwen, testen en implementeren van smart contracts op de Solana-blockchain.
+- [SPL Token basisprincipes](https://solana.com/docs/nl/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer de basisinstructies voor het werken met SPL Tokens.
+- [Scaled UI Amount uitgever handleiding](https://solana.com/docs/nl/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je de Scaled UI Amount extensie kunt gebruiken om het UI-bedrag van een token te schalen.
+- [Schrijven naar het netwerk](https://solana.com/docs/nl/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je interactie kunt hebben met het Solana-netwerk door transacties en instructies te verzenden. Volg stapsgewijze voorbeelden om SOL-tokens over te maken en nieuwe tokens te creëren met behulp van het System Program en Token Extensions Program.
+- [Snelstart](https://solana.com/docs/nl/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer de basis van Solana-ontwikkeling. Maak je eerste programma, begrijp accounts, verstuur transacties en verken PDA's en CPI's met Solana Playground - geen installatie vereist.
+- [Solana Documentatie](https://solana.com/docs/nl/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana is de hoogwaardige blockchain ontworpen voor massale adoptie. Ontdek waarom Solana de topkeuze is voor ontwikkelaars die schaalbare blockchain-applicaties willen bouwen.
+- [Solana Gaming SDKs](https://solana.com/docs/nl/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Een lijst van Solana Gaming SDKs om je op weg te helpen bij het maken van je eerste Solana-game
+- [Solana RPC-methoden](https://solana.com/docs/nl/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Solana accountmodel](https://solana.com/docs/nl/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Solana's accountmodel, inclusief hoe accounts data en programma's opslaan, rent-mechanismen, accounteigendom en de relatie tussen programma's en data-accounts. Begrijp de kernconcepten van Solana's sleutel-waarde opslagsysteem.
+- [Stake programmeren](https://solana.com/docs/nl/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Stake-accounts](https://solana.com/docs/nl/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Staking](https://solana.com/docs/nl/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Terminologie](https://solana.com/docs/nl/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer de essentiële terminologie die wordt gebruikt in de Solana blockchain en ontwikkelingsmodellen.
+- [Tokens minten](https://solana.com/docs/nl/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je nieuwe eenheden van een token kunt minten.
+- [Tokens op Solana](https://solana.com/docs/nl/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Solana's Token Programs.
+- [Tokens opnemen](https://solana.com/docs/nl/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je tokens kunt opnemen uit de vertrouwelijke status.
+- [Tokens overmaken](https://solana.com/docs/nl/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je tokens kunt overmaken tussen token accounts.
+- [Tokens overmaken](https://solana.com/docs/nl/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je tokens privé van de ene token account naar de andere kunt overmaken.
+- [Tokens storten](https://solana.com/docs/nl/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je tokens naar vertrouwelijke status kunt storten.
+- [Transactiekosten](https://solana.com/docs/nl/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Solana's transactiekosten, inclusief de basis- en prioriteitskosten, hoe elk wordt toegepast, en best practices voor het beheren van compute-eenheden in je transacties.
+- [Transacties en instructies](https://solana.com/docs/nl/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Solana transacties en instructies - de fundamentele bouwstenen voor interactie met de Solana blockchain. Begrijp de transactiestructuur en instructiesamenstelling met praktische voorbeelden.
+- [Typescript SDK](https://solana.com/docs/nl/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je met Solana kunt werken via de JavaScript/TypeScript client bibliotheek (@solana/web3.js).
+- [Verbruik toegewezen CU's bij sBPF-falen](https://solana.com/docs/nl/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Vertrouwelijke overdracht](https://solana.com/docs/nl/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over de Vertrouwelijke Overdracht-extensie en hoe je deze kunt gebruiken om optionele functies toe te voegen aan token mints en accounts.
+- [Wachtend saldo toepassen](https://solana.com/docs/nl/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je wachtend saldo kunt toepassen om fondsen beschikbaar te maken.
+- [Websocket-methoden](https://solana.com/docs/nl/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountSubscribe](https://solana.com/docs/nl/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/nl/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/nl/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/nl/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/nl/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/nl/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/nl/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/nl/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/nl/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/nl/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/nl/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/nl/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/nl/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/nl/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/nl/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/nl/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/nl/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/nl/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/nl/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/nl/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/nl/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/nl/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/nl/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/nl/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/nl/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/nl/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/nl/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/nl/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/nl/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/nl/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/nl/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/nl/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/nl/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/nl/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/nl/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/nl/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/nl/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/nl/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/nl/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/nl/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/nl/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/nl/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/nl/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/nl/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/nl/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/nl/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/nl/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/nl/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/nl/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/nl/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/nl/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/nl/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/nl/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/nl/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/nl/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/nl/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/nl/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/nl/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/nl/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/nl/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/nl/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/nl/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/nl/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/nl/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/nl/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/nl/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/nl/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/nl/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/nl/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/nl/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/nl/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/nl/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/nl/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/nl/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/nl/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/nl/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/nl/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/nl/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/nl/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/nl/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/nl/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/nl/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/nl/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/nl/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - Pl
+
+- [Bezpośrednie mapowanie](https://solana.com/docs/pl/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Cross Program Invocation](https://solana.com/docs/pl/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o Cross Program Invocation (CPI) na Solanie - jak programy mogą wywoływać instrukcje innych programów, obsługiwać sygnatariuszy PDA i komponować funkcjonalności w sieci Solana.
+- [Dokumentacja Solana](https://solana.com/docs/pl/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana to blockchain o wysokiej wydajności zaprojektowany z myślą o masowej adopcji. Dowiedz się, dlaczego Solana jest najlepszym wyborem dla deweloperów budujących skalowalne aplikacje blockchain.
+- [Domyślna nowa instrukcja głosowania](https://solana.com/docs/pl/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [FAQ](https://solana.com/docs/pl/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Go SDK](https://solana.com/docs/pl/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak korzystać z Solana za pomocą Go SDK (gagliardetto/solana-go).
+- [Instalacja](https://solana.com/docs/pl/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Przewodnik po konfiguracji lokalnego środowiska deweloperskiego Solana. Dowiedz się, jak zainstalować Rust, Solana CLI i Anchor Framework na Windows (WSL), Linux i Mac.
+- [Java SDK](https://solana.com/docs/pl/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak korzystać z Solana za pomocą Java SDK (sava-software/sava).
+- [Konta stakingowe](https://solana.com/docs/pl/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Metody HTTP](https://solana.com/docs/pl/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Metody RPC Solana](https://solana.com/docs/pl/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Metody websocket](https://solana.com/docs/pl/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Model kont Solana](https://solana.com/docs/pl/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o modelu kont Solana, w tym o tym, jak konta przechowują dane i programy, mechanice rent, własności kont oraz relacji między programami a kontami danych. Zrozum podstawowe pojęcia systemu przechowywania danych w formacie klucz-wartość w Solana.
+- [Odczyt z sieci](https://solana.com/docs/pl/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak odczytywać dane z sieci blockchain Solana. Ten przewodnik obejmuje pobieranie kont portfeli, kont programów i kont tokenów mint za pomocą JavaScript/TypeScript, z praktycznymi przykładami wykorzystującymi bibliotekę Solana web3.js.
+- [Ograniczenia](https://solana.com/docs/pl/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Opłaty transakcyjne](https://solana.com/docs/pl/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o opłatach transakcyjnych w Solana, w tym o opłatach podstawowych i priorytetowych, sposobie ich naliczania oraz najlepszych praktykach zarządzania jednostkami obliczeniowymi w transakcjach.
+- [Podstawowe pojęcia](https://solana.com/docs/pl/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Poznaj kluczowe pojęcia blockchaina Solana, w tym konta, transakcje, programy, program derived addresses, cross program invocations oraz sposób działania tokenów na Solanie.
+- [Podstawy tokenów SPL](https://solana.com/docs/pl/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Poznaj podstawowe instrukcje dotyczące interakcji z tokenami SPL.
+- [Poufne transfery](https://solana.com/docs/pl/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o rozszerzeniu Poufny Transfer i jak go używać, aby dodać opcjonalne funkcje do tokenów i kont.
+- [Program Derived Address](https://solana.com/docs/pl/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o Program Derived Addresses (PDA) na Solanie - deterministycznych adresach kont, które umożliwiają bezpieczne podpisywanie programów. Zrozum proces wyprowadzania PDA, kanoniczne bumpy i jak tworzyć konta PDA.
+- [Programowanie stakingu](https://solana.com/docs/pl/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Programy na Solanie](https://solana.com/docs/pl/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o programach (smart kontraktach) na Solanie i jak je rozwijać za pomocą języka Rust lub frameworka Anchor. Zrozum wdrażanie, aktualizacje i weryfikację programów w sieci Solana.
+- [Programy w Rust](https://solana.com/docs/pl/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak tworzyć programy Solana w języku Rust, w tym szczegółowe instrukcje dotyczące tworzenia, budowania, testowania i wdrażania smart kontraktów na blockchainie Solana.
+- [Przelew tokenów](https://solana.com/docs/pl/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak przenosić tokeny między kontami tokenów.
+- [Przelew tokenów](https://solana.com/docs/pl/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak prywatnie przesyłać tokeny z jednego konta tokenów na inne.
+- [Przewodnik integracji funkcji Scaled UI Amount](https://solana.com/docs/pl/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak zintegrować token korzystający z rozszerzenia Scaled UI Amount w swojej aplikacji.
+- [Przewodnik po wystawcy skalowanej ilości UI](https://solana.com/docs/pl/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak używać rozszerzenia Scaled UI Amount, aby skalować ilość UI tokena.
+- [Przykłady programów](https://solana.com/docs/pl/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lista przykładów programów Solana w różnych językach i frameworkach, które mogą pomóc w nauce i służyć jako odniesienie dla własnych projektów.
+- [Punkty końcowe RPC](https://solana.com/docs/pl/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o klastrach sieci Solana (Devnet, Testnet i Mainnet Beta), ich publicznych punktach końcowych RPC, limitach zapytań i zastosowaniach. Naucz się, jak łączyć się z różnymi sieciami Solana w celu rozwoju, testowania i produkcji.
+- [Python SDK](https://solana.com/docs/pl/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak korzystać z Solana za pomocą Python SDK (michaelhly/solana-py).
+- [Rozszerzenia](https://solana.com/docs/pl/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o Token Extensions Program (Token 2022) i jak używać jego rozszerzeń, aby dodać opcjonalne funkcje do tokenów i kont.
+- [Rust SDK](https://solana.com/docs/pl/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak korzystać z bibliotek Rust od Solany do tworzenia aplikacji.
+- [SDK TypeScript](https://solana.com/docs/pl/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak korzystać z Solana za pomocą biblioteki klienckiej JavaScript/TypeScript (@solana/web3.js).
+- [Skalowana ilość UI](https://solana.com/docs/pl/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o rozszerzeniu Skalowana ilość UI i jak go używać do skalowania ilości UI tokena.
+- [Solana Gaming SDKs](https://solana.com/docs/pl/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lista Solana Gaming SDKs, które pomogą Ci rozpocząć tworzenie Twojej pierwszej gry na Solanie
+- [Staking](https://solana.com/docs/pl/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Struktura programu](https://solana.com/docs/pl/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak strukturyzować programy Solana w języku Rust, w tym punkty wejścia, zarządzanie stanem, obsługę instrukcji i testowanie.
+- [Struktury danych jako JSON](https://solana.com/docs/pl/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Szybki start](https://solana.com/docs/pl/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Poznaj podstawy programowania na Solanie. Stwórz swój pierwszy program, zrozum konta, wysyłaj transakcje i odkrywaj PDAs oraz CPIs za pomocą Solana Playground - bez potrzeby instalacji.
+- [Terminologia](https://solana.com/docs/pl/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Poznaj podstawową terminologię używaną w blockchainie Solana i modelach programistycznych.
+- [Tokeny na Solanie](https://solana.com/docs/pl/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o programach tokenów Solany.
+- [Transakcje i instrukcje](https://solana.com/docs/pl/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się więcej o transakcjach i instrukcjach w Solanie – podstawowych elementach interakcji z blockchainem Solana. Zrozum strukturę transakcji i skład instrukcji dzięki praktycznym przykładom.
+- [Tworzenie deterministycznych kont](https://solana.com/docs/pl/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak zbudować program CRUD (Create, Read, Update, Delete) na Solanie, wykorzystując Program Derived Addresses (PDAs) i framework Anchor. Ten przewodnik krok po kroku pokazuje, jak tworzyć, aktualizować i usuwać konta wiadomości w łańcuchu za pomocą PDAs, implementować walidację kont i pisać testy. Idealny dla programistów chcących zrozumieć, jak używać PDAs w programach Solana.
+- [Tworzenie tokenów](https://solana.com/docs/pl/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak tworzyć nowe jednostki tokena.
+- [Tworzenie wielu programów](https://solana.com/docs/pl/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak zaimplementować Cross Program Invocations (CPIs) w programach Solana za pomocą frameworka Anchor. Ten samouczek pokazuje, jak przenosić SOL między kontami, współpracować z System Program i obsługiwać Program Derived Addresses (PDAs) w CPIs. Idealny dla programistów chcących budować kompozycyjne programy Solana.
+- [Utwórz konto tokena](https://solana.com/docs/pl/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak tworzyć konta tokenów SPL.
+- [Utwórz konto tokena](https://solana.com/docs/pl/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak utworzyć konto tokena z rozszerzeniem Confidential Transfer.
+- [Utwórz mint account](https://solana.com/docs/pl/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak utworzyć mint account dla tokena SPL.
+- [Utwórz token mint](https://solana.com/docs/pl/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak utworzyć token mint z rozszerzeniem Confidential Transfer.
+- [Wdrażanie programów](https://solana.com/docs/pl/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Przesyłanie niestandardowych programów do blockchaina Solana za pomocą Solana CLI.
+- [Wdrażanie programów](https://solana.com/docs/pl/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak zbudować, wdrożyć i przetestować swój pierwszy program Solana, korzystając z frameworka Anchor i Solana Playground. Ten przyjazny dla początkujących przewodnik przeprowadza przez tworzenie prostego programu, wdrażanie go na devnet, uruchamianie testów i zamykanie programu.
+- [Wpłacanie tokenów](https://solana.com/docs/pl/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak wpłacać tokeny do stanu poufnego.
+- [Wypłata tokenów](https://solana.com/docs/pl/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak wypłacić tokeny ze stanu poufnego.
+- [Zapisywanie do sieci](https://solana.com/docs/pl/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak wchodzić w interakcje z siecią Solana, wysyłając transakcje i instrukcje. Postępuj zgodnie z przykładami krok po kroku, aby przesyłać tokeny SOL i tworzyć nowe tokeny za pomocą System Program i Token Extensions Program.
+- [Zarezerwuj minimalne CUs dla wbudowanych programów](https://solana.com/docs/pl/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Zastosuj oczekujące saldo](https://solana.com/docs/pl/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak zastosować oczekujące saldo, aby środki były dostępne.
+- [Zużycie przydzielonych CU w przypadku błędu sBPF](https://solana.com/docs/pl/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountSubscribe](https://solana.com/docs/pl/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/pl/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/pl/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/pl/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/pl/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/pl/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/pl/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/pl/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/pl/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/pl/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/pl/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/pl/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/pl/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/pl/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/pl/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/pl/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/pl/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/pl/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/pl/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/pl/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/pl/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/pl/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/pl/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/pl/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/pl/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/pl/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/pl/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/pl/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/pl/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/pl/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/pl/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/pl/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/pl/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/pl/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/pl/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/pl/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/pl/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/pl/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/pl/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/pl/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/pl/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/pl/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/pl/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/pl/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/pl/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/pl/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/pl/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/pl/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/pl/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/pl/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/pl/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/pl/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/pl/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/pl/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/pl/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/pl/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/pl/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/pl/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/pl/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/pl/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/pl/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/pl/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/pl/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/pl/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/pl/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/pl/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/pl/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/pl/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/pl/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/pl/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/pl/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/pl/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/pl/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/pl/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/pl/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/pl/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/pl/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/pl/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/pl/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/pl/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/pl/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/pl/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/pl/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/pl/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - Pt
+
+- [Aplicar saldo pendente](https://solana.com/docs/pt/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como aplicar o saldo pendente para disponibilizar fundos.
+- [Compondo múltiplos programas](https://solana.com/docs/pt/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como implementar Invocações entre Programas (CPIs) em programas Solana usando o framework Anchor. Este tutorial demonstra como transferir SOL entre contas, interagir com o System Program e lidar com Endereços Derivados de Programa (PDAs) em CPIs. Perfeito para desenvolvedores que desejam criar programas Solana compostos.
+- [Conceitos fundamentais](https://solana.com/docs/pt/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda conceitos essenciais da blockchain Solana, incluindo contas, transações, programas, Program Derived Address, Cross Program Invocation e como os tokens funcionam na Solana.
+- [Consumir CUs alocadas em falha do sBPF](https://solana.com/docs/pt/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Contas de stake](https://solana.com/docs/pt/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Criando contas determinísticas](https://solana.com/docs/pt/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como construir um programa Solana CRUD (Criar, Ler, Atualizar, Excluir) usando Program Derived Addresses (PDAs) e o framework Anchor. Este guia passo a passo demonstra como criar, atualizar e excluir contas de mensagens on-chain usando PDAs, implementar validação de contas e escrever testes. Perfeito para desenvolvedores que desejam entender como usar PDAs em programas Solana.
+- [Criar um Token Mint](https://solana.com/docs/pt/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como criar um mint de Token SPL.
+- [Criar um Token Mint](https://solana.com/docs/pt/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como criar um token mint com a extensão de Transferência Confidencial.
+- [Criar uma Token Account](https://solana.com/docs/pt/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como criar SPL Token Accounts.
+- [Criar uma Token Account](https://solana.com/docs/pt/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como criar uma token account com a extensão de Transferência Confidencial.
+- [Cross Program Invocation](https://solana.com/docs/pt/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre Cross Program Invocation (CPI) na Solana - como programas podem chamar instruções em outros programas, lidar com signatários PDA e compor funcionalidades em toda a rede Solana.
+- [Cunhar Tokens](https://solana.com/docs/pt/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como cunhar novas unidades de um token.
+- [Depositar tokens](https://solana.com/docs/pt/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como depositar tokens para o estado confidencial.
+- [Documentação Solana](https://solana.com/docs/pt/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana é a blockchain de alto desempenho projetada para adoção em massa. Descubra por que a Solana é a principal escolha para desenvolvedores que buscam criar aplicações blockchain escaláveis.
+- [Endpoints RPC](https://solana.com/docs/pt/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Saiba mais sobre os clusters de rede da Solana (Devnet, Testnet e Mainnet Beta), seus endpoints RPC públicos, limites de taxa e casos de uso. Aprenda como se conectar a diferentes redes Solana para desenvolvimento, teste e produção.
+- [Escrevendo na rede](https://solana.com/docs/pt/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como interagir com a rede Solana enviando transações e instruções. Siga exemplos passo a passo para transferir tokens SOL e criar novos tokens usando o System Program e o Token Extensions Program.
+- [Estrutura do programa](https://solana.com/docs/pt/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como estruturar programas Solana em Rust, incluindo pontos de entrada, gerenciamento de estado, manipulação de instruções e testes.
+- [Estruturas de Dados como JSON](https://solana.com/docs/pt/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Exemplos de programas](https://solana.com/docs/pt/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Uma lista de exemplos de programas Solana em diferentes linguagens e frameworks, que podem ajudar você a aprender e usar como referência para seus próprios projetos.
+- [Extensions](https://solana.com/docs/pt/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre o Token Extensions Program (Token 2022) e como usar suas extensões para adicionar recursos opcionais a mints e contas de tokens.
+- [FAQ](https://solana.com/docs/pt/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Fundamentos de SPL Token](https://solana.com/docs/pt/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda as instruções básicas para interagir com SPL Tokens.
+- [Guia de integração de valor de UI escalado](https://solana.com/docs/pt/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como integrar um token que usa a extensão de valor de UI escalado em sua aplicação.
+- [Guia do Emissor de Quantia com UI Escalada](https://solana.com/docs/pt/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como usar a extensão Scaled UI Amount para escalar a quantia na interface do usuário de um token.
+- [Implantando programas](https://solana.com/docs/pt/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Enviando programas personalizados para a blockchain Solana usando a CLI da Solana.
+- [Implantando programas](https://solana.com/docs/pt/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda a construir, implantar e testar seu primeiro programa Solana usando o framework Anchor e o Solana Playground. Este guia para iniciantes orienta na criação de um programa simples, implantação na devnet, execução de testes e encerramento do programa.
+- [Instalação](https://solana.com/docs/pt/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Um guia para configurar seu ambiente de desenvolvimento local Solana. Aprenda como instalar Rust, Solana CLI e o Framework Anchor no Windows (WSL), Linux e Mac.
+- [Início Rápido](https://solana.com/docs/pt/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda os fundamentos de desenvolvimento na Solana. Crie seu primeiro programa, entenda contas, envie transações e explore PDAs e CPIs usando o Solana Playground - sem necessidade de instalação.
+- [Lendo da rede](https://solana.com/docs/pt/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como ler dados da rede blockchain Solana. Este guia aborda a busca de contas de carteira, contas de programa e contas de emissão de tokens usando JavaScript/TypeScript, com exemplos práticos usando a biblioteca Solana web3.js.
+- [Limitações](https://solana.com/docs/pt/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Mapeamento direto](https://solana.com/docs/pt/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Modelo de Conta Solana](https://solana.com/docs/pt/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre o modelo de conta da Solana, incluindo como as contas armazenam dados e programas, mecânicas de rent, propriedade de conta e a relação entre programas e contas de dados. Entenda os conceitos fundamentais do sistema de armazenamento chave-valor da Solana.
+- [Métodos HTTP](https://solana.com/docs/pt/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Métodos RPC da Solana](https://solana.com/docs/pt/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Métodos Websocket](https://solana.com/docs/pt/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Nova instrução de voto padrão](https://solana.com/docs/pt/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Program Derived Address](https://solana.com/docs/pt/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre Program Derived Addresses (PDAs) na Solana - endereços de conta determinísticos que permitem assinatura segura de programas. Entenda a derivação de PDA, bumps canônicos e como criar contas PDA.
+- [Programas em Rust](https://solana.com/docs/pt/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como desenvolver programas Solana usando Rust, incluindo instruções passo a passo para criar, construir, testar e implantar contratos inteligentes na blockchain Solana.
+- [Programas na Solana](https://solana.com/docs/pt/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre os programas Solana (contratos inteligentes) e como desenvolvê-los usando Rust ou o framework Anchor. Entenda a implantação, atualizações e verificação de programas na rede Solana.
+- [Programação de Stake](https://solana.com/docs/pt/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Reservar CUs mínimas para Builtins](https://solana.com/docs/pt/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Retirar Tokens](https://solana.com/docs/pt/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como retirar tokens do estado confidencial.
+- [Rust SDK](https://solana.com/docs/pt/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como usar os crates Rust da Solana para desenvolvimento.
+- [SDK Go](https://solana.com/docs/pt/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como interagir com Solana usando o SDK Go (gagliardetto/solana-go).
+- [SDK Java](https://solana.com/docs/pt/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como interagir com a Solana usando o SDK Java (sava-software/sava).
+- [SDK Python](https://solana.com/docs/pt/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como interagir com Solana usando o SDK Python (michaelhly/solana-py).
+- [SDKs de jogos Solana](https://solana.com/docs/pt/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Uma lista de SDKs de jogos Solana para ajudar você a começar a criar seu primeiro jogo Solana
+- [Staking](https://solana.com/docs/pt/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Taxas de transação](https://solana.com/docs/pt/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre as taxas de transação da Solana, incluindo as taxas base e prioritárias, como cada uma é aplicada e as melhores práticas para gerenciar unidades de computação em suas transações.
+- [Terminologia](https://solana.com/docs/pt/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda a terminologia essencial usada em toda a blockchain Solana e modelos de desenvolvimento.
+- [Tokens na Solana](https://solana.com/docs/pt/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre os Token Programs da Solana.
+- [Transações e instruções](https://solana.com/docs/pt/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre transações e instruções da Solana - os blocos fundamentais para interagir com a blockchain Solana. Entenda a estrutura de transações e a composição de instruções com exemplos práticos.
+- [Transferir Tokens](https://solana.com/docs/pt/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como transferir tokens entre token accounts.
+- [Transferir tokens](https://solana.com/docs/pt/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como transferir tokens de forma privada de uma conta de token para outra.
+- [Transferência Confidencial](https://solana.com/docs/pt/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre a extensão de Transferência Confidencial e como usá-la para adicionar recursos opcionais a mints e contas de tokens.
+- [Typescript SDK](https://solana.com/docs/pt/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como interagir com a Solana usando a biblioteca cliente JavaScript/TypeScript (@solana/web3.js).
+- [Valor da UI escalado](https://solana.com/docs/pt/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre a extensão Valor da UI Escalado e como usá-la para escalar o valor da UI de um token.
+- [accountSubscribe](https://solana.com/docs/pt/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/pt/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/pt/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/pt/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/pt/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/pt/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/pt/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/pt/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/pt/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/pt/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/pt/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/pt/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/pt/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/pt/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/pt/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/pt/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/pt/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/pt/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/pt/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/pt/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/pt/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/pt/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/pt/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/pt/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/pt/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/pt/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/pt/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/pt/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/pt/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/pt/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/pt/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/pt/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/pt/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/pt/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/pt/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/pt/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/pt/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/pt/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/pt/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/pt/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/pt/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/pt/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/pt/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/pt/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/pt/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/pt/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/pt/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/pt/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/pt/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/pt/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/pt/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/pt/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/pt/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/pt/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/pt/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/pt/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/pt/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/pt/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/pt/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/pt/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/pt/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/pt/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/pt/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/pt/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/pt/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/pt/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/pt/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/pt/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/pt/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/pt/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/pt/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/pt/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/pt/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/pt/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/pt/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/pt/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/pt/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/pt/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/pt/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/pt/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/pt/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/pt/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/pt/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/pt/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Docs - Ru
+
+- [Cross Program Invocation](https://solana.com/docs/ru/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о Cross Program Invocation (CPI) в Solana — как программы могут вызывать инструкции других программ, работать с PDA-подписантами и объединять функциональность в сети Solana.
+- [Go SDK](https://solana.com/docs/ru/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как взаимодействовать с Solana с помощью Go SDK (gagliardetto/solana-go).
+- [HTTP-методы](https://solana.com/docs/ru/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Java SDK](https://solana.com/docs/ru/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как взаимодействовать с Solana с помощью Java SDK (sava-software/sava).
+- [Program Derived Address](https://solana.com/docs/ru/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о Program Derived Addresses (PDA) в Solana — детерминированных адресах аккаунтов, которые обеспечивают безопасную подпись программ. Поймите процесс создания PDA, канонические смещения и как создавать аккаунты с PDA.
+- [Python SDK](https://solana.com/docs/ru/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как взаимодействовать с Solana с помощью Python SDK (michaelhly/solana-py).
+- [RPC-эндпоинты](https://solana.com/docs/ru/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о кластерах сети Solana (Devnet, Testnet и Mainnet Beta), их публичных RPC-эндпоинтах, ограничениях по скорости и вариантах использования. Узнайте, как подключаться к различным сетям Solana для разработки, тестирования и производства.
+- [Rust SDK](https://solana.com/docs/ru/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как использовать Rust-библиотеки Solana для разработки.
+- [Typescript SDK](https://solana.com/docs/ru/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как взаимодействовать с Solana, используя клиентскую библиотеку JavaScript/TypeScript (@solana/web3.js).
+- [accountSubscribe](https://solana.com/docs/ru/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/ru/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/ru/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/ru/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/ru/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/ru/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/ru/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/ru/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/ru/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/ru/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/ru/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/ru/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/ru/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/ru/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/ru/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/ru/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/ru/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/ru/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/ru/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/ru/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/ru/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/ru/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/ru/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/ru/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/ru/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/ru/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/ru/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/ru/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/ru/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/ru/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/ru/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/ru/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/ru/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/ru/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/ru/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/ru/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/ru/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/ru/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/ru/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/ru/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/ru/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/ru/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/ru/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/ru/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/ru/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/ru/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/ru/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/ru/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/ru/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/ru/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/ru/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/ru/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/ru/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/ru/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/ru/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/ru/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/ru/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/ru/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/ru/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/ru/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/ru/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/ru/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/ru/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/ru/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/ru/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/ru/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/ru/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/ru/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/ru/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/ru/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/ru/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/ru/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/ru/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/ru/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/ru/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/ru/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/ru/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/ru/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/ru/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/ru/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/ru/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/ru/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/ru/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/ru/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Аккаунты для стейкинга](https://solana.com/docs/ru/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Быстрый старт](https://solana.com/docs/ru/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Изучите основы разработки на Solana. Создайте свою первую программу, разберитесь с аккаунтами, отправляйте транзакции и изучайте PDAs и CPIs с помощью Solana Playground — установка не требуется.
+- [Вывод токенов](https://solana.com/docs/ru/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как вывести токены из конфиденциального состояния.
+- [Выпуск токенов](https://solana.com/docs/ru/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как выпускать новые единицы токена.
+- [Депозит токенов](https://solana.com/docs/ru/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как внести токены в конфиденциальное состояние.
+- [Документация Solana](https://solana.com/docs/ru/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana — это высокопроизводительный блокчейн, разработанный для массового использования. Узнайте, почему Solana является лучшим выбором для разработчиков, стремящихся создавать масштабируемые блокчейн-приложения.
+- [Запись в сеть](https://solana.com/docs/ru/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как взаимодействовать с сетью Solana, отправляя транзакции и инструкции. Следуйте пошаговым примерам для перевода токенов SOL и создания новых токенов с использованием System Program и Token Extensions Program.
+- [Игровые SDK Solana](https://solana.com/docs/ru/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Список игровых SDK Solana, которые помогут вам начать создавать вашу первую игру на Solana
+- [Комиссии за транзакции](https://solana.com/docs/ru/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о комиссиях за транзакции в Solana, включая базовые и приоритетные комиссии, как они применяются и лучшие практики управления вычислительными единицами в ваших транзакциях.
+- [Композиция нескольких программ](https://solana.com/docs/ru/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как реализовать Cross Program Invocations (CPIs) в программах Solana с использованием фреймворка Anchor. В этом руководстве демонстрируется, как переводить SOL между аккаунтами, взаимодействовать с System Program и работать с Program Derived Addresses (PDAs) в CPIs. Идеально подходит для разработчиков, стремящихся создавать компонуемые программы Solana.
+- [Конфиденциальный перевод](https://solana.com/docs/ru/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о расширении Confidential Transfer и о том, как использовать его для добавления дополнительных функций к токенам и аккаунтам.
+- [Масштабируемое количество UI](https://solana.com/docs/ru/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о расширении Scaled UI Amount и о том, как использовать его для масштабирования количества UI токена.
+- [Методы RPC Solana](https://solana.com/docs/ru/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Методы WebSocket](https://solana.com/docs/ru/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Модель аккаунтов Solana](https://solana.com/docs/ru/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о модели аккаунтов Solana, включая то, как аккаунты хранят данные и программы, механику rent, владение аккаунтами и связь между программами и аккаунтами данных. Поймите основные концепции системы хранения данных в формате ключ-значение на Solana.
+- [Новая инструкция голосования по умолчанию](https://solana.com/docs/ru/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Ограничения](https://solana.com/docs/ru/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Основные концепции](https://solana.com/docs/ru/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Изучите основные концепции блокчейна Solana, включая аккаунты, транзакции, программы, Program Derived Addresses, Cross Program Invocations и работу токенов в Solana.
+- [Основы SPL Token](https://solana.com/docs/ru/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Изучите основные инструкции для взаимодействия с SPL Token.
+- [Перевод токенов](https://solana.com/docs/ru/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как переводить токены между аккаунтами токенов.
+- [Перевод токенов](https://solana.com/docs/ru/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как конфиденциально перевести токены с одного токен-аккаунта на другой.
+- [Потребление выделенных CUs при сбое sBPF](https://solana.com/docs/ru/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Применение ожидаемого баланса](https://solana.com/docs/ru/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как применить ожидаемый баланс, чтобы сделать средства доступными.
+- [Примеры программ](https://solana.com/docs/ru/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Список примеров программ Solana на разных языках и фреймворках, которые помогут вам изучить и использовать их в качестве справочного материала для ваших собственных проектов.
+- [Программное управление стейкингом](https://solana.com/docs/ru/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Программы на Rust](https://solana.com/docs/ru/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как разрабатывать программы для Solana с использованием Rust, включая пошаговые инструкции по созданию, сборке, тестированию и развертыванию смарт-контрактов в блокчейне Solana.
+- [Программы на Solana](https://solana.com/docs/ru/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о программах (смарт-контрактах) на Solana и о том, как разрабатывать их с использованием Rust или фреймворка Anchor. Поймите процесс развертывания, обновления и проверки программ в сети Solana.
+- [Прямое отображение](https://solana.com/docs/ru/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Развёртывание программ](https://solana.com/docs/ru/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Загрузка пользовательских программ в блокчейн Solana с использованием Solana CLI.
+- [Развёртывание программ](https://solana.com/docs/ru/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как создать, развернуть и протестировать вашу первую программу Solana с использованием фреймворка Anchor и Solana Playground. Это руководство для начинающих проведёт вас через создание простой программы, её развёртывание на devnet, выполнение тестов и завершение работы программы.
+- [Расширения](https://solana.com/docs/ru/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о Token Extensions Program (Token 2022) и о том, как использовать его расширения для добавления дополнительных функций к токенам и аккаунтам.
+- [Резерв минимальных CUs для встроенных программ](https://solana.com/docs/ru/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Руководство по выпуску масштабируемых UI-значений](https://solana.com/docs/ru/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как использовать расширение Scaled UI Amount для масштабирования UI-значения токена.
+- [Руководство по интеграции масштабируемого UI Amount](https://solana.com/docs/ru/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как интегрировать токен, использующий расширение Scaled UI Amount, в ваше приложение.
+- [Создание аккаунта токена](https://solana.com/docs/ru/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как создать аккаунт токена с расширением Confidential Transfer.
+- [Создание детерминированных аккаунтов](https://solana.com/docs/ru/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как создать программу CRUD (создание, чтение, обновление, удаление) для Solana с использованием Program Derived Addresses (PDA) и фреймворка Anchor. Это пошаговое руководство демонстрирует, как создавать, обновлять и удалять аккаунты сообщений в блокчейне с использованием PDA, реализовывать валидацию аккаунтов и писать тесты. Идеально подходит для разработчиков, которые хотят понять, как использовать PDA в программах Solana.
+- [Создание токен-аккаунта](https://solana.com/docs/ru/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как создавать SPL токен-аккаунты.
+- [Создание токенового минта](https://solana.com/docs/ru/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как создать SPL Token mint.
+- [Создание токенового минта](https://solana.com/docs/ru/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как создать токеновый минт с расширением Confidential Transfer.
+- [Стейкинг](https://solana.com/docs/ru/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Структура программы](https://solana.com/docs/ru/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как структурировать программы Solana на Rust, включая точки входа, управление состоянием, обработку инструкций и тестирование.
+- [Структуры данных в формате JSON](https://solana.com/docs/ru/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Терминология](https://solana.com/docs/ru/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Изучите основные термины, используемые в блокчейне Solana и моделях разработки.
+- [Токены в Solana](https://solana.com/docs/ru/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о Token Programs в Solana.
+- [Транзакции и инструкции](https://solana.com/docs/ru/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о транзакциях и инструкциях Solana — основных строительных блоках для взаимодействия с блокчейном Solana. Поймите структуру транзакций и состав инструкций с практическими примерами.
+- [Установка](https://solana.com/docs/ru/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Руководство по настройке локальной среды разработки Solana. Узнайте, как установить Rust, Solana CLI и Anchor Framework на Windows (WSL), Linux и Mac.
+- [Часто задаваемые вопросы](https://solana.com/docs/ru/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Чтение из сети](https://solana.com/docs/ru/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как считывать данные из блокчейн-сети Solana. В этом руководстве рассматривается получение данных из аккаунтов кошельков, программных аккаунтов и аккаунтов токенов с использованием JavaScript/TypeScript, с практическими примерами на библиотеке Solana web3.js.
+
+## Docs - Tr
+
+- [Ağa yazma](https://solana.com/docs/tr/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana ağıyla işlem ve talimatlar göndererek nasıl etkileşim kuracağınızı öğrenin. System Program ve Token Extensions Program kullanarak SOL token transferi yapma ve yeni tokenler oluşturma için adım adım örnekleri takip edin.
+- [Ağdan okuma](https://solana.com/docs/tr/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana blok zinciri ağından veri okumayı öğrenin. Bu rehber, JavaScript/TypeScript kullanarak cüzdan hesaplarını, program hesaplarını ve token mint hesaplarını almayı kapsar ve Solana web3.js kütüphanesi ile pratik örnekler sunar.
+- [Bekleyen bakiyeyi uygula](https://solana.com/docs/tr/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Fonları kullanılabilir hale getirmek için bekleyen bakiyeyi nasıl uygulayacağınızı öğrenin.
+- [Birden fazla programı birleştirme](https://solana.com/docs/tr/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Anchor framework kullanarak Solana programlarında Çapraz Program Çağrılarını (CPI) nasıl uygulayacağınızı öğrenin. Bu öğretici, hesaplar arasında SOL transferi yapmayı, System Program ile etkileşime geçmeyi ve CPI'larda Program Türetilmiş Adresleri (PDA) yönetmeyi göstermektedir. Birleştirilebilir Solana programları oluşturmak isteyen geliştiriciler için mükemmeldir.
+- [Cross Program Invocation](https://solana.com/docs/tr/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'da Cross Program Invocation (CPI) hakkında bilgi edinin - programların diğer programlardaki talimatları nasıl çağırabileceğini, PDA imzalayanlarını nasıl yöneteceğini ve Solana ağı genelinde işlevselliği nasıl oluşturabileceğini öğrenin.
+- [Deterministik Hesaplar Oluşturma](https://solana.com/docs/tr/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Program Derived Address (PDA) ve Anchor framework kullanarak bir CRUD (Oluştur, Oku, Güncelle, Sil) Solana programı nasıl oluşturulacağını öğrenin. Bu adım adım rehber, PDA'ları kullanarak zincir üzerinde mesaj hesaplarını nasıl oluşturacağınızı, güncelleyeceğinizi ve sileceğinizi, hesap doğrulamasını nasıl uygulayacağınızı ve testler yazacağınızı göstermektedir. Solana programlarında PDA'ları nasıl kullanacağını anlamak isteyen geliştiriciler için mükemmeldir.
+- [Doğrudan Eşleme](https://solana.com/docs/tr/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Extensions](https://solana.com/docs/tr/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Token Extensions Program (Token 2022) hakkında bilgi edinin ve token mint'lerine ve hesaplarına isteğe bağlı özellikler eklemek için uzantılarını nasıl kullanacağınızı öğrenin.
+- [Gizli Transfer](https://solana.com/docs/tr/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Gizli Transfer uzantısı hakkında bilgi edinin ve token mint'lerine ve hesaplarına isteğe bağlı özellikler eklemek için nasıl kullanacağınızı öğrenin.
+- [Go SDK](https://solana.com/docs/tr/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Go SDK (gagliardetto/solana-go) kullanarak Solana ile nasıl etkileşim kuracağınızı öğrenin.
+- [HTTP Metodları](https://solana.com/docs/tr/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Hızlı Başlangıç](https://solana.com/docs/tr/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana geliştirme temellerini öğrenin. İlk programınızı oluşturun, hesapları anlayın, işlemleri gönderin ve Solana Playground kullanarak PDA'ları ve CPI'ları keşfedin - kurulum gerektirmez.
+- [JSON Olarak Veri Yapıları](https://solana.com/docs/tr/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Java SDK](https://solana.com/docs/tr/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana ile Java SDK (sava-software/sava) kullanarak nasıl etkileşim kuracağınızı öğrenin.
+- [Kurulum](https://solana.com/docs/tr/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Yerel Solana geliştirme ortamınızı kurma rehberi. Windows (WSL), Linux ve Mac üzerinde Rust, Solana CLI ve Anchor Framework'ü nasıl kuracağınızı öğrenin.
+- [Kısıtlamalar](https://solana.com/docs/tr/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Program Derived Address](https://solana.com/docs/tr/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'daki Program Derived Address'leri (PDA'lar) hakkında bilgi edinin - güvenli program imzalamayı sağlayan deterministik hesap adresleri. PDA türetme, kanonik bump'lar ve PDA hesaplarının nasıl oluşturulacağını öğrenin.
+- [Program yapısı](https://solana.com/docs/tr/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Giriş noktaları, durum yönetimi, talimat işleme ve test dahil olmak üzere Rust'ta Solana programlarını nasıl yapılandıracağınızı öğrenin.
+- [Program örnekleri](https://solana.com/docs/tr/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Farklı dillerde ve çerçevelerde Solana program örneklerinin bir listesi, kendi projeleriniz için öğrenmenize ve referans olarak kullanmanıza yardımcı olabilir.
+- [Programları Dağıtma](https://solana.com/docs/tr/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana CLI kullanarak özel programları Solana blok zincirine yükleme.
+- [Programları Dağıtma](https://solana.com/docs/tr/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Anchor framework ve Solana Playground kullanarak ilk Solana programınızı nasıl oluşturacağınızı, dağıtacağınızı ve test edeceğinizi öğrenin. Bu başlangıç seviyesindeki rehber, basit bir program oluşturma, devnet'e dağıtma, testleri çalıştırma ve programı kapatma adımlarını anlatır.
+- [Python SDK](https://solana.com/docs/tr/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Python SDK (michaelhly/solana-py) kullanarak Solana ile nasıl etkileşim kuracağınızı öğrenin.
+- [RPC Uç Noktaları](https://solana.com/docs/tr/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'nın ağ kümelerini (Devnet, Testnet ve Mainnet Beta), bunların genel RPC uç noktalarını, oran sınırlarını ve kullanım durumlarını öğrenin. Geliştirme, test ve üretim için farklı Solana ağlarına nasıl bağlanacağınızı öğrenin.
+- [Rust Programları](https://solana.com/docs/tr/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Rust kullanarak Solana programları geliştirmeyi öğrenin; Solana blok zincirinde akıllı sözleşmeleri oluşturma, derleme, test etme ve dağıtma için adım adım talimatlar içerir.
+- [Rust SDK](https://solana.com/docs/tr/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'nın geliştirme için Rust paketlerini nasıl kullanacağınızı öğrenin.
+- [SPL Token Temelleri](https://solana.com/docs/tr/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPL Token'ları ile etkileşim kurmanın temel talimatlarını öğrenin.
+- [SSS](https://solana.com/docs/tr/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Solana Dokümantasyonu](https://solana.com/docs/tr/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana, kitlesel benimseme için tasarlanmış yüksek performanslı bir blok zinciridir. Ölçeklenebilir blok zinciri uygulamaları geliştirmek isteyen geliştiricilerin neden Solana'yı tercih ettiğini öğrenin.
+- [Solana Hesap Modeli](https://solana.com/docs/tr/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'nın hesap modelini, hesapların verileri ve programları nasıl depoladığını, rent mekanizmalarını, hesap sahipliğini ve programlar ile veri hesapları arasındaki ilişkiyi öğrenin. Solana'nın anahtar-değer depolama sisteminin temel kavramlarını anlayın.
+- [Solana Oyun SDK'ları](https://solana.com/docs/tr/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): İlk Solana Oyununuzu oluşturmaya başlamanız için Solana Oyun SDK'larının listesi
+- [Solana RPC Metodları](https://solana.com/docs/tr/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Solana'da Programlar](https://solana.com/docs/tr/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana programları (akıllı sözleşmeler) hakkında bilgi edinin ve bunları Rust veya Anchor framework kullanarak nasıl geliştirebileceğinizi öğrenin. Solana ağında program dağıtımı, yükseltmeleri ve doğrulaması hakkında bilgi edinin.
+- [Solana'da Tokenler](https://solana.com/docs/tr/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'nın Token Programları hakkında bilgi edinin.
+- [Stake hesapları](https://solana.com/docs/tr/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Stake programlama](https://solana.com/docs/tr/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Staking](https://solana.com/docs/tr/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Temel Kavramlar](https://solana.com/docs/tr/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Hesaplar, işlemler, programlar, Program Derived Address, Cross Program Invocation ve token'ların Solana'da nasıl çalıştığı dahil olmak üzere temel Solana blok zinciri kavramlarını öğrenin.
+- [Terminoloji](https://solana.com/docs/tr/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana blok zinciri ve geliştirme modellerinde kullanılan temel terminolojiyi öğrenin.
+- [Token Account Oluşturma](https://solana.com/docs/tr/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPL Token Account'ları nasıl oluşturulacağını öğrenin.
+- [Token Hesabı Oluşturma](https://solana.com/docs/tr/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Gizli Transfer uzantısı ile token hesabı oluşturmayı öğrenin.
+- [Token Mint Etme](https://solana.com/docs/tr/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Yeni token birimlerini nasıl mint edeceğinizi öğrenin.
+- [Token Mint Oluşturma](https://solana.com/docs/tr/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): SPL Token mint nasıl oluşturulacağını öğrenin.
+- [Token Mint Oluşturma](https://solana.com/docs/tr/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Gizli Transfer uzantısı ile token mint nasıl oluşturulacağını öğrenin.
+- [Token Transferi](https://solana.com/docs/tr/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Token hesapları arasında token transferi yapmayı öğrenin.
+- [Token Transferi](https://solana.com/docs/tr/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Bir token hesabından diğerine özel olarak token transferi yapmayı öğrenin.
+- [Token Yatırma](https://solana.com/docs/tr/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tokenleri gizli duruma nasıl yatıracağınızı öğrenin.
+- [Token Çekme](https://solana.com/docs/tr/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Gizli durumdan token çekmeyi öğrenin.
+- [Typescript SDK](https://solana.com/docs/tr/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): JavaScript/TypeScript istemci kütüphanesini (@solana/web3.js) kullanarak Solana ile nasıl etkileşime geçeceğinizi öğrenin.
+- [Websocket Metodları](https://solana.com/docs/tr/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Yeni oy talimatı varsayılanı](https://solana.com/docs/tr/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Yerleşik Programlar için Minimum CU Rezervasyonu](https://solana.com/docs/tr/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountSubscribe](https://solana.com/docs/tr/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/tr/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/tr/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/tr/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/tr/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/tr/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/tr/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/tr/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/tr/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/tr/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/tr/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/tr/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/tr/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/tr/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/tr/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/tr/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/tr/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/tr/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/tr/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/tr/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/tr/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/tr/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/tr/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/tr/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/tr/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/tr/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/tr/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/tr/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/tr/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/tr/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/tr/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/tr/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/tr/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/tr/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/tr/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/tr/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/tr/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/tr/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/tr/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/tr/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/tr/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/tr/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/tr/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/tr/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/tr/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/tr/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/tr/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/tr/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/tr/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/tr/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/tr/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/tr/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/tr/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/tr/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/tr/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/tr/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/tr/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/tr/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/tr/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/tr/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/tr/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/tr/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/tr/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/tr/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/tr/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/tr/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/tr/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/tr/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/tr/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/tr/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/tr/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/tr/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/tr/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/tr/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sBPF Başarısızlığında Tahsis Edilen CU'ları Tüket](https://solana.com/docs/tr/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/tr/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/tr/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/tr/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/tr/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/tr/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/tr/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/tr/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/tr/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/tr/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/tr/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Ölçeklendirilmiş UI Miktar Entegrasyon Kılavuzu](https://solana.com/docs/tr/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Uygulamanızda Ölçeklendirilmiş UI Miktar uzantısını kullanan bir tokeni nasıl entegre edeceğinizi öğrenin.
+- [Ölçeklendirilmiş UI Miktar Veren Kılavuzu](https://solana.com/docs/tr/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Bir tokenin UI miktarını ölçeklendirmek için Ölçeklendirilmiş UI Miktar uzantısını nasıl kullanacağınızı öğrenin.
+- [Ölçeklendirilmiş UI Miktarı](https://solana.com/docs/tr/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Ölçeklendirilmiş UI Miktarı uzantısı hakkında bilgi edinin ve bir tokenin UI miktarını ölçeklendirmek için nasıl kullanacağınızı öğrenin.
+- [İşlem Ücretleri](https://solana.com/docs/tr/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'nın işlem ücretleri hakkında bilgi edinin, temel ve öncelik ücretleri dahil olmak üzere, her birinin nasıl uygulandığını ve işlemlerinizde hesaplama birimlerini yönetmek için en iyi uygulamaları öğrenin.
+- [İşlemler ve talimatlar](https://solana.com/docs/tr/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana işlemleri ve talimatları hakkında bilgi edinin - Solana blok zinciriyle etkileşim kurmanın temel yapı taşları. Pratik örneklerle işlem yapısını ve talimat kompozisyonunu anlayın.
+
+## Docs - Uk
+
+- [Cross Program Invocation](https://solana.com/docs/uk/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про Cross Program Invocation (CPI) на Solana - як програми можуть викликати інструкції інших програм, обробляти підписи PDA та компонувати функціональність у мережі Solana.
+- [Extensions](https://solana.com/docs/uk/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про Token Extensions Program (Token 2022) і як використовувати його розширення для додавання додаткових функцій до токен-мінтів та рахунків.
+- [FAQ](https://solana.com/docs/uk/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Go SDK](https://solana.com/docs/uk/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як взаємодіяти з Solana за допомогою Go SDK (gagliardetto/solana-go).
+- [HTTP методи](https://solana.com/docs/uk/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Java SDK](https://solana.com/docs/uk/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як взаємодіяти з Solana за допомогою Java SDK (sava-software/sava).
+- [Program Derived Address](https://solana.com/docs/uk/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про Program Derived Addresses (PDA) на Solana - детерміновані адреси рахунків, які забезпечують безпечне підписання програмами. Зрозумійте виведення PDA, канонічні bump-значення та як створювати рахунки PDA.
+- [Python SDK](https://solana.com/docs/uk/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як взаємодіяти з Solana за допомогою Python SDK (michaelhly/solana-py).
+- [RPC-ендпоінти](https://solana.com/docs/uk/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про мережеві кластери Solana (Devnet, Testnet та Mainnet Beta), їхні публічні RPC-ендпоінти, обмеження швидкості та випадки використання. Дізнайтеся, як підключитися до різних мереж Solana для розробки, тестування та виробництва.
+- [Rust SDK](https://solana.com/docs/uk/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як використовувати пакети Rust від Solana для розробки.
+- [Typescript SDK](https://solana.com/docs/uk/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як взаємодіяти з Solana за допомогою клієнтської бібліотеки JavaScript/TypeScript (@solana/web3.js).
+- [accountSubscribe](https://solana.com/docs/uk/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/uk/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/uk/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/uk/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/uk/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/uk/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/uk/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/uk/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/uk/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/uk/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/uk/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/uk/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/uk/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/uk/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/uk/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/uk/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/uk/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/uk/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/uk/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/uk/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/uk/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/uk/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/uk/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/uk/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/uk/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/uk/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/uk/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/uk/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/uk/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/uk/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/uk/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/uk/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/uk/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/uk/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/uk/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/uk/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/uk/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/uk/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/uk/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/uk/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/uk/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/uk/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/uk/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/uk/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/uk/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/uk/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/uk/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/uk/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/uk/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/uk/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/uk/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/uk/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/uk/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/uk/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/uk/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/uk/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/uk/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/uk/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/uk/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/uk/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/uk/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/uk/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/uk/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/uk/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/uk/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/uk/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/uk/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/uk/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/uk/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/uk/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/uk/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/uk/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/uk/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/uk/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/uk/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/uk/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/uk/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/uk/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/uk/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/uk/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/uk/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/uk/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/uk/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/uk/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Ігрові SDK для Solana](https://solana.com/docs/uk/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Список ігрових SDK для Solana, щоб допомогти вам створити вашу першу гру на Solana
+- [Виведення токенів](https://solana.com/docs/uk/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як виводити токени з конфіденційного стану.
+- [Встановлення](https://solana.com/docs/uk/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Посібник з налаштування локального середовища розробки Solana. Дізнайтеся, як встановити Rust, Solana CLI та фреймворк Anchor на Windows (WSL), Linux та Mac.
+- [Депозит токенів](https://solana.com/docs/uk/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як депонувати токени в конфіденційний стан.
+- [Документація Solana](https://solana.com/docs/uk/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana — це високопродуктивний блокчейн, розроблений для масового впровадження. Дізнайтеся, чому Solana є найкращим вибором для розробників, які прагнуть створювати масштабовані блокчейн-додатки.
+- [Запис у мережу](https://solana.com/docs/uk/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як взаємодіяти з мережею Solana, надсилаючи транзакції та інструкції. Слідуйте покроковим прикладам для переказу токенів SOL та створення нових токенів за допомогою System Program та Token Extensions Program.
+- [Застосування відкладеного балансу](https://solana.com/docs/uk/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як застосувати відкладений баланс, щоб зробити кошти доступними.
+- [Карбування токенів](https://solana.com/docs/uk/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як карбувати нові одиниці токена.
+- [Компонування кількох програм](https://solana.com/docs/uk/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як реалізувати міжпрограмні виклики (CPIs) у програмах Solana за допомогою фреймворку Anchor. Цей посібник демонструє, як переказувати SOL між рахунками, взаємодіяти з System Program та обробляти Program Derived Addresses (PDAs) у CPIs. Ідеально підходить для розробників, які прагнуть створювати компонувальні програми Solana.
+- [Комісії за транзакції](https://solana.com/docs/uk/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про комісії за транзакції Solana, включаючи базову та пріоритетну комісії, як кожна з них застосовується, та найкращі практики управління обчислювальними одиницями у ваших транзакціях.
+- [Конфіденційний переказ](https://solana.com/docs/uk/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про розширення Confidential Transfer і як використовувати його для додавання додаткових функцій до токен-мінтів та рахунків.
+- [Масштабована сума інтерфейсу](https://solana.com/docs/uk/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про розширення Scaled UI Amount та як використовувати його для масштабування суми токена в інтерфейсі.
+- [Методи RPC Solana](https://solana.com/docs/uk/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Методи Websocket](https://solana.com/docs/uk/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Модель облікових записів Solana](https://solana.com/docs/uk/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про модель облікових записів Solana, включаючи те, як облікові записи зберігають дані та програми, механіку rent, власність облікових записів та взаємозв'язок між програмами та обліковими записами даних. Зрозумійте основні концепції системи зберігання ключ-значення Solana.
+- [Нова інструкція голосування за замовчуванням](https://solana.com/docs/uk/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Обмеження](https://solana.com/docs/uk/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Основи SPL токенів](https://solana.com/docs/uk/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про основні інструкції для взаємодії з SPL токенами.
+- [Основні концепції](https://solana.com/docs/uk/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Вивчіть основні концепції блокчейну Solana, включаючи облікові записи, транзакції, програми, Program Derived Address, Cross Program Invocation та як працюють токени на Solana.
+- [Переказ токенів](https://solana.com/docs/uk/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як переказувати токени між token account.
+- [Переказ токенів](https://solana.com/docs/uk/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як приватно переказувати токени з одного token account на інший.
+- [Посібник з використання Scaled UI Amount](https://solana.com/docs/uk/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як використовувати розширення Scaled UI Amount для масштабування відображення кількості токенів в інтерфейсі.
+- [Посібник з інтеграції масштабованої UI-суми](https://solana.com/docs/uk/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як інтегрувати токен, що використовує розширення Scaled UI Amount, у вашому додатку.
+- [Приклади програм](https://solana.com/docs/uk/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Список прикладів програм Solana різними мовами та фреймворками, які можуть допомогти вам навчатися та використовувати як довідковий матеріал для ваших власних проєктів.
+- [Програми на Rust](https://solana.com/docs/uk/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як розробляти програми Solana за допомогою Rust, включаючи покрокові інструкції зі створення, збірки, тестування та розгортання смарт-контрактів у блокчейні Solana.
+- [Програми на Solana](https://solana.com/docs/uk/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про програми Solana (смарт-контракти) та як розробляти їх за допомогою Rust або фреймворку Anchor. Зрозумійте розгортання, оновлення та верифікацію програм у мережі Solana.
+- [Програмування стейкінгу](https://solana.com/docs/uk/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Пряме відображення](https://solana.com/docs/uk/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Резервування мінімальних CU для вбудованих програм](https://solana.com/docs/uk/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Розгортання програм](https://solana.com/docs/uk/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Завантаження користувацьких програм у блокчейн Solana за допомогою Solana CLI.
+- [Розгортання програм](https://solana.com/docs/uk/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як створити, розгорнути та протестувати вашу першу програму Solana за допомогою фреймворку Anchor та Solana Playground. Цей посібник для початківців проведе вас через створення простої програми, її розгортання в devnet, запуск тестів та закриття програми.
+- [Споживання виділених CU при збої sBPF](https://solana.com/docs/uk/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Створення Token Account](https://solana.com/docs/uk/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як створювати SPL Token Accounts.
+- [Створення детермінованих облікових записів](https://solana.com/docs/uk/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як створити програму Solana CRUD (створення, читання, оновлення, видалення) за допомогою Program Derived Addresses (PDAs) та фреймворку Anchor. Цей покроковий посібник демонструє, як створювати, оновлювати та видаляти облікові записи повідомлень у блокчейні за допомогою PDA, реалізовувати валідацію облікових записів та писати тести. Ідеально підходить для розробників, які хочуть зрозуміти, як використовувати PDA у програмах Solana.
+- [Створення токен-акаунта](https://solana.com/docs/uk/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як створити token account з розширенням Confidential Transfer.
+- [Створення токен-мінту](https://solana.com/docs/uk/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як створити SPL Token mint.
+- [Створення токен-мінту](https://solana.com/docs/uk/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як створити токен-мінт з розширенням Confidential Transfer.
+- [Стейкінг](https://solana.com/docs/uk/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Стейкінг-рахунки](https://solana.com/docs/uk/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Структура програми](https://solana.com/docs/uk/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як структурувати програми Solana на Rust, включаючи точки входу, керування станом, обробку інструкцій та тестування.
+- [Структури даних у форматі JSON](https://solana.com/docs/uk/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Термінологія](https://solana.com/docs/uk/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про основну термінологію, що використовується в блокчейні Solana та моделях розробки.
+- [Токени на Solana](https://solana.com/docs/uk/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про Token Programs на Solana.
+- [Транзакції та інструкції](https://solana.com/docs/uk/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про транзакції та інструкції Solana - фундаментальні будівельні блоки для взаємодії з блокчейном Solana. Зрозумійте структуру транзакцій та композицію інструкцій з практичними прикладами.
+- [Читання з мережі](https://solana.com/docs/uk/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як читати дані з блокчейн-мережі Solana. Цей посібник охоплює отримання рахунків гаманців, програмних рахунків та рахунків токенів за допомогою JavaScript/TypeScript, з практичними прикладами використання бібліотеки Solana web3.js.
+- [Швидкий старт](https://solana.com/docs/uk/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Вивчіть основи розробки на Solana. Створіть свою першу програму, зрозумійте рахунки, надсилайте транзакції та досліджуйте PDA та CPI за допомогою Solana Playground - без необхідності встановлення.
+
+## Docs - Vi
+
+- [Bắt đầu nhanh](https://solana.com/docs/vi/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Học những kiến thức cơ bản về phát triển trên Solana. Tạo chương trình đầu tiên, hiểu về tài khoản, gửi giao dịch và khám phá PDA và CPI bằng Solana Playground - không cần cài đặt gì cả.
+- [Chuyển Token](https://solana.com/docs/vi/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách chuyển token giữa các token account.
+- [Chuyển Token](https://solana.com/docs/vi/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách chuyển token một cách riêng tư từ tài khoản token này sang tài khoản token khác.
+- [Chuyển khoản bảo mật](https://solana.com/docs/vi/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về tiện ích mở rộng Chuyển khoản bảo mật và cách sử dụng nó để thêm tính năng tùy chọn vào mint và tài khoản token.
+- [Cross Program Invocation](https://solana.com/docs/vi/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về Cross Program Invocation (CPI) trên Solana - cách các chương trình có thể gọi các lệnh trên các chương trình khác, xử lý người ký PDA và kết hợp chức năng trên mạng lưới Solana.
+- [Cài đặt](https://solana.com/docs/vi/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Hướng dẫn thiết lập môi trường phát triển Solana trên máy tính cá nhân. Tìm hiểu cách cài đặt Rust, Solana CLI và Anchor Framework trên Windows (WSL), Linux và Mac.
+- [Các chương trình Rust](https://solana.com/docs/vi/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách phát triển các chương trình Solana bằng Rust, bao gồm hướng dẫn từng bước để tạo, xây dựng, kiểm thử và triển khai các hợp đồng thông minh trên blockchain Solana.
+- [Các chương trình trên Solana](https://solana.com/docs/vi/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về các chương trình Solana (hợp đồng thông minh) và cách phát triển chúng bằng Rust hoặc framework Anchor. Hiểu về triển khai, nâng cấp và xác minh chương trình trên mạng Solana.
+- [Các khái niệm cốt lõi](https://solana.com/docs/vi/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu các khái niệm cốt lõi của blockchain Solana bao gồm tài khoản, giao dịch, chương trình, Program Derived Address, Cross Program Invocation, và cách thức hoạt động của token trên Solana.
+- [Các phương thức RPC Solana](https://solana.com/docs/vi/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Các ví dụ về chương trình](https://solana.com/docs/vi/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Danh sách các ví dụ về chương trình Solana bằng các ngôn ngữ và framework khác nhau, có thể giúp bạn học tập và sử dụng làm tài liệu tham khảo cho dự án của riêng bạn.
+- [Câu hỏi thường gặp](https://solana.com/docs/vi/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Cơ bản về SPL Token](https://solana.com/docs/vi/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu các hướng dẫn cơ bản để tương tác với SPL Tokens.
+- [Cấu trúc chương trình](https://solana.com/docs/vi/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách cấu trúc các chương trình Solana bằng Rust, bao gồm điểm vào, quản lý trạng thái, xử lý chỉ thị và kiểm thử.
+- [Cấu trúc dữ liệu dưới dạng JSON](https://solana.com/docs/vi/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Dự trữ CU tối thiểu cho các chương trình tích hợp](https://solana.com/docs/vi/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Extensions](https://solana.com/docs/vi/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về Token Extensions Program (Token 2022) và cách sử dụng các extensions để thêm tính năng tùy chọn vào token mints và accounts.
+- [Ghi vào mạng](https://solana.com/docs/vi/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tương tác với mạng Solana bằng cách gửi giao dịch và hướng dẫn. Theo dõi các ví dụ từng bước để chuyển token SOL và tạo token mới bằng System Program và Token Extensions Program.
+- [Giao dịch và Chỉ thị](https://solana.com/docs/vi/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về giao dịch và chỉ thị Solana - những khối xây dựng cơ bản để tương tác với blockchain Solana. Hiểu cấu trúc giao dịch và cách tạo chỉ thị với các ví dụ thực tế.
+- [Giới hạn](https://solana.com/docs/vi/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Go SDK](https://solana.com/docs/vi/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tương tác với Solana bằng Go SDK (gagliardetto/solana-go).
+- [Gửi Token](https://solana.com/docs/vi/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách gửi token vào trạng thái bảo mật.
+- [Hướng dẫn người phát hành số lượng UI được chia tỷ lệ](https://solana.com/docs/vi/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách sử dụng tiện ích mở rộng Scaled UI Amount để chia tỷ lệ số lượng UI của một token.
+- [Hướng dẫn tích hợp số lượng UI được chia tỷ lệ](https://solana.com/docs/vi/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tích hợp token sử dụng tiện ích mở rộng Scaled UI Amount trong ứng dụng của bạn.
+- [Java SDK](https://solana.com/docs/vi/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tương tác với Solana bằng Java SDK (sava-software/sava).
+- [Kết hợp nhiều chương trình](https://solana.com/docs/vi/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách triển khai Cross Program Invocations (CPIs) trong các chương trình Solana bằng framework Anchor. Hướng dẫn này minh họa cách chuyển SOL giữa các tài khoản, tương tác với System Program và xử lý Program Derived Addresses (PDAs) trong CPIs. Hoàn hảo cho các nhà phát triển muốn xây dựng các chương trình Solana có khả năng kết hợp.
+- [Lập trình Stake](https://solana.com/docs/vi/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Mô hình tài khoản Solana](https://solana.com/docs/vi/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về mô hình tài khoản của Solana, bao gồm cách tài khoản lưu trữ dữ liệu và chương trình, cơ chế rent, quyền sở hữu tài khoản và mối quan hệ giữa chương trình và tài khoản dữ liệu. Hiểu các khái niệm cốt lõi của hệ thống lưu trữ key-value của Solana.
+- [Mặc định hướng dẫn bỏ phiếu mới](https://solana.com/docs/vi/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Phí giao dịch](https://solana.com/docs/vi/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về phí giao dịch của Solana, bao gồm phí cơ bản và phí ưu tiên, cách áp dụng từng loại phí, và các phương pháp tốt nhất để quản lý đơn vị tính toán trong giao dịch của bạn.
+- [Phương thức HTTP](https://solana.com/docs/vi/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Phương thức Websocket](https://solana.com/docs/vi/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Program Derived Address](https://solana.com/docs/vi/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về Program Derived Addresses (PDAs) trên Solana - địa chỉ tài khoản xác định giúp chương trình ký một cách an toàn. Hiểu về cách tạo PDA, canonical bumps và cách tạo tài khoản PDA.
+- [Python SDK](https://solana.com/docs/vi/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tương tác với Solana bằng Python SDK (michaelhly/solana-py).
+- [Rust SDK](https://solana.com/docs/vi/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách sử dụng các crate Rust của Solana cho phát triển.
+- [Rút token](https://solana.com/docs/vi/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách rút token từ trạng thái bảo mật.
+- [SDK Game Solana](https://solana.com/docs/vi/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): Danh sách các SDK Game Solana để giúp bạn bắt đầu tạo game Solana đầu tiên của mình
+- [Staking](https://solana.com/docs/vi/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Số lượng UI được điều chỉnh tỷ lệ](https://solana.com/docs/vi/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về tiện ích mở rộng Số lượng UI được điều chỉnh tỷ lệ và cách sử dụng nó để điều chỉnh số lượng UI của một token.
+- [Thuật ngữ](https://solana.com/docs/vi/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu các thuật ngữ thiết yếu được sử dụng trong blockchain Solana và các mô hình phát triển.
+- [Tiêu thụ CU đã phân bổ khi sBPF thất bại](https://solana.com/docs/vi/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Token trên Solana](https://solana.com/docs/vi/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về Token Programs của Solana.
+- [Triển khai các chương trình](https://solana.com/docs/vi/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tải lên các chương trình tùy chỉnh lên blockchain Solana bằng Solana CLI.
+- [Triển khai các chương trình](https://solana.com/docs/vi/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách xây dựng, triển khai và kiểm tra chương trình Solana đầu tiên của bạn bằng framework Anchor và Solana Playground. Hướng dẫn thân thiện với người mới này sẽ hướng dẫn tạo một chương trình đơn giản, triển khai lên devnet, chạy các bài kiểm tra và đóng chương trình.
+- [Typescript SDK](https://solana.com/docs/vi/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tương tác với Solana bằng thư viện client JavaScript/TypeScript (@solana/web3.js).
+- [Tài khoản Stake](https://solana.com/docs/vi/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Tài liệu Solana](https://solana.com/docs/vi/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana là blockchain hiệu suất cao được thiết kế cho việc áp dụng đại trà. Tìm hiểu tại sao Solana là lựa chọn hàng đầu cho các nhà phát triển muốn xây dựng các ứng dụng blockchain có khả năng mở rộng.
+- [Tạo Token Account](https://solana.com/docs/vi/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tạo SPL Token Accounts.
+- [Tạo một Token Account](https://solana.com/docs/vi/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tạo token account với tiện ích mở rộng Confidential Transfer.
+- [Tạo một Token Mint](https://solana.com/docs/vi/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tạo một SPL Token mint.
+- [Tạo một Token Mint](https://solana.com/docs/vi/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách tạo một token mint với tiện ích mở rộng Confidential Transfer.
+- [Tạo tài khoản xác định](https://solana.com/docs/vi/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách xây dựng chương trình Solana CRUD (Tạo, Đọc, Cập nhật, Xóa) sử dụng Program Derived Addresses (PDAs) và framework Anchor. Hướng dẫn từng bước này chỉ ra cách tạo, cập nhật và xóa các tài khoản tin nhắn trên chuỗi bằng PDAs, triển khai xác thực tài khoản và viết các bài kiểm tra. Hoàn hảo cho các nhà phát triển muốn hiểu cách sử dụng PDAs trong các chương trình Solana.
+- [accountSubscribe](https://solana.com/docs/vi/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/vi/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/vi/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/vi/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/vi/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/vi/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/vi/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/vi/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/vi/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/vi/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/vi/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/vi/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/vi/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/vi/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/vi/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/vi/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/vi/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/vi/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/vi/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/vi/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/vi/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/vi/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/vi/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/vi/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/vi/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/vi/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/vi/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/vi/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/vi/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/vi/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/vi/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/vi/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/vi/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/vi/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/vi/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/vi/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/vi/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/vi/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/vi/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/vi/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/vi/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/vi/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/vi/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/vi/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/vi/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/vi/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/vi/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/vi/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/vi/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/vi/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/vi/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/vi/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/vi/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/vi/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/vi/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/vi/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/vi/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/vi/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/vi/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/vi/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/vi/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/vi/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/vi/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/vi/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/vi/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/vi/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/vi/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/vi/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/vi/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/vi/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/vi/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/vi/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/vi/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/vi/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/vi/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/vi/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/vi/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/vi/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/vi/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/vi/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/vi/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/vi/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/vi/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/vi/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Ánh xạ trực tiếp](https://solana.com/docs/vi/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Áp dụng số dư chờ xử lý](https://solana.com/docs/vi/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách áp dụng số dư chờ xử lý để làm cho tiền có sẵn.
+- [Điểm cuối RPC](https://solana.com/docs/vi/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về các cụm mạng của Solana (Devnet, Testnet và Mainnet Beta), các điểm cuối RPC công khai, giới hạn tốc độ và trường hợp sử dụng. Học cách kết nối với các mạng Solana khác nhau để phát triển, kiểm thử và sản xuất.
+- [Đúc Token](https://solana.com/docs/vi/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách đúc các đơn vị mới của một token.
+- [Đọc dữ liệu từ mạng lưới](https://solana.com/docs/vi/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách đọc dữ liệu từ mạng blockchain Solana. Hướng dẫn này bao gồm việc truy xuất các tài khoản ví, tài khoản chương trình và tài khoản mint token bằng JavaScript/TypeScript, với các ví dụ thực tế sử dụng thư viện Solana web3.js.
+
+## Docs - Zh
+
+- [Cross Program Invocation](https://solana.com/docs/zh/core/cpi?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 上的 Cross Program Invocation (CPI)——程序如何调用其他程序的指令、处理 PDA 签名者，以及在 Solana 网络中组合功能。
+- [Go SDK](https://solana.com/docs/zh/clients/go?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何使用 Go SDK (gagliardetto/solana-go) 与 Solana 交互。
+- [HTTP 方法](https://solana.com/docs/zh/rpc/http/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Java SDK](https://solana.com/docs/zh/clients/java?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何使用 Java SDK (sava-software/sava) 与 Solana 交互。
+- [Program Derived Address](https://solana.com/docs/zh/core/pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 上的 Program Derived Address (PDA)——一种确定性账户地址，支持安全的程序签名。了解 PDA 的推导、规范化 bump 以及如何创建 PDA 账户。
+- [Python SDK](https://solana.com/docs/zh/clients/python?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何使用 Python SDK (michaelhly/solana-py) 与 Solana 交互。
+- [RPC 端点](https://solana.com/docs/zh/references/clusters?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 的网络集群（Devnet、Testnet 和 Mainnet Beta）、它们的公共 RPC 端点、速率限制和使用场景。学习如何连接到不同的 Solana 网络以进行开发、测试和生产。
+- [Rust SDK](https://solana.com/docs/zh/clients/rust?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何使用 Solana 的 Rust crates 进行开发。
+- [Rust 程序](https://solana.com/docs/zh/programs/rust/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习如何使用 Rust 开发 Solana 程序，包括创建、构建、测试和部署 Solana 区块链智能合约的分步指南。
+- [SPL Token 基础知识](https://solana.com/docs/zh/tokens/basics/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习与 SPL Token 交互的基本指令。
+- [Scaled UI Amount 发行指南](https://solana.com/docs/zh/tokens/extensions/scaled-ui-amount/issuer-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何使用 Scaled UI Amount 扩展来调整代币的 UI 数量。
+- [Solana RPC 方法](https://solana.com/docs/zh/rpc/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [Solana 上的代币](https://solana.com/docs/zh/tokens/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 的 Token Program。
+- [Solana 上的程序](https://solana.com/docs/zh/core/programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 程序（智能合约）以及如何使用 Rust 或 Anchor 框架开发它们。了解程序的部署、升级和在 Solana 网络上的验证。
+- [Solana 文档](https://solana.com/docs/zh/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana 是为大规模应用设计的高性能区块链。了解为什么 Solana 是开发者构建可扩展区块链应用的首选。
+- [Solana 游戏 SDK](https://solana.com/docs/zh/clients/game-sdks?utm_source=llms&utm_medium=ai&utm_campaign=txt): 一份 Solana 游戏 SDK 列表，帮助您开始创建您的第一个 Solana 游戏
+- [Solana 账户模型](https://solana.com/docs/zh/core/accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 的账户模型，包括账户如何存储数据和程序、租金机制、账户所有权，以及程序与数据账户之间的关系。理解 Solana 键值存储系统的核心概念。
+- [Typescript SDK](https://solana.com/docs/zh/clients/javascript?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何使用 JavaScript/TypeScript 客户端库 (@solana/web3.js) 与 Solana 交互。
+- [Websocket 方法](https://solana.com/docs/zh/rpc/websocket/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountSubscribe](https://solana.com/docs/zh/rpc/websocket/accountsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [accountUnsubscribe](https://solana.com/docs/zh/rpc/websocket/accountunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockSubscribe](https://solana.com/docs/zh/rpc/websocket/blocksubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [blockUnsubscribe](https://solana.com/docs/zh/rpc/websocket/blockunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [confirmTransaction](https://solana.com/docs/zh/rpc/deprecated/confirmtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getAccountInfo](https://solana.com/docs/zh/rpc/http/getaccountinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBalance](https://solana.com/docs/zh/rpc/http/getbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlock](https://solana.com/docs/zh/rpc/http/getblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockCommitment](https://solana.com/docs/zh/rpc/http/getblockcommitment?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockHeight](https://solana.com/docs/zh/rpc/http/getblockheight?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockProduction](https://solana.com/docs/zh/rpc/http/getblockproduction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlockTime](https://solana.com/docs/zh/rpc/http/getblocktime?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocks](https://solana.com/docs/zh/rpc/http/getblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getBlocksWithLimit](https://solana.com/docs/zh/rpc/http/getblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getClusterNodes](https://solana.com/docs/zh/rpc/http/getclusternodes?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlock](https://solana.com/docs/zh/rpc/deprecated/getconfirmedblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocks](https://solana.com/docs/zh/rpc/deprecated/getconfirmedblocks?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedBlocksWithLimit](https://solana.com/docs/zh/rpc/deprecated/getconfirmedblockswithlimit?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedSignaturesForAddress2](https://solana.com/docs/zh/rpc/deprecated/getconfirmedsignaturesforaddress2?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getConfirmedTransaction](https://solana.com/docs/zh/rpc/deprecated/getconfirmedtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochInfo](https://solana.com/docs/zh/rpc/http/getepochinfo?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getEpochSchedule](https://solana.com/docs/zh/rpc/http/getepochschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeCalculatorForBlockhash](https://solana.com/docs/zh/rpc/deprecated/getfeecalculatorforblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeForMessage](https://solana.com/docs/zh/rpc/http/getfeeformessage?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFeeRateGovernor](https://solana.com/docs/zh/rpc/deprecated/getfeerategovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFees](https://solana.com/docs/zh/rpc/deprecated/getfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getFirstAvailableBlock](https://solana.com/docs/zh/rpc/http/getfirstavailableblock?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getGenesisHash](https://solana.com/docs/zh/rpc/http/getgenesishash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHealth](https://solana.com/docs/zh/rpc/http/gethealth?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getHighestSnapshotSlot](https://solana.com/docs/zh/rpc/http/gethighestsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getIdentity](https://solana.com/docs/zh/rpc/http/getidentity?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationGovernor](https://solana.com/docs/zh/rpc/http/getinflationgovernor?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationRate](https://solana.com/docs/zh/rpc/http/getinflationrate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getInflationReward](https://solana.com/docs/zh/rpc/http/getinflationreward?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLargestAccounts](https://solana.com/docs/zh/rpc/http/getlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLatestBlockhash](https://solana.com/docs/zh/rpc/http/getlatestblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getLeaderSchedule](https://solana.com/docs/zh/rpc/http/getleaderschedule?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxRetransmitSlot](https://solana.com/docs/zh/rpc/http/getmaxretransmitslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMaxShredInsertSlot](https://solana.com/docs/zh/rpc/http/getmaxshredinsertslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMinimumBalanceForRentExemption](https://solana.com/docs/zh/rpc/http/getminimumbalanceforrentexemption?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getMultipleAccounts](https://solana.com/docs/zh/rpc/http/getmultipleaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getProgramAccounts](https://solana.com/docs/zh/rpc/http/getprogramaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentBlockhash](https://solana.com/docs/zh/rpc/deprecated/getrecentblockhash?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPerformanceSamples](https://solana.com/docs/zh/rpc/http/getrecentperformancesamples?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getRecentPrioritizationFees](https://solana.com/docs/zh/rpc/http/getrecentprioritizationfees?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureConfirmation](https://solana.com/docs/zh/rpc/deprecated/getsignatureconfirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatus](https://solana.com/docs/zh/rpc/deprecated/getsignaturestatus?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignatureStatuses](https://solana.com/docs/zh/rpc/http/getsignaturestatuses?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSignaturesForAddress](https://solana.com/docs/zh/rpc/http/getsignaturesforaddress?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlot](https://solana.com/docs/zh/rpc/http/getslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeader](https://solana.com/docs/zh/rpc/http/getslotleader?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSlotLeaders](https://solana.com/docs/zh/rpc/http/getslotleaders?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSnapshotSlot](https://solana.com/docs/zh/rpc/deprecated/getsnapshotslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeActivation](https://solana.com/docs/zh/rpc/deprecated/getstakeactivation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getStakeMinimumDelegation](https://solana.com/docs/zh/rpc/http/getstakeminimumdelegation?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getSupply](https://solana.com/docs/zh/rpc/http/getsupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountBalance](https://solana.com/docs/zh/rpc/http/gettokenaccountbalance?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByDelegate](https://solana.com/docs/zh/rpc/http/gettokenaccountsbydelegate?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenAccountsByOwner](https://solana.com/docs/zh/rpc/http/gettokenaccountsbyowner?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenLargestAccounts](https://solana.com/docs/zh/rpc/http/gettokenlargestaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTokenSupply](https://solana.com/docs/zh/rpc/http/gettokensupply?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransaction](https://solana.com/docs/zh/rpc/http/gettransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getTransactionCount](https://solana.com/docs/zh/rpc/http/gettransactioncount?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVersion](https://solana.com/docs/zh/rpc/http/getversion?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [getVoteAccounts](https://solana.com/docs/zh/rpc/http/getvoteaccounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [isBlockhashValid](https://solana.com/docs/zh/rpc/http/isblockhashvalid?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsSubscribe](https://solana.com/docs/zh/rpc/websocket/logssubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [logsUnsubscribe](https://solana.com/docs/zh/rpc/websocket/logsunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [minimumLedgerSlot](https://solana.com/docs/zh/rpc/http/minimumledgerslot?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programSubscribe](https://solana.com/docs/zh/rpc/websocket/programsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [programUnsubscribe](https://solana.com/docs/zh/rpc/websocket/programunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [requestAirdrop](https://solana.com/docs/zh/rpc/http/requestairdrop?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootSubscribe](https://solana.com/docs/zh/rpc/websocket/rootsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [rootUnsubscribe](https://solana.com/docs/zh/rpc/websocket/rootunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [sendTransaction](https://solana.com/docs/zh/rpc/http/sendtransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureSubscribe](https://solana.com/docs/zh/rpc/websocket/signaturesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [signatureUnsubscribe](https://solana.com/docs/zh/rpc/websocket/signatureunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [simulateTransaction](https://solana.com/docs/zh/rpc/http/simulatetransaction?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotSubscribe](https://solana.com/docs/zh/rpc/websocket/slotsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotUnsubscribe](https://solana.com/docs/zh/rpc/websocket/slotunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesSubscribe](https://solana.com/docs/zh/rpc/websocket/slotsupdatessubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [slotsUpdatesUnsubscribe](https://solana.com/docs/zh/rpc/websocket/slotsupdatesunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteSubscribe](https://solana.com/docs/zh/rpc/websocket/votesubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [voteUnsubscribe](https://solana.com/docs/zh/rpc/websocket/voteunsubscribe?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [为内置程序保留最小化的 CU](https://solana.com/docs/zh/references/feature-gates/reserve-minimal-cus-for-builtins?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [交易与指令](https://solana.com/docs/zh/core/transactions?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 的交易与指令——与 Solana 区块链交互的基本构建块。通过实际示例，理解交易结构和指令组成。
+- [交易费用](https://solana.com/docs/zh/core/fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 的交易费用，包括基础费用和优先费用，各自的应用方式，以及管理交易中计算单元的最佳实践。
+- [从网络读取数据](https://solana.com/docs/zh/intro/quick-start/reading-from-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何从 Solana 区块链网络读取数据。本指南涵盖了使用 JavaScript/TypeScript 获取钱包账户、program account 和 token mint account 的方法，并提供了使用 Solana web3.js 库的实际示例。
+- [作为 JSON 的数据结构](https://solana.com/docs/zh/rpc/json-structures?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [保密转账](https://solana.com/docs/zh/tokens/extensions/confidential-transfer/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解保密转账扩展以及如何使用它为代币铸币和账户添加可选功能。
+- [写入网络](https://solana.com/docs/zh/intro/quick-start/writing-to-network?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习如何通过发送交易和指令与 Solana 网络交互。按照分步示例转移 SOL 代币并使用 System Program 和 Token Extensions Program 创建新代币。
+- [创建一个 Token Account](https://solana.com/docs/zh/tokens/basics/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何创建 SPL Token Accounts。
+- [创建一个 Token Mint](https://solana.com/docs/zh/tokens/basics/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何创建一个 SPL Token mint。
+- [创建一个 Token Mint](https://solana.com/docs/zh/tokens/extensions/confidential-transfer/create-mint?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何使用机密转账扩展创建一个 token mint。
+- [创建一个 Token 账户](https://solana.com/docs/zh/tokens/extensions/confidential-transfer/create-token-account?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何使用机密转账扩展创建一个 Token 账户。
+- [创建确定性账户](https://solana.com/docs/zh/intro/quick-start/program-derived-address?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习如何使用 Program Derived Addresses (PDAs) 和 Anchor 框架构建一个 CRUD（创建、读取、更新、删除）Solana 程序。本分步指南演示了如何使用 PDAs 创建、更新和删除链上消息账户，实施账户验证并编写测试。非常适合希望了解如何在 Solana 程序中使用 PDAs 的开发者。
+- [在 sBPF 失败时消耗分配的 CU](https://solana.com/docs/zh/references/feature-gates/consume-cus-on-sbpf-failure?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [存入代币](https://solana.com/docs/zh/tokens/extensions/confidential-transfer/deposit-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何将代币存入保密状态。
+- [安装](https://solana.com/docs/zh/intro/installation?utm_source=llms&utm_medium=ai&utm_campaign=txt): 设置本地 Solana 开发环境的指南。了解如何在 Windows (WSL)、Linux 和 Mac 上安装 Rust、Solana CLI 和 Anchor 框架。
+- [常见问题](https://solana.com/docs/zh/programs/faq?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [应用待处理余额](https://solana.com/docs/zh/tokens/extensions/confidential-transfer/apply-pending-balance?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何应用待处理余额以使资金可用。
+- [快速入门](https://solana.com/docs/zh/intro/quick-start/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习 Solana 开发基础知识。创建您的第一个程序，了解账户，发送交易，并使用 Solana Playground 探索 PDAs 和 CPIs——无需安装。
+- [扩展功能](https://solana.com/docs/zh/tokens/extensions/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Token Extensions Program（Token 2022）以及如何使用其扩展功能为代币铸造账户和代币账户添加可选功能。
+- [提取代币](https://solana.com/docs/zh/tokens/extensions/confidential-transfer/withdraw-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何从保密状态中提取代币。
+- [新投票指令默认值](https://solana.com/docs/zh/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [术语](https://solana.com/docs/zh/references/terminology?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 区块链和开发模型中使用的基本术语。
+- [核心概念](https://solana.com/docs/zh/core/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 区块链的基本概念，包括账户、交易、程序、Program Derived Address、Cross Program Invocation，以及 Solana 上的代币运作方式。
+- [直接映射](https://solana.com/docs/zh/references/feature-gates/direct-mapping?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [程序示例](https://solana.com/docs/zh/programs/examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana 程序的多语言和多框架示例列表，可帮助您学习并作为您自己项目的参考。
+- [程序结构](https://solana.com/docs/zh/programs/rust/program-structure?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习如何用 Rust 构建 Solana 程序，包括入口点、状态管理、指令处理和测试。
+- [组合多个程序](https://solana.com/docs/zh/intro/quick-start/cross-program-invocation?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习如何在 Solana 程序中使用 Anchor 框架实现 Cross Program Invocations (CPIs)。本教程演示了如何在账户之间转移 SOL、与 System Program 交互以及在 CPIs 中处理 Program Derived Addresses (PDAs)。非常适合希望构建可组合 Solana 程序的开发者。
+- [缩放 UI 数量](https://solana.com/docs/zh/tokens/extensions/scaled-ui-amount/?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解缩放 UI 数量扩展及其如何用于缩放代币的 UI 数量。
+- [缩放 UI 数量集成指南](https://solana.com/docs/zh/tokens/extensions/scaled-ui-amount/integration-guide?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何在您的应用程序中集成使用缩放 UI 数量扩展的代币。
+- [质押](https://solana.com/docs/zh/references/staking/?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [质押编程](https://solana.com/docs/zh/references/staking/stake-program?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [质押账户](https://solana.com/docs/zh/references/staking/stake-accounts?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+- [转移代币](https://solana.com/docs/zh/tokens/basics/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何在代币账户之间转移代币。
+- [转移代币](https://solana.com/docs/zh/tokens/extensions/confidential-transfer/transfer-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何将代币从一个 token account 私密地转移到另一个 token account。
+- [部署程序](https://solana.com/docs/zh/programs/deploying?utm_source=llms&utm_medium=ai&utm_campaign=txt): 使用 Solana CLI 将自定义程序上传到 Solana 区块链。
+- [部署程序](https://solana.com/docs/zh/intro/quick-start/deploying-programs?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习如何使用 Anchor 框架和 Solana Playground 构建、部署和测试您的第一个 Solana 程序。本初学者友好指南将逐步讲解创建一个简单程序、将其部署到 devnet、运行测试以及关闭程序的过程。
+- [铸造代币](https://solana.com/docs/zh/tokens/basics/mint-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解如何铸造新的代币单位。
+- [限制](https://solana.com/docs/zh/programs/limitations?utm_source=llms&utm_medium=ai&utm_campaign=txt)
+
+## Guides - Advanced
+
+- [A Guide to Stake-weighted Quality of Service on Solana](https://solana.com/developers/guides/advanced/stake-weighted-qos?utm_source=llms&utm_medium=ai&utm_campaign=txt): Stake-weighted QoS (Quality-of-Service) is an implementation feature which,  when enabled, allows leaders (block producers) to identify and prioritize  transactions proxied through a staked validator as an additional sybil  resistance mechanism.
+- [Actions and Blinks](https://solana.com/developers/guides/advanced/actions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana Actions are APIs that return transactions for users to preview and  sign. Blockchain links – or blinks – turn Actions into a shareable,  metadata-rich link.
+- [Add Solana to Your Exchange](https://solana.com/developers/guides/advanced/exchange?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to integrate Solana into your exchange with this guide covering node setup and implementation details for deposits and withdrawals.
+- [Address Lookup Tables](https://solana.com/developers/guides/advanced/lookup-tables?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to use Solana Address Lookup Tables (ALTs) to efficiently handle up to 64 addresses per transaction. Create, extend, and utilize lookup tables using web3.js.
+- [Confirmation & Expiration](https://solana.com/developers/guides/advanced/confirmation?utm_source=llms&utm_medium=ai&utm_campaign=txt): Understand how Solana transaction confirmation and when a transaction expires  (including recent blockhash checks).
+- [Durable & Offline Transaction Signing using Nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces?utm_source=llms&utm_medium=ai&utm_campaign=txt): One-stop shop for Solana
+- [How to Optimize Compute Usage on Solana](https://solana.com/developers/guides/advanced/how-to-optimize-compute?utm_source=llms&utm_medium=ai&utm_campaign=txt): Minimizing the amount of compute a program uses is critical both for the  performance and cost of executing transactions. This guide will show you how  to optimize compute usage in your programs on Solana.
+- [How to Request Optimal Compute Budget](https://solana.com/developers/guides/advanced/how-to-request-optimal-compute?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to use transaction simulation to get the compute units consumed and  build an optimal transaction.
+- [How to Verify a Program](https://solana.com/developers/guides/advanced/verified-builds?utm_source=llms&utm_medium=ai&utm_campaign=txt): Verified builds is a way to link your program to its source code and let  everyone independently verify that the program was indeed built from that  provided source code.
+- [How to auto approve transactions](https://solana.com/developers/guides/advanced/auto-approve?utm_source=llms&utm_medium=ai&utm_campaign=txt): By auto approving transactions dApps and games can create a more fluid user experience. This is especially interesting for on-chain games.
+- [How to use Priority Fees on Solana](https://solana.com/developers/guides/advanced/how-to-use-priority-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Priority Fees are a new feature on Solana that allow you to specify an  additional fee to your transactions. These fees help make your transaction  more economically compelling to include in a block.
+- [Retrying Transactions](https://solana.com/developers/guides/advanced/retry?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to handle dropped transactions and implement custom retry logic on Solana. This guide covers transaction rebroadcasting, preflight checks, and best practices for managing transaction retries to ensure reliable transaction processing on the Solana blockchain.
+- [Versioned Transactions](https://solana.com/developers/guides/advanced/versions?utm_source=llms&utm_medium=ai&utm_campaign=txt): Explore the core Solana concepts: transactions, versioned transactions,  enabling additional functionality in the Solana runtime, address lookup  tables, and more.
+
+## Guides - Dapps
+
+- [How to create a CRUD dApp on Solana](https://solana.com/developers/guides/dapps/journal?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana developer quickstart guide to learn how to create a basic CRUD dApp on  the Solana blockchain with a simple journal program and interact with the  program via a UI.
+
+## Guides - Depin
+
+- [DePIN Playbook](https://solana.com/developers/guides/depin/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): While each DePIN network has a unique product focus, most DePIN networks  utilize Solana for a common set of use-cases. This guide is meant to help  builders get oriented to common onchain DePIN use-cases.
+
+## Guides - Games
+
+- [Build an Energy System for Casual Games on Solana](https://solana.com/developers/guides/games/energy-system?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to build an on-chain energy system for a game, allowing players to expend energy to perform actions, refilling it over time.
+- [Getting started with game development on Solana](https://solana.com/developers/guides/games/getting-started-with-game-development?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to build games on Solana. Solana is well built for web3 games of all genres utilizing speed, low fees, and more to create an amazing gaming experience
+- [Hello World for Solana Game Development](https://solana.com/developers/guides/games/hello-world?utm_source=llms&utm_medium=ai&utm_campaign=txt): Get started building Solana games with a basic adventure game using the Anchor framework.
+- [How to interact with tokens in programs](https://solana.com/developers/guides/games/interact-with-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to use tokens in Solana games with an on-chain tutorial
+- [Port Anchor to Unity](https://solana.com/developers/guides/games/porting-anchor-to-unity?utm_source=llms&utm_medium=ai&utm_campaign=txt): Using Anchor IDL you can interact with your program directly from unity
+- [Saving game state](https://solana.com/developers/guides/games/saving-game-state?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to save the state of a game in a Solana program
+- [Solana Game Development Examples](https://solana.com/developers/guides/games/game-examples?utm_source=llms&utm_medium=ai&utm_campaign=txt): A list of open source games and examples on Solana with tutorials to get you started.
+- [Storing SOL in a PDA](https://solana.com/developers/guides/games/store-sol-in-pda?utm_source=llms&utm_medium=ai&utm_campaign=txt): Using PDAs, you can reward SOL to players playing your game. Learn how to reward SOL from a PDA when players find chests in this game.
+- [Using NFTs and Digital Assets in Games](https://solana.com/developers/guides/games/nfts-in-games?utm_source=llms&utm_medium=ai&utm_campaign=txt): NFTs can be a powerful tool in blockchain games. Learn how to utilize NFTs in Solana games to their full potential.
+
+## Guides - Getstarted
+
+- [Full-stack Solana development with React and Anchor](https://solana.com/developers/guides/getstarted/full-stack-solana-development?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to build a full-stack Solana dApp with React and Anchor
+- [How to get Solana devnet SOL (including airdrops and faucets)](https://solana.com/developers/guides/getstarted/solana-token-airdrop-and-faucets?utm_source=llms&utm_medium=ai&utm_campaign=txt): A list of the most common ways to get devnet and testnet SOL tokens for  Solana development. Including: airdrop, web3.js, POW faucet, and more.
+- [How to get started with AI tools on Solana](https://solana.com/developers/guides/getstarted/intro-to-ai?utm_source=llms&utm_medium=ai&utm_campaign=txt): This guide gives an overview of the AI tools available for Solana and how to  get started with them.
+- [Solana Test Validator Guide](https://solana.com/developers/guides/getstarted/solana-test-validator?utm_source=llms&utm_medium=ai&utm_campaign=txt): How to run localnet on your computer by using the Solana test validator for  local development.
+
+## Guides - Permissioned-environments
+
+- [A Guide to Solana Permissioned Environments](https://solana.com/developers/guides/permissioned-environments/?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana Permissioned Environments bring the speed and scalability of Solana  with the regulatory and compliant control of a private blockchain. Learn how  to deploy and integrate Solana Permissioned Environments for your  organization.
+
+## Guides - Token-extensions
+
+- [Dynamic metadata NFTs using Token Extensions](https://solana.com/developers/guides/token-extensions/dynamic-meta-data-nft?utm_source=llms&utm_medium=ai&utm_campaign=txt): Using the metadata token extension it is possible to save dynamic metadata, like level and XP, directly in the mint of an NFT.
+- [Getting Started with Token Extensions](https://solana.com/developers/guides/token-extensions/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): With the new token extensions, you can create custom logic for your tokens.  In this guide we will go over everything you need to know about token  extensions and what you need to get started building today
+- [How to use the Default Account State extension](https://solana.com/developers/guides/token-extensions/default-account-state?utm_source=llms&utm_medium=ai&utm_campaign=txt): Configure all new Token Accounts to be frozen by default, then requiring all  tokens to be unfrozen by the authority before they can be usable.
+- [How to use the Immutable Owner extension](https://solana.com/developers/guides/token-extensions/immutable-owner?utm_source=llms&utm_medium=ai&utm_campaign=txt): With the Token program, the `SetAuthority` instruction can be used to  transfer ownership of an account to another. The `ImmutableOwner` extension  can be used to prevent this.
+- [How to use the Interest-Bearing extension](https://solana.com/developers/guides/token-extensions/interest-bearing-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Interest-bearing tokens are tokens that can either increase or decrease in  value over time. Similar to how a bank savings account or a loan accumulates  interest.
+- [How to use the Metadata Pointer extension](https://solana.com/developers/guides/token-extensions/metadata-pointer?utm_source=llms&utm_medium=ai&utm_campaign=txt): The Metadata Pointer extension enables a Mint Account to specify the address  of the account that stores its metadata. When used along with the Metadata  Extension, metadata can be stored directly on the Mint Account.
+- [How to use the Mint Close Authority extension](https://solana.com/developers/guides/token-extensions/mint-close-authority?utm_source=llms&utm_medium=ai&utm_campaign=txt): With Token Extensions, it is possible to close token mint accounts by  initializing the MintCloseAuthority extension before initializing the mint.
+- [How to use the Non-transferable extension](https://solana.com/developers/guides/token-extensions/non-transferable?utm_source=llms&utm_medium=ai&utm_campaign=txt): In the world of digital collectibles, NFTs have plenty of uses outside of the  PFP meta. Enter the concept of
+- [How to use the Permanent Delegate extension](https://solana.com/developers/guides/token-extensions/permanent-delegate?utm_source=llms&utm_medium=ai&utm_campaign=txt): Token Extensions allow you to specify a permanent account delegate for a mint  with unlimited delegate privileges over any account associated with that mint,  including burning or transferring any amount of tokens.
+- [How to use the Reallocate instruction](https://solana.com/developers/guides/token-extensions/reallocate?utm_source=llms&utm_medium=ai&utm_campaign=txt): The Token Extensions program has an account extension that can be applied  after initializing a Token Account, enabling expanding support for more  extensions after initial creation.
+- [How to use the Required Memo token extension](https://solana.com/developers/guides/token-extensions/required-memo?utm_source=llms&utm_medium=ai&utm_campaign=txt): Memos in financial transactions serve as a communication tool between sender  and recipient. It aids in the identification of both parties and offers  clarity on the purpose of the transfer.
+- [How to use the Transfer Fee extension](https://solana.com/developers/guides/token-extensions/transfer-fee?utm_source=llms&utm_medium=ai&utm_campaign=txt): With any form of transaction, there
+- [How to use the Transfer Hook extension](https://solana.com/developers/guides/token-extensions/transfer-hook?utm_source=llms&utm_medium=ai&utm_campaign=txt): The Transfer Hook extension and Transfer Hook Interface introduce the ability  to create Mint Accounts that execute custom instruction logic on every token  transfer.
+
+## Learn - Ar
+
+- [إرسال واستلام SOL](https://solana.com/learn/ar/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم كيفية إرسال واستلام رموز SOL - المهارة الأساسية للتفاعل مع شبكة سولانا وتطبيقاتها.
+- [استكشاف تطبيقات سولانا](https://solana.com/learn/ar/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): اكتشف النظام البيئي المتنوع للتطبيقات المبنية على سولانا - من الخدمات المالية والألعاب إلى المنصات الاجتماعية والأدوات الإبداعية، كلها يمكن الوصول إليها باستخدام محفظتك فقط.
+- [البدء مع سولانا](https://solana.com/learn/ar/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم أساسيات سولانا وكيفية البدء بالمعاملات الرقمية
+- [البقاء آمنًا على سولانا](https://solana.com/learn/ar/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعلم ممارسات الأمان الأساسية لحماية أصولك وتجنب عمليات الاحتيال الشائعة أثناء استخدام تطبيقات سولانا.
+- [فهم رسوم معاملات سولانا](https://solana.com/learn/ar/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على كيفية عمل رسوم المعاملات على سولانا، ولماذا هي منخفضة، وماذا يعني ذلك لمختلف حالات الاستخدام.
+- [ما هو التخزين (Staking)؟](https://solana.com/learn/ar/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على كيفية عمل التخزين على سولانا، وكيفية كسب المكافآت من خلال المساعدة في تأمين الشبكة، وما يجب مراعاته عند اختيار الـ validators.
+- [ما هي الرموز غير القابلة للاستبدال (NFTs)؟](https://solana.com/learn/ar/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على الرموز غير القابلة للاستبدال (NFTs) على سولانا - أصول رقمية فريدة تمثل ملكية عناصر محددة مثل الفن والمقتنيات والمزيد.
+- [ما هي المحفظة؟](https://solana.com/learn/ar/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على ماهية محفظة سولانا، وكيفية عملها، وكيفية إعدادها بأمان. محفظتك هي الأداة التي ستستخدمها للتفاعل مع تطبيقات سولانا.
+- [ما هي سولانا؟](https://solana.com/learn/ar/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): مقدمة إلى سولانا - شبكة سريعة ومنخفضة التكلفة تتيح طرقًا جديدة لنقل القيمة وإنشاء التطبيقات والتفاعل عبر الإنترنت.
+- [مقدمة إلى التمويل اللامركزي على سولانا](https://solana.com/learn/ar/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على تطبيقات التمويل اللامركزي (DeFi) على سولانا، بما في ذلك التداول والإقراض وفرص العائد.
+- [مقدمة إلى رموز سولانا](https://solana.com/learn/ar/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): تعرف على الرموز - الأنواع المختلفة من الأصول الرقمية على سولانا بما في ذلك العملات المستقرة والرموز المغلفة ورموز المشاريع.
+
+## Learn - De
+
+- [Einführung in DeFi auf Solana](https://solana.com/learn/de/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über dezentralisierte Finanzanwendungen (DeFi) auf Solana, einschließlich Trading, Lending und Yield-Möglichkeiten.
+- [Einführung in Solana Tokens](https://solana.com/learn/de/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Tokens - die verschiedenen Arten digitaler Vermögenswerte auf Solana, einschließlich Stablecoins, Wrapped Tokens und Projekt-Tokens.
+- [Entdeckung von Solana-Anwendungen](https://solana.com/learn/de/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Entdecke das vielfältige Ökosystem der auf Solana aufgebauten Anwendungen - von Finanzdienstleistungen und Gaming bis hin zu sozialen Plattformen und kreativen Tools, alle zugänglich mit nur deiner Wallet.
+- [Erste Schritte mit Solana](https://solana.com/learn/de/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lernen Sie die Grundlagen von Solana und wie Sie mit digitalen Transaktionen beginnen können
+- [SOL senden und empfangen](https://solana.com/learn/de/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lernen Sie, wie Sie SOL-Token senden und empfangen - die grundlegende Fähigkeit für die Interaktion mit dem Solana-Netzwerk und seinen Anwendungen.
+- [Sicherheit auf Solana](https://solana.com/learn/de/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Lernen Sie wichtige Sicherheitspraktiken, um Ihre Assets zu schützen und häufige Betrugsmaschen bei der Nutzung von Solana-Anwendungen zu vermeiden.
+- [Solana-Transaktionsgebühren verstehen](https://solana.com/learn/de/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Transaktionsgebühren auf Solana funktionieren, warum sie niedrig sind und was das für verschiedene Anwendungsfälle bedeutet.
+- [Was ist Solana?](https://solana.com/learn/de/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Eine Einführung in Solana - ein schnelles, kostengünstiges Netzwerk, das neue Möglichkeiten für Werttransfer, Anwendungsentwicklung und Online-Interaktion bietet.
+- [Was ist Staking?](https://solana.com/learn/de/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie, wie Staking auf Solana funktioniert, wie Sie durch die Sicherung des Netzwerks Belohnungen verdienen und was bei der Auswahl von Validatoren zu beachten ist.
+- [Was ist eine Wallet?](https://solana.com/learn/de/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahre, was eine Solana-Wallet ist, wie sie funktioniert und wie du sie sicher einrichtest. Deine Wallet ist das Werkzeug, mit dem du mit Solana-Anwendungen interagierst.
+- [Was sind NFTs?](https://solana.com/learn/de/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Erfahren Sie mehr über Non-Fungible Tokens (NFTs) auf Solana - einzigartige digitale Assets, die das Eigentum an bestimmten Gegenständen wie Kunst, Sammlerstücken und mehr repräsentieren.
+
+## Learn - El
+
+- [Αποστολή και λήψη SOL](https://solana.com/learn/el/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς να στέλνετε και να λαμβάνετε tokens SOL - τη θεμελιώδη δεξιότητα για αλληλεπίδραση με το δίκτυο Solana και τις εφαρμογές του.
+- [Εισαγωγή στα Tokens του Solana](https://solana.com/learn/el/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τα tokens - τους διαφορετικούς τύπους ψηφιακών περιουσιακών στοιχείων στο Solana, συμπεριλαμβανομένων των stablecoins, wrapped tokens και project tokens.
+- [Εισαγωγή στο DeFi στο Solana](https://solana.com/learn/el/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τις εφαρμογές αποκεντρωμένης χρηματοδότησης (DeFi) στο Solana, συμπεριλαμβανομένων των συναλλαγών, δανεισμού και ευκαιριών απόδοσης.
+- [Εξερεύνηση εφαρμογών Solana](https://solana.com/learn/el/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Ανακαλύψτε το ποικιλόμορφο οικοσύστημα εφαρμογών που έχουν αναπτυχθεί στο Solana - από χρηματοοικονομικές υπηρεσίες και παιχνίδια μέχρι κοινωνικές πλατφόρμες και δημιουργικά εργαλεία, όλα προσβάσιμα με το πορτοφόλι σας.
+- [Κατανόηση των χρεώσεων συναλλαγών στο Solana](https://solana.com/learn/el/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς λειτουργούν οι χρεώσεις συναλλαγών στο Solana, γιατί είναι χαμηλές και τι σημαίνει αυτό για διαφορετικές περιπτώσεις χρήσης.
+- [Ξεκινώντας με τη Solana](https://solana.com/learn/el/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε τα βασικά της Solana και πώς να ξεκινήσετε με ψηφιακές συναλλαγές
+- [Παραμένοντας ασφαλείς στο Solana](https://solana.com/learn/el/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε βασικές πρακτικές ασφαλείας για να προστατεύσετε τα περιουσιακά σας στοιχεία και να αποφύγετε συνηθισμένες απάτες κατά τη χρήση εφαρμογών Solana.
+- [Τι είναι ένα Πορτοφόλι;](https://solana.com/learn/el/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε τι είναι ένα πορτοφόλι Solana, πώς λειτουργεί και πώς να δημιουργήσετε ένα με ασφάλεια. Το πορτοφόλι σας είναι το εργαλείο που θα χρησιμοποιήσετε για να αλληλεπιδράσετε με τις εφαρμογές Solana.
+- [Τι είναι τα NFTs;](https://solana.com/learn/el/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε για τα Non-Fungible Tokens (NFTs) στο Solana - μοναδικά ψηφιακά περιουσιακά στοιχεία που αντιπροσωπεύουν την ιδιοκτησία συγκεκριμένων αντικειμένων όπως τέχνη, συλλεκτικά αντικείμενα και άλλα.
+- [Τι είναι το Solana;](https://solana.com/learn/el/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μια εισαγωγή στο Solana - ένα γρήγορο δίκτυο χαμηλού κόστους που επιτρέπει νέους τρόπους μεταφοράς αξίας, δημιουργίας εφαρμογών και διαδικτυακής αλληλεπίδρασης.
+- [Τι είναι το Staking;](https://solana.com/learn/el/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Μάθετε πώς λειτουργεί το staking στο Solana, πώς να κερδίζετε ανταμοιβές βοηθώντας στην ασφάλεια του δικτύου και τι να λάβετε υπόψη όταν επιλέγετε validators.
+
+## Learn - En
+
+- [Exploring Solana Applications](https://solana.com/learn/en/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Discover the diverse ecosystem of applications built on Solana - from financial services and gaming to social platforms and creative tools, all accessible with just your wallet.
+- [Getting Started with Solana](https://solana.com/learn/en/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn the basics of Solana and how to get started with digital transactions
+- [Introduction to DeFi on Solana](https://solana.com/learn/en/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about decentralized finance (DeFi) applications on Solana, including trading, lending, and yield opportunities.
+- [Introduction to Solana Tokens](https://solana.com/learn/en/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about tokens - the different types of digital assets on Solana including stablecoins, wrapped tokens, and project tokens.
+- [Sending and Receiving SOL](https://solana.com/learn/en/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how to send and receive SOL tokens - the fundamental skill for interacting with the Solana network and its applications.
+- [Staying Safe on Solana](https://solana.com/learn/en/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn essential security practices to protect your assets and avoid common scams while using Solana applications.
+- [Understanding Solana Transaction Fees](https://solana.com/learn/en/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how transaction fees work on Solana, why they're low, and what this means for different use cases.
+- [What are NFTs?](https://solana.com/learn/en/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn about Non-Fungible Tokens (NFTs) on Solana - unique digital assets that represent ownership of specific items like art, collectibles, and more.
+- [What is Solana?](https://solana.com/learn/en/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): An introduction to Solana - a fast, low-cost network that enables new ways to transfer value, create applications, and interact online.
+- [What is Staking?](https://solana.com/learn/en/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn how staking works on Solana, how to earn rewards by helping secure the network, and what to consider when choosing validators.
+- [What is a Wallet?](https://solana.com/learn/en/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Learn what a Solana wallet is, how it works, and how to set one up safely. Your wallet is the tool you'll use to interact with Solana applications.
+
+## Learn - Es
+
+- [Entendiendo las tarifas de transacción de Solana](https://solana.com/learn/es/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo funcionan las tarifas de transacción en Solana, por qué son bajas y qué significa esto para diferentes casos de uso.
+- [Enviar y recibir SOL](https://solana.com/learn/es/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo enviar y recibir tokens SOL - la habilidad fundamental para interactuar con la red Solana y sus aplicaciones.
+- [Explorando aplicaciones de Solana](https://solana.com/learn/es/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Descubre el diverso ecosistema de aplicaciones construidas en Solana - desde servicios financieros y juegos hasta plataformas sociales y herramientas creativas, todas accesibles solo con tu billetera.
+- [Introducción a DeFi en Solana](https://solana.com/learn/es/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre las aplicaciones de finanzas descentralizadas (DeFi) en Solana, incluyendo trading, préstamos y oportunidades de rendimiento.
+- [Introducción a los tokens de Solana](https://solana.com/learn/es/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre los tokens - los diferentes tipos de activos digitales en Solana, incluyendo stablecoins, tokens envueltos y tokens de proyectos.
+- [Manteniéndote seguro en Solana](https://solana.com/learn/es/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende prácticas de seguridad esenciales para proteger tus activos y evitar estafas comunes mientras usas aplicaciones de Solana.
+- [Primeros pasos con Solana](https://solana.com/learn/es/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende los conceptos básicos de Solana y cómo empezar con transacciones digitales
+- [¿Qué es Solana?](https://solana.com/learn/es/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Una introducción a Solana - una red rápida y de bajo costo que permite nuevas formas de transferir valor, crear aplicaciones e interactuar en línea.
+- [¿Qué es el staking?](https://solana.com/learn/es/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende cómo funciona el staking en Solana, cómo ganar recompensas ayudando a asegurar la red y qué considerar al elegir validators.
+- [¿Qué es una billetera?](https://solana.com/learn/es/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende qué es una billetera de Solana, cómo funciona y cómo configurar una de forma segura. Tu billetera es la herramienta que usarás para interactuar con las aplicaciones de Solana.
+- [¿Qué son los NFT?](https://solana.com/learn/es/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprende sobre los Tokens No Fungibles (NFT) en Solana - activos digitales únicos que representan la propiedad de elementos específicos como arte, coleccionables y más.
+
+## Learn - Fi
+
+- [Johdatus DeFiin Solanassa](https://solana.com/learn/fi/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solanan hajautetun rahoituksen (DeFi) sovelluksista, mukaan lukien kaupankäynti, lainaaminen ja tuottomahdollisuudet.
+- [Johdatus Solana-tokeneihin](https://solana.com/learn/fi/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi tokeneista - erilaisista digitaalisista omaisuuseristä Solanassa, mukaan lukien stablecoinit, wrapped-tokenit ja projektitokenit.
+- [Mikä on Solana?](https://solana.com/learn/fi/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Johdanto Solanaan - nopea, edullinen verkko, joka mahdollistaa uusia tapoja siirtää arvoa, luoda sovelluksia ja olla vuorovaikutuksessa verkossa.
+- [Mikä on lompakko?](https://solana.com/learn/fi/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi mikä Solana-lompakko on, miten se toimii ja miten sellainen otetaan turvallisesti käyttöön. Lompakko on työkalu, jota käytät Solana-sovellusten kanssa vuorovaikutukseen.
+- [Mitä NFT:t ovat?](https://solana.com/learn/fi/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Non-Fungible Tokeneista (NFT:istä) Solanassa - ainutlaatuisista digitaalisista omaisuuseristä, jotka edustavat tiettyjen kohteiden, kuten taiteen, keräilyesineiden ja muiden omistajuutta.
+- [Mitä on staking?](https://solana.com/learn/fi/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi miten staking toimii Solanassa, miten ansaitset palkkioita auttamalla verkon turvaamisessa ja mitä kannattaa huomioida validatoreja valitessa.
+- [SOLin lähettäminen ja vastaanottaminen](https://solana.com/learn/fi/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi lähettämään ja vastaanottamaan SOL-tokeneita - perustaitoja Solana-verkon ja sen sovellusten käyttämiseen.
+- [Solana-sovellusten tutkiminen](https://solana.com/learn/fi/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tutustu Solanan päälle rakennettuun monipuoliseen sovellusekosysteemiin - rahoituspalveluista ja peleistä sosiaalisiin alustoihin ja luoviin työkaluihin, kaikki käytettävissä pelkällä lompakollasi.
+- [Solanan käytön aloittaminen](https://solana.com/learn/fi/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi Solanan perusteet ja kuinka aloittaa digitaaliset transaktiot
+- [Solanan transaktiomaksujen ymmärtäminen](https://solana.com/learn/fi/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi miten transaktiomaksut toimivat Solanassa, miksi ne ovat alhaisia ja mitä tämä tarkoittaa eri käyttötapauksissa.
+- [Turvallisena Solanassa](https://solana.com/learn/fi/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Opi olennaiset turvallisuuskäytännöt suojataksesi omaisuutesi ja välttääksesi yleisiä huijauksia käyttäessäsi Solana-sovelluksia.
+
+## Learn - Fr
+
+- [Comprendre les frais de transaction Solana](https://solana.com/learn/fr/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez comment fonctionnent les frais de transaction sur Solana, pourquoi ils sont bas et ce que cela signifie pour différents cas d'utilisation.
+- [Débuter avec Solana](https://solana.com/learn/fr/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez les bases de Solana et comment commencer avec les transactions numériques
+- [Envoyer et recevoir des SOL](https://solana.com/learn/fr/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez à envoyer et recevoir des tokens SOL - la compétence fondamentale pour interagir avec le réseau Solana et ses applications.
+- [Explorer les applications Solana](https://solana.com/learn/fr/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez l'écosystème diversifié d'applications construites sur Solana - des services financiers et jeux aux plateformes sociales et outils créatifs, tous accessibles simplement avec votre portefeuille.
+- [Introduction aux tokens Solana](https://solana.com/learn/fr/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les tokens - les différents types d'actifs numériques sur Solana, y compris les stablecoins, les tokens enveloppés et les tokens de projet.
+- [Introduction à la DeFi sur Solana](https://solana.com/learn/fr/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les applications de finance décentralisée (DeFi) sur Solana, y compris le trading, les prêts et les opportunités de rendement.
+- [Qu'est-ce qu'un portefeuille ?](https://solana.com/learn/fr/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez ce qu'est un portefeuille Solana, comment il fonctionne et comment en configurer un en toute sécurité. Votre portefeuille est l'outil que vous utiliserez pour interagir avec les applications Solana.
+- [Qu'est-ce que Solana ?](https://solana.com/learn/fr/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Une introduction à Solana - un réseau rapide et économique qui permet de nouvelles façons de transférer de la valeur, de créer des applications et d'interagir en ligne.
+- [Qu'est-ce que le staking ?](https://solana.com/learn/fr/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez comment fonctionne le staking sur Solana, comment gagner des récompenses en contribuant à la sécurité du réseau, et quels facteurs considérer lors du choix des validators.
+- [Que sont les NFT ?](https://solana.com/learn/fr/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Découvrez les jetons non fongibles (NFT) sur Solana - des actifs numériques uniques qui représentent la propriété d'éléments spécifiques comme l'art, les objets de collection et plus encore.
+- [Rester en sécurité sur Solana](https://solana.com/learn/fr/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Apprenez les pratiques de sécurité essentielles pour protéger vos actifs et éviter les arnaques courantes lors de l'utilisation des applications Solana.
+
+## Learn - Id
+
+- [Apa itu Dompet?](https://solana.com/learn/id/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari apa itu dompet Solana, bagaimana cara kerjanya, dan cara mengaturnya dengan aman. Dompet adalah alat yang akan Anda gunakan untuk berinteraksi dengan aplikasi Solana.
+- [Apa itu NFT?](https://solana.com/learn/id/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang Non-Fungible Tokens (NFT) di Solana - aset digital unik yang mewakili kepemilikan item spesifik seperti seni, koleksi, dan lainnya.
+- [Apa itu Solana?](https://solana.com/learn/id/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pengenalan tentang Solana - jaringan yang cepat, berbiaya rendah yang memungkinkan cara-cara baru untuk mentransfer nilai, membuat aplikasi, dan berinteraksi secara online.
+- [Apa itu Staking?](https://solana.com/learn/id/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari bagaimana staking bekerja di Solana, cara mendapatkan rewards dengan membantu mengamankan jaringan, dan apa yang perlu dipertimbangkan saat memilih validator.
+- [Memahami Biaya Transaksi Solana](https://solana.com/learn/id/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari bagaimana biaya transaksi bekerja di Solana, mengapa biayanya rendah, dan apa artinya untuk berbagai kasus penggunaan.
+- [Memulai dengan Solana](https://solana.com/learn/id/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari dasar-dasar Solana dan cara memulai transaksi digital
+- [Mengirim dan Menerima SOL](https://solana.com/learn/id/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari cara mengirim dan menerima token SOL - keterampilan dasar untuk berinteraksi dengan jaringan Solana dan aplikasinya.
+- [Menjelajahi Aplikasi Solana](https://solana.com/learn/id/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Temukan ekosistem beragam aplikasi yang dibangun di Solana - dari layanan keuangan dan game hingga platform sosial dan alat kreatif, semuanya dapat diakses hanya dengan dompet Anda.
+- [Pengenalan DeFi di Solana](https://solana.com/learn/id/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang aplikasi keuangan terdesentralisasi (DeFi) di Solana, termasuk perdagangan, peminjaman, dan peluang imbal hasil.
+- [Pengenalan Token Solana](https://solana.com/learn/id/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari tentang token - berbagai jenis aset digital di Solana termasuk stablecoin, token wrapped, dan token proyek.
+- [Tetap Aman di Solana](https://solana.com/learn/id/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Pelajari praktik keamanan penting untuk melindungi aset Anda dan menghindari penipuan umum saat menggunakan aplikasi Solana.
+
+## Learn - It
+
+- [Comprendere le commissioni di transazione di Solana](https://solana.com/learn/it/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come funzionano le commissioni di transazione su Solana, perché sono basse e cosa significa per diversi casi d'uso.
+- [Cos'è Solana?](https://solana.com/learn/it/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Un'introduzione a Solana - una rete veloce ed economica che permette nuovi modi di trasferire valore, creare applicazioni e interagire online.
+- [Cos'è lo Staking?](https://solana.com/learn/it/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri come funziona lo staking su Solana, come guadagnare ricompense contribuendo alla sicurezza della rete e cosa considerare quando scegli i validator.
+- [Cos'è un wallet?](https://solana.com/learn/it/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri cos'è un wallet Solana, come funziona e come configurarne uno in modo sicuro. Il wallet è lo strumento che utilizzerai per interagire con le applicazioni Solana.
+- [Cosa sono gli NFT?](https://solana.com/learn/it/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri i Non-Fungible Token (NFT) su Solana - asset digitali unici che rappresentano la proprietà di elementi specifici come arte, oggetti da collezione e altro ancora.
+- [Esplorando le applicazioni Solana](https://solana.com/learn/it/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri il diversificato ecosistema di applicazioni costruite su Solana - dai servizi finanziari e gaming alle piattaforme sociali e strumenti creativi, tutti accessibili semplicemente con il tuo wallet.
+- [Iniziare con Solana](https://solana.com/learn/it/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara le basi di Solana e come iniziare con le transazioni digitali
+- [Introduzione ai token Solana](https://solana.com/learn/it/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri i token - i diversi tipi di asset digitali su Solana, inclusi stablecoin, token wrapped e token di progetto.
+- [Introduzione alla DeFi su Solana](https://solana.com/learn/it/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Scopri le applicazioni di finanza decentralizzata (DeFi) su Solana, incluse le opportunità di trading, prestito e rendimento.
+- [Inviare e ricevere SOL](https://solana.com/learn/it/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara come inviare e ricevere token SOL - l'abilità fondamentale per interagire con la rete Solana e le sue applicazioni.
+- [Rimanere al sicuro su Solana](https://solana.com/learn/it/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Impara le pratiche di sicurezza essenziali per proteggere i tuoi asset ed evitare truffe comuni mentre utilizzi le applicazioni Solana.
+
+## Learn - Ja
+
+- [NFTとは？](https://solana.com/learn/ja/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana上の非代替性トークン（NFT）について学びましょう - アート、コレクティブルなど特定のアイテムの所有権を表す独自のデジタル資産です。
+- [SOLの送受信](https://solana.com/learn/ja/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): SOLトークンの送受信方法を学びましょう - Solanaネットワークとそのアプリケーションを操作するための基本的なスキルです。
+- [Solanaでの分散型金融（DeFi）入門](https://solana.com/learn/ja/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana上の分散型金融（DeFi）アプリケーションについて学び、取引、貸付、利回り機会などを理解しましょう。
+- [Solanaでの安全確保](https://solana.com/learn/ja/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaアプリケーションを使用する際に、資産を保護し一般的な詐欺を回避するための重要なセキュリティ対策を学びましょう。
+- [Solanaとは？](https://solana.com/learn/ja/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaの紹介 - 価値の移転、アプリケーションの作成、オンラインでの交流を可能にする高速で低コストのネットワーク。
+- [Solanaを始めよう](https://solana.com/learn/ja/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaの基本と、デジタル取引を始める方法を学ぶ
+- [Solanaアプリケーションの探索](https://solana.com/learn/ja/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana上に構築された多様なエコシステムのアプリケーションを発見しましょう - 金融サービスからゲーム、ソーシャルプラットフォーム、クリエイティブツールまで、すべてがウォレット一つでアクセス可能です。
+- [Solanaトランザクション手数料を理解する](https://solana.com/learn/ja/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaでのトランザクション手数料の仕組み、なぜ低コストなのか、そして様々なユースケースにとって何を意味するのかを学びましょう。
+- [Solanaトークン入門](https://solana.com/learn/ja/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): ステーブルコイン、ラップドトークン、プロジェクトトークンなど、Solana上のさまざまな種類のデジタル資産であるトークンについて学びましょう。
+- [ウォレットとは？](https://solana.com/learn/ja/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaウォレットとは何か、その仕組み、安全な設定方法について学びましょう。ウォレットはSolanaアプリケーションと対話するために使用するツールです。
+- [ステーキングとは？](https://solana.com/learn/ja/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solanaでのステーキングの仕組み、ネットワークのセキュリティ確保に貢献して報酬を得る方法、validatorを選ぶ際の考慮点について学びましょう。
+
+## Learn - Ko
+
+- [NFT란 무엇인가요?](https://solana.com/learn/ko/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나에서의 대체 불가능 토큰(NFT)에 대해 알아보세요 - 예술, 수집품 등 특정 아이템의 소유권을 나타내는 고유한 디지털 자산입니다.
+- [SOL 보내기 및 받기](https://solana.com/learn/ko/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): SOL 토큰을 보내고 받는 방법을 배워보세요 - 솔라나 네트워크와 애플리케이션을 이용하는 데 필요한 기본 기술입니다.
+- [Solana 시작하기](https://solana.com/learn/ko/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana의 기본 사항과 디지털 거래를 시작하는 방법 알아보기
+- [Solana 트랜잭션 수수료 이해하기](https://solana.com/learn/ko/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana에서 트랜잭션 수수료가 어떻게 작동하는지, 왜 낮은지, 그리고 이것이 다양한 사용 사례에 어떤 의미가 있는지 알아보세요.
+- [솔라나 애플리케이션 탐색하기](https://solana.com/learn/ko/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나 블록체인 위에 구축된 다양한 생태계의 애플리케이션을 발견해보세요 - 금융 서비스부터 게임, 소셜 플랫폼, 창작 도구까지, 모두 지갑 하나로 접근 가능합니다.
+- [솔라나 토큰 소개](https://solana.com/learn/ko/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 스테이블코인, 래핑된 토큰, 프로젝트 토큰 등 솔라나의 다양한 유형의 디지털 자산인 토큰에 대해 알아보세요.
+- [솔라나란 무엇인가요?](https://solana.com/learn/ko/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나 소개 - 가치 이전, 애플리케이션 생성 및 온라인 상호작용의 새로운 방식을 가능하게 하는 빠르고 저렴한 네트워크입니다.
+- [솔라나에서 안전하게 지내기](https://solana.com/learn/ko/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나 애플리케이션을 사용하는 동안 자산을 보호하고 일반적인 사기를 피하기 위한 필수 보안 관행을 알아보세요.
+- [솔라나에서의 DeFi 소개](https://solana.com/learn/ko/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나에서의 탈중앙화 금융(DeFi) 애플리케이션에 대해 알아보세요. 거래, 대출 및 수익 기회를 포함합니다.
+- [스테이킹이란 무엇인가요?](https://solana.com/learn/ko/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana에서 스테이킹이 어떻게 작동하는지, 네트워크 보안을 돕고 보상을 얻는 방법, 그리고 validator 선택 시 고려해야 할 사항에 대해 알아보세요.
+- [지갑이란 무엇인가요?](https://solana.com/learn/ko/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): 솔라나 지갑이 무엇인지, 어떻게 작동하는지, 그리고 안전하게 설정하는 방법을 알아보세요. 지갑은 솔라나 애플리케이션과 상호작용하는 데 사용하는 도구입니다.
+
+## Learn - Nl
+
+- [Aan de slag met Solana](https://solana.com/learn/nl/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer de basis van Solana en hoe je kunt beginnen met digitale transacties
+- [Introductie tot DeFi op Solana](https://solana.com/learn/nl/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over gedecentraliseerde financiële (DeFi) toepassingen op Solana, waaronder handelen, uitlenen en rendementsmogelijkheden.
+- [Introductie tot Solana tokens](https://solana.com/learn/nl/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over tokens - de verschillende soorten digitale activa op Solana, waaronder stablecoins, wrapped tokens en projecttokens.
+- [Inzicht in Solana transactiekosten](https://solana.com/learn/nl/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe transactiekosten werken op Solana, waarom ze laag zijn, en wat dit betekent voor verschillende gebruikssituaties.
+- [SOL verzenden en ontvangen](https://solana.com/learn/nl/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe je SOL-tokens verzendt en ontvangt - de fundamentele vaardigheid voor interactie met het Solana-netwerk en zijn toepassingen.
+- [Veilig blijven op Solana](https://solana.com/learn/nl/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer essentiële veiligheidspraktijken om je bezittingen te beschermen en veelvoorkomende oplichting te vermijden tijdens het gebruik van Solana-applicaties.
+- [Verkenning van Solana-applicaties](https://solana.com/learn/nl/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Ontdek het diverse ecosysteem van applicaties gebouwd op Solana - van financiële diensten en gaming tot sociale platforms en creatieve tools, allemaal toegankelijk met alleen je wallet.
+- [Wat is Solana?](https://solana.com/learn/nl/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Een introductie tot Solana - een snel, goedkoop netwerk dat nieuwe manieren mogelijk maakt om waarde over te dragen, applicaties te creëren en online te interacteren.
+- [Wat is een wallet?](https://solana.com/learn/nl/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer wat een Solana wallet is, hoe het werkt en hoe je er veilig een instelt. Je wallet is het hulpmiddel dat je gebruikt om met Solana-applicaties te werken.
+- [Wat is staking?](https://solana.com/learn/nl/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer hoe staking werkt op Solana, hoe je beloningen verdient door het netwerk te helpen beveiligen, en waar je op moet letten bij het kiezen van validators.
+- [Wat zijn NFT's?](https://solana.com/learn/nl/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Leer over Non-Fungible Tokens (NFT's) op Solana - unieke digitale bezittingen die eigendom vertegenwoordigen van specifieke items zoals kunst, verzamelobjecten en meer.
+
+## Learn - Pl
+
+- [Czym jest Solana?](https://solana.com/learn/pl/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Wprowadzenie do Solany - szybkiej, niskokosztowej sieci, która umożliwia nowe sposoby transferu wartości, tworzenia aplikacji i interakcji online.
+- [Czym jest portfel?](https://solana.com/learn/pl/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, czym jest portfel Solana, jak działa i jak bezpiecznie go skonfigurować. Twój portfel to narzędzie, którego użyjesz do interakcji z aplikacjami Solana.
+- [Czym jest staking?](https://solana.com/learn/pl/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak działa staking na Solanie, jak zarabiać nagrody, pomagając zabezpieczać sieć, oraz na co zwrócić uwagę przy wyborze validatorów.
+- [Czym są NFT?](https://solana.com/learn/pl/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się o tokenach niewymienialnych (NFT) na Solanie - unikalnych cyfrowych aktywach, które reprezentują własność konkretnych przedmiotów, takich jak sztuka, kolekcje i inne.
+- [Jak zachować bezpieczeństwo na Solanie](https://solana.com/learn/pl/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Poznaj podstawowe zasady bezpieczeństwa, aby chronić swoje zasoby i unikać powszechnych oszustw podczas korzystania z aplikacji Solana.
+- [Odkrywanie aplikacji Solana](https://solana.com/learn/pl/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Poznaj różnorodny ekosystem aplikacji zbudowanych na Solanie - od usług finansowych i gier po platformy społecznościowe i narzędzia kreatywne, wszystko dostępne za pomocą Twojego portfela.
+- [Pierwsze kroki z Solana](https://solana.com/learn/pl/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Poznaj podstawy Solana i dowiedz się, jak rozpocząć korzystanie z transakcji cyfrowych
+- [Wprowadzenie do DeFi na Solanie](https://solana.com/learn/pl/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się o aplikacjach finansów zdecentralizowanych (DeFi) na Solanie, w tym o handlu, pożyczkach i możliwościach uzyskiwania zysków.
+- [Wprowadzenie do tokenów Solana](https://solana.com/learn/pl/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się o tokenach – różnych rodzajach cyfrowych aktywów na Solanie, w tym stablecoinach, tokenach powiązanych i tokenach projektowych.
+- [Wysyłanie i odbieranie SOL](https://solana.com/learn/pl/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak wysyłać i odbierać tokeny SOL – podstawowa umiejętność interakcji z siecią Solana i jej aplikacjami.
+- [Zrozumienie opłat transakcyjnych w Solana](https://solana.com/learn/pl/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Dowiedz się, jak działają opłaty transakcyjne w Solana, dlaczego są niskie i co to oznacza dla różnych zastosowań.
+
+## Learn - Pt
+
+- [Começando com Solana](https://solana.com/learn/pt/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda o básico sobre Solana e como começar com transações digitais
+- [Entendendo as taxas de transação da Solana](https://solana.com/learn/pt/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como funcionam as taxas de transação na Solana, por que são baixas e o que isso significa para diferentes casos de uso.
+- [Enviando e recebendo SOL](https://solana.com/learn/pt/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como enviar e receber tokens SOL - a habilidade fundamental para interagir com a rede Solana e suas aplicações.
+- [Explorando Aplicações Solana](https://solana.com/learn/pt/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Descubra o diversificado ecossistema de aplicações construídas na Solana - desde serviços financeiros e jogos até plataformas sociais e ferramentas criativas, tudo acessível apenas com sua carteira.
+- [Introdução ao DeFi na Solana](https://solana.com/learn/pt/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre aplicações de finanças descentralizadas (DeFi) na Solana, incluindo negociação, empréstimos e oportunidades de rendimento.
+- [Introdução aos tokens Solana](https://solana.com/learn/pt/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre tokens - os diferentes tipos de ativos digitais na Solana, incluindo stablecoins, tokens wrapped e tokens de projetos.
+- [Mantendo-se seguro na Solana](https://solana.com/learn/pt/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda práticas essenciais de segurança para proteger seus ativos e evitar golpes comuns ao usar aplicativos Solana.
+- [O que são NFTs?](https://solana.com/learn/pt/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda sobre Tokens Não Fungíveis (NFTs) na Solana - ativos digitais únicos que representam a propriedade de itens específicos como arte, colecionáveis e mais.
+- [O que é Solana?](https://solana.com/learn/pt/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Uma introdução à Solana - uma rede rápida e de baixo custo que permite novas formas de transferir valor, criar aplicações e interagir online.
+- [O que é staking?](https://solana.com/learn/pt/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda como funciona o staking na Solana, como ganhar recompensas ajudando a proteger a rede e o que considerar ao escolher validators.
+- [O que é uma Carteira?](https://solana.com/learn/pt/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Aprenda o que é uma carteira Solana, como ela funciona e como configurar uma com segurança. Sua carteira é a ferramenta que você usará para interagir com aplicativos Solana.
+
+## Learn - Ru
+
+- [Введение в DeFi на Solana](https://solana.com/learn/ru/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о приложениях децентрализованных финансов (DeFi) на Solana, включая торговлю, кредитование и возможности получения дохода.
+- [Введение в токены Solana](https://solana.com/learn/ru/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о токенах — различных типах цифровых активов на Solana, включая стейблкоины, обернутые токены и токены проектов.
+- [Исследование приложений Solana](https://solana.com/learn/ru/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Откройте для себя разнообразную экосистему приложений, созданных на платформе  Solana: от финансовых сервисов и игр до социальных платформ и инструментов для  творчества — всё доступно с помощью вашего кошелька.
+- [Как оставаться в безопасности на Solana](https://solana.com/learn/ru/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте основные правила безопасности, чтобы защитить свои активы и избежать распространённых мошеннических схем при использовании приложений Solana.
+- [Начало работы с Solana](https://solana.com/learn/ru/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте основы Solana и как начать работать с цифровыми транзакциями
+- [Отправка и получение SOL](https://solana.com/learn/ru/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как отправлять и получать токены SOL — это базовый навык для взаимодействия с сетью Solana и её приложениями.
+- [Понимание комиссий за транзакции в Solana](https://solana.com/learn/ru/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как работают комиссии за транзакции в Solana, почему они низкие и что это означает для различных сценариев использования.
+- [Что такое NFT?](https://solana.com/learn/ru/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте о невзаимозаменяемых токенах (NFT) на Solana — уникальных цифровых активах, которые представляют право собственности на конкретные предметы, такие как искусство, коллекционные предметы и многое другое.
+- [Что такое Solana?](https://solana.com/learn/ru/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Введение в Solana — быструю и недорогую сеть, которая открывает новые возможности для передачи ценностей, создания приложений и взаимодействия в интернете.
+- [Что такое кошелек?](https://solana.com/learn/ru/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, что такое кошелек Solana, как он работает и как безопасно его настроить. Ваш кошелек — это инструмент, который вы будете использовать для взаимодействия с приложениями Solana.
+- [Что такое стейкинг?](https://solana.com/learn/ru/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Узнайте, как работает стейкинг в Solana, как зарабатывать награды, помогая обеспечивать безопасность сети, и что учитывать при выборе валидаторов.
+
+## Learn - Tr
+
+- [Cüzdan Nedir?](https://solana.com/learn/tr/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana cüzdanının ne olduğunu, nasıl çalıştığını ve nasıl güvenli bir şekilde kurulacağını öğrenin. Cüzdanınız, Solana uygulamalarıyla etkileşimde bulunmak için kullanacağınız araçtır.
+- [NFT'ler nedir?](https://solana.com/learn/tr/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana üzerindeki Değiştirilemez Tokenler (NFT'ler) hakkında bilgi edinin - sanat, koleksiyon ürünleri ve daha fazlası gibi belirli öğelerin sahipliğini temsil eden benzersiz dijital varlıklar.
+- [SOL Gönderme ve Alma](https://solana.com/learn/tr/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): SOL token'larını göndermeyi ve almayı öğrenin - Solana ağı ve uygulamalarıyla etkileşim için temel beceri.
+- [Solana Token'larına Giriş](https://solana.com/learn/tr/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Stabil coinler, sarılmış token'lar ve proje token'ları dahil olmak üzere Solana'daki farklı dijital varlık türleri olan token'lar hakkında bilgi edinin.
+- [Solana Uygulamalarını Keşfetmek](https://solana.com/learn/tr/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana üzerine inşa edilmiş çeşitli ekosistemi keşfedin - finansal hizmetlerden oyunlara, sosyal platformlardan yaratıcı araçlara kadar, hepsi sadece cüzdanınızla erişilebilir.
+- [Solana ile Başlarken](https://solana.com/learn/tr/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'nın temellerini öğrenin ve dijital işlemlere nasıl başlayacağınızı keşfedin
+- [Solana nedir?](https://solana.com/learn/tr/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'ya giriş - değer transferi, uygulama oluşturma ve çevrimiçi etkileşim için yeni yollar sağlayan hızlı, düşük maliyetli bir ağ.
+- [Solana İşlem Ücretlerini Anlamak](https://solana.com/learn/tr/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'da işlem ücretlerinin nasıl çalıştığını, neden düşük olduğunu ve bunun farklı kullanım senaryoları için ne anlama geldiğini öğrenin.
+- [Solana'da DeFi'ye Giriş](https://solana.com/learn/tr/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana üzerindeki merkeziyetsiz finans (DeFi) uygulamaları hakkında bilgi edinin, ticaret, borç verme ve getiri fırsatlarını öğrenin.
+- [Solana'da Güvende Kalmak](https://solana.com/learn/tr/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana uygulamalarını kullanırken varlıklarınızı korumak ve yaygın dolandırıcılıklardan kaçınmak için temel güvenlik uygulamalarını öğrenin.
+- [Staking nedir?](https://solana.com/learn/tr/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana'da staking'in nasıl çalıştığını, ağın güvenliğini sağlamaya yardımcı olarak nasıl ödül kazanacağınızı ve validator seçerken neleri göz önünde bulundurmanız gerektiğini öğrenin.
+
+## Learn - Uk
+
+- [Безпека на Solana](https://solana.com/learn/uk/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про основні методи безпеки для захисту ваших активів та уникнення поширених шахрайських схем під час використання додатків Solana.
+- [Вступ до DeFi на Solana](https://solana.com/learn/uk/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про децентралізовані фінансові (DeFi) додатки на Solana, включаючи торгівлю, кредитування та можливості отримання прибутку.
+- [Вступ до токенів Solana](https://solana.com/learn/uk/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про токени - різні типи цифрових активів на Solana, включаючи стейблкоїни, загорнуті токени та проєктні токени.
+- [Відправлення та отримання SOL](https://solana.com/learn/uk/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як відправляти та отримувати токени SOL – фундаментальна навичка для взаємодії з мережею Solana та її застосунками.
+- [Дослідження додатків Solana](https://solana.com/learn/uk/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Відкрийте для себе різноманітну екосистему додатків, побудованих на Solana - від фінансових сервісів та ігор до соціальних платформ і творчих інструментів, доступних лише за допомогою вашого гаманця.
+- [Початок роботи з Solana](https://solana.com/learn/uk/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся основи Solana та як почати роботу з цифровими транзакціями
+- [Розуміння комісій за транзакції Solana](https://solana.com/learn/uk/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як працюють комісії за транзакції в Solana, чому вони низькі та що це означає для різних випадків використання.
+- [Що таке NFT?](https://solana.com/learn/uk/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся про невзаємозамінні токени (NFT) на Solana - унікальні цифрові активи, які представляють право власності на конкретні предмети, як-от мистецтво, колекційні речі тощо.
+- [Що таке Solana?](https://solana.com/learn/uk/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Вступ до Solana - швидкої, недорогої мережі, яка відкриває нові способи передачі цінностей, створення додатків та взаємодії онлайн.
+- [Що таке гаманець?](https://solana.com/learn/uk/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, що таке гаманець Solana, як він працює та як безпечно його налаштувати. Гаманець — це інструмент, який ви використовуватимете для взаємодії з додатками Solana.
+- [Що таке стейкінг?](https://solana.com/learn/uk/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Дізнайтеся, як працює стейкінг на Solana, як отримувати винагороди, допомагаючи захищати мережу, та що враховувати при виборі validator.
+
+## Learn - Vi
+
+- [Bảo mật an toàn trên Solana](https://solana.com/learn/vi/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu các biện pháp bảo mật thiết yếu để bảo vệ tài sản và tránh các lừa đảo phổ biến khi sử dụng các ứng dụng Solana.
+- [Bắt đầu với Solana](https://solana.com/learn/vi/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu những kiến thức cơ bản về Solana và cách bắt đầu với các giao dịch kỹ thuật số
+- [Giới thiệu về DeFi trên Solana](https://solana.com/learn/vi/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về các ứng dụng tài chính phi tập trung (DeFi) trên Solana, bao gồm giao dịch, cho vay và các cơ hội sinh lời.
+- [Giới thiệu về Token Solana](https://solana.com/learn/vi/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về token - các loại tài sản kỹ thuật số khác nhau trên Solana bao gồm stablecoin, wrapped token và token dự án.
+- [Gửi và nhận SOL](https://solana.com/learn/vi/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách gửi và nhận token SOL - kỹ năng cơ bản để tương tác với mạng Solana và các ứng dụng của nó.
+- [Hiểu về phí giao dịch Solana](https://solana.com/learn/vi/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách thức hoạt động của phí giao dịch trên Solana, lý do tại sao chúng thấp và ý nghĩa của điều này đối với các trường hợp sử dụng khác nhau.
+- [Khám phá các ứng dụng Solana](https://solana.com/learn/vi/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): Khám phá hệ sinh thái đa dạng các ứng dụng được xây dựng trên Solana - từ dịch vụ tài chính và trò chơi đến nền tảng xã hội và công cụ sáng tạo, tất cả đều có thể truy cập chỉ với ví của bạn.
+- [NFT là gì?](https://solana.com/learn/vi/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu về Non-Fungible Tokens (NFT) trên Solana - tài sản kỹ thuật số độc đáo đại diện cho quyền sở hữu các vật phẩm cụ thể như nghệ thuật, đồ sưu tầm và nhiều thứ khác.
+- [Solana là gì?](https://solana.com/learn/vi/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Giới thiệu về Solana - một mạng lưới nhanh, chi phí thấp cho phép những cách mới để chuyển giá trị, tạo ứng dụng và tương tác trực tuyến.
+- [Staking là gì?](https://solana.com/learn/vi/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu cách staking hoạt động trên Solana, cách kiếm phần thưởng bằng cách giúp bảo mật mạng lưới, và những điều cần cân nhắc khi chọn validator.
+- [Ví là gì?](https://solana.com/learn/vi/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): Tìm hiểu ví Solana là gì, cách hoạt động và cách thiết lập an toàn. Ví là công cụ bạn sẽ sử dụng để tương tác với các ứng dụng Solana.
+
+## Learn - Zh
+
+- [Solana 上的 DeFi 简介](https://solana.com/learn/zh/introduction-to-defi-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 上的去中心化金融（DeFi）应用，包括交易、借贷和收益机会。
+- [Solana 代币简介](https://solana.com/learn/zh/introduction-to-solana-tokens?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解代币——Solana 上的各种数字资产，包括稳定币、包装代币和项目代币。
+- [Solana 入门](https://solana.com/learn/zh/getting-started?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 的基础知识以及如何开始使用数字交易
+- [了解 Solana 的交易费用](https://solana.com/learn/zh/understanding-solana-transaction-fees?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 上的交易费用如何运作、为何费用低廉，以及这对不同用例意味着什么。
+- [什么是 NFT？](https://solana.com/learn/zh/what-are-nfts?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 上的非同质化代币 (NFT)——代表特定物品（如艺术品、收藏品等）所有权的独特数字资产。
+- [什么是 Solana？](https://solana.com/learn/zh/what-is-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): Solana 简介——一个快速、低成本的网络，能够实现价值转移、创建应用程序和在线互动的新方式。
+- [什么是质押？](https://solana.com/learn/zh/what-is-staking?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解 Solana 上的质押机制，通过帮助保护网络来赚取奖励，以及选择验证器时需要考虑的因素。
+- [什么是钱包？](https://solana.com/learn/zh/what-is-a-wallet?utm_source=llms&utm_medium=ai&utm_campaign=txt): 了解什么是 Solana 钱包，它如何工作，以及如何安全地设置一个钱包。您的钱包是您与 Solana 应用程序交互的工具。
+- [发送和接收 SOL](https://solana.com/learn/zh/sending-and-receiving-sol?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习如何发送和接收 SOL 代币——这是与 Solana 网络及其应用交互的基本技能。
+- [在 Solana 上保持安全](https://solana.com/learn/zh/staying-safe-on-solana?utm_source=llms&utm_medium=ai&utm_campaign=txt): 学习保护资产和避免常见骗局的基本安全实践，同时使用 Solana 应用程序。
+- [探索 Solana 应用](https://solana.com/learn/zh/exploring-solana-applications?utm_source=llms&utm_medium=ai&utm_campaign=txt): 发现构建在 Solana 上的多样化应用生态系统——从金融服务和游戏到社交平台和创意工具，所有这些都可以通过您的钱包轻松访问。
+
+## Optional
+
+- [StackExchange Support](https://solana.stackexchange.com): Get help from the Solana community on StackExchange
+- [Validator Setup](https://docs.anza.xyz/operations/setup-a-validator): Setup a validator and get connected to a cluster
