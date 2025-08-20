@@ -56,10 +56,10 @@ const InstitutionalPaymentsPage = () => {
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
           globeImgSrc="/src/img/solutions/institutional-payments/hero.webp"
-          globeImgAlt={t("icm.hero.alt")}
+          globeImgAlt={t("institutional-payments.hero.alt")}
           variant="modern"
           titleSize="s"
-          reportImgSrc="/src/img/solutions/icm/hero-download.svg"
+          reportImgSrc="/src/img/solutions/institutional-payments/hero-download.webp"
         />
 
         <WhatIsIt
