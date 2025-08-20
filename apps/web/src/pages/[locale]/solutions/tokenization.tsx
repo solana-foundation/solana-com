@@ -122,7 +122,7 @@ const ICMPage = () => {
             title={t("icm.videoPlayer.title")}
             subtitle={t("icm.videoPlayer.subtitle")}
             videos={VIDEOS(t)}
-            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
+            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK69cksrzGufy1LKGPjg6QtV"
             moreVideosLabel={t("icm.videoPlayer.moreVideos")}
           />
         </section>
