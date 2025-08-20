@@ -41,7 +41,7 @@ export default function UniversitiesInquiryForm({
   return (
     <section className="[padding-block:1rem] sm:[padding-block:3rem] relative">
       <div className="container">
-        <div className="bg-[#0a0a0a] rounded-2xl p-12 md:p-20 text-center max-w-6xl mx-auto relative overflow-hidden">
+        <div className="bg-[#0a0a0a] rounded-2xl p-8 sm:p-12 md:p-20 text-center max-w-6xl mx-auto relative overflow-hidden">
           <GradientOrbs orbs={inquiryOrbs} />
 
           {/* Additional gradient overlays */}
@@ -49,20 +49,20 @@ export default function UniversitiesInquiryForm({
           <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-purple-900/20 pointer-events-none"></div>
 
           <div className="relative z-10 max-w-3xl mx-auto">
-            <p className="text-[#14F195] uppercase text-sm font-bold tracking-wider mb-4">
+            <p className="text-[#14F195] uppercase text-sm font-bold tracking-wider mb-2 sm:mb-4">
               {translations.eyebrowText}
             </p>
-            <h2 className="text-white text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-white text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4">
               {translations.title}
             </h2>
-            <p className="text-gray-400 text-lg mb-6">
+            <p className="hidden sm:block text-gray-400 text-lg mb-6">
               {translations.description}
             </p>
 
             <div className="max-w-2xl mx-auto">
               <button
                 onClick={handleEmailClick}
-                className="bg-[#9945FF] text-white font-semibold rounded-full px-8 py-4 hover:bg-[#7B3FF2] transition-colors duration-200 text-base uppercase tracking-wider"
+                className="bg-[#9945FF] text-white font-semibold rounded-full px-6 sm:px-8 py-3 sm:py-4 hover:bg-[#7B3FF2] transition-colors duration-200 text-sm sm:text-base uppercase tracking-wider"
               >
                 {translations.submitButton}
               </button>
