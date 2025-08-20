@@ -152,6 +152,7 @@ const Button = ({
       to={to && to}
       //
       target={newTab ? "_blank" : null}
+      rel={newTab ? "noopener noreferrer" : null}
       // <button>...</button> specific
       type={to ? null : "button"}
       // Common conditionals

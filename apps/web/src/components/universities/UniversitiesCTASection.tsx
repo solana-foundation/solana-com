@@ -38,7 +38,12 @@ export default function UniversitiesCTASection({
           </p>
 
           {/* @ts-ignore */}
-          <Button to={UNIVERSITY_TYPEFORM_URL} variant="secondary" size="large">
+          <Button
+            to={UNIVERSITY_TYPEFORM_URL}
+            variant="secondary"
+            size="large"
+            newTab
+          >
             {translations.ctaLabel}
           </Button>
         </div>

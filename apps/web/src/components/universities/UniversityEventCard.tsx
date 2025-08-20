@@ -25,7 +25,12 @@ export default function UniversityEventCard({
   href,
 }: UniversityEventCardProps) {
   return (
-    <Link href={href} className="block group">
+    <Link
+      href={href}
+      className="block group"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
       <div className="relative overflow-hidden transition-transform duration-300 hover:scale-[1.02]">
         <div className="relative aspect-square overflow-hidden">
           <Image

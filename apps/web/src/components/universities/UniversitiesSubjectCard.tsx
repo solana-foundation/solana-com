@@ -28,7 +28,12 @@ export default function UniversitiesSubjectCard({
 
   return (
     <div className="d-block" style={{ minWidth: "300px", maxWidth: "300px" }}>
-      <Link href={href} className="text-decoration-none">
+      <Link
+        href={href}
+        className="text-decoration-none"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         <div
           className="position-relative"
           style={{ borderRadius: "16px", padding: "1px" }}

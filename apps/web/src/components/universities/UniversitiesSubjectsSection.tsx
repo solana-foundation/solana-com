@@ -79,6 +79,7 @@ export default function UniversitiesSubjectsSection({
                 to={UNIVERSITY_TYPEFORM_URL}
                 variant="outline"
                 size="large"
+                newTab
               >
                 {translations.contactButtonLabel}
               </Button>
