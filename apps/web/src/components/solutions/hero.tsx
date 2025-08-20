@@ -95,7 +95,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 alt={globeImgAlt}
                 width={650}
                 height={480}
-                className="mt-6 lg:-ml-[20%] max-w-[450px] md:max-w-[650px] w-[65%] md:w-[80%] lg:w-[120%] h-auto "
+                className="mt-6 lg:-ml-[20%] max-w-[450px] md:max-w-[650px] w-[65%] md:w-[80%] lg:w-[120%] h-auto self-center md:self-start"
                 priority
               />
             )}
