@@ -8,6 +8,9 @@ import {
   PiggyBank,
   Globe,
   Banknote,
+  Wallet,
+  Fuel,
+  Radar,
 } from "lucide-react";
 import { Formats, TranslationValues } from "next-intl";
 
@@ -48,18 +51,18 @@ export const PRODUCTS = [
   },
   {
     key: "3",
-    Icon: HandCoins,
-    color: "text-rose-400 bg-rose-900/30",
+    Icon: Radar,
+    color: "text-indigo-400 bg-indigo-900/30",
   },
   {
     key: "4",
-    Icon: HandCoins,
-    color: "text-orange-400 bg-orange-900/30",
+    Icon: Fuel,
+    color: "text-cyan-400 bg-cyan-900/30",
   },
   {
     key: "5",
-    Icon: HandCoins,
-    color: "text-amber-400 bg-amber-900/30",
+    Icon: Wallet,
+    color: "text-emerald-400 bg-emerald-900/30",
     href: "/wallets",
   },
 ];
