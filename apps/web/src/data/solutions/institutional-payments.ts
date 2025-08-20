@@ -1,4 +1,14 @@
-import { Blocks, Coins, HandCoins } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Blocks,
+  Coins,
+  HandCoins,
+  Landmark,
+  CreditCard,
+  PiggyBank,
+  Globe,
+  Banknote,
+} from "lucide-react";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
@@ -51,6 +61,37 @@ export const PRODUCTS = [
     Icon: HandCoins,
     color: "text-amber-400 bg-amber-900/30",
     href: "/wallets",
+  },
+];
+
+export const USE_CASES = [
+  {
+    key: "0",
+    Icon: ArrowRightLeft,
+    color: "bg-violet-500 text-black",
+  },
+  {
+    key: "1",
+    Icon: CreditCard,
+    color: "bg-cyan-400 text-black",
+  },
+  {
+    Icon: Landmark,
+    color: "bg-green-400 text-green-100",
+  },
+  {
+    key: "2",
+    Icon: PiggyBank,
+    color: "bg-green-400 text-black",
+  },
+  {
+    Icon: Banknote,
+    color: "bg-cyan-400 text-orange-100",
+  },
+  {
+    key: "3",
+    Icon: Globe,
+    color: "bg-violet-500 text-black",
   },
 ];
 

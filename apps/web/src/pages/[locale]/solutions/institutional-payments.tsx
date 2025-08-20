@@ -16,6 +16,8 @@ import { Products } from "@/components/solutions/products";
 import { VideoGrid } from "@/components/solutions/video-grid";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
+import { USE_CASES } from "@/data/solutions/institutional-payments";
+import { Performance } from "@/components/solutions/performance";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -33,25 +35,6 @@ const InstitutionalPaymentsPage = () => {
     {
       value: t("institutional-payments.hero.stats.2.value"),
       label: t("institutional-payments.hero.stats.2.label"),
-    },
-  ];
-
-  const useCases: { name: string; description: string }[] = [
-    {
-      name: t("institutional-payments.useCases.items.0.name"),
-      description: t("institutional-payments.useCases.items.0.description"),
-    },
-    {
-      name: t("institutional-payments.useCases.items.1.name"),
-      description: t("institutional-payments.useCases.items.1.description"),
-    },
-    {
-      name: t("institutional-payments.useCases.items.2.name"),
-      description: t("institutional-payments.useCases.items.2.description"),
-    },
-    {
-      name: t("institutional-payments.useCases.items.3.name"),
-      description: t("institutional-payments.useCases.items.3.description"),
     },
   ];
 
@@ -98,21 +81,13 @@ const InstitutionalPaymentsPage = () => {
           </div>
         </section>
 
-        {/* UseCases Section */}
-        <section className="pt-6 pb-10">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full">
-                {t("institutional-payments.useCases.title")}
-              </h2>
-              {useCases.map((item) => (
-                <div key={item.name}>
-                  <h3 className="text-xl font-bold text-white">{item.name}</h3>
-                  <p className="text-gray-300 text-base">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Performance Section */}
+        <section className="pb-10">
+          <Performance
+            title={t("institutional-payments.useCases.title")}
+            items={USE_CASES}
+            translationBase="institutional-payments.useCases.items"
+          />
         </section>
 
         {/* Products Section */}
