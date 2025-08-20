@@ -51,6 +51,15 @@ export default async function Page(_props: Props) {
     inquiryDescription: t("universities.inquiry.description"),
     inquiryEmailPlaceholder: t("universities.inquiry.emailPlaceholder"),
     inquirySubmitButton: t("universities.inquiry.submitButton"),
+    hostEventInquiryEyebrowText: t("universities.hostEventInquiry.eyebrowText"),
+    hostEventInquiryTitle: t("universities.hostEventInquiry.title"),
+    hostEventInquiryDescription: t("universities.hostEventInquiry.description"),
+    hostEventInquiryEmailPlaceholder: t(
+      "universities.hostEventInquiry.emailPlaceholder",
+    ),
+    hostEventInquirySubmitButton: t(
+      "universities.hostEventInquiry.submitButton",
+    ),
   };
 
   return <UniversitiesPage translations={translations} />;

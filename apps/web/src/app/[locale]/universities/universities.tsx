@@ -7,6 +7,7 @@ import UniversitiesInquiryForm from "@/components/universities/UniversitiesInqui
 import UniversityEventsGrid from "@/components/universities/UniversityEventsGrid";
 import universitiesHeroImg from "@@/assets/universities/universities-hero.webp";
 import { GitHub } from "react-feather";
+import { UNIVERSITY_TYPEFORM_URL } from "@/constants/universities";
 
 interface UniversitiesPageProps {
   translations: {
@@ -53,6 +54,11 @@ interface UniversitiesPageProps {
     inquiryDescription: string;
     inquiryEmailPlaceholder: string;
     inquirySubmitButton: string;
+    hostEventInquiryEyebrowText: string;
+    hostEventInquiryTitle: string;
+    hostEventInquiryDescription: string;
+    hostEventInquiryEmailPlaceholder: string;
+    hostEventInquirySubmitButton: string;
   };
 }
 
@@ -69,8 +75,7 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
         buttons={{
           cta: {
             label: translations.joinProgram,
-            // TODO: Replace with Airtable/Typeform intake form URL
-            href: "/universities/contact",
+            href: UNIVERSITY_TYPEFORM_URL,
           },
           secondary: {
             label: translations.viewCurriculum,
@@ -113,11 +118,11 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
 
       <UniversitiesInquiryForm
         translations={{
-          eyebrowText: translations.inquiryEyebrowText,
-          title: translations.inquiryTitle,
-          description: translations.inquiryDescription,
-          emailPlaceholder: translations.inquiryEmailPlaceholder,
-          submitButton: translations.inquirySubmitButton,
+          eyebrowText: translations.hostEventInquiryEyebrowText,
+          title: translations.hostEventInquiryTitle,
+          description: translations.hostEventInquiryDescription,
+          emailPlaceholder: translations.hostEventInquiryEmailPlaceholder,
+          submitButton: translations.hostEventInquirySubmitButton,
         }}
       />
     </div>
