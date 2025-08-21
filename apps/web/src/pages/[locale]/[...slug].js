@@ -120,6 +120,7 @@ function useAppRouterNavigation(page) {
     new RegExp(`^/(?:[^/]{2}/)?developers/courses(/.*)?$`),
     new RegExp(`^/(?:[^/]{2}/)?developers/guides(/.*)?$`),
     new RegExp(`^/(?:[^/]{2}/)?learn(/.*)?$`),
+    new RegExp(`^/(?:[^/]{2}/)?universities(/.*)?$`),
   ];
   return regexes.some((regex) => regex.test(pathname));
 }

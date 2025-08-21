@@ -26,7 +26,7 @@ const HeroSection = ({
               {buttons?.cta && (
                 <Button
                   to={buttons.cta.href}
-                  newTab={false}
+                  newTab={buttons.cta.href?.startsWith("http")}
                   variant="secondary"
                 >
                   {buttons.cta.label}
