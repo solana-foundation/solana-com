@@ -94,6 +94,11 @@ export const NavigationAdapter: React.FC<NavigationAdapterProps> = ({
               href: "/learn/introduction-to-defi-on-solana",
               description: t("nav.learn.start.items.defi.description"),
             },
+            {
+              label: t("nav.learn.start.items.universities.title"),
+              href: "/universities",
+              description: t("nav.learn.start.items.universities.description"),
+            },
           ],
         },
       ],
