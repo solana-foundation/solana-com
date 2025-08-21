@@ -73,9 +73,9 @@ export const VIDEOS = (
   },
   {
     id: "wiuwMma79zI",
-    thumbnail: "/src/img/solutions/stablecoins/video3.webp",
-    title: t("stablecoins.videoPlayer.videos.2.title"),
-    description: t("stablecoins.videoPlayer.videos.2.description"),
-    alt: t("stablecoins.videoPlayer.videos.2.alt"),
+    thumbnail: "/src/img/solutions/stablecoins/video4.webp",
+    title: t("stablecoins.videoPlayer.videos.3.title"),
+    description: t("stablecoins.videoPlayer.videos.3.description"),
+    alt: t("stablecoins.videoPlayer.videos.3.alt"),
   },
 ];
