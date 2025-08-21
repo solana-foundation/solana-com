@@ -16,15 +16,15 @@ export class PreWithRef extends React.Component<CustomPreProps> {
     this.ref = getPreRef(this.props);
   }
 
-  render() {
+  override render() {
     return <InnerPre merge={this.props} style={{ position: "relative" }} />;
   }
 
-  getSnapshotBeforeUpdate() {
+  override getSnapshotBeforeUpdate() {
     return getStartingSnapshot(this.ref.current!);
   }
 
-  componentDidUpdate(
+  override componentDidUpdate(
     _prevProps: never,
     _prevState: never,
     snapshot: TokenTransitionsSnapshot,

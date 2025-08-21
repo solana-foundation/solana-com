@@ -6,6 +6,7 @@ import { usePathname } from "@/hooks/useRouter";
 const ThemeContext = createContext({
   theme: "dark",
   toggleTheme: () => {},
+  isThemePage: false,
 });
 
 export const ThemeProvider = ({ children }) => {
