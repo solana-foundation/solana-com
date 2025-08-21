@@ -54,7 +54,7 @@ export const Link = ({
 };
 
 export const InlineLink = ({ to, children, ...props }) => (
-  <a href={to} {...props} target="_blank">
+  <a href={to} {...props} target="_blank" rel="noopener noreferrer">
     {children}
   </a>
 );
