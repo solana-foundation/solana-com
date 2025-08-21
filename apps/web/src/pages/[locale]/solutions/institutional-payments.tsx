@@ -65,7 +65,6 @@ const InstitutionalPaymentsPage = () => {
         <WhatIsIt
           title={t("institutional-payments.features.title")}
           description={t("institutional-payments.features.description")}
-          features={[]}
         />
 
         {/* EcoProjects Section */}
