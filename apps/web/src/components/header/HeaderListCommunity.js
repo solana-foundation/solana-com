@@ -56,6 +56,17 @@ const HeaderListCommunity = () => {
             </strong>
             {communityInvolvedItems[3].description}
           </Link>
+          <Link
+            to="https://www.solanapolicyinstitute.org/"
+            className="nav-link nav-link--secondary"
+            target="_blank"
+            activeClassName="active"
+          >
+            <strong className="d-block text-white">
+              {communityInvolvedItems[4].title}
+            </strong>
+            {communityInvolvedItems[4].description}
+          </Link>
         </div>
       </div>
 
