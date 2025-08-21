@@ -63,7 +63,7 @@ export const VideoGrid = ({
       <h2 className="text-3xl md:text-5xl font-bold text-white text-center mb-4">
         {title}
       </h2>
-      <p className="text-base md:text-lg text-gray-300 text-center max-w-2xl mx-auto mb-0">
+      <p className="text-base md:text-lg text-gray-300 text-center max-w-2xl mx-auto mb-2">
         {subtitle}
       </p>
       {videos.length > 3 ? (

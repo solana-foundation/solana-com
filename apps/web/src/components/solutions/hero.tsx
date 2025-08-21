@@ -46,10 +46,20 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   titleSize = "m",
 }) => {
   // Split title on first period for line break
-  const firstDotIdx = title.indexOf(".");
-  const beforeDot =
-    firstDotIdx !== -1 ? title.slice(0, firstDotIdx + 1) : title;
-  const afterDot = firstDotIdx !== -1 ? title.slice(firstDotIdx + 1) : "";
+  // Render a line break after every period
+  const titleNodes = React.useMemo(
+    () =>
+      title.split(/(\.)/).map((part, idx) =>
+        part === "." ? (
+          <React.Fragment key={idx}>
+            .<br />
+          </React.Fragment>
+        ) : (
+          part
+        ),
+      ),
+    [title],
+  );
 
   if (variant === "modern") {
     return (
@@ -76,9 +86,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 modernTitleSizes[titleSize],
               )}
             >
-              {beforeDot}
-              {afterDot && <br />}
-              {afterDot}
+              {titleNodes}
             </h1>
 
             {globeImgSrc && (
@@ -87,7 +95,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 alt={globeImgAlt}
                 width={650}
                 height={480}
-                className="mt-6 lg:-ml-[20%] max-w-[450px] md:max-w-[650px] w-[65%] md:w-[80%] lg:w-[120%] h-auto "
+                className="mt-6 lg:-ml-[20%] max-w-[450px] md:max-w-[650px] w-[65%] md:w-[80%] lg:w-[120%] h-auto self-center md:self-start"
                 priority
               />
             )}
@@ -104,16 +112,23 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-6 md:gap-8">
-              {stats.map((stat) => (
-                <div key={stat.label} className="text-left">
-                  <div className="text-2xl md:text-4xl lg:text-6xl leading-none font-bold uppercase text-white">
-                    {stat.value}
+              {stats.map((stat, idx) => {
+                const isLastOdd =
+                  stats.length % 2 === 1 && idx === stats.length - 1;
+                return (
+                  <div
+                    key={stat.label}
+                    className={cn("text-left", isLastOdd && "col-start-2")}
+                  >
+                    <div className="text-2xl md:text-4xl lg:text-6xl leading-none font-bold uppercase text-white">
+                      {stat.value}
+                    </div>
+                    <div className="text-xl leading-none text-white/65">
+                      {stat.label}
+                    </div>
                   </div>
-                  <div className="text-xl leading-none text-white/65">
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Download Section */}
@@ -136,7 +151,6 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                         {reportEyebrow}
                       </p>
                     )}
-                    (
                     <Button
                       size="lg"
                       variant="default"
@@ -147,7 +161,6 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                       {emailCta}
                       <ArrowRightIcon aria-hidden="true" className="ml-1" />
                     </Button>
-                    )
                   </div>
                 </div>
               </div>
@@ -185,9 +198,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             defaultTitleSizes[titleSize],
           )}
         >
-          {beforeDot}
-          {afterDot && <br />}
-          {afterDot}
+          {titleNodes}
         </h1>
         <p className="text-[#848895] text-base leading-snug mb-6 max-w-full mx-auto md:text-lg md:mb-8 md:max-w-xl lg:text-xl">
           {subtitle}
