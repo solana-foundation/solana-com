@@ -85,7 +85,7 @@ const InstitutionalPaymentsPage = () => {
         </section>
 
         {/* Performance Section */}
-        <section>
+        <section className="pb-6">
           <Performance
             title={t("institutional-payments.useCases.title")}
             items={USE_CASES}
@@ -94,7 +94,7 @@ const InstitutionalPaymentsPage = () => {
         </section>
 
         {/* Products Section */}
-        <section className="pb-10">
+        <section>
           <Products
             title={t("institutional-payments.products.title")}
             description={t("institutional-payments.products.description")}
