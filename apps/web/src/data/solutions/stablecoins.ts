@@ -3,19 +3,19 @@ import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/solutions/stablecoins/ecosystem/100x100.svg",
+    src: "/src/img/logos-eco/worldpay.svg",
     key: "worldpay",
   },
   {
-    src: "/src/img/solutions/stablecoins/ecosystem/100x100.svg",
+    src: "/src/img/logos-eco/visa.svg",
     key: "visa",
   },
   {
-    src: "/src/img/solutions/stablecoins/ecosystem/100x100.svg",
+    src: "/src/img/logos-eco/fiserv.svg",
     key: "fiserv",
   },
   {
-    src: "/src/img/solutions/stablecoins/ecosystem/100x100.svg",
+    src: "/src/img/logos-eco/paypal.svg",
     key: "paypal",
   },
 ];
