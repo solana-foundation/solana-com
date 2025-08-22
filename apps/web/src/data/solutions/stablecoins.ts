@@ -1,4 +1,4 @@
-import { Blocks, Coins, HandCoins } from "lucide-react";
+import { Blocks, Coins, Fingerprint, Landmark } from "lucide-react";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
@@ -37,12 +37,12 @@ export const PRODUCTS = [
   },
   {
     key: "2",
-    Icon: HandCoins,
+    Icon: Fingerprint,
     color: "text-cyan-400 bg-cyan-900/30",
   },
   {
     key: "3",
-    Icon: HandCoins,
+    Icon: Landmark,
     color: "text-rose-400 bg-rose-900/30",
   },
 ];
