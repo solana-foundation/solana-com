@@ -115,7 +115,7 @@ const InstitutionalPaymentsPage = () => {
         </section>
 
         {/* Card Section */}
-        <section>
+        <section className="pt-6">
           <CTACards onEmailClick={() => setEmailModalOpen(true)} />
         </section>
       </div>
