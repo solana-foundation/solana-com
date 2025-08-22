@@ -52,7 +52,7 @@ const InstitutionalPaymentsPage = () => {
           emailCta={t("stablecoins.hero.emailCta")}
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
-          globeImgSrc="/src/img/solutions/icm/icm-hero.webp"
+          globeImgSrc="/src/img/solutions/stablecoins/hero.webp"
           globeImgAlt={t("stablecoins.hero.alt")}
           variant="modern"
           titleSize="s"
