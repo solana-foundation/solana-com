@@ -68,10 +68,10 @@ const InstitutionalPaymentsPage = () => {
         />
 
         {/* EcoProjects Section */}
-        <section className="pt-6 pb-10">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 [padding-block:1rem] sm:[padding-block:3rem]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full">
+              <h2 className="text-3xl font-bold text-white col-span-full mb-4">
                 {t("institutional-payments.projects.title")}
               </h2>
               <Projects
@@ -85,7 +85,7 @@ const InstitutionalPaymentsPage = () => {
         </section>
 
         {/* Performance Section */}
-        <section className="pb-10">
+        <section>
           <Performance
             title={t("institutional-payments.useCases.title")}
             items={USE_CASES}
@@ -104,7 +104,7 @@ const InstitutionalPaymentsPage = () => {
         </section>
 
         {/* Video Section */}
-        <section className="py-10 bg-[#171c25]">
+        <section className="[padding-block:1rem] sm:[padding-block:3rem] bg-[#171c25]">
           <VideoGrid
             title={t("institutional-payments.videoPlayer.title")}
             subtitle={t("institutional-payments.videoPlayer.subtitle")}

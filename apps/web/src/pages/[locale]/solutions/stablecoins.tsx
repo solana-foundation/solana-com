@@ -16,6 +16,7 @@ import { Products } from "@/components/solutions/products";
 import { VideoGrid } from "@/components/solutions/video-grid";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
+import { CTACards } from "@/components/solutions/stablecoins/CTACards";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -66,10 +67,10 @@ const InstitutionalPaymentsPage = () => {
         />
 
         {/* EcoProjects Section */}
-        <section className="pt-6 pb-10">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 [padding-block:1rem] sm:[padding-block:3rem]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full">
+              <h2 className="text-3xl font-bold text-white col-span-full mb-4">
                 {t("stablecoins.projects.title")}
               </h2>
               <Projects
@@ -83,7 +84,7 @@ const InstitutionalPaymentsPage = () => {
         </section>
 
         {/* Products Section */}
-        <section className="pb-10">
+        <section>
           <Products
             title={t("stablecoins.products.title")}
             description={t("stablecoins.products.description")}
@@ -93,7 +94,7 @@ const InstitutionalPaymentsPage = () => {
         </section>
 
         {/* Video Section */}
-        <section className="py-10 bg-[#171c25]">
+        <section className=" [padding-block:1rem] sm:[padding-block:3rem] bg-[#171c25]">
           <VideoGrid
             title={t("stablecoins.videoPlayer.title")}
             subtitle={t("stablecoins.videoPlayer.subtitle")}
@@ -101,6 +102,11 @@ const InstitutionalPaymentsPage = () => {
             moreVideosUrl={undefined}
             moreVideosLabel={t("stablecoins.videoPlayer.moreVideos")}
           />
+        </section>
+
+        {/* Card Section */}
+        <section>
+          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
         </section>
       </div>
 
