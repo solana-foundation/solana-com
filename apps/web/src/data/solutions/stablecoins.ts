@@ -58,7 +58,7 @@ export const VIDEOS = (
     alt: t("stablecoins.videoPlayer.videos.0.alt"),
   },
   {
-    id: "PEwb6bMawY",
+    id: "-PEwb6bMawY",
     thumbnail: "/src/img/solutions/stablecoins/video2.webp",
     title: t("stablecoins.videoPlayer.videos.1.title"),
     description: t("stablecoins.videoPlayer.videos.1.description"),
