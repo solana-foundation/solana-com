@@ -3,7 +3,7 @@ import { Check } from "lucide-react";
 type WhatIsItProps = {
   title: string;
   description: React.ReactNode;
-  features: string[];
+  features?: string[];
 };
 
 export const WhatIsIt = ({ title, description, features }: WhatIsItProps) => (
@@ -12,14 +12,18 @@ export const WhatIsIt = ({ title, description, features }: WhatIsItProps) => (
       <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 text-center">
         {title}
       </h2>
-      <p className="text-lg text-[#B0B8C1] mb-8 max-w-xl text-center">
+      <p
+        className={`text-lg text-[#B0B8C1] ${!features || features.length === 0 ? "mb-0" : "mb-8"} max-w-xl text-center`}
+      >
         {description}
       </p>
-      <ul className="flex flex-col md:flex-row flex-wrap gap-4 pl-0 justify-center">
-        {features.map((feature) => (
-          <FeatureCheck key={feature} text={feature} />
-        ))}
-      </ul>
+      {features && features.length > 0 && (
+        <ul className="flex flex-col md:flex-row flex-wrap gap-4 pl-0 justify-center">
+          {features.map((feature) => (
+            <FeatureCheck key={feature} text={feature} />
+          ))}
+        </ul>
+      )}
     </div>
   </section>
 );

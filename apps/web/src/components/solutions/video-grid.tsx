@@ -52,9 +52,11 @@ export const VideoGrid = ({
       <h3 className="text-lg md:text-xl font-semibold text-white mt-4">
         {video.title}
       </h3>
-      <p className="text-sm md:text-base text-gray-300 m-0">
-        {video.description}
-      </p>
+      {video.description && (
+        <p className="text-sm md:text-base text-gray-300 m-0">
+          {video.description}
+        </p>
+      )}
     </div>
   ));
 
@@ -63,7 +65,7 @@ export const VideoGrid = ({
       <h2 className="text-3xl md:text-5xl font-bold text-white text-center mb-4">
         {title}
       </h2>
-      <p className="text-base md:text-lg text-gray-300 text-center max-w-2xl mx-auto mb-0">
+      <p className="text-base md:text-lg text-gray-300 text-center max-w-2xl mx-auto mb-2">
         {subtitle}
       </p>
       {videos.length > 3 ? (
