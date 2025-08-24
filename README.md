@@ -31,4 +31,4 @@ Repository for [https://solana.com](https://solana.com) - a Turborepo-powered mo
 ## Maintainers
 
 The solana.com website is managed and maintained by the Solana Foundation. Read
-more on [how to contribute](CONTRIBUTING.md).
+more on [how to contribute](apps/web/CONTRIBUTING.md).
