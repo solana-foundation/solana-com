@@ -9,7 +9,9 @@ export const MarkdownImage = memo(function ({
   React.ImgHTMLAttributes<HTMLImageElement>,
   HTMLImageElement
 >) {
-  src = src.replace(/^(https?:\/\/)?solana.com\//gi, "/");
+  if (typeof src === "string") {
+    src = src.replace(/^(https?:\/\/)?solana.com\//gi, "/");
+  }
 
   return (
     <span className={styles["markdown-renderer-img"]}>

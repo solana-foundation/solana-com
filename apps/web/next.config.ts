@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: true,
   trailingSlash: false,
+  transpilePackages: ["@solana/ui-components", "@solana/tailwind-config"],
 
   async rewrites() {
     return rewritesAndRedirectsJson.rewrites as {
