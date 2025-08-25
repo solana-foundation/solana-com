@@ -1,15 +1,15 @@
 ---
-title: Immutable Owner
-description: Learn how to make a token account immutable.
+title: Default State
+description: Learn how to initialize a token account with a default state.
 ---
 
-## How to make a token account immutable
+## How to initialize a token account with a default state
 
-Token 2022 allows immutable ownership of token account when initialized with the [`ImmutableOwner`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L511) extension. _Immutable Ownership_ in this case refers to initializing the token account with a single owner without the possibility of changing this owner in the future.
+The default state extension is a token account extension that forces a token account to get initialized with a specified token account. For example, the token creator may wish that all token accounts that are initialized are frozen by default. This extension can be enabled using the [`DefaultAccountStateExtension`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L593)
 
 <Callout type="info">
   Only the [Token Extension
-  Program](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L511)
+  Program](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L593)
   has this implementation.
 </Callout>
 
@@ -18,6 +18,17 @@ Token 2022 allows immutable ownership of token account when initialized with the
 <CodeTabs storage="token-ts" flags="r">
 
 ```ts !! title="Kit"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  AccountState,
+  extension,
+  getInitializeAccountInstruction,
+  getInitializeDefaultAccountStateInstruction,
+  getInitializeMintInstruction,
+  getMintSize,
+  getTokenSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+} from "@solana-program/token-2022";
 import {
   airdropFactory,
   appendTransactionMessageInstructions,
@@ -33,16 +44,6 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
 } from "@solana/kit";
-import { getCreateAccountInstruction } from "@solana-program/system";
-import {
-  getInitializeMintInstruction,
-  getMintSize,
-  TOKEN_2022_PROGRAM_ADDRESS,
-  extension,
-  getInitializeImmutableOwnerInstruction,
-  getTokenSize,
-  getInitializeAccountInstruction,
-} from "@solana-program/token-2022";
 
 // Create Connection, local validator in this example
 const rpc = createSolanaRpc("http://localhost:8899");
@@ -61,8 +62,13 @@ await airdropFactory({ rpc, rpcSubscriptions })({
 // Generate keypair to use as address of mint
 const mint = await generateKeyPairSigner();
 
-// Get default mint account size (in bytes), with the immutable owner extension
-const space = BigInt(getMintSize());
+// default account state extension
+const defaultAccountStateExtension = extension("DefaultAccountState", {
+  state: AccountState.Frozen,
+});
+
+// Get default mint account size (in bytes), default account state enabled
+const space = BigInt(getMintSize([defaultAccountStateExtension]));
 
 // Get minimum balance for rent exemption
 const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
@@ -83,11 +89,8 @@ const createMintAccountInstruction = getCreateAccountInstruction({
 // Generate keypair to use as address of token account
 const tokenAccount = await generateKeyPairSigner();
 
-// Immutable owner extension
-const immutableOwnerExtension = extension("ImmutableOwner", {});
-
 // get token account size with extension enabled
-const tokenAccountLen = BigInt(getTokenSize([immutableOwnerExtension]));
+const tokenAccountLen = BigInt(getTokenSize([defaultAccountStateExtension]));
 
 // Get minimum balance for rent exemption
 const tokenAccountRent = await rpc
@@ -111,11 +114,13 @@ const initializeTokenAccountInstruction = getInitializeAccountInstruction({
   owner: authority.address,
 });
 
-// Instruction to initialize the immutable owner extension
-const initializeImmutableOwnerInstruction =
-  getInitializeImmutableOwnerInstruction({
-    account: tokenAccount.address,
-  });
+// Instruction to initialize account with default account state (frozen)
+let initializeDefaultAccountState = getInitializeDefaultAccountStateInstruction(
+  {
+    mint: mint.address,
+    state: AccountState.Frozen,
+  },
+);
 
 // Instruction to initialize mint account data
 // Invokes the token22 program
@@ -123,13 +128,14 @@ const initializeMintInstruction = getInitializeMintInstruction({
   mint: mint.address,
   decimals: 9,
   mintAuthority: authority.address,
+  freezeAuthority: authority.address,
 });
 
 const instructions = [
   createMintAccountInstruction,
+  initializeDefaultAccountState,
   initializeMintInstruction,
   createTokenAccountInstruction,
-  initializeImmutableOwnerInstruction,
   initializeTokenAccountInstruction,
 ];
 
@@ -155,6 +161,7 @@ await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
 const transactionSignature = getSignatureFromTransaction(signedTransaction);
 
 console.log("Mint Address:", mint.address.toString());
+console.log("Frozen token account:", tokenAccount.address.toString());
 console.log("Transaction Signature:", transactionSignature);
 ```
 
@@ -175,12 +182,10 @@ import {
   getMintLen,
   TOKEN_2022_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddressSync,
-  createAssociatedTokenAccountInstruction,
-  createMintToInstruction,
   getAccountLen,
   createInitializeAccountInstruction,
-  createInitializeImmutableOwnerInstruction,
+  createInitializeDefaultAccountStateInstruction,
+  AccountState,
 } from "@solana/spl-token";
 
 // Create connection to local validator
@@ -201,11 +206,14 @@ await connection.confirmTransaction({
   signature: airdropSignature,
 });
 
+// Default account sate extension
+const extensions = [ExtensionType.DefaultAccountState];
+
 // Generate keypair to use as address of mint
 const mint = Keypair.generate();
 
 // get mint length (no extensions for mint in this example)
-const mintLength = getMintLen([]);
+const mintLength = getMintLen(extensions);
 
 // Get minimum balance for rent exemption
 const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
@@ -228,41 +236,8 @@ const initializeMintInstruction = createInitializeMintInstruction(
   TOKEN_2022_PROGRAM_ID,
 );
 
-// Get the associated token account address
-const associatedTokenAccount = getAssociatedTokenAddressSync(
-  mint.publicKey, // mint pubkey
-  feePayer.publicKey, // authority
-  false, // allowOwnerOffCurve
-  TOKEN_2022_PROGRAM_ID, // token program
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-);
-
-// Create associated token account instruction
-const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey, // payer
-  associatedTokenAccount, // associated token account
-  feePayer.publicKey, // owner
-  mint.publicKey, // mint
-  TOKEN_2022_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-);
-
-// Create mint-to instruction (mint 1000 tokens = 1000.0 with 9 decimals)
-const mintAmount = 1000_000_000_000;
-const mintToInstruction = createMintToInstruction(
-  mint.publicKey,
-  associatedTokenAccount,
-  feePayer.publicKey,
-  mintAmount,
-  [],
-  TOKEN_2022_PROGRAM_ID,
-);
-
-// Generate keypair to use as token account with Immutable Owner extension
+// Generate keypair to use as token account
 const tokenAccount = new Keypair();
-
-// Add Immutable Owner extension to the token account
-const extensions = [ExtensionType.ImmutableOwner];
 
 // Get token account size with extension enabled
 const tokenAccountLen = getAccountLen(extensions);
@@ -280,10 +255,11 @@ const createTokenAccountInstruction = SystemProgram.createAccount({
   programId: TOKEN_2022_PROGRAM_ID,
 });
 
-// Initialize the Immutable Owner extension
-const initializeImmutableOwnerInstruction =
-  createInitializeImmutableOwnerInstruction(
-    tokenAccount.publicKey,
+// Initialize the default account state extension
+const initializeDefaultStateInstruction =
+  createInitializeDefaultAccountStateInstruction(
+    mint.publicKey,
+    AccountState.Frozen,
     TOKEN_2022_PROGRAM_ID,
   );
 
@@ -296,18 +272,16 @@ const initializeTokenAccountInstruction = createInitializeAccountInstruction(
 );
 
 // Construct transaction to create mint, ATA, mint tokens, create token account,
-// and initialize with Immutable Owner extension
+// and initialize with default account state extension
 const transaction = new Transaction({
   feePayer: feePayer.publicKey,
   blockhash: latestBlockhash.blockhash,
   lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
 }).add(
   createMintAccountInstruction,
+  initializeDefaultStateInstruction,
   initializeMintInstruction,
-  createAssociatedTokenAccountIx,
-  mintToInstruction,
   createTokenAccountInstruction,
-  initializeImmutableOwnerInstruction,
   initializeTokenAccountInstruction,
 );
 
@@ -319,10 +293,7 @@ const transactionSignature = await sendAndConfirmTransaction(
 );
 
 console.log("Mint Address:", mint.publicKey.toBase58());
-console.log(
-  "Token Account (Immutable Owner):",
-  tokenAccount.publicKey.toBase58(),
-);
+console.log("Token Account (frozen state):", tokenAccount.publicKey.toBase58());
 console.log("Transaction Signature:", transactionSignature);
 ```
 
@@ -345,8 +316,10 @@ use solana_sdk::{
 
 use spl_token_2022::{
   ID as TOKEN_2022_PROGRAM_ID,
-  extension::ExtensionType,
-  instruction::{initialize_account, initialize_immutable_owner, initialize_mint},
+  extension::{
+    ExtensionType, default_account_state::instruction::initialize_default_account_state,
+  },
+  instruction::{initialize_account, initialize_mint},
   state::{Account, Mint},
 };
 
@@ -378,8 +351,10 @@ async fn main() -> Result<()> {
   // Generate keypair to use as address of mint
   let mint = Keypair::new();
 
-  // Get default mint account size (in bytes), no extensions enabled
-  let mint_space = Mint::LEN;
+  // Get default mint account size (in bytes),
+  let mint_space =
+    ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::DefaultAccountState])?;
+
   let mint_rent = client
     .get_minimum_balance_for_rent_exemption(mint_space)
     .await?;
@@ -406,9 +381,7 @@ async fn main() -> Result<()> {
   let token_account = Keypair::new();
 
   // Get default token account size (in bytes),
-  //  immutable owner extension enabled
-  let token_account_space =
-    ExtensionType::try_calculate_account_len::<Account>(&[ExtensionType::ImmutableOwner])?;
+  let token_account_space = Account::LEN;
 
   let token_account_rent = client
     .get_minimum_balance_for_rent_exemption(token_account_space)
@@ -431,16 +404,20 @@ async fn main() -> Result<()> {
     &fee_payer.pubkey(),     // authority
   )?;
 
-  let init_immutable_owner_instruction =
-    initialize_immutable_owner(&TOKEN_2022_PROGRAM_ID, &token_account.pubkey())?;
+  // initialize default token account state instruction
+  let initialize_default_account_state_instruction = initialize_default_account_state(
+    &TOKEN_2022_PROGRAM_ID,
+    &mint.pubkey(),
+    &spl_token_2022::state::AccountState::Frozen,
+  )?;
 
   // Construct transaction with previous instructions
   let transaction = Transaction::new_signed_with_payer(
     &[
       create_mint_account_instruction,
+      initialize_default_account_state_instruction,
       initialize_mint_instruction,
       create_token_account_instruction,
-      init_immutable_owner_instruction,
       initialize_token_account,
     ],
     Some(&fee_payer.pubkey()),
@@ -453,11 +430,11 @@ async fn main() -> Result<()> {
 
   println!("Mint Address: {}", mint.pubkey());
   println!(
-    "token account with immutable owner enabled: {}",
+    "token account with default state(frozen) extension: {}",
     token_account.pubkey()
   );
 
-  println!("\nSuccessfully enabled immutable owner extension on token account");
+  println!("\nSuccessfully enabled the default sate extension on new token accounts");
   println!("Transaction Signature: {}", transaction_signature);
 
   Ok(())
@@ -471,7 +448,7 @@ use solana_sdk::{
   commitment_config::CommitmentConfig,
   signature::{Keypair, Signer},
 };
-use spl_token_2022::{ID as TOKEN_2022_PROGRAM_ID, extension::ExtensionType};
+use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use spl_token_client::{
   client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
   token::{ExtensionInitializationParams, Token},
@@ -489,9 +466,9 @@ async fn main() -> Result<()> {
   // Generate a new keypair for the fee payer
   let payer = Keypair::new();
 
-  // Airdrop 1 SOL to fee payer
+  // Airdrop 5 SOL to fee payer
   let airdrop_signature = rpc_client
-    .request_airdrop(&payer.pubkey(), 1_000_000_000)
+    .request_airdrop(&payer.pubkey(), 5_000_000_000)
     .await?;
   rpc_client.confirm_transaction(&airdrop_signature).await?;
 
@@ -526,36 +503,32 @@ async fn main() -> Result<()> {
     Arc::new(payer.insecure_clone()),
   );
 
-  // Create and initialize the mint
-  let extension_initialization_params: Vec<ExtensionInitializationParams> = Vec::new();
+  // declare the DefaultAccountState extension that will be initialized together with the mint
+  let extension_initialization_params: Vec<ExtensionInitializationParams> =
+    vec![ExtensionInitializationParams::DefaultAccountState {
+      state: spl_token_2022::state::AccountState::Frozen,
+    }];
 
   let mint_result = token
     .create_mint(
       &payer.pubkey(),                 // mint authority
       Some(&payer.pubkey()),           // freeze authority
-      extension_initialization_params, // no extensions
+      extension_initialization_params, // DefaultAccountState extension
       &[&mint],                        // mint keypair needed as signer
     )
     .await?;
 
   println!("Mint Address: {}", mint.pubkey());
-  println!("Create Mint Account {}", mint_result);
+  println!("Created Mint Account: {}", mint_result);
 
-  // create token account with immutable owner extension
+  // create token account with default account state(frozen) extension
   let token_account = Keypair::new();
   let token_creation_result = token
-    .create_auxiliary_token_account_with_extension_space(
-      &token_account,
-      &payer.pubkey(),
-      vec![ExtensionType::ImmutableOwner],
-    )
+    .create_auxiliary_token_account(&token_account, &payer.pubkey())
     .await?;
 
-  println!(
-    "Token account with immutable owner extension enabled {}",
-    token_account.pubkey()
-  );
-  println!("Transaction {}", token_creation_result);
+  println!("Successfully created token account with default account state(frozen) extension");
+  println!("Transaction Signature: {}", token_creation_result);
 
   Ok(())
 }
