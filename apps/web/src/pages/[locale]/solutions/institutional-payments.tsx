@@ -124,7 +124,7 @@ const InstitutionalPaymentsPage = () => {
       <EmailModal
         isOpen={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}
-        formUrl="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=Institutional"
+        formUrl="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=payments"
       />
     </Layout>
   );
