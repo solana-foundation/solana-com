@@ -6,6 +6,7 @@ export type PerformanceItem = {
   Icon: ComponentType<{
     size?: string | number;
     "aria-hidden"?: boolean | "true" | "false";
+    strokeWidth?: number;
   }>;
   color: string;
 };
@@ -42,7 +43,7 @@ export const Performance = ({
                   className={`bg-current p-4 flex items-center justify-center h-full`}
                 >
                   <div className={`p-2 rounded-full ${color}`}>
-                    <Icon size={56} aria-hidden={true} />
+                    <Icon size={56} aria-hidden={true} strokeWidth={2.5} />
                   </div>
                 </div>
               </li>
@@ -61,7 +62,7 @@ export const Performance = ({
                 <div
                   className={`w-12 shrink-0 flex justify-center pt-2.5 ${color}`}
                 >
-                  <Icon size={36} aria-hidden={true} />
+                  <Icon size={36} aria-hidden={true} strokeWidth={1} />
                 </div>
                 <div className="bg-[#212B3E] py-4 pl-2 pr-4 grow">
                   <div className="flex items-center gap-1">
