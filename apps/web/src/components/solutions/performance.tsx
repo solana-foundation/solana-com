@@ -1,11 +1,11 @@
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 export type PerformanceItem = {
   key?: string;
-  Icon: React.ComponentType<{
-    size?: number;
-    "aria-hidden"?: boolean;
+  Icon: ComponentType<{
+    size?: string | number;
+    "aria-hidden"?: boolean | "true" | "false";
     strokeWidth?: number;
   }>;
   color: string;
@@ -62,7 +62,7 @@ export const Performance = ({
                 <div
                   className={`w-12 shrink-0 flex justify-center pt-2.5 ${color}`}
                 >
-                  <Icon size={36} aria-hidden={true} strokeWidth={1} />
+                  <Icon size={32} aria-hidden={true} strokeWidth={1} />
                 </div>
                 <div className="bg-[#212B3E] py-4 pl-2 pr-4 grow">
                   <div className="flex items-center gap-1">
