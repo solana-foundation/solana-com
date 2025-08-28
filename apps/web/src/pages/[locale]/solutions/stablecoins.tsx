@@ -5,11 +5,11 @@ import { withLocales } from "@/i18n/routing";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
 import { useState } from "react";
 import { WhatIsIt } from "@/components/solutions/what-is-it";
-import { Projects } from "@/components/solutions/projects";
+// import { Projects } from "@/components/solutions/projects";
 import {
-  LOGOS,
+  // LOGOS,
   PRODUCTS,
-  PROJECTS,
+  // PROJECTS,
   VIDEOS,
 } from "@/data/solutions/stablecoins";
 import { Products } from "@/components/solutions/products";
