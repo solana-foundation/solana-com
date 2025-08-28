@@ -12,10 +12,12 @@ interface UniversitiesCTASectionProps {
     description: string;
     ctaLabel: string;
   };
+  ctaUrl?: string;
 }
 
 export default function UniversitiesCTASection({
   translations,
+  ctaUrl,
 }: UniversitiesCTASectionProps) {
   return (
     <section className="[padding-block:1rem] sm:[padding-block:3rem] relative overflow-hidden">
@@ -39,10 +41,10 @@ export default function UniversitiesCTASection({
 
           {/* @ts-ignore */}
           <Button
-            to={UNIVERSITY_TYPEFORM_URL}
+            to={ctaUrl || UNIVERSITY_TYPEFORM_URL}
             variant="secondary"
             size="large"
-            newTab
+            newTab={!ctaUrl}
           >
             {translations.ctaLabel}
           </Button>
