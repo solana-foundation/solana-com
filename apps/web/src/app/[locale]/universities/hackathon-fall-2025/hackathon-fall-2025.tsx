@@ -8,7 +8,7 @@ import HackathonRequirements from "@/components/universities/HackathonRequiremen
 import HackathonPrizes from "@/components/universities/HackathonPrizes";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
-import hackathonHeroImg from "@@/assets/universities/universities-hero.webp";
+import hackathonHeroImg from "@@/assets/universities/hackathon-hero.webp";
 import { Book } from "react-feather";
 
 interface HackathonFall2025PageProps {
