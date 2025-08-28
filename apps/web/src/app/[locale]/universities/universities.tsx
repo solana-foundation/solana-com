@@ -96,6 +96,7 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
           description: translations.ctaDescription,
           ctaLabel: translations.ctaLabel,
         }}
+        ctaUrl="/universities/hackathon-fall-2025"
       />
 
       <UniversitiesSubjectsSection
