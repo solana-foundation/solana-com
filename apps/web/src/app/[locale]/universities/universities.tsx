@@ -49,6 +49,10 @@ interface UniversitiesPageProps {
         description: string;
       };
     };
+    hackathonCtaEyebrowText: string;
+    hackathonCtaTitle: string;
+    hackathonCtaDescription: string;
+    hackathonCtaLabel: string;
     inquiryEyebrowText: string;
     inquiryTitle: string;
     inquiryDescription: string;
@@ -92,6 +96,7 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
           description: translations.ctaDescription,
           ctaLabel: translations.ctaLabel,
         }}
+        ctaUrl="/universities/hackathon-fall-2025"
       />
 
       <UniversitiesSubjectsSection
@@ -104,14 +109,14 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
         }}
       />
 
-      <UniversitiesInquiryForm
+      <UniversitiesCTASection
         translations={{
-          eyebrowText: translations.inquiryEyebrowText,
-          title: translations.inquiryTitle,
-          description: translations.inquiryDescription,
-          emailPlaceholder: translations.inquiryEmailPlaceholder,
-          submitButton: translations.inquirySubmitButton,
+          eyebrowText: translations.hackathonCtaEyebrowText,
+          title: translations.hackathonCtaTitle,
+          description: translations.hackathonCtaDescription,
+          ctaLabel: translations.hackathonCtaLabel,
         }}
+        ctaUrl="/universities/hackathon-fall-2025"
       />
 
       <UniversityEventsGrid />

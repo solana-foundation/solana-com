@@ -35,7 +35,7 @@ const HeroSection = ({
               {buttons?.secondary && (
                 <Button
                   to={buttons.secondary.href}
-                  newTab
+                  newTab={buttons.secondary.href?.startsWith("http")}
                   className={styles["content__btn-icon"]}
                 >
                   <span>{buttons.secondary.label}</span>

@@ -3,22 +3,21 @@
 import React from "react";
 import Button from "@/components/shared/Button";
 import GradientOrbs, { orbPresets } from "./GradientOrbs";
-import { UNIVERSITY_TYPEFORM_URL } from "@/constants/universities";
 
-interface UniversitiesCTASectionProps {
+interface HackathonCTASectionProps {
   translations: {
     eyebrowText: string;
     title: string;
     description: string;
     ctaLabel: string;
   };
-  ctaUrl?: string;
+  ctaUrl: string;
 }
 
-export default function UniversitiesCTASection({
+export default function HackathonCTASection({
   translations,
   ctaUrl,
-}: UniversitiesCTASectionProps) {
+}: HackathonCTASectionProps) {
   return (
     <section className="[padding-block:1rem] sm:[padding-block:3rem] relative overflow-hidden">
       <GradientOrbs orbs={[orbPresets.topLeftGreen]} />
@@ -40,12 +39,7 @@ export default function UniversitiesCTASection({
           </p>
 
           {/* @ts-ignore */}
-          <Button
-            to={ctaUrl || UNIVERSITY_TYPEFORM_URL}
-            variant="secondary"
-            size="large"
-            newTab={!ctaUrl}
-          >
+          <Button to={ctaUrl} variant="secondary" size="large" newTab>
             {translations.ctaLabel}
           </Button>
         </div>
