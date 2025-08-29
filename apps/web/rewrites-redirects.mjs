@@ -865,5 +865,9 @@ export default {
       source: "/docs/programs/faq",
       destination: "https://solana.stackexchange.com",
     },
+    {
+      source: "/news/blog-solana-bench",
+      destination: "/news/solana-bench",
+    },
   ],
 };
