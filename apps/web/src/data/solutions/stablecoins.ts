@@ -3,8 +3,8 @@ import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/logos-eco/worldpay.svg",
-    key: "worldpay",
+    src: "/src/img/logos-eco/paxos.svg",
+    key: "paxos",
   },
   {
     src: "/src/img/logos-eco/circle.svg",
