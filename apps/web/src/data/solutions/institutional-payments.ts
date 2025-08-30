@@ -48,6 +48,7 @@ export const PRODUCTS = [
     key: "2",
     Icon: HandCoins,
     color: "text-cyan-400 bg-cyan-900/30",
+    href: "/solutions/stablecoins",
   },
   {
     key: "3",
