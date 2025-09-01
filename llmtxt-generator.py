@@ -9,9 +9,10 @@ import json
 from collections import defaultdict
 
 # Base directory to scan
-BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'content')
+REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.join(REPO_ROOT, 'apps', 'web', 'content')
 # Output file path
-OUTPUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public', 'llms.txt')
+OUTPUT_FILE = os.path.join(REPO_ROOT, 'apps', 'web', 'public', 'llms.txt')
 
 def extract_frontmatter(file_path):
     """Extract title and description from frontmatter in .mdx files"""
@@ -191,6 +192,7 @@ def main():
     
     llms_content = generate_llms_txt(sections)
     
+    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         f.write(llms_content)
     
