@@ -89,7 +89,7 @@ export const News = ({ items }: NewsProps) => {
 
   const col1 = items.slice(0, 1);
   const col2 = items.slice(1, 4);
-  const col3 = items.slice(4, 6);
+  const col3 = items.slice(4, 7);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">

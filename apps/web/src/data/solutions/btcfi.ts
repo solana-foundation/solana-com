@@ -242,4 +242,11 @@ export const LATEST_NEWS = (
     alt: t("btcfi.news.items.5.alt"),
     link: "https://x.com/yalaorg/status/1929192719408071081",
   },
+  {
+    id: "6",
+    title: "Yield-bearing Bitcoin, now available natively on Solana.",
+    image: "/src/img/solutions/btcfi/news7.webp",
+    alt: "Yield-bearing Bitcoin, now available natively on Solana.",
+    link: "https://x.com/Lombard_Finance/status/1961067315958788176",
+  },
 ];
