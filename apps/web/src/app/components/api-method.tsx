@@ -63,7 +63,11 @@ const MethodSchema = Block.extend({
 });
 
 export function APIMethod(props: unknown) {
-  const method = parseProps(props, MethodSchema);
+  const method = parseProps(props, MethodSchema) as {
+    params?: { blocks: ParamBlock[] };
+    request: RawCode[];
+    result: { response: RawCode; title: string }[];
+  };
   const paramsSection = <ParamsSection params={method.params?.blocks} />;
   const resultHeader = (
     <div className="flex items-center gap-2">

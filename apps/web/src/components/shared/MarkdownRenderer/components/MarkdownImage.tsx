@@ -8,7 +8,7 @@ export const MarkdownImage = memo(function ({
 }: React.DetailedHTMLProps<
   React.ImgHTMLAttributes<HTMLImageElement>,
   HTMLImageElement
->) {
+> & { src: string }) {
   src = src.replace(/^(https?:\/\/)?solana.com\//gi, "/");
 
   return (
