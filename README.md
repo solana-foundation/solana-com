@@ -10,22 +10,22 @@ Repository for [https://solana.com](https://solana.com) - a Turborepo-powered mo
    git clone https://github.com/solana-foundation/solana-com.git
    ```
 
-2. Install the dependencies via `yarn` (from root):
+2. Install the dependencies via `pnpm` (from root):
 
    ```
-   yarn install
+   pnpm install
    ```
 
 3. Run the project locally (uses Turbo to run `dev` in `apps/web/`):
 
    ```
-   yarn dev
+   pnpm dev
    ```
 
    Or, to run directly in the app folder:
    ```
    cd apps/web
-   yarn dev
+   pnpm dev
    ```
 
 ## Maintainers
