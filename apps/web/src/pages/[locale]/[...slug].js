@@ -7,6 +7,7 @@ import { PAGE_BUILDER_CONFIG } from "@/lib/builder/page/constants";
 import { getPage, getAllPagesWithSlug } from "@/lib/builder/page/api";
 import ModalLauncher from "@/components/ModalLauncher/ModalLauncher";
 import { slugWithLocales, usePathname } from "@/i18n/routing";
+import { locales } from "@/i18n/config";
 
 builder.init(PAGE_BUILDER_CONFIG.apiKey);
 builder.apiVersion = "v3";
@@ -82,7 +83,7 @@ export async function getStaticProps({ params }) {
     const isDefaultLocale = locale === "en";
     const builderLocale = isDefaultLocale ? "Default" : locale;
 
-    if (!slug) {
+    if (!locales.includes(locale) || !slug) {
       return { notFound: true };
     }
 
