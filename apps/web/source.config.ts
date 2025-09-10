@@ -73,6 +73,6 @@ export default defineConfig({
     recmaPlugins: [[recmaCodeHike, chConfig]],
     remarkPlugins: (v) => [[remarkCodeHike, chConfig], ...v],
     // remove fumadocs rehype plugins
-    rehypePlugins: (v) => [],
+    rehypePlugins: () => [],
   },
 });
