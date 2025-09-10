@@ -67,16 +67,7 @@ export function DocsPage(props: {
 }
 
 function getHref(path: string) {
-  // we need to map files with locales
-  // /intro/foo.mdx -> /en/intro/foo.mdx
-  // /intro/foo.es.mdx -> /es/intro/foo.mdx
-
-  const fileName = path.split(/[/\\]/).pop();
-  const splits = fileName?.split(".");
-  const locale = splits?.length > 2 ? splits[splits.length - 2] : "en";
-  const pathWithoutLocale = path.replace(`.${locale}.`, ".");
-
-  return `https://github.com/solana-foundation/solana-com/blob/main/apps/web/content/docs/${locale}/${pathWithoutLocale.startsWith("/") ? pathWithoutLocale.slice(1) : pathWithoutLocale}`;
+  return `https://github.com/solana-foundation/solana-com/blob/main/apps/web/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
 }
 
 function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
