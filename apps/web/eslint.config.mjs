@@ -16,7 +16,9 @@ const compat = new FlatCompat({
 export default defineConfig([
   globalIgnores(["**/.next","**/.source", "**/public", "**/packages", "**/coverage"]),
   {
-    extends: compat.extends("next/core-web-vitals"),
+    extends: compat.config({
+      extends: ["next/core-web-vitals", "prettier"]
+    }),
     languageOptions: {
       globals: {
         ...globals.browser,
