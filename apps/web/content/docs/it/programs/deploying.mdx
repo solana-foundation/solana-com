@@ -1,486 +1,469 @@
 ---
 title: Distribuzione dei programmi
 description:
-  Caricamento di programmi personalizzati sulla blockchain Solana utilizzando la
-  CLI di Solana.
+  Guida completa per costruire, distribuire e gestire programmi Solana
+  utilizzando la CLI di Solana.
 ---
 
-Questa guida presuppone la conoscenza dei seguenti argomenti:
+Questa sezione illustra il processo base di distribuzione di un programma Solana
+utilizzando la CLI di Solana.
 
-- [Modello di account Solana](/core/accounts)
-- [Programmi Solana in generale](/core/programs)
-- [Sviluppo di programmi Solana personalizzati](/programs/rust/)
+## Riferimento comandi CLI
 
-## Loader-v3 e Loader-v4
+| Attività                              | Comando                                                                                       |
+| ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Compilare il programma                | `cargo build-sbf`                                                                             |
+| Distribuire un nuovo programma        | `solana program deploy <path_to_program.so>`                                                  |
+| Aggiornare un programma esistente     | `solana program deploy <path_to_program.so>` (uguale alla distribuzione)                      |
+| Mostrare info del programma           | `solana program show <program-id>`                                                            |
+| Trasferire autorità del programma     | `solana program set-upgrade-authority <program-id> --new-upgrade-authority <path_to_keypair>` |
+| Rendere il programma immutabile       | `solana program set-upgrade-authority <program-id> --final`                                   |
+| Chiudere il programma                 | `solana program close <program-id> --bypass-warning`                                          |
+| Controllare il saldo del wallet       | `solana balance`                                                                              |
+| Richiedere airdrop (devnet/localhost) | `solana airdrop 2`                                                                            |
 
-Attualmente è in corso una transizione dal loader-v3 (sottocomando program) al
-loader-v4 (sottocomando program **-v4**) poiché il loader-v3 è in fase di
-deprecazione.
+## Concetti chiave
 
-Per nuove distribuzioni, utilizzare `solana program-v4 deploy` invece di
-`solana program deploy`.
+Prima di iniziare, chiariamo alcuni termini:
 
-Per migrare un programma esistente (che essenzialmente significa
-ridistribuirlo):
+- **Program ID**: L'indirizzo on-chain del tuo programma. Gli utenti
+  interagiscono con il tuo programma facendo riferimento al Program ID.
+- **Program Account**: L'account on-chain che memorizza i metadati del tuo
+  programma. L'indirizzo del program account è il Program ID. Il program account
+  memorizza anche l'indirizzo del ProgramData Account.
+- **ProgramData Account**: L'account on-chain che memorizza il codice eseguibile
+  del tuo programma distribuito.
+- **Program Authority**: L'account che ha il permesso di aggiornare o chiudere
+  il programma. Per impostazione predefinita, questo è il tuo wallet CLI.
 
-```shell
-solana program migrate ./target/deploy/your_program-keypair.json
+## Prerequisiti
+
+<Steps>
+
+<Step>
+
+### Installare la CLI di Solana
+
+Prima, [installa la CLI di Solana](/docs/intro/installation).
+
+</Step>
+
+<Step>
+
+### Configurare il wallet
+
+Dopo l'installazione, crea un wallet con keypair locale. L'indirizzo di questo
+wallet viene impostato come autorità predefinita del programma durante la
+distribuzione dei programmi:
+
+```terminal
+$ solana-keygen new
 ```
 
-## Preparazione
+Questo crea un keypair in `~/.config/solana/id.json` per impostazione
+predefinita.
 
-Innanzitutto, il programma deve essere compilato (compilato, collegato,
-semplificato).
+</Step>
 
-```shell
-cargo +solana build --target sbpf-solana-solana --release
+<Step>
+
+### Configurazione del cluster
+
+Scegli su quale cluster Solana effettuare il deployment. Usa il comando
+`solana config get` per verificare la tua configurazione attuale:
+
+```terminal
+$ solana config get
+Config File: ~/.config/solana/cli/config.yml
+RPC URL: http://localhost:8899
+WebSocket URL: ws://localhost:8900/ (computed)
+Keypair Path: ~/.config/solana/id.json
+Commitment: confirmed
 ```
 
-Questo passaggio deve essere eseguito prima di ogni
-ridistribuzione/distribuzione.
+Passa da un cluster all'altro secondo necessità:
 
-Verifica che siano disponibili fondi sufficienti nell'account pagatore
-predefinito proporzionalmente alla dimensione dell'eseguibile:
-
-```shell
-du -h ./target/deploy/your_program.so
-solana balance
+```terminal
+$ solana config set --url mainnet-beta
+$ solana config set --url devnet
+$ solana config set --url localhost
+$ solana config set --url testnet
+$ solana config set --url "https://your-rpc-url.com"
 ```
 
-Inoltre, ogni programma ha un account programma e un ID programma, che è
-l'indirizzo di quell'account programma. Il seguente comando genera un keypair
-per l'account del programma:
+</Step>
 
-```shell
-solana-keygen new -o ./target/deploy/your_program-keypair.json
+<Step>
+
+### Finanzia il wallet
+
+Avrai bisogno di SOL per pagare i deployment dei programmi. La quantità dipende
+dalla dimensione del tuo programma.
+
+Per devnet o localhost, finanzia il tuo wallet usando il comando
+`solana airdrop`:
+
+```terminal
+$ solana airdrop 2
+Requesting airdrop of 2 SOL
+Signature: 5zQKxvRdgJDA8fRGPdKfGxRLnLpwmNnMXGYxfBqFSUPqc5BTmFPrTG8vnC4HvKDVY8zQ8aQxZxcEE7WFpGhZGVAA
+2 SOL
 ```
 
-Questo deve essere eseguito solo una volta per programma e verrà riutilizzato
-per ridistribuzioni successive dello stesso programma.
+Controlla il saldo del tuo wallet:
 
-La toolchain conteneva una scorciatoia, che tuttavia è in fase di eliminazione/
-deprecazione:
-
-```shell
-cargo-build-sbf
+```terminal
+$ solana balance
+2 SOL
 ```
 
-## Distribuzione iniziale
+</Step>
 
-Ora l'eseguibile può essere caricato sull'account del programma:
+</Steps>
 
-### Loader-v3
+## Operazioni di base
 
-Il parametro si chiama `program-id` anche se si aspetta il percorso del file di
-una keypair:
+### Compilazione del programma
 
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+Per compilare un programma, usa il comando `cargo build-sbf`:
+
+```terminal
+$ cargo build-sbf
 ```
 
-### Loader-v4
+<ScrollyCoding>
 
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
-```
+## !!steps Programma di esempio
 
-## Ridistribuzione
-
-Caricare un eseguibile diverso nello stesso account del programma lo
-sovrascriverà/sostituirà. Tuttavia, per le ridistribuzioni, è necessario solo
-l'ID del programma (pubkey della keypair del programma), non l'intera keypair,
-perché il firmatario è la keypair dell'autorità di aggiornamento.
-
-### Loader-v3
-
-Questo è esattamente lo stesso della distribuzione iniziale:
-
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
-```
-
-Se il vecchio eseguibile era più corto di quello nuovo, potrebbe essere
-necessario aumentare prima le dimensioni dell'account programdata:
-
-```shell
-solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
-```
-
-### Loader-v4
-
-Nota che la distribuzione iniziale ha utilizzato `program-keypair`, mentre la
-ridistribuzione utilizza `program-id` invece:
-
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
-```
-
-## Dare priorità a un caricamento
-
-Durante i periodi di congestione, ci sono alcuni flag aggiuntivi che puoi
-utilizzare per facilitare la distribuzione del programma:
-
-- `--with-compute-unit-price`: imposta il prezzo dell'unità di calcolo per la
-  transazione, in incrementi di 0,000001 lamport (micro-lamport) per unità di
-  calcolo. Utilizza la
-  [Priority Fee API di Helius](https://docs.helius.dev/guides/priority-fee-api)
-  per ottenere una stima della commissione prioritaria da impostare.
-- `--use-rpc`: invia le transazioni di scrittura all'RPC configurato invece che
-  ai TPU del validator. Questo flag richiede una connessione RPC
-  [ponderata in base allo stake](/developers/guides/advanced/stake-weighted-qos)
-  come [Helius](https://www.helius.dev/) o [Triton](https://triton.one/). Questo
-  flag può anche essere configurato come predefinito usando:
-  `solana config set --url <RPC_URL>`.
-- `--max-sign-attempts`: numero massimo di tentativi di firmare o rifirmare le
-  transazioni dopo la scadenza del blockhash. Se alcune transazioni inviate
-  durante la distribuzione del programma sono ancora non confermate dopo la
-  scadenza del blockhash recente inizialmente scelto, queste transazioni
-  verranno rifirmate con un nuovo blockhash recente e reinviate. Usa questa
-  impostazione per regolare il numero massimo di iterazioni di firma della
-  transazione. Ogni blockhash è valido per circa 60 secondi, il che significa
-  che utilizzando il valore predefinito di 5 si invieranno transazioni per
-  almeno 5 minuti o fino a quando tutte le transazioni non saranno confermate, a
-  seconda di quale condizione si verifichi per prima.
-
-## Ripresa di un caricamento
-
-È possibile che un caricamento si blocchi o venga interrotto.
-
-### Loader-v3
-
-Se la distribuzione del programma fallisce, ci sarà un account buffer intermedio
-in sospeso che contiene un saldo diverso da zero. Per recuperare quel saldo puoi
-riprendere una distribuzione fallita fornendo lo stesso buffer intermedio a una
-nuova chiamata a `deploy`.
-
-I fallimenti di distribuzione stamperanno un messaggio di errore che specifica
-la seed phrase necessaria per recuperare il keypair del buffer intermedio
-generato:
-
-```
-==================================================================================
-Recover the intermediate account's ephemeral keypair file with
-`solana-keygen recover` and the following 12-word seed phrase:
-==================================================================================
-valley flat great hockey share token excess clever benefit traffic avocado athlete
-==================================================================================
-To resume a deploy, pass the recovered keypair as
-the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
-Or to recover the account's lamports, pass it as the
-[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
-==================================================================================
-```
-
-Per recuperare il keypair:
-
-```shell
-solana-keygen recover -o ./target/deploy/buffer-keypair.json
-```
-
-Quando richiesto, inserisci la seed phrase di 12 parole.
-
-Quindi emetti un nuovo comando `deploy` e specifica il buffer:
-
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
-```
-
-### Loader-v4
-
-È possibile riprendere un caricamento da un offset di byte specifico:
-
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
-```
-
-## Finalizzazione
-
-Questa è un'azione **irreversibile**.
-
-Un programma può essere reso immutabile rimuovendo la sua autorità di
-aggiornamento.
-
-### Loader-v3
-
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
-```
-
-### Loader-v4
-
-```shell
-solana program finalize --program-id ./target/deploy/your_program-keypair.json
-```
-
-Invece di sovrascrivere i programmi, è anche possibile offrire agli utenti la
-scelta di quale versione di un programma vogliono utilizzare costruendo una
-lista collegata di programmi finalizzati:
-
-```shell
-solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
-```
-
-## Chiusura
-
-Per i programmi distribuiti con loader-v3, solo il loro programdata account, gli
-account buffer e i fondi bloccati in questi possono essere recuperati. L'account
-del programma insieme all'ID del programma e ai fondi bloccati specificamente
-nell'account del programma sono irrecuperabili.
-
-I programmi distribuiti con loader-v4 possono essere chiusi insieme al loro
-account di programma, il loro ID programma e i fondi bloccati diventano
-nuovamente disponibili per altri usi.
-
-### Loader-v3
-
-Questa è un'azione **irreversibile** per i programmi distribuiti utilizzando
-loader-v3.
-
-Nota che una volta chiuso un programma, il suo ID programma non può essere
-riutilizzato. Tentare di distribuire un programma con un ID programma
-precedentemente chiuso risulterà in un errore. Se hai bisogno di ridistribuire
-un programma dopo averlo chiuso, devi generare un nuovo file keypair del
+Ecco un programma Solana minimale che stampa "Hello, Solana!" nei log del
 programma.
 
-Per chiudere un singolo account programdata:
+<CodePlaceholder title="src/lib.rs" />
 
-```shell
-solana program close ./target/deploy/your_program-keypair.json
+```rs !! title="src/lib.rs"
+use solana_program::{
+    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
+    _instruction_data: &[u8],
+) -> ProgramResult {
+    msg!("Hello, Solana!");
+    Ok(())
+}
 ```
 
-Per chiudere tutti gli account buffer associati all'autorità corrente:
+```toml !! title="Cargo.toml"
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
 
-```shell
-solana program close --buffers
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "2.2.0"
 ```
 
-### Loader-v4
+## !!steps Output di compilazione
 
-```shell
-solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
+Compila il tuo programma usando il comando `cargo build-sbf`:
+
+```terminal
+$ cargo build-sbf
 ```
 
-## Ispezione dei metadati
+Questo crea due file importanti in `target/deploy/`:
 
-Il sottocomando `show` elenca i metadati di un programma.
+1. `hello_world-keypair.json`: Un file keypair la cui chiave pubblica sarà
+   utilizzata come tuo Program ID
+2. `hello_world.so`: L'eseguibile del programma compilato
 
-Un esempio di output appare così:
+```json !! title="target/deploy/hello_world-keypair.json"
+[
+  203, 253, 43, 62, 165, 111, 94, 222, 105, 225, 218, 85, 143, 9, 114, 96, 243,
+  181, 114, 89, 72, 230, 124, 85, 59, 165, 198, 23, 240, 212, 23, 154, 229, 241,
+  153, 61, 153, 105, 79, 204, 193, 163, 33, 65, 82, 183, 49, 240, 224, 137, 248,
+  24, 128, 25, 192, 197, 118, 235, 239, 67, 85, 156, 219, 231
+]
+```
 
-```shell
-Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+```txt !! title="target/deploy/hello_world.so"
+[binary executable file]
+```
+
+</ScrollyCoding>
+
+### Controlla dimensione e costo del programma
+
+La distribuzione di un programma richiede che del SOL venga allocato all'account
+del programma in base alla dimensione del programma. Programmi più grandi
+costano più SOL per essere distribuiti.
+
+Controlla la dimensione del tuo programma:
+
+```terminal
+$ wc -c < ./target/deploy/hello_world.so
+18504
+```
+
+Calcola il SOL necessario per questa dimensione (in byte):
+
+```terminal
+$ solana rent 18504
+Rent-exempt minimum: 0.12967872 SOL
+```
+
+<Callout type="info">
+  Avrai bisogno di un po' più SOL di quanto mostrato per coprire le commissioni
+  di transazione per la distribuzione.
+</Callout>
+
+### Distribuisci il programma
+
+Usa il comando `solana program deploy` per distribuire il tuo programma:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 2BYwsqRP7ZwBNQvJp3S8bphTJ4zKW5JBPVMqCTE5KyLkP8xHzAyUEeC4LdTgjJdGBKHWNCkRF8Mf1T1WkLFyEu8W
+```
+
+L'**ID del programma** mostrato è l'indirizzo permanente del tuo programma sulla
+rete.
+
+<Callout>
+
+Per distribuire con un ID programma specifico (invece di quello generato
+automaticamente), usa:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so --program-id ./custom-keypair.json
+```
+
+Puoi generare nuovi keypair usando il comando `solana-keygen`:
+
+```terminal
+$ solana-keygen new -o ./custom-keypair.json
+```
+
+</Callout>
+
+### Aggiornamento del programma
+
+Aggiorna il tuo programma utilizzando lo stesso comando `solana program deploy`:
+
+1. Apporta modifiche al codice del tuo programma
+2. Ricompila il tuo programma: `cargo build-sbf`
+3. Distribuisci l'aggiornamento:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 3zKnXDfEm1R8hVcEmTnNFYUaFjVVbLJrKdFj5hBMXoBRfz8xGyDhCYgKr9YY5KxKYPEUQQVfwEPNz9hQGvYhLNBJ
+```
+
+<Callout type="info">
+
+Se il tuo programma aggiornato richiede più spazio (byte) rispetto a quello
+attualmente allocato, la distribuzione estenderà automaticamente il program
+account. Questo accade quando il tuo nuovo programma è più grande della versione
+precedente. Il program account necessita di byte aggiuntivi per memorizzare il
+nuovo programma. La CLI calcolerà automaticamente il SOL necessario e lo
+detrarrà dal tuo portafoglio.
+
+Puoi anche estendere manualmente un programma per allocare più byte:
+
+```terminal
+$ solana program extend 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE 1000
+Extended Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE by 1000 bytes
+```
+
+</Callout>
+
+## Gestione del programma
+
+Una volta che il tuo programma è stato distribuito, ci sono diversi comandi
+comuni per gestire il program account.
+
+### Visualizzazione dei metadati del programma
+
+Per controllare i metadati del tuo programma, usa il comando
+`solana program show`:
+
+```terminal
+$ solana program show 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+```
+
+<WithNotes>
+
+Esempio di output:
+
+```txt
+$ solana program show 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Program Id/] program-id
+Program Id: 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Owner/] owner
 Owner: BPFLoaderUpgradeab1e11111111111111111111111
-ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
-Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
-Last Deployed In Slot: 63890568
-Data Length: 5216 (0x1460) bytes
+# !tooltip[/ProgramData Address/] program-data-address
+ProgramData Address: Gqn7YQVCP8NtYV1qkEqR4Udhj8EJ3fkikvS7HskCNQ7c
+# !tooltip[/Authority/] authority
+Authority: 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1
+# !tooltip[/Last Deployed In Slot/] last-deployed-in-slot
+Last Deployed In Slot: 6573
+# !tooltip[/Data Length/] data-length
+Data Length: 18504 (0x4848) bytes
+# !tooltip[/Balance/] balance
+Balance: 0.12999192 SOL
 ```
 
-- `Program Id` è l'indirizzo che può essere referenziato nel campo `program_id`
-  di un'istruzione quando si invoca un programma.
-- `Owner`: Il loader con cui questo programma è stato distribuito.
-- `ProgramData Address` è l'account programdata associato all'account del
-  programma che contiene l'eseguibile del programma (solo loader-v3).
-- `Status`: `retracted`, `deployed` o `finalized` (solo loader-v4).
-- `Authority` è l'autorità di aggiornamento del programma.
-- `Last Deployed In Slot` è lo slot in cui il programma è stato distribuito
-  l'ultima volta.
-- `Data Length` è la dimensione dello spazio riservato per le distribuzioni. Lo
-  spazio effettivamente utilizzato dal programma attualmente distribuito
-  potrebbe essere inferiore.
+### !program-id
 
-### Loader-v3
+Il Program ID è l'indirizzo on-chain del tuo program account. Gli utenti e altri
+programmi invocano il tuo programma facendo riferimento a questo ID nelle loro
+transazioni.
 
-Per visualizzare un programma specifico:
+### !owner
 
-```shell
-solana program show ./target/deploy/your_program-keypair.json
+L'Owner identifica quale loader è stato utilizzato per distribuire questo
+programma. Per la maggior parte dei programmi, questo sarà il BPF Upgradeable
+Loader.
+
+### !program-data-address
+
+Il ProgramData Address punta all'account separato che memorizza il codice
+eseguibile del tuo programma.
+
+### !authority
+
+L'Authority è l'account che ha il permesso di aggiornare o chiudere questo
+programma. Solo l'authority può implementare aggiornamenti o chiudere il
+programma per recuperare il SOL allocato al programma.
+
+### !last-deployed-in-slot
+
+L'indicatore Last Deployed In Slot mostra quando questo programma è stato
+aggiornato l'ultima volta.
+
+### !data-length
+
+Il Data Length mostra il totale dei byte allocati a questo programma. Questo
+spazio può ospitare futuri aggiornamenti che potrebbero essere più grandi delle
+dimensioni attuali del programma.
+
+### !balance
+
+Il Balance visualizza il SOL allocato all'account del programma per memorizzare
+i suoi dati.
+
+</WithNotes>
+
+### Trasferire l'autorità del programma
+
+Per trasferire l'autorità del programma a un account diverso, usa il comando
+`solana program set-upgrade-authority`:
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --new-upgrade-authority ./new-authority-keypair.json
 ```
 
-Per visualizzare l'elenco dei programmi distribuiti con l'autorità predefinita:
+<Callout type="warn">
+  Dopo aver trasferito l'autorità del programma, non potrai più aggiornare il
+  programma a meno che tu non abbia accesso al nuovo keypair dell'autorità.
+</Callout>
 
-```shell
-solana program show --programs
+### Rendere il tuo programma immutabile
+
+Per rendere il tuo programma immutabile, usa il comando
+`solana program set-upgrade-authority` con il flag `--final` per rimuovere
+l'autorità del programma:
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --final
+Account Type: Program
+Authority: none
 ```
 
-Per mostrare tutti gli account buffer indipendentemente dall'autorità:
+<Callout type="warn">
+  Una volta che un programma è immutabile, non potrà mai più essere aggiornato o
+  chiuso.
+</Callout>
 
-```shell
-solana program show --buffers --all
+### Chiudere il tuo programma
+
+Per chiudere il tuo programma e recuperare il SOL allocato all'account del
+programma, usa il comando `solana program close`:
+
+```terminal
+$ solana program close 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --bypass-warning
+Closed Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE, 0.12999192 SOL reclaimed
 ```
 
-Per specificare un'autorità diversa:
+<Callout type="warn">
+  Una volta chiuso, l'ID del programma non può essere riutilizzato. Non puoi
+  implementare un nuovo programma allo stesso indirizzo.
+</Callout>
 
-```shell
-solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
-solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+## Comandi di utilità
+
+### Elencare tutti i programmi
+
+Visualizza tutti i programmi in cui il tuo wallet attuale è l'autorità:
+
+```terminal
+$ solana program show --programs
 ```
 
-### Loader-v4
+Esempio di output:
 
-Per visualizzare un programma specifico:
-
-```shell
-solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```txt
+Program Id                                       | Slot       | Authority                                      | Balance
+-------------------------------------------------|------------|------------------------------------------------|-------------
+7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE     | 249885434  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.12999192
+3KSGCk4m5hqJkTjPHBXUCPcqMwJnK3VmkqEsFUKKGJPK     | 249883212  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.28654328
 ```
 
-Per visualizzare l'elenco dei programmi distribuiti con l'autorità predefinita:
+### Scaricare un programma distribuito
 
-```shell
-solana program-v4 show --all
+Per scaricare un programma distribuito, usa il comando `solana program dump`:
+
+```terminal
+$ solana program dump 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE ./downloaded_program.so
+Wrote program to ./downloaded_program.so
 ```
 
-Per visualizzare l'elenco dei programmi distribuiti con un'autorità specifica:
+## Opzioni avanzate
 
-```shell
-solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+### Flag di distribuzione
+
+Quando la rete Solana è congestionata, usa questi flag per facilitare la
+distribuzione del programma.
+
+Esempio di utilizzo:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so \
+    --with-compute-unit-price 10000 \
+    --max-sign-attempts 10 \
+    --use-rpc
 ```
 
-## Download dell'eseguibile
+Spiegazione delle opzioni:
 
-A volte è utile scaricare e confrontare un programma per assicurarsi che
-contenga un eseguibile conosciuto. Il file scaricato può essere troncato,
-sottoposto a hash e confrontato con l'hash del file di programma originale.
-
-### Loader-v3
-
-```shell
-solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
-```
-
-### Loader-v4
-
-```shell
-solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
-```
-
-## Avanzato: trasferimento dell'autorità
-
-Il diritto di modificare un determinato programma appartiene alla sua autorità.
-Questa autorità può essere trasferita a un altro keypair senza modificare il
-keypair del programma, in modo che l'ID del programma rimanga lo stesso.
-Inoltre, una singola autorità può controllare più program account.
-
-Se non specificato esplicitamente durante il deployment iniziale, viene
-utilizzato il keypair predefinito come autorità. Ecco perché la ridistribuzione
-di un programma nei passaggi precedenti non richiedeva che un'autorità fosse
-specificata esplicitamente.
-
-Un'autorità esplicita è utile per la firma offline e per i programmi governati
-da più entità.
-
-Prima, deve essere generato un keypair per l'autorità:
-
-```shell
-solana-keygen new -o ~/.config/solana/authority-keypair.json
-```
-
-### Loader-v3
-
-L'autorità può essere specificata durante il deployment:
-
-```shell
-solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
-```
-
-O dopo il deployment utilizzando il keypair predefinito come autorità corrente:
-
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
-```
-
-Oppure dopo la distribuzione e specificando l'autorità corrente:
-
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
-```
-
-### Loader-v4
-
-L'autorità può essere specificata durante la distribuzione:
-
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
-```
-
-Oppure dopo la distribuzione e utilizzando il keypair predefinito come autorità
-corrente:
-
-```shell
-solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
-```
-
-Oppure dopo la distribuzione e specificando l'autorità corrente:
-
-```shell
-solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
-```
-
-## Avanzato: ridistribuzione in due fasi utilizzando un buffer
-
-Invece di caricare direttamente nell'account del programma, l'eseguibile può
-essere caricato prima in un account buffer di staging e poi trasferito
-nell'account del programma in una seconda fase (la vera ri-/distribuzione).
-Questo è utile per la firma offline e per programmi governati da più entità come
-un voto DAO per scegliere o rifiutare un eseguibile caricato prima della
-ridistribuzione effettiva.
-
-Tieni presente che l'utilizzo di account buffer raddoppia approssimativamente i
-fondi necessari durante il processo di caricamento perché due account contengono
-ciascuno un eseguibile, simultaneamente.
-
-Prima, deve essere creato un keypair per l'account buffer:
-
-```shell
-solana-keygen new -o ~/.config/solana/buffer-keypair.json
-```
-
-L'account buffer può essere riutilizzato per diversi caricamenti e non è
-vincolato a nessun account di programma specifico.
-
-### Loader-v3
-
-```shell
-solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
-solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
-```
-
-### Loader-v4
-
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
-solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
-```
-
-## Avanzato: firma offline
-
-Alcuni modelli di sicurezza richiedono la separazione del processo di firma
-dalla trasmissione della transazione, in modo che le chiavi di firma possano
-essere completamente disconnesse da qualsiasi rete, noto anche come firma
-offline.
-
-Nota che solo le ridistribuzioni possono essere eseguite in modalità offline. La
-distribuzione iniziale del programma **deve** essere eseguita da una macchina
-online, e solo le successive ridistribuzioni del programma possono sfruttare la
-firma offline.
-
-Una configurazione tipica consisterebbe in due firmatari diversi:
-
-- firmatario online (pagatore delle commissioni e autorità dell'account buffer)
-- firmatario offline (autorità dell'account del programma)
-
-Il processo generale è un ridispiegamento in due fasi con alcuni extra:
-
-1. (online) creare un nuovo programma
-2. (online) trasferire l'autorità al firmatario offline
-3. (online) creare un buffer e caricarvi un eseguibile
-4. (opzionale) verificare i contenuti on-chain del buffer
-5. (offline) firmare una transazione per ridispiegare il programma utilizzando
-   il buffer `--blockhash <VALUE> --sign-only`
-6. (online) utilizzare questa firma per trasmettere la transazione di
-   ridispiegamento
-   `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
-
-Cerca un recente `blockhash` e incollalo per generare la firma della transazione
-offline. Il `blockhash` scade dopo circa 60 secondi. Se non sei riuscito in
-tempo - ottieni semplicemente un altro hash fresco e ripeti fino a quando non
-hai successo, o considera l'utilizzo di nonce di transazione durevoli.
+- **`--with-compute-unit-price`**: Imposta la commissione prioritaria in
+  micro-lamports (0.000001 SOL) per unità di calcolo. Controlla
+  l'[API per commissioni prioritarie di Helius](https://docs.helius.dev/guides/priority-fee-api)
+  per le tariffe attuali. Una commissione prioritaria è una commissione
+  aggiuntiva pagata al leader attuale per dare priorità alla tua transazione.
+- **`--max-sign-attempts`**: Numero di tentativi con un nuovo blockhash se le
+  transazioni scadono. (Predefinito: 5)
+- **`--use-rpc`**: Invia transazioni all'RPC configurato. Questo flag richiede
+  una connessione RPC
+  [ponderata in base allo stake](/developers/guides/advanced/stake-weighted-qos)
+  da provider come [Triton](https://triton.one/) o
+  [Helius](https://www.helius.dev/).

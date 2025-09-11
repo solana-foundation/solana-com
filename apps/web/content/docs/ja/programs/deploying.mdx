@@ -1,410 +1,424 @@
 ---
 title: プログラムのデプロイ
 description:
-  Solana
-  CLIを使用してカスタムプログラムをSolanaブロックチェーンにアップロードする。
+  Solana CLIを使用したSolanaプログラムの構築、デプロイ、管理の完全ガイド。
 ---
 
-このガイドでは、以下のトピックに関する知識があることを前提としています：
+このセクションでは、Solana
+CLIを使用してSolanaプログラムをデプロイする基本的なプロセスについて説明します。
 
-- [Solanaアカウントモデル](/core/accounts)
-- [Solanaプログラムの概要](/core/programs)
-- [カスタムSolanaプログラムの開発](/programs/rust/)
+## CLIコマンドリファレンス
 
-## Loader-v3とLoader-v4
+| タスク                                      | コマンド                                                                                      |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| プログラムのビルド                          | `cargo build-sbf`                                                                             |
+| 新規プログラムのデプロイ                    | `solana program deploy <path_to_program.so>`                                                  |
+| 既存プログラムの更新                        | `solana program deploy <path_to_program.so>` (デプロイと同じ)                                 |
+| プログラム情報の表示                        | `solana program show <program-id>`                                                            |
+| プログラム権限の移譲                        | `solana program set-upgrade-authority <program-id> --new-upgrade-authority <path_to_keypair>` |
+| プログラムを不変にする                      | `solana program set-upgrade-authority <program-id> --final`                                   |
+| プログラムのクローズ                        | `solana program close <program-id> --bypass-warning`                                          |
+| ウォレット残高の確認                        | `solana balance`                                                                              |
+| エアドロップのリクエスト (devnet/localhost) | `solana airdrop 2`                                                                            |
 
-現在、loader-v3（programサブコマンド）からloader-v4（program
-**-v4**サブコマンド）への移行が進行中です。これはloader-v3が非推奨になっているためです。
+## 主要な概念
 
-新規デプロイメントには、`solana program deploy`の代わりに`solana program-v4 deploy`を使用してください。
+詳細に入る前に、いくつかの用語を明確にしておきましょう：
 
-既存のプログラムを移行するには（基本的には再デプロイすることになります）：
+- **プログラムID**：プログラムのオンチェーンアドレス。ユーザーはプログラムIDを参照することでプログラムと対話します。
+- **program
+  account**：プログラムのメタデータを格納するオンチェーンアカウント。program
+  accountのアドレスがプログラムIDとなります。program accountはprogramdata
+  accountのアドレスも保存します。
+- **programdata
+  account**：デプロイされたプログラムの実行可能コードを格納するオンチェーンアカウント。
+- **プログラム権限**：プログラムを更新または閉じる権限を持つアカウント。デフォルトでは、これはCLIウォレットです。
 
-```shell
-solana program migrate ./target/deploy/your_program-keypair.json
+## 前提条件
+
+<Steps>
+
+<Step>
+
+### Solana CLIのインストール
+
+まず、[Solana CLIをインストール](/docs/intro/installation)します。
+
+</Step>
+
+<Step>
+
+### ウォレットの設定
+
+インストール後、ローカルのkeypairウォレットを作成します。このウォレットのアドレスは、プログラムをデプロイする際のデフォルトのプログラム権限として設定されます：
+
+```terminal
+$ solana-keygen new
 ```
 
-## 準備
+これによりデフォルトで `~/.config/solana/id.json` にkeypairが作成されます。
 
-まず、プログラムをビルド（コンパイル、リンク、ストリップ）する必要があります。
+</Step>
 
-```shell
-cargo +solana build --target sbpf-solana-solana --release
+<Step>
+
+### クラスターの設定
+
+デプロイ先のSolanaクラスターを選択します。`solana config get`コマンドを使用して現在の設定を確認してください：
+
+```terminal
+$ solana config get
+Config File: ~/.config/solana/cli/config.yml
+RPC URL: http://localhost:8899
+WebSocket URL: ws://localhost:8900/ (computed)
+Keypair Path: ~/.config/solana/id.json
+Commitment: confirmed
 ```
 
-このステップは、再デプロイやデプロイの前に毎回実行する必要があります。
+必要に応じてクラスターを切り替えます：
 
-実行可能ファイルのサイズに比例して、デフォルトの支払いアカウントに十分な資金があることを確認してください：
-
-```shell
-du -h ./target/deploy/your_program.so
-solana balance
+```terminal
+$ solana config set --url mainnet-beta
+$ solana config set --url devnet
+$ solana config set --url localhost
+$ solana config set --url testnet
+$ solana config set --url "https://your-rpc-url.com"
 ```
 
-さらに、各プログラムにはプログラムアカウントとプログラムID（そのプログラムアカウントのアドレス）があります。以下のコマンドでプログラムアカウント用のkeypairを生成します：
+</Step>
 
-```shell
-solana-keygen new -o ./target/deploy/your_program-keypair.json
+<Step>
+
+### ウォレットへの資金提供
+
+プログラムのデプロイには SOL が必要です。必要な量はプログラムのサイズによって異なります。
+
+devnetまたはlocalhostの場合、`solana airdrop`コマンドを使用してウォレットに資金を提供します：
+
+```terminal
+$ solana airdrop 2
+Requesting airdrop of 2 SOL
+Signature: 5zQKxvRdgJDA8fRGPdKfGxRLnLpwmNnMXGYxfBqFSUPqc5BTmFPrTG8vnC4HvKDVY8zQ8aQxZxcEE7WFpGhZGVAA
+2 SOL
 ```
 
-これはプログラムごとに一度だけ実行する必要があり、同じプログラムの再デプロイ時に再利用されます。
+ウォレットの残高を確認します：
 
-ツールチェーンにはショートカットが含まれていましたが、これは段階的に廃止/非推奨になっています：
-
-```shell
-cargo-build-sbf
+```terminal
+$ solana balance
+2 SOL
 ```
 
-## 初期デプロイ
+</Step>
 
-これで実行可能ファイルをプログラムアカウントにアップロードできます：
+</Steps>
 
-### Loader-v3
+## 基本操作
 
-パラメータは`program-id`と呼ばれていますが、keypairのファイルパスを指定する必要があります：
+### プログラムのビルド
 
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+プログラムをビルドするには、`cargo build-sbf`コマンドを使用します：
+
+```terminal
+$ cargo build-sbf
 ```
 
-### Loader-v4
+<ScrollyCoding>
 
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+## !!steps サンプルプログラム
+
+これは「Hello, Solana!」をプログラムログに出力する最小限のSolanaプログラムです。
+
+<CodePlaceholder title="src/lib.rs" />
+
+```rs !! title="src/lib.rs"
+use solana_program::{
+    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
+    _instruction_data: &[u8],
+) -> ProgramResult {
+    msg!("Hello, Solana!");
+    Ok(())
+}
 ```
 
-## 再デプロイメント
+```toml !! title="Cargo.toml"
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
 
-同じプログラムアカウントに異なる実行可能ファイルを再度アップロードすると、上書き/置換されます。ただし、再デプロイメントの場合、署名者はアップグレード権限のkeypairであるため、プログラムID（プログラムkeypairのpubkey）のみが必要で、keypair全体は必要ありません。
+[lib]
+crate-type = ["cdylib", "lib"]
 
-### Loader-v3
-
-これは初回デプロイメントとまったく同じです：
-
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+[dependencies]
+solana-program = "2.2.0"
 ```
 
-古い実行可能ファイルが新しいものより短い場合、最初にprogramdataアカウントを拡張する必要があるかもしれません：
+## !!steps ビルド出力
 
-```shell
-solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+`cargo build-sbf`コマンドを使用してプログラムをビルドします：
+
+```terminal
+$ cargo build-sbf
 ```
 
-### Loader-v4
+これにより`target/deploy/`に2つの重要なファイルが作成されます：
 
-初回デプロイメントでは`program-keypair`を使用しましたが、再デプロイメントでは代わりに`program-id`を使用することに注意してください：
+1. `hello_world-keypair.json`：公開鍵がプログラムIDとして使用されるkeypairファイル
+2. `hello_world.so`：コンパイルされたプログラム実行ファイル
 
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```json !! title="target/deploy/hello_world-keypair.json"
+[
+  203, 253, 43, 62, 165, 111, 94, 222, 105, 225, 218, 85, 143, 9, 114, 96, 243,
+  181, 114, 89, 72, 230, 124, 85, 59, 165, 198, 23, 240, 212, 23, 154, 229, 241,
+  153, 61, 153, 105, 79, 204, 193, 163, 33, 65, 82, 183, 49, 240, 224, 137, 248,
+  24, 128, 25, 192, 197, 118, 235, 239, 67, 85, 156, 219, 231
+]
 ```
 
-## アップロードの優先順位付け
-
-混雑時には、プログラムデプロイメントを支援するためにいくつかの追加フラグを使用できます：
-
-- `--with-compute-unit-price`：トランザクションのコンピュートユニット価格を設定します。0.000001
-  lamport（マイクロlamport）/コンピュートユニット単位で増加します。優先手数料の見積もりを取得するには、[Heliusの優先手数料API](https://docs.helius.dev/guides/priority-fee-api)を使用してください。
-- `--use-rpc`：書き込みトランザクションをバリデーターTPUではなく設定されたRPCに送信します。このフラグには[Helius](https://www.helius.dev/)や[Triton](https://triton.one/)などの[ステーク加重](/developers/guides/advanced/stake-weighted-qos)RPC接続が必要です。このフラグはデフォルトとして設定することもできます：`solana config set --url <RPC_URL>`。
-- `--max-sign-attempts`：ブロックハッシュの有効期限後にトランザクションに署名または再署名する最大試行回数。プログラムデプロイ中に送信されたトランザクションが、最初に選択された最新のブロックハッシュの有効期限が切れた後もまだ確認されていない場合、それらのトランザクションは新しい最新のブロックハッシュで再署名され、再送信されます。このトランザクション署名の繰り返し最大回数を調整するにはこの設定を使用してください。各ブロックハッシュは約60秒間有効であり、デフォルト値の5を使用すると、すべてのトランザクションが確認されるか、少なくとも5分間トランザクションを送信し続けることになります。
-
-## アップロードの再開
-
-アップロードが停止したり中断されたりする可能性があります。
-
-### Loader-v3
-
-プログラムのデプロイが失敗した場合、ゼロ以外の残高を含む中間バッファアカウントが残ります。その残高を回収するために、同じ中間バッファを新しい
-`deploy` の呼び出しに提供することで、失敗したデプロイを再開することができます。
-
-デプロイ失敗時には、生成された中間バッファのkeypairを回復するために必要なシードフレーズを指定するエラーメッセージが表示されます：
-
-```
-==================================================================================
-Recover the intermediate account's ephemeral keypair file with
-`solana-keygen recover` and the following 12-word seed phrase:
-==================================================================================
-valley flat great hockey share token excess clever benefit traffic avocado athlete
-==================================================================================
-To resume a deploy, pass the recovered keypair as
-the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
-Or to recover the account's lamports, pass it as the
-[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
-==================================================================================
+```txt !! title="target/deploy/hello_world.so"
+[binary executable file]
 ```
 
-keypairを回復するには：
+</ScrollyCoding>
 
-```shell
-solana-keygen recover -o ./target/deploy/buffer-keypair.json
+### プログラムサイズとコストの確認
+
+プログラムをデプロイするには、プログラムのサイズに基づいてプログラムアカウントにSOLを割り当てる必要があります。プログラムが大きいほど、デプロイに必要なSOLも多くなります。
+
+プログラムのサイズを確認します：
+
+```terminal
+$ wc -c < ./target/deploy/hello_world.so
+18504
 ```
 
-指示されたら、12語のシードフレーズを入力してください。
+このサイズ（バイト）に必要なSOLを計算します：
 
-その後、新しい `deploy` コマンドを発行し、バッファを指定します：
-
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+```terminal
+$ solana rent 18504
+Rent-exempt minimum: 0.12967872 SOL
 ```
 
-### Loader-v4
+<Callout type="info">
+  デプロイトランザクション手数料をカバーするために、表示されている金額よりも少し多めのSOLが必要です。
+</Callout>
 
-指定したバイトオフセットからアップロードを再開することが可能です：
+### プログラムのデプロイ
 
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+`solana program deploy`コマンドを使用してプログラムをデプロイします：
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 2BYwsqRP7ZwBNQvJp3S8bphTJ4zKW5JBPVMqCTE5KyLkP8xHzAyUEeC4LdTgjJdGBKHWNCkRF8Mf1T1WkLFyEu8W
 ```
 
-## 確定
+表示される**プログラムID**は、ネットワーク上のプログラムの永続的なアドレスです。
 
-これは**元に戻せない**アクションです。
+<Callout>
 
-プログラムはアップグレード権限を削除することで不変にすることができます。
+（自動生成されたものではなく）特定のプログラムIDでデプロイするには、次のようにします：
 
-### Loader-v3
-
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so --program-id ./custom-keypair.json
 ```
 
-### Loader-v4
+`solana-keygen`コマンドを使用して新しいkeypairを生成できます：
 
-```shell
-solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```terminal
+$ solana-keygen new -o ./custom-keypair.json
 ```
 
-プログラムを上書きする代わりに、確定されたプログラムのリンクリストを構築することで、ユーザーに使用したいプログラムのバージョンを選択する機会を提供することも可能です：
+</Callout>
 
-```shell
-solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
+### プログラムの更新
+
+同じ `solana program deploy` コマンドを使用してプログラムを更新します：
+
+1. プログラムコードに変更を加える
+2. プログラムを再ビルドする: `cargo build-sbf`
+3. 更新をデプロイする:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 3zKnXDfEm1R8hVcEmTnNFYUaFjVVbLJrKdFj5hBMXoBRfz8xGyDhCYgKr9YY5KxKYPEUQQVfwEPNz9hQGvYhLNBJ
 ```
 
-## クローズ
+<Callout type="info">
 
-loader-v3でデプロイされたプログラムについては、programdata
-accountとバッファアカウント、およびそれらにロックされた資金のみを回収できます。プログラムアカウントとプログラムID、およびプログラムアカウントに特にロックされた資金は回収できません。
+更新したプログラムが現在割り当てられているよりも多くのスペース（バイト）を必要とする場合、デプロイメントは自動的にプログラムアカウントを拡張します。これは新しいプログラムが前のバージョンより大きい場合に発生します。プログラムアカウントは新しいプログラムを格納するために追加のバイトが必要です。CLIは必要なSOLを計算し、自動的にあなたのウォレットから差し引きます。
 
-loader-v4で展開されたプログラムは、プログラムアカウント、プログラムID、およびロックされた資金と共に閉じることができ、それらは再び他の用途に利用可能になります。
+手動でプログラムを拡張してより多くのバイトを割り当てることもできます：
 
-### Loader-v3
-
-これはloader-v3を使用して展開されたプログラムにとって**不可逆的な**アクションです。
-
-プログラムが閉じられると、そのプログラムIDは再利用できなくなることに注意してください。以前に閉じられたプログラムIDでプログラムを展開しようとすると、エラーが発生します。プログラムを閉じた後に再展開する必要がある場合は、新しいプログラムkeypairファイルを生成する必要があります。
-
-単一のprogramdataアカウントを閉じるには：
-
-```shell
-solana program close ./target/deploy/your_program-keypair.json
+```terminal
+$ solana program extend 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE 1000
+Extended Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE by 1000 bytes
 ```
 
-現在の権限に関連付けられているすべてのバッファアカウントを閉じるには：
+</Callout>
 
-```shell
-solana program close --buffers
+## プログラム管理
+
+プログラムがデプロイされると、プログラムアカウントを管理するためのいくつかの一般的なコマンドがあります。
+
+### プログラムメタデータの表示
+
+プログラムメタデータを確認するには、`solana program show` コマンドを使用します：
+
+```terminal
+$ solana program show 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
 ```
 
-### Loader-v4
+<WithNotes>
 
-```shell
-solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
-```
+出力例：
 
-## メタデータの検査
-
-`show` サブコマンドはプログラムのメタデータを一覧表示します。
-
-出力例は次のようになります：
-
-```shell
-Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+```txt
+$ solana program show 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Program Id/] program-id
+Program Id: 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Owner/] owner
 Owner: BPFLoaderUpgradeab1e11111111111111111111111
-ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
-Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
-Last Deployed In Slot: 63890568
-Data Length: 5216 (0x1460) bytes
+# !tooltip[/ProgramData Address/] program-data-address
+ProgramData Address: Gqn7YQVCP8NtYV1qkEqR4Udhj8EJ3fkikvS7HskCNQ7c
+# !tooltip[/Authority/] authority
+Authority: 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1
+# !tooltip[/Last Deployed In Slot/] last-deployed-in-slot
+Last Deployed In Slot: 6573
+# !tooltip[/Data Length/] data-length
+Data Length: 18504 (0x4848) bytes
+# !tooltip[/Balance/] balance
+Balance: 0.12999192 SOL
 ```
 
-- `Program Id` は、プログラムを呼び出す際にinstructionsの `program_id`
-  フィールドで参照できるアドレスです。
-- `Owner`：このプログラムが展開されたローダー。
-- `ProgramData Address`
-  は、プログラムの実行可能ファイルを保持するプログラムアカウントに関連付けられたprogramdataアカウントです（loader-v3のみ）。
-- `Status`：`retracted`、`deployed` または `finalized`（loader-v4のみ）。
-- `Authority` はプログラムのアップグレード権限です。
-- `Last Deployed In Slot` はプログラムが最後に展開されたslotです。
-- `Data Length`
-  は展開用に予約されたスペースのサイズです。現在展開されているプログラムが実際に使用するスペースはこれより少ない場合があります。
+### !program-id
 
-### Loader-v3
+プログラムIDは、プログラムアカウントのオンチェーンアドレスです。ユーザーや他のプログラムは、トランザクションでこのIDを参照することであなたのプログラムを呼び出します。
 
-特定のプログラムを表示するには：
+### !owner
 
-```shell
-solana program show ./target/deploy/your_program-keypair.json
+オーナーは、このプログラムのデプロイに使用されたローダーを識別します。ほとんどのプログラムでは、これはBPFアップグレード可能ローダーになります。
+
+### !program-data-address
+
+プログラムデータアドレスは、プログラムの実行可能コードを格納する別のアカウントを指します。
+
+### !authority
+
+Authorityは、このプログラムをアップグレードまたはクローズする権限を持つアカウントです。Authorityのみがプログラムの更新をデプロイしたり、プログラムをクローズしてプログラムに割り当てられたSOLを回収したりできます。
+
+### !last-deployed-in-slot
+
+Last Deployed In Slotは、このプログラムが最後に更新されたタイミングを示します。
+
+### !data-length
+
+Data
+Lengthは、このプログラムに割り当てられた合計バイト数を示します。このスペースは、現在のプログラムサイズよりも大きい将来の更新に対応できます。
+
+### !balance
+
+Balanceは、プログラムアカウントにデータを保存するために割り当てられたSOLを表示します。
+
+</WithNotes>
+
+### プログラム権限の移譲
+
+プログラム権限を別のアカウントに移譲するには、`solana program set-upgrade-authority`コマンドを使用します：
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --new-upgrade-authority ./new-authority-keypair.json
 ```
 
-デフォルトの権限で展開されたプログラムのリストを表示するには：
+<Callout type="warn">
+  プログラム権限を移譲した後は、新しい権限のキーペアにアクセスできない限り、プログラムを更新することはできなくなります。
+</Callout>
 
-```shell
-solana program show --programs
+### プログラムを不変にする
+
+プログラムを不変にするには、`solana program set-upgrade-authority`コマンドに`--final`フラグを付けてプログラム権限を削除します：
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --final
+Account Type: Program
+Authority: none
 ```
 
-権限に関係なくすべてのバッファアカウントを表示するには：
+<Callout type="warn">
+  プログラムが不変になると、二度と更新やクローズができなくなります。
+</Callout>
 
-```shell
-solana program show --buffers --all
+### プログラムをクローズする
+
+プログラムをクローズしてプログラムアカウントに割り当てられたSOLを回収するには、`solana program close`コマンドを使用します：
+
+```terminal
+$ solana program close 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --bypass-warning
+Closed Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE, 0.12999192 SOL reclaimed
 ```
 
-異なる権限を指定するには：
+<Callout type="warn">
+  クローズすると、Program
+  IDは再利用できなくなります。同じアドレスに新しいプログラムをデプロイすることはできません。
+</Callout>
 
-```shell
-solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
-solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+## ユーティリティコマンド
+
+### すべてのプログラムを一覧表示
+
+現在のウォレットが権限を持つすべてのプログラムを表示します：
+
+```terminal
+$ solana program show --programs
 ```
 
-### Loader-v4
+出力例:
 
-特定のプログラムを表示するには：
-
-```shell
-solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```txt
+Program Id                                       | Slot       | Authority                                      | Balance
+-------------------------------------------------|------------|------------------------------------------------|-------------
+7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE     | 249885434  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.12999192
+3KSGCk4m5hqJkTjPHBXUCPcqMwJnK3VmkqEsFUKKGJPK     | 249883212  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.28654328
 ```
 
-デフォルトの権限でデプロイされたプログラムのリストを表示するには：
+### デプロイされたプログラムをダウンロードする
 
-```shell
-solana program-v4 show --all
+デプロイされたプログラムをダウンロードするには、`solana program dump`コマンドを使用します:
+
+```terminal
+$ solana program dump 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE ./downloaded_program.so
+Wrote program to ./downloaded_program.so
 ```
 
-特定の権限でデプロイされたプログラムのリストを表示するには：
+## 高度なオプション
 
-```shell
-solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+### デプロイメントフラグ
+
+Solanaネットワークが混雑している場合、これらのフラグを使用してプログラムのデプロイをサポートします。
+
+使用例:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so \
+    --with-compute-unit-price 10000 \
+    --max-sign-attempts 10 \
+    --use-rpc
 ```
 
-## 実行可能ファイルのダウンロード
+オプションの説明:
 
-プログラムをダウンロードして比較し、既知の実行可能ファイルが含まれていることを確認することが役立つ場合があります。ダウンロードしたファイルを切り詰め、ハッシュ化し、元のプログラムファイルのハッシュと比較することができます。
-
-### Loader-v3
-
-```shell
-solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
-```
-
-### Loader-v4
-
-```shell
-solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
-```
-
-## 高度な使用法：権限の移転
-
-特定のプログラムを変更する権利はその権限者に属します。この権限は、プログラムのkeypairを変更せずに別のkeypairに移転することができるため、プログラムIDは同じままです。さらに、単一の権限者が複数のprogram
-accountを制御することができます。
-
-初期デプロイ時に明示的に指定されていない場合、デフォルトのkeypairが権限として使用されます。そのため、上記の手順でプログラムを再デプロイする際に、権限を明示的に指定する必要がありませんでした。
-
-明示的な権限は、オフライン署名や複数の主体によって管理されるプログラムに役立ちます。
-
-まず、権限用のkeypairを生成する必要があります：
-
-```shell
-solana-keygen new -o ~/.config/solana/authority-keypair.json
-```
-
-### Loader-v3
-
-デプロイ中に権限を指定できます：
-
-```shell
-solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
-```
-
-またはデプロイ後にデフォルトのkeypairを現在の権限として使用する場合：
-
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
-```
-
-または展開後に現在の権限者を指定して：
-
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
-```
-
-### Loader-v4
-
-権限者は展開時に指定できます：
-
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
-```
-
-または展開後に、現在の権限者としてデフォルトのkeypairを使用して：
-
-```shell
-solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
-```
-
-または展開後に現在の権限者を指定して：
-
-```shell
-solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
-```
-
-## 高度な使用法：バッファを使用した二段階再展開
-
-実行可能ファイルをprogram
-accountに直接アップロードする代わりに、まずステージングバッファアカウントにアップロードし、その後二段階目（実際の再展開/展開）でprogram
-accountに転送することができます。これはオフライン署名やDAOの投票など、複数のエンティティによって管理されるプログラムで、実際の再展開前にアップロードされた実行可能ファイルを選択または拒否するのに役立ちます。
-
-バッファアカウントを使用すると、2つのアカウントが同時に1つずつ実行可能ファイルを保持するため、アップロードプロセス中に必要な資金がおおよそ2倍になることに注意してください。
-
-まず、バッファアカウント用のkeypairを作成する必要があります：
-
-```shell
-solana-keygen new -o ~/.config/solana/buffer-keypair.json
-```
-
-バッファアカウントは異なるアップロードに再利用でき、特定のprogram
-accountに縛られることはありません。
-
-### Loader-v3
-
-```shell
-solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
-solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
-```
-
-### Loader-v4
-
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
-solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
-```
-
-## 高度な使用法：オフライン署名
-
-一部のセキュリティモデルでは、署名キーがネットワークから完全に切断されるように、署名プロセスとトランザクションのブロードキャストを分離する必要があります。これはオフライン署名としても知られています。
-
-再展開のみがオフラインモードで実行できることに注意してください。初期プログラム展開は**必ず**オンラインマシンから実行する必要があり、その後のプログラム再展開のみがオフライン署名を活用できます。
-
-典型的なセットアップは、2つの異なる署名者で構成されます：
-
-- オンライン署名者（手数料支払い者およびバッファアカウントの権限者）
-- オフライン署名者（program accountの権限者）
-
-一般的なプロセスは、いくつかの追加手順を含む2段階の再デプロイメントです：
-
-1. （オンライン）新しいプログラムを作成する
-2. （オンライン）権限をオフラインの署名者に転送する
-3. （オンライン）バッファを作成し、実行可能ファイルをアップロードする
-4. （任意）バッファのオンチェーン内容を検証する
-5. （オフライン）バッファを使用してプログラムを再デプロイするトランザクションに署名する
-   `--blockhash <VALUE> --sign-only`
-6. （オンライン）この署名を使用して再デプロイメントトランザクションをブロードキャストする
-   `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
-
-最新の`blockhash`を検索し、それを貼り付けてオフライントランザクション署名を生成します。`blockhash`は約60秒後に期限切れになります。間に合わなかった場合は、新しいハッシュを取得して成功するまで繰り返すか、永続的なトランザクションノンスの使用を検討してください。
+- **`--with-compute-unit-price`**: コンピュートユニットあたりのマイクロラムポート（0.000001
+  SOL）で優先手数料を設定します。現在のレートについては[Helius優先手数料API](https://docs.helius.dev/guides/priority-fee-api)を確認してください。優先手数料は、トランザクションを優先するために現在のリーダーに支払われる追加手数料です。
+- **`--max-sign-attempts`**: トランザクションが期限切れになった場合に新しいブロックハッシュで再試行する回数。（デフォルト:
+  5）
+- **`--use-rpc`**: 設定されたRPCにトランザクションを送信します。このフラグには[Triton](https://triton.one/)や[Helius](https://www.helius.dev/)などのプロバイダーからの[ステーク加重](/developers/guides/advanced/stake-weighted-qos)
+  RPC接続が必要です。
