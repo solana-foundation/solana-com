@@ -240,7 +240,7 @@ const moduleExports = (): NextConfig => {
 };
 
 export default withSentryConfig(moduleExports, {
-  org: "solana-r0",
+  org: "solana-fndn",
   project: "javascript-nextjs",
   silent: !process.env.CI,
   widenClientFileUpload: true,
