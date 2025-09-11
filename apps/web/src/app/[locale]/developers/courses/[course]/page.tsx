@@ -41,7 +41,7 @@ export default async function Page(props: Props) {
 
 export async function generateStaticParams() {
   const slugs: any = coursesSource.pageTree["en"].children
-    .map((c: any) => c?.$id.slug)
+    .map((c: any) => c?.$id)
     .filter(Boolean);
   return slugs.map((slug: string) => ({ course: slug }));
 }
