@@ -246,7 +246,6 @@ export default withSentryConfig(moduleExports, {
   widenClientFileUpload: true,
   disableLogger: true,
   automaticVercelMonitors: true,
-  telemetry: false, // TODO: Fixes hanging build errors - remove and redo when /apps are smaller
   sourcemaps: {
     disable:
       process.env.VERCEL_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
