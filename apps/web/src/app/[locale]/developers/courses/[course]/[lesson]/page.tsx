@@ -41,13 +41,13 @@ export default async function Page(props: Props) {
 
 export async function generateStaticParams() {
   const courseFolders: any = coursesSource.pageTree["en"].children.filter(
-    (c: any) => c?.index.slug,
+    (c: any) => c?.$id.slug,
   );
 
   return courseFolders.flatMap((courseFolder: any) => {
     const lessonSlugs = courseFolder.children.map((c: any) => c.slug);
     return lessonSlugs.map((slug: string) => ({
-      course: courseFolder.index.slug,
+      course: courseFolder.$id.slug,
       lesson: slug.split("/").slice(1).join("/"),
     }));
   });

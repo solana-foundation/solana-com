@@ -15,7 +15,7 @@ export default async function Page(props: Props) {
   const tree = coursesSource.pageTree[params.locale];
 
   const courseFolder: any = tree.children.find(
-    (c: any) => c?.index.slug === courseSlug,
+    (c: any) => c?.$id === courseSlug,
   );
 
   if (!courseFolder) notFound();
@@ -41,7 +41,7 @@ export default async function Page(props: Props) {
 
 export async function generateStaticParams() {
   const slugs: any = coursesSource.pageTree["en"].children
-    .map((c: any) => c?.index.slug)
+    .map((c: any) => c?.$id.slug)
     .filter(Boolean);
   return slugs.map((slug: string) => ({ course: slug }));
 }
