@@ -9,7 +9,7 @@ import { memo } from "react";
 
 export default function DevelopersResourceItem({
   category = "Resource",
-  children = [],
+  children,
   title,
   description,
   url,
@@ -32,7 +32,7 @@ export default function DevelopersResourceItem({
         <div className={styles["resource-item__container"]}>
           <div className={styles["resource-item__category"]}>{category}</div>
           <div>
-            {children ?? children}
+            {children}
             {!children && title && (
               <div className={styles["resource-item__title-container"]}>
                 <h3 className={styles["resource-item__title"]}>{title}</h3>
