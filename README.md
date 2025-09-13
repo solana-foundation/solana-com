@@ -1,6 +1,7 @@
 # solana.com Monorepo
 
-Repository for [https://solana.com](https://solana.com) - a Turborepo-powered monorepo with the main app in `apps/web/`.
+Repository for [https://solana.com](https://solana.com) - a Turborepo-powered
+monorepo with the main app in `apps/web/`.
 
 ## Setup locally
 
@@ -23,6 +24,7 @@ Repository for [https://solana.com](https://solana.com) - a Turborepo-powered mo
    ```
 
    Or, to run directly in the app folder:
+
    ```
    cd apps/web
    pnpm dev
