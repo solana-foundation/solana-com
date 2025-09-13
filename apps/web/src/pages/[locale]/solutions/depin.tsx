@@ -53,10 +53,10 @@ const DePINPage = () => {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <Video
               platform="vimeo"
-              id="1108616060?h=db29df0816&title=0&byline=0&portrait=0&dnt=1"
+              id="1108616060"
+              vimeoHash="db29df0816"
               title="DePIN Featured video"
-              autoplay={true}
-              privacyMode={false}
+              autoplay={false}
             />
           </div>
         </section>
