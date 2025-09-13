@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { builder } from "@builder.io/sdk";
-import { createMDX } from "fs-mdx/next";
+import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders: Array<{ key: string; value: string }> = [

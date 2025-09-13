@@ -1,5 +1,5 @@
-import { courses, coursesMeta } from "@@/.source/courses";
-import { createMDXSource } from "fs-mdx";
+import { courses, coursesMeta } from "@@/.source/index";
+import { createMDXSource } from "fumadocs-mdx";
 import { loader } from "fumadocs-core/source";
 import { locales, defaultLocale } from "@@/src/i18n/config";
 
@@ -13,10 +13,9 @@ export const coursesSource = loader({
   source: createMDXSource(courses, coursesMeta),
   pageTree: {
     attachFile(node: any, file: any) {
-      // console.log("attachFile", node, file);
-      node.author = file.data?.data?.author;
-      node.description = file.data?.data?.description;
-      node.slug = file.data?.slugs?.join("/");
+      node.author = file.data?.author;
+      node.description = file.data?.description;
+      node.slug = file.slugs?.join("/");
       return node;
     },
   },
