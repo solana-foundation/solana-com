@@ -1,11 +1,10 @@
 import { IMAGE_SETTINGS } from "@@/src/utils/images";
 import { notFound } from "next/navigation";
 import DeveloperDocsImage from "@@/src/components/opengraph/DeveloperDocsImage";
-
-import { docsSource as docs } from "@@/src/app/sources/docs";
-import { cookbookSource as cookbook } from "@@/src/app/sources/cookbook";
-import { guidesSource as guides } from "@@/src/app/sources/guides";
-import { coursesSource as courses } from "@@/src/app/sources/courses";
+import { cookbookData as cookbook } from "@@/.source/cookbook.fm";
+import { guidesData as guides } from "@@/.source/guides.fm";
+import { coursesData as courses } from "@@/.source/courses.fm";
+import { docsData as docs } from "@@/.source/docs.fm";
 
 // Route segment config
 export const runtime = "nodejs";
@@ -64,10 +63,10 @@ function getImageProps(slugItems: Array<string>) {
 }
 
 function getTitleFromCollection(
-  collection: any,
+  collection: any[],
   slugs: Array<string>,
 ): string | null {
-  const page = collection.getPage(slugs);
-  if (!page) return null;
-  return page.data.seoTitle || page.data.h1 || page.data.title;
+  const path = slugs.join("/").toLowerCase() || "index";
+  const fm = collection[path + ".mdx"] || collection[path + "/index.mdx"];
+  return fm ? fm.seoTitle || fm.h1 || fm.title : null;
 }

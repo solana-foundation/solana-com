@@ -22,7 +22,7 @@ export function DocsPage(props: {
   title: string;
   pageTree?: any;
   href: string;
-  // lastModified?: Date;
+  lastModified?: Date;
 }) {
   const path = props.filePath;
   const href = getHref(path);
@@ -50,7 +50,7 @@ export function DocsPage(props: {
       footer={{
         component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
       }}
-      // lastUpdate={props.lastModified}
+      lastUpdate={props.lastModified}
     >
       <DocsTitle>
         <Link
@@ -67,7 +67,16 @@ export function DocsPage(props: {
 }
 
 function getHref(path: string) {
-  return `https://github.com/solana-foundation/solana-com/blob/main/apps/web/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
+  // we need to map files with locales
+  // /intro/foo.mdx -> /en/intro/foo.mdx
+  // /intro/foo.es.mdx -> /es/intro/foo.mdx
+
+  const fileName = path.split(/[/\\]/).pop();
+  const splits = fileName?.split(".");
+  const locale = splits?.length > 2 ? splits[splits.length - 2] : "en";
+  const pathWithoutLocale = path.replace(`.${locale}.`, ".");
+
+  return `https://github.com/solana-foundation/solana-com/blob/main/apps/web/content/docs/${locale}/${pathWithoutLocale.startsWith("/") ? pathWithoutLocale.slice(1) : pathWithoutLocale}`;
 }
 
 function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {
