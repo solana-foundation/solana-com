@@ -18,7 +18,7 @@ export async function RpcDocsPage({
 }) {
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
-  const { body: MDX, toc } = await page.data.load();
+  const { body: MDX, toc } = page.data;
 
   return (
     <DocsPage

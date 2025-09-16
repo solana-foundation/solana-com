@@ -14,7 +14,7 @@ export async function CookbookPage({
   const page = cookbookSource.getPage(slug, locale);
   if (!page) notFound();
 
-  const { body: MDX, toc } = await page.data.load();
+  const { body: MDX, toc } = page.data;
 
   return (
     <DocsPage
