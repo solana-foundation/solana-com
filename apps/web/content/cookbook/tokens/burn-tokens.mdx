@@ -7,6 +7,151 @@ You can burn tokens if you are the token account authority.
 
 <CodeTabs storage="cookbook" flags="r">
 
+```ts !! title="Gill"
+import {
+  createSolanaClient,
+  generateKeyPairSigner,
+  createTransaction,
+  signTransactionMessageWithSigners,
+  getExplorerLink,
+  getSignatureFromTransaction,
+} from "gill";
+import {
+  getMintSize,
+  getCreateAccountInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  getInitializeMintInstruction,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstructionAsync,
+  getMintToCheckedInstruction,
+  getBurnCheckedInstruction,
+} from "gill/programs";
+
+const { rpc,rpcSubscriptions,sendAndConfirmTransaction } = createSolanaClient({
+  urlOrMoniker: "localnet",
+});
+
+const MINT_AUTHORITY = await generateKeyPairSigner();
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+let { mint, authorityATA } = await setup();
+
+const burnTokenIx = getBurnCheckedInstruction({
+  account: authorityATA,
+  mint: mint,
+  authority: MINT_AUTHORITY,
+  amount: 100_000_000_000n, // 100 tokens
+  decimals: 9,
+});
+
+
+const tx = createTransaction({
+  feePayer: MINT_AUTHORITY,
+  version: "legacy",
+  instructions: [burnTokenIx],
+  latestBlockhash,
+});
+
+const signedTx = await signTransactionMessageWithSigners(tx);
+
+console.log(
+  `Explorer ${getExplorerLink({
+    cluster: "devnet",
+    transaction: getSignatureFromTransaction(signedTx),
+  })}`
+);
+
+await sendAndConfirmTransaction(signedTx);
+
+/*
+ * The setup function initializes the mint and associated token accounts,
+ *
+ */
+
+async function setup() {
+
+   await airdropFactory({ rpc, rpcSubscriptions })({
+        recipientAddress: MINT_AUTHORITY.address,
+        lamports: lamports(1_000_000_000n),
+        commitment: "confirmed"
+    });
+
+  const mint = await generateKeyPairSigner();
+
+  const space = BigInt(getMintSize());
+
+  const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+  // create & initialize mint account
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: MINT_AUTHORITY,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS,
+  });
+
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 9,
+    mintAuthority: MINT_AUTHORITY.address,
+  });
+
+  // create token account
+  const [authorityATA] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: MINT_AUTHORITY.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
+  });
+
+  const createAuthorityATAInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: MINT_AUTHORITY,
+      mint: mint.address,
+      owner: MINT_AUTHORITY.address,
+    });
+
+  // mintTo token account
+  const mintToInstruction = await getMintToCheckedInstruction({
+    mint: mint.address,
+    token: authorityATA,
+    mintAuthority: MINT_AUTHORITY,
+    amount: 1_000_000_000_000n, // 1000
+    decimals: 9,
+  });
+
+  const instructions = [
+    createAccountInstruction,
+    initializeMintInstruction,
+    createAuthorityATAInstruction,
+    mintToInstruction,
+  ];
+
+  const tx = createTransaction({
+    feePayer: MINT_AUTHORITY,
+    version: "legacy",
+    instructions,
+    latestBlockhash,
+  });
+
+  const signedTx = await signTransactionMessageWithSigners(tx);
+
+  console.log(
+    `Explorer ${getExplorerLink({
+      cluster: "devnet",
+      transaction: getSignatureFromTransaction(signedTx),
+    })}`
+  );
+
+  await sendAndConfirmTransaction(signedTx);
+
+  return {
+    mint: mint.address,
+    authorityATA,
+  };
+}
+```
+
 ```ts !! title="Kit"
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
