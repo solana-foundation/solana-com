@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
+import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,10 +15,16 @@ const compat = new FlatCompat({
 });
 
 export default defineConfig([
-  globalIgnores(["**/.next","**/.source", "**/public", "**/packages", "**/coverage"]),
+  globalIgnores([
+    "**/.next",
+    "**/.source",
+    "**/public",
+    "**/packages",
+    "**/coverage",
+  ]),
   {
     extends: compat.config({
-      extends: ["next/core-web-vitals", "prettier"]
+      extends: ["next/core-web-vitals", "prettier"],
     }),
     languageOptions: {
       globals: {
@@ -52,4 +59,5 @@ export default defineConfig([
       "import/no-anonymous-default-export": 0,
     },
   },
+  eslintPluginPrettierRecommended,
 ]);
