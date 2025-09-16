@@ -333,5 +333,138 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+```ts !! title="Gill"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  compileTransactionMessage,
+  createSolanaClient,
+  createTransactionMessage,
+  getBase64Decoder,
+  getCompiledTransactionMessageEncoder,
+  getExplorerLink,
+  lamports,
+  LAMPORTS_PER_SOL,
+  pipe,
+  prependTransactionMessageInstructions,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  type TransactionMessageBytesBase64,
+} from "gill";
+import { generateKeyPairSigner } from "gill";
+import {
+  estimateComputeUnitLimitFactory,
+  getSetComputeUnitLimitInstruction,
+  getTransferSolInstruction,
+} from "gill/programs";
 
+const { rpc, rpcSubscriptions, sendAndConfirmTransaction } = createSolanaClient(
+  {
+    urlOrMoniker: "http://127.0.0.1:8899",
+  }
+);
+
+const fromKeyPair = await generateKeyPairSigner();
+const toKeyPair = await generateKeyPairSigner();
+
+let lamportsToAirdrop = BigInt(LAMPORTS_PER_SOL * 1.5);
+let lamportsToSend = BigInt(LAMPORTS_PER_SOL * 0.5);
+
+const estimatedComputeUnits = estimateComputeUnitLimitFactory({ rpc });
+
+const airdrop = airdropFactory({ rpc, rpcSubscriptions });
+const airdropSignature = await airdrop(
+  {
+    commitment: "confirmed",
+    recipientAddress: fromKeyPair.address /* .address */,
+    lamports: lamports(lamportsToAirdrop),
+  } // lamports() function helps assert that the input is a valid bigint and returs a Lamport type,
+);
+
+console.log(
+  "Explorer airdrop:",
+  getExplorerLink({
+    cluster: "devnet",
+    transaction: airdropSignature,
+  })
+);
+
+// create a transferSol instruction
+
+let transferInstruction = getTransferSolInstruction({
+  amount: lamportsToSend,
+  destination: toKeyPair.address,
+  source: fromKeyPair,
+});
+
+let { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// step 1: create empty tx message
+// step 2: add a payer to the message
+// step 3: provide blockhash
+// step 4: add your instruction for the tx
+
+let transactionMessage = pipe(
+  createTransactionMessage({ version: "legacy" }),
+  (m) => setTransactionMessageFeePayerSigner(fromKeyPair, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([transferInstruction], m)
+);
+
+let estimate1 = await estimatedComputeUnits(transactionMessage);
+console.log("estimate1 :", estimate1);
+
+// or this -->
+
+let emptyTransactionMessage = createTransactionMessage({ version: "legacy" });
+let emptyMessageWithTxMessageFeePayerSigner =
+  setTransactionMessageFeePayerSigner(fromKeyPair, emptyTransactionMessage); // just means the fee payer I'm attaching here is a Signer and not an Address
+let messageWithBlockhashAsLifetime =
+  setTransactionMessageLifetimeUsingBlockhash(
+    latestBlockhash,
+    emptyMessageWithTxMessageFeePayerSigner
+  );
+// let messageWithAppendedIx = appendTransactionMessageInstruction(transferInstruction, messageWithBlockhashAsLifetime);
+let messageWithAppendedIx = appendTransactionMessageInstructions(
+  [transferInstruction],
+  messageWithBlockhashAsLifetime
+);
+
+let estimate = await estimatedComputeUnits(messageWithAppendedIx);
+console.log("estimate:", estimate);
+
+// step 5: Add compute unit limit instruction to the transaction
+const budgetedTransactionMessage = prependTransactionMessageInstructions(
+  [getSetComputeUnitLimitInstruction({ units: estimate })],
+  transactionMessage
+);
+
+// step 6: Calculate transaction fee - let's go with pipe since it's less code to write
+const base64EncodedMessage = pipe(
+  budgetedTransactionMessage,
+  compileTransactionMessage, // Converts the type of transaction message data structure that you create in your application to the type of transaction message data structure that can be encoded for execution on the network.
+  getCompiledTransactionMessageEncoder().encode, // Returns an encoder that you can use to encode a CompiledTransactionMessage to a byte array.
+
+  getBase64Decoder().decode // This decoder deserializes base-64 encoded strings from a byte array.
+) as TransactionMessageBytesBase64;
+
+const { value: transactionCost } = await rpc
+  .getFeeForMessage(base64EncodedMessage)
+  .send();
+// Transacti
+
+console.log(
+  "Transaction is estimated to cost " + transactionCost + " lamports"
+);
+
+const signedTx = await sendAndConfirmTransaction(budgetedTransactionMessage);
+
+console.log(
+  "Explorer airdrop:",
+  getExplorerLink({
+    cluster: "localnet",
+    transaction: signedTx,
+  })
+);
+```
 </CodeTabs>
