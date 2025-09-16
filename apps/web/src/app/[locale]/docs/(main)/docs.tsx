@@ -15,7 +15,7 @@ export async function MainDocsPage({
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
 
-  const { body: MDX, toc } = page.data;
+  const { body: MDX, toc } = await page.data.load();
 
   return (
     <DocsPage

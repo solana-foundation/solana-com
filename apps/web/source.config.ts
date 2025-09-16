@@ -20,7 +20,7 @@ const schema = z.custom<{
 const docsData = defineDocs({
   dir: "content/docs",
   localized: true,
-  docs: { schema, async: false },
+  docs: { schema, async: true },
   output: "docs",
 });
 
@@ -29,7 +29,7 @@ export const docsMeta = docsData.meta;
 
 const cookbookData = defineDocs({
   dir: "content/cookbook",
-  docs: { schema, async: false },
+  docs: { schema, async: true },
   output: "cookbook",
 });
 
@@ -38,7 +38,7 @@ export const cookbookMeta = cookbookData.meta;
 
 const coursesData = defineDocs({
   dir: "content/courses",
-  docs: { schema, async: false },
+  docs: { schema, async: true },
   output: "courses",
 });
 
@@ -47,7 +47,7 @@ export const coursesMeta = coursesData.meta;
 
 const guidesData = defineDocs({
   dir: "content/guides",
-  docs: { schema, async: false },
+  docs: { schema, async: true },
   output: "guides",
 });
 
@@ -57,7 +57,7 @@ export const guidesMeta = guidesData.meta;
 const learnData = defineDocs({
   dir: "content/learn",
   localized: true,
-  docs: { schema, async: false },
+  docs: { schema, async: true },
   output: "learn",
 });
 

@@ -15,7 +15,7 @@ export default async function Page(props: Props) {
     params.locale,
   );
   if (!page) notFound();
-  const { body: MDX, toc } = page.data;
+  const { body: MDX, toc } = await page.data.load();
 
   const course = coursesSource.getPage([params.course], params.locale);
   const tree = coursesSource.pageTree[params.locale];
