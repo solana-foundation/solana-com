@@ -88,7 +88,6 @@ export function APIMethod(props: unknown) {
     </div>
   );
   const resultSection = (
-    // eslint-disable-next-line react/jsx-key
     <Selection
       from={method.result?.map((r, index) => (
         <ResultSection key={index} result={r} />
