@@ -7,16 +7,6 @@ import GradientOrbs, { orbPresets } from "./GradientOrbs";
 
 const universityEvents = [
   {
-    id: "stanford-2025",
-    titleKey: "stanford",
-    location: "Stanford",
-    university: "Stanford University",
-    date: "Sept 18",
-    href: "https://lu.ma/f25su",
-    image:
-      "https://images.unsplash.com/photo-1681782421891-5088f13466ec?q=80&w=2000",
-  },
-  {
     id: "berkeley-2025",
     titleKey: "berkeley",
     location: "Berkeley",
@@ -25,6 +15,16 @@ const universityEvents = [
     href: "https://lu.ma/f25ucb",
     image:
       "https://images.unsplash.com/photo-1694391505705-7fde96f6f14f?q=80&w=2000",
+  },
+  {
+    id: "mhacks-2025",
+    titleKey: "mhacks",
+    location: "Ann Arbor",
+    university: "MHacks",
+    date: "Sept 27-28",
+    href: "https://www.mhacks.org/",
+    image:
+      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2000",
   },
   {
     id: "ucla-2025",
