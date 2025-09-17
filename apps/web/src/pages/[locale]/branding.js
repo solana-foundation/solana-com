@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
+import Script from "next/script";
 
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
@@ -54,6 +55,7 @@ const Branding = () => {
       <HTMLHead
         title={t("branding.title")}
         description={t("branding.description")}
+        socialShare="src/img/branding/solanaLogo.png"
       />
       <SimpleHero
         frontmatter={{
@@ -74,6 +76,58 @@ const Branding = () => {
           <BrandingAnchorTags />
         </div>
       </StyledMainContainer>
+
+      <Script id="branding-schema" type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "ImageObject",
+              contentUrl: "https://solana.com/src/img/branding/solanaLogo.png",
+              name: "Official Solana full logo (horizontal)",
+              description:
+                "Official Solana full logo and brand asset for use in media and design.",
+              license: "https://solana.com/branding",
+            },
+            {
+              "@type": "ImageObject",
+              contentUrl:
+                "https://solana.com/src/img/branding/solanaLogoMark.png",
+              name: "Official Solana logo mark icon",
+              description:
+                "Official Solana logo mark icon for use in media and design.",
+              license: "https://solana.com/branding",
+            },
+            {
+              "@type": "ImageObject",
+              contentUrl:
+                "https://solana.com/src/img/branding/solanaWordMark.png",
+              name: "Official Solana wordmark",
+              description:
+                "Official Solana wordmark for use in media and design.",
+              license: "https://solana.com/branding",
+            },
+            {
+              "@type": "ImageObject",
+              contentUrl:
+                "https://solana.com/src/img/branding/solanaVerticalLogo.png",
+              name: "Official Solana vertical logo",
+              description:
+                "Official Solana vertical logo for use in media and design.",
+              license: "https://solana.com/branding",
+            },
+            {
+              "@type": "ImageObject",
+              contentUrl:
+                "https://solana.com/src/img/branding/solanaFoundationLogo.png",
+              name: "Official Solana Foundation logo",
+              description:
+                "Official Solana Foundation logo for use in media and design.",
+              license: "https://solana.com/branding",
+            },
+          ],
+        })}
+      </Script>
     </Layout>
   );
 };
