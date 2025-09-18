@@ -70,9 +70,9 @@ export function APIMethod(props: unknown) {
   };
   const paramsSection = <ParamsSection params={method.params?.blocks} />;
   const resultHeader = (
-    <div className="flex items-center gap-2">
+    <div className="flex gap-2 items-center">
       <h4 className="my-2 font-mono">result</h4>
-      <div className="ml-auto flex gap-1">
+      <div className="flex gap-1 ml-auto">
         {method.result?.map((result, i) => (
           <Selectable
             key={i}
@@ -160,17 +160,14 @@ function BigLayout({
           </ResizablePanel>
           <ResizableHandle
             withHandle
-            className="w-4 bg-transparent dark:bg-transparent sticky top-0 max-h-screen"
+            className="sticky top-0 w-4 max-h-screen bg-transparent dark:bg-transparent"
           />
           <ResizablePanel
             defaultSize={50}
             maxSize={70}
-            className="!overflow-clip min-w-0"
+            className="!overflow-visible min-w-0"
           >
-            <div
-              className="flex flex-col gap-2 sticky h-fit"
-              style={{ maxHeight: `calc(100vh - 80px)`, top: `78px` }}
-            >
+            <div className="flex flex-col gap-2">
               {requestSection}
               {responseSection}
             </div>
@@ -246,16 +243,16 @@ function ParamsSection({ params }: { params: ParamBlock[] }) {
 function ObjectParam({ block }: { block: ParamBlock }) {
   const isEmpty = !(block.children as any)?.props.children;
   return (
-    <Hoverable key={block.title} name={block.title} className="group block">
+    <Hoverable key={block.title} name={block.title} className="block group">
       <Collapsible
         className="tw-border border-ch-border bg-ch-tabs-background rounded group-data-[hovered=true]:border-sky-500/40 transition-colors duration-300"
         disabled={isEmpty}
       >
-        <CollapsibleTrigger className="p-2 gap-2 w-full justify-between items-center flex">
+        <CollapsibleTrigger className="flex gap-2 justify-between items-center p-2 w-full">
           <span className="font-mono truncate">{block.title}</span>
 
           <Pill
-            className="ml-auto mr-1"
+            className="mr-1 ml-auto"
             value={block.type}
             color="var(--ch-6)"
           />
@@ -275,23 +272,23 @@ function ObjectParam({ block }: { block: ParamBlock }) {
 
 function ValuesTable({ block }: { block: ParamBlock }) {
   return (
-    <table className="not-prose bg-fd-card w-full">
+    <table className="w-full not-prose bg-fd-card">
       <thead>
-        <tr className="text-fd-muted-foreground text-sm">
-          <th className="py-2 px-2">Values</th>
-          <th className="py-2 px-2">Default</th>
+        <tr className="text-sm text-fd-muted-foreground">
+          <th className="px-2 py-2">Values</th>
+          <th className="px-2 py-2">Default</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td className="pb-3 px-2">
+          <td className="px-2 pb-3">
             <span className="flex flex-wrap gap-1">
               {block.values.map((value) => (
                 <Pill key={value} value={value} color="var(--ch-2)" />
               ))}
             </span>
           </td>
-          <td className="pb-3 px-2">
+          <td className="px-2 pb-3">
             <span className="flex flex-wrap gap-1">
               {block.default && (
                 <Pill value={block.default} color="var(--ch-2)" />
@@ -472,7 +469,7 @@ async function RequestBlock({ codeblocks }: { codeblocks: RawCode[] }) {
     );
   }
 
-  return <MultiCode group={group} className="flex-1 min-h-0 my-0 shrink-0" />;
+  return <MultiCode group={group} className="flex-1 my-0 min-h-0 shrink-0" />;
 }
 
 async function ResponseBlock({ codeblock }: { codeblock: RawCode }) {
@@ -514,7 +511,7 @@ function Pill({
   if (!value) return null;
   return (
     <span
-      className={cn("px-1 rounded text-sm", className)}
+      className={cn("px-1 text-sm rounded", className)}
       style={{
         backgroundColor: `rgb(from ${color} r g b / 0.13)`,
         color,
