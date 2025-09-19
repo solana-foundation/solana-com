@@ -17,6 +17,9 @@ const Page = ({ page, builderLocale }) => {
   const isPreviewing = useIsPreviewing();
 
   if (useAppRouterNavigation(page)) {
+    if (typeof window === "undefined") {
+      return null;
+    }
     window.location.reload();
     return null;
   }
