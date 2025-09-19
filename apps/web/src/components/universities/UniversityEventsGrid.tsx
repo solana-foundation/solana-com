@@ -24,7 +24,7 @@ const universityEvents = [
     date: "Sept 27-28",
     href: "https://www.mhacks.org/",
     image:
-      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2000",
+      "https://images.unsplash.com/photo-1579055632087-a025815989ed?q=80&w=2000",
   },
   {
     id: "ucla-2025",
