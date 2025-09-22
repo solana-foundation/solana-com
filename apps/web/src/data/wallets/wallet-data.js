@@ -969,7 +969,7 @@ export const walletData = [
     social_recovery: false,
     staking: true,
     spending_limits: false,
-    open_source: true,
+    open_source: false,
     hardware: false,
     private_key_infrastructure: false,
     },
