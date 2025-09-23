@@ -3,11 +3,11 @@ import Layout from "@/components/solutions/layout";
 import { CTACards } from "@/components/solutions/icm/CTACards";
 import { EmailModal } from "@/components/solutions/EmailModal";
 import { Products } from "@/components/solutions/products";
-import { Projects } from "@/components/solutions/projects";
-import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
+import { Projects } from "@/components/solutions/projects.v2";
+import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { VideoGrid } from "@/components/solutions/video-grid";
 import { VideoPlayerModal } from "@/component-library/video-modal";
-import { WhatIsIt } from "@/components/solutions/what-is-it";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@/i18n/routing";
@@ -49,27 +49,28 @@ const ICMPage = () => {
         description={t("icm.meta.description")}
       />
 
-      <div
-        id="icm-page"
-        className="bg-solution-bg"
-        aria-labelledby="hero-title"
-      >
+      <div id="icm-page" className="bg-black">
         <SolutionHero
           badge={t("icm.hero.badge")}
           title={t("icm.hero.title")}
           subtitle={t("icm.hero.subtitle")}
           reportEyebrow={t("icm.hero.reportEyebrow")}
+          reportDescription={t("icm.hero.reportDescription")}
           emailCta={t("icm.hero.emailCta")}
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
-          globeImgSrc="/src/img/solutions/icm/hero.svg"
-          globeImgAlt={t("icm.hero.alt")}
-          variant="modern"
           reportImgSrc="/src/img/solutions/icm/hero-download.svg"
         />
 
         <WhatIsIt
-          title={t("icm.features.title")}
+          title={t.rich("icm.features.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
           description={t.rich("icm.features.description", {
             promiseLink: (chunks) => (
               <a
@@ -82,29 +83,18 @@ const ICMPage = () => {
               </a>
             ),
           })}
-          features={[
-            t("icm.features.0"),
-            t("icm.features.1"),
-            t("icm.features.2"),
-          ]}
         />
 
         {/* EcoProjects Section */}
-        <section>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 [padding-block:1rem] sm:[padding-block:3rem]">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full mb-4">
-                {t("icm.projects.title")}
-              </h2>
-              <Projects
-                projects={PROJECTS}
-                translationBase="icm.projects"
-                logos={LOGOS}
-                headingType="logo"
-              />
-            </div>
-          </div>
-        </section>
+        <Projects
+          title={t.rich("icm.projects.title", {
+            light: (chunks) => <span className="font-light">{chunks}</span>,
+          })}
+          projects={PROJECTS}
+          translationBase="icm.projects"
+          logos={LOGOS}
+          headingType="logo"
+        />
 
         {/* Products Section */}
         <section>
