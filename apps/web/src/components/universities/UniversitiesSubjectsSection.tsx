@@ -74,7 +74,7 @@ export default function UniversitiesSubjectsSection({
               <p className="text-lg text-gray-400 mb-8">
                 {translations.description}
               </p>
-              {/* @ts-ignore */}
+              {/* @ts-expect-error button has no props? */}
               <Button
                 to={UNIVERSITY_TYPEFORM_URL}
                 variant="outline"
