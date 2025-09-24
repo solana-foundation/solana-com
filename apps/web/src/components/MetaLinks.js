@@ -1,4 +1,4 @@
-import { languages } from "@@/src/i18n/config";
+import { languages } from "@workspace/i18n/config";
 import { config } from "@@/src/config";
 
 const cleanPath = (pathString) => {

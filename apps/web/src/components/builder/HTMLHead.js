@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { usePathname } from "@/i18n/routing";
+import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
 import { config } from "src/config";
 import MetaLinks from "../MetaLinks";

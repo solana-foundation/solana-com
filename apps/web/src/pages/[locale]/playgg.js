@@ -1,4 +1,4 @@
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import { useTranslations } from "next-intl";
 
 import PlayGGLayout from "@/components/playgg/PlayGGLayout";

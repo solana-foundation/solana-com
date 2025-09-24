@@ -1,7 +1,7 @@
 import { guides, guidesMeta } from "@@/.source/guides";
 import { createMDXSource } from "fs-mdx";
 import { loader } from "fumadocs-core/source";
-import { locales, defaultLocale } from "@@/src/i18n/config";
+import { locales, defaultLocale } from "@workspace/i18n/config";
 
 export const guidesSource = loader({
   i18n: {
