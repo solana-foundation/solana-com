@@ -2,7 +2,7 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const { uniqBy } = require("lodash");
-const { locales } = require("../../../src/i18n/config.ts");
+const { locales } = require("@workspace/i18n/config");
 // const { runDiffSitemaps } = require("./diffSitemaps");
 
 // TODO: remove this once we consoloidate to app-router (multiple routers in nextjs is suboptimal)

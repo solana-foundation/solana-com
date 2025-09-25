@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { NextSeo } from "next-seo";
 import { config } from "@@/src/config";
-import { usePathname } from "@@/src/i18n/routing";
+import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
 import MetaLinks from "./MetaLinks";
 import { prependSiteUrl } from "@@/src/utils/general";

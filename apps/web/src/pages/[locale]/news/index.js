@@ -16,7 +16,7 @@ import CategorySelection from "@/components/news/CategorySelection";
 import { getPageSettings } from "@/lib/builder/api";
 import customComponentsRegistration from "@/utils/customComponentGenerator";
 import { useTranslations } from "next-intl";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
 
 builder.init(NEWS_BUILDER_CONFIG.apiKey);

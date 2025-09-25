@@ -3,7 +3,7 @@ import { NextIntlClientProvider, useTranslations } from "next-intl";
 import React from "react";
 import { readdirSync, readFileSync } from "fs";
 import path from "path";
-import { locales } from "@@/src/i18n/config";
+import { locales } from "@workspace/i18n/config";
 import { act } from "react";
 
 import Header from "@@/src/components/Header";

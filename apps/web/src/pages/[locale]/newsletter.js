@@ -1,7 +1,7 @@
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import EmailSubscribeForm from "@/components/shared/EmailSubscribeForm";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import { useTranslations } from "next-intl";
 
 const NewsletterPage = () => {

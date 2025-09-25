@@ -9,7 +9,7 @@ import PossibleVisionaries from "@/components/possible/PossibleVisionaries";
 import PossibleCaseStudies from "@/components/possible/PossibleCaseStudies";
 import PossibleInnovation from "@/components/possible/PossibleInnovations";
 import dynamic from "next/dynamic";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 
 const Possible = () => {
   const t = useTranslations();

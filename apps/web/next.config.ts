@@ -121,6 +121,12 @@ const nextConfig: NextConfig = {
 
   webpack(config) {
     config.module.rules.push({
+      test: /\.tsx?$/,
+      use: "ts-loader",
+      exclude: /node_modules/,
+    });
+
+    config.module.rules.push({
       test: /\.inline\.svg$/,
       use: {
         loader: "@svgr/webpack",

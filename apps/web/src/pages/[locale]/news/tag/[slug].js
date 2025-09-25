@@ -3,7 +3,7 @@ import Layout from "@/components/layout";
 import PostCard from "@/components/blog/PostCard";
 import HTMLHead from "@/components/HTMLHead";
 import styled from "styled-components";
-import { slugWithLocales } from "@/i18n/routing";
+import { slugWithLocales } from "@workspace/i18n/routing";
 import {
   getSingleTag,
   getPostsByTag,

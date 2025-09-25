@@ -19,7 +19,7 @@ import { Divider } from "@/components/solutions/divider";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { VideoPlayerModal } from "@/component-library/video-modal";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import { Video } from "@/component-library/video";
 
 const DePINPage = () => {

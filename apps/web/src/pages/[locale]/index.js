@@ -1,6 +1,6 @@
 import { getPage } from "@/lib/builder/page/api";
 import Page from "./[...slug]";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 
 export default function Home(props) {
   return (

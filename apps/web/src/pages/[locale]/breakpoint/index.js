@@ -1,7 +1,7 @@
 import BreakpointPage, {
   getStaticProps as getStaticPropsCatchAll,
 } from "./[...slug]";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 
 export default function Page(props) {
   // We use an index page instead of an optional catch-all route

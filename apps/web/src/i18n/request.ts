@@ -1,7 +1,7 @@
 import { getRequestConfig } from "next-intl/server";
 import { IntlErrorCode } from "next-intl";
-import { routing } from "./routing";
-import { locales } from "./config";
+import { routing } from "@workspace/i18n/routing";
+import { locales } from "@workspace/i18n/config";
 
 const enMessages = (await import("@@/public/locales/en/common.json")).default;
 

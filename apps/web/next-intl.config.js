@@ -1,4 +1,4 @@
-import { locales, defaultLocale } from "./src/i18n/config";
+import { locales, defaultLocale } from "@workspace/i18n/config";
 
 module.exports = {
   locales,
