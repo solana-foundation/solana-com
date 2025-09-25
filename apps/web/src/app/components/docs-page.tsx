@@ -22,7 +22,6 @@ export function DocsPage(props: {
   title: string;
   pageTree?: any;
   href: string;
-  lastModified?: Date;
 }) {
   const path = props.filePath;
   const editUrl = getEditUrl(path);
@@ -50,7 +49,6 @@ export function DocsPage(props: {
       footer={{
         component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
       }}
-      lastUpdate={props.lastModified}
     >
       <DocsTitle>
         <Link
