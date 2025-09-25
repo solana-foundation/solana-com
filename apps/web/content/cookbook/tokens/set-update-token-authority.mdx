@@ -14,6 +14,170 @@ You can set/update authority. There are 4 types:
 
 <CodeTabs storage="cookbook" flags="r">
 
+```ts !! title="Gill"
+import {
+  airdropFactory,
+  createSolanaClient,
+  createTransaction,
+  generateKeyPairSigner,
+  getExplorerLink,
+  getSignatureFromTransaction,
+  lamports,
+  signTransactionMessageWithSigners,
+} from "gill";
+import {
+  AuthorityType,
+  getAssociatedTokenAccountAddress,
+  getCreateAccountInstruction,
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getSetAuthorityInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS,
+} from "gill/programs";
+
+const { rpc, rpcSubscriptions, sendAndConfirmTransaction } = createSolanaClient(
+  {
+    urlOrMoniker: "localnet"
+  }
+);
+
+const MINT_AUTHORITY = await generateKeyPairSigner();
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const NEW_AUTHORITY = await generateKeyPairSigner();
+const DECIMALS = 9;
+
+const { mint } = await setup();
+
+// 1. Change Mint Authority (MintTokens)
+const setMintAuthorityIx = getSetAuthorityInstruction({
+  owned: mint,
+  owner: MINT_AUTHORITY,
+  authorityType: AuthorityType.MintTokens,
+  newAuthority: NEW_AUTHORITY.address
+});
+
+// 2. Change Freeze Authority
+const setFreezeAuthorityIx = getSetAuthorityInstruction({
+  owned: mint,
+  owner: MINT_AUTHORITY,
+  authorityType: AuthorityType.FreezeAccount,
+  newAuthority: NEW_AUTHORITY.address
+});
+
+// Example of revoking authority (setting to null)
+const revokeMintAuthorityIx = getSetAuthorityInstruction({
+  owned: mint,
+  owner: NEW_AUTHORITY,
+  authorityType: AuthorityType.MintTokens,
+  newAuthority: null
+});
+
+const instructions = [
+  setMintAuthorityIx,
+  setFreezeAuthorityIx,
+  revokeMintAuthorityIx
+];
+
+const tx = createTransaction({
+  feePayer: MINT_AUTHORITY,
+  version: "legacy",
+  instructions,
+  latestBlockhash
+});
+
+const signedTx = await signTransactionMessageWithSigners(tx);
+
+const txSignature = getSignatureFromTransaction(signedTx);
+console.log("Transaction Signature:", txSignature);
+
+await sendAndConfirmTransaction(signedTx);
+
+/*
+ * The setup function initializes the mint and associated token accounts,
+ * and mints tokens to said associated token account
+ *
+ */
+async function setup() {
+  await airdropFactory({ rpc, rpcSubscriptions })({
+    recipientAddress: MINT_AUTHORITY.address,
+    lamports: lamports(1_000_000_000n),
+    commitment: "confirmed"
+  });
+
+  const mint = await generateKeyPairSigner();
+
+  const space = BigInt(getMintSize());
+
+  const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+  // create & initialize mint account
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: MINT_AUTHORITY,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: DECIMALS,
+    mintAuthority: MINT_AUTHORITY.address,
+    freezeAuthority: MINT_AUTHORITY.address
+  });
+
+  // create token account
+  const authorityATA = await getAssociatedTokenAccountAddress(
+    mint.address,
+    MINT_AUTHORITY.address,
+    TOKEN_2022_PROGRAM_ADDRESS
+  );
+
+  const createAuthorityATAInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: MINT_AUTHORITY,
+      mint: mint.address,
+      owner: MINT_AUTHORITY.address
+    });
+
+  // mintTo token account
+  const mintToInstruction = await getMintToCheckedInstruction({
+    mint: mint.address,
+    token: authorityATA,
+    mintAuthority: MINT_AUTHORITY,
+    amount: 1_000_000_000_000n, // 1000
+    decimals: DECIMALS
+  });
+
+  const instructions = [
+    createAccountInstruction,
+    initializeMintInstruction,
+    createAuthorityATAInstruction,
+    mintToInstruction
+  ];
+
+  const tx = createTransaction({
+    feePayer: MINT_AUTHORITY,
+    version: "legacy",
+    instructions,
+    latestBlockhash
+  });
+
+  const signedTx = await signTransactionMessageWithSigners(tx);
+
+  const txSignature = getSignatureFromTransaction(signedTx);
+
+  await sendAndConfirmTransaction(signedTx);
+
+  return {
+    mint: mint.address,
+    authorityATA
+  };
+}
+```
+
 ```ts !! title="Kit"
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
@@ -144,7 +308,7 @@ async function setup() {
     tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
   });
 
-  const crateAuthorityATAInstruction =
+  const createAuthorityATAInstruction =
     await getCreateAssociatedTokenInstructionAsync({
       payer: MINT_AUTHORITY,
       mint: mint.address,
@@ -163,7 +327,7 @@ async function setup() {
   const instructions = [
     createAccountInstruction,
     initializeMintInstruction,
-    crateAuthorityATAInstruction,
+    createAuthorityATAInstruction,
     mintToInstruction
   ];
 

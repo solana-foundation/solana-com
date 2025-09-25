@@ -10,6 +10,132 @@ specific token account.
 
 <CodeTabs storage="cookbook" flags="r">
 
+```ts !! title="Gill"
+import {
+    address,
+    airdropFactory,
+    createSolanaClient,
+    createSolanaRpcSubscriptions,
+    createTransaction,
+    generateKeyPairSigner,
+    getExplorerLink,
+    getSignatureFromTransaction,
+    lamports,
+    signTransactionMessageWithSigners
+} from "gill";
+import {
+    getAssociatedTokenAccountAddress,
+    getCreateAccountInstruction,
+    getCreateAssociatedTokenInstruction,
+    getInitializeMintInstruction,
+    getMintSize,
+    getMintToCheckedInstruction,
+    TOKEN_2022_PROGRAM_ADDRESS
+} from "gill/programs";
+
+
+const { rpc, sendAndConfirmTransaction } = createSolanaClient({
+    urlOrMoniker: "localnet",
+});
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+const MINT_AUTHORITY = await generateKeyPairSigner();
+const DECIMALS = 9;
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+let { mint, associatedTokenAddress } = await setup();
+
+const transaction = createTransaction({
+    feePayer: MINT_AUTHORITY,
+    version: "legacy",
+    instructions: [
+        // !mark(1:7)
+        getMintToCheckedInstruction({
+            mint,
+            token: associatedTokenAddress,
+            mintAuthority: MINT_AUTHORITY,
+            amount: 1_000_000_000n,
+            decimals: DECIMALS
+        })
+    ],
+    latestBlockhash,
+});
+const signedTransaction = await signTransactionMessageWithSigners(transaction);
+await sendAndConfirmTransaction(signedTransaction);
+
+const txSignature = getSignatureFromTransaction(signedTransaction);
+console.log("Transaction Signature: ", txSignature);
+
+/*
+ * The setup function initializes the mint and token accounts
+ *
+ */
+async function setup() {
+    await airdropFactory({ rpc, rpcSubscriptions })({
+        recipientAddress: MINT_AUTHORITY.address,
+        lamports: lamports(1_000_000_000n),
+        commitment: "confirmed"
+    });
+
+
+    const mint = await generateKeyPairSigner();
+
+    const space = BigInt(getMintSize());
+
+    const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+    // create & initialize mint account
+    const createAccountInstruction = getCreateAccountInstruction({
+        payer: MINT_AUTHORITY,
+        newAccount: mint,
+        lamports: rent,
+        space,
+        programAddress: TOKEN_2022_PROGRAM_ADDRESS,
+    });
+
+    const initializeMintInstruction = getInitializeMintInstruction(
+        {
+            mint: mint.address,
+            decimals: DECIMALS,
+            mintAuthority: MINT_AUTHORITY.address,
+        },
+        {
+            programAddress: TOKEN_2022_PROGRAM_ADDRESS,
+        },
+    );
+
+    const associatedTokenAddress = await getAssociatedTokenAccountAddress(mint, MINT_AUTHORITY, TOKEN_2022_PROGRAM_ADDRESS);
+    const createAtaInstruction = getCreateAssociatedTokenInstruction({
+        payer: MINT_AUTHORITY,
+        mint: mint.address,
+        owner: MINT_AUTHORITY.address,
+        tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
+        ata: associatedTokenAddress,
+    });
+    const transaction = createTransaction({
+        feePayer: MINT_AUTHORITY,
+        version: "legacy",
+        instructions: [
+            createAccountInstruction,
+            initializeMintInstruction,
+            createAtaInstruction
+        ],
+        latestBlockhash,
+    });
+
+
+    const signedTransaction = await signTransactionMessageWithSigners(transaction);
+
+    await sendAndConfirmTransaction(signedTransaction);
+
+    return {
+        mint: mint.address,
+        associatedTokenAddress
+    };
+
+}
+```
+
 ```ts !! title="Kit"
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {

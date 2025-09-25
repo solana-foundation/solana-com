@@ -27,6 +27,98 @@ There are two ways to add balance for Wrapped SOL
 
 <CodeTabs storage="cookbook">
 
+```ts !! title="Gill"
+import {
+  address,
+  airdropFactory,
+  createSolanaClient,
+  createTransaction,
+  generateKeyPairSigner,
+  getExplorerLink,
+  getSignatureFromTransaction,
+  lamports,
+  signTransactionMessageWithSigners,
+} from "gill";
+import {
+  getAssociatedTokenAccountAddress,
+  getCreateAssociatedTokenInstructionAsync,
+  getTransferSolInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+} from "gill/programs";
+import { getSyncNativeInstruction } from "@solana-program/token";
+
+const { rpc, rpcSubscriptions,sendAndConfirmTransaction } = createSolanaClient(
+  {
+    urlOrMoniker: "localnet",
+  }
+);
+
+// Generate key pairs for fee payer
+const feePayer = await generateKeyPairSigner();
+
+// Native mint (Wrapped SOL) address
+const NATIVE_MINT = address("So11111111111111111111111111111111111111112");
+
+// Use getAssociatedTokenAccountAddress to derive the ATA address for WSOL
+const associatedTokenAddress = await getAssociatedTokenAccountAddress(
+  NATIVE_MINT,
+  feePayer.address,
+  TOKEN_PROGRAM_ADDRESS
+);
+
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+await requestAirdrop()
+
+// Create instructions to create the WSOL associated token account
+const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
+  payer: feePayer,
+  mint: NATIVE_MINT,
+  owner: feePayer.address,
+  tokenProgram:TOKEN_PROGRAM_ADDRESS
+});
+
+// Amount to wrap (1 SOL = 1,000,000,000 lamports)
+const amountToSync = 1_000_000_000n;
+
+const transferSolInstruction = getTransferSolInstruction({
+  source: feePayer,
+  destination: associatedTokenAddress,
+  amount: amountToSync,
+});
+
+const syncNativeInstruction = getSyncNativeInstruction({
+  account: associatedTokenAddress,
+});
+
+const instructions = [
+  createAtaInstruction,
+  transferSolInstruction,
+  syncNativeInstruction,
+];
+
+const tx = createTransaction({
+  feePayer,
+  version: "legacy",
+  instructions,
+  latestBlockhash,
+});
+
+const signedTx = await signTransactionMessageWithSigners(tx);
+
+const txSignature = getSignatureFromTransaction(signedTx);
+console.log("Transaction Signature:", txSignature);
+
+await sendAndConfirmTransaction(signedTx)
+
+async function  requestAirdrop () {
+  await  airdropFactory ({ rpc, rpcSubscriptions })({
+    recipientAddress:  feePayer.address,
+    lamports:  lamports ( 5_000_000_000 n ),  // 5 SOL
+    commitment:  "confirmed"
+  });
+}
+```
+
 ```ts !! title="Kit"
 import { getTransferSolInstruction } from "@solana-program/system";
 import {
@@ -252,6 +344,132 @@ async fn main() -> anyhow::Result<()> {
 ### 2. By Token Transfer
 
 <CodeTabs storage="cookbook">
+
+```ts !! title ="Gill"
+import {
+  address,
+  airdropFactory,
+  createSolanaClient,
+  createTransaction,
+  getExplorerLink,
+  getSignatureFromTransaction,
+  generateKeyPairSigner,
+  signTransactionMessageWithSigners,
+  lamports,
+} from "gill";
+import {
+  getAssociatedTokenAccountAddress,
+  getTokenSize,
+  TOKEN_PROGRAM_ADDRESS,
+  getCreateAccountInstruction
+} from "gill/programs";
+import { getCloseAccountInstruction, getCreateAssociatedTokenInstructionAsync, getInitializeAccountInstruction, getSyncNativeInstruction, getTransferCheckedInstruction } from "@solana-program/token";
+
+const { rpc,rpcSubscriptions,sendAndConfirmTransaction } = createSolanaClient({
+  urlOrMoniker: "localnet",
+});
+
+/* constants */
+const SENDER = await generateKeyPairSigner();
+const SENDER_TEMPORARY_TOKEN_ACCOUNT = await generateKeyPairSigner();
+const RECIPIENT = await generateKeyPairSigner();
+const DECIMALS = 9;
+
+// Native mint (Wrapped SOL) address
+const NATIVE_MINT = address("So11111111111111111111111111111111111111112");
+
+// Use getAssociatedTokenAccountAddress to derive the ATA address for WSOL
+const associatedTokenAddress = await getAssociatedTokenAccountAddress(
+  NATIVE_MINT,
+  RECIPIENT.address,
+  TOKEN_PROGRAM_ADDRESS
+);
+
+
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+await requestAirdrop();
+
+// Amount to wrap (1 SOL = 1,000,000,000 lamports)
+const amount = 1_000_000_000n;
+
+const tokenAccountLen = getTokenSize();
+const tokenAccountRent = await rpc
+  .getMinimumBalanceForRentExemption(BigInt(tokenAccountLen))
+  .send();
+
+// create temporary token account
+// adds extra transfer amount lamports to token account
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: SENDER,
+  newAccount: SENDER_TEMPORARY_TOKEN_ACCOUNT,
+  lamports: tokenAccountRent + amount,
+  programAddress: TOKEN_PROGRAM_ADDRESS,
+  space: tokenAccountLen
+});
+
+// initialize temporary token account
+const initAccountInstruction = getInitializeAccountInstruction({
+  account: SENDER_TEMPORARY_TOKEN_ACCOUNT.address,
+  mint: NATIVE_MINT,
+  owner: SENDER.address,
+});
+
+// create recipient wrapped sol token account
+const createRecipientATAInstruction =
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: SENDER,
+    mint: NATIVE_MINT,
+    owner: RECIPIENT.address,
+  });
+
+// transfer WSOL
+const transferTokenInstruction = getTransferCheckedInstruction({
+  source: SENDER_TEMPORARY_TOKEN_ACCOUNT.address,
+  mint: NATIVE_MINT,
+  destination: recipientATA,
+  authority: SENDER,
+  amount: amount, // 1 WSOL
+  decimals: DECIMALS
+});
+
+// close temp account
+const closeTokenAccountInstruction = getCloseAccountInstruction({
+  account: SENDER_TEMPORARY_TOKEN_ACCOUNT.address,
+  destination: SENDER.address,
+  owner: SENDER
+});
+
+const instructions = [
+  createAccountInstruction,
+  initAccountInstruction,
+  createRecipientATAInstruction,
+  transferTokenInstruction,
+  closeTokenAccountInstruction
+];
+
+const tx = createTransaction({
+  feePayer:SENDER,
+  version: "legacy",
+  instructions,
+  latestBlockhash,
+});
+
+const signedTx = await signTransactionMessageWithSigners(tx);
+
+const txSignature = getSignatureFromTransaction(signedTx);
+console.log("Transaction Signature:", txSignature);
+
+await sendAndConfirmTransaction(signedTx);
+
+async function requestAirdrop() {
+  await airdropFactory({ rpc, rpcSubscriptions })({
+    recipientAddress: SENDER.address,
+    lamports: lamports(5_000_000_000n), // 5 SOL
+    commitment: "confirmed"
+  });
+}
+```
 
 ```ts !! title="Kit"
 import { getCreateAccountInstruction } from "@solana-program/system";
