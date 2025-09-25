@@ -19,7 +19,6 @@ const schema = z.custom<{
 
 const docsData = defineDocs({
   dir: "content/docs",
-  localized: true,
   docs: { schema, async: true },
   output: "docs",
 });
@@ -56,7 +55,6 @@ export const guidesMeta = guidesData.meta;
 
 const learnData = defineDocs({
   dir: "content/learn",
-  localized: true,
   docs: { schema, async: true },
   output: "learn",
 });
