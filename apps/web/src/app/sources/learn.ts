@@ -8,6 +8,7 @@ export const learnSource = loader({
     defaultLanguage: defaultLocale,
     languages: locales,
     hideLocale: "default-locale",
+    parser: "dir",
   },
   baseUrl: "/learn",
   source: createMDXSource(learn, learnMeta),
