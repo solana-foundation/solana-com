@@ -22,10 +22,11 @@ export async function MainDocsPage({
       toc={toc}
       full={page.data.full}
       title={page.data.h1 || page.data.title}
-      filePath={page.data._file.path}
+      filePath={page.file.path}
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
+      lastModified={page.data.lastModified}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (
