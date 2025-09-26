@@ -890,5 +890,45 @@ export default {
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0138-deprecate-legacy-vote-instructions.md",
     },
+    {
+      source: "/developers/cookbook/tokens/approve-token-delegate",
+      destination: "/docs/tokens/basics/approve-delegate",
+    },
+    {
+      source: "/developers/cookbook/tokens/burn-tokens",
+      destination: "/docs/tokens/basics/burn-tokens",
+    },
+    {
+      source: "/developers/cookbook/tokens/close-token-accounts",
+      destination: "/docs/tokens/basics/close-account",
+    },
+    {
+      source: "/developers/cookbook/tokens/create-mint-account",
+      destination: "/docs/tokens/basics/create-mint",
+    },
+    {
+      source: "/developers/cookbook/tokens/create-token-account",
+      destination: "/docs/tokens/basics/create-token-account",
+    },
+    {
+      source: "/developers/cookbook/tokens/mint-tokens",
+      destination: "/docs/tokens/basics/mint-tokens",
+    },
+    {
+      source: "/developers/cookbook/tokens/revoke-token-delegate",
+      destination: "/docs/tokens/basics/revoke-delegate",
+    },
+    {
+      source: "/developers/cookbook/tokens/set-update-token-authority",
+      destination: "/docs/tokens/basics/set-authority",
+    },
+    {
+      source: "/developers/cookbook/tokens/transfer-tokens",
+      destination: "/docs/tokens/basics/transfer-tokens",
+    },
+    {
+      source: "/developers/cookbook/tokens/manage-wrapped-sol",
+      destination: "/docs/tokens/basics/sync-native",
+    },
   ],
 };
