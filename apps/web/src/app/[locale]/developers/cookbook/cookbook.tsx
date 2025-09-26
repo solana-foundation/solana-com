@@ -21,7 +21,7 @@ export async function CookbookPage({
       toc={toc}
       full={page.data.full}
       title={page.data.h1 || page.data.title}
-      filePath={page.data._file.path}
+      filePath={page.file.path}
       hideTableOfContents={true}
       pageTree={cookbookSource.pageTree[locale]}
       href={page.url}
