@@ -8,6 +8,7 @@ export const docsSource = loader({
     defaultLanguage: defaultLocale,
     languages: locales,
     hideLocale: "default-locale",
+    parser: "dir",
   },
   baseUrl: "/docs",
   source: createMDXSource(docs, docsMeta),
