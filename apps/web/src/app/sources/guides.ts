@@ -13,13 +13,12 @@ export const guidesSource = loader({
   source: createMDXSource(guides, guidesMeta),
   pageTree: {
     attachFile(node: any, file: any) {
-      // console.log("attachFile", node, file);
-      node.description = file.data?.data?.description;
-      node.slug = file.data?.slugs?.join("/");
-      node.featured = file.data?.data?.featured;
-      node.tags = file.data?.data?.tags;
-      node.href = file.data?.data?.href;
-      node.difficulty = file.data?.data?.difficulty;
+      node.description = file.data?.description;
+      node.slug = file.slugs?.join("/");
+      node.featured = file.data?.featured;
+      node.tags = file.data?.tags;
+      node.href = file.data?.href;
+      node.difficulty = file.data?.difficulty;
       return node;
     },
   },
