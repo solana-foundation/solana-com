@@ -1,11 +1,10 @@
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
-import { CTACards } from "@/components/solutions/icm/CTACards";
 import { EmailModal } from "@/components/solutions/EmailModal";
-import { Products } from "@/components/solutions/products";
+import { Products } from "@/components/solutions/products.v2";
 import { Projects } from "@/components/solutions/projects.v2";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
-import { VideoGrid } from "@/components/solutions/video-grid";
+import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { useState } from "react";
@@ -17,7 +16,8 @@ import {
   PROJECTS,
   VIDEOS,
 } from "@/data/solutions/tokenization";
-import { NewsItem } from "@/components/solutions/icm/News";
+import { LatestNews } from "@/components/solutions/latest-news.v2";
+import { SolutionReport } from "@/components/solutions/report.v2";
 
 const ICMPage = () => {
   const t = useTranslations();
@@ -60,6 +60,7 @@ const ICMPage = () => {
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
           reportImgSrc="/src/img/solutions/icm/hero-download.svg"
+          bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
         />
 
         <WhatIsIt
@@ -97,39 +98,67 @@ const ICMPage = () => {
         />
 
         {/* Products Section */}
-        <section>
-          <Products
-            title={t("icm.products.title")}
-            description={t("icm.products.description")}
-            products={PRODUCTS}
-            translationBase="icm.products"
-          />
-        </section>
+        <Products
+          title={t("icm.products.title")}
+          description={t("icm.products.description")}
+          products={PRODUCTS}
+          translationBase="icm.products"
+        />
 
         {/* Real Builders Section */}
-        <section className=" [padding-block:1rem] sm:[padding-block:3rem] bg-[#171c25]">
-          <VideoGrid
-            title={t("icm.videoPlayer.title")}
-            subtitle={t("icm.videoPlayer.subtitle")}
-            videos={VIDEOS(t)}
-            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK69cksrzGufy1LKGPjg6QtV"
-            moreVideosLabel={t("icm.videoPlayer.moreVideos")}
-          />
-        </section>
+        <VideoGrid
+          title={t("icm.videoPlayer.title")}
+          subtitle={t("icm.videoPlayer.subtitle")}
+          videos={VIDEOS(t)}
+          moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK69cksrzGufy1LKGPjg6QtV"
+          moreVideosLabel={t("icm.videoPlayer.moreVideos")}
+        />
 
-        <section>
-          <NewsItem
-            title={t("icm.news.title")}
-            summary={t("icm.news.summary")}
-            image="/src/img/solutions/icm/icm-anza.webp"
-            link="https://www.anza.xyz/blog/the-internet-capital-markets-roadmap"
-          />
-        </section>
+        {/* Latest News Section */}
+        <LatestNews
+          title={t.rich("icm.news.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
+          items={[
+            {
+              id: "0",
+              title: t("icm.news.items.0.title"),
+              date: t("icm.news.items.0.date"),
+              image: "/src/img/solutions/icm/icm-anza.webp",
+              link: "https://www.anza.xyz/blog/the-internet-capital-markets-roadmap",
+            },
+          ]}
+        />
 
-        {/* Card Section */}
-        <section>
-          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
-        </section>
+        {/* Report Section */}
+        <SolutionReport
+          eyebrow={t("icm.hero.reportEyebrow")}
+          description={t("icm.hero.reportDescription")}
+          emailCta={t("icm.hero.emailCta")}
+          onEmailClick={() => setEmailModalOpen(true)}
+          imgSrc="/src/img/solutions/icm/hero-download.svg"
+          linksTitle={t("icm.cta.whatElseTitle")}
+          links={[
+            {
+              title: t("icm.cta.items.0.label"),
+              href: "/solutions/solana-permissioned-environments",
+            },
+            {
+              title: t("icm.cta.items.1.label"),
+              href: "/solutions/digital-assets",
+            },
+            {
+              title: t("icm.cta.items.2.label"),
+              href: "/solutions/real-world-assets",
+            },
+          ]}
+          bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
+        />
       </div>
       <VideoPlayerModal />
       <EmailModal

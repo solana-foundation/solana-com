@@ -1,7 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { Logos, LogosProps } from "./logos";
+import { Logos, LogosProps } from "./logos.v2";
 import { cn } from "@/app/components/utils";
 
 export type Project = {
@@ -107,7 +107,7 @@ export const Projects = ({
             </div>
           </div>
           {logos && logos.length > 0 && (
-            <div className="mt-8">
+            <div className="mt-[32px] xl:mt-[64px]">
               <Logos logos={logos} />
             </div>
           )}

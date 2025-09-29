@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine } from "lucide-react";
 import { cn } from "@/app/components/utils";
+import UnicornScene from "unicornstudio-react";
 
 export type SolutionHeroStat = {
   value: string;
@@ -24,10 +25,9 @@ export type SolutionHeroProps = {
   emailCta?: string;
   onEmailClick?: () => void;
   stats: SolutionHeroStat[];
-  globeImgSrc?: string;
-  globeImgAlt?: string;
   reportImgSrc?: string;
   titleSize?: "m" | "s";
+  bgJsonFilePath?: string;
 };
 
 /**
@@ -43,6 +43,7 @@ export type SolutionHeroProps = {
  * @param {() => void} props.onEmailClick - The function to call when the email CTA is clicked.
  * @param {SolutionHeroStat[]} props.stats - The stats to display in the hero section.
  * @param {string} props.reportImgSrc - The source of the report image.
+ * @param {string} props.bgJsonFilePath - The path to the background JSON file.
  *
  * @example
  * <SolutionHero
@@ -60,6 +61,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   onEmailClick,
   stats,
   reportImgSrc,
+  bgJsonFilePath,
 }) => {
   // Split title on first period for line break
   // Render a line break after every period
@@ -83,7 +85,20 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       className="relative overflow-hidden bg-black text-white text-left"
       aria-labelledby="hero-title"
     >
-      <div className="min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto flex flex-col justify-between">
+      {bgJsonFilePath && (
+        <UnicornScene
+          className="!absolute top-0 right-0 bottom-0 -z-1"
+          jsonFilePath={bgJsonFilePath}
+          width="100%"
+          height="100%"
+          scale={1}
+          dpi={1}
+          fps={30}
+          lazyLoad={true}
+          production={true}
+        />
+      )}
+      <div className="min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto flex flex-col justify-between relative">
         {/* Hero Content */}
         <div className="px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] max-w-4xl">
           <h1
@@ -92,7 +107,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           >
             {titleNodes}
           </h1>
-          <p className="text-white/70 text-lg md:text-2xl mt-6 mb-0 max-w-xl">
+          <p className="text-[#ABABBA] text-lg md:text-2xl mt-6 mb-0 max-w-xl">
             {subtitle}
           </p>
 
@@ -160,13 +175,15 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
               <div className="overflow-hidden w-full xl:w-1/3 p-[0_12px_12px] md:p-[12px] xl:p-[0_24px_0_0]">
                 <div className="flex flex-row items-stretch p-4 md:p-6 bg-white text-black rounded-xl">
                   {reportImgSrc && (
-                    <Image
-                      src={reportImgSrc}
-                      alt=""
-                      width={114}
-                      height={153}
-                      className="h-auto w-[80px] md:w-[70px] xl:w-[114px] mr-4"
-                    />
+                    <div className="grow-0 shrink-0 mr-4">
+                      <Image
+                        src={reportImgSrc}
+                        alt=""
+                        width={114}
+                        height={153}
+                        className="!h-auto w-[80px] md:w-[70px] xl:w-[114px]"
+                      />
+                    </div>
                   )}
                   <div className="grow flex flex-col justify-between gap-4">
                     <div>
