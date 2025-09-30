@@ -1,5 +1,5 @@
 import { docs, docsMeta } from "@@/.source/index";
-import { createMDXSource } from "fs-mdx";
+import { createMDXSource } from "fumadocs-mdx";
 import { loader } from "fumadocs-core/source";
 import { locales, defaultLocale } from "@workspace/i18n/config";
 

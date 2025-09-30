@@ -1,5 +1,6 @@
-import { defineConfig, defineDocs } from "fs-mdx/config";
+import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 import { recmaCodeHike, remarkCodeHike } from "codehike/mdx";
+import { rehypeToc } from "fumadocs-core/mdx-plugins";
 import path from "path";
 
 import { z } from "zod";
@@ -67,8 +68,10 @@ export default defineConfig({
       publicDir: path.join(process.cwd(), "public"),
     },
     recmaPlugins: [[recmaCodeHike, chConfig]],
-    remarkPlugins: (v) => [[remarkCodeHike, chConfig], ...v],
+    remarkPlugins: (v) => {
+      return [[remarkCodeHike, chConfig], ...v];
+    },
     // remove fumadocs rehype plugins
-    rehypePlugins: () => [],
+    rehypePlugins: () => [rehypeToc],
   },
 });
