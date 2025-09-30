@@ -1,4 +1,4 @@
-import { cookbook, cookbookMeta } from "@@/.source/cookbook";
+import { cookbook, cookbookMeta } from "@@/.source/index";
 import { createMDXSource } from "fs-mdx";
 import { loader } from "fumadocs-core/source";
 import { locales, defaultLocale } from "@workspace/i18n/config";

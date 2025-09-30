@@ -1,10 +1,10 @@
 import { IMAGE_SETTINGS } from "@@/src/utils/images";
 import { notFound } from "next/navigation";
 import DeveloperDocsImage from "@@/src/components/opengraph/DeveloperDocsImage";
-import { cookbookData as cookbook } from "@@/.source/cookbook.fm";
-import { guidesData as guides } from "@@/.source/guides.fm";
-import { coursesData as courses } from "@@/.source/courses.fm";
-import { docsData as docs } from "@@/.source/docs.fm";
+import { cookbookData as cookbook } from "@@/.source/index.fm";
+import { guidesData as guides } from "@@/.source/index.fm";
+import { coursesData as courses } from "@@/.source/index.fm";
+import { docsData as docs } from "@@/.source/index.fm";
 
 // Route segment config
 export const runtime = "nodejs";
