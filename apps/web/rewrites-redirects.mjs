@@ -930,5 +930,9 @@ export default {
       source: "/developers/cookbook/tokens/manage-wrapped-sol",
       destination: "/docs/tokens/basics/sync-native",
     },
+    {
+      source: "/developers/guides/advanced/verified-builds",
+      destination: "/docs/programs/verified-builds",
+    },
   ],
 };
