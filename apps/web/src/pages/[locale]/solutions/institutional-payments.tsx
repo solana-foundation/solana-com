@@ -1,7 +1,7 @@
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { useTranslations } from "next-intl";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
 import { useState } from "react";
 import { WhatIsIt } from "@/components/solutions/what-is-it";

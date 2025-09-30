@@ -1,7 +1,4 @@
-import {
-  DocsLayoutProps,
-  DocsLayout as FumaDocsLayout,
-} from "fumadocs-ui/layouts/docs";
+import { DocsLayout as FumaDocsLayout } from "fumadocs-ui/layouts/docs";
 import type { ReactNode } from "react";
 import { Sidebar, SidebarViewport } from "fumadocs-ui/layouts/docs/sidebar";
 import { NavbarSidebarTrigger } from "fumadocs-ui/layouts/docs.client";
@@ -17,7 +14,7 @@ export async function DocsLayout({
   locale,
 }: {
   children: ReactNode;
-  tree: DocsLayoutProps["tree"];
+  tree: any; // TODO: fix after updating to fumadocs-ui@15
   sidebarEnabled?: boolean;
   locale?: string;
 }) {

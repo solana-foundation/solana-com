@@ -8,7 +8,7 @@ import {
   getPageSettings,
 } from "@/lib/builder/api";
 import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
-import { pathsWithLocales } from "@/i18n/routing";
+import { pathsWithLocales } from "@workspace/i18n/routing";
 import { MetaData } from "@/components/blog/meta";
 import { DetailsHero } from "@solana-foundation/solana-lib";
 import { PageBreadcrumbs } from "@/components/developers/DevelopersContentPage/PageBreadcrumbs";
