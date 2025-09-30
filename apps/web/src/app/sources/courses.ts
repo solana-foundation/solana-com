@@ -13,10 +13,9 @@ export const coursesSource = loader({
   source: createMDXSource(courses, coursesMeta),
   pageTree: {
     attachFile(node: any, file: any) {
-      // console.log("attachFile", node, file);
-      node.author = file.data?.data?.author;
-      node.description = file.data?.data?.description;
-      node.slug = file.data?.slugs?.join("/");
+      node.author = file.data?.author;
+      node.description = file.data?.description;
+      node.slug = file.slugs?.join("/");
       return node;
     },
   },
