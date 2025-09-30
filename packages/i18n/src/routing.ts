@@ -40,7 +40,7 @@ export function pathsWithLocales<T>(paths: { params: T }[]) {
 }
 
 export function getAlternates(path: string, locale: string) {
-  const languages = {
+  const languages: Record<string, string> = {
     "x-default": `/${path}`,
   };
   locales.forEach((l) => {
