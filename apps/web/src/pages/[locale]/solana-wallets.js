@@ -1,7 +1,7 @@
 import { useTranslations } from "next-intl";
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import WalletsLayout from "@/components/wallets/WalletsLayout";
 import { walletData } from "@/data/wallets/wallet-data";
 

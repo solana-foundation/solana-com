@@ -6,7 +6,7 @@ import CommunityLinks from "@/components/community/CommunityLinks";
 import CommunitySocial from "@/components/community/CommunitySocial";
 import CommunityNews from "@/components/community/CommunityNews";
 import CommunityCollective from "@/components/community/CommunityCollective";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import { useTranslations } from "next-intl";
 import { getPostsPage, getPostPagination } from "@/lib/builder/api";
 import {
