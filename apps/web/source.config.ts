@@ -68,10 +68,7 @@ export default defineConfig({
       publicDir: path.join(process.cwd(), "public"),
     },
     recmaPlugins: [[recmaCodeHike, chConfig]],
-    remarkPlugins: (v) => {
-      return [[remarkCodeHike, chConfig], ...v];
-    },
-    // remove fumadocs rehype plugins
-    rehypePlugins: () => [rehypeToc],
+    remarkPlugins: (v) => [[remarkCodeHike, chConfig], ...v],
+    rehypePlugins: [rehypeToc],
   },
 });
