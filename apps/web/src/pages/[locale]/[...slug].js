@@ -6,8 +6,8 @@ import Layout from "@/components/layout";
 import { PAGE_BUILDER_CONFIG } from "@/lib/builder/page/constants";
 import { getPage, getAllPagesWithSlug } from "@/lib/builder/page/api";
 import ModalLauncher from "@/components/ModalLauncher/ModalLauncher";
-import { slugWithLocales, usePathname } from "@/i18n/routing";
-import { locales } from "@/i18n/config";
+import { slugWithLocales, usePathname } from "@workspace/i18n/routing";
+import { locales } from "@workspace/i18n/config";
 
 builder.init(PAGE_BUILDER_CONFIG.apiKey);
 builder.apiVersion = "v3";

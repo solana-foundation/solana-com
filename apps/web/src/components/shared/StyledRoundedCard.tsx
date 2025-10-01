@@ -2,10 +2,10 @@ import { SimpleComponentProps } from "@@/src/types";
 import styled from "styled-components";
 
 type StyledDivProps = SimpleComponentProps<{
-  color?: any;
-  bgColor?: any;
-  borderRadius?: any;
-  shadow?: any;
+  color?: string;
+  bgColor?: string;
+  borderRadius?: string;
+  shadow?: string;
 }>;
 
 const StyledDiv: React.FC<StyledDivProps> = ({ children, className }) => {

@@ -13,12 +13,9 @@ const builderLimit = 100; // This seems to be the builder limit
 export function getPostSlugs(offset = 0, builderModel) {
   return builder.getAll(builderModel, {
     fields: "data.slug", // only request the `data.slug` field
-    options: { noTargeting: true },
+    options: { noTargeting: true, offset: offset },
     apiKey: BUILDER_CONFIG.apiKey,
     limit: builderLimit,
-    options: {
-      offset: offset,
-    },
   });
 }
 
@@ -167,12 +164,9 @@ export function getFeaturedPosts() {
 export function getTagSlugs(offset = 0) {
   return builder.getAll(BUILDER_CONFIG.tagsModel, {
     fields: "data.slug", // only request the `data.slug` field
-    options: { noTargeting: true },
+    options: { noTargeting: true, offset: offset },
     apiKey: BUILDER_CONFIG.apiKey,
     limit: builderLimit,
-    options: {
-      offset: offset,
-    },
   });
 }
 
