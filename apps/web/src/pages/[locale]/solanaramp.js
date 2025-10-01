@@ -2,7 +2,7 @@ import { useTranslations } from "next-intl";
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import RampLayout from "@/components/ramps/RampsLayout";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import {
   rampData,
   fiatAssets,

@@ -14,7 +14,7 @@ export function prependSiteUrl(url: string) {
  */
 export function generateRandomInRange(min = 0, max = 100) {
   // find diff
-  let difference = max - min;
+  const difference = max - min;
 
   // generate random number
   let rand = Math.random();

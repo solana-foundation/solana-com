@@ -1,6 +1,6 @@
 import { config } from "@@/src/config";
 import { getUrlWithoutLocale } from "@@/src/app/sources/utils";
-import { getAlternates } from "@@/src/i18n/routing";
+import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 
 export function getBaseMetadata(locale: string) {

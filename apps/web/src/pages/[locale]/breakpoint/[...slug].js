@@ -6,7 +6,7 @@ import { getAllCustomSlugs, getCustomPage } from "@/lib/builder/api";
 import { BREAKPOINT_BUILDER_CONFIG } from "@/lib/builder/breakpoint/constants";
 import HTMLHead from "@/components/builder/HTMLHead";
 import SimpleHero from "@/components/breakpoint/BreakpointSimpleHero";
-import { slugWithLocales } from "@/i18n/routing";
+import { slugWithLocales } from "@workspace/i18n/routing";
 
 builder.init(BREAKPOINT_BUILDER_CONFIG.apiKey);
 builder.apiVersion = "v3";

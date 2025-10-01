@@ -135,7 +135,7 @@ const getYTVideos = async (
 
     const channelData = await channelResp.json();
 
-    if (!!channelData) {
+    if (channelData) {
       const uploadsId =
         channelData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
 

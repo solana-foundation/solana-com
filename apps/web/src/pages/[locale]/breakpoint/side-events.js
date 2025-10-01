@@ -4,7 +4,7 @@ import BreakpointLayout from "@/components/breakpoint/BreakpointLayout";
 import { fetchCalendarEvents } from "@/lib/events/fetchCalendarEvents";
 import EventsList from "@/components/events/EventsList";
 import { useTranslations } from "next-intl";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import Button from "@/components/shared/Button";
 
 const SideEvents = ({
