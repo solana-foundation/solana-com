@@ -61,7 +61,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
 }) => {
   return (
     <section className="relative overflow-hidden bg-black text-white text-left">
-      <div className="!absolute m-auto max-xl:top-2 right-2 max-xl:bottom-2 left-2 xl:top-8 xl:bottom-8 -z-1">
+      <div className="!absolute m-auto max-xl:top-2 right-2 max-xl:bottom-2 left-2 xl:top-8 xl:bottom-8">
         <UnicornScene
           className="!absolute top-0 right-0 bottom-0 left-0 rounded-xl overflow-hidden"
           width="100%"
@@ -82,8 +82,8 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                 <Image
                   src={imgSrc}
                   alt=""
-                  width={114}
-                  height={153}
+                  width={290}
+                  height={288}
                   className="!h-auto w-[80px] md:w-[190px] xl:w-[290px] rounded-md"
                 />
               </div>

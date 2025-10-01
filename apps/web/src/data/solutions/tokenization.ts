@@ -22,49 +22,24 @@ export const PROJECTS = [
 
 export const LOGOS = [
   {
-    src: "/src/img/logos-eco/bullish.svg",
-    alt: "Bullish",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/r3-logo-vector.svg",
-    alt: "R3",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/Brevan_Howard_Logo.svg",
+    src: "/src/img/logos-eco/brevan-howard.png",
     alt: "Brevan Howard",
-    bg: "bg-white",
   },
   {
-    src: "/src/img/logos-eco/Apollo_Global_Management_logo.svg",
-    alt: "Apollo Global Management",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/Vaneck.svg",
+    src: "/src/img/logos-eco/vaneck.png",
     alt: "Vaneck",
-    bg: "bg-white",
   },
   {
-    src: "/src/img/logos-eco/franklin-templeton.webp",
-    alt: "Franklin Templeton",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/hamilton-lane.webp",
+    src: "/src/img/logos-eco/hamilton-lane.png",
     alt: "Hamilton Lane",
-    bg: "bg-black",
   },
   {
-    src: "/src/img/logos-eco/societe-general.webp",
+    src: "/src/img/logos-eco/societe-generale.png",
     alt: "Societe Generale",
-    bg: "bg-black",
   },
   {
-    src: "/src/img/logos-eco/BlackRock.webp",
+    src: "/src/img/logos-eco/blackrock.png",
     alt: "Blackrock",
-    bg: "bg-white",
   },
 ];
 

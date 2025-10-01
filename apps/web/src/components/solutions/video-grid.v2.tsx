@@ -3,6 +3,7 @@ import { VideoTrigger } from "@/component-library/video-modal";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useRef } from "react";
 import { cn } from "@/app/components/utils";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 const NAV_BUTTON_CLASSNAME =
   "backdrop-blur-xs !bg-black/80 [&&&]:!shadow-[0_2px_4px_1px_rgba(0,0,0,0.17),0_-4px_12px_0_rgba(255,255,255,0.08)_inset,0_1px_0_0_rgba(255,255,255,0.20)_inset,0_-1px_0_0_rgba(255,255,255,0.12)_inset]";
@@ -51,12 +52,23 @@ export type VideoGridProps = {
  */
 export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
   const carouselRef = useRef(null);
+  const { ref: statsRef, isIntersecting } =
+    useIntersectionObserver<HTMLDivElement>({
+      threshold: 0.2,
+      triggerOnce: true,
+    });
 
-  const videoCards = videos.map((video) => (
+  const videoCards = videos.map((video, index) => (
     <div
       key={video.id}
-      className="flex flex-col w-full self-start px-1"
-      style={{ minWidth: 0 }}
+      className={cn("flex flex-col w-full self-start px-1 min-w-0", {
+        "animate-fade-in-right": isIntersecting,
+      })}
+      style={
+        isIntersecting
+          ? { animationDelay: `${0.1 + index * 0.1}s` }
+          : { opacity: 0 }
+      }
     >
       <div className="relative w-full aspect-video rounded-xl overflow-hidden cursor-pointer group">
         <Image
@@ -89,7 +101,7 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
   ));
 
   return (
-    <section className="relative overflow-hidden bg-black text-white text-left">
+    <section className="relative overflow-hidden text-white text-left">
       <div className="py-[64px] md:py-[112px] xl:py-[160px]">
         <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px] flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
           {(title || subtitle) && (
@@ -127,7 +139,10 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
         </div>
         {videos.length > 1 ? (
           // Carousel
-          <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px]">
+          <div
+            className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px]"
+            ref={statsRef}
+          >
             <Carousel
               ref={carouselRef}
               controlsInline={false}
@@ -139,7 +154,10 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
           </div>
         ) : (
           // Already stacks on mobile, no change needed
-          <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] flex flex-col gap-4 xl:gap-8">
+          <div
+            className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] flex flex-col gap-4 xl:gap-8"
+            ref={statsRef}
+          >
             {videoCards}
           </div>
         )}

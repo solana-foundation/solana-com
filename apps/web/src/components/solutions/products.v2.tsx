@@ -1,6 +1,9 @@
-import { ChevronRight, Copy } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ComponentType, ReactNode } from "react";
+import Image from "next/image";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { cn } from "@/app/components/utils";
 
 export type Product = {
   key: string;
@@ -13,10 +16,13 @@ export type Product = {
 };
 
 type ProductsProps = {
+  className?: string;
   title?: ReactNode;
   description?: ReactNode;
   products: Product[];
   translationBase: string;
+  imageSrc?: string;
+  highlightColor?: string;
 };
 
 /**
@@ -28,6 +34,8 @@ type ProductsProps = {
  * @param {string} props.title - The title of the products.
  * @param {string} props.description - The description of the products.
  * @param {string} props.translationBase - The base translation key for the products.
+ * @param {string} props.imageSrc - The source of the image.
+ * @param {string} props.highlightColor - The color of the highlight.
  * @returns {JSX.Element} The rendered Products component.
  *
  * @example
@@ -42,15 +50,26 @@ type ProductsProps = {
  * />
  */
 export const Products = ({
+  className,
   products,
   title,
   description,
   translationBase,
+  imageSrc,
+  highlightColor = "#fff",
 }: ProductsProps) => {
   const t = useTranslations();
+  const { ref: productsRef, isIntersecting } =
+    useIntersectionObserver<HTMLUListElement>({
+      threshold: 0.2,
+      triggerOnce: true,
+    });
+
   return (
-    <section className="relative bg-black text-white text-left">
-      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col md:flex-row gap-8 md:gap-16">
+    <section
+      className={cn("relative text-white text-left overflow-hidden", className)}
+    >
+      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-md:gap-8 md:gap-16">
         <div className="w-full xl:w-2/5">
           {(title || description) && (
             <div className="mb-[32px] xl:mb-[48px]">
@@ -66,8 +85,11 @@ export const Products = ({
               )}
             </div>
           )}
-          <ul className="p-0 m-0 list-none divide-y-[1px] divide-white/10">
-            {products.map(({ key, href }) => {
+          <ul
+            ref={productsRef}
+            className="p-0 m-0 list-none divide-y-[1px] divide-white/10"
+          >
+            {products.map(({ key, href }, index) => {
               const hasLink = Boolean(href);
               const productTitle = t(`${translationBase}.${key}.title`);
               const productDescription = t(
@@ -76,8 +98,23 @@ export const Products = ({
 
               const content = (
                 <>
-                  <div className="mr-4 leading-4 md:leading-6">
-                    <Copy size={16} aria-hidden={true} />
+                  <div
+                    className="mr-4 leading-4 md:leading-6 group-hover:text-[var(--highlight-color)]"
+                    style={
+                      {
+                        "--highlight-color": highlightColor,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                    >
+                      <path d="M8 0V8H16V16H8V8H0V0H8Z" fill="currentColor" />
+                    </svg>
                   </div>
                   <div className="grow">
                     <p className="font-medium mb-0 text-base md:text-2xl">
@@ -100,7 +137,17 @@ export const Products = ({
               );
 
               return (
-                <li key={key} className="p-0">
+                <li
+                  key={key}
+                  className={cn("p-0", {
+                    "animate-fade-in-up": isIntersecting,
+                  })}
+                  style={
+                    isIntersecting
+                      ? { animationDelay: `${0.1 + index * 0.1}s` }
+                      : { opacity: 0 }
+                  }
+                >
                   {hasLink ? (
                     <a
                       href={href}
@@ -120,6 +167,17 @@ export const Products = ({
             })}
           </ul>
         </div>
+        {imageSrc && (
+          <div className="w-full xl:w-3/5">
+            <Image
+              className="max-w-[110%] h-auto object-contain"
+              src={imageSrc}
+              alt=""
+              width={1000}
+              height={1000}
+            />
+          </div>
+        )}
       </div>
     </section>
   );

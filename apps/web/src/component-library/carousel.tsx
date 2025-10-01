@@ -58,6 +58,9 @@ type CarouselProps = {
   autoPlay?: number;
   prevButtonClassName?: string;
   nextButtonClassName?: string;
+  style?: React.CSSProperties;
+  trackStyle?: React.CSSProperties;
+  trackClassName?: string;
 };
 
 const NAV_BUTTON_BASE_CLASS =
@@ -110,6 +113,9 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       autoPlay = 0,
       prevButtonClassName,
       nextButtonClassName,
+      style,
+      trackStyle: customTrackStyle,
+      trackClassName,
     },
     ref,
   ) => {
@@ -220,6 +226,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         <div
           ref={containerRef}
           className={`relative w-full flex items-center justify-center ${className ?? ""}`}
+          style={style}
         >
           {controlsInline && (
             <>
@@ -240,7 +247,10 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
             </>
           )}
           <div className="w-full overflow-hidden z-0 px-14">
-            <div style={trackStyle}>
+            <div
+              className={trackClassName}
+              style={{ ...trackStyle, ...customTrackStyle }}
+            >
               {children.map((item, _idx) => (
                 <div
                   key={_idx}

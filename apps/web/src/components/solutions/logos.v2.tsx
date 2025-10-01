@@ -4,7 +4,6 @@ import Marquee from "@/component-library/marquee";
 export type Logo = {
   src: string;
   alt: string;
-  bg: string;
 };
 
 export type LogosProps = {
@@ -28,7 +27,7 @@ export const Logos = ({ logos }: LogosProps) => {
   const items = logos.map((logo, i) => (
     <div
       key={`${logo.alt}-${i}`}
-      className={`flex items-center justify-center relative h-[40px] mr-8`}
+      className={`flex items-center justify-center relative h-[40px] mr-8 md:mr-12 xl:mr-32`}
     >
       <img
         className="block h-full max-h-full max-w-none !w-auto"

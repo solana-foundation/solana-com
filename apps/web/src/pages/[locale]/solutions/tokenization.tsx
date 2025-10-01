@@ -18,6 +18,8 @@ import {
 } from "@/data/solutions/tokenization";
 import { LatestNews } from "@/components/solutions/latest-news.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
+import { Divider } from "@/components/solutions/divider.v2";
+import { Decor } from "@/components/solutions/decor.v2";
 
 const ICMPage = () => {
   const t = useTranslations();
@@ -27,18 +29,22 @@ const ICMPage = () => {
     {
       value: t("icm.hero.stats.0.value"),
       label: t("icm.hero.stats.0.label"),
-    },
-    {
-      value: t("icm.hero.stats.1.value"),
-      label: t("icm.hero.stats.1.label"),
+      Icon: "/src/img/solutions/icm/icon-1.svg",
     },
     {
       value: t("icm.hero.stats.2.value"),
       label: t("icm.hero.stats.2.label"),
+      Icon: "/src/img/solutions/icm/icon-2.svg",
     },
     {
       value: t("icm.hero.stats.3.value"),
       label: t("icm.hero.stats.3.label"),
+      Icon: "/src/img/solutions/icm/icon-3.svg",
+    },
+    {
+      value: t("icm.hero.stats.1.value"),
+      label: t("icm.hero.stats.1.label"),
+      Icon: "/src/img/solutions/icm/icon-4.svg",
     },
   ];
 
@@ -59,9 +65,11 @@ const ICMPage = () => {
           emailCta={t("icm.hero.emailCta")}
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
-          reportImgSrc="/src/img/solutions/icm/hero-download.svg"
+          reportImgSrc="/src/img/solutions/icm/hero-download.webp"
           bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
         />
+
+        <Divider />
 
         <WhatIsIt
           title={t.rich("icm.features.title", {
@@ -84,7 +92,11 @@ const ICMPage = () => {
               </a>
             ),
           })}
+          highlightColor="#CA9FF580"
+          imageSrc="/src/img/solutions/icm/what-is.webp"
         />
+
+        <Divider />
 
         {/* EcoProjects Section */}
         <Projects
@@ -95,14 +107,25 @@ const ICMPage = () => {
           translationBase="icm.projects"
           logos={LOGOS}
           headingType="logo"
+          bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"
         />
+
+        <Divider />
 
         {/* Products Section */}
         <Products
+          className="z-1"
           title={t("icm.products.title")}
           description={t("icm.products.description")}
           products={PRODUCTS}
           translationBase="icm.products"
+          imageSrc="/src/img/solutions/icm/toolkit.webp"
+          highlightColor="#CA9FF5"
+        />
+
+        <Decor
+          imageSrc="/src/img/solutions/icm/bg-1.webp"
+          mobileImageSrc="/src/img/solutions/icm/bg-1-mobile.webp"
         />
 
         {/* Real Builders Section */}
@@ -113,6 +136,8 @@ const ICMPage = () => {
           moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK69cksrzGufy1LKGPjg6QtV"
           moreVideosLabel={t("icm.videoPlayer.moreVideos")}
         />
+
+        <Divider />
 
         {/* Latest News Section */}
         <LatestNews
@@ -128,20 +153,22 @@ const ICMPage = () => {
             {
               id: "0",
               title: t("icm.news.items.0.title"),
-              date: t("icm.news.items.0.date"),
+              date: "2025-07-24",
               image: "/src/img/solutions/icm/icm-anza.webp",
               link: "https://www.anza.xyz/blog/the-internet-capital-markets-roadmap",
             },
           ]}
         />
 
+        <Divider />
+
         {/* Report Section */}
         <SolutionReport
-          eyebrow={t("icm.hero.reportEyebrow")}
-          description={t("icm.hero.reportDescription")}
-          emailCta={t("icm.hero.emailCta")}
+          eyebrow={t("icm.cta.reportTitle")}
+          description={t("icm.cta.reportDescription")}
+          emailCta={t("icm.cta.downloadReport")}
           onEmailClick={() => setEmailModalOpen(true)}
-          imgSrc="/src/img/solutions/icm/hero-download.svg"
+          imgSrc="/src/img/solutions/icm/hero-download.webp"
           linksTitle={t("icm.cta.whatElseTitle")}
           links={[
             {

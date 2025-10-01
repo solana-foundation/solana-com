@@ -5,15 +5,18 @@ import { Button } from "@/app/components/ui/button";
 import { ArrowDownToLine } from "lucide-react";
 import { cn } from "@/app/components/utils";
 import UnicornScene from "unicornstudio-react";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 
 export type SolutionHeroStat = {
   value: string;
   label: string;
-  Icon?: ComponentType<{
-    className?: string;
-    size?: string | number;
-    "aria-hidden"?: boolean | "true" | "false";
-  }>;
+  Icon?:
+    | string
+    | ComponentType<{
+        className?: string;
+        size?: string | number;
+        "aria-hidden"?: boolean | "true" | "false";
+      }>;
 };
 
 export type SolutionHeroProps = {
@@ -63,6 +66,12 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   reportImgSrc,
   bgJsonFilePath,
 }) => {
+  const { ref: statsRef, isIntersecting } =
+    useIntersectionObserver<HTMLDivElement>({
+      threshold: 0.2,
+      triggerOnce: true,
+    });
+
   // Split title on first period for line break
   // Render a line break after every period
   const titleNodes = React.useMemo(
@@ -132,7 +141,10 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
 
         {/* Bottom Content */}
         {(stats.length > 0 || emailCta) && (
-          <div className="w-full flex flex-col xl:flex-row xl:pb-10">
+          <div
+            ref={statsRef}
+            className="w-full flex flex-col xl:flex-row xl:pb-10"
+          >
             {/* Stats */}
             <div
               className={cn("grid grid-cols-2 xl:grid-cols-4 w-full", {
@@ -150,11 +162,25 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                     {
                       "border-l  ": index % 2,
                       "xl:border-l ": index,
+                      "animate-fade-in-up": isIntersecting,
                     },
                   )}
+                  style={
+                    isIntersecting
+                      ? { animationDelay: `${0.1 + index * 0.1}s` }
+                      : { opacity: 0 }
+                  }
                 >
                   <div className="max-md:hidden">
-                    {stat.Icon ? (
+                    {stat.Icon && typeof stat.Icon === "string" ? (
+                      <Image
+                        src={stat.Icon}
+                        alt=""
+                        width={32}
+                        height={32}
+                        className="xl:size-8 md:size-5"
+                      />
+                    ) : stat.Icon ? (
                       <stat.Icon className="xl:size-8 md:size-5" />
                     ) : null}
                   </div>
@@ -180,7 +206,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                         src={reportImgSrc}
                         alt=""
                         width={114}
-                        height={153}
+                        height={152}
                         className="!h-auto w-[80px] md:w-[70px] xl:w-[114px]"
                       />
                     </div>
