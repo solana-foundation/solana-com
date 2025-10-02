@@ -253,6 +253,7 @@ export default withSentryConfig(moduleExports, {
   disableLogger: true,
   automaticVercelMonitors: true,
   sourcemaps: {
-    disable: false,
+    disable:
+      process.env.VERCEL_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
   },
 });
