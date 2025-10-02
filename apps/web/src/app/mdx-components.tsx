@@ -1,6 +1,4 @@
 import defaultMdxComponents from "fumadocs-ui/mdx";
-import NextImage from "next/image";
-import type { ImageProps } from "next/image";
 import { ImgHTMLAttributes } from "react";
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
@@ -72,23 +70,9 @@ function Link(props: LinkProps) {
 }
 
 function Image(props: ImgHTMLAttributes<HTMLImageElement>) {
-  if (typeof props.src === "string" && props.src.endsWith(".svg")) {
-    return (
-      <span className="block">
-        <img {...props} className="w-full mb-4 rounded-lg" />
-        <span className="block text-sm text-center text-fd-muted-foreground">
-          {props.alt}
-        </span>
-      </span>
-    );
-  }
   return (
     <span className="block">
-      <NextImage
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 900px"
-        {...(props as ImageProps)}
-        className="mb-4 rounded-lg"
-      />
+      <img {...props} className="w-full mb-4 rounded-lg" />
       <span className="block text-sm text-center text-fd-muted-foreground">
         {props.alt}
       </span>
