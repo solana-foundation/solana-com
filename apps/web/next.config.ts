@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
+  output: "standalone",
 
   async rewrites() {
     return rewritesAndRedirectsJson.rewrites as {
@@ -217,6 +218,7 @@ const nextConfig: NextConfig = {
 
   experimental: {
     scrollRestoration: true,
+    optimizePackageImports: ["lodash", "react-icons", "lucide-react"],
   },
 
   // Ignore deprecation warnings and mixed declaration warnings
@@ -232,6 +234,23 @@ const nextConfig: NextConfig = {
         console.warn(message);
       },
     },
+  },
+
+  // Ignore directories from serverless build output
+  // https://github.com/vercel/next.js/discussions/68160
+  outputFileTracingExcludes: {
+    "*": [
+      ".next/cache/**",
+      "node_modules/@swc/**",
+      "node_modules/webpack/**",
+      "node_modules/terser/**",
+      "**/node_modules/@esbuild/**",
+      "**/.git/**",
+      "**/tests/**",
+      "**/__tests__/**",
+      "**/*.test.{js,jsx,ts,tsx}",
+      "**/*.spec.{js,jsx,ts,tsx}",
+    ],
   },
 };
 
