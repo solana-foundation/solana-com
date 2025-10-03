@@ -59,6 +59,10 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
   linksTitle,
   bgJsonFilePath,
 }) => {
+  if (!emailCta || onEmailClick) {
+    return null;
+  }
+
   return (
     <section className="relative overflow-hidden bg-black text-white text-left">
       <div className="!absolute m-auto max-xl:top-2 right-2 max-xl:bottom-2 left-2 xl:top-8 xl:bottom-8">
@@ -142,7 +146,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                     <h3 className="font-brand text-base md:text-2xl font-medium xl:mt-5 xl:mb-5 max-xl:mb-0 flex-grow">
                       {item.title}
                     </h3>
-                    <div className="xl:absolutea xl:bottom-6 xl:left-6 opacity-50 max-xl:m-auto">
+                    <div className="xl:absolute xl:bottom-6 xl:left-6 opacity-50 max-xl:m-auto">
                       <ChevronRight className="w-4 h-4 xl:w-6 xl:h-6 text-white" />
                     </div>
                   </a>

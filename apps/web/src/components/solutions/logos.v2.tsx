@@ -14,16 +14,19 @@ export type LogosProps = {
 };
 
 /**
- * Displays ascrolling marquee of project logos.
+ * Displays a scrolling marquee of project logos.
  *
  * @component
  * @param {LogosProps} props - The props for the component.
- * @param {Logo[]} props.logos - Array of logo objects to display in the marquee. Each logo includes a source URL and background color.
+ * @param {Logo[]} props.logos - Array of logo objects to display in the marquee. Each logo includes a source URL and alt text.
+ * @param {string} [props.className] - Optional CSS class to apply to each logo container.
+ * @param {string} [props.fadeColor="#000"] - Color for the edge fade effect.
  * @returns {JSX.Element} The rendered Logos section.
  *
  * @example
  * <Logos
- *   logos={[{ src: "/logo.png", bg: "#fff" }]}
+ *   logos={[{ src: "/logo.png", alt: "Company Logo" }]}
+ *   fadeColor="#ffffff"
  * />
  */
 export const Logos = ({ logos, className, fadeColor = "#000" }: LogosProps) => {

@@ -15,7 +15,7 @@ export type VideoItem = {
   id: string;
   thumbnail: string;
   title: string;
-  description: string;
+  description?: string;
   alt: string;
 };
 
@@ -23,8 +23,6 @@ export type VideoGridProps = {
   title: string;
   subtitle: string;
   videos: VideoItem[];
-  moreVideosUrl?: string;
-  moreVideosLabel?: string;
 };
 
 /**

@@ -40,6 +40,10 @@ export type LatestNewsProps = {
  * />
  */
 export const LatestNews = ({ title, items }: LatestNewsProps) => {
+  if (items.length === 0) {
+    return null;
+  }
+
   const isOneItem = items.length === 1;
 
   return (
@@ -51,41 +55,43 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
               {title}
             </h2>
           )}
-          <div className="flex flex-col">
-            <Link
-              href={items[0].link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-inherit group"
-            >
-              <div className="relative w-full aspect-video rounded-xl overflow-hidden cursor-pointer group">
-                <Image
-                  src={items[0].image}
-                  alt=""
-                  fill
-                  className="object-cover z-0"
-                />
-              </div>
-              <div className="mt-4 xl:mt-6">
-                {items[0].date && (
-                  <div className="text-[#ABABBC] text-sm md:text-base mb-1 uppercase tracking-wide">
-                    <FormattedDate
-                      value={new Date(items[0].date)}
-                      month="short"
-                      day="numeric"
-                    />
-                  </div>
-                )}
-                <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-0 mb-0 group-hover:underline">
-                  {items[0].title}
-                </h3>
-              </div>
-            </Link>
-          </div>
+          {isOneItem && (
+            <div className="flex flex-col">
+              <Link
+                href={items[0].link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-inherit group"
+              >
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden cursor-pointer group">
+                  <Image
+                    src={items[0].image}
+                    alt={items[0].title}
+                    fill
+                    className="object-cover z-0"
+                  />
+                </div>
+                <div className="mt-4 xl:mt-6">
+                  {items[0].date && (
+                    <div className="text-[#ABABBC] text-sm md:text-base mb-1 uppercase tracking-wide">
+                      <FormattedDate
+                        value={new Date(items[0].date)}
+                        month="short"
+                        day="numeric"
+                      />
+                    </div>
+                  )}
+                  <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-0 mb-0 group-hover:underline">
+                    {items[0].title}
+                  </h3>
+                </div>
+              </Link>
+            </div>
+          )}
         </div>
         {!isOneItem && (
           <div className="w-full xl:w-5/12">
-            <div className="flex flex-col divide-y-[1px] di divide-white/10">
+            <div className="flex flex-col divide-y-[1px] divide-white/10">
               {items.slice(1).map((item) => (
                 <Link
                   key={item.id}

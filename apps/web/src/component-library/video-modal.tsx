@@ -78,12 +78,12 @@ export const VideoTrigger = React.forwardRef<
       onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
       aria-label={title}
       tabIndex={0}
-      className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
+      className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
     >
       <Play
         fill="white"
         strokeWidth={0}
-        className={`w-8 h-8 ${iconClassName}`}
+        className={`w-8 h-8 ${iconClassName ?? ""}`}
       />
     </button>
   ),

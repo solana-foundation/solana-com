@@ -15,12 +15,11 @@ export type SolutionHeroStat = {
     | ComponentType<{
         className?: string;
         size?: string | number;
-        "aria-hidden"?: boolean | "true" | "false";
+        "aria-hidden"?: boolean;
       }>;
 };
 
 export type SolutionHeroProps = {
-  badge?: string;
   title: string;
   subtitle: string;
   reportEyebrow?: string;
@@ -29,7 +28,6 @@ export type SolutionHeroProps = {
   onEmailClick?: () => void;
   stats: SolutionHeroStat[];
   reportImgSrc?: string;
-  titleSize?: "m" | "s";
   bgJsonFilePath?: string;
 };
 
@@ -72,7 +70,6 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       triggerOnce: true,
     });
 
-  // Split title on first period for line break
   // Render a line break after every period
   const titleNodes = React.useMemo(
     () =>
@@ -140,7 +137,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
         </div>
 
         {/* Bottom Content */}
-        {(stats.length > 0 || emailCta) && (
+        {(stats.length > 0 || (emailCta && onEmailClick)) && (
           <div
             ref={statsRef}
             className="w-full flex flex-col xl:flex-row xl:pb-10"

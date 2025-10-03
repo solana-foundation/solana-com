@@ -6,10 +6,7 @@ import { SplitText } from "gsap/SplitText";
 gsap.registerPlugin(ScrollTrigger, SplitText);
 
 export interface UseScrollTextHighlightOptions {
-  threshold?: number;
-  rootMargin?: string;
   highlightColor?: string;
-  duration?: number;
 }
 
 export const useScrollTextHighlight = <T extends HTMLElement>(
@@ -31,8 +28,10 @@ export const useScrollTextHighlight = <T extends HTMLElement>(
       linesClass: `line bg-[linear-gradient(to_right,var(--highlight-color)_50%,rgba(0,0,0,0)_50%)] bg-[length:201%_100%] bg-[position:100%_0] !inline-block rounded-sm`,
     });
 
+    const triggers: ScrollTrigger[] = [];
+
     split.lines.forEach((target) => {
-      gsap.to(target, {
+      const tween = gsap.to(target, {
         backgroundPositionX: 0,
         ease: "none",
         scrollTrigger: {
@@ -42,14 +41,15 @@ export const useScrollTextHighlight = <T extends HTMLElement>(
           end: "bottom center",
         },
       });
+
+      if (tween.scrollTrigger) {
+        triggers.push(tween.scrollTrigger);
+      }
     });
 
     return () => {
-      ScrollTrigger.getAll().forEach((trigger) => {
-        if (trigger.trigger === element) {
-          trigger.kill();
-        }
-      });
+      split.revert();
+      triggers.forEach((trigger) => trigger.kill());
     };
   }, [highlightColor]);
 

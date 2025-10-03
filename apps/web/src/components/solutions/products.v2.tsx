@@ -1,16 +1,12 @@
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ComponentType, ReactNode } from "react";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { cn } from "@/app/components/utils";
 
 export type Product = {
   key: string;
-  Icon: ComponentType<{
-    size?: string | number;
-    "aria-hidden"?: boolean | "true" | "false";
-  }>;
   color: string;
   href?: string;
 };
