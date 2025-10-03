@@ -241,7 +241,6 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "*": [
       ".next/cache/**",
-      "node_modules/@swc/**",
       "node_modules/webpack/**",
       "node_modules/terser/**",
       "**/node_modules/@esbuild/**",
