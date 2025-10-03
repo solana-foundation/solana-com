@@ -238,6 +238,7 @@ const nextConfig: NextConfig = {
 
   // Ignore directories from serverless build output
   // https://github.com/vercel/next.js/discussions/68160
+  // Once we migrate Fumadocs to it's own app we can likely remove this
   outputFileTracingExcludes: {
     "*": [
       ".next/cache/**",
@@ -249,6 +250,63 @@ const nextConfig: NextConfig = {
       "**/__tests__/**",
       "**/*.test.{js,jsx,ts,tsx}",
       "**/*.spec.{js,jsx,ts,tsx}",
+      // Exclude dev dependencies from ALL functions
+      "node_modules/.pnpm/typescript@*/**",
+      "node_modules/.pnpm/sass@*/**",
+      "node_modules/.pnpm/@types/**",
+      "node_modules/.pnpm/eslint*/**",
+      "node_modules/.pnpm/prettier*/**",
+      "node_modules/.pnpm/@typescript-eslint/**",
+      "node_modules/.pnpm/postcss@*/**",
+      "node_modules/.pnpm/autoprefixer@*/**",
+      "node_modules/.pnpm/tailwindcss@*/**",
+      "node_modules/.pnpm/rollup@*/**",
+      "node_modules/.pnpm/@rollup/**",
+      "node_modules/.pnpm/caniuse-lite@*/**",
+      // Exclude large static assets that are served by CDN
+      "public/images/**",
+      "public/social/**",
+      "public/src/img/branding/**",
+      "public/src/img/community/**",
+      "public/src/img/index/**",
+      "public/src/img/logos-eco/**",
+      "public/src/img/news/**",
+      "public/src/img/solutions/**",
+      "public/src/img/staking/**",
+      "public/src/img/validators/**",
+      "public/img/og-backgrounds/**",
+      "public/solana-whitepaper.pdf",
+    ],
+    // Route-specific exclusions for pages that don't need docs assets
+    "/[locale]": [
+      "public/assets/docs/**",
+      "public/assets/guides/**",
+      "public/assets/courses/**",
+      "public/docs/**",
+    ],
+    "/[locale]/accelerate": [
+      "public/assets/docs/**",
+      "public/assets/guides/**",
+      "public/assets/courses/**",
+      "public/docs/**",
+    ],
+    "/[locale]/community": [
+      "public/assets/docs/**",
+      "public/assets/guides/**",
+      "public/assets/courses/**",
+      "public/docs/**",
+    ],
+    "/[locale]/events": [
+      "public/assets/docs/**",
+      "public/assets/guides/**",
+      "public/assets/courses/**",
+      "public/docs/**",
+    ],
+    "/[locale]/news": [
+      "public/assets/docs/**",
+      "public/assets/guides/**",
+      "public/assets/courses/**",
+      "public/docs/**",
     ],
   },
 };
