@@ -4,6 +4,7 @@ import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useRef } from "react";
 import { cn } from "@/app/components/utils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { useTranslations } from "next-intl";
 
 const NAV_BUTTON_CLASSNAME =
   "backdrop-blur-xs !bg-black/80 [&&&]:!shadow-[0_2px_4px_1px_rgba(0,0,0,0.17),0_-4px_12px_0_rgba(255,255,255,0.08)_inset,0_1px_0_0_rgba(255,255,255,0.20)_inset,0_-1px_0_0_rgba(255,255,255,0.12)_inset]";
@@ -11,12 +12,44 @@ const NAV_BUTTON_CLASSNAME =
 const PLAY_BUTTON_CLASSNAME =
   "backdrop-blur-xs !bg-black/70 [&&&]:!shadow-[0_2px_4px_1px_rgba(0,0,0,0.17),0_-4px_12px_0_rgba(255,255,255,0.29)_inset,0_1px_0_0_rgba(255,255,255,0.40)_inset,0_-1px_0_0_rgba(255,255,255,0.20)_inset]";
 
+export type VideoBadgeType =
+  | "event"
+  | "interview"
+  | "podcast"
+  | "originals"
+  | "learn";
+
+export const VideoBadge = {
+  Event: "event",
+  Interview: "interview",
+  Podcast: "podcast",
+  Originals: "originals",
+  Learn: "learn",
+} as const;
+
+const ICON_MAP = {
+  [VideoBadge.Event]: "/src/img/video-badge/event-icon.svg",
+  [VideoBadge.Interview]: "/src/img/video-badge/interview-icon.svg",
+  [VideoBadge.Learn]: "/src/img/video-badge/learn-icon.svg",
+  [VideoBadge.Originals]: "/src/img/video-badge/originals-icon.svg",
+  [VideoBadge.Podcast]: "/src/img/video-badge/podcast-icon.svg",
+};
+
+const BG_MAP = {
+  [VideoBadge.Event]: "#9C71EC",
+  [VideoBadge.Interview]: "#ECE271",
+  [VideoBadge.Learn]: "#EC71EC",
+  [VideoBadge.Originals]: "#71E0EC",
+  [VideoBadge.Podcast]: "#91EAA4",
+};
+
 export type VideoItem = {
   id: string;
   thumbnail: string;
   title: string;
   description?: string;
   alt: string;
+  badge?: VideoBadgeType;
 };
 
 export type VideoGridProps = {
@@ -50,6 +83,8 @@ export type VideoGridProps = {
  */
 export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
   const carouselRef = useRef(null);
+  const t = useTranslations();
+
   const { ref: statsRef, isIntersecting } =
     useIntersectionObserver<HTMLDivElement>({
       threshold: 0.2,
@@ -74,6 +109,7 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
           alt={video.alt}
           fill
           className="object-cover z-0"
+          sizes="(max-width: 768px) 120vw, 50vw"
         />
         <VideoTrigger
           platform="youtube"
@@ -86,6 +122,25 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
           )}
           iconClassName="max-md:!w-4 max-md:!h-4 md:!w-5 md:!h-5 xl:!w-6 xl:!h-6"
         />
+        {video.badge && (
+          <div
+            className="absolute right-2 xl:right-3 bottom-2 xl:bottom-3 p-0.5 text-black rounded-sm text-xs xl:text-sm leading-none uppercase font-medium"
+            style={{
+              backgroundColor: BG_MAP[video.badge],
+            }}
+          >
+            <Image
+              className="inline-block align-middle mr-1.5 max-xl:size-[18px] rounded-[2px]"
+              src={ICON_MAP[video.badge]}
+              width={22}
+              height={22}
+              alt=""
+            />
+            <span className="pr-1 inline-block align-middle pt-0.5">
+              {t(`video-badge.${video.badge}`)}
+            </span>
+          </div>
+        )}
       </div>
       <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-6 mb-0">
         {video.title}
@@ -145,7 +200,7 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
               ref={carouselRef}
               controlsInline={false}
               panels={1}
-              className="w-full md:w-5/6 xl:w-1/2 !m-0 [&>div]:!overflow-visible [&>div]:!p-0"
+              className="w-full md:w-5/6 xl:w-[800px] !m-0 [&>div]:!overflow-visible [&>div]:!p-0"
             >
               {videoCards}
             </Carousel>

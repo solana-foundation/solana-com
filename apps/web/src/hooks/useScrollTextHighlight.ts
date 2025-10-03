@@ -25,7 +25,7 @@ export const useScrollTextHighlight = <T extends HTMLElement>(
     );
     const split = new SplitText(element, {
       type: "lines",
-      linesClass: `line bg-[linear-gradient(to_right,var(--highlight-color)_50%,rgba(0,0,0,0)_50%)] bg-[length:201%_100%] bg-[position:100%_0] !inline-block rounded-sm`,
+      linesClass: `line whitespace-nowrap bg-[linear-gradient(to_right,var(--highlight-color)_50%,rgba(0,0,0,0)_50%)] bg-[length:201%_100%] bg-[position:100%_0] !inline-block rounded-sm`,
     });
 
     const triggers: ScrollTrigger[] = [];

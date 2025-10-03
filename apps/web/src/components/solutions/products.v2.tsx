@@ -7,7 +7,6 @@ import { cn } from "@/app/components/utils";
 
 export type Product = {
   key: string;
-  color: string;
   href?: string;
 };
 
@@ -60,15 +59,20 @@ export const Products = ({
       threshold: 0.2,
       triggerOnce: true,
     });
+  const oneColumn = Boolean(imageSrc);
 
   return (
     <section
       className={cn("relative text-white text-left overflow-hidden", className)}
     >
       <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-md:gap-8 md:gap-16">
-        <div className="w-full xl:w-2/5">
+        <div className={cn("w-full", { "xl:w-2/5": oneColumn })}>
           {(title || description) && (
-            <div className="mb-[32px] xl:mb-[48px]">
+            <div
+              className={cn("mb-[32px] xl:mb-[48px]", {
+                "xl:w-2/5": !oneColumn,
+              })}
+            >
               {title && (
                 <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-0">
                   {title}
@@ -83,7 +87,10 @@ export const Products = ({
           )}
           <ul
             ref={productsRef}
-            className="p-0 m-0 list-none divide-y-[1px] divide-white/10"
+            className={cn("p-0 m-0 list-none divide-y-[1px] divide-white/10", {
+              "grid grid-cols-1 xl:grid-cols-2 max-md:gap-x-8 md:gap-x-16":
+                !oneColumn,
+            })}
           >
             {products.map(({ key, href }, index) => {
               const hasLink = Boolean(href);
@@ -136,6 +143,7 @@ export const Products = ({
                 <li
                   key={key}
                   className={cn("p-0", {
+                    "!border-t-0": !oneColumn && index === 1,
                     "animate-fade-in-up": isIntersecting,
                   })}
                   style={

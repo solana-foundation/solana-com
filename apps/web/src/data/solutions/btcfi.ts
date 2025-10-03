@@ -186,9 +186,9 @@ export const LOGOS = [
     bg: "bg-black",
   },
   {
-    src: "/src/img/logos-eco/bullish.svg",
+    src: "/src/img/logos-eco/bullish.webp",
     alt: "Bullish",
-    bg: "bg-white",
+    bg: "bg-black",
   },
   {
     src: "/src/img/logos-eco/galaxy.webp",

@@ -70,13 +70,13 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       triggerOnce: true,
     });
 
-  // Render a line break after every period
+  // Render a line break after every new line
   const titleNodes = React.useMemo(
     () =>
-      title.split(/(\.)/).map((part, idx) =>
-        part === "." ? (
+      title.split(/(\n)/).map((part, idx) =>
+        part === "\n" ? (
           <React.Fragment key={idx}>
-            .<br />
+            <br />
           </React.Fragment>
         ) : (
           part
@@ -106,7 +106,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
       )}
       <div className="min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto flex flex-col justify-between relative">
         {/* Hero Content */}
-        <div className="px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] max-w-4xl">
+        <div className="px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] max-w-5xl">
           <h1
             id="hero-title"
             className="m-0 font-brand font-medium leading-none text-[40px] md:text-[56px] xl:text-[88px]"

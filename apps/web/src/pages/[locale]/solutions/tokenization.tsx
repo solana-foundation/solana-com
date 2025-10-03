@@ -53,6 +53,7 @@ const ICMPage = () => {
       <HTMLHead
         title={t("icm.meta.title")}
         description={t("icm.meta.description")}
+        socialShare="/src/img/solutions/icm/og-image.webp"
       />
 
       <div id="icm-page" className="bg-black">
@@ -121,10 +122,7 @@ const ICMPage = () => {
           highlightColor="#CA9FF5"
         />
 
-        <Decor
-          imageSrc="/src/img/solutions/icm/bg-1.webp"
-          mobileImageSrc="/src/img/solutions/icm/bg-1-mobile.webp"
-        />
+        <Decor imageSrc="/src/img/solutions/icm/bg-1.webp" />
 
         {/* Real Builders Section */}
         <VideoGrid

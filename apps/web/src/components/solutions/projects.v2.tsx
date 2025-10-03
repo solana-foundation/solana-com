@@ -107,14 +107,16 @@ export const Projects = ({
                     <div className="absolute top-[50%] bottom-0 left-0 right-0 opacity-0 group-hover:!opacity-50 bg-[url('/src/img/solutions/eco-pattern.svg')] bg-cover bg-center"></div>
                     <div className="absolute top-0 bottom-0 left-0 right-0 bg-gradient-to-b from-[rgba(0,0,0,0.95)] via-[rgba(0,0,0,0.8)] via-[50%] to-[rgba(0,0,0,0)] to-[80%]"></div>
                     <div className="relative">
-                      <Image
-                        src={project.src}
-                        alt={project.key}
-                        width={120}
-                        height={48}
-                        className="object-contain min-h-12 max-h-12 !h-auto"
-                        loading="lazy"
-                      />
+                      <div className="relative h-8">
+                        <Image
+                          src={project.src}
+                          alt={project.key}
+                          fill
+                          sizes="(max-width: 768px) 340px, 420px"
+                          className="object-contain w-auto"
+                          loading="lazy"
+                        />
+                      </div>
                       <div className="relative mt-[24px] mb-[32px]">
                         {index !== 0 && (
                           <Image
