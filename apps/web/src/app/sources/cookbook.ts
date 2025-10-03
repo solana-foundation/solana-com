@@ -1,7 +1,7 @@
-import { cookbook, cookbookMeta } from "@@/.source/cookbook";
-import { createMDXSource } from "fs-mdx";
+import { cookbook, cookbookMeta } from "@@/.source/index";
+import { createMDXSource } from "fumadocs-mdx";
 import { loader } from "fumadocs-core/source";
-import { locales, defaultLocale } from "@@/src/i18n/config";
+import { locales, defaultLocale } from "@workspace/i18n/config";
 
 export const cookbookSource = loader({
   i18n: {

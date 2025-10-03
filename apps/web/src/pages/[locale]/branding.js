@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import { useTranslations } from "next-intl";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import Script from "next/script";
 
 import Layout from "@/components/layout";

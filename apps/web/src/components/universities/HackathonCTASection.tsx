@@ -38,7 +38,7 @@ export default function HackathonCTASection({
             {translations.description}
           </p>
 
-          {/* @ts-ignore */}
+          {/* @ts-expect-error button has no props? */}
           <Button to={ctaUrl} variant="secondary" size="large" newTab>
             {translations.ctaLabel}
           </Button>

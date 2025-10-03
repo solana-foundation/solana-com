@@ -3,8 +3,8 @@
 import Dropdown from "react-bootstrap/Dropdown";
 import Globe from "../../public/src/img/icons/Globe.inline.svg";
 import { ChevronDown } from "react-feather";
-import { languages } from "@@/src/i18n/config";
-import { usePathname } from "@@/src/i18n/routing";
+import { languages } from "@workspace/i18n/config";
+import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
 
 const Language = () => {

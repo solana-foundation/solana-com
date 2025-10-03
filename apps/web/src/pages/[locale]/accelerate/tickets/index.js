@@ -1,5 +1,5 @@
 import TicketsPage from "./tickets.js";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 
 export default function Page(props) {
   return <TicketsPage {...props} />;

@@ -9,7 +9,7 @@ import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import {
   LOGOS,
   PRODUCTS,
