@@ -237,7 +237,7 @@ const nextConfig: NextConfig = {
   // Ignore public and content directories from the build output
   // https://github.com/vercel/next.js/discussions/68160
   outputFileTracingExcludes: {
-    "*": ["public/**", "content/**"],
+    "*": ["public/**"],
   },
 };
 
