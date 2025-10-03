@@ -57,7 +57,6 @@ const ICMPage = () => {
 
       <div id="icm-page" className="bg-black">
         <SolutionHero
-          badge={t("icm.hero.badge")}
           title={t("icm.hero.title")}
           subtitle={t("icm.hero.subtitle")}
           reportEyebrow={t("icm.hero.reportEyebrow")}
@@ -106,7 +105,6 @@ const ICMPage = () => {
           projects={PROJECTS}
           translationBase="icm.projects"
           logos={LOGOS}
-          headingType="logo"
           bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"
         />
 
@@ -133,8 +131,6 @@ const ICMPage = () => {
           title={t("icm.videoPlayer.title")}
           subtitle={t("icm.videoPlayer.subtitle")}
           videos={VIDEOS(t)}
-          moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK69cksrzGufy1LKGPjg6QtV"
-          moreVideosLabel={t("icm.videoPlayer.moreVideos")}
         />
 
         <Divider />

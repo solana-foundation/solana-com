@@ -59,7 +59,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
   linksTitle,
   bgJsonFilePath,
 }) => {
-  if (!emailCta || onEmailClick) {
+  if (!emailCta || !onEmailClick) {
     return null;
   }
 

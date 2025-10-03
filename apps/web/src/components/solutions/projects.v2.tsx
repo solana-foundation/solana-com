@@ -99,7 +99,7 @@ export const Projects = ({
                       "flex flex-col justify-between",
                       "backdrop-blur-xl",
                     )}
-                    aria-label={t(`${base}.title`)}
+                    aria-label={project.key}
                   >
                     {index !== 0 && (
                       <div className="absolute top-[25%] bottom-0 left-0 w-0 h-auto [border-image:linear-gradient(to_bottom,rgba(255,255,255,0),rgba(255,255,255,0.15),rgba(255,255,255,0.1))_30] border-l border-transparent"></div>
