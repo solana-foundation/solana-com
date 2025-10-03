@@ -264,7 +264,7 @@ const nextConfig: NextConfig = {
       "node_modules/.pnpm/@rollup/**",
       "node_modules/.pnpm/caniuse-lite@*/**",
       // Exclude large static assets that are served by CDN
-      "public/images/**",
+      // BUT keep images/learn/** for the learn pages!
       "public/social/**",
       "public/src/img/branding/**",
       "public/src/img/community/**",
@@ -277,37 +277,45 @@ const nextConfig: NextConfig = {
       "public/img/og-backgrounds/**",
       "public/solana-whitepaper.pdf",
     ],
-    // Route-specific exclusions for pages that don't need docs assets
+    // Route-specific exclusions for pages that don't need docs/course/learn assets
     "/[locale]": [
       "public/assets/docs/**",
       "public/assets/guides/**",
       "public/assets/courses/**",
       "public/docs/**",
+      "public/images/learn/**", // Homepage doesn't need learn images
     ],
     "/[locale]/accelerate": [
       "public/assets/docs/**",
       "public/assets/guides/**",
       "public/assets/courses/**",
       "public/docs/**",
+      "public/images/learn/**",
     ],
     "/[locale]/community": [
       "public/assets/docs/**",
       "public/assets/guides/**",
       "public/assets/courses/**",
       "public/docs/**",
+      "public/images/learn/**",
     ],
     "/[locale]/events": [
       "public/assets/docs/**",
       "public/assets/guides/**",
       "public/assets/courses/**",
       "public/docs/**",
+      "public/images/learn/**",
     ],
     "/[locale]/news": [
       "public/assets/docs/**",
       "public/assets/guides/**",
       "public/assets/courses/**",
       "public/docs/**",
+      "public/images/learn/**",
     ],
+    // Docs routes don't need learn images
+    "/[locale]/docs/**": ["public/images/learn/**"],
+    "/[locale]/developers/**": ["public/images/learn/**"],
   },
 };
 
