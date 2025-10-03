@@ -36,7 +36,7 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: false,
   trailingSlash: false,
 
   async rewrites() {
@@ -232,6 +232,12 @@ const nextConfig: NextConfig = {
         console.warn(message);
       },
     },
+  },
+
+  // Ignore public and content directories from the build output
+  // https://github.com/vercel/next.js/discussions/68160
+  outputFileTracingExcludes: {
+    "*": ["public/**", "content/**"],
   },
 };
 
