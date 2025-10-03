@@ -1,5 +1,6 @@
 import React from "react";
 import Marquee from "@/component-library/marquee";
+import { cn } from "@/app/components/utils";
 
 export type Logo = {
   src: string;
@@ -8,6 +9,8 @@ export type Logo = {
 
 export type LogosProps = {
   logos: Logo[];
+  className?: string;
+  fadeColor?: string;
 };
 
 /**
@@ -23,11 +26,14 @@ export type LogosProps = {
  *   logos={[{ src: "/logo.png", bg: "#fff" }]}
  * />
  */
-export const Logos = ({ logos }: LogosProps) => {
+export const Logos = ({ logos, className, fadeColor = "#000" }: LogosProps) => {
   const items = logos.map((logo, i) => (
     <div
       key={`${logo.alt}-${i}`}
-      className={`flex items-center justify-center relative h-[40px] mr-8 md:mr-12 xl:mr-32`}
+      className={cn(
+        "flex items-center justify-center relative h-[40px] mr-8 md:mr-12 xl:mr-32",
+        className,
+      )}
     >
       <img
         className="block h-full max-h-full max-w-none !w-auto"
@@ -39,11 +45,18 @@ export const Logos = ({ logos }: LogosProps) => {
   ));
 
   return (
-    <div className="relative w-full">
+    <div
+      className="relative w-full"
+      style={
+        {
+          "--fade-color": fadeColor,
+        } as React.CSSProperties
+      }
+    >
       {/* Left Blur */}
-      <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-[#090d17] to-transparent z-10" />
+      <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-[var(--fade-color)] to-transparent z-10" />
       {/* Right Blur */}
-      <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-[#090d17] to-transparent z-10" />
+      <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-[var(--fade-color)] to-transparent z-10" />
       {/* Content */}
       <Marquee className="w-full">{items}</Marquee>
     </div>

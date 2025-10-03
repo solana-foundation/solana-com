@@ -7,7 +7,6 @@ import Image from "next/image";
 export type WhatIsItProps = {
   title: React.ReactNode;
   description: React.ReactNode;
-  features?: string[];
   highlightColor?: string;
   imageSrc?: string;
 };
@@ -20,6 +19,7 @@ export type WhatIsItProps = {
  * @param {React.ReactNode} props.title - The title of the section.
  * @param {React.ReactNode} props.description - The description of the section.
  * @param {string} props.imageSrc - The source of the image.
+ * @param {string} props.highlightColor - The color of the highlight.
  *
  * @example
  * <WhatIsIt

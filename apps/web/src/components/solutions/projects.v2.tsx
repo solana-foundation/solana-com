@@ -31,7 +31,7 @@ type EcoProjectsProps = {
  * @param {React.ReactNode} props.title - The title of the section.
  * @param {Project[]} props.projects - Array of project objects to display in the grid. Each project includes a key, icon, and background color.
  * @param {Logo[]} props.logos - Array of logo objects to display in the marquee. Each logo includes a source URL and background color.
- * @param {string} [props.translationBase] - Base key for translations eg. translationBase = "depin.ecoProjects"".
+ * @param {string} [props.translationBase] - Base key for translations eg. translationBase = "depin.ecoProjects".
  * @param {number} [props.maxCols] - Maximum number of columns to display in the grid.
  * @param {string} [props.bgSrc] - The source of the background image.
  * @returns {JSX.Element} The rendered EcoProjects section.

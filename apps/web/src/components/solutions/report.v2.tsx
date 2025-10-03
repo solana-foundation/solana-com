@@ -109,7 +109,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                   onClick={onEmailClick}
                 >
                   <ArrowDownToLine
-                    aria-hidden="true"
+                    aria-hidden={true}
                     className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
                     strokeWidth={3}
                   />

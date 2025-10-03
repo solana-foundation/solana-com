@@ -129,7 +129,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 onClick={onEmailClick}
               >
                 <ArrowDownToLine
-                  aria-hidden="true"
+                  aria-hidden={true}
                   className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
                   strokeWidth={3}
                 />
@@ -232,7 +232,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                         onClick={onEmailClick}
                       >
                         <ArrowDownToLine
-                          aria-hidden="true"
+                          aria-hidden={true}
                           className="-ml-2 p-1 !size-5 bg-white text-black rounded-full"
                           strokeWidth={3}
                         />
