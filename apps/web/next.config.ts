@@ -264,7 +264,6 @@ const nextConfig: NextConfig = {
       "node_modules/.pnpm/@rollup/**",
       "node_modules/.pnpm/caniuse-lite@*/**",
       // Exclude large static assets that are served by CDN
-      // BUT keep images/learn/** for the learn pages!
       "public/social/**",
       "public/src/img/branding/**",
       "public/src/img/community/**",
@@ -313,9 +312,20 @@ const nextConfig: NextConfig = {
       "public/docs/**",
       "public/images/learn/**",
     ],
-    // Docs routes don't need learn images
-    "/[locale]/docs/**": ["public/images/learn/**"],
+    // Docs routes don't need learn images but DO need docs assets
+    "/[locale]/docs/**": ["public/images/learn/**", "public/assets/courses/**"],
     "/[locale]/developers/**": ["public/images/learn/**"],
+  },
+
+  // Explicitly include required assets for specific routes
+  outputFileTracingIncludes: {
+    "/[locale]/learn/**": ["../../public/images/learn/**"],
+    "/[locale]/docs/**": [
+      "../../public/assets/docs/**",
+      "../../public/docs/**",
+    ],
+    "/[locale]/developers/courses/**": ["../../public/assets/courses/**"],
+    "/[locale]/developers/guides/**": ["../../public/assets/guides/**"],
   },
 };
 
