@@ -324,19 +324,17 @@ console.log("Transaction Signature:", transactionSignature3);
 ```rust !! title="Rust"
 use anyhow::Result;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     signature::{Keypair, Signer},
-    system_instruction::transfer as sol_transfer,
     transaction::Transaction,
 };
-use spl_associated_token_account::{
-    get_associated_token_address_with_program_id, instruction::create_associated_token_account,
+use solana_system_interface::instruction::transfer;
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address, instruction::create_associated_token_account,
 };
-use spl_token::{
-    id as token_program_id,
-    instruction::sync_native,
-    native_mint::ID as NATIVE_MINT_ID,
+use spl_token_interface::{
+    id as token_program_id, instruction::sync_native, native_mint::ID as NATIVE_MINT_ID,
 };
 
 #[tokio::main]
@@ -346,7 +344,7 @@ async fn main() -> Result<()> {
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
     );
-    let recent_blockhash = client.get_latest_blockhash().await?;
+    let latest_blockhash = client.get_latest_blockhash().await?;
 
     // Generate a new keypair for the fee payer
     let fee_payer = Keypair::new();
@@ -364,18 +362,17 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Calculate the associated token account address for WSOL
-    let associated_token_address = get_associated_token_address_with_program_id(
-        &fee_payer.pubkey(),      // owner
-        &NATIVE_MINT_ID,          // mint (Wrapped SOL)
-        &token_program_id(), // program_id
+    // Get associated token account address for WSOL
+    let associated_token_address = get_associated_token_address(
+        &fee_payer.pubkey(), // owner
+        &NATIVE_MINT_ID,     // mint (Wrapped SOL)
     );
 
     // Instruction to create associated token account for WSOL
     let create_ata_instruction = create_associated_token_account(
-        &fee_payer.pubkey(),      // funding address
-        &fee_payer.pubkey(),      // wallet address
-        &NATIVE_MINT_ID,          // mint address
+        &fee_payer.pubkey(), // funding address
+        &fee_payer.pubkey(), // wallet address
+        &NATIVE_MINT_ID,     // mint address
         &token_program_id(), // program id
     );
 
@@ -383,17 +380,10 @@ async fn main() -> Result<()> {
     let amount = 1_000_000_000;
 
     // Create transfer instruction to send SOL to the WSOL token account
-    let transfer_instruction = sol_transfer(
-        &fee_payer.pubkey(),
-        &associated_token_address,
-        amount
-    );
+    let transfer_instruction = transfer(&fee_payer.pubkey(), &associated_token_address, amount);
 
     // Create sync native instruction to update WSOL balance
-    let sync_native_instruction = sync_native(
-        &token_program_id(),
-        &associated_token_address
-    )?;
+    let sync_native_instruction = sync_native(&token_program_id(), &associated_token_address)?;
 
     // Create transaction and add instructions
     let transaction = Transaction::new_signed_with_payer(
@@ -404,19 +394,18 @@ async fn main() -> Result<()> {
         ],
         Some(&fee_payer.pubkey()),
         &[&fee_payer],
-        recent_blockhash,
+        latest_blockhash,
     );
 
     // Send and confirm transaction
-    let transactionSignature = client.send_and_confirm_transaction(&transaction).await?;
+    client.send_and_confirm_transaction(&transaction).await?;
 
-    println!("Fee Payer Address: {}", fee_payer.pubkey());
-    println!(
-        "WSOL Token Account Address: {}",
-        associated_token_address
-    );
-    println!("Successfully wrapped 1.0 SOL into WSOL");
-    println!("Transaction Signature: {}", transactionSignature);
+    let token_account = client.get_token_account(&associated_token_address).await?;
+
+    println!("WSOL Token Account Address: {}", associated_token_address);
+    if let Some(token_account) = token_account {
+        println!("{:#?}", token_account);
+    }
 
     Ok(())
 }

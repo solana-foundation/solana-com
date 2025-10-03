@@ -399,20 +399,21 @@ console.log("Transaction Signature:", transactionSignature);
 ```rust !! title="Rust"
 use anyhow::Result;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     program_pack::Pack,
     signature::{Keypair, Signer},
-    system_instruction::create_account,
     transaction::Transaction,
 };
-use spl_associated_token_account::{
-    get_associated_token_address_with_program_id, instruction::create_associated_token_account,
+use solana_system_interface::instruction::create_account;
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address_with_program_id,
+    instruction::create_associated_token_account,
 };
-use spl_token::{
+use spl_token_interface::{
     id as token_program_id,
     instruction::{initialize_mint, mint_to},
-    state::Mint,
+    state::{Account, Mint},
 };
 
 #[tokio::main]
@@ -422,7 +423,7 @@ async fn main() -> Result<()> {
         String::from("http://localhost:8899"),
         CommitmentConfig::confirmed(),
     );
-    let latestBlockhash = client.get_latest_blockhash().await?;
+    let latest_blockhash = client.get_latest_blockhash().await?;
 
     // Generate a new keypair for the fee payer
     let fee_payer = Keypair::new();
@@ -451,10 +452,10 @@ async fn main() -> Result<()> {
 
     // Instruction to create new account for mint (token program)
     let create_account_instruction = create_account(
-        &fee_payer.pubkey(),      // payer
-        &mint.pubkey(),           // new account (mint)
-        mint_rent,                // lamports
-        mint_space as u64,        // space
+        &fee_payer.pubkey(), // payer
+        &mint.pubkey(),      // new account (mint)
+        mint_rent,           // lamports
+        mint_space as u64,   // space
         &token_program_id(), // program id
     );
 
@@ -469,16 +470,16 @@ async fn main() -> Result<()> {
 
     // Calculate the associated token account address for fee_payer
     let associated_token_address = get_associated_token_address_with_program_id(
-        &fee_payer.pubkey(),      // owner
-        &mint.pubkey(),           // mint
+        &fee_payer.pubkey(), // owner
+        &mint.pubkey(),      // mint
         &token_program_id(), // program_id
     );
 
     // Instruction to create associated token account
     let create_ata_instruction = create_associated_token_account(
-        &fee_payer.pubkey(),      // funding address
-        &fee_payer.pubkey(),      // wallet address
-        &mint.pubkey(),           // mint address
+        &fee_payer.pubkey(), // funding address
+        &fee_payer.pubkey(), // wallet address
+        &mint.pubkey(),      // mint address
         &token_program_id(), // program id
     );
 
@@ -491,21 +492,11 @@ async fn main() -> Result<()> {
         ],
         Some(&fee_payer.pubkey()),
         &[&fee_payer, &mint],
-        latestBlockhash,
+        latest_blockhash,
     );
 
     // Send and confirm transaction
-    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
-
-    println!("Mint Address: {}", mint.pubkey());
-    println!(
-        "Associated Token Account Address: {}",
-        associated_token_address
-    );
-    println!("Transaction Signature: {}", transaction_signature);
-
-    // Get the latest blockhash for the mint transaction
-    let latestBlockhash = client.get_latest_blockhash().await?;
+    client.send_and_confirm_transaction(&transaction).await?;
 
     // Amount of tokens to mint (100 tokens with 2 decimal places)
     let amount = 100;
@@ -525,13 +516,28 @@ async fn main() -> Result<()> {
         &[mint_to_instruction],
         Some(&fee_payer.pubkey()),
         &[&fee_payer],
-        latestBlockhash,
+        latest_blockhash,
     );
 
     // Send and confirm transaction
     let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
 
-    println!("Successfully minted 1.00 tokens to the associated token account");
+    let mint_account = client.get_account(&mint.pubkey()).await?;
+    let mint_data = Mint::unpack(&mint_account.data)?;
+
+    let token = client.get_account(&associated_token_address).await?;
+    let token_data = Account::unpack(&token.data)?;
+
+    println!("Minted 1.00 tokens to the associated token account");
+    println!("\nMint Address: {}", mint.pubkey());
+    println!("{:#?}", mint_data);
+
+    println!(
+        "\nAssociated Token Account Address: {}",
+        associated_token_address
+    );
+    println!("{:#?}", token_data);
+
     println!("Transaction Signature: {}", transaction_signature);
 
     Ok(())
