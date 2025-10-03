@@ -36,7 +36,7 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: false,
   trailingSlash: false,
 
   async rewrites() {
