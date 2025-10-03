@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
+  transpilePackages: ["gsap"],
 
   async rewrites() {
     return rewritesAndRedirectsJson.rewrites as {
