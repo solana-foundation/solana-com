@@ -233,6 +233,12 @@ const nextConfig: NextConfig = {
       },
     },
   },
+
+  // Ignore directories from serverless build output
+  // https://github.com/vercel/next.js/discussions/68160
+  outputFileTracingExcludes: {
+    "*": [".next", ".cache", "node_modules"],
+  },
 };
 
 const moduleExports = (): NextConfig => {
