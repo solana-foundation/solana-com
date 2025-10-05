@@ -2,23 +2,25 @@ import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@workspace/i18n/routing";
-import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
+import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { useState } from "react";
-import { WhatIsIt } from "@/components/solutions/what-is-it";
-import { Projects } from "@/components/solutions/projects";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
+import { Projects } from "@/components/solutions/projects.v2";
 import {
   LOGOS,
   PRODUCTS,
   PROJECTS,
   VIDEOS,
 } from "@/data/solutions/institutional-payments";
-import { Products } from "@/components/solutions/products";
-import { VideoGrid } from "@/components/solutions/video-grid";
+import { Products } from "@/components/solutions/products.v2";
+import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
 import { USE_CASES } from "@/data/solutions/institutional-payments";
-import { Performance } from "@/components/solutions/performance";
-import { CTACards } from "@/components/solutions/institutional-payments/CTACards";
+import { Performance } from "@/components/solutions/performance.v2";
+import { Divider } from "@/components/solutions/divider.v2";
+import { Decor } from "@/components/solutions/decor.v2";
+import { SolutionReport } from "@/components/solutions/report.v2";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -28,14 +30,17 @@ const InstitutionalPaymentsPage = () => {
     {
       value: t("institutional-payments.hero.stats.0.value"),
       label: t("institutional-payments.hero.stats.0.label"),
+      Icon: "/src/img/solutions/institutional-payments/icons/flow.svg",
     },
     {
       value: t("institutional-payments.hero.stats.1.value"),
       label: t("institutional-payments.hero.stats.1.label"),
+      Icon: "/src/img/solutions/institutional-payments/icons/arrows.svg",
     },
     {
       value: t("institutional-payments.hero.stats.2.value"),
       label: t("institutional-payments.hero.stats.2.label"),
+      Icon: "/src/img/solutions/institutional-payments/icons/discount.svg",
     },
   ];
 
@@ -44,80 +49,87 @@ const InstitutionalPaymentsPage = () => {
       <HTMLHead
         title={t("institutional-payments.meta.title")}
         description={t("institutional-payments.meta.description")}
+        socialShare="/src/img/solutions/institutional-payments/og-image.webp"
       />
 
-      <div id="institutional-payments-page" aria-labelledby="hero-title">
+      <div
+        id="institutional-payments-page"
+        aria-labelledby="hero-title"
+        className="bg-black"
+      >
         <SolutionHero
-          badge={t("institutional-payments.hero.badge")}
           title={t("institutional-payments.hero.title")}
           subtitle={t("institutional-payments.hero.subtitle")}
           reportEyebrow={t("institutional-payments.hero.reportEyebrow")}
+          reportDescription={t("institutional-payments.hero.reportDescription")}
           emailCta={t("institutional-payments.hero.emailCta")}
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
-          globeImgSrc="/src/img/solutions/institutional-payments/hero.webp"
-          globeImgAlt={t("institutional-payments.hero.alt")}
-          variant="modern"
-          titleSize="s"
-          reportImgSrc="/src/img/solutions/institutional-payments/hero-download.webp"
+          reportImgSrc="/src/img/solutions/institutional-payments/report-cover.webp"
+          bgJsonFilePath="/src/img/solutions/institutional-payments/hero-bg.json"
         />
+
+        <Divider />
 
         <WhatIsIt
-          title={t("institutional-payments.features.title")}
+          title={t.rich("institutional-payments.features.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
           description={t("institutional-payments.features.description")}
+          imageSrc="/src/img/solutions/institutional-payments/what-is.webp"
+          highlightColor="#F4825280"
         />
 
-        {/* EcoProjects Section */}
-        <section>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 [padding-block:1rem] sm:[padding-block:3rem]">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full mb-4">
-                {t("institutional-payments.projects.title")}
-              </h2>
-              <Projects
-                projects={PROJECTS}
-                translationBase="institutional-payments.projects"
-                logos={LOGOS}
-                headingType="logo"
-              />
-            </div>
-          </div>
-        </section>
+        <Divider />
 
-        {/* Performance Section */}
-        <section className="pb-6">
-          <Performance
-            title={t("institutional-payments.useCases.title")}
-            items={USE_CASES}
-            translationBase="institutional-payments.useCases.items"
-          />
-        </section>
+        <Projects
+          title={t.rich("institutional-payments.projects.title", {
+            light: (chunks) => <span className="font-light">{chunks}</span>,
+          })}
+          projects={PROJECTS}
+          translationBase="institutional-payments.projects"
+          logos={LOGOS}
+          bgSrc="/src/img/solutions/institutional-payments/ecosystem-bg.webp"
+        />
 
-        {/* Products Section */}
-        <section>
-          <Products
-            title={t("institutional-payments.products.title")}
-            description={t("institutional-payments.products.description")}
-            products={PRODUCTS}
-            translationBase="institutional-payments.products"
-          />
-        </section>
+        <Divider />
 
-        {/* Video Section */}
-        <section className="[padding-block:1rem] sm:[padding-block:3rem] bg-[#171c25]">
-          <VideoGrid
-            title={t("institutional-payments.videoPlayer.title")}
-            subtitle={t("institutional-payments.videoPlayer.subtitle")}
-            videos={VIDEOS(t)}
-            moreVideosUrl={undefined}
-            moreVideosLabel={t("institutional-payments.videoPlayer.moreVideos")}
-          />
-        </section>
+        <Performance
+          title={t("institutional-payments.useCases.title")}
+          items={USE_CASES}
+          translationBase="institutional-payments.useCases.items"
+        />
 
-        {/* Card Section */}
-        <section className="pt-6">
-          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
-        </section>
+        <Divider />
+
+        <Products
+          title={t("institutional-payments.products.title")}
+          description={t("institutional-payments.products.description")}
+          products={PRODUCTS}
+          translationBase="institutional-payments.products"
+        />
+
+        <Decor imageSrc="/src/img/solutions/institutional-payments/bg-1.webp" />
+
+        <VideoGrid
+          title={t("institutional-payments.videoPlayer.title")}
+          subtitle={t("institutional-payments.videoPlayer.subtitle")}
+          videos={VIDEOS(t)}
+        />
+
+        <SolutionReport
+          eyebrow={t("institutional-payments.cta.reportTitle")}
+          description={t("institutional-payments.cta.reportDescription")}
+          emailCta={t("institutional-payments.cta.downloadReport")}
+          onEmailClick={() => setEmailModalOpen(true)}
+          imgSrc="/src/img/solutions/institutional-payments/report-cover.webp"
+          bgJsonFilePath="/src/img/solutions/institutional-payments/hero-bg.json"
+        />
       </div>
 
       <VideoPlayerModal />
