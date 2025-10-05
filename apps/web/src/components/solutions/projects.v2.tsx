@@ -11,6 +11,7 @@ const NAV_BUTTON_CLASSNAME =
 export type Project = {
   key: string;
   src: string;
+  statIcon?: string;
 };
 
 type EcoProjectsProps = {
@@ -18,6 +19,7 @@ type EcoProjectsProps = {
   projects: Project[];
   translationBase: string;
   hideStats?: boolean;
+  statType?: "text" | "icon";
   bgSrc?: string;
 } & Partial<LogosProps>;
 
@@ -32,6 +34,7 @@ type EcoProjectsProps = {
  * @param {string} [props.translationBase] - Base key for translations eg. translationBase = "depin.ecoProjects".
  * @param {number} [props.maxCols] - Maximum number of columns to display in the grid.
  * @param {string} [props.bgSrc] - The source of the background image.
+ * @param {string} [props.statType] - The type of stat to display, either "text" or "icon".
  * @returns {JSX.Element} The rendered EcoProjects section.
  *
  * @example
@@ -47,6 +50,7 @@ export const Projects = ({
   logos,
   translationBase,
   hideStats = false,
+  statType = "text",
   bgSrc,
 }: EcoProjectsProps) => {
   const t = useTranslations();
@@ -136,13 +140,31 @@ export const Projects = ({
                     </div>
                     {!hideStats && (
                       <dl className="mt-[32px] mb-0 relative">
-                        <dt className="sr-only">{t(`${base}.statLabel`)}</dt>
-                        <dd className="text-[52px] leading-none mb-1">
-                          {t(`${base}.stat`)}
-                        </dd>
-                        <div className="text-base md:text-lg xl:text-xl">
-                          {t(`${base}.statLabel`)}
-                        </div>
+                        {statType === "icon" ? (
+                          <div className="relative h-10 overflow-hidden">
+                            {project.statIcon && (
+                              <Image
+                                src={project.statIcon}
+                                alt=""
+                                fill
+                                className="object-contain w-auto"
+                                loading="lazy"
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <dt className="sr-only">
+                              {t(`${base}.statLabel`)}
+                            </dt>
+                            <dd className="text-[52px] leading-none mb-1">
+                              {t(`${base}.stat`)}
+                            </dd>
+                            <div className="text-base md:text-lg xl:text-xl">
+                              {t(`${base}.statLabel`)}
+                            </div>
+                          </>
+                        )}
                       </dl>
                     )}
                   </article>

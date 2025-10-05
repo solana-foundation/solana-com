@@ -54,6 +54,8 @@ export interface VideoProps {
   thumbnail?: string;
   alt?: string;
   bgColorClass?: string;
+  playButtonClassName?: string;
+  playButtonIconClassName?: string;
   privacyMode?: boolean;
   startTime?: number; // Start time in seconds
 }
@@ -69,6 +71,8 @@ export function Video(props: VideoProps) {
     thumbnail,
     alt,
     bgColorClass,
+    playButtonClassName,
+    playButtonIconClassName,
     privacyMode = false,
     startTime,
   } = props;
@@ -120,9 +124,13 @@ export function Video(props: VideoProps) {
           onClick={() => setShow(true)}
           aria-label={title}
           tabIndex={0}
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${playButtonClassName ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
         >
-          <Play fill="white" strokeWidth={0} className="w-8 h-8" />
+          <Play
+            fill="white"
+            strokeWidth={0}
+            className={`w-8 h-8 ${playButtonIconClassName ?? ""}`}
+          />
         </button>
       </div>
     );

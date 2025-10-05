@@ -144,12 +144,15 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           >
             {/* Stats */}
             <div
-              className={cn("grid grid-cols-2 xl:grid-cols-4 w-full", {
-                "xl:w-2/3": Boolean(emailCta),
-                "xl:grid-cols-2": stats.length === 2,
-                "xl:grid-cols-3": stats.length === 3,
-                "xl:grid-cols-4": stats.length > 3,
-              })}
+              className={cn(
+                "grid grid-cols-2 xl:grid-cols-4 w-full xl:min-h-44",
+                {
+                  "xl:w-2/3": Boolean(emailCta),
+                  "xl:grid-cols-2": stats.length === 2,
+                  "xl:grid-cols-3": stats.length === 3,
+                  "xl:grid-cols-4": stats.length > 3,
+                },
+              )}
             >
               {stats.map((stat, index) => (
                 <div

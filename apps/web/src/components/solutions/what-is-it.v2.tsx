@@ -40,7 +40,7 @@ export const WhatIsIt = ({
   return (
     <section className="relative bg-black text-white text-left">
       <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] pt-[64px] md:pt-[112px] xl:pt-[160px] pb-5 md:pb-[32px] xl:pb-[40px]">
-        <h2 className="font-brand font-medium leading-none text-[40px] md:text-[48px] xl:text-[80px] max-w-xl mb-[32px] xl:mb-[64px]">
+        <h2 className="font-brand font-medium leading-none text-[40px] md:text-[48px] xl:text-[80px] max-w-2xl mb-[32px] xl:mb-[64px]">
           {title}
         </h2>
         <div className="flex flex-col xl:flex-row gap-8 xl:gap-16">

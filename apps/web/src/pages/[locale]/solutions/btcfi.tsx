@@ -2,21 +2,19 @@ import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@workspace/i18n/routing";
-import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
-import { WhatIsIt } from "@/components/solutions/what-is-it";
-import { Projects } from "@/components/solutions/projects";
+import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
+import { Projects } from "@/components/solutions/projects.v2";
 import {
   LOGOS,
   PROJECTS,
   PERFORMANCE,
   LATEST_NEWS,
 } from "@/data/solutions/btcfi";
-import { Performance } from "@/components/solutions/performance";
-import { News } from "@/components/solutions/btcfi/News";
-import { CTACards } from "@/components/solutions/btcfi/CTACards";
-import { Divider } from "@/components/solutions/divider";
-import { SingleVideo } from "@/components/solutions/btcfi/SingleVideo";
-import { Logos } from "@/components/solutions/logos";
+import { Performance } from "@/components/solutions/performance.v2";
+import { LatestNews } from "@/components/solutions/latest-news.v2";
+import { Divider } from "@/components/solutions/divider.v2";
+import { SingleVideo } from "@/components/solutions/single-video.v2";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -25,96 +23,104 @@ const InstitutionalPaymentsPage = () => {
     {
       value: t("btcfi.hero.stats.0.value"),
       label: t("btcfi.hero.stats.0.label"),
+      Icon: "/src/img/solutions/btcfi/icons/coins.svg",
     },
     {
       value: t("btcfi.hero.stats.1.value"),
       label: t("btcfi.hero.stats.1.label"),
+      Icon: "/src/img/solutions/btcfi/icons/coins.svg",
     },
     {
       value: t("btcfi.hero.stats.2.value"),
       label: t("btcfi.hero.stats.2.label"),
+      Icon: "/src/img/solutions/btcfi/icons/wallet.svg",
     },
     {
       value: t("btcfi.hero.stats.3.value"),
       label: t("btcfi.hero.stats.3.label"),
+      Icon: "/src/img/solutions/btcfi/icons/steps.svg",
     },
   ];
+
+  const news = LATEST_NEWS(t);
 
   return (
     <Layout>
       <HTMLHead
         title={t("btcfi.meta.title")}
         description={t("btcfi.meta.description")}
+        socialShare="/src/img/solutions/btcfi/og-image.webp"
       />
 
-      <div id="btcfi-page" aria-labelledby="hero-title">
+      <div id="btcfi-page" aria-labelledby="hero-title" className="bg-black">
         <SolutionHero
-          badge={t("btcfi.hero.badge")}
           title={t("btcfi.hero.title")}
           subtitle={t("btcfi.hero.subtitle")}
-          reportEyebrow={t("btcfi.hero.reportEyebrow")}
-          emailCta={t("btcfi.hero.emailCta")}
           stats={stats}
-          globeImgSrc="/src/img/solutions/btcfi/hero.webp"
-          globeImgAlt={t("btcfi.hero.alt")}
-          variant="modern"
-          titleSize="s"
+          reportImgSrc="/src/img/solutions/btcfi/report-cover.webp"
+          bgJsonFilePath="/src/img/solutions/btcfi/hero-bg.json"
         />
+
+        <Divider />
 
         <WhatIsIt
-          title={t("btcfi.features.title")}
+          title={t.rich("btcfi.features.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
           description={t("btcfi.features.description")}
-          features={[]}
+          imageSrc="/src/img/solutions/btcfi/what-is.webp"
+          highlightColor="#FFBF0080"
         />
 
-        {/* Performance Section */}
-        <section className="pb-10">
-          <Performance
-            title={t("btcfi.performance.title")}
-            items={PERFORMANCE}
-            translationBase="btcfi.performance"
-          />
-        </section>
+        <Performance
+          title={t.rich("btcfi.performance.title", {
+            light: (chunks) => <span className="font-light">{chunks}</span>,
+          })}
+          items={PERFORMANCE}
+          translationBase="btcfi.performance"
+        />
 
-        {/* EcoProjects Section */}
-        <section className="pt-6 pb-10">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full">
-                {t("btcfi.projects.title")}
-              </h2>
-              <Projects
-                projects={PROJECTS}
-                translationBase="btcfi.projects"
-                headingType="logo"
-                maxCols={4}
-                hideStats
-              />
-              <h2 className="mt-6 text-3xl font-bold text-white col-span-full">
-                {t("btcfi.projects.subtitle")}
-              </h2>
-              <div className="col-span-full">
-                <Logos logos={LOGOS} />
-              </div>
-            </div>
-          </div>
-        </section>
+        <Divider />
 
-        {/* Video Section */}
-        <section className="py-10 bg-[#171c25]">
-          <SingleVideo />
-        </section>
+        <Projects
+          title={t.rich("btcfi.projects.title", {
+            light: (chunks) => <span className="font-light">{chunks}</span>,
+          })}
+          projects={PROJECTS}
+          translationBase="btcfi.projects"
+          logos={LOGOS}
+          bgSrc="/src/img/solutions/btcfi/ecosystem-bg.webp"
+          statType="icon"
+        />
 
-        {/* Latest News Section */}
-        <section className="pt-10">
-          <News items={LATEST_NEWS(t)} />
-          <Divider className="my-6" />
-        </section>
+        <Divider />
 
-        {/* Card Section */}
-        <section>
-          <CTACards />
-        </section>
+        <SingleVideo
+          title={t("btcfi.videoPlayer.videos.0.title")}
+          description={t("btcfi.videoPlayer.videos.0.description")}
+          alt={t("btcfi.videoPlayer.videos.0.alt")}
+          thumbnail="/src/img/solutions/btcfi/videos/video1.webp"
+          id="PdVUa8TR2nk"
+        />
+
+        <Divider />
+
+        <LatestNews
+          title={t.rich("btcfi.news.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
+          items={news}
+        />
       </div>
     </Layout>
   );

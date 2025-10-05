@@ -12,7 +12,7 @@ export const PROJECTS = [
     key: "r3",
   },
   {
-    src: "/src/img/logos-eco/bullish.webp",
+    src: "/src/img/logos-eco/bullish.svg",
     key: "bullish",
   },
   {
@@ -31,7 +31,7 @@ export const LOGOS = [
     alt: "Vaneck",
   },
   {
-    src: "/src/img/logos-eco/hamilton-lane.png",
+    src: "/src/img/logos-eco/hamilton-lane.webp",
     alt: "Hamilton Lane",
   },
   {
