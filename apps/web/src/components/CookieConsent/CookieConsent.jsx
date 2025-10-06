@@ -12,44 +12,20 @@ const getLocalStorage = function (key, defaultValue) {
   let sticky = null;
 
   try {
-    const storedValue = localStorage.getItem(key);
-
-    // Check if value exists and is a valid string before parsing
-    if (!storedValue || storedValue === "undefined" || storedValue === "null") {
-      return defaultValue;
-    }
-
-    sticky = JSON.parse(storedValue);
-
-    // Validate the parsed object has expected structure
-    if (
-      !sticky ||
-      typeof sticky !== "object" ||
-      !("value" in sticky) ||
-      !("timeToExpire" in sticky)
-    ) {
-      // Invalid structure, clear it and return default
-      localStorage.removeItem(key);
-      return defaultValue;
-    }
+    sticky = JSON.parse(localStorage.getItem(key));
   } catch (error) {
-    console.error("Error parsing localStorage for key:", key, error);
-    // Clear corrupted data
-    try {
+    console.error(error);
+  }
+
+  if (sticky !== null && sticky !== "undefined") {
+    // remove stored consent value based on the expiration date
+    if (now > sticky.timeToExpire) {
       localStorage.removeItem(key);
-    } catch (e) {
-      console.error("Error removing corrupted localStorage item:", e);
     }
-    return defaultValue;
+    return sticky.value;
   }
 
-  // remove stored consent value based on the expiration date
-  if (now > sticky.timeToExpire) {
-    localStorage.removeItem(key);
-    return defaultValue;
-  }
-
-  return sticky.value;
+  return defaultValue;
 };
 
 // Set localstorage with expiry date
