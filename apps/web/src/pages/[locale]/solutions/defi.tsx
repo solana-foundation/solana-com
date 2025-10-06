@@ -26,18 +26,18 @@ const DeFiPage = () => {
       Icon: "/src/img/solutions/defi/icons/pulse.svg",
     },
     {
+      value: t("defi.hero.stats.1.value"),
+      label: t("defi.hero.stats.1.label"),
+      Icon: "/src/img/solutions/defi/icons/steps.svg",
+    },
+    {
       value: t("defi.hero.stats.2.value"),
       label: t("defi.hero.stats.2.label"),
-      Icon: "/src/img/solutions/defi/icons/steps.svg",
+      Icon: "/src/img/solutions/defi/icons/chart.svg",
     },
     {
       value: t("defi.hero.stats.3.value"),
       label: t("defi.hero.stats.3.label"),
-      Icon: "/src/img/solutions/defi/icons/chart.svg",
-    },
-    {
-      value: t("defi.hero.stats.1.value"),
-      label: t("defi.hero.stats.1.label"),
       Icon: "/src/img/solutions/defi/icons/money-hand.svg",
     },
   ];

@@ -68,7 +68,7 @@ export const VIDEOS = (
   t: (_key: string, _values?: TranslationValues, _formats?: Formats) => string,
 ) => [
   {
-    id: "gYOTFfy5n3E",
+    id: "yoNJow6WjI",
     thumbnail: "/src/img/solutions/icm/video1.webp",
     title: t("icm.videoPlayer.videos.0.title"),
     description: t("icm.videoPlayer.videos.0.description"),
@@ -76,7 +76,7 @@ export const VIDEOS = (
     badge: VideoBadge.Podcast,
   },
   {
-    id: "8AGUcNIV5oo",
+    id: "KBOenkEkesU",
     thumbnail: "/src/img/solutions/icm/video2.webp",
     title: t("icm.videoPlayer.videos.1.title"),
     description: t("icm.videoPlayer.videos.1.description"),
@@ -84,7 +84,7 @@ export const VIDEOS = (
     badge: VideoBadge.Interview,
   },
   {
-    id: "PC3N-qQVA3w",
+    id: "avj0SCFL5nI",
     thumbnail: "/src/img/solutions/icm/video3.webp",
     title: t("icm.videoPlayer.videos.2.title"),
     description: t("icm.videoPlayer.videos.2.description"),
@@ -92,7 +92,7 @@ export const VIDEOS = (
     badge: VideoBadge.Originals,
   },
   {
-    id: "qLbcvtIAPnI",
+    id: "QXAshrNDBVY",
     thumbnail: "/src/img/solutions/icm/video4.webp",
     title: t("icm.videoPlayer.videos.3.title"),
     description: t("icm.videoPlayer.videos.3.description"),
