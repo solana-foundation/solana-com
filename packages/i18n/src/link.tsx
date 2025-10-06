@@ -1,19 +1,28 @@
-import { useMemo } from "react";
+import { ComponentProps, ReactNode, useMemo } from "react";
 import NextLink from "next/link";
-import { useRouter, usePathname } from "@@/src/hooks/useRouter";
-import classNames from "classnames";
+import { useRouter, usePathname } from "./useRouter";
+import { cn } from "@workspace/ui/lib/utils";
 
-export const Link = ({
+export function Link({
   children,
   to,
   href,
-  activeClassName,
+  activeClassName = "",
   partiallyActive,
   partiallyActiveIgnore = [],
   className,
   ...other
-}) => {
-  to = to ?? href;
+}: Omit<ComponentProps<typeof NextLink>, "href"> & {
+  children?: ReactNode;
+  to?: string;
+  href?: string;
+  activeClassName?: string;
+  partiallyActive?: boolean;
+  partiallyActiveIgnore?: string[];
+  className?: string;
+}) {
+  to = to ?? href ?? "";
+
   const internal = /^\/(?!\/)/.test(to);
 
   const { isReady } = useRouter();
@@ -38,7 +47,7 @@ export const Link = ({
         prefetch={prefetch}
         passHref
         {...aProps}
-        className={classNames(className, {
+        className={cn(className, {
           [activeClassName]: isReady && isActive,
         })}
       >
@@ -51,12 +60,19 @@ export const Link = ({
       {children}
     </a>
   );
-};
+}
 
-export const InlineLink = ({ to, children, ...props }) => (
-  <a href={to} {...props} target="_blank" rel="noopener noreferrer">
-    {children}
-  </a>
-);
-
-export default Link;
+export function InlineLink({
+  to,
+  children,
+  ...props
+}: ComponentProps<"a"> & {
+  to: string;
+  children?: ReactNode;
+}) {
+  return (
+    <a href={to} {...props} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+}

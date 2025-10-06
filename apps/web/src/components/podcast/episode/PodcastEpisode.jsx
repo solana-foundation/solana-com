@@ -9,7 +9,7 @@ import {
 
 import Divider from "../../shared/Divider";
 import FormattedDate from "../../shared/FormattedDate";
-import { InlineLink } from "../../shared/Link";
+import { InlineLink } from "@workspace/i18n/link";
 import { useTranslations } from "next-intl";
 import PodcastSubscribeDialog from "../PodcastSubscribeDialog";
 

@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import Link from "../../utils/Link";
+import { Link } from "@workspace/i18n/link";
 import BreakpointLogo from "../../../assets/nav/community/breakpoint-logo.inline.svg";
 import InvolvedSVG from "../../../assets/nav/community/involved.inline.svg";
 

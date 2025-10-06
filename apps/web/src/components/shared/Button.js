@@ -1,7 +1,7 @@
 import styled from "styled-components";
 import { Button as BSButton } from "react-bootstrap";
 import GetEmArrow from "../../../public/src/img/icons/getemarrow.inline.svg";
-import Link from "../../utils/Link";
+import { Link } from "@workspace/i18n/link";
 
 const StyledBSButton = styled(BSButton)`
   &.btn {

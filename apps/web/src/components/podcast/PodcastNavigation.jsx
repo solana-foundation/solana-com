@@ -1,7 +1,7 @@
 import { useTranslations } from "next-intl";
 import { Rss as PodcastFeedIcon } from "react-feather";
 
-import Link, { InlineLink } from "../../utils/Link";
+import { Link, InlineLink } from "@workspace/i18n/link";
 
 import TwitterIcon from "../../../public/src/img/footer/twitter.inline.svg";
 

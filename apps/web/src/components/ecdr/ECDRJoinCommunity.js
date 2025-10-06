@@ -2,7 +2,7 @@ import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "./ECDRJoinCommunity.module.scss";
 import EmailSubscribeForm from "../shared/EmailSubscribeForm";
-import Link from "../../utils/Link";
+import { Link } from "@workspace/i18n/link";
 
 const ECDRJoinCommunity = () => {
   const t = useTranslations();

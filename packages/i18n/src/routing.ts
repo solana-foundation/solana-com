@@ -9,8 +9,7 @@ export const routing = defineRouting({
   localeDetection: true,
 });
 
-export const { Link, redirect, usePathname, useRouter } =
-  createNavigation(routing);
+export const { redirect, usePathname, useRouter } = createNavigation(routing);
 
 // locales to be used in getStaticPaths (for static generation)
 export const staticLocales = ["en"];

@@ -1,4 +1,4 @@
-import { Link } from "../../utils/Link";
+import { Link } from "@workspace/i18n/link";
 import Image from "next/legacy/image";
 import styled from "styled-components";
 import Button from "../shared/Button";

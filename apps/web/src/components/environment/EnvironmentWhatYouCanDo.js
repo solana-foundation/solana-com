@@ -5,7 +5,7 @@ import styles from "./EnvironmentWhatYouCanDo.module.scss";
 import dataImg from "../../../assets/environment/usages/data.png";
 import footprintImg from "../../../assets/environment/usages/footprint.png";
 import grantsImg from "../../../assets/environment/usages/grants.png";
-import { InlineLink } from "../../utils/Link";
+import { InlineLink } from "@workspace/i18n/link";
 
 function WhatYouCanDoCard({ usage }) {
   return (

@@ -5,7 +5,7 @@ import Button from "../shared/Button";
 import FormattedDate from "../shared/FormattedDate";
 import { useTranslations } from "next-intl";
 import defaultImg from "../../../public/social/solana.jpg";
-import Link from "../shared/Link";
+import { Link } from "@workspace/i18n/link";
 
 const StyledSection = styled.section`
   display: flex;

@@ -2,7 +2,7 @@ import Image from "next/legacy/image";
 import styled from "styled-components";
 import Button from "../shared/Button";
 import { useTranslations } from "next-intl";
-import { Link } from "../../utils/Link";
+import { Link } from "@workspace/i18n/link";
 import { getMaximalThumbnailResolutionUrl } from "../../utils/ytUtils";
 
 const StyledVideoCard = styled.div`

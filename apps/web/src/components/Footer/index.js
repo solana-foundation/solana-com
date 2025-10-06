@@ -12,7 +12,7 @@ import DiscordIcon from "../../../public/src/img/footer/discord.inline.svg";
 import RedditIcon from "../../../public/src/img/footer/reddit.inline.svg";
 import GithubIcon from "../../../public/src/img/footer/github.inline.svg";
 import TelegramIcon from "../../../public/src/img/footer/telegram.inline.svg";
-import Link, { InlineLink } from "../../utils/Link";
+import { Link, InlineLink } from "@workspace/i18n/link";
 
 const CopyrightRow = () => {
   const t = useTranslations();

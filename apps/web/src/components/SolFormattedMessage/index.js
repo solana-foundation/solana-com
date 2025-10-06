@@ -1,4 +1,4 @@
-import { useRouter } from "@/hooks/useRouter";
+import { useRouter } from "@workspace/i18n/useRouter";
 import { useEffect, useMemo, useState } from "react";
 
 export const formatNumber = (locale, value, options) => {

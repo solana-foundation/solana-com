@@ -1,5 +1,5 @@
 import Navbar from "react-bootstrap/Navbar";
-import Link from "../shared/Link";
+import { Link } from "@workspace/i18n/link";
 import { useTranslations } from "next-intl";
 import SolanaLogo from "../../../public/src/img/logos-solana/logotype.inline.svg";
 

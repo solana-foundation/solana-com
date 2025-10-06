@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { forwardRef, useCallback, useImperativeHandle, useState } from "react";
-import { InlineLink } from "../shared/Link";
+import { InlineLink } from "@workspace/i18n/link";
 import SharedModal from "../shared/SharedModal";
 
 import AmazonMusicLogo from "../../../assets/podcast/amazon-music-logo.inline.svg";

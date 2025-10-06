@@ -1,7 +1,7 @@
 import { useTranslations } from "next-intl";
 import classNames from "classnames";
 import styles from "./PossibleStats.module.scss";
-import Link from "../../utils/Link";
+import { Link } from "@workspace/i18n/link";
 import Image from "next/image";
 import GlowLines from "../../../public/src/img/index/glow-lines.jpg";
 
