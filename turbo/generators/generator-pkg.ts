@@ -5,7 +5,7 @@ const TARGET_DIR = "packages";
 const TEMPLATE_ROOT = "templates/pkg";
 
 export const generatorPkg: PlopTypes.PlopGeneratorConfig = {
-  description: `Generator a package in the ${TARGET_DIR} directory`,
+  description: `Generate a package in the ${TARGET_DIR} directory`,
   prompts: [
     {
       type: "list",
@@ -17,7 +17,7 @@ export const generatorPkg: PlopTypes.PlopGeneratorConfig = {
       type: "input",
       name: "name",
       default: ({ type }) => type,
-      message: "What is the name of package?",
+      message: "What is the name of the package?",
       validate: (input: string) => {
         return validateName(input);
       },
