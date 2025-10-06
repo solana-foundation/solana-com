@@ -187,6 +187,15 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
+              to="/solutions/consumer"
+              className="nav-link nav-link--secondary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-white">
+                {solutionsCasesItems[10].title}
+              </strong>
+            </Link>
+            <Link
               to="/solutions/enterprise"
               className="nav-link nav-link--secondary"
               activeClassName="active"
