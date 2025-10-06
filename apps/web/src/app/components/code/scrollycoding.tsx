@@ -65,7 +65,7 @@ function OneColumnStep(props: { step: Steps[number] }) {
 function TwoColumnLayout(props: { steps: Steps; className?: string }) {
   const { steps, className } = props;
   const stickers = getStickers(steps);
-  const rootMargin = "-40% 0px -60% 0px";
+  const rootMargin = "-39% 0px -60% 0px";
   return (
     <SelectionProvider className={className} rootMargin={rootMargin}>
       <ResizablePanelGroup
