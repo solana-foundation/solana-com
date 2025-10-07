@@ -1,0 +1,116 @@
+import HTMLHead from "@/components/HTMLHead";
+import Layout from "@/components/solutions/layout";
+import { EmailModal } from "@/components/solutions/EmailModal";
+import { Products } from "@/components/solutions/products.v2";
+import { Projects } from "@/components/solutions/projects.v2";
+import { SolutionHero } from "@/components/solutions/hero.v2";
+import { VideoGrid } from "@/components/solutions/video-grid.v2";
+import { VideoPlayerModal } from "@/component-library/video-modal";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
+import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { withLocales } from "@workspace/i18n/routing";
+import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/ai";
+import { Divider } from "@/components/solutions/divider.v2";
+import { Decor } from "@/components/solutions/decor.v2";
+
+const AiPage = () => {
+  const t = useTranslations();
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+
+  return (
+    <Layout>
+      <HTMLHead
+        title={t("ai-solution.meta.title")}
+        description={t("ai-solution.meta.description")}
+        socialShare="/src/img/solutions/ai/og-image.webp"
+      />
+
+      <div id="ai-page" className="bg-black" aria-labelledby="hero-title">
+        <SolutionHero
+          title={t("ai-solution.hero.title")}
+          subtitle={t("ai-solution.hero.subtitle")}
+          bgJsonFilePath="/src/img/solutions/ai/hero-bg.json"
+          extraCta={t("ai-solution.hero.extraCta")}
+          extraCtaHref="https://x.com/knimkar/status/1863719025500623344"
+        />
+
+        <Divider />
+
+        <WhatIsIt
+          title={t.rich("ai-solution.features.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
+          description={t("ai-solution.features.description")}
+          highlightColor="#F48252D1"
+          imageSrc="/src/img/solutions/ai/what-is.webp"
+        />
+
+        <Divider />
+
+        <Projects
+          title={t.rich("ai-solution.projects.title", {
+            light: (chunks) => <span className="font-light">{chunks}</span>,
+          })}
+          projects={PROJECTS}
+          translationBase="ai-solution.projects"
+          logos={LOGOS}
+          bgSrc="/src/img/solutions/ai/ecosystem-bg.webp"
+        />
+
+        <Divider />
+
+        <Products
+          className="z-1"
+          title={t("ai-solution.products.title")}
+          description={t("ai-solution.products.description")}
+          products={PRODUCTS}
+          translationBase="ai-solution.products"
+          highlightColor="#F48252"
+        />
+
+        <Decor imageSrc="/src/img/solutions/ai/bg-1.webp" />
+
+        <VideoGrid
+          title={t("ai-solution.videoPlayer.title")}
+          subtitle={t("ai-solution.videoPlayer.subtitle")}
+          videos={VIDEOS(t)}
+        />
+      </div>
+
+      <VideoPlayerModal />
+      <EmailModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        formUrl="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=Institutional"
+      />
+    </Layout>
+  );
+};
+
+export default AiPage;
+
+export async function getStaticProps({ params }) {
+  const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
+  return {
+    props: {
+      locale,
+      messages,
+    },
+    revalidate: 60,
+  };
+}
+
+export async function getStaticPaths() {
+  return {
+    paths: withLocales(),
+    fallback: "blocking",
+  };
+}

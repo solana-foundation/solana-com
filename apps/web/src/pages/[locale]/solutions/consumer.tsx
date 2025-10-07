@@ -50,7 +50,7 @@ const ConsumerPage = () => {
         socialShare="/src/img/solutions/consumer/og-image.webp"
       />
 
-      <div id="defi-page" className="bg-black" aria-labelledby="hero-title">
+      <div id="consumer-page" className="bg-black" aria-labelledby="hero-title">
         <SolutionHero
           title={t("consumer.hero.title")}
           subtitle={t("consumer.hero.subtitle")}

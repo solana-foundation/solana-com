@@ -58,7 +58,7 @@ export const LOGOS = [
     alt: "",
   },
   {
-    src: "/src/img/logos-eco/inference.png",
+    src: "/src/img/logos-eco/inference.svg",
     alt: "Inference",
   },
   {

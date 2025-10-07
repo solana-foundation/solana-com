@@ -26,7 +26,9 @@ export type SolutionHeroProps = {
   reportDescription?: string;
   emailCta?: string;
   onEmailClick?: () => void;
-  stats: SolutionHeroStat[];
+  extraCta?: string;
+  extraCtaHref?: string;
+  stats?: SolutionHeroStat[];
   reportImgSrc?: string;
   bgJsonFilePath?: string;
 };
@@ -42,6 +44,8 @@ export type SolutionHeroProps = {
  * @param {string} props.reportDescription - The description of the report.
  * @param {string} props.emailCta - The email CTA.
  * @param {() => void} props.onEmailClick - The function to call when the email CTA is clicked.
+ * @param {string} props.extraCta - The extra CTA.
+ * @param {string} props.extraCtaHref - The href of the extra CTA.
  * @param {SolutionHeroStat[]} props.stats - The stats to display in the hero section.
  * @param {string} props.reportImgSrc - The source of the report image.
  * @param {string} props.bgJsonFilePath - The path to the background JSON file.
@@ -60,6 +64,8 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
   reportDescription,
   emailCta,
   onEmailClick,
+  extraCta,
+  extraCtaHref,
   stats,
   reportImgSrc,
   bgJsonFilePath,
@@ -117,6 +123,25 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             {subtitle}
           </p>
 
+          {extraCta && extraCtaHref && (
+            <div className="mt-[32px] xl:mt-[64px]">
+              <Button
+                className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90"
+                size="lg"
+                asChild
+              >
+                <a
+                  href={extraCtaHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={extraCta}
+                >
+                  {extraCta}
+                </a>
+              </Button>
+            </div>
+          )}
+
           {emailCta && onEmailClick && (
             <div className="mt-[32px] xl:mt-[64px]">
               <Button
@@ -137,7 +162,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
         </div>
 
         {/* Bottom Content */}
-        {(stats.length > 0 || (emailCta && onEmailClick)) && (
+        {((stats && stats.length > 0) || (emailCta && onEmailClick)) && (
           <div
             ref={statsRef}
             className="w-full flex flex-col xl:flex-row xl:pb-10"
@@ -154,7 +179,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 },
               )}
             >
-              {stats.map((stat, index) => (
+              {stats?.map((stat, index) => (
                 <div
                   key={stat.label}
                   className={cn(
