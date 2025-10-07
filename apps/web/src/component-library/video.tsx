@@ -27,6 +27,16 @@
  *      startTime={45} // Start at 45 seconds
  *    />
  *
+ *    // Or for X:
+ *    <Video
+ *      platform="x"
+ *      id="123456789"
+ *      title="X Example"
+ *      aspectRatio="16:9"
+ *      privacyMode={true}
+ *      startTime={45} // Start at 45 seconds
+ *    />
+ *
  * @remarks
  * The component supports YouTube and Vimeo platforms. It shows a thumbnail with a play button
  * initially, then embeds the video when clicked. The `autoplay` prop is optional (defaults to true).
@@ -45,7 +55,7 @@ const ASPECT_RATIOS = {
 } as const;
 
 export interface VideoProps {
-  platform: "youtube" | "vimeo";
+  platform: "youtube" | "vimeo" | "x";
   id: string;
   title?: string;
   vimeoHash?: string;
@@ -82,6 +92,21 @@ export function Video(props: VideoProps) {
   const [show, setShow] = useState(autoshow || false);
 
   const getEmbedUrl = (): string => {
+    if (platform === "x") {
+      const baseUrl = "https://platform.twitter.com/embed/Tweet.html";
+      const params = new URLSearchParams({
+        embedId: "twitter-widget-2",
+        frame: "false",
+        hideCard: "false",
+        hideThread: "false",
+        id: id,
+        lang: "en",
+        maxWidth: "1500px",
+        theme: "light",
+        dnt: privacyMode ? "true" : "false",
+      });
+      return `${baseUrl}?${params.toString()}`;
+    }
     if (platform === "youtube") {
       const baseUrl = privacyMode
         ? `https://www.youtube-nocookie.com/embed/${id}`
@@ -142,6 +167,7 @@ export function Video(props: VideoProps) {
   return (
     <div className={`relative w-full ${ASPECT_RATIOS[aspectRatio]}`}>
       <iframe
+        id={`${platform}-${id}`}
         key={`${platform}-${id}`}
         src={getEmbedUrl()}
         title={title || "Video player"}
