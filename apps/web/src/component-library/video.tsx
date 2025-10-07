@@ -77,7 +77,9 @@ export function Video(props: VideoProps) {
     startTime,
   } = props;
 
-  const [show, setShow] = useState((autoplay || !thumbnail) ?? false);
+  const autoshow = autoplay || !thumbnail;
+
+  const [show, setShow] = useState(autoshow || false);
 
   const getEmbedUrl = (): string => {
     if (platform === "youtube") {
@@ -87,7 +89,8 @@ export function Video(props: VideoProps) {
       const params = new URLSearchParams({
         rel: "0",
         modestbranding: "1",
-        autoplay: autoplay ? "1" : "0",
+        autoplay: autoplay || !autoshow ? "1" : "0",
+        mute: autoplay ? "1" : "0", // Mute the video if autoplay is true because of browser policy
         ...(startTime && { start: startTime.toString() }),
       });
       return `${baseUrl}?${params.toString()}`;
@@ -99,7 +102,7 @@ export function Video(props: VideoProps) {
       title: "0",
       byline: "0",
       portrait: "0",
-      autoplay: autoplay ? "1" : "0",
+      autoplay: autoplay || !autoshow ? "1" : "0",
       ...(privacyMode && { dnt: "1" }), // Add Do Not Track parameter for privacy
     });
     return `${baseUrl}?${params.toString()}${startTime ? `#${startTime.toString()}` : ""}`;

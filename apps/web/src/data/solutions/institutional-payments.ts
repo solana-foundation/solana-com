@@ -21,7 +21,7 @@ export const LOGOS = [];
 export const PRODUCTS = [
   {
     key: "0",
-    href: "/solutions/real-world-assets",
+    href: "/solutions/tokenization",
   },
   {
     key: "3",
@@ -62,7 +62,7 @@ export const VIDEOS = (
   t: (_key: string, _values?: TranslationValues, _formats?: Formats) => string,
 ) => [
   {
-    id: "QI61R2OavU",
+    id: "-QI61R2OavU",
     thumbnail: "/src/img/solutions/institutional-payments/videos/video1.webp",
     title: t("institutional-payments.videoPlayer.videos.0.title"),
     description: t("institutional-payments.videoPlayer.videos.0.description"),

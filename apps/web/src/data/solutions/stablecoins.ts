@@ -1,5 +1,4 @@
 import { VideoBadge } from "@/components/solutions/video-grid.v2";
-import { Blocks, Coins, Fingerprint, Landmark } from "lucide-react";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
@@ -26,25 +25,17 @@ export const LOGOS = [];
 export const PRODUCTS = [
   {
     key: "0",
-    Icon: Coins,
-    color: "text-emerald-400 bg-emerald-900/30",
-    href: "/solutions/real-world-assets",
+    href: "/solutions/tokenization",
   },
   {
     key: "2",
-    Icon: Fingerprint,
-    color: "text-cyan-400 bg-cyan-900/30",
   },
   {
     key: "1",
-    Icon: Blocks,
-    color: "text-indigo-400 bg-indigo-900/30",
     href: "/solutions/token-extensions",
   },
   {
     key: "3",
-    Icon: Landmark,
-    color: "text-rose-400 bg-rose-900/30",
   },
 ];
 
