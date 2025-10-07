@@ -7,44 +7,14 @@ import GradientOrbs, { orbPresets } from "./GradientOrbs";
 
 const universityEvents = [
   {
-    id: "berkeley-2025",
-    titleKey: "berkeley",
-    location: "Berkeley",
-    university: "UC Berkeley",
-    date: "Sept 24",
-    href: "https://lu.ma/f25ucb",
-    image:
-      "https://images.unsplash.com/photo-1694391505705-7fde96f6f14f?q=80&w=2000",
-  },
-  {
-    id: "mhacks-2025",
-    titleKey: "mhacks",
-    location: "Ann Arbor",
-    university: "MHacks",
-    date: "Sept 27-28",
-    href: "https://www.mhacks.org/",
-    image:
-      "https://images.unsplash.com/photo-1579055632087-a025815989ed?q=80&w=2000",
-  },
-  {
     id: "ucla-2025",
     titleKey: "ucla",
     location: "Los Angeles",
     university: "UCLA",
-    date: "Oct 1",
+    date: "Oct 10",
     href: "https://lu.ma/f25ucla",
     image:
       "https://images.unsplash.com/photo-1626060490950-fabf0d72ca8a?q=80&w=2000",
-  },
-  {
-    id: "usc-2025",
-    titleKey: "usc",
-    location: "Los Angeles",
-    university: "USC",
-    date: "Oct 3",
-    href: "https://lu.ma/f25usc",
-    image:
-      "https://images.unsplash.com/photo-1612822798436-369a2448ad45?q=80&w=2000",
   },
   {
     id: "ut-austin-2025",
@@ -55,6 +25,16 @@ const universityEvents = [
     href: "https://lu.ma/f25uta",
     image:
       "https://images.unsplash.com/photo-1595169359806-eee943bd8b97?q=80&w=2000",
+  },
+  {
+    id: "usc-2025",
+    titleKey: "usc",
+    location: "Los Angeles",
+    university: "USC",
+    date: "Oct 17",
+    href: "https://lu.ma/f25usc",
+    image:
+      "https://images.unsplash.com/photo-1612822798436-369a2448ad45?q=80&w=2000",
   },
   {
     id: "mit-harvard-2025",
