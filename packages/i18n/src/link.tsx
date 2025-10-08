@@ -1,6 +1,6 @@
 import { ComponentProps, ReactNode, useMemo } from "react";
 import NextLink from "next/link";
-import { useRouter, usePathname } from "./useRouter";
+import { useRouter, usePathname } from "./use-router";
 import { cn } from "@workspace/ui/lib/utils";
 
 export function Link({
