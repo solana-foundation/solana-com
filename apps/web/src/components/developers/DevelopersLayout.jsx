@@ -1,4 +1,4 @@
-import { Header, Footer } from "@solana-com/site-chrome";
+import { Header, Footer } from "@solana-com/ui-chrome";
 
 const DevelopersLayout = ({ children }) => {
   return (

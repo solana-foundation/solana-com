@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
-  transpilePackages: ["@solana-com/site-chrome"],
+  transpilePackages: ["@solana-com/ui-chrome"],
 
   async rewrites() {
     return rewritesAndRedirectsJson.rewrites as {

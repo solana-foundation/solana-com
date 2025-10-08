@@ -1,1 +1,1 @@
-export { Header as default } from "@solana-com/site-chrome";
+export { Header as default } from "@solana-com/ui-chrome";

@@ -1,7 +1,7 @@
 import { createContext, useState } from "react";
 import styled from "styled-components";
 import TypeformModal from "../shared/TypeformModal";
-import { Footer } from "@solana-com/site-chrome";
+import { Footer } from "@solana-com/ui-chrome";
 import styles from "./PlayGGLayout.module.scss";
 
 export const ModalContext = createContext({});

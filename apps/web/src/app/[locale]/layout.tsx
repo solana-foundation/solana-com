@@ -2,9 +2,9 @@ import "@/scss/index.scss";
 import "@/app/globals.css";
 
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
-import { Footer } from "@solana-com/site-chrome";
+import { Footer } from "@solana-com/ui-chrome";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
-import { Header } from "@solana-com/site-chrome";
+import { Header } from "@solana-com/ui-chrome";
 import { NextIntlClientProvider } from "next-intl";
 import { Metadata } from "next";
 import { PostHogProvider } from "@@/src/app/components/posthog/PostHogProvider";

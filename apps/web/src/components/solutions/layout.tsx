@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import classNames from "classnames";
-import { Header, Footer } from "@solana-com/site-chrome";
+import { Header, Footer } from "@solana-com/ui-chrome";
 import styles from "./Layout.module.scss";
 
 interface LayoutProps {

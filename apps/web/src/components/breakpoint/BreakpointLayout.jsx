@@ -1,6 +1,6 @@
 import styles from "./BreakpointLayout.module.scss";
 import Header from "./BreakpointHeader";
-import { Footer } from "@solana-com/site-chrome";
+import { Footer } from "@solana-com/ui-chrome";
 
 const BreakpointLayout = ({ data, children }) => {
   return (

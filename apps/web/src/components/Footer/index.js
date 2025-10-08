@@ -1,1 +1,1 @@
-export { Footer as default } from "@solana-com/site-chrome";
+export { Footer as default } from "@solana-com/ui-chrome";
