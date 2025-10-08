@@ -1,6 +1,6 @@
-import { defineConfig, defineDocs } from "fs-mdx/config";
+import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 import { recmaCodeHike, remarkCodeHike } from "codehike/mdx";
-import path from "path";
+import { rehypeToc } from "fumadocs-core/mdx-plugins";
 
 import { z } from "zod";
 
@@ -21,7 +21,6 @@ const schema = z.custom<{
 const docsData = defineDocs({
   dir: "content/docs",
   docs: { schema, async: true },
-  output: "docs",
 });
 
 export const docs = docsData.docs;
@@ -30,7 +29,6 @@ export const docsMeta = docsData.meta;
 const cookbookData = defineDocs({
   dir: "content/cookbook",
   docs: { schema, async: true },
-  output: "cookbook",
 });
 
 export const cookbook = cookbookData.docs;
@@ -39,7 +37,6 @@ export const cookbookMeta = cookbookData.meta;
 const coursesData = defineDocs({
   dir: "content/courses",
   docs: { schema, async: true },
-  output: "courses",
 });
 
 export const courses = coursesData.docs;
@@ -48,7 +45,6 @@ export const coursesMeta = coursesData.meta;
 const guidesData = defineDocs({
   dir: "content/guides",
   docs: { schema, async: true },
-  output: "guides",
 });
 
 export const guides = guidesData.docs;
@@ -57,7 +53,6 @@ export const guidesMeta = guidesData.meta;
 const learnData = defineDocs({
   dir: "content/learn",
   docs: { schema, async: true },
-  output: "learn",
 });
 
 export const learn = learnData.docs;
@@ -68,12 +63,9 @@ const chConfig = {
 };
 export default defineConfig({
   mdxOptions: {
-    remarkImageOptions: {
-      publicDir: path.join(process.cwd(), "public"),
-    },
+    remarkImageOptions: false,
     recmaPlugins: [[recmaCodeHike, chConfig]],
     remarkPlugins: (v) => [[remarkCodeHike, chConfig], ...v],
-    // remove fumadocs rehype plugins
-    rehypePlugins: () => [],
+    rehypePlugins: [rehypeToc],
   },
 });
