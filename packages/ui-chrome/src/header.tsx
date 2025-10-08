@@ -5,6 +5,7 @@ import SolanaLogo from "./logos-solana/logotype.inline.svg";
 import Moon from "./icons/Moon.inline.svg";
 import Sun from "./icons/Sun.inline.svg";
 import { Link } from "@workspace/i18n/link";
+import { InkeepSearchBar } from "./inkeep-searchbar";
 
 function useIsThemePage() {
   const pathname = usePathname();
@@ -42,10 +43,6 @@ function ThemeToggle() {
 
 function HeaderList() {
   // TODO: Re-implement header list for tw4
-  return null;
-}
-function InkeepSearchBar() {
-  // TODO: Re-implement inkeep search bar in ui-chrome package
   return null;
 }
 

@@ -3,3 +3,7 @@ declare module "*.inline.svg" {
   const content: FunctionComponent<SVGProps<SVGSVGElement>>;
   export default content;
 }
+declare module "*.module.scss" {
+  const styles: { [key: string]: string };
+  export default styles;
+}
