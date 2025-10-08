@@ -1,4 +1,4 @@
-import { Link } from "../../utils/Link";
+import Link from "@/components/shared/Link";
 import styled from "styled-components";
 import { useTranslations } from "next-intl";
 

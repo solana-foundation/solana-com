@@ -7,7 +7,7 @@ import DevelopersChangelog from "./DevelopersChangelog";
 import styles from "./DevelopersDocumentsSection.module.scss";
 
 import changelogImg from "../../../../../assets/developers/documents/changelog.png";
-import { InlineLink } from "../../../../utils/Link";
+import { InlineLink } from "@/components/shared/Link";
 import DevelopersSectionTitle from "../DevelopersSectionTitle";
 import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
 

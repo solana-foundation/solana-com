@@ -1,4 +1,4 @@
-import Link from "../../utils/Link";
+import Link from "@/components/shared/Link";
 import classNames from "classnames";
 import styles from "./PossibleCaseStudies.module.scss";
 import { useTranslations } from "next-intl";

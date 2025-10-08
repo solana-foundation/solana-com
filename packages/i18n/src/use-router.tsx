@@ -1,6 +1,6 @@
 import { useRouter as usePagesRouter } from "next/compat/router";
 import { usePathname as useNextPathname } from "next/navigation";
-import { usePathname as useI18nPathname } from "@workspace/i18n/routing";
+import { usePathname as useI18nPathname } from "./routing";
 import { useParams } from "next/navigation";
 
 // Compatibility layer for `next/router` in order to support both the pages router and the app router.

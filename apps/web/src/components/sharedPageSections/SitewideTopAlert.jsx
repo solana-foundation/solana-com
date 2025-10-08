@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "@/hooks/useRouter";
+import { useRouter } from "@workspace/i18n/use-router";
 import { AnnouncementBar } from "@solana-foundation/solana-lib";
 import builder from "@builder.io/react";
 import { BUILDER_CONFIG } from "../../lib/builder/builderConstants";

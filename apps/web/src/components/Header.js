@@ -1,8 +1,8 @@
 "use client";
 
 import Navbar from "react-bootstrap/Navbar";
-import { useRouter } from "@@/src/hooks/useRouter";
-import { Link } from "../utils/Link";
+import { useRouter } from "@workspace/i18n/use-router";
+import Link from "@/components/shared/Link";
 import { useEffect, useState } from "react";
 import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
 import Moon from "../../public/src/img/icons/Moon.inline.svg";
