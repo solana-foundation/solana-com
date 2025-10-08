@@ -5,10 +5,10 @@ import { Footer } from "./footer";
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <div>
+    <>
       <Header />
       <main>{children}</main>
       <Footer />
-    </div>
+    </>
   );
 }
