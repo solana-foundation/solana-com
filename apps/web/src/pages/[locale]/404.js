@@ -1,4 +1,4 @@
-import { Link } from "@/utils/Link";
+import Link from "@/components/shared/Link";
 import Layout from "@/components/layout";
 import HTMLHead from "@/components/HTMLHead";
 import { withLocales } from "@workspace/i18n/routing";

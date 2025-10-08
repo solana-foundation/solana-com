@@ -1,6 +1,6 @@
 import { createRef } from "react";
 import Accordion from "react-bootstrap/Accordion";
-import { Link } from "@workspace/i18n/link";
+import Link from "@/components/shared/Link";
 import compressNFTImage from "../../../assets/possible/innovation-compressed-nft.png";
 import scalableImage from "../../../assets/possible/innovation-scalable.png";
 import lowcarbonImage from "../../../assets/possible/innovation-lowcarbon.png";

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { usePathname } from "@workspace/i18n/useRouter";
+import { usePathname } from "@workspace/i18n/use-router";
 
 const ThemeContext = createContext({
   theme: "dark",

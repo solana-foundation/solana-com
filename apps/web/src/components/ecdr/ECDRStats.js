@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
 import classNames from "classnames";
-import { Link } from "@workspace/i18n/link";
+import Link from "@/components/shared/Link";
 import { FormattedNumber } from "../SolFormattedMessage";
 import styles from "./ECDRStats.module.scss";
 import ClipboardIcon from "../../../public/src/img/ecdr/clipboard.inline.svg";

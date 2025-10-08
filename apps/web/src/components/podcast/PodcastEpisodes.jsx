@@ -3,7 +3,7 @@ import { memo, useCallback } from "react";
 import { PlayCircle as PlayCircleIcon } from "react-feather";
 
 import FormattedDate from "../shared/FormattedDate";
-import { Link } from "@workspace/i18n/link";
+import Link from "@/components/shared/Link";
 import { truncateTextByWord } from "../../utils/stringUtils";
 import { usePodcastPlayerContext } from "./PodcastStickyPlayer";
 

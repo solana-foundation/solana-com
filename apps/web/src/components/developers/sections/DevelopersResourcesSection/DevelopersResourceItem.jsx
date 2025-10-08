@@ -1,7 +1,7 @@
 import classNames from "classnames";
 import { ArrowUpRight } from "react-feather";
 
-import { InlineLink, Link } from "@workspace/i18n/link";
+import Link, { InlineLink } from "@/components/shared/Link";
 import { useTranslations } from "next-intl";
 
 import styles from "./DevelopersResourceItem.module.scss";

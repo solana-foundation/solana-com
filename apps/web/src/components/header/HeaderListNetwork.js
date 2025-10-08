@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { Link, InlineLink } from "@workspace/i18n/link";
+import Link, { InlineLink } from "@/components/shared/Link";
 import ResourcesSVG from "../../../assets/nav/network/resources.inline.svg";
 import InspectSVG from "../../../assets/nav/network/inspect.inline.svg";
 

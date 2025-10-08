@@ -1,6 +1,6 @@
 import dynamic from "next/dynamic";
 import Image from "next/legacy/image";
-import { Link } from "@workspace/i18n/link";
+import Link from "@/components/shared/Link";
 import styled from "styled-components";
 import { useTranslations } from "next-intl";
 

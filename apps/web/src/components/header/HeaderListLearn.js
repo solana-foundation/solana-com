@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { Link } from "@workspace/i18n/link";
+import Link from "@/components/shared/Link";
 import StartSVG from "../../../assets/nav/learn/start.inline.svg";
 
 const HeaderListLearn = () => {

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import PropTypes from "prop-types";
 import styled from "styled-components";
 import { useTranslations } from "next-intl";
-import { Link } from "@workspace/i18n/link";
+import Link from "@/components/shared/Link";
 
 import { extractTags } from "@/lib/builder/api";
 

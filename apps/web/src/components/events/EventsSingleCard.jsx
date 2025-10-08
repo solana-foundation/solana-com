@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import Image from "next/image";
-import { Link } from "@workspace/i18n/link";
+import Link from "@/components/shared/Link";
 import EventsSingleLocation from "./EventsSingleLocation";
 import FormattedDate from "../shared/FormattedDate";
 import defaultImg from "../../../assets/events/solana-event.jpg";

@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { ArrowRightCircle } from "react-feather";
 import styled from "styled-components";
 
-import { InlineLink } from "@workspace/i18n/link";
+import { InlineLink } from "@/components/shared/Link";
 
 import styles from "./DevelopersCourseFeaturedItem.module.scss";
 

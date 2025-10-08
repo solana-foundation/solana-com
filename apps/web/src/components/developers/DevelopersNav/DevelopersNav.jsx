@@ -1,5 +1,5 @@
 import styles from "./DevelopersNav.module.scss";
-import { Link } from "@workspace/i18n/link";
+import Link from "@/components/shared/Link";
 import DocsIcon from "@@/public/src/img/developers/docs.inline.svg";
 import RpcApiIcon from "@@/public/src/img/developers/api.inline.svg";
 import CookbookIcon from "@@/public/src/img/developers/cookbook.inline.svg";

@@ -13,7 +13,7 @@ import scaleordieImg from "@/../assets/events/scaleordie.jpg";
 import crossroadsImg from "@/../assets/events/crossroads.jpg";
 import Button from "@/components/shared/Button";
 import Divider from "@/components/shared/Divider";
-import { InlineLink } from "@workspace/i18n/link";
+import { InlineLink } from "@/components/shared/Link";
 import { uniqBy, orderBy } from "lodash";
 import {
   fetchCalendarEvents,
