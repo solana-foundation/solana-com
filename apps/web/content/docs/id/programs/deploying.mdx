@@ -1,474 +1,432 @@
 ---
 title: Menerapkan Program
 description:
-  Mengunggah program kustom ke blockchain Solana menggunakan Solana CLI.
+  Panduan lengkap untuk membangun, men-deploy, dan mengelola program Solana
+  menggunakan Solana CLI.
 ---
 
-Panduan ini mengasumsikan pengetahuan tentang topik-topik berikut:
+Bagian ini membahas proses dasar men-deploy program Solana menggunakan Solana
+CLI.
 
-- [Model akun Solana](/docs/core/accounts)
-- [Program Solana secara umum](/docs/core/programs)
-- [Mengembangkan program Solana kustom](/docs/programs/rust/)
+## Referensi Perintah CLI
 
-## Loader-v3 dan Loader-v4
+| Tugas                              | Perintah                                                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| Membangun program                  | `cargo build-sbf`                                                                             |
+| Men-deploy program baru            | `solana program deploy <path_to_program.so>`                                                  |
+| Memperbarui program yang ada       | `solana program deploy <path_to_program.so>` (sama dengan deploy)                             |
+| Menampilkan info program           | `solana program show <program-id>`                                                            |
+| Mentransfer otoritas program       | `solana program set-upgrade-authority <program-id> --new-upgrade-authority <path_to_keypair>` |
+| Membuat program tidak dapat diubah | `solana program set-upgrade-authority <program-id> --final`                                   |
+| Menutup program                    | `solana program close <program-id> --bypass-warning`                                          |
+| Memeriksa saldo dompet             | `solana balance`                                                                              |
+| Meminta airdrop (devnet/localhost) | `solana airdrop 2`                                                                            |
 
-Saat ini sedang berlangsung transisi dari loader-v3 (subperintah program) ke
-loader-v4 (subperintah program **-v4**) karena loader-v3 sedang dalam proses
-penghentian.
+## Konsep Kunci
 
-Untuk penerapan baru, silakan gunakan `solana program-v4 deploy` alih-alih
-`solana program deploy`.
+Sebelum memulai, mari perjelas beberapa terminologi:
 
-Untuk memigrasikan program yang sudah ada (yang pada dasarnya adalah
-menerapkannya kembali):
+- **Program ID**: Alamat on-chain dari program Anda. Pengguna berinteraksi
+  dengan program Anda dengan mereferensikan Program ID.
+- **Program Account**: Akun on-chain yang menyimpan metadata program Anda.
+  Alamat program account adalah Program ID. Program account juga menyimpan
+  alamat dari ProgramData Account.
+- **ProgramData Account**: Akun on-chain yang menyimpan kode executable program
+  Anda yang telah di-deploy.
+- **Program Authority**: Akun yang memiliki izin untuk memperbarui atau menutup
+  program. Secara default, ini adalah dompet CLI Anda.
 
-```shell
-solana program migrate ./target/deploy/your_program-keypair.json
+## Prasyarat
+
+<Steps>
+
+<Step>
+
+### Instal Solana CLI
+
+Pertama, [instal Solana CLI](/docs/intro/installation).
+
+</Step>
+
+<Step>
+
+### Siapkan Dompet
+
+Setelah instalasi, buat dompet keypair lokal. Alamat dompet ini diatur sebagai
+otoritas program default saat men-deploy program:
+
+```terminal
+$ solana-keygen new
 ```
 
-## Persiapan
+Ini akan membuat keypair di `~/.config/solana/id.json` secara default.
 
-Pertama, program perlu dibangun (dikompilasi, ditautkan, distrip).
+</Step>
 
-```shell
-cargo +solana build --target sbpf-solana-solana --release
+<Step>
+
+### Konfigurasi Cluster
+
+Pilih cluster Solana mana yang akan digunakan untuk deployment. Gunakan perintah
+`solana config get` untuk memeriksa konfigurasi saat ini:
+
+```terminal
+$ solana config get
+Config File: ~/.config/solana/cli/config.yml
+RPC URL: http://localhost:8899
+WebSocket URL: ws://localhost:8900/ (computed)
+Keypair Path: ~/.config/solana/id.json
+Commitment: confirmed
 ```
 
-Langkah ini harus dilakukan sebelum setiap penerapan ulang/penerapan.
+Beralih antar cluster sesuai kebutuhan:
 
-Periksa bahwa dana yang cukup tersedia di akun pembayar default sebanding dengan
-ukuran executable:
-
-```shell
-du -h ./target/deploy/your_program.so
-solana balance
+```terminal
+$ solana config set --url mainnet-beta
+$ solana config set --url devnet
+$ solana config set --url localhost
+$ solana config set --url testnet
+$ solana config set --url "https://your-rpc-url.com"
 ```
 
-Selain itu, setiap program memiliki akun program dan ID program, yang merupakan
-alamat dari akun program tersebut. Berikut ini menghasilkan keypair untuk akun
-program:
+</Step>
 
-```shell
-solana-keygen new -o ./target/deploy/your_program-keypair.json
+<Step>
+
+### Dana Wallet
+
+Anda akan membutuhkan SOL untuk membayar deployment program. Jumlahnya
+tergantung pada ukuran program Anda.
+
+Untuk devnet atau localhost, danai wallet Anda menggunakan perintah
+`solana airdrop`:
+
+```terminal
+$ solana airdrop 2
+Requesting airdrop of 2 SOL
+Signature: 5zQKxvRdgJDA8fRGPdKfGxRLnLpwmNnMXGYxfBqFSUPqc5BTmFPrTG8vnC4HvKDVY8zQ8aQxZxcEE7WFpGhZGVAA
+2 SOL
 ```
 
-Ini hanya perlu dilakukan sekali per program dan akan digunakan kembali untuk
-penerapan ulang program yang sama di kemudian hari.
+Periksa saldo wallet Anda:
 
-Toolchain memiliki jalan pintas, namun sedang dihapus/ dihentikan:
-
-```shell
-cargo-build-sbf
+```terminal
+$ solana balance
+2 SOL
 ```
 
-## Penerapan Awal
+</Step>
 
-Sekarang executable dapat diunggah ke akun program:
+</Steps>
 
-### Loader-v3
+## Operasi Dasar
 
-Parameternya disebut `program-id` meskipun sebenarnya mengharapkan jalur file
-dari keypair:
+### Build Program
 
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+Untuk membangun program, gunakan perintah `cargo build-sbf`:
+
+```terminal
+$ cargo build-sbf
 ```
 
-### Loader-v4
+<ScrollyCoding>
 
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+## !!steps Contoh Program
+
+Berikut adalah program Solana minimal yang mencetak "Hello, Solana!" ke log
+program.
+
+<CodePlaceholder title="src/lib.rs" />
+
+!focus("build-output")
+
+```bash
+cd hello-world
+solana program deploy target/deploy/hello_world.so
 ```
 
-## Penerapan ulang
+## !!steps Output Build
 
-Mengunggah executable yang berbeda ke program account yang sama akan
-menimpa/menggantinya. Namun, untuk penerapan ulang, hanya program ID (pubkey
-dari program keypair) yang diperlukan, bukan seluruh keypair, karena
-penandatangan adalah upgrade authority keypair.
+Build program Anda menggunakan perintah `cargo build-sbf`:
 
-### Loader-v3
-
-Ini persis sama dengan penerapan awal:
-
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```bash
+cd hello-world
+cargo build-sbf
 ```
 
-Jika executable lama lebih pendek dari yang baru, mungkin perlu untuk
-memperbesar programdata account terlebih dahulu:
+Ini akan membuat dua file penting di `target/deploy/`:
 
-```shell
-solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+1. `hello_world-keypair.json`: File keypair yang kunci publiknya akan digunakan
+   sebagai Program ID Anda
+2. `hello_world.so`: Program executable yang telah dikompilasi
+
+!focus("deploy")
+
+```bash
+cd hello-world
+solana program deploy target/deploy/hello_world.so
 ```
 
-### Loader-v4
+</ScrollyCoding>
 
-Perhatikan bahwa penerapan awal menggunakan `program-keypair`, sementara
-penerapan ulang menggunakan `program-id`:
+### Periksa Ukuran dan Biaya Program
 
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+Menerapkan program memerlukan SOL yang dialokasikan ke akun program berdasarkan
+ukuran program. Program yang lebih besar membutuhkan lebih banyak SOL untuk
+diterapkan.
+
+Periksa ukuran program Anda:
+
+```bash
+ls -l target/deploy/hello_world.so
 ```
 
-## Memprioritaskan unggahan
+Hitung SOL yang diperlukan untuk ukuran ini (byte):
 
-Selama waktu kemacetan, ada beberapa flag tambahan yang dapat Anda gunakan untuk
-membantu penerapan program:
-
-- `--with-compute-unit-price`: Tetapkan harga unit komputasi untuk transaksi,
-  dalam kelipatan 0,000001 lamport (micro-lamports) per unit komputasi. Gunakan
-  [Priority Fee API oleh Helius](https://docs.helius.dev/guides/priority-fee-api)
-  untuk mendapatkan perkiraan biaya prioritas yang akan ditetapkan.
-- `--use-rpc`: Kirim transaksi tulis ke RPC yang dikonfigurasi alih-alih
-  validator TPU. Flag ini memerlukan koneksi RPC
-  [stake-weighted](/developers/guides/advanced/stake-weighted-qos) seperti
-  [Helius](https://www.helius.dev/) atau [Triton](https://triton.one/). Flag ini
-  juga dapat dikonfigurasi menjadi default menggunakan:
-  `solana config set --url <RPC_URL>`.
-- `--max-sign-attempts`: Jumlah maksimum upaya untuk menandatangani atau
-  menandatangani ulang transaksi setelah kedaluwarsa blockhash. Jika ada
-  transaksi yang dikirim selama penerapan program masih belum dikonfirmasi
-  setelah blockhash terbaru yang dipilih kedaluwarsa, transaksi tersebut akan
-  ditandatangani ulang dengan blockhash terbaru dan dikirim ulang. Gunakan
-  pengaturan ini untuk menyesuaikan jumlah maksimum iterasi penandatanganan
-  transaksi. Setiap blockhash berlaku sekitar 60 detik, yang berarti menggunakan
-  nilai default 5 akan mengarah pada pengiriman transaksi setidaknya selama 5
-  menit atau sampai semua transaksi dikonfirmasi, mana yang lebih dulu terjadi.
-
-## Melanjutkan Upload
-
-Ada kemungkinan upload terhenti atau dibatalkan.
-
-### Loader-v3
-
-Jika deployment program gagal, akan ada akun buffer perantara yang menggantung
-yang berisi saldo tidak nol. Untuk mendapatkan kembali saldo tersebut, Anda
-dapat melanjutkan deployment yang gagal dengan menyediakan buffer perantara yang
-sama ke panggilan baru untuk `deploy`.
-
-Kegagalan deployment akan mencetak pesan kesalahan yang menentukan seed phrase
-yang diperlukan untuk memulihkan keypair buffer perantara yang dihasilkan:
-
-```
-==================================================================================
-Recover the intermediate account's ephemeral keypair file with
-`solana-keygen recover` and the following 12-word seed phrase:
-==================================================================================
-valley flat great hockey share token excess clever benefit traffic avocado athlete
-==================================================================================
-To resume a deploy, pass the recovered keypair as
-the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
-Or to recover the account's lamports, pass it as the
-[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
-==================================================================================
+```bash
+solana program cost target/deploy/hello_world.so
 ```
 
-Untuk memulihkan keypair:
+<Callout type="info">
+  Anda akan membutuhkan sedikit lebih banyak SOL daripada yang ditampilkan untuk
+  menutupi biaya transaksi penerapan.
+</Callout>
 
-```shell
-solana-keygen recover -o ./target/deploy/buffer-keypair.json
+### Menerapkan Program
+
+Gunakan perintah `solana program deploy` untuk menerapkan program Anda:
+
+```bash
+solana program deploy target/deploy/hello_world.so
 ```
 
-Saat diminta, masukkan seed phrase 12 kata.
+**Program Id** yang ditampilkan adalah alamat permanen program Anda di jaringan.
 
-Kemudian keluarkan perintah `deploy` baru dan tentukan buffer:
+<Callout>
 
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+Untuk menerapkan dengan Program ID tertentu (alih-alih yang dibuat secara
+otomatis), gunakan:
+
+```bash
+solana program deploy target/deploy/hello_world.so --program-id /path/to/keypair.json
 ```
 
-### Loader-v4
+Anda dapat menghasilkan keypair baru menggunakan perintah `solana-keygen`:
 
-Dimungkinkan untuk melanjutkan upload pada offset byte tertentu:
-
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```terminal
+$ solana-keygen new -o ./custom-keypair.json
 ```
 
-## Finalisasi
+</Callout>
 
-Ini adalah tindakan yang **tidak dapat dibalik**.
+### Perbarui Program
 
-Program dapat dibuat tidak dapat diubah dengan menghapus otoritas upgrade-nya.
+Perbarui program Anda menggunakan perintah `solana program deploy` yang sama:
 
-### Loader-v3
+1. Buat perubahan pada kode program Anda
+2. Bangun ulang program Anda: `cargo build-sbf`
+3. Deploy pembaruan:
 
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 3zKnXDfEm1R8hVcEmTnNFYUaFjVVbLJrKdFj5hBMXoBRfz8xGyDhCYgKr9YY5KxKYPEUQQVfwEPNz9hQGvYhLNBJ
 ```
 
-### Loader-v4
+<Callout type="info">
 
-```shell
-solana program finalize --program-id ./target/deploy/your_program-keypair.json
+Jika program yang diperbarui memerlukan lebih banyak ruang (byte) daripada yang
+dialokasikan saat ini, deployment akan secara otomatis memperluas program
+account. Ini terjadi ketika program baru Anda lebih besar dari versi sebelumnya.
+Program account membutuhkan byte tambahan untuk menyimpan program baru. CLI akan
+menghitung SOL yang diperlukan dan menguranginya dari dompet Anda secara
+otomatis.
+
+Anda juga dapat memperluas program secara manual untuk mengalokasikan lebih
+banyak byte:
+
+```terminal
+$ solana program extend 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE 1000
+Extended Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE by 1000 bytes
 ```
 
-Alih-alih menimpa program, juga dimungkinkan untuk memberikan pengguna pilihan
-versi program mana yang ingin mereka gunakan dengan membangun linked list
-program yang telah difinalisasi:
+</Callout>
 
-```shell
-solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
+## Pengelolaan Program
+
+Setelah program Anda di-deploy, ada beberapa perintah umum untuk mengelola
+program account.
+
+### Lihat Metadata Program
+
+Untuk memeriksa metadata program Anda, gunakan perintah `solana program show`:
+
+```terminal
+$ solana program show 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
 ```
 
-## Penutupan
+<WithNotes>
 
-Untuk program yang di-deploy di bawah loader-v3, hanya akun programdata, akun
-buffer dan dana yang terkunci di dalamnya yang dapat diklaim kembali. Akun
-program bersama dengan ID program dan dana yang terkunci khusus di akun program
-tidak dapat diambil kembali.
+Contoh output:
 
-Program yang di-deploy dengan loader-v4 dapat ditutup beserta akun programnya,
-program ID dan dana yang terkunci semuanya akan tersedia kembali untuk
-penggunaan lain.
-
-### Loader-v3
-
-Ini adalah tindakan yang **tidak dapat dibalik** untuk program yang di-deploy
-menggunakan loader-v3.
-
-Perhatikan bahwa setelah program ditutup, program ID-nya tidak dapat digunakan
-kembali. Upaya untuk men-deploy program dengan program ID yang sebelumnya telah
-ditutup akan menghasilkan error. Jika Anda perlu men-deploy ulang program
-setelah menutupnya, Anda harus membuat file program keypair baru.
-
-Untuk menutup satu akun programdata:
-
-```shell
-solana program close ./target/deploy/your_program-keypair.json
-```
-
-Untuk menutup semua akun buffer yang terkait dengan authority saat ini:
-
-```shell
-solana program close --buffers
-```
-
-### Loader-v4
-
-```shell
-solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
-```
-
-## Memeriksa Metadata
-
-Subperintah `show` menampilkan metadata dari sebuah program.
-
-Contoh outputnya seperti:
-
-```shell
-Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
+```txt
+$ solana program show 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Program Id/] program-id
+Program Id: 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Owner/] owner
 Owner: BPFLoaderUpgradeab1e11111111111111111111111
-ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
-Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
-Last Deployed In Slot: 63890568
-Data Length: 5216 (0x1460) bytes
+# !tooltip[/ProgramData Address/] program-data-address
+ProgramData Address: Gqn7YQVCP8NtYV1qkEqR4Udhj8EJ3fkikvS7HskCNQ7c
+# !tooltip[/Authority/] authority
+Authority: 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1
+# !tooltip[/Last Deployed In Slot/] last-deployed-in-slot
+Last Deployed In Slot: 6573
+# !tooltip[/Data Length/] data-length
+Data Length: 18504 (0x4848) bytes
+# !tooltip[/Balance/] balance
+Balance: 0.12999192 SOL
 ```
 
-- `Program Id` adalah alamat yang dapat direferensikan di field `program_id`
-  sebuah instruksi ketika memanggil program.
-- `Owner`: Loader yang digunakan untuk men-deploy program ini.
-- `ProgramData Address` adalah akun programdata yang terkait dengan akun program
-  yang menyimpan executable program (hanya untuk loader-v3).
-- `Status`: `retracted`, `deployed` atau `finalized` (hanya untuk loader-v4).
-- `Authority` adalah authority upgrade program.
-- `Last Deployed In Slot` adalah slot di mana program terakhir kali di-deploy.
-- `Data Length` adalah ukuran ruang yang dicadangkan untuk deployment. Ruang
-  yang sebenarnya digunakan oleh program yang saat ini di-deploy mungkin lebih
-  kecil.
+### !program-id
 
-### Loader-v3
+Program ID adalah alamat on-chain dari program account Anda. Pengguna dan
+program lain memanggil program Anda dengan mereferensikan ID ini dalam transaksi
+mereka.
 
-Untuk melihat program tertentu:
+### !owner
 
-```shell
-solana program show ./target/deploy/your_program-keypair.json
+Owner mengidentifikasi loader mana yang digunakan untuk men-deploy program ini.
+Untuk sebagian besar program, ini akan menjadi BPF Upgradeable Loader.
+
+### !program-data-address
+
+ProgramData Address menunjuk ke akun terpisah yang menyimpan kode yang dapat
+dieksekusi dari program Anda.
+
+### !authority
+
+Authority adalah akun yang memiliki izin untuk mengupgrade atau menutup program
+ini. Hanya authority yang dapat menerapkan pembaruan atau menutup program untuk
+mengklaim kembali SOL yang dialokasikan untuk program.
+
+### !last-deployed-in-slot
+
+Last Deployed In Slot menunjukkan kapan program ini terakhir kali diperbarui.
+
+### !data-length
+
+Data Length menunjukkan total byte yang dialokasikan untuk program ini. Ruang
+ini dapat mengakomodasi pembaruan di masa depan yang mungkin lebih besar dari
+ukuran program saat ini.
+
+### !balance
+
+Balance menampilkan SOL yang dialokasikan ke akun program untuk menyimpan
+datanya.
+
+</WithNotes>
+
+### Transfer Program Authority
+
+Untuk mentransfer authority program ke akun yang berbeda, gunakan perintah
+`solana program set-upgrade-authority`:
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --new-upgrade-authority ./new-authority-keypair.json
 ```
 
-Untuk melihat daftar program yang di-deploy dengan authority default:
+<Callout type="warn">
+  Setelah mentransfer program authority, Anda tidak dapat lagi memperbarui
+  program kecuali Anda memiliki akses ke keypair authority yang baru.
+</Callout>
 
-```shell
-solana program show --programs
+### Membuat Program Anda Tidak Dapat Diubah
+
+Untuk membuat program Anda tidak dapat diubah, gunakan perintah
+`solana program set-upgrade-authority` dengan flag `--final` untuk menghapus
+program authority:
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --final
+Account Type: Program
+Authority: none
 ```
 
-Untuk menampilkan semua akun buffer tanpa memperhatikan authority:
+<Callout type="warn">
+  Setelah program menjadi tidak dapat diubah, program tersebut tidak akan pernah
+  bisa diperbarui atau ditutup.
+</Callout>
 
-```shell
-solana program show --buffers --all
+### Menutup Program Anda
+
+Untuk menutup program Anda dan mengklaim kembali SOL yang dialokasikan ke akun
+program, gunakan perintah `solana program close`:
+
+```terminal
+$ solana program close 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --bypass-warning
+Closed Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE, 0.12999192 SOL reclaimed
 ```
 
-Untuk menentukan authority yang berbeda:
+<Callout type="warn">
+  Setelah ditutup, Program ID tidak dapat digunakan kembali. Anda tidak dapat
+  menerapkan program baru ke alamat yang sama.
+</Callout>
 
-```shell
-solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
-solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+## Perintah Utilitas
+
+### Daftar Semua Program
+
+Lihat semua program di mana dompet Anda saat ini adalah authority:
+
+```terminal
+$ solana program show --programs
 ```
 
-### Loader-v4
+Contoh output:
 
-Untuk melihat program tertentu:
-
-```shell
-solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```txt
+Program Id                                       | Slot       | Authority                                      | Balance
+-------------------------------------------------|------------|------------------------------------------------|-------------
+7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE     | 249885434  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.12999192
+3KSGCk4m5hqJkTjPHBXUCPcqMwJnK3VmkqEsFUKKGJPK     | 249883212  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.28654328
 ```
 
-Untuk melihat daftar program yang di-deploy dengan authority default:
+### Mengunduh Program yang Telah Di-deploy
 
-```shell
-solana program-v4 show --all
+Untuk mengunduh program yang telah di-deploy, gunakan perintah
+`solana program dump`:
+
+```terminal
+$ solana program dump 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE ./downloaded_program.so
+Wrote program to ./downloaded_program.so
 ```
 
-Untuk melihat daftar program yang di-deploy dengan authority tertentu:
+## Opsi Lanjutan
 
-```shell
-solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+### Flag Deployment
+
+Ketika jaringan Solana sedang padat, gunakan flag ini untuk membantu deployment
+program.
+
+Contoh Penggunaan:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so \
+    --with-compute-unit-price 10000 \
+    --max-sign-attempts 10 \
+    --use-rpc
 ```
 
-## Mengunduh Executable
+Penjelasan opsi:
 
-Terkadang sangat berguna untuk mengunduh dan membandingkan program untuk
-memastikan program tersebut berisi executable yang dikenal. File yang diunduh
-dapat dipotong, di-hash, dan dibandingkan dengan hash dari file program asli.
-
-### Loader-v3
-
-```shell
-solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
-```
-
-### Loader-v4
-
-```shell
-solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
-```
-
-## Lanjutan: Transfer Authority
-
-Hak untuk mengubah program tertentu berada pada authority-nya. Authority ini
-dapat ditransfer ke keypair lain tanpa mengubah keypair program, sehingga ID
-program tetap sama. Selain itu, satu authority dapat mengontrol beberapa program
-account.
-
-Jika tidak ditentukan secara eksplisit selama deployment awal, maka keypair
-default akan digunakan sebagai authority. Inilah mengapa men-deploy ulang
-program dalam langkah-langkah di atas tidak memerlukan authority yang ditentukan
-secara eksplisit.
-
-Authority eksplisit berguna untuk penandatanganan offline dan program yang
-diatur oleh multi-entitas.
-
-Pertama, keypair untuk authority harus dibuat:
-
-```shell
-solana-keygen new -o ~/.config/solana/authority-keypair.json
-```
-
-### Loader-v3
-
-Authority dapat ditentukan selama deployment:
-
-```shell
-solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
-```
-
-Atau setelah deployment dan menggunakan keypair default sebagai authority saat
-ini:
-
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
-```
-
-Atau setelah deployment dan menentukan authority saat ini:
-
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
-```
-
-### Loader-v4
-
-Authority dapat ditentukan selama deployment:
-
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
-```
-
-Atau setelah deployment dan menggunakan keypair default sebagai authority saat
-ini:
-
-```shell
-solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
-```
-
-Atau setelah deployment dan menentukan authority saat ini:
-
-```shell
-solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
-```
-
-## Lanjutan: Redeployment dua langkah menggunakan buffer
-
-Alih-alih mengunggah langsung ke program account, executable dapat diunggah ke
-akun buffer staging terlebih dahulu dan kemudian ditransfer ke program account
-pada langkah kedua (re-/deployment yang sebenarnya). Ini berguna untuk
-penandatanganan offline dan program yang diatur oleh multi-entitas seperti
-voting DAO untuk memilih atau menolak executable yang diunggah sebelum
-redeployment yang sebenarnya.
-
-Perlu diingat bahwa menggunakan akun buffer kurang lebih menggandakan dana yang
-diperlukan selama proses unggahan karena dua akun masing-masing menyimpan satu
-executable secara bersamaan.
-
-Pertama, keypair untuk akun buffer harus dibuat:
-
-```shell
-solana-keygen new -o ~/.config/solana/buffer-keypair.json
-```
-
-Akun buffer dapat digunakan kembali untuk unggahan yang berbeda dan tidak
-terikat pada program account tertentu.
-
-### Loader-v3
-
-```shell
-solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
-solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
-```
-
-### Loader-v4
-
-```shell
-solana program-v4 deploy ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
-solana program-v4 deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
-```
-
-## Lanjutan: Penandatanganan offline
-
-Beberapa model keamanan memerlukan pemisahan proses penandatanganan dari
-penyiaran transaksi, sehingga kunci penandatanganan dapat sepenuhnya terputus
-dari jaringan apa pun, juga dikenal sebagai penandatanganan offline.
-
-Perhatikan bahwa hanya redeployment yang dapat dilakukan dalam mode offline.
-Deployment program awal **harus** dilakukan dari mesin online, dan hanya
-redeployment program berikutnya yang dapat memanfaatkan penandatanganan offline.
-
-Pengaturan tipikal akan terdiri dari dua penandatangan berbeda:
-
-- penandatangan online (pembayar biaya dan authority akun buffer)
-- penandatangan offline (authority program account)
-
-Proses umum adalah penerapan ulang dua langkah dengan beberapa tambahan:
-
-1. (online) buat program baru
-2. (online) transfer otoritas ke penandatangan offline
-3. (online) buat buffer dan unggah executable ke dalamnya
-4. (opsional) verifikasi konten on-chain buffer
-5. (offline) tandatangani transaksi untuk menerapkan ulang program menggunakan
-   buffer `--blockhash <VALUE> --sign-only`
-6. (online) gunakan tanda tangan ini untuk menyiarkan transaksi penerapan ulang
-   `--blockhash <VALUE> --signer <OFFLINE_SIGNER_PUBKEY>:<OFFLINE_SIGNER_SIGNATURE>`
-
-Cari `blockhash` terbaru dan tempelkan untuk menghasilkan tanda tangan transaksi
-offline. `blockhash` kedaluwarsa setelah ~60 detik. Jika Anda tidak berhasil
-tepat waktu - dapatkan hash baru dan ulangi sampai berhasil, atau pertimbangkan
-untuk menggunakan nonce transaksi yang tahan lama.
+- **`--with-compute-unit-price`**: Tetapkan biaya prioritas dalam micro-lamports
+  (0.000001 SOL) per unit komputasi. Periksa
+  [Helius Priority Fee API](https://docs.helius.dev/guides/priority-fee-api)
+  untuk tarif saat ini. Biaya prioritas adalah biaya tambahan yang dibayarkan
+  kepada leader saat ini untuk memprioritaskan transaksi Anda.
+- **`--max-sign-attempts`**: Jumlah percobaan ulang dengan blockhash baru jika
+  transaksi kedaluwarsa. (Default: 5)
+- **`--use-rpc`**: Kirim transaksi ke RPC yang dikonfigurasi. Flag ini
+  memerlukan koneksi RPC
+  [stake-weighted](/developers/guides/advanced/stake-weighted-qos) dari penyedia
+  seperti [Triton](https://triton.one/) atau [Helius](https://www.helius.dev/).

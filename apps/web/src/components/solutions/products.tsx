@@ -1,10 +1,13 @@
 import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 export type Product = {
   key: string;
-  Icon: React.ComponentType<{ size?: number; "aria-hidden"?: boolean }>;
+  Icon: ComponentType<{
+    size?: string | number;
+    "aria-hidden"?: boolean | "true" | "false";
+  }>;
   color: string;
   href?: string;
 };

@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Globe from "../assets/Globe.inline.svg";
 import { ChevronDown } from "react-feather";
-import { languages } from "@@/src/i18n/config";
-import { usePathname } from "@@/src/i18n/routing";
+import { languages } from "@workspace/i18n/config";
+import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
 
 const Language = () => {

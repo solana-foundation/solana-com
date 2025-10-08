@@ -24,6 +24,7 @@ const Schema = Block.extend({
 type Steps = z.infer<typeof Schema>["steps"];
 
 export function ScrollyCoding(props: unknown) {
+  // @ts-expect-error props are not typed
   const { steps } = parseProps(props, Schema);
   return (
     <div>
@@ -64,7 +65,7 @@ function OneColumnStep(props: { step: Steps[number] }) {
 function TwoColumnLayout(props: { steps: Steps; className?: string }) {
   const { steps, className } = props;
   const stickers = getStickers(steps);
-  const rootMargin = "-40% 0px -60% 0px";
+  const rootMargin = "-39% 0px -60% 0px";
   return (
     <SelectionProvider className={className} rootMargin={rootMargin}>
       <ResizablePanelGroup
@@ -113,7 +114,10 @@ function TwoColumnLayout(props: { steps: Steps; className?: string }) {
 
 function getStickers(steps: Steps) {
   // First, create intermediate stickers with code and selected file
-  const intermediateStickers = steps.map((step) => {
+  const intermediateStickers: {
+    codes: Record<string, RawCode>;
+    selected: string | undefined;
+  }[] = steps.map((step) => {
     const codeMap = {} as Record<string, RawCode>;
     let selected: string | undefined;
 

@@ -1,0 +1,562 @@
+---
+title: Niezmienny właściciel
+description: Dowiedz się, jak włączyć rozszerzenie ImmutableOwner.
+---
+
+## Jak włączyć rozszerzenie ImmutableOwner
+
+Rozszerzenie
+[`ImmutableOwner`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L511)
+zapobiega zmianom właściciela dla token accounts. Gdy token account jest
+zainicjalizowany z tym rozszerzeniem, wyznaczony właściciel jest stały i nie
+może być przeniesiony na inne konto.
+
+### Typescript
+
+<CodeTabs storage="token-ts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  extension,
+  getInitializeImmutableOwnerInstruction,
+  getTokenSize,
+  getInitializeAccountInstruction
+} from "@solana-program/token-2022";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate the authority for the mint (also acts as fee payer)
+const authority = await generateKeyPairSigner();
+
+// Fund authority/fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: authority.address,
+  lamports: lamports(5_000_000_000n), // 5 SOL
+  commitment: "confirmed"
+});
+
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
+
+// Get default mint account size (in bytes), with the immutable owner extension
+const space = BigInt(getMintSize());
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Instruction to create new account for mint (token program)
+// Invokes the system program
+const createMintAccountInstruction = getCreateAccountInstruction({
+  payer: authority,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Generate keypair to use as address of token account
+const tokenAccount = await generateKeyPairSigner();
+
+// Immutable owner extension
+const immutableOwnerExtension = extension("ImmutableOwner", {});
+
+// get token account size with extension enabled
+const tokenAccountLen = BigInt(getTokenSize([immutableOwnerExtension]));
+
+// Get minimum balance for rent exemption
+const tokenAccountRent = await rpc
+  .getMinimumBalanceForRentExemption(tokenAccountLen)
+  .send();
+
+// Instruction to create new account for the token account
+// Invokes the system program
+const createTokenAccountInstruction = getCreateAccountInstruction({
+  payer: authority,
+  newAccount: tokenAccount,
+  lamports: tokenAccountRent,
+  space: tokenAccountLen,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize the created token account
+const initializeTokenAccountInstruction = getInitializeAccountInstruction({
+  account: tokenAccount.address,
+  mint: mint.address,
+  owner: authority.address
+});
+
+// Instruction to initialize the immutable owner extension
+const initializeImmutableOwnerInstruction =
+  getInitializeImmutableOwnerInstruction({
+    account: tokenAccount.address
+  });
+
+// Instruction to initialize mint account data
+// Invokes the token22 program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: authority.address
+});
+
+const instructions = [
+  createMintAccountInstruction,
+  initializeMintInstruction,
+  createTokenAccountInstruction,
+  initializeImmutableOwnerInstruction,
+  initializeTokenAccountInstruction
+];
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions(instructions, tx)
+);
+
+// Sign transaction message with all required signers
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed", skipPreflight: true }
+);
+
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address:", mint.address.toString());
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  TransactionInstruction
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  ExtensionType,
+  getMintLen,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
+  createMintToInstruction,
+  getAccountLen,
+  createInitializeAccountInstruction,
+  createInitializeImmutableOwnerInstruction
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Airdrop 5 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// Generate keypair to use as address of mint
+const mint = Keypair.generate();
+
+// get mint length (no extensions for mint in this example)
+const mintLength = getMintLen([]);
+
+// Get minimum balance for rent exemption
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
+
+// Create account instruction for mint
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: mintLength,
+  lamports: mintRent,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+// Initialize mint instruction
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint pubkey
+  9, // decimals
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Get the associated token account address
+const associatedTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey, // mint pubkey
+  feePayer.publicKey, // authority
+  false, // allowOwnerOffCurve
+  TOKEN_2022_PROGRAM_ID, // token program
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// Create associated token account instruction
+const createAssociatedTokenAccountIx = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey, // payer
+  associatedTokenAccount, // associated token account
+  feePayer.publicKey, // owner
+  mint.publicKey, // mint
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// Create mint-to instruction (mint 1000 tokens = 1000.0 with 9 decimals)
+const mintAmount = 1000_000_000_000;
+const mintToInstruction = createMintToInstruction(
+  mint.publicKey,
+  associatedTokenAccount,
+  feePayer.publicKey,
+  mintAmount,
+  [],
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Generate keypair to use as token account with Immutable Owner extension
+const tokenAccount = new Keypair();
+
+// Add Immutable Owner extension to the token account
+const extensions = [ExtensionType.ImmutableOwner];
+
+// Get token account size with extension enabled
+const tokenAccountLen = getAccountLen(extensions);
+
+// Get minimum balance for rent exemption
+const tokenAccountRent =
+  await connection.getMinimumBalanceForRentExemption(tokenAccountLen);
+
+// Instruction to create new account for the token account
+const createTokenAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: tokenAccount.publicKey,
+  space: tokenAccountLen,
+  lamports: tokenAccountRent,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+// Initialize the Immutable Owner extension
+const initializeImmutableOwnerInstruction =
+  createInitializeImmutableOwnerInstruction(
+    tokenAccount.publicKey,
+    TOKEN_2022_PROGRAM_ID
+  );
+
+// Initialize token account
+const initializeTokenAccountInstruction = createInitializeAccountInstruction(
+  tokenAccount.publicKey,
+  mint.publicKey,
+  feePayer.publicKey,
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Construct transaction to create mint, ATA, mint tokens, create token account,
+// and initialize with Immutable Owner extension
+const transaction = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+}).add(
+  createMintAccountInstruction,
+  initializeMintInstruction,
+  createAssociatedTokenAccountIx,
+  mintToInstruction,
+  createTokenAccountInstruction,
+  initializeImmutableOwnerInstruction,
+  initializeTokenAccountInstruction
+);
+
+// Sign transaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint, tokenAccount]
+);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log(
+  "Token Account (Immutable Owner):",
+  tokenAccount.publicKey.toBase58()
+);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust Async"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+  commitment_config::CommitmentConfig,
+  program_pack::Pack,
+  signature::{Keypair, Signer},
+  system_instruction::create_account,
+  transaction::Transaction,
+};
+
+use spl_token_2022::{
+  ID as TOKEN_2022_PROGRAM_ID,
+  extension::ExtensionType,
+  instruction::{initialize_account, initialize_immutable_owner, initialize_mint},
+  state::{Account, Mint},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+  // Create connection to local validator
+  let client = RpcClient::new_with_commitment(
+    String::from("http://localhost:8899"),
+    CommitmentConfig::confirmed(),
+  );
+  let latest_blockhash = client.get_latest_blockhash().await?;
+
+  // Generate a new keypair for the fee payer
+  let fee_payer = Keypair::new();
+
+  // Airdrop 5 SOL to fee payer
+  let airdrop_signature = client
+    .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
+    .await?;
+  client.confirm_transaction(&airdrop_signature).await?;
+
+  loop {
+    let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+    if confirmed {
+      break;
+    }
+  }
+
+  // Generate keypair to use as address of mint
+  let mint = Keypair::new();
+
+  // Get default mint account size (in bytes), no extensions enabled
+  let mint_space = Mint::LEN;
+  let mint_rent = client
+    .get_minimum_balance_for_rent_exemption(mint_space)
+    .await?;
+
+  // Instruction to create new account for mint (token22)
+  let create_mint_account_instruction = create_account(
+    &fee_payer.pubkey(),    // payer
+    &mint.pubkey(),         // new account (mint)
+    mint_rent,              // lamports
+    mint_space as u64,      // space
+    &TOKEN_2022_PROGRAM_ID, // program id
+  );
+
+  // Instruction to initialize mint account data
+  let initialize_mint_instruction = initialize_mint(
+    &TOKEN_2022_PROGRAM_ID,    // program id
+    &mint.pubkey(),            // mint
+    &fee_payer.pubkey(),       // mint authority
+    Some(&fee_payer.pubkey()), // freeze authority
+    9,                         // decimals
+  )?;
+
+  // Generate keypair to use as address of token account
+  let token_account = Keypair::new();
+
+  // Get default token account size (in bytes),
+  //  immutable owner extension enabled
+  let token_account_space =
+    ExtensionType::try_calculate_account_len::<Account>(&[ExtensionType::ImmutableOwner])?;
+
+  let token_account_rent = client
+    .get_minimum_balance_for_rent_exemption(token_account_space)
+    .await?;
+
+  // Instruction to create new account for token account (token22)
+  let create_token_account_instruction = create_account(
+    &fee_payer.pubkey(),        // payer
+    &token_account.pubkey(),    // new account (token account)
+    token_account_rent,         // rent
+    token_account_space as u64, // space
+    &TOKEN_2022_PROGRAM_ID,     // program id
+  );
+
+  // initialize token account
+  let initialize_token_account = initialize_account(
+    &TOKEN_2022_PROGRAM_ID,  // program_id
+    &token_account.pubkey(), // token account
+    &mint.pubkey(),          //  mint
+    &fee_payer.pubkey(),     // authority
+  )?;
+
+  let init_immutable_owner_instruction =
+    initialize_immutable_owner(&TOKEN_2022_PROGRAM_ID, &token_account.pubkey())?;
+
+  // Construct transaction with previous instructions
+  let transaction = Transaction::new_signed_with_payer(
+    &[
+      create_mint_account_instruction,
+      initialize_mint_instruction,
+      create_token_account_instruction,
+      init_immutable_owner_instruction,
+      initialize_token_account,
+    ],
+    Some(&fee_payer.pubkey()),
+    &[&fee_payer, &mint, &token_account],
+    latest_blockhash,
+  );
+
+  // Send and confirm transaction
+  let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+  println!("Mint Address: {}", mint.pubkey());
+  println!(
+    "token account with immutable owner enabled: {}",
+    token_account.pubkey()
+  );
+
+  println!("\nSuccessfully enabled immutable owner extension on token account");
+  println!("Transaction Signature: {}", transaction_signature);
+
+  Ok(())
+}
+```
+
+```rust !! title="Token Client"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    signature::{Keypair, Signer},
+};
+use spl_token_client::{
+    client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
+    spl_token_2022::{ID as TOKEN_2022_PROGRAM_ID, extension::ExtensionType},
+    token::{ExtensionInitializationParams, Token},
+};
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let rpc_client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Generate a new keypair for the fee payer
+    let payer = Keypair::new();
+
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = rpc_client
+        .request_airdrop(&payer.pubkey(), 1_000_000_000)
+        .await?;
+    rpc_client.confirm_transaction(&airdrop_signature).await?;
+
+    loop {
+        let confirmed = rpc_client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+
+    // Create a new program client
+    let program_client = ProgramRpcClient::new(
+        Arc::new(RpcClient::new_with_commitment(
+            String::from("http://localhost:8899"),
+            CommitmentConfig::confirmed(),
+        )),
+        ProgramRpcClientSendTransaction,
+    );
+
+    // Number of decimals for the mint
+    let decimals = 9;
+
+    // Create a token client for Token program
+    let token = Token::new(
+        Arc::new(program_client),
+        &TOKEN_2022_PROGRAM_ID,
+        &mint.pubkey(),
+        Some(decimals),
+        Arc::new(payer.insecure_clone()),
+    );
+
+    // Create and initialize the mint
+    let extension_initialization_params: Vec<ExtensionInitializationParams> = Vec::new();
+
+    let mint_result = token
+        .create_mint(
+            &payer.pubkey(),                 // mint authority
+            Some(&payer.pubkey()),           // freeze authority
+            extension_initialization_params, // no extensions
+            &[&mint],                        // mint keypair needed as signer
+        )
+        .await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Create Mint Account {}", mint_result);
+
+    // create token account with immutable owner extension
+    let token_account = Keypair::new();
+    let token_creation_result = token
+        .create_auxiliary_token_account_with_extension_space(
+            &token_account,
+            &payer.pubkey(),
+            vec![ExtensionType::ImmutableOwner],
+        )
+        .await?;
+
+    println!(
+        "Token account with immutable owner extension enabled {}",
+        token_account.pubkey()
+    );
+    println!("Transaction {}", token_creation_result);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { builder } from "@builder.io/sdk";
-import { createMDX } from "fs-mdx/next";
+import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders: Array<{ key: string; value: string }> = [
@@ -36,7 +36,7 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: false,
   trailingSlash: false,
   transpilePackages: ["@solana-com/site-chrome"],
 
@@ -121,6 +121,12 @@ const nextConfig: NextConfig = {
   },
 
   webpack(config) {
+    config.module.rules.push({
+      test: /\.tsx?$/,
+      use: "ts-loader",
+      exclude: /node_modules/,
+    });
+
     config.module.rules.push({
       test: /\.inline\.svg$/,
       use: {
@@ -243,10 +249,14 @@ const moduleExports = (): NextConfig => {
 };
 
 export default withSentryConfig(moduleExports, {
-  org: "solana-r0",
+  org: "solana-fndn",
   project: "javascript-nextjs",
   silent: !process.env.CI,
   widenClientFileUpload: true,
   disableLogger: true,
   automaticVercelMonitors: true,
+  sourcemaps: {
+    disable:
+      process.env.VERCEL_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
+  },
 });

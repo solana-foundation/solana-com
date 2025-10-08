@@ -105,7 +105,7 @@ function ParamInput({
 }) {
   const [text, setText] = useState(value);
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex gap-4 items-center">
       <Label
         htmlFor={param.name}
         className="w-[100px] truncate"
@@ -118,7 +118,7 @@ function ParamInput({
         type={param.type === "number" ? "number" : "text"}
         min={param.type === "number" ? 0 : undefined}
         value={param.type === "number" ? Number(text) : text}
-        className="flex-1 h-8 max-w-lg"
+        className="flex-1 max-w-lg h-8"
         onChange={(e) => setText(e.target.value)}
         onBlur={(e) => onChange(e.target.value)}
       />
@@ -148,10 +148,10 @@ export function RequestClientContent() {
       open={isOpen}
       onOpenChange={setIsOpen}
       data-playground={isOpen}
-      className="bg-ch-tabs-background flex flex-col min-h-0 flex-1"
+      className="flex flex-col bg-ch-tabs-background"
     >
-      <CollapsibleTrigger className="flex items-center justify-between w-full gap-2 p-2 transition-colors duration-200 cursor-pointer text-ch-tab-inactive-foreground hover:text-ch-tab-active-foreground">
-        <div className="flex items-center h-5 gap-2 font-medium shrink-0">
+      <CollapsibleTrigger className="flex gap-2 justify-between items-center p-2 w-full transition-colors duration-200 cursor-pointer text-ch-tab-inactive-foreground hover:text-ch-tab-active-foreground">
+        <div className="flex gap-2 items-center h-5 font-medium shrink-0">
           <Play className="size-3" fill="currentColor" />
           <span className="text-ch-tab-active-foreground">Try it</span>
         </div>
@@ -159,7 +159,7 @@ export function RequestClientContent() {
           className={`size-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className="min-h-0 flex-col flex flex-1">
+      <CollapsibleContent className="flex flex-col max-h-[800px] overflow-auto">
         <div className="grid gap-2 px-4 [&:not(:empty)]:py-2">
           {params
             .filter((p) => p.name !== "SERVER")
@@ -205,7 +205,7 @@ export function RequestClientContent() {
           </Button>
         </div>
         {response && (
-          <pre className="overflow-auto px-3 py-3 m-0 rounded-none !bg-ch-background font-mono text-sm max-h-[500px] flex-1 min-h-0">
+          <pre className="px-3 py-3 m-0 rounded-none !bg-ch-background font-mono text-sm">
             {response}
           </pre>
         )}

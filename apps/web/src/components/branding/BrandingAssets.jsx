@@ -60,7 +60,7 @@ const BrandingAssets = () => {
         </div>
         <div className="logo">
           <Image
-            alt={`Solana`}
+            alt="Official Solana full logo (horizontal)"
             src="/src/img/branding/solanaLogo.svg"
             width={320}
             height={160}
@@ -89,7 +89,7 @@ const BrandingAssets = () => {
         </div>
         <div className="logo">
           <Image
-            alt={`Solana`}
+            alt="Official Solana logo mark icon"
             src="/src/img/branding/solanaLogoMark.svg"
             width={100}
             height={100}
@@ -118,7 +118,7 @@ const BrandingAssets = () => {
         </div>
         <div className="logo">
           <Image
-            alt={`Solana`}
+            alt="Official Solana wordmark"
             src="/src/img/branding/solanaWordMark.svg"
             width={320}
             height={160}
@@ -147,7 +147,7 @@ const BrandingAssets = () => {
         </div>
         <div className="logo">
           <Image
-            alt={`Solana`}
+            alt="Official Solana vertical logo"
             src="/src/img/branding/solanaVerticalLogo.svg"
             width={320}
             height={160}
@@ -176,7 +176,7 @@ const BrandingAssets = () => {
         </div>
         <div className="logo">
           <Image
-            alt={`Solana`}
+            alt="Official Solana Foundation logo"
             src="/src/img/branding/solanaFoundationLogo.svg"
             width={320}
             height={160}

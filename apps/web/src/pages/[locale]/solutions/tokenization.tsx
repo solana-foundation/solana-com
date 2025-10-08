@@ -10,7 +10,7 @@ import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsIt } from "@/components/solutions/what-is-it";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
 import {
   LOGOS,
   PRODUCTS,
@@ -122,7 +122,7 @@ const ICMPage = () => {
             title={t("icm.videoPlayer.title")}
             subtitle={t("icm.videoPlayer.subtitle")}
             videos={VIDEOS(t)}
-            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
+            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK69cksrzGufy1LKGPjg6QtV"
             moreVideosLabel={t("icm.videoPlayer.moreVideos")}
           />
         </section>

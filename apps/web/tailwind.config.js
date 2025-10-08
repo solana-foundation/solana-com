@@ -7,8 +7,8 @@ export default {
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
     "../../packages/site-chrome/src/**/*.{js,ts,jsx,tsx}",
-    "../../node_modules/fumadocs-ui/dist/**/*.js",
-    "../../node_modules/radix-ui/**/*.{js,ts,tsx}",
+    "./node_modules/fumadocs-ui/dist/**/*.js",
+    "./node_modules/radix-ui/**/*.{js,ts,tsx}",
   ],
   blocklist: ["collapse"], // Block the collapse class from being generated
   theme: {

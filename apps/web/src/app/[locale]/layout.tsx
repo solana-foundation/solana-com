@@ -12,7 +12,7 @@ import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
 import { ThemeProvider } from "@/themecontext";
 import { config } from "@@/src/config";
 import { getBaseMetadata } from "@@/src/app/metadata";
-import { staticLocales } from "@@/src/i18n/config";
+import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
 
 type Props = {

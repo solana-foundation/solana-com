@@ -27,7 +27,10 @@ const HeaderList = () => {
     updateShowLearn(false);
   }, [asPath]);
 
-  const isLearnActive = asPath.includes("/learn") || asPath === "/environment";
+  const isLearnActive =
+    asPath.includes("/learn") ||
+    asPath === "/environment" ||
+    asPath.includes("/universities");
   const isSolutionsActive =
     asPath.includes("/solutions") ||
     asPath.includes("/wallets") ||

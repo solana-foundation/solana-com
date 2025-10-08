@@ -19,7 +19,8 @@ import { Divider } from "@/components/solutions/divider";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { VideoPlayerModal } from "@/component-library/video-modal";
-import { withLocales } from "@/i18n/routing";
+import { withLocales } from "@workspace/i18n/routing";
+import { Video } from "@/component-library/video";
 
 const DePINPage = () => {
   const t = useTranslations();
@@ -47,6 +48,18 @@ const DePINPage = () => {
             t("depin.features.communityFirst"),
           ]}
         />
+        {/* Featured video Section */}
+        <section className="bg-[#171c25]">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <Video
+              platform="vimeo"
+              id="1108616060"
+              vimeoHash="db29df0816"
+              title="DePIN Featured video"
+              autoplay={false}
+            />
+          </div>
+        </section>
 
         {/* EcoProjects Section */}
         <section className="pt-6 pb-10">

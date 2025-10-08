@@ -6,7 +6,8 @@ import Layout from "@/components/layout";
 import { PAGE_BUILDER_CONFIG } from "@/lib/builder/page/constants";
 import { getPage, getAllPagesWithSlug } from "@/lib/builder/page/api";
 import ModalLauncher from "@/components/ModalLauncher/ModalLauncher";
-import { slugWithLocales, usePathname } from "@/i18n/routing";
+import { slugWithLocales, usePathname } from "@workspace/i18n/routing";
+import { locales } from "@workspace/i18n/config";
 
 builder.init(PAGE_BUILDER_CONFIG.apiKey);
 builder.apiVersion = "v3";
@@ -16,6 +17,9 @@ const Page = ({ page, builderLocale }) => {
   const isPreviewing = useIsPreviewing();
 
   if (useAppRouterNavigation(page)) {
+    if (typeof window === "undefined") {
+      return null;
+    }
     window.location.reload();
     return null;
   }
@@ -82,7 +86,7 @@ export async function getStaticProps({ params }) {
     const isDefaultLocale = locale === "en";
     const builderLocale = isDefaultLocale ? "Default" : locale;
 
-    if (!slug) {
+    if (!locales.includes(locale) || !slug) {
       return { notFound: true };
     }
 
@@ -120,6 +124,7 @@ function useAppRouterNavigation(page) {
     new RegExp(`^/(?:[^/]{2}/)?developers/courses(/.*)?$`),
     new RegExp(`^/(?:[^/]{2}/)?developers/guides(/.*)?$`),
     new RegExp(`^/(?:[^/]{2}/)?learn(/.*)?$`),
+    new RegExp(`^/(?:[^/]{2}/)?universities(/.*)?$`),
   ];
   return regexes.some((regex) => regex.test(pathname));
 }

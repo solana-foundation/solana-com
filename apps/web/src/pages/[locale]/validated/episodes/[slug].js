@@ -1,4 +1,4 @@
-import { pathsWithLocales } from "@/i18n/routing";
+import { pathsWithLocales } from "@workspace/i18n/routing";
 
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";

@@ -1,0 +1,866 @@
+---
+title: Groupes de jetons et membres
+description:
+  Apprenez comment activer GroupPointerExtension et GroupMemberPointerExtension.
+---
+
+## Comment activer GroupPointerExtension et GroupMemberPointerExtension
+
+La
+[`GroupPointerExtension`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L718)
+désigne un mint comme mint de groupe (comme un NFT de collection) en pointant
+vers un compte contenant des
+[configurations de groupe](https://github.com/solana-program/token-group/blob/3b4ff305452fa35754206fc1ad4addb2e2bff511/interface/src/state.rs#L16)
+comme l'autorité de mise à jour et la taille maximale.
+
+La
+[`GroupMemberPointerExtension`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L725)
+désigne un mint comme mint membre (comme un NFT dans une collection) en pointant
+vers un compte contenant des
+[données d'adhésion](https://github.com/solana-program/token-group/blob/3b4ff305452fa35754206fc1ad4addb2e2bff511/interface/src/state.rs#L67)
+comme l'adresse du groupe et le numéro de membre.
+
+Token Extensions Program implémente directement
+[Token Group Interface](https://github.com/solana-program/token-group),
+permettant de stocker les données du groupe et des membres sur le mint account
+lui-même. Lorsque les extensions de pointeur pointent vers le mint lui-même, les
+extensions
+[TokenGroup](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/extension/token_group/mod.rs#L7)
+et
+[TokenGroupMember](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/extension/token_group/mod.rs#L11)
+peuvent être utilisées pour stocker toutes les données de collection et
+d'adhésion dans le mint account.
+
+### Typescript
+
+<CodeTabs storage="token-ts" flags="r">
+
+```ts !! title="Kit"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  getInitializeAccountInstruction,
+  getInitializeMintInstruction,
+  getInitializeGroupPointerInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  getInitializeTokenGroupInstruction,
+  getInitializeGroupMemberPointerInstruction,
+  getInitializeTokenGroupMemberInstruction
+} from "@solana-program/token-2022";
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  some
+} from "@solana/kit";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate the authority for the mint (also acts as fee payer)
+const authority = await generateKeyPairSigner();
+
+// Fund authority/fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: authority.address,
+  lamports: lamports(5_000_000_000n), // 5 SOL
+  commitment: "confirmed"
+});
+
+// ===== GROUP MINT CREATION =====
+
+// Generate keypair to use as address of group mint
+const groupMint = await generateKeyPairSigner();
+
+// Group pointer extension (points to external group account)
+const groupPointerExtension = extension("GroupPointer", {
+  authority: authority.address,
+  groupAddress: groupMint.address // Points to the group mint itself
+});
+
+// Group extension (stores group data directly on mint)
+const groupExtension = extension("TokenGroup", {
+  updateAuthority: some(authority.address),
+  mint: groupMint.address,
+  size: 1, // Will be incremented when members are added
+  maxSize: 10
+});
+
+// Get mint account size with group pointer extension
+const spaceWithGroupPointerExtensions = BigInt(
+  getMintSize([groupPointerExtension])
+);
+
+// Get mint account size with group pointer and group extension
+const spaceWithGroupAndGroupPointerExtensions = BigInt(
+  getMintSize([groupPointerExtension, groupExtension])
+);
+
+// Get rent exempt balance for group mint
+const groupMintRent = await rpc
+  .getMinimumBalanceForRentExemption(spaceWithGroupAndGroupPointerExtensions)
+  .send();
+
+// Get latest blockhash
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// GROUP MINT INSTRUCTIONS
+const createGroupMintAccountInstruction = getCreateAccountInstruction({
+  payer: authority,
+  newAccount: groupMint,
+  lamports: groupMintRent,
+  space: spaceWithGroupPointerExtensions,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const initializeGroupPointerInstruction = getInitializeGroupPointerInstruction({
+  mint: groupMint.address,
+  authority: authority.address,
+  groupAddress: groupMint.address
+});
+
+const initializeGroupMintInstruction = getInitializeMintInstruction({
+  mint: groupMint.address,
+  decimals: 0, // NFT-style
+  mintAuthority: authority.address,
+  freezeAuthority: authority.address
+});
+
+const initializeGroupInstruction = getInitializeTokenGroupInstruction({
+  group: groupMint.address,
+  mint: groupMint.address,
+  mintAuthority: authority,
+  updateAuthority: authority.address,
+  maxSize: 10
+});
+
+// Build group mint transaction
+const groupInstructions = [
+  createGroupMintAccountInstruction,
+  initializeGroupPointerInstruction,
+  initializeGroupMintInstruction,
+  initializeGroupInstruction
+];
+
+const groupTransactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions(groupInstructions, tx)
+);
+
+const signedGroupTransaction = await signTransactionMessageWithSigners(
+  groupTransactionMessage
+);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedGroupTransaction,
+  { commitment: "confirmed", skipPreflight: true }
+);
+
+const groupTransactionSignature = getSignatureFromTransaction(
+  signedGroupTransaction
+);
+console.log("Group Mint Address:", groupMint.address.toString());
+console.log("Group Transaction Signature:", groupTransactionSignature);
+
+// ===== MEMBER MINT CREATION =====
+
+// Generate keypair for member mint
+const memberMint = await generateKeyPairSigner();
+
+// Member pointer extension (points to external member account)
+const memberPointerExtension = extension("GroupMemberPointer", {
+  authority: authority.address,
+  memberAddress: memberMint.address // Points to the member mint itself
+});
+
+// Member extension (stores membership data directly on mint)
+const memberExtension = extension("TokenGroupMember", {
+  mint: memberMint.address,
+  group: groupMint.address, // References the group mint we created above
+  memberNumber: 1 // First member of the group
+});
+
+// Get mint account size with group pointer extension
+const spaceWithMemberPointerExtension = BigInt(
+  getMintSize([groupPointerExtension])
+);
+
+// Get mint account size with group pointer and group extension
+const spaceWithMemberAndMemberPointerExtensions = BigInt(
+  getMintSize([groupPointerExtension, groupExtension])
+);
+
+// Get rent exempt balance for member mint
+const memberMintRent = await rpc
+  .getMinimumBalanceForRentExemption(spaceWithMemberAndMemberPointerExtensions)
+  .send();
+
+// Get fresh blockhash for member mint transaction
+const { value: memberLatestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// MEMBER MINT INSTRUCTIONS
+const createMemberMintAccountInstruction = getCreateAccountInstruction({
+  payer: authority,
+  newAccount: memberMint,
+  lamports: memberMintRent,
+  space: spaceWithMemberPointerExtension, // Only pointer extension space for account creation
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const initializeMemberPointerInstruction =
+  getInitializeGroupMemberPointerInstruction({
+    mint: memberMint.address,
+    authority: authority.address,
+    memberAddress: memberMint.address
+  });
+
+const initializeMemberMintInstruction = getInitializeMintInstruction({
+  mint: memberMint.address,
+  decimals: 0, // NFT-style
+  mintAuthority: authority.address,
+  freezeAuthority: authority.address
+});
+
+// Initialize member extension (added post-mint initialization)
+const initializeMemberInstruction = getInitializeTokenGroupMemberInstruction({
+  member: memberMint.address,
+  memberMint: memberMint.address,
+  memberMintAuthority: authority,
+  group: groupMint.address, // References the group mint
+  groupUpdateAuthority: authority
+});
+
+// Build member mint transaction
+const memberInstructions = [
+  createMemberMintAccountInstruction,
+  initializeMemberPointerInstruction,
+  initializeMemberMintInstruction,
+  initializeMemberInstruction
+];
+
+const memberTransactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) =>
+    setTransactionMessageLifetimeUsingBlockhash(memberLatestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions(memberInstructions, tx)
+);
+
+const signedMemberTransaction = await signTransactionMessageWithSigners(
+  memberTransactionMessage
+);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedMemberTransaction,
+  { commitment: "confirmed", skipPreflight: true }
+);
+
+const memberTransactionSignature = getSignatureFromTransaction(
+  signedMemberTransaction
+);
+console.log("Member Mint Address:", memberMint.address.toString());
+console.log("Member Transaction Signature:", memberTransactionSignature);
+
+console.log("\n===== SUMMARY =====");
+console.log("Group Mint:", groupMint.address.toString());
+console.log("Member Mint:", memberMint.address.toString());
+console.log("Member belongs to Group:", groupMint.address.toString());
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  Transaction,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  TOKEN_2022_PROGRAM_ID,
+  ExtensionType,
+  getMintLen,
+  createInitializeMintInstruction,
+  createInitializeGroupPointerInstruction,
+  createInitializeGroupInstruction,
+  createInitializeGroupMemberPointerInstruction,
+  createInitializeMemberInstruction
+} from "@solana/spl-token";
+
+// Create Connection, local validator in this example
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Generate the authority for the mint (also acts as fee payer)
+const authority = Keypair.generate();
+
+// Fund authority/fee payer
+const airdropSignature = await connection.requestAirdrop(
+  authority.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// ===== GROUP MINT CREATION =====
+
+// Generate keypair to use as address of group mint
+const groupMint = Keypair.generate();
+
+// Get mint account size with group pointer extension only
+const groupPointerExtensions = [ExtensionType.GroupPointer];
+const spaceWithGroupPointerExtensions = getMintLen(groupPointerExtensions);
+
+// Get mint account size with group pointer and group extension
+const groupAndGroupPointerExtensions = [
+  ExtensionType.GroupPointer,
+  ExtensionType.TokenGroup
+];
+const spaceWithGroupAndGroupPointerExtensions = getMintLen(
+  groupAndGroupPointerExtensions
+);
+
+// Get rent exempt balance for group mint (full space)
+const groupMintRent = await connection.getMinimumBalanceForRentExemption(
+  spaceWithGroupAndGroupPointerExtensions
+);
+
+// Get latest blockhash
+const { blockhash: latestBlockhash } = await connection.getLatestBlockhash();
+
+// GROUP MINT INSTRUCTIONS
+const createGroupMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: authority.publicKey,
+  newAccountPubkey: groupMint.publicKey,
+  lamports: groupMintRent,
+  space: spaceWithGroupPointerExtensions, // Only pointer extension space for account creation
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+const initializeGroupPointerInstruction =
+  createInitializeGroupPointerInstruction(
+    groupMint.publicKey, // mint
+    authority.publicKey, // authority
+    groupMint.publicKey, // group address (points to itself)
+    TOKEN_2022_PROGRAM_ID
+  );
+
+const initializeGroupMintInstruction = createInitializeMintInstruction(
+  groupMint.publicKey, // mint
+  0, // decimals (NFT-style)
+  authority.publicKey, // mint authority
+  authority.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+const initializeGroupInstruction = createInitializeGroupInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  group: groupMint.publicKey,
+  mint: groupMint.publicKey,
+  mintAuthority: authority.publicKey,
+  updateAuthority: authority.publicKey,
+  maxSize: 10n
+});
+
+// Build group mint transaction
+const groupTransaction = new Transaction({
+  feePayer: authority.publicKey,
+  recentBlockhash: latestBlockhash
+}).add(
+  createGroupMintAccountInstruction,
+  initializeGroupPointerInstruction,
+  initializeGroupMintInstruction,
+  initializeGroupInstruction
+);
+
+const groupTransactionSignature = await sendAndConfirmTransaction(
+  connection,
+  groupTransaction,
+  [authority, groupMint],
+  { commitment: "confirmed", skipPreflight: true }
+);
+
+console.log("Group Mint Address:", groupMint.publicKey.toString());
+console.log("Group Transaction Signature:", groupTransactionSignature);
+
+// ===== MEMBER MINT CREATION =====
+
+// Generate keypair for member mint
+const memberMint = Keypair.generate();
+
+// Get mint account size with member pointer extension only
+const memberPointerExtensions = [ExtensionType.GroupMemberPointer];
+const spaceWithMemberPointerExtension = getMintLen(memberPointerExtensions);
+
+// Get mint account size with member pointer and member extension
+const memberAndMemberPointerExtensions = [
+  ExtensionType.GroupMemberPointer,
+  ExtensionType.TokenGroupMember
+];
+const spaceWithMemberAndMemberPointerExtensions = getMintLen(
+  memberAndMemberPointerExtensions
+);
+
+// Get rent exempt balance for member mint (full space)
+const memberMintRent = await connection.getMinimumBalanceForRentExemption(
+  spaceWithMemberAndMemberPointerExtensions
+);
+
+// Get fresh blockhash for member mint transaction
+const { blockhash: memberLatestBlockhash } =
+  await connection.getLatestBlockhash();
+
+// MEMBER MINT INSTRUCTIONS
+const createMemberMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: authority.publicKey,
+  newAccountPubkey: memberMint.publicKey,
+  lamports: memberMintRent,
+  space: spaceWithMemberPointerExtension, // Only pointer extension space for account creation
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+const initializeMemberPointerInstruction =
+  createInitializeGroupMemberPointerInstruction(
+    memberMint.publicKey, // mint
+    authority.publicKey, // authority
+    memberMint.publicKey, // member address (points to itself)
+    TOKEN_2022_PROGRAM_ID
+  );
+
+const initializeMemberMintInstruction = createInitializeMintInstruction(
+  memberMint.publicKey, // mint
+  0, // decimals (NFT-style)
+  authority.publicKey, // mint authority
+  authority.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Initialize member extension (added post-mint initialization)
+const initializeMemberInstruction = createInitializeMemberInstruction({
+  programId: TOKEN_2022_PROGRAM_ID,
+  member: memberMint.publicKey,
+  memberMint: memberMint.publicKey,
+  memberMintAuthority: authority.publicKey,
+  group: groupMint.publicKey,
+  groupUpdateAuthority: authority.publicKey
+});
+
+// Build member mint transaction
+const memberTransaction = new Transaction({
+  feePayer: authority.publicKey,
+  recentBlockhash: memberLatestBlockhash
+}).add(
+  createMemberMintAccountInstruction,
+  initializeMemberPointerInstruction,
+  initializeMemberMintInstruction,
+  initializeMemberInstruction
+);
+
+const memberTransactionSignature = await sendAndConfirmTransaction(
+  connection,
+  memberTransaction,
+  [authority, memberMint],
+  { commitment: "confirmed", skipPreflight: true }
+);
+
+console.log("Member Mint Address:", memberMint.publicKey.toString());
+console.log("Member Transaction Signature:", memberTransactionSignature);
+
+console.log("\n===== SUMMARY =====");
+console.log("Group Mint:", groupMint.publicKey.toString());
+console.log("Member Mint:", memberMint.publicKey.toString());
+console.log("Member belongs to Group:", groupMint.publicKey.toString());
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust Async"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+  commitment_config::CommitmentConfig,
+  signature::{Keypair, Signer},
+  system_instruction::create_account,
+  transaction::Transaction,
+};
+use spl_token_2022::{
+  ID as TOKEN_2022_PROGRAM_ID,
+  extension::{
+    ExtensionType,
+    group_member_pointer::instruction::initialize as initialize_group_member_pointer,
+    group_pointer::instruction::initialize as initialize_group_pointer,
+  },
+  instruction::initialize_mint,
+  state::Mint,
+};
+use spl_token_group_interface::instruction::{initialize_group, initialize_member}; // < 0.6.0
+
+#[tokio::main]
+async fn main() -> Result<()> {
+  // Create connection to local validator
+  let client = RpcClient::new_with_commitment(
+    String::from("http://localhost:8899"),
+    CommitmentConfig::confirmed(),
+  );
+  let latest_blockhash = client.get_latest_blockhash().await?;
+
+  // Generate the authority for the mint (also acts as fee payer)
+  let authority = Keypair::new();
+
+  // Airdrop 5 SOL to authority/fee payer
+  let airdrop_signature = client
+    .request_airdrop(&authority.pubkey(), 5_000_000_000)
+    .await?;
+  client.confirm_transaction(&airdrop_signature).await?;
+
+  loop {
+    let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+    if confirmed {
+      break;
+    }
+  }
+
+  // ===== GROUP MINT CREATION =====
+
+  // Generate keypair to use as address of group mint
+  let group_mint = Keypair::new();
+
+  // Calculate space for mint with group pointer extension only (for account creation)
+  let group_mint_space =
+    ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::GroupPointer])?;
+
+  // Calculate space for mint with group pointer and group extension (for rent calculation)
+  let group_mint_space_with_data = ExtensionType::try_calculate_account_len::<Mint>(&[
+    ExtensionType::GroupPointer,
+    ExtensionType::TokenGroup,
+  ])?;
+
+  // Get rent exempt balance for full space (including data extension)
+  let group_mint_rent = client
+    .get_minimum_balance_for_rent_exemption(group_mint_space_with_data)
+    .await?;
+
+  // GROUP MINT INSTRUCTIONS
+  let create_group_mint_account_instruction = create_account(
+    &authority.pubkey(),     // payer
+    &group_mint.pubkey(),    // new account (mint)
+    group_mint_rent,         // lamports
+    group_mint_space as u64, // space (pointer only for account creation)
+    &TOKEN_2022_PROGRAM_ID,  // program id
+  );
+
+  let initialize_group_pointer_instruction = initialize_group_pointer(
+    &TOKEN_2022_PROGRAM_ID,
+    &group_mint.pubkey(),      // mint
+    Some(authority.pubkey()),  // authority
+    Some(group_mint.pubkey()), // group address (points to itself)
+  )?;
+
+  let initialize_group_mint_instruction = initialize_mint(
+    &TOKEN_2022_PROGRAM_ID,    // program id
+    &group_mint.pubkey(),      // mint
+    &authority.pubkey(),       // mint authority
+    Some(&authority.pubkey()), // freeze authority
+    0,                         // decimals (NFT-style)
+  )?;
+
+  // Initialize group extension (added post-mint initialization)
+  let initialize_group_instruction = initialize_group(
+    &TOKEN_2022_PROGRAM_ID,   // program id
+    &group_mint.pubkey(),     // group
+    &group_mint.pubkey(),     // mint
+    &authority.pubkey(),      // mint authority
+    Some(authority.pubkey()), // update authority
+    10,                       // max size
+  );
+
+  // Build group mint transaction
+  let group_transaction = Transaction::new_signed_with_payer(
+    &[
+      create_group_mint_account_instruction,
+      initialize_group_pointer_instruction,
+      initialize_group_mint_instruction,
+      initialize_group_instruction,
+    ],
+    Some(&authority.pubkey()),
+    &[&authority, &group_mint],
+    latest_blockhash,
+  );
+
+  // Send and confirm group transaction
+  let group_transaction_signature = client
+    .send_and_confirm_transaction(&group_transaction)
+    .await?;
+
+  println!("Group Mint Address: {}", group_mint.pubkey());
+  println!(
+    "Group Transaction Signature: {}",
+    group_transaction_signature
+  );
+
+  // ===== MEMBER MINT CREATION =====
+
+  // Generate keypair for member mint
+  let member_mint = Keypair::new();
+
+  // Calculate space for mint with member pointer extension only (for account creation)
+  let member_mint_space =
+    ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::GroupMemberPointer])?;
+
+  // Calculate space for mint with member pointer and member extension (for rent calculation)
+  let member_mint_space_with_data = ExtensionType::try_calculate_account_len::<Mint>(&[
+    ExtensionType::GroupMemberPointer,
+    ExtensionType::TokenGroupMember,
+  ])?;
+
+  // Get rent exempt balance for full space (including data extension)
+  let member_mint_rent = client
+    .get_minimum_balance_for_rent_exemption(member_mint_space_with_data)
+    .await?;
+
+  // Get fresh blockhash for member mint transaction
+  let member_latest_blockhash = client.get_latest_blockhash().await?;
+
+  // MEMBER MINT INSTRUCTIONS
+  let create_member_mint_account_instruction = create_account(
+    &authority.pubkey(),      // payer
+    &member_mint.pubkey(),    // new account (mint)
+    member_mint_rent,         // lamports
+    member_mint_space as u64, // space (pointer only for account creation)
+    &TOKEN_2022_PROGRAM_ID,   // program id
+  );
+
+  let initialize_member_pointer_instruction = initialize_group_member_pointer(
+    &TOKEN_2022_PROGRAM_ID,
+    &member_mint.pubkey(),      // mint
+    Some(authority.pubkey()),   // authority
+    Some(member_mint.pubkey()), // member address (points to itself)
+  )?;
+
+  let initialize_member_mint_instruction = initialize_mint(
+    &TOKEN_2022_PROGRAM_ID,    // program id
+    &member_mint.pubkey(),     // mint
+    &authority.pubkey(),       // mint authority
+    Some(&authority.pubkey()), // freeze authority
+    0,                         // decimals (NFT-style)
+  )?;
+
+  // Initialize member extension (added post-mint initialization)
+  let initialize_member_instruction = initialize_member(
+    &TOKEN_2022_PROGRAM_ID, // program id
+    &member_mint.pubkey(),  // member
+    &member_mint.pubkey(),  // member mint
+    &authority.pubkey(),    // member mint authority
+    &group_mint.pubkey(),   // group (references the group mint)
+    &authority.pubkey(),    // group update authority
+  );
+
+  // Build member mint transaction
+  let member_transaction = Transaction::new_signed_with_payer(
+    &[
+      create_member_mint_account_instruction,
+      initialize_member_pointer_instruction,
+      initialize_member_mint_instruction,
+      initialize_member_instruction,
+    ],
+    Some(&authority.pubkey()),
+    &[&authority, &member_mint],
+    member_latest_blockhash,
+  );
+
+  // Send and confirm member transaction
+  let member_transaction_signature = client
+    .send_and_confirm_transaction(&member_transaction)
+    .await?;
+
+  println!("Member Mint Address: {}", member_mint.pubkey());
+  println!(
+    "Member Transaction Signature: {}",
+    member_transaction_signature
+  );
+
+  println!("\n===== SUMMARY =====");
+  println!("Group Mint: {}", group_mint.pubkey());
+  println!("Member Mint: {}", member_mint.pubkey());
+  println!("Member belongs to Group: {}", group_mint.pubkey());
+
+  println!("\nSuccessfully created group and member mints with extensions");
+
+  Ok(())
+}
+```
+
+```rust !! title="Token Client"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+  commitment_config::CommitmentConfig,
+  signature::{Keypair, Signer},
+};
+use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
+use spl_token_client::{
+  client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
+  token::{ExtensionInitializationParams, Token},
+};
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+  // Create connection to local validator
+  let rpc_client = RpcClient::new_with_commitment(
+    String::from("http://localhost:8899"),
+    CommitmentConfig::confirmed(),
+  );
+
+  // Generate authority (payer, mint authority, fee payer)
+  let authority = Keypair::new();
+
+  // Airdrop 5 SOL to authority
+  let airdrop_sig = rpc_client
+    .request_airdrop(&authority.pubkey(), 5_000_000_000)
+    .await?;
+  rpc_client.confirm_transaction(&airdrop_sig).await?;
+
+  loop {
+    let confirmed = rpc_client.confirm_transaction(&airdrop_sig).await?;
+    if confirmed {
+      break;
+    }
+  }
+
+  // Create separate program clients for each token
+  let group_program_client = ProgramRpcClient::new(
+    Arc::new(RpcClient::new_with_commitment(
+      String::from("http://localhost:8899"),
+      CommitmentConfig::confirmed(),
+    )),
+    ProgramRpcClientSendTransaction,
+  );
+
+  let member_program_client = ProgramRpcClient::new(
+    Arc::new(RpcClient::new_with_commitment(
+      String::from("http://localhost:8899"),
+      CommitmentConfig::confirmed(),
+    )),
+    ProgramRpcClientSendTransaction,
+  );
+
+  // =========================================================
+  // GROUP MINT CREATION
+  // =========================================================
+  // Generate keypair for group mint
+  let group_mint = Keypair::new();
+
+  // Declare extensions for group mint (pointer + group data)
+  let group_extensions: Vec<ExtensionInitializationParams> =
+    vec![ExtensionInitializationParams::GroupPointer {
+      authority: Some(authority.pubkey()),
+      group_address: Some(group_mint.pubkey()), // self-referential
+    }];
+
+  // Create token client for group mint
+  let group_token = Token::new(
+    Arc::new(group_program_client),
+    &TOKEN_2022_PROGRAM_ID,
+    &group_mint.pubkey(),
+    Some(0), // decimals = 0 (NFT-style)
+    Arc::new(authority.insecure_clone()),
+  );
+
+  // Create group mint with extensions
+  group_token
+    .create_mint(
+      &authority.pubkey(),       // mint authority
+      Some(&authority.pubkey()), // freeze authority
+      group_extensions,          // extensions
+      &[&group_mint],            // signers
+    )
+    .await?;
+
+  let init_group_sig = group_token
+    .token_group_initialize_with_rent_transfer(
+      &authority.pubkey(), // payer
+      &authority.pubkey(), // mint authority
+      &authority.pubkey(), // update authority
+      10,                  // max size
+      &[&authority],       // authority needed as signer
+    )
+    .await?;
+
+  println!("Group Mint Address: {}", group_mint.pubkey());
+  println!("Group initialization Tx: {}", init_group_sig);
+
+  // =========================================================
+  // MEMBER MINT CREATION
+  // =========================================================
+  // Generate keypair for member mint
+  let member_mint = Keypair::new();
+
+  // Declare extensions for member mint (pointer + member data)
+  let member_extensions: Vec<ExtensionInitializationParams> =
+    vec![ExtensionInitializationParams::GroupMemberPointer {
+      authority: Some(authority.pubkey()),
+      member_address: Some(member_mint.pubkey()), // self-referential
+    }];
+
+  // Create token client for member mint
+  let member_token = Token::new(
+    Arc::new(member_program_client),
+    &TOKEN_2022_PROGRAM_ID,
+    &member_mint.pubkey(),
+    Some(0), // decimals = 0 (NFT-style)
+    Arc::new(authority.insecure_clone()),
+  );
+
+  // Create member mint with extensions
+  member_token
+    .create_mint(
+      &authority.pubkey(),       // mint authority
+      Some(&authority.pubkey()), // freeze authority
+      member_extensions,         // extensions
+      &[&member_mint],           // signers
+    )
+    .await?;
+
+  let init_member_sig = member_token
+    .token_group_initialize_member_with_rent_transfer(
+      &authority.pubkey(),  // payer authority
+      &authority.pubkey(),  // mint authority
+      &group_mint.pubkey(), // group mint
+      &authority.pubkey(),  // group update authority
+      &[&authority],        // signing keypairs
+    )
+    .await?;
+
+  println!("Member Mint Address: {}", member_mint.pubkey());
+  println!("Member initialization Tx: {}", init_member_sig);
+
+  // =========================================================
+  // SUMMARY
+  // =========================================================
+  println!("\n===== SUMMARY =====");
+  println!("Group Mint: {}", group_mint.pubkey());
+  println!("Member Mint: {}", member_mint.pubkey());
+  println!("Member belongs to Group: {}", group_mint.pubkey());
+
+  Ok(())
+}
+```
+
+</CodeTabs>

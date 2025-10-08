@@ -6,7 +6,7 @@ import { getAllCustomSlugs, getCustomPage } from "@/lib/builder/api";
 import { ACCELERATE_BUILDER_CONFIG } from "@/lib/builder/accelerate/constants";
 import HTMLHead from "@/components/builder/HTMLHead";
 import SimpleHero from "@/components/accelerate/AccelerateSimpleHero";
-import { slugWithLocales } from "@/i18n/routing";
+import { slugWithLocales } from "@workspace/i18n/routing";
 
 builder.init(ACCELERATE_BUILDER_CONFIG.apiKey);
 builder.apiVersion = "v3";

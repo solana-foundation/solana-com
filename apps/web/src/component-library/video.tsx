@@ -48,6 +48,7 @@ export interface VideoProps {
   platform: "youtube" | "vimeo";
   id: string;
   title?: string;
+  vimeoHash?: string;
   autoplay?: boolean;
   aspectRatio?: "16:9" | "4:3";
   thumbnail?: string;
@@ -63,6 +64,7 @@ export function Video(props: VideoProps) {
     id,
     autoplay = true,
     aspectRatio = "16:9",
+    vimeoHash,
     title,
     thumbnail,
     alt,
@@ -71,7 +73,7 @@ export function Video(props: VideoProps) {
     startTime,
   } = props;
 
-  const [show, setShow] = useState(autoplay ?? false);
+  const [show, setShow] = useState((autoplay || !thumbnail) ?? false);
 
   const getEmbedUrl = (): string => {
     if (platform === "youtube") {
@@ -81,7 +83,7 @@ export function Video(props: VideoProps) {
       const params = new URLSearchParams({
         rel: "0",
         modestbranding: "1",
-        autoplay: "1",
+        autoplay: autoplay ? "1" : "0",
         ...(startTime && { start: startTime.toString() }),
       });
       return `${baseUrl}?${params.toString()}`;
@@ -89,10 +91,11 @@ export function Video(props: VideoProps) {
     // Vimeo
     const baseUrl = `https://player.vimeo.com/video/${id}`;
     const params = new URLSearchParams({
-      autoplay: "1",
+      ...(vimeoHash && { h: vimeoHash }),
       title: "0",
       byline: "0",
       portrait: "0",
+      autoplay: autoplay ? "1" : "0",
       ...(privacyMode && { dnt: "1" }), // Add Do Not Track parameter for privacy
     });
     return `${baseUrl}?${params.toString()}${startTime ? `#${startTime.toString()}` : ""}`;
