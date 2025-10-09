@@ -56,6 +56,11 @@ type CarouselProps = {
   className?: string;
   panels?: number;
   autoPlay?: number;
+  prevButtonClassName?: string;
+  nextButtonClassName?: string;
+  style?: React.CSSProperties;
+  trackStyle?: React.CSSProperties;
+  trackClassName?: string;
 };
 
 const NAV_BUTTON_BASE_CLASS =
@@ -100,7 +105,18 @@ export const CarouselContext = createContext<CarouselContextType | null>(null);
 
 const Carousel = forwardRef<CarouselHandle, CarouselProps>(
   (
-    { children, controlsInline = true, className, panels = 1, autoPlay = 0 },
+    {
+      children,
+      controlsInline = true,
+      className,
+      panels = 1,
+      autoPlay = 0,
+      prevButtonClassName,
+      nextButtonClassName,
+      style,
+      trackStyle: customTrackStyle,
+      trackClassName,
+    },
     ref,
   ) => {
     const count = children.length;
@@ -210,6 +226,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
         <div
           ref={containerRef}
           className={`relative w-full flex items-center justify-center ${className ?? ""}`}
+          style={style}
         >
           {controlsInline && (
             <>
@@ -217,20 +234,23 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
                 ariaLabel="Previous"
                 onClick={handlePrev}
                 icon={<ChevronLeft className="w-6 h-6" />}
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-20"
+                className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 ${prevButtonClassName ?? ""}`}
                 disabled={currentPage === 0}
               />
               <CarouselNavButton
                 ariaLabel="Next"
                 onClick={handleNext}
                 icon={<ChevronRight className="w-6 h-6" />}
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-20"
+                className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 ${nextButtonClassName ?? ""}`}
                 disabled={currentPage === lastPage}
               />
             </>
           )}
           <div className="w-full overflow-hidden z-0 px-14">
-            <div style={trackStyle}>
+            <div
+              className={trackClassName}
+              style={{ ...trackStyle, ...customTrackStyle }}
+            >
               {children.map((item, _idx) => (
                 <div
                   key={_idx}
@@ -260,11 +280,15 @@ export default Carousel;
 type CarouselControlsProps = {
   carouselRef: React.RefObject<CarouselHandle>;
   className?: string;
+  prevButtonClassName?: string;
+  nextButtonClassName?: string;
 };
 
 export function CarouselControls({
   carouselRef,
   className,
+  prevButtonClassName,
+  nextButtonClassName,
 }: CarouselControlsProps) {
   const [current, setCurrent] = React.useState(0);
   const [maxIndex, setMaxIndex] = React.useState(0);
@@ -287,12 +311,14 @@ export function CarouselControls({
         onClick={() => carouselRef.current?.goTo(current - 1)}
         icon={<ChevronLeft className="w-6 h-6" />}
         disabled={current === 0}
+        className={prevButtonClassName ?? ""}
       />
       <CarouselNavButton
         ariaLabel="Next"
         onClick={() => carouselRef.current?.goTo(current + 1)}
         icon={<ChevronRight className="w-6 h-6" />}
         disabled={current >= maxIndex}
+        className={nextButtonClassName ?? ""}
       />
     </div>
   );
