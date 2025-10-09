@@ -5,6 +5,7 @@ import { cn } from "@/app/components/utils";
 export type Logo = {
   src: string;
   alt: string;
+  height?: string;
 };
 
 export type LogosProps = {
@@ -25,7 +26,7 @@ export type LogosProps = {
  *
  * @example
  * <Logos
- *   logos={[{ src: "/logo.png", alt: "Company Logo" }]}
+ *   logos={[{ src: "/logo.png", alt: "Company Logo", height: "40px" }]}
  *   fadeColor="#ffffff"
  * />
  */
@@ -34,9 +35,12 @@ export const Logos = ({ logos, className, fadeColor = "#000" }: LogosProps) => {
     <div
       key={`${logo.alt}-${i}`}
       className={cn(
-        "flex items-center justify-center relative h-[40px] mr-8 md:mr-12 xl:mr-32",
+        "flex items-center justify-center relative h-[40px] mr-8 md:mr-12 xl:mr-32 self-center",
         className,
       )}
+      style={{
+        height: logo.height ?? "",
+      }}
     >
       <img
         className="block h-full max-h-full max-w-none !w-auto"

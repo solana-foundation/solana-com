@@ -65,7 +65,7 @@ export const Products = ({
     <section
       className={cn("relative text-white text-left overflow-hidden", className)}
     >
-      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-md:gap-8 md:gap-16">
+      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-md:gap-8 md:gap-16">
         <div className={cn("w-full", { "xl:w-2/5": oneColumn })}>
           {(title || description) && (
             <div
@@ -74,12 +74,12 @@ export const Products = ({
               })}
             >
               {title && (
-                <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-0">
+                <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-0 tracking-[-2.56px]">
                   {title}
                 </h2>
               )}
               {description && (
-                <p className="text-[#ABABBA] text-lg md:text-2xl mt-6 mb-0">
+                <p className="text-[#ABABBA] text-lg md:text-2xl max-xl:mt-2 xl:mt-5 mb-0 tracking-[-0.48px]">
                   {description}
                 </p>
               )}
@@ -120,10 +120,10 @@ export const Products = ({
                     </svg>
                   </div>
                   <div className="grow">
-                    <p className="font-medium mb-0 text-base md:text-2xl">
+                    <p className="font-medium mb-0 text-base md:text-2xl tracking-[-0.48px]">
                       {productTitle}
                     </p>
-                    <p className="text-[#ABABBA] mt-2 mb-0 text-base md:text-lg xl:text-xl">
+                    <p className="text-[#ABABBA] mt-2 mb-0 text-base md:text-lg xl:text-xl tracking-[-0.2px]">
                       {productDescription}
                     </p>
                   </div>
@@ -174,7 +174,7 @@ export const Products = ({
         {imageSrc && (
           <div className="w-full xl:w-3/5">
             <Image
-              className="max-w-[110%] h-auto object-contain"
+              className="max-w-[110%] h-auto object-contain xl:mb-[-60px]"
               src={imageSrc}
               alt=""
               width={1000}

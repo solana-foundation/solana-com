@@ -25,7 +25,7 @@ export const SingleVideo = ({
 }: SingleVideoProps) => {
   return (
     <section className={cn("relative text-white text-left", className)}>
-      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
+      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
         <Video
           platform={platform}
           id={id}

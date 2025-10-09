@@ -74,8 +74,10 @@ const InstitutionalPaymentsPage = () => {
           })}
           description={t("btcfi.features.description")}
           imageSrc="/src/img/solutions/btcfi/what-is.webp"
-          highlightColor="#FFBF0080"
+          highlightColor="#FFBF00"
         />
+
+        <Divider className="mt-[44px] md:mt-[80px] xl:mt-[120px]" />
 
         <Performance
           title={t.rich("btcfi.performance.title", {
@@ -121,6 +123,8 @@ const InstitutionalPaymentsPage = () => {
           })}
           items={news}
         />
+
+        <Divider />
       </div>
     </Layout>
   );

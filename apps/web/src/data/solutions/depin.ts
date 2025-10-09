@@ -32,22 +32,27 @@ export const LOGOS = [
   {
     src: "/src/img/logos-eco/blockcast.png",
     alt: "Blockcast",
+    height: "22px",
   },
   {
     src: "/src/img/logos-eco/cudis.png",
     alt: "Cudis",
+    height: "21px",
   },
   {
     src: "/src/img/logos-eco/dabba.png",
     alt: "Dabba",
+    height: "22px",
   },
   {
     src: "/src/img/logos-eco/dawn.png",
     alt: "Dawn",
+    height: "28px",
   },
   {
     src: "/src/img/logos-eco/decharge.png",
     alt: "Decharge",
+    height: "22px",
   },
   {
     src: "/src/img/logos-eco/dephy.png",
@@ -60,10 +65,12 @@ export const LOGOS = [
   {
     src: "/src/img/logos-eco/inference.svg",
     alt: "Inference",
+    height: "28px",
   },
   {
     src: "/src/img/logos-eco/jambo.png",
     alt: "Jambo",
+    height: "32px",
   },
   {
     src: "/src/img/logos-eco/onocoy.png",
@@ -72,6 +79,7 @@ export const LOGOS = [
   {
     src: "/src/img/logos-eco/pipenetwork.png",
     alt: "Pipenetwork",
+    height: "32px",
   },
   {
     src: "/src/img/logos-eco/powerledger.png",
@@ -80,6 +88,7 @@ export const LOGOS = [
   {
     src: "/src/img/logos-eco/roam.png",
     alt: "Roam",
+    height: "30px",
   },
   {
     src: "/src/img/logos-eco/2.png",
@@ -96,6 +105,7 @@ export const LOGOS = [
   {
     src: "/src/img/logos-eco/wingbits-seo.png",
     alt: "Wingbits",
+    height: "30px",
   },
   {
     src: "/src/img/logos-eco/xnet.png",

@@ -75,11 +75,9 @@ const ConsumerPage = () => {
             ),
           })}
           description={t("consumer.features.description")}
-          highlightColor="#CFF15ED1"
+          highlightColor="#CFF15E"
           imageSrc="/src/img/solutions/consumer/what-is.webp"
         />
-
-        <Divider />
 
         <Projects
           title={t.rich("consumer.projects.title", {
@@ -110,7 +108,7 @@ const ConsumerPage = () => {
           videos={VIDEOS(t)}
         />
 
-        <Divider />
+        <Divider hideOnDesktop />
 
         <SolutionReport
           eyebrow={t("consumer.cta.reportTitle")}

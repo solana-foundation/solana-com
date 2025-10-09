@@ -59,9 +59,9 @@ export const Projects = ({
   return (
     <section className="relative overflow-hidden bg-black text-white text-left">
       <div className="py-[64px] md:py-[112px] xl:py-[160px]">
-        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px]">
+        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">
           <div className="flex flex-col xl:flex-row gap-4 xl:items-end justify-center mb-[32px] xl:mb-[64px] mx-auto">
-            <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] max-w-xl mb-0">
+            <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] max-w-xl mb-0 tracking-[-2.56px]">
               {title}
             </h2>
             <CarouselControls
@@ -78,7 +78,7 @@ export const Projects = ({
             />
           </div>
         </div>
-        <div className="px-5 md:px-[32px] xl:px-[40px]">
+        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">
           <div className="w-[340px] md:w-[420px]">
             <Carousel
               ref={carouselRef}
@@ -134,7 +134,7 @@ export const Projects = ({
                         )}
                         <hr className="border-white/10 border-t opacity-100" />
                       </div>
-                      <p className="text-[#ABABBA] text-base md:text-lg xl:text-xl">
+                      <p className="text-white opacity-[0.64] text-base md:text-lg xl:text-xl tracking-[-0.2px]">
                         {t(`${base}.description`)}
                       </p>
                     </div>
@@ -160,7 +160,7 @@ export const Projects = ({
                             <dd className="text-[52px] leading-none mb-1">
                               {t(`${base}.stat`)}
                             </dd>
-                            <div className="text-base md:text-lg xl:text-xl">
+                            <div className="text-base md:text-lg xl:text-xl  tracking-[-0.2px]">
                               {t(`${base}.statLabel`)}
                             </div>
                           </>

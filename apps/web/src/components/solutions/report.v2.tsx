@@ -65,7 +65,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
 
   return (
     <section className="relative overflow-hidden bg-black text-white text-left">
-      <div className="!absolute m-auto max-xl:top-2 right-2 max-xl:bottom-2 left-2 xl:top-8 xl:bottom-8">
+      <div className="!absolute m-auto max-xl:top-2 max-xl:right-2 max-xl:bottom-2 max-xl:left-2 xl:top-10 xl:bottom-10 xl:right-10 xl:left-10">
         <UnicornScene
           className="!absolute top-0 right-0 bottom-0 left-0 rounded-xl overflow-hidden"
           width="100%"
@@ -79,7 +79,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
         />
       </div>
       <div className="py-[64px] md:py-[112px] xl:py-[160px] relative">
-        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px]">
+        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px]">
           <div className="flex flex-col md:flex-row items-stretch max-xl:gap-6 xl:gap-14">
             {imgSrc && (
               <div className="grow-0 shrink-0">
@@ -95,19 +95,19 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
             <div className="grow flex flex-col justify-between gap-4">
               <div>
                 {eyebrow && (
-                  <h3 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] m-0 max-w-xl">
+                  <h3 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] m-0 max-w-xl tracking-[-2.56px]">
                     {eyebrow}
                   </h3>
                 )}
                 {description && (
-                  <p className="text-lg md:text-2xl text-[#ABABBA] max-md:mt-2 md:mt-6 mb-0 max-w-md">
+                  <p className="text-lg md:text-2xl text-white opacity-[0.64] max-md:mt-2 md:mt-6 mb-0 max-w-md tracking-[-0.48px]">
                     {description}
                   </p>
                 )}
               </div>
               <div>
                 <Button
-                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90"
+                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.18px]"
                   size="lg"
                   aria-label={emailCta}
                   onClick={onEmailClick}
@@ -127,7 +127,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
           {links && (
             <div className="max-xl:mt-16 max-xl:pt-16 xl:mt-24 xl:pt-24 border-t border-white/10">
               {linksTitle && (
-                <h3 className="font-brand font-medium leading-none text-[18px] md:text-[32px] xl:text-[36px] mt-0 mb-[2rem]">
+                <h3 className="font-brand font-medium leading-none text-[18px] md:text-[32px] xl:text-[36px] mt-0 mb-[2rem] tracking-[-1.08px]">
                   {linksTitle}
                 </h3>
               )}
@@ -143,7 +143,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                         {index + 1}
                       </span>
                     </div>
-                    <h3 className="font-brand text-base md:text-2xl font-medium xl:mt-5 xl:mb-5 max-xl:mb-0 flex-grow">
+                    <h3 className="font-brand text-base md:text-2xl font-medium xl:mt-5 xl:mb-5 max-xl:mb-0 flex-grow tracking-[-0.72px]">
                       {item.title}
                     </h3>
                     <div className="xl:absolute xl:bottom-6 xl:left-6 opacity-50 max-xl:m-auto">

@@ -82,10 +82,8 @@ const InstitutionalPaymentsPage = () => {
           })}
           description={t("institutional-payments.features.description")}
           imageSrc="/src/img/solutions/institutional-payments/what-is.webp"
-          highlightColor="#F4825280"
+          highlightColor="#F48252"
         />
-
-        <Divider />
 
         <Projects
           title={t.rich("institutional-payments.projects.title", {
@@ -121,6 +119,8 @@ const InstitutionalPaymentsPage = () => {
           subtitle={t("institutional-payments.videoPlayer.subtitle")}
           videos={VIDEOS(t)}
         />
+
+        <Divider hideOnDesktop />
 
         <SolutionReport
           eyebrow={t("institutional-payments.cta.reportTitle")}

@@ -80,7 +80,7 @@ const InstitutionalPaymentsPage = () => {
           })}
           description={t("stablecoins.features.description")}
           imageSrc="/src/img/solutions/stablecoins/what-is.webp"
-          highlightColor="#4396FF80"
+          highlightColor="#4396FF"
         />
 
         <Projects
@@ -109,6 +109,8 @@ const InstitutionalPaymentsPage = () => {
           subtitle={t("stablecoins.videoPlayer.subtitle")}
           videos={VIDEOS(t)}
         />
+
+        <Divider hideOnDesktop />
 
         <SolutionReport
           eyebrow={t("stablecoins.cta.reportTitle")}

@@ -48,10 +48,10 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
 
   return (
     <section className="relative bg-black text-white text-left font-brand">
-      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-xl:gap-6 xl:gap-20">
+      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-xl:gap-6 xl:gap-20">
         <div className={cn("w-full", isOneItem ? "xl:w-full" : "xl:w-7/12")}>
           {title && (
-            <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-[32px] xl:mb-[48px]">
+            <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-[32px] xl:mb-[48px] tracking-[-2.56px]">
               {title}
             </h2>
           )}
@@ -80,7 +80,7 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                     />
                   </div>
                 )}
-                <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-0 mb-0 group-hover:underline">
+                <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-0 mb-0 group-hover:underline tracking-[-1.08px]">
                   {items[0].title}
                 </h3>
               </div>
@@ -118,7 +118,7 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                         />
                       </div>
                     )}
-                    <h4 className="text-base md:text-lg xl:text-xl font-medium group-hover:underline mb-0">
+                    <h4 className="text-base md:text-2xl font-medium group-hover:underline mb-0 tracking-[-0.72px]">
                       {item.title}
                     </h4>
                   </div>

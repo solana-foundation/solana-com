@@ -1,13 +1,11 @@
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
-import { EmailModal } from "@/components/solutions/EmailModal";
 import { Products } from "@/components/solutions/products.v2";
 import { Projects } from "@/components/solutions/projects.v2";
 import { SolutionHero } from "@/components/solutions/hero.v2";
 // import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@workspace/i18n/routing";
 import {
@@ -22,7 +20,6 @@ import { SingleVideo } from "@/components/solutions/single-video.v2";
 
 const ConsumerPage = () => {
   const t = useTranslations();
-  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   return (
     <Layout>
@@ -58,11 +55,9 @@ const ConsumerPage = () => {
             ),
           })}
           description={t("desci.features.description")}
-          highlightColor="#CFF15ED1"
+          highlightColor="#CFF15E"
           imageSrc="/src/img/solutions/desci/what-is.webp"
         />
-
-        <Divider />
 
         <Projects
           title={t.rich("desci.projects.title", {
@@ -95,11 +90,6 @@ const ConsumerPage = () => {
       </div>
 
       <VideoPlayerModal />
-      <EmailModal
-        isOpen={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        formUrl="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=Institutional"
-      />
     </Layout>
   );
 };

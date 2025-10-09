@@ -1,13 +1,11 @@
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
-import { EmailModal } from "@/components/solutions/EmailModal";
 import { Products } from "@/components/solutions/products.v2";
 import { Projects } from "@/components/solutions/projects.v2";
 import { SolutionHero } from "@/components/solutions/hero.v2";
 import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@workspace/i18n/routing";
 import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/ai";
@@ -16,7 +14,6 @@ import { Decor } from "@/components/solutions/decor.v2";
 
 const AiPage = () => {
   const t = useTranslations();
-  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   return (
     <Layout>
@@ -47,11 +44,9 @@ const AiPage = () => {
             ),
           })}
           description={t("ai-solution.features.description")}
-          highlightColor="#F48252D1"
+          highlightColor="#F48252"
           imageSrc="/src/img/solutions/ai/what-is.webp"
         />
-
-        <Divider />
 
         <Projects
           title={t.rich("ai-solution.projects.title", {
@@ -84,11 +79,6 @@ const AiPage = () => {
       </div>
 
       <VideoPlayerModal />
-      <EmailModal
-        isOpen={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        formUrl="https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=Institutional"
-      />
     </Layout>
   );
 };

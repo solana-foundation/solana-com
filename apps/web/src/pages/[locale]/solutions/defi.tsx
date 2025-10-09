@@ -75,11 +75,9 @@ const DeFiPage = () => {
             ),
           })}
           description={t("defi.features.description")}
-          highlightColor="#55E9ABD1"
+          highlightColor="#55E9AB"
           imageSrc="/src/img/solutions/defi/what-is.webp"
         />
-
-        <Divider />
 
         <Projects
           title={t.rich("defi.projects.title", {
@@ -99,7 +97,7 @@ const DeFiPage = () => {
           description={t("defi.products.description")}
           products={PRODUCTS}
           translationBase="defi.products"
-          imageSrc="/src/img/solutions/defi/toolkit.webp"
+          imageSrc="/src/img/solutions/defi/toolkit.svg"
           highlightColor="#55E9AB"
         />
 
@@ -111,7 +109,7 @@ const DeFiPage = () => {
           videos={VIDEOS(t)}
         />
 
-        <Divider />
+        <Divider hideOnDesktop />
 
         <SolutionReport
           eyebrow={t("defi.cta.reportTitle")}

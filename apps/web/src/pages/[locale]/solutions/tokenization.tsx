@@ -92,11 +92,9 @@ const ICMPage = () => {
               </a>
             ),
           })}
-          highlightColor="#CA9FF580"
+          highlightColor="#CA9FF5"
           imageSrc="/src/img/solutions/icm/what-is.webp"
         />
-
-        <Divider />
 
         {/* EcoProjects Section */}
         <Projects
@@ -118,7 +116,7 @@ const ICMPage = () => {
           description={t("icm.products.description")}
           products={PRODUCTS}
           translationBase="icm.products"
-          imageSrc="/src/img/solutions/icm/toolkit.webp"
+          imageSrc="/src/img/solutions/icm/toolkit.svg"
           highlightColor="#CA9FF5"
         />
 
@@ -154,7 +152,7 @@ const ICMPage = () => {
           ]}
         />
 
-        <Divider />
+        <Divider hideOnDesktop />
 
         {/* Report Section */}
         <SolutionReport

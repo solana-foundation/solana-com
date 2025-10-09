@@ -136,17 +136,17 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
               height={22}
               alt=""
             />
-            <span className="pr-1 inline-block align-middle pt-0.5">
+            <span className="pr-1 inline-block align-middle pt-0.5 tracking-[1px]">
               {t(`video-badge.${video.badge}`)}
             </span>
           </div>
         )}
       </div>
-      <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-6 mb-0">
+      <h3 className="text-lg md:text-3xl xl:text-4xl font-medium mt-6 mb-0 tracking-[-1.08px]">
         {video.title}
       </h3>
       {video.description && (
-        <p className="text-[#ABABBA] text-lg md:text-2xl mt-1 mb-0">
+        <p className="text-[#ABABBA] max-md:text-base md:text-lg xl:text-xl mt-1 mb-0 tracking-[-0.2px]">
           {video.description}
         </p>
       )}
@@ -156,17 +156,17 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
   return (
     <section className="relative overflow-hidden text-white text-left">
       <div className="py-[64px] md:py-[112px] xl:py-[160px]">
-        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px] flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px] flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
           {(title || subtitle) && (
             // Title and subtitle
             <div className="max-w-xl">
               {title && (
-                <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-0">
+                <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-0 tracking-[-2.56px]">
                   {title}
                 </h2>
               )}
               {subtitle && (
-                <p className="text-[#ABABBA] text-lg md:text-2xl mt-6 mb-0">
+                <p className="text-[#ABABBA] text-lg md:text-2xl max-xl:mt-2 xl:mt-5 mb-0 tracking-[-0.48px]">
                   {subtitle}
                 </p>
               )}

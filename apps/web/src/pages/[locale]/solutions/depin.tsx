@@ -83,11 +83,9 @@ const DePINPage = () => {
             ),
           })}
           description={t("depin.features.description")}
-          highlightColor="#4396FF80"
+          highlightColor="#6693F7"
           imageSrc="/src/img/solutions/depin/what-is.webp"
         />
-
-        <Divider />
 
         {/* EcoProjects Section */}
         <Projects
@@ -109,7 +107,7 @@ const DePINPage = () => {
           description={t("depin.products.description")}
           products={PRODUCTS}
           translationBase="depin.products"
-          highlightColor="#F48252"
+          highlightColor="#6693F7"
         />
 
         <Decor imageSrc="/src/img/solutions/depin/bg-1.webp" />
@@ -124,7 +122,7 @@ const DePINPage = () => {
         {/* Latest News Section */}
         {/* <LatestNews title={t("depin.news.title")} items={LATEST_NEWS(t)} /> */}
 
-        <Divider />
+        <Divider hideOnDesktop />
 
         {/* Report Section */}
         <SolutionReport
