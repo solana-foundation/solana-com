@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: [],
-}
+};
 
-export default nextConfig
+export default nextConfig;
