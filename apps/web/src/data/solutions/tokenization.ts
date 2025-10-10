@@ -1,70 +1,46 @@
+import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import { Blocks, Coins, HandCoins } from "lucide-react";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/solutions/icm/projects/franklin-templeton.webp",
+    src: "/src/img/logos-eco/franklin-templeton.webp",
     key: "franklinTempleton",
   },
   {
-    src: "/src/img/solutions/icm/projects/r3.svg",
+    src: "/src/img/logos-eco/r3.webp",
     key: "r3",
   },
   {
-    src: "/src/img/solutions/icm/projects/bullish.svg",
+    src: "/src/img/logos-eco/bullish.svg",
     key: "bullish",
   },
   {
-    src: "/src/img/solutions/icm/projects/apollo.svg",
+    src: "/src/img/logos-eco/apollo.webp",
     key: "apollo",
   },
 ];
 
 export const LOGOS = [
   {
-    src: "/src/img/logos-eco/bullish.svg",
-    alt: "Bullish",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/r3-logo-vector.svg",
-    alt: "R3",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/Brevan_Howard_Logo.svg",
+    src: "/src/img/logos-eco/brevan-howard.png",
     alt: "Brevan Howard",
-    bg: "bg-white",
   },
   {
-    src: "/src/img/logos-eco/Apollo_Global_Management_logo.svg",
-    alt: "Apollo Global Management",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/Vaneck.svg",
+    src: "/src/img/logos-eco/vaneck.png",
     alt: "Vaneck",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/franklin-templeton.webp",
-    alt: "Franklin Templeton",
-    bg: "bg-white",
   },
   {
     src: "/src/img/logos-eco/hamilton-lane.webp",
     alt: "Hamilton Lane",
-    bg: "bg-black",
   },
   {
-    src: "/src/img/logos-eco/societe-general.webp",
+    src: "/src/img/logos-eco/societe-generale.png",
     alt: "Societe Generale",
-    bg: "bg-black",
   },
   {
-    src: "/src/img/logos-eco/BlackRock.webp",
+    src: "/src/img/logos-eco/blackrock.png",
     alt: "Blackrock",
-    bg: "bg-white",
   },
 ];
 
@@ -97,6 +73,7 @@ export const VIDEOS = (
     title: t("icm.videoPlayer.videos.0.title"),
     description: t("icm.videoPlayer.videos.0.description"),
     alt: t("icm.videoPlayer.videos.0.alt"),
+    badge: VideoBadge.Podcast,
   },
   {
     id: "8AGUcNIV5oo",
@@ -104,6 +81,7 @@ export const VIDEOS = (
     title: t("icm.videoPlayer.videos.1.title"),
     description: t("icm.videoPlayer.videos.1.description"),
     alt: t("icm.videoPlayer.videos.1.alt"),
+    badge: VideoBadge.Interview,
   },
   {
     id: "PC3N-qQVA3w",
@@ -111,6 +89,7 @@ export const VIDEOS = (
     title: t("icm.videoPlayer.videos.2.title"),
     description: t("icm.videoPlayer.videos.2.description"),
     alt: t("icm.videoPlayer.videos.2.alt"),
+    badge: VideoBadge.Originals,
   },
   {
     id: "qLbcvtIAPnI",
@@ -118,19 +97,6 @@ export const VIDEOS = (
     title: t("icm.videoPlayer.videos.3.title"),
     description: t("icm.videoPlayer.videos.3.description"),
     alt: t("icm.videoPlayer.videos.3.alt"),
-  },
-  {
-    id: "s5NThuOmkbA",
-    thumbnail: "/src/img/solutions/icm/video5.webp",
-    title: t("icm.videoPlayer.videos.4.title"),
-    description: t("icm.videoPlayer.videos.4.description"),
-    alt: t("icm.videoPlayer.videos.4.alt"),
-  },
-  {
-    id: "yC6nJdsDb6s",
-    thumbnail: "/src/img/solutions/icm/video6.webp",
-    title: t("icm.videoPlayer.videos.5.title"),
-    description: t("icm.videoPlayer.videos.5.description"),
-    alt: t("icm.videoPlayer.videos.5.alt"),
+    badge: VideoBadge.Event,
   },
 ];
