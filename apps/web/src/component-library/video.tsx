@@ -27,6 +27,16 @@
  *      startTime={45} // Start at 45 seconds
  *    />
  *
+ *    // Or for X:
+ *    <Video
+ *      platform="x"
+ *      id="123456789"
+ *      title="X Example"
+ *      aspectRatio="16:9"
+ *      privacyMode={true}
+ *      startTime={45} // Start at 45 seconds
+ *    />
+ *
  * @remarks
  * The component supports YouTube and Vimeo platforms. It shows a thumbnail with a play button
  * initially, then embeds the video when clicked. The `autoplay` prop is optional (defaults to true).
@@ -45,7 +55,7 @@ const ASPECT_RATIOS = {
 } as const;
 
 export interface VideoProps {
-  platform: "youtube" | "vimeo";
+  platform: "youtube" | "vimeo" | "x";
   id: string;
   title?: string;
   vimeoHash?: string;
@@ -54,6 +64,8 @@ export interface VideoProps {
   thumbnail?: string;
   alt?: string;
   bgColorClass?: string;
+  playButtonClassName?: string;
+  playButtonIconClassName?: string;
   privacyMode?: boolean;
   startTime?: number; // Start time in seconds
 }
@@ -69,13 +81,32 @@ export function Video(props: VideoProps) {
     thumbnail,
     alt,
     bgColorClass,
+    playButtonClassName,
+    playButtonIconClassName,
     privacyMode = false,
     startTime,
   } = props;
 
-  const [show, setShow] = useState((autoplay || !thumbnail) ?? false);
+  const autoshow = autoplay || !thumbnail;
+
+  const [show, setShow] = useState(autoshow || false);
 
   const getEmbedUrl = (): string => {
+    if (platform === "x") {
+      const baseUrl = "https://platform.twitter.com/embed/Tweet.html";
+      const params = new URLSearchParams({
+        embedId: "twitter-widget-2",
+        frame: "false",
+        hideCard: "false",
+        hideThread: "false",
+        id: id,
+        lang: "en",
+        maxWidth: "1500px",
+        theme: "light",
+        dnt: privacyMode ? "true" : "false",
+      });
+      return `${baseUrl}?${params.toString()}`;
+    }
     if (platform === "youtube") {
       const baseUrl = privacyMode
         ? `https://www.youtube-nocookie.com/embed/${id}`
@@ -83,7 +114,8 @@ export function Video(props: VideoProps) {
       const params = new URLSearchParams({
         rel: "0",
         modestbranding: "1",
-        autoplay: autoplay ? "1" : "0",
+        autoplay: autoplay || !autoshow ? "1" : "0",
+        mute: autoplay ? "1" : "0", // Mute the video if autoplay is true because of browser policy
         ...(startTime && { start: startTime.toString() }),
       });
       return `${baseUrl}?${params.toString()}`;
@@ -95,7 +127,7 @@ export function Video(props: VideoProps) {
       title: "0",
       byline: "0",
       portrait: "0",
-      autoplay: autoplay ? "1" : "0",
+      autoplay: autoplay || !autoshow ? "1" : "0",
       ...(privacyMode && { dnt: "1" }), // Add Do Not Track parameter for privacy
     });
     return `${baseUrl}?${params.toString()}${startTime ? `#${startTime.toString()}` : ""}`;
@@ -120,9 +152,13 @@ export function Video(props: VideoProps) {
           onClick={() => setShow(true)}
           aria-label={title}
           tabIndex={0}
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${playButtonClassName ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
         >
-          <Play fill="white" strokeWidth={0} className="w-8 h-8" />
+          <Play
+            fill="white"
+            strokeWidth={0}
+            className={`w-8 h-8 ${playButtonIconClassName ?? ""}`}
+          />
         </button>
       </div>
     );
@@ -131,6 +167,7 @@ export function Video(props: VideoProps) {
   return (
     <div className={`relative w-full ${ASPECT_RATIOS[aspectRatio]}`}>
       <iframe
+        id={`${platform}-${id}`}
         key={`${platform}-${id}`}
         src={getEmbedUrl()}
         title={title || "Video player"}

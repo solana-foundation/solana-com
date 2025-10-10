@@ -1,31 +1,26 @@
-import { Smartphone, Sparkles, Wallet } from "lucide-react";
+import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/solutions/depin/helium.png",
+    src: "/src/img/logos-eco/helium.webp",
     key: "helium",
-    bg: "#181F24",
   },
   {
-    src: "/src/img/solutions/depin/render.png",
-    key: "render",
-    bg: "#FF2D2E",
-  },
-  {
-    src: "/src/img/solutions/depin/hivemapper.png",
+    src: "/src/img/logos-eco/hivemapper.webp",
     key: "hivemapper",
-    bg: "#4B6FFF",
   },
   {
-    src: "/src/img/solutions/depin/grass.png",
+    src: "/src/img/logos-eco/render.webp",
+    key: "render",
+  },
+  {
+    src: "/src/img/logos-eco/grass.webp",
     key: "grass",
-    bg: "#B6FF3A",
   },
   {
-    src: "/src/img/solutions/depin/geodnet.png",
+    src: "/src/img/logos-eco/geodnet.webp",
     key: "geodnet",
-    bg: "#000000",
   },
 ];
 
@@ -33,108 +28,112 @@ export const LOGOS = [
   {
     src: "/src/img/logos-eco/375ai.png",
     alt: "375AI",
-    bg: "bg-white",
   },
   {
     src: "/src/img/logos-eco/blockcast.png",
     alt: "Blockcast",
-    bg: "bg-white",
+    height: "22px",
   },
   {
     src: "/src/img/logos-eco/cudis.png",
     alt: "Cudis",
-    bg: "bg-white",
+    height: "21px",
+  },
+  {
+    src: "/src/img/logos-eco/dabba.png",
+    alt: "Dabba",
+    height: "22px",
   },
   {
     src: "/src/img/logos-eco/dawn.png",
     alt: "Dawn",
-    bg: "bg-white",
+    height: "28px",
   },
   {
     src: "/src/img/logos-eco/decharge.png",
     alt: "Decharge",
-    bg: "bg-white",
+    height: "22px",
   },
   {
     src: "/src/img/logos-eco/dephy.png",
     alt: "Dephy",
-    bg: "bg-white",
   },
   {
-    src: "/src/img/logos-eco/geodnet.png",
-    alt: "Geodnet",
-    bg: "bg-white",
+    src: "/src/img/logos-eco/8.png",
+    alt: "",
   },
   {
-    src: "/src/img/logos-eco/hivemapper.png",
-    alt: "Hivemapper",
-    bg: "bg-white",
-  },
-  {
-    src: "/src/img/logos-eco/inference.png",
+    src: "/src/img/logos-eco/inference.svg",
     alt: "Inference",
-    bg: "bg-black",
+    height: "28px",
   },
   {
     src: "/src/img/logos-eco/jambo.png",
     alt: "Jambo",
-    bg: "bg-black",
+    height: "32px",
   },
   {
     src: "/src/img/logos-eco/onocoy.png",
     alt: "Onocoy",
-    bg: "bg-black",
   },
   {
     src: "/src/img/logos-eco/pipenetwork.png",
     alt: "Pipenetwork",
-    bg: "bg-black",
+    height: "32px",
+  },
+  {
+    src: "/src/img/logos-eco/powerledger.png",
+    alt: "Powerledger",
   },
   {
     src: "/src/img/logos-eco/roam.png",
     alt: "Roam",
-    bg: "bg-white",
+    height: "30px",
   },
   {
-    src: "/src/img/logos-eco/shaga.png",
-    alt: "Shaga",
-    bg: "bg-[#f1ff61]",
+    src: "/src/img/logos-eco/2.png",
+    alt: "",
+  },
+  {
+    src: "/src/img/logos-eco/p.png",
+    alt: "",
   },
   {
     src: "/src/img/logos-eco/wayru.png",
     alt: "Wayru",
-    bg: "bg-white",
   },
   {
     src: "/src/img/logos-eco/wingbits-seo.png",
     alt: "Wingbits",
-    bg: "bg-[#201c1c]",
+    height: "30px",
   },
   {
     src: "/src/img/logos-eco/xnet.png",
     alt: "Xnet",
-    bg: "bg-white",
   },
 ];
 
 export const PRODUCTS = [
   {
     key: "wallets",
-    Icon: Wallet,
-    color: "text-emerald-400 bg-emerald-900/30",
     href: "/wallets",
   },
   {
-    key: "mobile",
-    Icon: Smartphone,
-    color: "text-indigo-400 bg-indigo-900/30",
-    href: "https://docs.solanamobile.com/",
+    key: "cnfts",
   },
   {
     key: "tokenization",
-    Icon: Sparkles,
-    color: "text-cyan-400 bg-cyan-900/30",
     href: "/solutions/real-world-assets",
+  },
+  {
+    key: "zkcompression",
+  },
+  {
+    key: "mobile",
+    href: "https://docs.solanamobile.com/",
+  },
+  {
+    key: "tokenExtensions",
   },
 ];
 
@@ -143,24 +142,27 @@ export const VIDEOS = (
 ) => [
   {
     id: "IpWVxL4V4Oc",
-    thumbnail: "/src/img/solutions/depin/video1.png",
+    thumbnail: "/src/img/solutions/depin/video1.webp",
     title: t("depin.videos.0.title"),
     description: t("depin.videos.0.description"),
     alt: t("depin.videos.0.alt"),
+    badge: VideoBadge.Podcast,
   },
   {
     id: "PzNXP0w4xqU",
-    thumbnail: "/src/img/solutions/depin/video2.png",
+    thumbnail: "/src/img/solutions/depin/video2.webp",
     title: t("depin.videos.1.title"),
     description: t("depin.videos.1.description"),
     alt: t("depin.videos.1.alt"),
+    badge: VideoBadge.Interview,
   },
   {
     id: "VaBJu3dXpKk",
-    thumbnail: "/src/img/solutions/depin/video3.png",
+    thumbnail: "/src/img/solutions/depin/video3.webp",
     title: t("depin.videos.2.title"),
     description: t("depin.videos.2.description"),
     alt: t("depin.videos.2.alt"),
+    badge: VideoBadge.Originals,
   },
 ];
 
