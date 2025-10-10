@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
+  transpilePackages: ["@solana-com/ui-chrome"],
 
   async rewrites() {
     return rewritesAndRedirectsJson.rewrites as {
@@ -217,6 +218,8 @@ const nextConfig: NextConfig = {
 
   experimental: {
     scrollRestoration: true,
+    // Allow importing/transpiling code from the workspace package
+    externalDir: true,
   },
 
   // Ignore deprecation warnings and mixed declaration warnings

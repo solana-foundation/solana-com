@@ -6,8 +6,7 @@ import path from "path";
 import { locales } from "@workspace/i18n/config";
 import { act } from "react";
 
-import Header from "@@/src/components/Header";
-import Footer from "@@/src/components/Footer";
+import { Header, Footer } from "@solana-com/ui-chrome";
 import NotFoundPage from "@@/src/app/[locale]/not-found";
 
 jest.mock("next/navigation", () => ({
