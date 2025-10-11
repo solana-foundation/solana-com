@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Logos, LogosProps } from "./logos.v2";
 import { cn } from "@/app/components/utils";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const NAV_BUTTON_CLASSNAME =
   "backdrop-blur-xs !bg-black/80 [&&&]:!shadow-[0_2px_4px_1px_rgba(0,0,0,0.17),0_-4px_12px_0_rgba(255,255,255,0.08)_inset,0_1px_0_0_rgba(255,255,255,0.20)_inset,0_-1px_0_0_rgba(255,255,255,0.12)_inset]";
@@ -55,6 +56,9 @@ export const Projects = ({
 }: EcoProjectsProps) => {
   const t = useTranslations();
   const carouselRef = useRef(null);
+  const isTablet = useMediaQuery("(min-width: 768px)");
+  const isDesktop = useMediaQuery("(min-width: 1280px)");
+  const lastPageOffset = isDesktop ? 3 : isTablet ? 1 : 1;
 
   return (
     <section className="relative overflow-hidden bg-black text-white text-left">
@@ -81,9 +85,11 @@ export const Projects = ({
         <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">
           <div className="w-[340px] md:w-[420px]">
             <Carousel
+              lastPageOffset={lastPageOffset}
               ref={carouselRef}
               controlsInline={false}
               panels={1}
+              enableSwipe={true}
               className="!m-0 [&>div]:!overflow-visible [&>div]:!p-0"
               trackClassName="rounded-2xl border-white/10 border-[1px] overflow-hidden"
               trackStyle={{

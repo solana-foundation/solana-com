@@ -200,6 +200,7 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
               ref={carouselRef}
               controlsInline={false}
               panels={1}
+              enableSwipe={true}
               className="w-full md:w-5/6 xl:w-[800px] !m-0 [&>div]:!overflow-visible [&>div]:!p-0"
             >
               {videoCards}
