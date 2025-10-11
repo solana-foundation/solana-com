@@ -41,7 +41,7 @@ const Footer = ({ className = "" }) => {
 
   return (
     <div className={classNames(styles["solFooter"], className)}>
-      <div className="w-full max-w-[1920px] px-[20px] md:px-[32px] xl:px-[72px] pt-[56px] xl:pt-[88px] pb-[136px] md:pb-[164px] xl:pb-[320px] mx-auto bg-[url('/src/img/footer/solana-bg.svg')]  bg-[length:100%_auto] bg-bottom md:bg-[position:center_120%] xl:bg-bottom bg-no-repeat">
+      <div className="w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[72px] pt-[56px] xl:pt-[88px] pb-[136px] md:pb-[164px] xl:pb-[320px] mx-auto bg-[url('/src/img/footer/solana-bg.svg')]  bg-[length:100%_auto] bg-bottom md:bg-[position:center_120%] xl:bg-bottom bg-no-repeat">
         <div className="relative grid grid-cols-2 xl:grid-cols-6 gap-[30px]">
           <div className="flex flex-col col-span-2 md:col-span-1 xl:col-span-3">
             <p className={styles["solFooter__foundation"]}>

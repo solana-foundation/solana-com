@@ -121,7 +121,7 @@ const HeaderList = () => {
           {t("nav.solutions.title")}
           {showSolutions ? UpIcon : DownIcon}
         </Dropdown.Toggle>
-        <Dropdown.Menu>
+        <Dropdown.Menu className="xl:overflow-y-auto xl:max-h-[90vh]">
           <HeaderListSolutions />
         </Dropdown.Menu>
       </Dropdown>

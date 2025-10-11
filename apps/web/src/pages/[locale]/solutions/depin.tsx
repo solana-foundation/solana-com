@@ -21,6 +21,7 @@ import { withLocales } from "@workspace/i18n/routing";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Decor } from "@/components/solutions/decor.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const DePINPage = () => {
   const t = useTranslations();
@@ -51,6 +52,8 @@ const DePINPage = () => {
         description={t("depin.meta.description")}
         socialShare="/src/img/solutions/depin/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#6693F7" selectionTextColor="#000000" />
 
       <div
         id="depin-page"

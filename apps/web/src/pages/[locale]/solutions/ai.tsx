@@ -11,6 +11,7 @@ import { withLocales } from "@workspace/i18n/routing";
 import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/ai";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const AiPage = () => {
   const t = useTranslations();
@@ -22,6 +23,8 @@ const AiPage = () => {
         description={t("ai-solution.meta.description")}
         socialShare="/src/img/solutions/ai/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#F48252" selectionTextColor="#000000" />
 
       <div id="ai-page" className="bg-black" aria-labelledby="hero-title">
         <SolutionHero

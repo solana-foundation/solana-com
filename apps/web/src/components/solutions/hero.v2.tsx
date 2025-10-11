@@ -213,7 +213,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                     <div className="text-[20px] xl:text-[40px] leading-none uppercase font-light">
                       {stat.value}
                     </div>
-                    <div className="mt-[4px] md:mt-[8px] text-[16px] md:text-[18px] leading-none font-medium">
+                    <div className="mt-[6px] md:mt-[8px] text-[14px] md:text-[18px] font-medium leading-[1.42] md:leading-[1.44] xl:leading-[1.33]">
                       {stat.label}
                     </div>
                   </div>
@@ -233,6 +233,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                         width={114}
                         height={152}
                         className="!h-auto w-[80px] md:w-[70px] xl:w-[114px]"
+                        quality={100}
                       />
                     </div>
                   )}
@@ -244,7 +245,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                         </p>
                       )}
                       {reportDescription && (
-                        <p className="text-sm md:text-base opacity-70 mb-0 mt-[3px] tracking-[-0.14px] md:tracking-[-0.16px]">
+                        <p className="text-[14px] md:text-base opacity-70 mb-0 mt-[3px] tracking-[-0.14px] md:tracking-[-0.16px]">
                           {reportDescription}
                         </p>
                       )}

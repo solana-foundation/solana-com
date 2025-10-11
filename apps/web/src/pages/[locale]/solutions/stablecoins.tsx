@@ -19,6 +19,7 @@ import { EmailModal } from "@/components/solutions/EmailModal";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -49,6 +50,8 @@ const InstitutionalPaymentsPage = () => {
         description={t("stablecoins.meta.description")}
         socialShare="/src/img/solutions/stablecoins/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#4396FF" selectionTextColor="#000000" />
 
       <div
         id="stablecoins-page"
@@ -92,6 +95,8 @@ const InstitutionalPaymentsPage = () => {
           logos={LOGOS}
           bgSrc="/src/img/solutions/stablecoins/ecosystem-bg.webp"
         />
+
+        <Divider />
 
         <Products
           className="z-1"

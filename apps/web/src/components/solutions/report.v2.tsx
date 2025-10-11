@@ -89,6 +89,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                   width={290}
                   height={288}
                   className="!h-auto w-[80px] md:w-[190px] xl:w-[290px] rounded-md"
+                  quality={100}
                 />
               </div>
             )}

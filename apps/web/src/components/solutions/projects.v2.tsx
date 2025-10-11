@@ -60,7 +60,7 @@ export const Projects = ({
     <section className="relative overflow-hidden bg-black text-white text-left">
       <div className="py-[64px] md:py-[112px] xl:py-[160px]">
         <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">
-          <div className="flex flex-col xl:flex-row gap-4 xl:items-end justify-center mb-[32px] xl:mb-[64px] mx-auto">
+          <div className="flex flex-col xl:flex-row gap-4 xl:items-end mb-[32px] xl:mb-[64px] justify-start">
             <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] max-w-xl mb-0 tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
               {title}
             </h2>

@@ -14,6 +14,7 @@ import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/defi";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const DeFiPage = () => {
   const t = useTranslations();
@@ -49,6 +50,8 @@ const DeFiPage = () => {
         description={t("defi.meta.description")}
         socialShare="/src/img/solutions/defi/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#55E9AB" selectionTextColor="#000000" />
 
       <div id="defi-page" className="bg-black" aria-labelledby="hero-title">
         <SolutionHero

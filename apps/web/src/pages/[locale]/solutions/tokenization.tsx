@@ -20,6 +20,7 @@ import { LatestNews } from "@/components/solutions/latest-news.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const ICMPage = () => {
   const t = useTranslations();
@@ -55,6 +56,8 @@ const ICMPage = () => {
         description={t("icm.meta.description")}
         socialShare="/src/img/solutions/icm/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#CA9FF5" selectionTextColor="#000000" />
 
       <div id="icm-page" className="bg-black">
         <SolutionHero

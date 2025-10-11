@@ -15,6 +15,7 @@ import { Performance } from "@/components/solutions/performance.v2";
 import { LatestNews } from "@/components/solutions/latest-news.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { SingleVideo } from "@/components/solutions/single-video.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -51,6 +52,8 @@ const InstitutionalPaymentsPage = () => {
         description={t("btcfi.meta.description")}
         socialShare="/src/img/solutions/btcfi/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#FFBF00" selectionTextColor="#000000" />
 
       <div id="btcfi-page" aria-labelledby="hero-title" className="bg-black">
         <SolutionHero

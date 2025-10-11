@@ -21,6 +21,7 @@ import { Performance } from "@/components/solutions/performance.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -51,6 +52,8 @@ const InstitutionalPaymentsPage = () => {
         description={t("institutional-payments.meta.description")}
         socialShare="/src/img/solutions/institutional-payments/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#F48252" selectionTextColor="#000000" />
 
       <div
         id="institutional-payments-page"

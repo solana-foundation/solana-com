@@ -17,6 +17,7 @@ import {
 import { Divider } from "@/components/solutions/divider.v2";
 // import { Decor } from "@/components/solutions/decor.v2";
 import { SingleVideo } from "@/components/solutions/single-video.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const ConsumerPage = () => {
   const t = useTranslations();
@@ -28,6 +29,8 @@ const ConsumerPage = () => {
         description={t("desci.meta.description")}
         socialShare="/src/img/solutions/desci/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#CFF15E" selectionTextColor="#000000" />
 
       <div id="desci-page" className="bg-black" aria-labelledby="hero-title">
         <SolutionHero

@@ -41,6 +41,7 @@ export const VideoGrid = ({
           alt={video.alt}
           fill
           className="object-cover z-0"
+          quality={100}
         />
         <VideoTrigger
           platform="youtube"

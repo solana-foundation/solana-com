@@ -68,6 +68,7 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                   alt={items[0].title}
                   fill
                   className="object-cover z-0"
+                  quality={100}
                 />
               </div>
               <div className="mt-4 xl:mt-6">
@@ -106,6 +107,7 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                       sizes="177px"
                       className="object-cover"
                       loading="lazy"
+                      quality={100}
                     />
                   </div>
                   <div>
