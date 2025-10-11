@@ -5,6 +5,7 @@ import { useScrollTextHighlight } from "../../hooks/useScrollTextHighlight";
 import Image from "next/image";
 import { useViewportVisibility } from "@/hooks/useViewportVisibility";
 import { debounce } from "lodash";
+import { cn } from "@/app/components/utils";
 
 export type WhatIsItProps = {
   title: React.ReactNode;
@@ -100,8 +101,13 @@ export const WhatIsIt = ({
 
   return (
     <section className="relative bg-black text-white text-left" ref={imageRef}>
-      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] pt-[64px] md:pt-[112px] xl:pt-[160px] pb-5 md:pb-[32px] xl:pb-[40px]">
-        <h2 className="font-brand font-medium leading-none text-[40px] md:text-[48px] xl:text-[80px] max-w-2xl mb-[32px] xl:mb-[64px] tracking-[-3.2px] [&>span]:tracking-[-2.56px] [&>span]:text-[32px] md:[&>span]:text-[40px] xl:[&>span]:text-[64px] [&>span]:leading-[1.125]">
+      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] pt-[64px] md:pt-[112px] xl:pt-[160px] pb-5 md:pb-[32px] xl:pb-[40px]">
+        <h2
+          className={cn(
+            "font-brand font-medium leading-[1.1] md:leading-none text-[40px] md:text-[48px] xl:text-[80px] max-w-2xl mb-[32px] xl:mb-[64px] tracking-[-1.6px] md:tracking-[-1.92px] xl:tracking-[-3.2px]",
+            "[&>span]:tracking-[-1.28px] md:[&>span]:tracking-[-1.6px] xl:[&>span]:tracking-[-2.56px] [&>span]:text-[32px] md:[&>span]:text-[40px] xl:[&>span]:text-[64px] [&>span]:leading-[1.25] md:[&>span]:leading-[1.1] xl:[&>span]:leading-[1.125]",
+          )}
+        >
           {title}
         </h2>
         <div className="flex flex-col xl:items-center xl:flex-row gap-8 xl:gap-16">
@@ -148,7 +154,7 @@ export const WhatIsIt = ({
           </div>
           <div className="relative w-full xl:w-3/5 max-w-2xl">
             <p
-              className="text-xl md:text-[32px] mb-0 font-medium tracking-[-0.96px] leading-[1.25]"
+              className="text-xl md:text-[32px] mb-0 font-medium tracking-[-0.6px] md:tracking-[-0.96px] leading-[1.4] md:leading-[1.25]"
               ref={ref}
             >
               {description}

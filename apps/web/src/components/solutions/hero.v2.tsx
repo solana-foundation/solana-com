@@ -110,23 +110,23 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           production={true}
         />
       )}
-      <div className="min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto flex flex-col justify-between relative">
+      <div className="min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] max-w-[1440px] mx-auto flex flex-col justify-between relative">
         {/* Hero Content */}
         <div className="px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] max-w-5xl">
           <h1
             id="hero-title"
-            className="m-0 font-brand font-medium leading-none text-[40px] md:text-[56px] xl:text-[88px] tracking-[-3.52px]"
+            className="m-0 font-brand font-medium leading-[1.1] md:leading-none text-[40px] md:text-[56px] xl:text-[88px] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px]"
           >
             {titleNodes}
           </h1>
-          <p className="text-[#ABABBA] text-lg md:text-2xl mt-6 mb-0 max-w-xl tracking-[-0.48px]">
+          <p className="text-[#ABABBA] text-lg md:text-2xl mt-6 mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px]">
             {subtitle}
           </p>
 
           {extraCta && extraCtaHref && (
             <div className="mt-[32px] xl:mt-[64px]">
               <Button
-                className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.18px]"
+                className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
                 size="lg"
                 asChild
               >
@@ -145,7 +145,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           {emailCta && onEmailClick && (
             <div className="mt-[32px] xl:mt-[64px]">
               <Button
-                className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.18px]"
+                className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
                 size="lg"
                 aria-label={emailCta}
                 onClick={onEmailClick}
@@ -224,7 +224,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             {/* Download Section */}
             {emailCta && onEmailClick && (
               <div className="overflow-hidden w-full xl:w-1/3 p-[0_12px_12px] md:p-[12px] xl:p-[0_24px_0_0]">
-                <div className="flex flex-row items-stretch p-4 md:p-6 bg-white text-black rounded-xl">
+                <div className="flex flex-row items-stretch p-4 md:p-6 bg-white xl:bg-[url('/src/img/solutions/hero-texture.svg')] bg-cover bg-[position:right_bottom] text-black rounded-xl">
                   {reportImgSrc && (
                     <div className="grow-0 shrink-0 mr-4">
                       <Image
@@ -236,22 +236,22 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                       />
                     </div>
                   )}
-                  <div className="grow flex flex-col justify-between gap-4">
+                  <div className="grow flex flex-col justify-between gap-[12px] xl:gap-4">
                     <div>
                       {reportEyebrow && (
-                        <p className="font-bold text-base md:text-lg m-0 tracking-[-0.2px]">
+                        <p className="font-bold text-base md:text-lg m-0 tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px]">
                           {reportEyebrow}
                         </p>
                       )}
                       {reportDescription && (
-                        <p className="text-sm md:text-base opacity-70 m-0 mt-2 tracking-[-0.16px]">
+                        <p className="text-sm md:text-base opacity-70 mb-0 mt-[3px] tracking-[-0.14px] md:tracking-[-0.16px]">
                           {reportDescription}
                         </p>
                       )}
                     </div>
                     <div>
                       <Button
-                        className="rounded-full text-base px-4 h-8 bg-black text-white hover:!bg-black/90 tracking-[-0.18px]"
+                        className="rounded-full text-base px-4 h-8 bg-black text-white hover:!bg-black/90 tracking-[-0.16px] md:tracking-[-0.18px]"
                         size="lg"
                         aria-label={emailCta}
                         onClick={onEmailClick}

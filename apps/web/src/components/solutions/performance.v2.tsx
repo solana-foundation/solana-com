@@ -35,7 +35,7 @@ export const Performance = ({
 
   return (
     <section className="relative bg-black text-white text-left font-brand">
-      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-xl:gap-6 xl:gap-20">
+      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-xl:gap-6 xl:gap-20">
         <div className={cn("w-full xl:w-1/2")}>
           {title && (
             <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-[32px] xl:mb-[48px]">

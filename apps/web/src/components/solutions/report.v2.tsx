@@ -79,7 +79,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
         />
       </div>
       <div className="py-[64px] md:py-[112px] xl:py-[160px] relative">
-        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px]">
+        <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px]">
           <div className="flex flex-col md:flex-row items-stretch max-xl:gap-6 xl:gap-14">
             {imgSrc && (
               <div className="grow-0 shrink-0">
@@ -95,19 +95,19 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
             <div className="grow flex flex-col justify-between gap-4">
               <div>
                 {eyebrow && (
-                  <h3 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] m-0 max-w-xl tracking-[-2.56px]">
+                  <h3 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] m-0 max-w-xl tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
                     {eyebrow}
                   </h3>
                 )}
                 {description && (
-                  <p className="text-lg md:text-2xl text-white opacity-[0.64] max-md:mt-2 md:mt-6 mb-0 max-w-md tracking-[-0.48px]">
+                  <p className="text-lg md:text-2xl text-white opacity-[0.64] max-md:mt-2 md:mt-6 mb-0 max-w-md tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
                     {description}
                   </p>
                 )}
               </div>
               <div>
                 <Button
-                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.18px]"
+                  className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
                   size="lg"
                   aria-label={emailCta}
                   onClick={onEmailClick}
@@ -127,7 +127,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
           {links && (
             <div className="max-xl:mt-16 max-xl:pt-16 xl:mt-24 xl:pt-24 border-t border-white/10">
               {linksTitle && (
-                <h3 className="font-brand font-medium leading-none text-[18px] md:text-[32px] xl:text-[36px] mt-0 mb-[2rem] tracking-[-1.08px]">
+                <h3 className="font-brand font-medium text-[18px] md:text-[32px] xl:text-[36px] mt-0 mb-[2rem] tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px] leading-[1.33] md:leading-[1.25] xl:leading-[1.22]">
                   {linksTitle}
                 </h3>
               )}
@@ -143,7 +143,7 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                         {index + 1}
                       </span>
                     </div>
-                    <h3 className="font-brand text-base md:text-2xl font-medium xl:mt-5 xl:mb-5 max-xl:mb-0 flex-grow tracking-[-0.72px]">
+                    <h3 className="font-brand text-base md:text-2xl font-medium xl:mt-5 xl:mb-5 max-xl:mb-0 flex-grow tracking-[-0.48px] md:tracking-[-0.72px] leading-[1.5] md:leading-[1.33]">
                       {item.title}
                     </h3>
                     <div className="xl:absolute xl:bottom-6 xl:left-6 opacity-50 max-xl:m-auto">

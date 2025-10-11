@@ -142,11 +142,11 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
           </div>
         )}
       </div>
-      <h3 className="text-lg md:text-3xl xl:text-4xl font-medium mt-6 mb-0 tracking-[-1.08px]">
+      <h3 className="text-lg md:text-3xl xl:text-4xl font-medium mt-6 mb-0 tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px]  leading-[1.33] md:leading-[1.25] xl:leading-[1.22]">
         {video.title}
       </h3>
       {video.description && (
-        <p className="text-[#ABABBA] max-md:text-base md:text-lg xl:text-xl mt-1 mb-0 tracking-[-0.2px]">
+        <p className="text-[#ABABBA] max-md:text-base md:text-lg xl:text-xl mt-1 mb-0 tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.5] md:leading-[1.77] xl:leading-[1.6]">
           {video.description}
         </p>
       )}
@@ -156,17 +156,17 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
   return (
     <section className="relative overflow-hidden text-white text-left">
       <div className="py-[64px] md:py-[112px] xl:py-[160px]">
-        <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px] flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+        <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] mb-[32px] xl:mb-[48px] flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
           {(title || subtitle) && (
             // Title and subtitle
             <div className="max-w-xl">
               {title && (
-                <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-0 tracking-[-2.56px]">
+                <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] mb-0 tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
                   {title}
                 </h2>
               )}
               {subtitle && (
-                <p className="text-[#ABABBA] text-lg md:text-2xl max-xl:mt-2 xl:mt-5 mb-0 tracking-[-0.48px]">
+                <p className="text-[#ABABBA] text-lg md:text-2xl max-xl:mt-2 xl:mt-5 mb-0 tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
                   {subtitle}
                 </p>
               )}
@@ -193,7 +193,7 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
         {videos.length > 1 ? (
           // Carousel
           <div
-            className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px]"
+            className="max-w-[1440px] mx-auto px-5 md:px-[32px]"
             ref={statsRef}
           >
             <Carousel
@@ -208,7 +208,7 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
         ) : (
           // Already stacks on mobile, no change needed
           <div
-            className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-5 md:px-[32px] flex flex-col gap-4 xl:gap-8"
+            className="max-w-[1440px] mx-auto px-5 md:px-[32px] flex flex-col gap-4 xl:gap-8"
             ref={statsRef}
           >
             {videoCards}

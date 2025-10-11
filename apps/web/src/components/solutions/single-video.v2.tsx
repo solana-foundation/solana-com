@@ -25,7 +25,7 @@ export const SingleVideo = ({
 }: SingleVideoProps) => {
   return (
     <section className={cn("relative text-white text-left", className)}>
-      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
+      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px]">
         <Video
           platform={platform}
           id={id}
@@ -43,12 +43,12 @@ export const SingleVideo = ({
           playButtonIconClassName="max-md:!w-4 max-md:!h-4 md:!w-5 md:!h-5 xl:!w-6 xl:!h-6"
         />
         {title && (
-          <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-4 xl:mt-6 mb-0 group-hover:underline">
+          <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-4 xl:mt-6 mb-0 group-hover:underline leading-[1.33] md:leading-[1.25] xl:leading-[1.22] tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px]">
             {title}
           </h3>
         )}
         {description && (
-          <p className="text-[#ABABBA] text-base md:text-lg xl:text-xl mt-2 mb-0">
+          <p className="text-[#ABABBA] text-base md:text-lg xl:text-xl mt-2 mb-0 leading-[1.5] md:leading-[1.77] xl:leading-[1.6] tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px]">
             {description}
           </p>
         )}

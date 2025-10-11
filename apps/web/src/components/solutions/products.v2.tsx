@@ -65,7 +65,7 @@ export const Products = ({
     <section
       className={cn("relative text-white text-left overflow-hidden", className)}
     >
-      <div className="max-w-sm md:max-w-3xl xl:max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-md:gap-8 md:gap-16">
+      <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-md:gap-8 md:gap-16">
         <div className={cn("w-full", { "xl:w-2/5": oneColumn })}>
           {(title || description) && (
             <div
@@ -74,12 +74,12 @@ export const Products = ({
               })}
             >
               {title && (
-                <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-0 tracking-[-2.56px]">
+                <h2 className="font-brand font-medium leading-[1.25] md:leading-[1.1] xl:leading-[1.125] text-[32px] md:text-[40px] xl:text-[64px] mb-0 tracking-[-1.28px] md:tracking-[-1.6px] xl:tracking-[-2.56px]">
                   {title}
                 </h2>
               )}
               {description && (
-                <p className="text-[#ABABBA] text-lg md:text-2xl max-xl:mt-2 xl:mt-5 mb-0 tracking-[-0.48px]">
+                <p className="text-[#ABABBA] text-lg md:text-2xl max-xl:mt-2 xl:mt-5 mb-0 tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
                   {description}
                 </p>
               )}
@@ -120,10 +120,10 @@ export const Products = ({
                     </svg>
                   </div>
                   <div className="grow">
-                    <p className="font-medium mb-0 text-base md:text-2xl tracking-[-0.48px]">
+                    <p className="font-medium mb-0 text-base md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.5] md:leading-[1.33]">
                       {productTitle}
                     </p>
-                    <p className="text-[#ABABBA] mt-2 mb-0 text-base md:text-lg xl:text-xl tracking-[-0.2px]">
+                    <p className="text-[#ABABBA] mt-[2px] mb-0 text-base md:text-lg xl:text-xl tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.5] md:leading-[1.77] xl:leading-[1.6]">
                       {productDescription}
                     </p>
                   </div>
