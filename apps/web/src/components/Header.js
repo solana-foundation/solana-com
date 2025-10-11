@@ -13,6 +13,7 @@ import { useTheme } from "@/themecontext";
 import { useTranslations } from "next-intl";
 import DevelopersNav from "./developers/DevelopersNav/DevelopersNav";
 import styles from "./Header.module.scss";
+import LanguageSelector from "@/components/LanguageSelector";
 
 const Header = ({ className = "", containerClassName = "" }) => {
   const router = useRouter();
@@ -42,34 +43,43 @@ const Header = ({ className = "", containerClassName = "" }) => {
       <header className={`position-sticky sticky-top ${className}`}>
         <Navbar
           id="navbar"
-          expand="lg"
+          expand="xl"
           variant=""
           expanded={expanded}
           onToggle={setExpanded}
         >
-          <div className={`container-xl ${containerClassName}`}>
-            <Link to="/" className="d-flex" aria-label="Solana">
+          <div
+            className={`w-full max-w-[1440px] px-[20px] xl:px-[14px] mx-auto flex items-center justify-between gap-x-5 xl:gap-x-12 ${containerClassName}`}
+          >
+            <Link to="/" className="block shrink-0 grow-0" aria-label="Solana">
               <SolanaLogo
                 style={{ color: "var(--body-text)" }}
-                width={149}
-                height={22}
+                width={134}
+                height={40}
+                viewBox="0 0 149 22"
+                className="block w-[107px] xl:w-[134px]"
               />
             </Link>
 
-            <div className="d-flex align-items-center">
+            <div className="xl:grow flex items-center gap-x-5 xl:gap-x-12">
               <Navbar.Toggle
                 aria-controls="navbarCollapse"
                 as="button"
                 type="button"
               >
                 <span className="bar"></span>
-                <span className="bar"></span>
+                <span className="bar max-w-[60%] ml-auto"></span>
                 <span className="bar"></span>
               </Navbar.Toggle>
               <Navbar.Collapse id="navbarCollapse">
                 <HeaderList />
               </Navbar.Collapse>
-              <InkeepSearchBar />
+              <div className="hidden xl:flex items-center gap-x-5">
+                <InkeepSearchBar />
+                <div className="language-selector relative">
+                  <LanguageSelector />
+                </div>
+              </div>
               {isThemePage && (
                 <button
                   className={styles.header__toggle}

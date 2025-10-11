@@ -7,7 +7,7 @@ const HeaderListBuild = () => {
   const t = useTranslations();
 
   return (
-    <div className="d-lg-flex">
+    <div className="xl:flex">
       <div>
         <div className="text-uppercase py-2 d-flex align-items-center">
           <DevelopersSVG className="me-3" />

@@ -46,6 +46,7 @@ export const Logos = ({ logos }: LogosProps) => {
       <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-[#090d17] to-transparent z-10" />
       {/* Right Blur */}
       <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-[#090d17] to-transparent z-10" />
+      {/* Content */}
       <Marquee className="w-full">{items}</Marquee>
     </div>
   );

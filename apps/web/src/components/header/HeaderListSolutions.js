@@ -14,7 +14,7 @@ const HeaderListSolutions = () => {
 
   return (
     <>
-      <div className="d-lg-flex">
+      <div className="xl:flex">
         <div>
           <div className="text-uppercase py-2 d-flex align-items-center">
             <SolutionsToolsSVG className="me-3" />
@@ -178,6 +178,42 @@ const HeaderListSolutions = () => {
               </strong>
             </Link>
             <Link
+              to="/solutions/defi"
+              className="nav-link nav-link--secondary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-white">
+                {solutionsCasesItems[9].title}
+              </strong>
+            </Link>
+            <Link
+              to="/solutions/consumer"
+              className="nav-link nav-link--secondary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-white">
+                {solutionsCasesItems[10].title}
+              </strong>
+            </Link>
+            <Link
+              to="/solutions/ai"
+              className="nav-link nav-link--secondary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-white">
+                {solutionsCasesItems[11].title}
+              </strong>
+            </Link>
+            <Link
+              to="/solutions/desci"
+              className="nav-link nav-link--secondary"
+              activeClassName="active"
+            >
+              <strong className="d-block text-white">
+                {solutionsCasesItems[12].title}
+              </strong>
+            </Link>
+            <Link
               to="/solutions/enterprise"
               className="nav-link nav-link--secondary"
               activeClassName="active"
@@ -207,8 +243,8 @@ const HeaderListSolutions = () => {
           </div>
         </div>
       </div>
-      <div className="d-lg-flex nav-footer">
-        <div className="w-lg-50">
+      <div className="xl:flex nav-footer">
+        <div className="xl:w-1/2">
           <div className="text-uppercase py-2 d-flex align-items-center">
             <SolutionsResourcesSVG className="me-3" />
             {t("nav.solutions.resources.title")}
@@ -235,10 +271,10 @@ const HeaderListSolutions = () => {
           </div>
         </div>
 
-        <div className="divider d-none d-lg-block invisible"></div>
+        <div className="divider d-none xl:block invisible"></div>
 
-        <div className="w-lg-50">
-          <div className="d-none d-lg-block text-uppercase py-2 d-flex align-items-center">
+        <div className="xl:w-1/2">
+          <div className="d-none xl:block text-uppercase py-2 d-flex align-items-center">
             &nbsp;
           </div>
           <div>

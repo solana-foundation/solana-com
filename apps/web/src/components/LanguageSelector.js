@@ -2,7 +2,8 @@
 
 import Dropdown from "react-bootstrap/Dropdown";
 import Globe from "../../public/src/img/icons/Globe.inline.svg";
-import { ChevronDown } from "react-feather";
+import ChevronGrabberVertical from "../../public/src/img/icons/ChevronGrabberVertical.inline.svg";
+// import { ChevronDown } from "react-feather";
 import { languages } from "@workspace/i18n/config";
 import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
@@ -22,7 +23,7 @@ const Language = () => {
         <span className="align-middle fw-normal mx-1 text-uppercase">
           {currentLocale}
         </span>
-        <ChevronDown size="17" />
+        <ChevronGrabberVertical width="20" height="20" />
       </Dropdown.Toggle>
 
       <Dropdown.Menu
