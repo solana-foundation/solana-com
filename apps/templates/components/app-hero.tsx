@@ -15,14 +15,14 @@ export function AppHero({
       <div className="absolute top-0 left-0 w-full h-full -z-50 overflow-x-hidden">
         <Image
           src={"/hero.webp"}
-          alt="Hero"
+          alt=""
           width={1000}
           height={1000}
           className="absolute top-0 -left-[550px] hidden md:block -z-10"
         />
         <Image
           src={"/hero.webp"}
-          alt="Hero"
+          alt=""
           width={1000}
           height={1000}
           className="absolute -top-44 -right-[550px] hidden md:block -z-10"

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { RepokitTemplate } from "@/lib/generated/repokit";
+import { useRouter } from "next/navigation";
 
 export interface UseSearchKeyboardReturn {
   activeIndex: number;
@@ -25,6 +26,7 @@ export function useSearchKeyboard({
   inputRef,
 }: UseSearchKeyboardProps): UseSearchKeyboardReturn {
   const [activeIndex, setActiveIndex] = useState(-1);
+  const router = useRouter();
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -52,7 +54,7 @@ export function useSearchKeyboard({
           if (activeIndex >= 0 && filteredTemplates[activeIndex]) {
             const template = filteredTemplates[activeIndex];
             const internalHref = `/developers/templates/${template.source.id}/${template.name}`;
-            window.location.href = internalHref;
+            router.push(internalHref);
             onCardClick?.();
           }
           break;
