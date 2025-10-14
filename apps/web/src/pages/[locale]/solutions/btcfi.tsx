@@ -95,6 +95,7 @@ const InstitutionalPaymentsPage = () => {
         <Projects
           title={t.rich("btcfi.projects.title", {
             light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
           })}
           projects={PROJECTS}
           translationBase="btcfi.projects"

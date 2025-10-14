@@ -85,6 +85,7 @@ const ConsumerPage = () => {
         <Projects
           title={t.rich("consumer.projects.title", {
             light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
           })}
           projects={PROJECTS}
           translationBase="consumer.projects"

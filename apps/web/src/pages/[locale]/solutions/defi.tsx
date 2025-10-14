@@ -85,6 +85,7 @@ const DeFiPage = () => {
         <Projects
           title={t.rich("defi.projects.title", {
             light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
           })}
           projects={PROJECTS}
           translationBase="defi.projects"

@@ -81,7 +81,7 @@ export const LatestNews = ({ title, items }: LatestNewsProps) => {
                     />
                   </div>
                 )}
-                <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-0 mb-0 group-hover:underline tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px] leading-[1.33] md:leading-[1.25] xl:leading-[1.22]">
+                <h3 className="text-lg md:text-3xl xl:text-4xl font-medium mt-0 mb-0 group-hover:underline tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px] leading-[1.33] md:leading-[1.25] xl:leading-[1.22]">
                   {items[0].title}
                 </h3>
               </div>

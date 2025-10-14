@@ -119,7 +119,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           >
             {titleNodes}
           </h1>
-          <p className="text-[#ABABBA] text-lg md:text-2xl mt-6 mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px]">
+          <p className="text-[#ABABBA] text-lg md:text-2xl mt-6 mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
             {subtitle}
           </p>
 
@@ -219,6 +219,21 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                   </div>
                 </div>
               ))}
+              {stats.length % 2 !== 0 && (
+                <div
+                  className={cn(
+                    "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15 xl:hidden border-l",
+                    {
+                      "animate-fade-in-up": isIntersecting,
+                    },
+                  )}
+                  style={
+                    isIntersecting
+                      ? { animationDelay: `${0.1 + stats.length * 0.1}s` }
+                      : { opacity: 0 }
+                  }
+                />
+              )}
             </div>
 
             {/* Download Section */}
@@ -240,7 +255,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                   <div className="grow flex flex-col justify-between gap-[12px] xl:gap-4">
                     <div>
                       {reportEyebrow && (
-                        <p className="font-bold text-base md:text-lg m-0 tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px]">
+                        <p className="font-medium text-base md:text-lg m-0 tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px]">
                           {reportEyebrow}
                         </p>
                       )}

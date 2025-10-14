@@ -137,10 +137,10 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
                   <a
                     key={index}
                     href={item.href}
-                    className="group flex-1 relative flex max-xl:flex-row xl:flex-col max-xl:p-3 xl:p-6 rounded-xl bg-white/10 hover:bg-white/15 transition-all duration-300 backdrop-blur-sm xl:min-h-48 text-inherit"
+                    className="group flex-1 relative flex max-xl:flex-row xl:flex-col items-center xl:items-start max-xl:p-3 xl:p-6 rounded-xl bg-white/10 hover:bg-white/15 transition-all duration-300 backdrop-blur-sm xl:min-h-48 text-inherit"
                   >
-                    <div className="xl:w-8 xl:h-8 max-xl:w-6 max-xl:h-6 md:mt-1 shrink-0 grow-0 bg-none rounded-full flex items-center justify-center text-white border-[1px] border-white group-hover:bg-white group-hover:!text-black mr-3">
-                      <span className="text-sm font-medium leading-8">
+                    <div className="xl:w-8 xl:h-8 max-xl:w-6 max-xl:h-6 xl:mt-1 shrink-0 grow-0 bg-none rounded-full flex items-center justify-center text-white border-[1px] border-white group-hover:bg-white group-hover:!text-black mr-3">
+                      <span className="text-sm font-medium leading-none mt-[1px]">
                         {index + 1}
                       </span>
                     </div>

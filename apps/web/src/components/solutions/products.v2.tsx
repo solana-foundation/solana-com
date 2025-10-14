@@ -157,12 +157,12 @@ export const Products = ({
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex flex-row w-full p-[12px_0] xl:p-[24px_12px] text-inherit focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-xl"
+                      className="group flex flex-row w-full p-[24px_0] xl:p-[24px_12px] text-inherit focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-xl"
                     >
                       {content}
                     </a>
                   ) : (
-                    <div className="flex flex-row w-full p-[12px_0] xl:p-[24px_12px]">
+                    <div className="flex flex-row w-full p-[24px_0] xl:p-[24px_12px]">
                       {content}
                     </div>
                   )}

@@ -65,6 +65,7 @@ const ConsumerPage = () => {
         <Projects
           title={t.rich("desci.projects.title", {
             light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
           })}
           projects={PROJECTS}
           translationBase="desci.projects"

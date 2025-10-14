@@ -54,6 +54,7 @@ const AiPage = () => {
         <Projects
           title={t.rich("ai-solution.projects.title", {
             light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
           })}
           projects={PROJECTS}
           translationBase="ai-solution.projects"

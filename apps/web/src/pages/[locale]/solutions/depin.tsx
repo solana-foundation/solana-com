@@ -94,6 +94,7 @@ const DePINPage = () => {
         <Projects
           title={t.rich("depin.ecoProjects.title", {
             light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
           })}
           projects={PROJECTS}
           translationBase="depin.ecoProjects"

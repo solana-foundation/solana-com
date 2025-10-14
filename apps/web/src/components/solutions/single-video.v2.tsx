@@ -43,7 +43,7 @@ export const SingleVideo = ({
           playButtonIconClassName="max-md:!w-4 max-md:!h-4 md:!w-5 md:!h-5 xl:!w-6 xl:!h-6"
         />
         {title && (
-          <h3 className="text-lg md:text-3xl xl:text-4xl font-semibold mt-4 xl:mt-6 mb-0 group-hover:underline leading-[1.33] md:leading-[1.25] xl:leading-[1.22] tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px]">
+          <h3 className="text-lg md:text-3xl xl:text-4xl font-medium mt-4 xl:mt-6 mb-0 group-hover:underline leading-[1.33] md:leading-[1.25] xl:leading-[1.22] tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px]">
             {title}
           </h3>
         )}
