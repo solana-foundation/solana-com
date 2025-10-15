@@ -6,15 +6,32 @@ import { locales } from "@workspace/i18n/config";
 const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
+
   // Skip i18n for /breakpoint/* paths
-  if (req.nextUrl.pathname.startsWith("/breakpoint")) {
+  if (pathname.startsWith("/breakpoint")) {
     return NextResponse.next();
   }
 
-  if (req.nextUrl.pathname !== req.nextUrl.pathname.toLowerCase()) {
+  if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
-      `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}`,
+      `${req.nextUrl.origin + pathname.toLowerCase()}`,
     );
+  }
+
+  // 🚨 FIX: Prevent infinite reload when multiple locales appear (e.g., /ja/us/docs)
+  const pathParts = pathname.split("/").filter(Boolean);
+  const detectedLocales = pathParts.filter((p) => locales.includes(p));
+
+  if (detectedLocales.length > 1) {
+    const primaryLocale = detectedLocales[0];
+    const cleanPath = [
+      "",
+      primaryLocale,
+      ...pathParts.filter((p) => !locales.includes(p) || p === primaryLocale),
+    ].join("/");
+
+    return NextResponse.redirect(new URL(cleanPath, req.url));
   }
 
   const localeParam = req.nextUrl?.searchParams?.get("locale");
