@@ -119,7 +119,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           >
             {titleNodes}
           </h1>
-          <p className="text-[#ABABBA] text-lg md:text-2xl mt-6 mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
+          <p className="text-[#ABABBA] text-lg md:text-2xl mt-[12px] xl:mt-[24px] mb-0 max-w-xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
             {subtitle}
           </p>
 
