@@ -260,14 +260,14 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                         </p>
                       )}
                       {reportDescription && (
-                        <p className="text-[14px] md:text-base opacity-70 mb-0 mt-[3px] tracking-[-0.14px] md:tracking-[-0.16px]">
+                        <p className="text-[14px] md:text-base opacity-70 mb-0 mt-[3px] tracking-[-0.14px] md:tracking-[-0.16px] leading-[1.25] md:leading-[1.44]">
                           {reportDescription}
                         </p>
                       )}
                     </div>
                     <div>
                       <Button
-                        className="rounded-full text-base px-4 h-8 bg-black text-white hover:!bg-black/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                        className="rounded-full text-base font-light px-4 h-8 bg-black text-white hover:!bg-black/90 tracking-[-0.16px] md:tracking-[-0.18px]"
                         size="lg"
                         aria-label={emailCta}
                         onClick={onEmailClick}
