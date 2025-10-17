@@ -1,7 +1,7 @@
 "use client";
 
 import Dropdown from "react-bootstrap/Dropdown";
-import Globe from "./assets/Globe.inline.svg";
+import Globe from "./assets/globe.inline.svg";
 import { ChevronDown } from "react-feather";
 import { languages } from "@workspace/i18n/config";
 import { usePathname } from "@workspace/i18n/routing";
