@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
 // import styles from "./NFTShowdownFooter.module.scss";
-import { InlineLink } from "../shared/Link";
+import { InlineLink } from "@/utils/Link";
 import { useState } from "react";
 import Button from "../shared/Button";
 

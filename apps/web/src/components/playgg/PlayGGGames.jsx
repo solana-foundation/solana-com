@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
 import styles from "./PlayGGGames.module.scss";
-import { InlineLink } from "../shared/Link";
+import { InlineLink } from "@/utils/Link";
 import Image from "next/image";
 import br1 from "../../../assets/playgg/games/br1.png";
 import aurory from "../../../assets/playgg/games/aurory.png";
