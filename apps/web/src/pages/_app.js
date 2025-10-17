@@ -1,11 +1,10 @@
-import { ThemeProvider } from "../themecontext";
+import { ThemeProvider, InkeepChatButton } from "@solana-com/ui-chrome";
 import "../app/globals.css";
 import "../scss/index.scss";
 import { NextIntlClientProvider } from "next-intl";
 import SitewideTopAlert from "../components/sharedPageSections/SitewideTopAlert";
 import GTMTrackingSnippet from "../components/GTMTrackingSnippet";
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
-import { InkeepChatButton } from "@/app/components/inkeep/inkeep-chat-button";
 import Script from "next/script";
 
 const App = ({ Component, pageProps: { messages, ...pageProps } }) => {

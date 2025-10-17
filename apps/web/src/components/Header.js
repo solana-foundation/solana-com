@@ -8,7 +8,7 @@ import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
 import Moon from "../../public/src/img/icons/Moon.inline.svg";
 import Sun from "../../public/src/img/icons/Sun.inline.svg";
 import HeaderList from "./header/HeaderList";
-import { InkeepSearchBar } from "@@/src/app/components/inkeep/inkeep-searchbar";
+// import { InkeepSearchBar } from "@@/src/app/components/inkeep/inkeep-searchbar";
 import { useTheme } from "@/themecontext";
 import { useTranslations } from "next-intl";
 import DevelopersNav from "./developers/DevelopersNav/DevelopersNav";
@@ -69,7 +69,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
               <Navbar.Collapse id="navbarCollapse">
                 <HeaderList />
               </Navbar.Collapse>
-              <InkeepSearchBar />
+              {/* <InkeepSearchBar /> */}
               {isThemePage && (
                 <button
                   className={styles.header__toggle}

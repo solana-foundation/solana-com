@@ -2,18 +2,17 @@ import "@/scss/index.scss";
 import "@/app/globals.css";
 
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
-import Footer from "@@/src/components/Footer";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
-import Header from "@@/src/components/Header";
 import { NextIntlClientProvider } from "next-intl";
 import { Metadata } from "next";
 import { PostHogProvider } from "@@/src/app/components/posthog/PostHogProvider";
 import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
-import { ThemeProvider } from "@/themecontext";
+
 import { config } from "@@/src/config";
 import { getBaseMetadata } from "@@/src/app/metadata";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
+import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
 
 type Props = {
   children: React.ReactNode;

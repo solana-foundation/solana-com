@@ -1,7 +1,7 @@
 import { coursesSource } from "@@/src/app/sources/courses";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
-import { InkeepChatButton } from "@@/src/app/components/inkeep/inkeep-chat-button";
+import { InkeepChatButton } from "@solana-com/ui-chrome";
 type Props = {
   children: ReactNode;
   params: Promise<{ locale: string }>;
