@@ -143,7 +143,7 @@ export const Products = ({
                 <li
                   key={key}
                   className={cn("p-0", {
-                    "!border-t-0": !oneColumn && index === 1,
+                    "xl:!border-t-0": !oneColumn && index === 1,
                     "animate-fade-in-up": isIntersecting,
                   })}
                   style={
