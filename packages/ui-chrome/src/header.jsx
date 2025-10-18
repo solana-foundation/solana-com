@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { useTheme } from "./theme-provider";
 import { useRouter } from "@workspace/i18n/use-router";
 import { Link } from "./link";
-import styles from "./header.module.scss";
 import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
 import { InkeepSearchBar } from "./inkeep-searchbar";
@@ -71,7 +70,7 @@ function Header({ className = "", containerClassName = "" }) {
               <InkeepSearchBar />
               {isThemePage && (
                 <button
-                  className={styles.header__toggle}
+                  className="flex border-none ml-[15px] transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-[15deg] hover:[&>svg]:fill-[var(--body-text)]"
                   onClick={toggleTheme}
                   aria-label={t("commands.toggle")}
                 >

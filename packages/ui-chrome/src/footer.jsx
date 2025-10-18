@@ -1,6 +1,5 @@
 "use client";
 
-import styles from "./footer.module.scss";
 import classNames from "classnames";
 import YoutubeIcon from "./assets/youtube.inline.svg";
 import TwitterIcon from "./assets/twitter.inline.svg";
@@ -18,7 +17,7 @@ const CopyrightRow = () => {
   const t = useTranslations();
 
   return (
-    <span className={styles["solFooter__copyright"]}>
+    <span className="text-[#848895]">
       {t("footer.copyright", {
         currentYear: new Date().getFullYear(),
       })}
@@ -30,35 +29,72 @@ const Footer = ({ className = "" }) => {
   const t = useTranslations();
 
   return (
-    <div className={classNames(styles["solFooter"], className)}>
+    <div
+      className={classNames(
+        "text-[1rem] mt-20 py-20 bg-[#000508] text-white !border border-[#141414] rounded-t-xl",
+        "[background-image:radial-gradient(farthest-corner_at_bottom_right,#3a233f,transparent_250px)]",
+        "md:[background-image:radial-gradient(farthest-side_at_bottom_left,#271d3b,transparent_900px),radial-gradient(farthest-corner_at_bottom_right,#3a233f,transparent_1000px)]",
+        "[&_a:not(.dropdown-item):not(.social-icon)]:text-[#848895]",
+        "[&_a:not(.dropdown-item):not(.social-icon):hover]:text-white",
+        "[&_button]:text-[#848895]",
+        "[&_button:hover]:text-white",
+        "[&_ul_a]:py-1.5",
+        "[&_ul_a]:inline-block",
+        className,
+      )}
+    >
       <div className="container">
         <div className="d-md-flex justify-content-md-between">
           <div className="d-flex flex-column align-items-center align-items-md-start">
-            <p className={styles["solFooter__foundation"]}>
+            <p className="font-['DSemi'] mb-0 leading-none">
               {t("footer.foundation")}
             </p>
-            <div className={styles["solFooter__foundation-logo"]}>
+            <div className="mt-[10px] mb-[20px]">
               <Link to="/" aria-label="Solana Foundation">
                 <SolanaFoundationLogo width={210} />
               </Link>
             </div>
-            <div className={styles["solFooter__social"]}>
-              <InlineLink to="/youtube" aria-label="YouTube">
+            <div className="mb-[20px]">
+              <InlineLink
+                to="/youtube"
+                aria-label="YouTube"
+                className="social-icon inline-flex bg-[#848895] hover:bg-white p-[5px] rounded-full mr-2.5 [&_svg]:fill-[#111]"
+              >
                 <YoutubeIcon width="16" height="16" />
               </InlineLink>
-              <InlineLink to="/twitter" aria-label="Twitter">
+              <InlineLink
+                to="/twitter"
+                aria-label="Twitter"
+                className="social-icon inline-flex bg-[#848895] hover:bg-white p-[5px] rounded-full mr-2.5 [&_svg]:fill-[#111]"
+              >
                 <TwitterIcon width="16" height="16" />
               </InlineLink>
-              <InlineLink to="/discord" aria-label="Discord">
+              <InlineLink
+                to="/discord"
+                aria-label="Discord"
+                className="social-icon inline-flex bg-[#848895] hover:bg-white p-[5px] rounded-full mr-2.5 [&_svg]:fill-[#111]"
+              >
                 <DiscordIcon width="16" height="16" />
               </InlineLink>
-              <InlineLink to="/reddit" aria-label="Reddit">
+              <InlineLink
+                to="/reddit"
+                aria-label="Reddit"
+                className="social-icon inline-flex bg-[#848895] hover:bg-white p-[5px] rounded-full mr-2.5 [&_svg]:fill-[#111]"
+              >
                 <RedditIcon width="16" height="16" />
               </InlineLink>
-              <InlineLink to="/github" aria-label="GitHub">
+              <InlineLink
+                to="/github"
+                aria-label="GitHub"
+                className="social-icon inline-flex bg-[#848895] hover:bg-white p-[5px] rounded-full mr-2.5 [&_svg]:fill-[#111]"
+              >
                 <GithubIcon width="16" height="16" />
               </InlineLink>
-              <InlineLink to="/telegram" aria-label="Telegram">
+              <InlineLink
+                to="/telegram"
+                aria-label="Telegram"
+                className="social-icon inline-flex bg-[#848895] hover:bg-white p-[5px] rounded-full [&_svg]:fill-[#111]"
+              >
                 <TelegramIcon width="16" height="16" />
               </InlineLink>
             </div>
