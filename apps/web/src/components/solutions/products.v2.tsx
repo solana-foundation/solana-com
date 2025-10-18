@@ -174,7 +174,7 @@ export const Products = ({
         {imageSrc && (
           <div className="w-full xl:w-3/5">
             <Image
-              className="max-w-[110%] h-auto object-contain xl:mb-[-60px]"
+              className="w-full max-w-full xl:max-w-[110%] h-auto object-contain xl:mb-[-60px]"
               src={imageSrc}
               alt=""
               width={1000}
