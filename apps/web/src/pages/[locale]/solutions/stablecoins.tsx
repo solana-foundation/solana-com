@@ -2,21 +2,24 @@ import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
 import { useTranslations } from "next-intl";
 import { withLocales } from "@workspace/i18n/routing";
-import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero";
+import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { useState } from "react";
-import { WhatIsIt } from "@/components/solutions/what-is-it";
-import { Projects } from "@/components/solutions/projects";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
+import { Projects } from "@/components/solutions/projects.v2";
 import {
   LOGOS,
   PRODUCTS,
   PROJECTS,
   VIDEOS,
 } from "@/data/solutions/stablecoins";
-import { Products } from "@/components/solutions/products";
-import { VideoGrid } from "@/components/solutions/video-grid";
+import { Products } from "@/components/solutions/products.v2";
+import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { EmailModal } from "@/components/solutions/EmailModal";
-import { CTACards } from "@/components/solutions/stablecoins/CTACards";
+import { Divider } from "@/components/solutions/divider.v2";
+import { Decor } from "@/components/solutions/decor.v2";
+import { SolutionReport } from "@/components/solutions/report.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const InstitutionalPaymentsPage = () => {
   const t = useTranslations();
@@ -26,14 +29,17 @@ const InstitutionalPaymentsPage = () => {
     {
       value: t("stablecoins.hero.stats.0.value"),
       label: t("stablecoins.hero.stats.0.label"),
+      Icon: "/src/img/solutions/stablecoins/icons/flow.svg",
     },
     {
       value: t("stablecoins.hero.stats.1.value"),
       label: t("stablecoins.hero.stats.1.label"),
+      Icon: "/src/img/solutions/stablecoins/icons/arrows.svg",
     },
     {
       value: t("stablecoins.hero.stats.2.value"),
       label: t("stablecoins.hero.stats.2.label"),
+      Icon: "/src/img/solutions/stablecoins/icons/discount.svg",
     },
   ];
 
@@ -42,72 +48,84 @@ const InstitutionalPaymentsPage = () => {
       <HTMLHead
         title={t("stablecoins.meta.title")}
         description={t("stablecoins.meta.description")}
+        socialShare="/src/img/solutions/stablecoins/og-image.webp"
       />
 
-      <div id="stablecoins-page" aria-labelledby="hero-title">
+      <SelectionColor selectionColor="#4396FF" selectionTextColor="#000000" />
+
+      <div
+        id="stablecoins-page"
+        aria-labelledby="hero-title"
+        className="bg-black"
+      >
         <SolutionHero
-          badge={t("stablecoins.hero.badge")}
           title={t("stablecoins.hero.title")}
           subtitle={t("stablecoins.hero.subtitle")}
           reportEyebrow={t("stablecoins.hero.reportEyebrow")}
+          reportDescription={t("stablecoins.hero.reportDescription")}
           emailCta={t("stablecoins.hero.emailCta")}
           onEmailClick={() => setEmailModalOpen(true)}
           stats={stats}
-          globeImgSrc="/src/img/solutions/stablecoins/hero.webp"
-          globeImgAlt={t("stablecoins.hero.alt")}
-          variant="modern"
-          titleSize="s"
-          reportImgSrc="/src/img/solutions/stablecoins/hero-download.webp"
+          reportImgSrc="/src/img/solutions/stablecoins/report-cover.webp"
+          bgJsonFilePath="/src/img/solutions/stablecoins/hero-bg.json"
         />
+
+        <Divider />
 
         <WhatIsIt
-          title={t("stablecoins.features.title")}
+          title={t.rich("stablecoins.features.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
           description={t("stablecoins.features.description")}
-          features={[]}
+          imageSrc="/src/img/solutions/stablecoins/what-is.webp"
+          highlightColor="#4396FF"
         />
 
-        {/* EcoProjects Section */}
-        <section>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 [padding-block:1rem] sm:[padding-block:3rem]">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full mb-4">
-                {t("stablecoins.projects.title")}
-              </h2>
-              <Projects
-                projects={PROJECTS}
-                translationBase="stablecoins.projects"
-                logos={LOGOS}
-                headingType="logo"
-              />
-            </div>
-          </div>
-        </section>
+        <Projects
+          title={t.rich("stablecoins.projects.title", {
+            light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
+          })}
+          projects={PROJECTS}
+          translationBase="stablecoins.projects"
+          logos={LOGOS}
+          bgSrc="/src/img/solutions/stablecoins/ecosystem-bg.webp"
+        />
 
-        {/* Products Section */}
-        <section>
-          <Products
-            title={t("stablecoins.products.title")}
-            description={t("stablecoins.products.description")}
-            products={PRODUCTS}
-            translationBase="stablecoins.products"
-          />
-        </section>
+        <Divider />
 
-        {/* Video Section */}
-        <section className=" [padding-block:1rem] sm:[padding-block:3rem] bg-[#171c25]">
-          <VideoGrid
-            title={t("stablecoins.videoPlayer.title")}
-            subtitle={t("stablecoins.videoPlayer.subtitle")}
-            videos={VIDEOS(t)}
-            moreVideosUrl={undefined}
-            moreVideosLabel={t("stablecoins.videoPlayer.moreVideos")}
-          />
-        </section>
+        <Products
+          className="z-1"
+          title={t("stablecoins.products.title")}
+          description={t("stablecoins.products.description")}
+          products={PRODUCTS}
+          translationBase="stablecoins.products"
+          highlightColor="#4396FF"
+        />
 
-        {/* Card Section */}
-        <section className="pt-6">
-          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
-        </section>
+        <Decor imageSrc="/src/img/solutions/stablecoins/bg-1.webp" />
+
+        <VideoGrid
+          title={t("stablecoins.videoPlayer.title")}
+          subtitle={t("stablecoins.videoPlayer.subtitle")}
+          videos={VIDEOS(t)}
+        />
+
+        <Divider hideOnDesktop />
+
+        <SolutionReport
+          eyebrow={t("stablecoins.cta.reportTitle")}
+          description={t("stablecoins.cta.reportDescription")}
+          emailCta={t("stablecoins.cta.downloadReport")}
+          onEmailClick={() => setEmailModalOpen(true)}
+          imgSrc="/src/img/solutions/stablecoins/report-cover.webp"
+          bgJsonFilePath="/src/img/solutions/stablecoins/hero-bg.json"
+        />
       </div>
 
       <VideoPlayerModal />
