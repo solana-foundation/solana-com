@@ -1,7 +1,7 @@
 import { FC } from "react";
 import Image from "next/image";
 import styles from "./AccelerateSpeakers.module.scss";
-import TwitterIcon from "../../../public/src/img/footer/twitter.inline.svg";
+import TwitterIcon from "../../../public/src/img/format/twitter.inline.svg";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";

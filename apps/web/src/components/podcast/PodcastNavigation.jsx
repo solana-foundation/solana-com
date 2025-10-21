@@ -3,7 +3,7 @@ import { Rss as PodcastFeedIcon } from "react-feather";
 
 import Link, { InlineLink } from "../../utils/Link";
 
-import TwitterIcon from "../../../public/src/img/footer/twitter.inline.svg";
+import TwitterIcon from "@@/public/src/img/format/twitter.inline.svg";
 
 import styles from "./PodcastNavigation.module.scss";
 

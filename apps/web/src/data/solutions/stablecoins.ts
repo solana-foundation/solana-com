@@ -1,10 +1,10 @@
-import { Blocks, Coins, Fingerprint, Landmark } from "lucide-react";
+import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
-    src: "/src/img/logos-eco/paxos.svg",
-    key: "paxos",
+    src: "/src/img/logos-eco/worldpay.svg",
+    key: "worldpay",
   },
   {
     src: "/src/img/logos-eco/circle.svg",
@@ -25,25 +25,17 @@ export const LOGOS = [];
 export const PRODUCTS = [
   {
     key: "0",
-    Icon: Coins,
-    color: "text-emerald-400 bg-emerald-900/30",
-    href: "/solutions/real-world-assets",
-  },
-  {
-    key: "1",
-    Icon: Blocks,
-    color: "text-indigo-400 bg-indigo-900/30",
-    href: "/solutions/token-extensions",
+    href: "/solutions/tokenization",
   },
   {
     key: "2",
-    Icon: Fingerprint,
-    color: "text-cyan-400 bg-cyan-900/30",
+  },
+  {
+    key: "1",
+    href: "/solutions/token-extensions",
   },
   {
     key: "3",
-    Icon: Landmark,
-    color: "text-rose-400 bg-rose-900/30",
   },
 ];
 
@@ -52,30 +44,34 @@ export const VIDEOS = (
 ) => [
   {
     id: "otCLNXJWFp4",
-    thumbnail: "/src/img/solutions/stablecoins/video1.webp",
+    thumbnail: "/src/img/solutions/stablecoins/videos/video1.webp",
     title: t("stablecoins.videoPlayer.videos.0.title"),
     description: t("stablecoins.videoPlayer.videos.0.description"),
     alt: t("stablecoins.videoPlayer.videos.0.alt"),
+    badge: VideoBadge.Interview,
   },
   {
     id: "-PEwb6bMawY",
-    thumbnail: "/src/img/solutions/stablecoins/video2.webp",
+    thumbnail: "/src/img/solutions/stablecoins/videos/video2.webp",
     title: t("stablecoins.videoPlayer.videos.1.title"),
     description: t("stablecoins.videoPlayer.videos.1.description"),
     alt: t("stablecoins.videoPlayer.videos.1.alt"),
+    badge: VideoBadge.Originals,
   },
   {
     id: "Cm5QALTvl9s",
-    thumbnail: "/src/img/solutions/stablecoins/video3.webp",
+    thumbnail: "/src/img/solutions/stablecoins/videos/video3.webp",
     title: t("stablecoins.videoPlayer.videos.2.title"),
     description: t("stablecoins.videoPlayer.videos.2.description"),
     alt: t("stablecoins.videoPlayer.videos.2.alt"),
+    badge: VideoBadge.Event,
   },
   {
     id: "wiuwMma79zI",
-    thumbnail: "/src/img/solutions/stablecoins/video4.webp",
+    thumbnail: "/src/img/solutions/stablecoins/videos/video4.webp",
     title: t("stablecoins.videoPlayer.videos.3.title"),
     description: t("stablecoins.videoPlayer.videos.3.description"),
     alt: t("stablecoins.videoPlayer.videos.3.alt"),
+    badge: VideoBadge.Event,
   },
 ];

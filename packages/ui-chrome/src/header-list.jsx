@@ -10,6 +10,9 @@ import HeaderListNetwork from "./header-list.network";
 import HeaderListCommunity from "./header-list.community";
 import HeaderListLearn from "./header-list.learn";
 
+const DownIcon = <AngleDown width={16} height={16} viewBox="0 0 24 24" />;
+const UpIcon = <AngleUp width={16} height={16} viewBox="0 0 24 24" />;
+
 const HeaderList = () => {
   const t = useTranslations();
   const { asPath } = useRouter();
@@ -48,7 +51,7 @@ const HeaderList = () => {
     asPath === "/news";
 
   return (
-    <ul className="navbar-nav ms-auto">
+    <ul className="navbar-nav">
       <Dropdown
         as="li"
         className={`nav-item`}
@@ -67,7 +70,7 @@ const HeaderList = () => {
           suppressHydrationWarning={true}
         >
           {t("nav.learn.title")}
-          {showLearn ? <AngleUp /> : <AngleDown />}
+          {showLearn ? UpIcon : DownIcon}
         </Dropdown.Toggle>
         <Dropdown.Menu>
           <HeaderListLearn />
@@ -92,7 +95,7 @@ const HeaderList = () => {
           suppressHydrationWarning={true}
         >
           {t("nav.developers.title")}
-          {showDevelopers ? <AngleUp /> : <AngleDown />}
+          {showDevelopers ? UpIcon : DownIcon}
         </Dropdown.Toggle>
         <Dropdown.Menu>
           <HeaderListBuild />
@@ -116,9 +119,9 @@ const HeaderList = () => {
           suppressHydrationWarning={true}
         >
           {t("nav.solutions.title")}
-          {showSolutions ? <AngleUp /> : <AngleDown />}
+          {showSolutions ? UpIcon : DownIcon}
         </Dropdown.Toggle>
-        <Dropdown.Menu>
+        <Dropdown.Menu className="xl:overflow-y-auto xl:max-h-[90vh]">
           <HeaderListSolutions />
         </Dropdown.Menu>
       </Dropdown>
@@ -140,7 +143,7 @@ const HeaderList = () => {
           suppressHydrationWarning={true}
         >
           {t("nav.network.title")}
-          {showNetwork ? <AngleUp /> : <AngleDown />}
+          {showNetwork ? UpIcon : DownIcon}
         </Dropdown.Toggle>
 
         <Dropdown.Menu>
@@ -165,7 +168,7 @@ const HeaderList = () => {
           suppressHydrationWarning={true}
         >
           {t("nav.community.title")}
-          {showCommunity ? <AngleUp /> : <AngleDown />}
+          {showCommunity ? UpIcon : DownIcon}
         </Dropdown.Toggle>
         <Dropdown.Menu>
           <HeaderListCommunity />

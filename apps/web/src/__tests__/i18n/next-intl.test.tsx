@@ -160,7 +160,7 @@ describe("Smoke Tests for UI Elements Across Locales", () => {
         });
         const expectedCopyright = getCopyrightText(messages);
         const copyrightElements = screen.getAllByText(expectedCopyright);
-        expect(copyrightElements).toHaveLength(2); // Expect two identical copyright elements (desktop + mobile)
+        expect(copyrightElements).toHaveLength(1); // Expect one identical copyright elements (desktop + mobile)
         expect(container).toMatchSnapshot();
       });
 

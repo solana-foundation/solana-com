@@ -9,7 +9,7 @@ const HeaderListNetwork = () => {
   const networkResourcesItems = t.raw("nav.network.resources.items");
 
   return (
-    <div className="d-lg-flex">
+    <div className="xl:flex">
       <div>
         <div className="text-uppercase py-2 d-flex align-items-center">
           <ResourcesSVG className="me-3" />

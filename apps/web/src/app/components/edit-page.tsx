@@ -1,5 +1,5 @@
 "use client";
-import GithubIcon from "@@/public/src/img/footer/github.inline.svg";
+import GithubIcon from "@@/public/src/img/format/github.inline.svg";
 import { useI18n } from "fumadocs-ui/provider";
 
 export function EditOnGithub({ href }: { href: string }) {

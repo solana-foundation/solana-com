@@ -1,113 +1,142 @@
-import DePINHero from "@/components/solutions/depin/DePinHero";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/solutions/layout";
-import { Products } from "@/components/solutions/products";
-import { LatestNews } from "@/components/solutions/latest-news";
-import { CTACards } from "@/components/solutions/depin/CTACards";
+import { Products } from "@/components/solutions/products.v2";
+// import { LatestNews } from "@/components/solutions/latest-news.v2";
 import { EmailModal } from "@/components/solutions/EmailModal";
-import { WhatIsIt } from "@/components/solutions/what-is-it";
-import { Projects } from "@/components/solutions/projects";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
+import { Projects } from "@/components/solutions/projects.v2";
 import {
   LOGOS,
   PRODUCTS,
   PROJECTS,
   VIDEOS,
-  LATEST_NEWS,
+  // LATEST_NEWS,
 } from "@/data/solutions/depin";
-import { VideoGrid } from "@/components/solutions/video-grid";
-import { Divider } from "@/components/solutions/divider";
+import { VideoGrid } from "@/components/solutions/video-grid.v2";
+import { Divider } from "@/components/solutions/divider.v2";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { withLocales } from "@workspace/i18n/routing";
-import { Video } from "@/component-library/video";
+import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
+import { SolutionReport } from "@/components/solutions/report.v2";
+import { Decor } from "@/components/solutions/decor.v2";
+import { SelectionColor } from "@/component-library/selection-color";
 
 const DePINPage = () => {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+
+  const stats: SolutionHeroStat[] = [
+    {
+      value: t("depin.hero.stats.0.value"),
+      label: t("depin.hero.stats.0.label"),
+      Icon: "/src/img/solutions/depin/icon-1.svg",
+    },
+    {
+      value: t("depin.hero.stats.1.value"),
+      label: t("depin.hero.stats.1.label"),
+      Icon: "/src/img/solutions/depin/icon-2.svg",
+    },
+    {
+      value: t("depin.hero.stats.2.value"),
+      label: t("depin.hero.stats.2.label"),
+      Icon: "/src/img/solutions/depin/icon-3.svg",
+    },
+  ];
 
   return (
     <Layout>
       <HTMLHead
         title={t("depin.meta.title")}
         description={t("depin.meta.description")}
+        socialShare="/src/img/solutions/depin/og-image.webp"
       />
+
+      <SelectionColor selectionColor="#6693F7" selectionTextColor="#000000" />
 
       <div
         id="depin-page"
-        className="bg-solution-bg"
+        className="bg-black"
         aria-labelledby="depin-hero-title"
       >
-        <DePINHero onEmailClick={() => setEmailModalOpen(true)} />
-        <WhatIsIt
-          title={t("depin.features.title")}
-          description={t("depin.features.description")}
-          features={[
-            t("depin.features.fast"),
-            t("depin.features.decentralized"),
-            t("depin.features.communityFirst"),
-          ]}
+        {/** Hero Section */}
+        <SolutionHero
+          title={t("depin.hero.title")}
+          subtitle={t("depin.hero.subtitle")}
+          reportEyebrow={t("depin.hero.reportEyebrow")}
+          reportDescription={t("depin.hero.reportDescription")}
+          emailCta={t("depin.hero.emailCta")}
+          onEmailClick={() => setEmailModalOpen(true)}
+          stats={stats}
+          reportImgSrc="/src/img/solutions/depin/hero-download.webp"
+          bgJsonFilePath="/src/img/solutions/depin/hero-bg.json"
         />
-        {/* Featured video Section */}
-        <section className="bg-[#171c25]">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <Video
-              platform="vimeo"
-              id="1108616060"
-              vimeoHash="db29df0816"
-              title="DePIN Featured video"
-              autoplay={false}
-            />
-          </div>
-        </section>
+
+        <Divider />
+
+        {/** What is it Section */}
+        <WhatIsIt
+          title={t.rich("depin.features.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
+          description={t("depin.features.description")}
+          highlightColor="#6693F7"
+          imageSrc="/src/img/solutions/depin/what-is.webp"
+        />
 
         {/* EcoProjects Section */}
-        <section className="pt-6 pb-10">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 items-start">
-              <h2 className="text-3xl font-bold text-white col-span-full">
-                {t("depin.ecoProjects.title")}
-              </h2>
-              <Projects
-                projects={PROJECTS}
-                logos={LOGOS}
-                translationBase="depin.ecoProjects"
-              />
-            </div>
-          </div>
-        </section>
+        <Projects
+          title={t.rich("depin.ecoProjects.title", {
+            light: (chunks) => <span className="font-light">{chunks}</span>,
+            br: () => <br />,
+          })}
+          projects={PROJECTS}
+          translationBase="depin.ecoProjects"
+          logos={LOGOS}
+          bgSrc="/src/img/solutions/depin/ecosystem-bg.webp"
+        />
+
+        <Divider />
 
         {/* Products Section */}
-        <section className="pb-10">
-          <Products
-            title={t("depin.products.title")}
-            description={t("depin.products.description")}
-            products={PRODUCTS}
-            translationBase="depin.products"
-          />
-        </section>
+        <Products
+          className="z-1"
+          title={t("depin.products.title")}
+          description={t("depin.products.description")}
+          products={PRODUCTS}
+          translationBase="depin.products"
+          highlightColor="#6693F7"
+        />
+
+        <Decor imageSrc="/src/img/solutions/depin/bg-1.webp" />
 
         {/* Real Builders Section */}
-        <section className="py-10 bg-[#171c25]">
-          <VideoGrid
-            title={t("depin.builders.title")}
-            subtitle={t("depin.builders.subtitle")}
-            videos={VIDEOS(t)}
-            moreVideosUrl="https://www.youtube.com/playlist?list=PLilwLeBwGuK5OT4zLm3-YOGnT0x5cmRsK"
-            moreVideosLabel={t("depin.builders.moreVideos")}
-          />
-        </section>
+        <VideoGrid
+          title={t("depin.builders.title")}
+          subtitle={t("depin.builders.subtitle")}
+          videos={VIDEOS(t)}
+        />
 
         {/* Latest News Section */}
-        <section className="py-10">
-          <LatestNews title={t("depin.news.title")} items={LATEST_NEWS(t)} />
-          <Divider className="mt-10" />
-        </section>
+        {/* <LatestNews title={t("depin.news.title")} items={LATEST_NEWS(t)} /> */}
 
-        {/* Card Section */}
-        <section className="pt-0 pb-10">
-          <CTACards onEmailClick={() => setEmailModalOpen(true)} />
-        </section>
+        <Divider hideOnDesktop />
+
+        {/* Report Section */}
+        <SolutionReport
+          eyebrow={t("depin.cta.reportTitle")}
+          description={t("depin.cta.reportDescription")}
+          emailCta={t("depin.cta.downloadReport")}
+          onEmailClick={() => setEmailModalOpen(true)}
+          imgSrc="/src/img/solutions/depin/hero-download.webp"
+          bgJsonFilePath="/src/img/solutions/depin/hero-bg.json"
+        />
       </div>
       <VideoPlayerModal />
       <EmailModal
