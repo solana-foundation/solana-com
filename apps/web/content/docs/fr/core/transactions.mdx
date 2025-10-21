@@ -1,751 +1,39 @@
 ---
-title: Transactions et instructions
+title: Transactions
 description:
-  Découvrez les transactions et instructions Solana - les éléments fondamentaux
-  pour interagir avec la blockchain Solana. Comprenez la structure des
-  transactions et la composition des instructions avec des exemples pratiques.
+  Découvrez les transactions Solana—les éléments fondamentaux pour interagir
+  avec la blockchain Solana. Comprenez la structure des transactions et la
+  composition des instructions avec des exemples pratiques.
 ---
 
-Sur Solana, les utilisateurs envoient des
-[transactions](/docs/core/transactions#transaction) pour interagir avec le
-réseau. Les transactions contiennent une ou plusieurs
-[instructions](/docs/core/transactions#instruction) qui spécifient les
-opérations à traiter. La logique d'exécution des instructions est stockée dans
-les [programmes](/docs/core/programs) déployés sur le réseau Solana, où chaque
-programme définit son propre ensemble d'instructions.
-
-Voici les détails clés concernant le traitement des transactions Solana :
-
-- Si une transaction inclut plusieurs instructions, celles-ci s'exécutent dans
-  l'ordre où elles ont été ajoutées à la transaction.
-- Les transactions sont « atomiques » - toutes les instructions doivent être
-  traitées avec succès, sinon la transaction entière échoue et aucun changement
-  n'est effectué.
-
-Une transaction est essentiellement une demande de traitement d'une ou plusieurs
-instructions. Vous pouvez considérer une transaction comme une enveloppe
-contenant des formulaires. Chaque formulaire est une instruction qui indique au
-réseau quoi faire. Envoyer la transaction revient à envoyer l'enveloppe par la
-poste pour faire traiter les formulaires.
-
-![Transaction simplifiée](/assets/docs/core/transactions/transaction-simple.svg)
-
-## Points clés
-
-- Les transactions Solana incluent des instructions qui invoquent des programmes
-  sur le réseau.
-- Les transactions sont **atomiques** - si une instruction échoue, toute la
-  transaction échoue et aucun changement n'a lieu.
-- Les instructions dans une transaction s'exécutent dans un ordre séquentiel.
-- La limite de taille d'une transaction est de
-  [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-  octets.
-- Chaque instruction nécessite trois éléments d'information :
-  1. L'adresse du programme à invoquer
-  2. Les comptes que l'instruction lit ou modifie
-  3. Toutes données supplémentaires requises par l'instruction (par ex.,
-     arguments de fonction)
-
-## Exemple de transfert de SOL
-
-Le diagramme ci-dessous représente une transaction avec une seule instruction
-pour transférer des SOL d'un expéditeur à un destinataire.
-
-Sur Solana, les "portefeuilles" sont des comptes détenus par le
-[System Program](/docs/core/accounts#system-program). Seul le programme
-propriétaire peut modifier les données d'un compte, donc transférer des SOL
-nécessite d'envoyer une transaction pour invoquer le System Program.
-
-![Transfert de SOL](/assets/docs/core/transactions/sol-transfer.svg)
-
-Le compte expéditeur doit signer (`is_signer`) la transaction pour permettre au
-System Program de déduire son solde en lamports. Les comptes expéditeur et
-destinataire doivent être modifiables (`is_writable`) puisque leurs soldes en
-lamports changent.
-
-Après l'envoi de la transaction, le System Program traite l'instruction de
-transfert. Le System Program met ensuite à jour les soldes en lamports des
-comptes expéditeur et destinataire.
-
-![Processus de transfert de SOL](/assets/docs/core/transactions/sol-transfer-process.svg)
-
-Les exemples ci-dessous montrent comment envoyer une transaction qui transfère
-des SOL d'un compte à un autre. Consultez le code source de l'instruction de
-transfert du System Program
-[ici](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L183).
-
-<CodeTabs flags="r">
-
-```ts !! title="Kit"
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
-
-// Create a connection to cluster
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
-
-// Generate sender and recipient keypairs
-const sender = await generateKeyPairSigner();
-const recipient = await generateKeyPairSigner();
-
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
-
-// Fund sender with airdrop
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: sender.address,
-  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
-  commitment: "confirmed"
-});
-
-// Check balance before transfer
-const { value: preBalance1 } = await rpc.getBalance(sender.address).send();
-const { value: preBalance2 } = await rpc.getBalance(recipient.address).send();
-
-// !mark(1:6)
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount // 0.01 SOL in lamports
-});
-
-// Add the transfer instruction to a new transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
-);
-
-// Send the transaction to the network
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-// Check balance after transfer
-const { value: postBalance1 } = await rpc.getBalance(sender.address).send();
-const { value: postBalance2 } = await rpc.getBalance(recipient.address).send();
-
-console.log(
-  "Sender prebalance:",
-  Number(preBalance1) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Recipient prebalance:",
-  Number(preBalance2) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Sender postbalance:",
-  Number(postBalance1) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Recipient postbalance:",
-  Number(postBalance2) / Number(LAMPORTS_PER_SOL)
-);
-console.log("Transaction Signature:", transactionSignature);
-```
-
-```ts !! title="Legacy"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
-
-// Create a connection to cluster
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-// Generate sender and recipient keypairs
-const sender = Keypair.generate();
-const recipient = new Keypair();
-
-// Fund sender with airdrop
-const airdropSignature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(airdropSignature, "confirmed");
-
-// Check balance before transfer
-const preBalance1 = await connection.getBalance(sender.publicKey);
-const preBalance2 = await connection.getBalance(recipient.publicKey);
-
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// !mark(1:6)
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
-});
-
-// Add the transfer instruction to a new transaction
-const transaction = new Transaction().add(transferInstruction);
-
-// Send the transaction to the network
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [sender] // signer
-);
-
-// Check balance after transfer
-const postBalance1 = await connection.getBalance(sender.publicKey);
-const postBalance2 = await connection.getBalance(recipient.publicKey);
-
-console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
-console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
-console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
-console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
-console.log("Transaction Signature:", transactionSignature);
-```
-
-```rs !! title="Rust"
-use anyhow::Result;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_commitment_config::CommitmentConfig;
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
-    transaction::Transaction,
-};
-use solana_system_interface::instruction::transfer;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Create a connection to cluster
-    let connection = RpcClient::new_with_commitment(
-        "http://localhost:8899".to_string(),
-        CommitmentConfig::confirmed(),
-    );
-
-    // Generate sender and recipient keypairs
-    let sender = Keypair::new();
-    let recipient = Keypair::new();
-
-    // Fund sender with airdrop
-    let airdrop_signature = connection
-        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
-        .await?;
-    loop {
-        let confirmed = connection.confirm_transaction(&airdrop_signature).await?;
-        if confirmed {
-            break;
-        }
-    }
-
-    // Check balance before transfer
-    let pre_balance1 = connection.get_balance(&sender.pubkey()).await?;
-    let pre_balance2 = connection.get_balance(&recipient.pubkey()).await?;
-
-    // Define the amount to transfer
-    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-    // Create a transfer instruction for transferring SOL from sender to recipient
-    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-
-    // Add the transfer instruction to a new transaction
-    let mut transaction =
-        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
-    let blockhash = connection.get_latest_blockhash().await?;
-    transaction.sign(&[&sender], blockhash);
-
-    // Send the transaction to the network
-    let transaction_signature = connection
-        .send_and_confirm_transaction(&transaction)
-        .await?;
-
-    // Check balance after transfer
-    let post_balance1 = connection.get_balance(&sender.pubkey()).await?;
-    let post_balance2 = connection.get_balance(&recipient.pubkey()).await?;
-
-    println!(
-        "Sender prebalance: {}",
-        pre_balance1 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Recipient prebalance: {}",
-        pre_balance2 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Sender postbalance: {}",
-        post_balance1 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Recipient postbalance: {}",
-        post_balance2 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!("Transaction Signature: {}", transaction_signature);
-
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-Les bibliothèques client abstraient souvent les détails de construction des
-instructions de programme. Si une bibliothèque n'est pas disponible, vous pouvez
-construire manuellement l'instruction. Cela nécessite de connaître les détails
-d'implémentation de l'instruction.
-
-Les exemples ci-dessous montrent comment construire manuellement l'instruction
-de transfert. L'onglet `Expanded Instruction` est fonctionnellement équivalent à
-l'onglet `Instruction`.
-
-<Tabs items={['Kit', 'Legacy', 'Rust']}>
-
-<Tab value="Kit">
-
-<CodeTabs>
-
-```ts !! title="Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount * LAMPORTS_PER_SOL
-});
-```
-
-```ts !! title="Expanded Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the System Program's transfer instruction
-const TRANSFER_INSTRUCTION_INDEX = 2;
-
-// Create a buffer for the data to include in the instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
-instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
-
-const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
-
-// Manually create the transfer instruction
-const transferInstruction: IInstruction = {
-  programAddress: SYSTEM_PROGRAM_ADDRESS,
-  accounts: [
-    {
-      address: sender.address,
-      role: AccountRole.WRITABLE_SIGNER
-    },
-    {
-      address: recipient.address,
-      role: AccountRole.WRITABLE
-    }
-  ],
-  data: new Uint8Array(instructionData)
-};
-```
-
-</CodeTabs>
-
-</Tab>
-
-<Tab value="Legacy">
-
-<CodeTabs>
-
-```ts !! title="Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL
-});
-```
-
-```ts !! title="Expanded Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the System Program's transfer instruction
-const transferInstructionIndex = 2;
-
-// Create a buffer for the data to include in the instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-instructionData.writeUInt32LE(transferInstructionIndex, 0);
-instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
-
-// Manually create a transfer instruction
-const transferInstruction = new TransactionInstruction({
-  keys: [
-    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
-    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
-  ],
-  programId: SystemProgram.programId,
-  data: instructionData
-});
-```
-
-</CodeTabs>
-
-</Tab>
-
-<Tab value="Rust">
-
-<CodeTabs>
-
-```rs !! title="Instruction"
-let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-let transfer_instruction =
-    transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-```
-
-```rs !! title="Expanded Instruction"
-// Instruction index for the System Program's transfer instruction
-let transfer_instruction_index: u32 = 2;
-
-// Define the amount to transfer
-let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
-let mut instruction_data = Vec::with_capacity(12);
-instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
-instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
-
-// Manually create the transfer instruction
-let transfer_instruction = Instruction {
-    program_id: system_program::id(),
-    accounts: vec![
-        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
-        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
-    ],
-    data: instruction_data,
-};
-```
-
-</CodeTabs>
-
-</Tab>
-
-</Tabs>
-
-Dans les sections suivantes, nous examinerons en détail les transactions et les
-instructions.
-
-## Instructions
-
-Une
-[instruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
-sur un [programme](/docs/core/accounts#program-account) Solana peut être
-considérée comme une fonction publique qui peut être appelée par n'importe qui
-utilisant le réseau Solana.
-
-Vous pouvez considérer un programme Solana comme un serveur web hébergé sur le
-réseau Solana, où chaque instruction est comme un point d'accès API public que
-les utilisateurs peuvent appeler pour effectuer des actions spécifiques.
-Invoquer une instruction est similaire à l'envoi d'une requête `POST` à un point
-d'accès API, permettant aux utilisateurs d'exécuter la logique métier du
-programme.
-
-<WithMentions>
-
-Pour appeler une instruction d'un programme sur Solana, vous devez construire
-une `Instruction` avec trois éléments d'information :
-
-- [ID du programme](mention:program-id) : L'adresse du programme contenant la
-  logique métier pour l'instruction invoquée.
-- [Comptes](mention:accounts) : La liste de tous les comptes que l'instruction
-  lit ou modifie.
-- [Instruction Data](mention:instruction-data) : Un tableau d'octets spécifiant
-  quelle instruction invoquer sur le programme et les arguments requis par
-  l'instruction.
-
-```rust title="Instruction"
-pub struct Instruction {
-    /// Pubkey of the program that executes this instruction.
-    // !mention program-id
-    pub program_id: Pubkey,
-    /// Metadata describing accounts that should be passed to the program.
-    // !mention accounts
-    pub accounts: Vec<AccountMeta>,
-    /// Opaque data passed to the program for its own interpretation.
-    // !mention instruction-data
-    pub data: Vec<u8>,
-}
-```
-
-</WithMentions>
-
-![Instruction de transaction](/assets/docs/core/transactions/instruction.svg)
-
-### AccountMeta
-
-<WithMentions>
-
-Lors de la création d'une `Instruction`, vous devez fournir chaque compte requis
-sous forme d'
-[`AccountMeta`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25).
-L'`AccountMeta` spécifie les éléments suivants :
-
-- [pubkey](mention:pubkey) : L'adresse du compte
-- [is_signer](mention:is-signer) : Si le compte doit signer la transaction
-- [is_writable](mention:is-writable) : Si l'instruction modifie les données du
-  compte
-
-```rust title="AccountMeta"
-pub struct AccountMeta {
-    /// An account's public key.
-    // !mention pubkey
-    pub pubkey: Pubkey,
-    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
-    // !mention is-signer
-    pub is_signer: bool,
-    /// True if the account data or metadata may be mutated during program execution.
-    // !mention is-writable
-    pub is_writable: bool,
-}
-```
-
-</WithMentions>
-
-En spécifiant à l'avance quels comptes une instruction lit ou modifie, les
-transactions qui ne modifient pas les mêmes comptes peuvent s'exécuter en
-parallèle.
-
-<Callout type="info">
-
-Pour savoir quels comptes une instruction requiert, y compris ceux qui doivent
-être modifiables, en lecture seule, ou signer la transaction, vous devez vous
-référer à l'implémentation de l'instruction telle que définie par le programme.
-
-En pratique, vous n'avez généralement pas besoin de construire une `Instruction`
-manuellement. La plupart des développeurs de programmes fournissent des
-bibliothèques client avec des fonctions d'aide qui créent les instructions pour
-vous.
-
+Pour interagir avec le réseau Solana, vous devez envoyer une transaction. Vous
+pouvez considérer une transaction comme une enveloppe contenant plusieurs
+formulaires. Chaque formulaire est une instruction qui indique au réseau quoi
+faire. Envoyer la transaction revient à envoyer l'enveloppe par la poste pour
+que les formulaires puissent être traités.
+
+L'exemple ci-dessous montre une version simplifiée de deux transactions. Lorsque
+la première transaction est traitée, elle exécutera une seule instruction.
+Lorsque la seconde transaction est traitée, elle exécutera trois instructions
+**dans un ordre séquentiel** : d'abord l'instruction 1, suivie de l'instruction
+2, puis de l'instruction 3.
+
+<Callout type="warn">
+  Les transactions sont **atomiques** : si une seule instruction échoue, toute
+  la transaction échouera et aucun changement n'aura lieu.
 </Callout>
 
-![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+![Un diagramme simplifié montrant deux transactions](/assets/docs/core/transactions/transaction-simple.svg)
 
-### Exemple de structure d'instruction
-
-Exécutez les exemples ci-dessous pour voir la structure d'une instruction de
-transfert de SOL.
-
-<CodeTabs storage="sol-transfer" flags="r">
-
-```ts !! title="Kit"
-import { generateKeyPairSigner, lamports } from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
-
-// Generate sender and recipient keypairs
-const sender = await generateKeyPairSigner();
-const recipient = await generateKeyPairSigner();
-
-// Define the amount to transfer
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount
-});
-
-console.log(JSON.stringify(transferInstruction, null, 2));
-```
-
-```ts !! title="Legacy"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  Keypair
-} from "@solana/web3.js";
-
-// Generate sender and recipient keypairs
-const sender = Keypair.generate();
-const recipient = new Keypair();
-
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
-});
-
-console.log(JSON.stringify(transferInstruction, null, 2));
-```
-
-```rs !! title="Rust"
-use anyhow::Result;
-use solana_sdk::{native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair};
-use solana_system_interface::instruction::transfer;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Generate sender and recipient keypairs
-    let sender = Keypair::new();
-    let recipient = Keypair::new();
-
-    // Define the amount to transfer
-    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-    // Create a transfer instruction for transferring SOL from sender to recipient
-    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-
-    println!("{:#?}", transfer_instruction);
-
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-Les exemples suivants montrent la sortie des extraits de code précédents. Le
-format exact diffère selon le SDK, mais chaque instruction Solana nécessite les
-informations suivantes :
+Une
+[`Transaction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+comprend les informations suivantes :
 
 <WithMentions>
 
-- [ID du programme](mention:program-id) : L'adresse du programme qui exécutera
-  l'instruction.
-- [Comptes](mention:accounts) : Une liste des comptes requis par l'instruction.
-  Pour chaque compte, l'instruction doit spécifier son adresse, s'il doit signer
-  la transaction, et s'il sera modifié.
-- [Données](mention:data) : Un tampon d'octets qui indique au programme quelle
-  instruction exécuter et inclut tous les arguments requis par l'instruction.
-
-<CodeTabs storage="sol-transfer">
-
-```json !! title="Kit"
-{
-  // !mention(1:16) accounts
-  "accounts": [
-    {
-      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
-      "role": 3,
-      "signer": {
-        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
-        "keyPair": {
-          "privateKey": {},
-          "publicKey": {}
-        }
-      }
-    },
-    {
-      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
-      "role": 1
-    }
-  ],
-  // !mention program-id
-  "programAddress": "11111111111111111111111111111111",
-  // !mention(1:14) data
-  "data": {
-    "0": 2,
-    "1": 0,
-    "2": 0,
-    "3": 0,
-    "4": 128,
-    "5": 150,
-    "6": 152,
-    "7": 0,
-    "8": 0,
-    "9": 0,
-    "10": 0,
-    "11": 0
-  }
-}
-```
-
-```json !! title="Legacy"
-{
-  // !mention(1:12) accounts
-  "keys": [
-    {
-      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
-      "isSigner": true,
-      "isWritable": true
-    },
-    {
-      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
-      "isSigner": false,
-      "isWritable": true
-    }
-  ],
-  // !mention program-id
-  "programId": "11111111111111111111111111111111",
-  // !mention data
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-```json !! title="Rust"
-{
-  // !mention program-id
-  "program_id": "11111111111111111111111111111111",
-  // !mention(1:12) accounts
-  "accounts": [
-    {
-      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
-      "is_signer": true,
-      "is_writable": true
-    },
-    {
-      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
-      "is_signer": false,
-      "is_writable": true
-    }
-  ],
-  // !mention data
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-</CodeTabs>
-
-</WithMentions>
-
-## Transactions
-
-Après avoir créé les instructions que vous souhaitez invoquer, l'étape suivante
-consiste à créer une `Transaction` et à ajouter les instructions à la
-transaction. Une
-[transaction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
-Solana est composée de :
-
-<WithMentions>
-
-1. [Signatures](mention:signatures) : Un tableau de
-   [signatures](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
-   de tous les comptes requis comme signataires pour les instructions dans la
-   transaction. Une signature est créée en signant le `Message` de la
-   transaction avec la clé privée du compte.
-2. [Message](mention:message) : Le
-   [message](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)
-   de la transaction inclut la liste des instructions à traiter de manière
-   atomique.
+- [`signatures`](mention:signatures) : Un tableau de [signatures](#signatures)
+- [`message`](mention:message) : Informations de transaction, y compris la liste
+  des instructions à traiter
 
 ```rust title="Transaction"
 pub struct Transaction {
@@ -762,19 +50,58 @@ pub struct Transaction {
 
 </WithMentions>
 
-![Format de transaction](/assets/docs/core/transactions/tx_format.png)
+![Diagramme montrant les deux parties d'une transaction](/assets/docs/core/transactions/tx_format.png)
 
-La structure d'un message de transaction se compose de :
+Les transactions ont une limite de taille totale de
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+octets. Cette limite inclut à la fois le tableau [`signatures`](#signatures) et
+la structure [`message`](#message).
+
+<Callout>
+  Cette limite provient de la taille maximale d'unité de transmission (MTU) IPv6
+  de 1280 octets, moins 48 octets pour les en-têtes réseau (40 octets IPv6 + 8
+  octets d'en-tête).
+</Callout>
+
+![Diagramme montrant le format de transaction et les limites de taille](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+## Signatures
+
+Le tableau `signatures` de la transaction contient des structures `Signature`.
+Chaque
+[`Signature`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
+fait 64 octets et est créée en signant le `Message` de la transaction avec la
+clé privée du compte. Une signature doit être fournie pour chaque
+[compte signataire](#account-addresses) inclus dans l'une des instructions de la
+transaction.
+
+La première signature appartient au compte qui paiera les
+[frais de base](docs/core/fees#base-fee) de la transaction et constitue la
+signature de la transaction. La signature de la transaction peut être utilisée
+pour rechercher les détails de la transaction sur le réseau.
+
+## Message
+
+Le `message` de la transaction est une structure
+[`Message`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)
+qui contient les informations suivantes :
 
 <WithMentions>
 
-- [En-tête du message](mention:message-header) : Spécifie le nombre de comptes
-  signataires et en lecture seule.
-- [Adresses des comptes](mention:account-addresses) : Un tableau d'adresses de
-  comptes requis par les instructions de la transaction.
-- [Blockhash récent](mention:recent-blockhash) : Agit comme un horodatage pour
-  la transaction.
-- [Instructions](mention:instructions) : Un tableau d'instructions à exécuter.
+- [`header`](mention:message-header) : L'[en-tête](#header) du message
+- [`account_keys`](mention:account-addresses) : Un tableau
+  d'[adresses de comptes](#account-addresses) requises par les instructions de
+  la transaction
+- [`recent_blockhash`](mention:recent-blockhash) : Un
+  [blockhash](#recent-blockhash) qui sert d'horodatage pour la transaction
+- [`instructions`](mention:instructions) : Un tableau
+  d'[instructions](#instructions)
+
+<Callout>
+  Pour économiser de l'espace, la transaction ne stocke pas les permissions pour
+  chaque compte individuellement. Au lieu de cela, les permissions des comptes
+  sont déterminées en utilisant le `header` et le `account_keys`.
+</Callout>
 
 ```rust title="Message"
 pub struct Message {
@@ -801,36 +128,21 @@ pub struct Message {
 
 </WithMentions>
 
-### Taille de la transaction
-
-Les transactions Solana ont une limite de taille de
-[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-octets. Cette limite provient de la taille maximale d'unité de transmission
-(MTU) IPv6 de 1280 octets, moins 48 octets pour les en-têtes réseau (40 octets
-IPv6 + 8 octets d'en-tête).
-
-La taille totale d'une transaction (signatures et message) doit rester sous
-cette limite et comprend :
-
-- Signatures : 64 octets chacune
-- Message : En-tête (3 octets), clés de compte (32 octets chacune), blockhash
-  récent (32 octets), et instructions
-
-![Format de transaction](/assets/docs/core/transactions/issues_with_legacy_txs.png)
-
-### En-tête du message
-
-L'[en-tête du message](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
-spécifie les permissions pour le compte dans la transaction. Il fonctionne en
-combinaison avec les
-[adresses de compte](/docs/core/transactions#array-of-account-addresses)
-strictement ordonnées pour déterminer quels comptes sont signataires et lesquels
-sont inscriptibles.
+### En-tête
 
 <WithMentions>
-1. [Le nombre de signatures requises pour toutes les instructions de la transaction.](mention:num_required_signatures)
-2. [Le nombre de comptes signés qui sont en lecture seule.](mention:num_readonly_signed_accounts)
-3. [Le nombre de comptes non signés qui sont en lecture seule.](mention:num_readonly_unsigned_accounts)
+
+Le `header` du message est une structure
+[`MessageHeader`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97).
+Il contient les informations suivantes :
+
+- [`num_required_signatures`](mention:num_required_signatures) : Le nombre total
+  de signatures requises par la transaction
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts) : Le
+  nombre total de comptes en lecture seule qui nécessitent des signatures
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts) :
+  Le nombre total de comptes en lecture seule qui ne nécessitent pas de
+  signatures
 
 ```rust title="MessageHeader"
 pub struct MessageHeader {
@@ -854,91 +166,69 @@ pub struct MessageHeader {
 
 </WithMentions>
 
-![En-tête du message](/assets/docs/core/transactions/message_header.png)
+![Diagramme montrant les trois parties de l'en-tête du message](/assets/docs/core/transactions/message_header.png)
 
-### Format de tableau compact
+### Adresses des comptes
 
-Un tableau compact dans un message de transaction est un tableau sérialisé dans
-le format suivant :
+Le
+[`account_keys`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+du message est un tableau d'adresses de comptes, envoyé au
+[format de tableau compact](/docs/references/terminology#compact-array-format).
+Le préfixe du tableau indique sa longueur. Chaque élément du tableau est une clé
+publique, qui pointe vers un compte utilisé par ses instructions. Le tableau
+`accounts_keys` doit être complet et strictement ordonné comme suit :
 
-1. La longueur du tableau (encodée comme
-   [compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs))
-2. Les éléments du tableau listés les uns après les autres
+1. Signataire + Modifiable
+2. Signataire + Lecture seule
+3. Non signataire + Modifiable
+4. Non signataire + Lecture seule
 
-![Format de tableau compact](/assets/docs/core/transactions/compact_array_format.png)
+<Callout>
+  L'ordre strict permet de combiner le tableau `account_keys` avec les
+  informations dans le [`header`](#header) du message pour déterminer les
+  permissions pour chaque compte.
+</Callout>
 
-Ce format est utilisé pour encoder les longueurs des tableaux
-[Adresses des comptes](/docs/core/transactions#array-of-account-addresses) et
-[Instructions](/docs/core/transactions#array-of-instructions) dans les messages
-de transaction.
-
-### Tableau d'adresses de comptes
-
-Un message de transaction contient une liste unique de toutes les
-[adresses de comptes](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
-requises par ses instructions. Le tableau commence par un nombre
-[compact-u16](/docs/core/transactions#compact-array-format) indiquant combien
-d'adresses il contient.
-
-Pour économiser de l'espace, la transaction ne stocke pas les permissions pour
-chaque compte individuellement. Au lieu de cela, elle s'appuie sur une
-combinaison du `MessageHeader` et d'un ordre strict des adresses de comptes pour
-déterminer les permissions.
-
-Les adresses sont toujours ordonnées de la manière suivante :
-
-1.  Comptes qui sont **modifiables et signataires**
-2.  Comptes qui sont **en lecture seule et signataires**
-3.  Comptes qui sont **modifiables et non signataires**
-4.  Comptes qui sont **en lecture seule et non signataires**
-
-Le `MessageHeader` fournit les valeurs utilisées pour déterminer le nombre de
-comptes pour chaque groupe de permissions.
-
-![Tableau compact d'adresses de comptes](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+![Diagramme montrant l'ordre du tableau d'adresses de comptes](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
 ### Blockhash récent
 
-Chaque transaction nécessite un
-[blockhash récent](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L141)
-qui sert deux objectifs :
+Le `recent_blockhash` du message est une valeur de hachage qui agit comme un
+horodatage de transaction et empêche les transactions en double. Un blockhash
+expire après
+[150 blocs](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134).
+(Équivalent à une minute — en supposant que chaque bloc dure 400ms.) Après
+l'expiration du bloc, la transaction est expirée et ne peut plus être traitée.
 
-1. Agit comme un horodatage pour indiquer quand la transaction a été créée
-2. Empêche les transactions en double
+<Callout>
+  La méthode RPC [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) vous
+  permet d'obtenir le blockhash actuel et la dernière hauteur de bloc à laquelle
+  le blockhash sera valide.
+</Callout>
 
-Un blockhash expire après
-[150](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)
-blocs (environ 1 minute en supposant des temps de bloc de 400ms), après quoi la
-transaction est considérée comme expirée et ne peut pas être traitée.
+### Instructions
 
-Vous pouvez utiliser la méthode RPC
-[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) pour obtenir le
-blockhash actuel et la dernière hauteur de bloc à laquelle le blockhash sera
-valide.
-
-### Tableau d'instructions
-
-Un message de transaction contient un tableau
-[d'instructions](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
-dans le type
-[CompiledInstruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22).
-Les instructions sont converties dans ce type lorsqu'elles sont ajoutées à une
-transaction.
-
-Comme le tableau d'adresses de comptes dans le message, il commence par une
-longueur [compact-u16](/docs/core/transactions#compact-array-format) suivie par
-les données d'instruction. Chaque instruction contient :
+Le
+[`instructions`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+du message est un tableau de toutes les instructions à traiter, envoyé au
+[format de tableau compact](/docs/references/terminology#compact-array-format).
+Le préfixe du tableau indique sa longueur. Chaque élément du tableau est une
+structure
+[`CompiledInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+et comprend les informations suivantes :
 
 <WithMentions>
 
-1. [Index de l'ID du programme](mention:program-id-index) : Un index qui pointe
-   vers l'adresse du programme dans le tableau d'adresses de comptes. Cela
-   spécifie le programme qui traite l'instruction.
-2. [Index des comptes](mention:account-indexes) : Un tableau d'index qui
-   pointent vers les adresses de comptes requises pour cette instruction.
-3. [Données d'instruction](mention:instruction-data) : Un tableau d'octets qui
-   spécifie quelle instruction invoquer sur le programme et toutes données
-   supplémentaires requises par l'instruction (par ex. arguments de fonction).
+1. [`program_id_index`](mention:program-id-index) : Un index pointant vers une
+   adresse dans le tableau [`account_keys`](#account-addresses). Cette valeur
+   indique l'adresse du programme qui traite l'instruction.
+2. [`accounts`](mention:account-indexes) : Un tableau d'indices pointant vers
+   des adresses dans le tableau `account_keys`. Chaque index pointe vers
+   l'adresse d'un compte requis pour cette instruction.
+3. [`data`](mention:instruction-data) : Un tableau d'octets spécifiant quelle
+   instruction invoquer sur le programme. Il inclut également toutes les données
+   supplémentaires requises par l'instruction. (Par exemple, les arguments de
+   fonction)
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -960,10 +250,10 @@ pub struct CompiledInstruction {
 
 ![Tableau compact d'instructions](/assets/docs/core/transactions/compact_array_of_ixs.png)
 
-### Exemple de structure de transaction
+## Structure d'une transaction d'exemple
 
-Exécutez les exemples ci-dessous pour voir la structure d'une transaction avec
-une seule instruction de transfert de SOL.
+L'exemple suivant montre la structure d'une transaction qui contient une seule
+instruction de transfert de SOL.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -1099,26 +389,31 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-Les exemples suivants montrent la sortie du message de transaction des extraits
-de code précédents. Le format exact diffère selon le SDK, mais inclut les mêmes
-informations.
+<WithMentions>
+Le code ci-dessous montre la sortie des extraits de code précédents.
+Le format diffère entre les SDK,
+mais notez que chaque instruction contient les mêmes informations requises.
 
 <CodeTabs storage="sol-transfer">
 
 ```json !! title="Kit"
 {
   "version": 0,
+  // !mention header
   "header": {
     "numSignerAccounts": 1,
     "numReadonlySignerAccounts": 0,
     "numReadonlyNonSignerAccounts": 1
   },
+  // !mention account_keys
   "staticAccounts": [
     "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
     "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
     "11111111111111111111111111111111"
   ],
+  // !mention recent_blockhash
   "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  // !mention instructions
   "instructions": [
     {
       "programAddressIndex": 2,
@@ -1144,17 +439,20 @@ informations.
 
 ```json !! title="Legacy"
 {
+  // !mention header
   "header": {
     "numRequiredSignatures": 1,
     "numReadonlySignedAccounts": 0,
     "numReadonlyUnsignedAccounts": 1
   },
+  // !mention account_keys
   "accountKeys": [
     "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
     "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
     "11111111111111111111111111111111"
   ],
   "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  // !mention instructions
   "instructions": [
     {
       "programIdIndex": 2,
@@ -1172,6 +470,7 @@ informations.
     "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
   ],
   "message": {
+    // !mention header
     "header": {
       "num_required_signatures": 1,
       "num_readonly_signed_accounts": 0,
@@ -1183,6 +482,7 @@ informations.
       "11111111111111111111111111111111"
     ],
     "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    // !mention instructions
     "instructions": [
       {
         "program_id_index": 2,
@@ -1195,21 +495,16 @@ informations.
 ```
 
 </CodeTabs>
+</WithMentions>
 
 Après avoir soumis une transaction, vous pouvez récupérer ses détails en
-utilisant la méthode RPC [getTransaction](/docs/rpc/http/gettransaction). La
-réponse aura une structure similaire à l'extrait suivant. Alternativement, vous
-pouvez inspecter la transaction en utilisant
-[Solana Explorer](https://explorer.solana.com).
+utilisant la signature de la transaction et la méthode RPC
+[getTransaction](/docs/rpc/http/gettransaction). La réponse aura une structure
+similaire à l'extrait suivant.
 
-<Callout type="info">
-
-Une "signature de transaction" identifie de manière unique une transaction sur
-Solana. Vous utilisez cette signature pour rechercher les détails de la
-transaction sur le réseau. La signature de transaction est simplement la
-première signature sur la transaction. Notez que la première signature est
-également la signature du payeur des frais de transaction.
-
+<Callout>
+  Vous pouvez également trouver la transaction en utilisant [Solana
+  Explorer](https://explorer.solana.com).
 </Callout>
 
 ```json title="Transaction Data"

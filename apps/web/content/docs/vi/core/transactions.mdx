@@ -1,733 +1,37 @@
 ---
-title: Giao dịch và Chỉ thị
+title: Giao dịch
 description:
-  Tìm hiểu về giao dịch và chỉ thị Solana - những khối xây dựng cơ bản để tương
-  tác với blockchain Solana. Hiểu cấu trúc giao dịch và cách tạo chỉ thị với các
-  ví dụ thực tế.
+  Tìm hiểu về giao dịch Solana—các khối xây dựng cơ bản để tương tác với
+  blockchain Solana. Hiểu cấu trúc giao dịch và cách tạo chỉ thị với các ví dụ
+  thực tế.
 ---
 
-Trên Solana, người dùng gửi [giao dịch](/docs/core/transactions#transaction) để
-tương tác với mạng lưới. Giao dịch chứa một hoặc nhiều
-[chỉ thị](/docs/core/transactions#instruction) xác định các thao tác cần xử lý.
-Logic thực thi cho các chỉ thị được lưu trữ trên
-[chương trình](/docs/core/programs) được triển khai trên mạng Solana, trong đó
-mỗi chương trình định nghĩa tập hợp chỉ thị riêng của mình.
-
-Dưới đây là những chi tiết quan trọng về xử lý giao dịch Solana:
-
-- Nếu một giao dịch bao gồm nhiều chỉ thị, các chỉ thị sẽ được thực thi theo thứ
-  tự được thêm vào giao dịch.
-- Giao dịch là "nguyên tử" - tất cả các chỉ thị phải được xử lý thành công, nếu
-  không toàn bộ giao dịch sẽ thất bại và không có thay đổi nào xảy ra.
-
-Một giao dịch về cơ bản là một yêu cầu xử lý một hoặc nhiều chỉ thị. Bạn có thể
-xem giao dịch như một phong bì chứa các biểu mẫu. Mỗi biểu mẫu là một chỉ thị
-cho mạng lưới biết phải làm gì. Gửi giao dịch giống như gửi phong bì qua đường
-bưu điện để các biểu mẫu được xử lý.
-
-![Giao dịch đơn giản hóa](/assets/docs/core/transactions/transaction-simple.svg)
-
-## Điểm chính
-
-- Giao dịch Solana bao gồm các chỉ thị gọi các chương trình trên mạng lưới.
-- Giao dịch là **nguyên tử** - nếu bất kỳ chỉ thị nào thất bại, toàn bộ giao
-  dịch sẽ thất bại và không có thay đổi nào xảy ra.
-- Các chỉ thị trong một giao dịch được thực thi theo thứ tự tuần tự.
-- Giới hạn kích thước giao dịch là
-  [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-  byte.
-- Mỗi chỉ thị yêu cầu ba thông tin:
-  1. Địa chỉ của chương trình cần gọi
-  2. Các tài khoản mà chỉ thị đọc từ hoặc ghi vào
-  3. Bất kỳ dữ liệu bổ sung nào cần thiết cho chỉ thị (ví dụ: đối số hàm)
-
-## Ví dụ chuyển SOL
-
-Sơ đồ dưới đây biểu diễn một giao dịch với một chỉ thị duy nhất để chuyển SOL từ
-người gửi đến người nhận.
-
-Trên Solana, "ví" là các tài khoản thuộc sở hữu của
-[System Program](/docs/core/accounts#system-program). Chỉ chương trình sở hữu
-mới có thể thay đổi dữ liệu của tài khoản, vì vậy việc chuyển SOL yêu cầu gửi
-một giao dịch để gọi System Program.
-
-![Chuyển SOL](/assets/docs/core/transactions/sol-transfer.svg)
-
-Tài khoản người gửi phải ký (`is_signer`) giao dịch để cho phép System Program
-trừ số dư lamport của nó. Tài khoản người gửi và người nhận phải có khả năng ghi
-(`is_writable`) vì số dư lamport của họ thay đổi.
-
-Sau khi gửi giao dịch, System Program xử lý chỉ thị chuyển tiền. System Program
-sau đó cập nhật số dư lamport của cả tài khoản người gửi và người nhận.
-
-![Quy trình chuyển SOL](/assets/docs/core/transactions/sol-transfer-process.svg)
-
-Các ví dụ dưới đây cho thấy cách gửi một giao dịch chuyển SOL từ một tài khoản
-sang tài khoản khác. Xem mã nguồn chỉ thị chuyển tiền của System Program
-[tại đây](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L183).
-
-<CodeTabs flags="r">
-
-```ts !! title="Kit"
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
-
-// Create a connection to cluster
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
-
-// Generate sender and recipient keypairs
-const sender = await generateKeyPairSigner();
-const recipient = await generateKeyPairSigner();
-
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
-
-// Fund sender with airdrop
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: sender.address,
-  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
-  commitment: "confirmed"
-});
-
-// Check balance before transfer
-const { value: preBalance1 } = await rpc.getBalance(sender.address).send();
-const { value: preBalance2 } = await rpc.getBalance(recipient.address).send();
-
-// !mark(1:6)
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount // 0.01 SOL in lamports
-});
-
-// Add the transfer instruction to a new transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
-);
-
-// Send the transaction to the network
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-// Check balance after transfer
-const { value: postBalance1 } = await rpc.getBalance(sender.address).send();
-const { value: postBalance2 } = await rpc.getBalance(recipient.address).send();
-
-console.log(
-  "Sender prebalance:",
-  Number(preBalance1) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Recipient prebalance:",
-  Number(preBalance2) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Sender postbalance:",
-  Number(postBalance1) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Recipient postbalance:",
-  Number(postBalance2) / Number(LAMPORTS_PER_SOL)
-);
-console.log("Transaction Signature:", transactionSignature);
-```
-
-```ts !! title="Legacy"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
-
-// Create a connection to cluster
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-// Generate sender and recipient keypairs
-const sender = Keypair.generate();
-const recipient = new Keypair();
-
-// Fund sender with airdrop
-const airdropSignature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(airdropSignature, "confirmed");
-
-// Check balance before transfer
-const preBalance1 = await connection.getBalance(sender.publicKey);
-const preBalance2 = await connection.getBalance(recipient.publicKey);
-
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// !mark(1:6)
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
-});
-
-// Add the transfer instruction to a new transaction
-const transaction = new Transaction().add(transferInstruction);
-
-// Send the transaction to the network
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [sender] // signer
-);
-
-// Check balance after transfer
-const postBalance1 = await connection.getBalance(sender.publicKey);
-const postBalance2 = await connection.getBalance(recipient.publicKey);
-
-console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
-console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
-console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
-console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
-console.log("Transaction Signature:", transactionSignature);
-```
-
-```rs !! title="Rust"
-use anyhow::Result;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_commitment_config::CommitmentConfig;
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
-    transaction::Transaction,
-};
-use solana_system_interface::instruction::transfer;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Create a connection to cluster
-    let connection = RpcClient::new_with_commitment(
-        "http://localhost:8899".to_string(),
-        CommitmentConfig::confirmed(),
-    );
-
-    // Generate sender and recipient keypairs
-    let sender = Keypair::new();
-    let recipient = Keypair::new();
-
-    // Fund sender with airdrop
-    let airdrop_signature = connection
-        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
-        .await?;
-    loop {
-        let confirmed = connection.confirm_transaction(&airdrop_signature).await?;
-        if confirmed {
-            break;
-        }
-    }
-
-    // Check balance before transfer
-    let pre_balance1 = connection.get_balance(&sender.pubkey()).await?;
-    let pre_balance2 = connection.get_balance(&recipient.pubkey()).await?;
-
-    // Define the amount to transfer
-    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-    // Create a transfer instruction for transferring SOL from sender to recipient
-    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-
-    // Add the transfer instruction to a new transaction
-    let mut transaction =
-        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
-    let blockhash = connection.get_latest_blockhash().await?;
-    transaction.sign(&[&sender], blockhash);
-
-    // Send the transaction to the network
-    let transaction_signature = connection
-        .send_and_confirm_transaction(&transaction)
-        .await?;
-
-    // Check balance after transfer
-    let post_balance1 = connection.get_balance(&sender.pubkey()).await?;
-    let post_balance2 = connection.get_balance(&recipient.pubkey()).await?;
-
-    println!(
-        "Sender prebalance: {}",
-        pre_balance1 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Recipient prebalance: {}",
-        pre_balance2 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Sender postbalance: {}",
-        post_balance1 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Recipient postbalance: {}",
-        post_balance2 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!("Transaction Signature: {}", transaction_signature);
-
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-Các thư viện client thường trừu tượng hóa các chi tiết để xây dựng chỉ thị
-chương trình. Nếu không có sẵn thư viện, bạn có thể tự xây dựng chỉ thị. Điều
-này yêu cầu bạn phải biết chi tiết triển khai của chỉ thị.
-
-Các ví dụ dưới đây cho thấy cách tự xây dựng chỉ thị chuyển tiền. Tab
-`Expanded Instruction` tương đương về mặt chức năng với tab `Instruction`.
-
-<Tabs items={['Kit', 'Legacy', 'Rust']}>
-
-<Tab value="Kit">
-
-<CodeTabs>
-
-```ts !! title="Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount * LAMPORTS_PER_SOL
-});
-```
-
-```ts !! title="Expanded Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the System Program's transfer instruction
-const TRANSFER_INSTRUCTION_INDEX = 2;
-
-// Create a buffer for the data to include in the instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
-instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
-
-const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
-
-// Manually create the transfer instruction
-const transferInstruction: IInstruction = {
-  programAddress: SYSTEM_PROGRAM_ADDRESS,
-  accounts: [
-    {
-      address: sender.address,
-      role: AccountRole.WRITABLE_SIGNER
-    },
-    {
-      address: recipient.address,
-      role: AccountRole.WRITABLE
-    }
-  ],
-  data: new Uint8Array(instructionData)
-};
-```
-
-</CodeTabs>
-
-</Tab>
-
-<Tab value="Legacy">
-
-<CodeTabs>
-
-```ts !! title="Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL
-});
-```
-
-```ts !! title="Expanded Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the System Program's transfer instruction
-const transferInstructionIndex = 2;
-
-// Create a buffer for the data to include in the instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-instructionData.writeUInt32LE(transferInstructionIndex, 0);
-instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
-
-// Manually create a transfer instruction
-const transferInstruction = new TransactionInstruction({
-  keys: [
-    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
-    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
-  ],
-  programId: SystemProgram.programId,
-  data: instructionData
-});
-```
-
-</CodeTabs>
-
-</Tab>
-
-<Tab value="Rust">
-
-<CodeTabs>
-
-```rs !! title="Instruction"
-let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-let transfer_instruction =
-    transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-```
-
-```rs !! title="Expanded Instruction"
-// Instruction index for the System Program's transfer instruction
-let transfer_instruction_index: u32 = 2;
-
-// Define the amount to transfer
-let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
-let mut instruction_data = Vec::with_capacity(12);
-instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
-instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
-
-// Manually create the transfer instruction
-let transfer_instruction = Instruction {
-    program_id: system_program::id(),
-    accounts: vec![
-        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
-        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
-    ],
-    data: instruction_data,
-};
-```
-
-</CodeTabs>
-
-</Tab>
-
-</Tabs>
-
-Trong các phần dưới đây, chúng ta sẽ tìm hiểu chi tiết về các giao dịch và hướng
-dẫn.
-
-## Instructions
-
-Một
-[instruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
-trên [chương trình](/docs/core/accounts#program-account) Solana có thể được hiểu
-như một hàm công khai mà bất kỳ ai sử dụng mạng Solana đều có thể gọi.
-
-Bạn có thể xem chương trình Solana như một máy chủ web được lưu trữ trên mạng
-Solana, mà mỗi instruction giống như một điểm cuối API công khai mà người dùng
-có thể gọi để thực hiện các hành động cụ thể. Việc gọi một instruction tương tự
-như gửi một yêu cầu `POST` đến một điểm cuối API, cho phép người dùng thực thi
-logic nghiệp vụ của chương trình.
-
-<WithMentions>
-
-Để gọi instruction của một chương trình trên Solana, bạn cần tạo một
-`Instruction` với ba thông tin:
-
-- [Program ID](mention:program-id): Địa chỉ của chương trình chứa logic nghiệp
-  vụ cho instruction đang được gọi.
-- [Accounts](mention:accounts): Danh sách tất cả các tài khoản mà instruction
-  đọc từ hoặc ghi vào.
-- [Instruction Data](mention:instruction-data): Một mảng byte chỉ định
-  instruction nào sẽ được gọi trên chương trình và bất kỳ đối số nào mà
-  instruction yêu cầu.
-
-```rust title="Instruction"
-pub struct Instruction {
-    /// Pubkey of the program that executes this instruction.
-    // !mention program-id
-    pub program_id: Pubkey,
-    /// Metadata describing accounts that should be passed to the program.
-    // !mention accounts
-    pub accounts: Vec<AccountMeta>,
-    /// Opaque data passed to the program for its own interpretation.
-    // !mention instruction-data
-    pub data: Vec<u8>,
-}
-```
-
-</WithMentions>
-
-![Transaction Instruction](/assets/docs/core/transactions/instruction.svg)
-
-### AccountMeta
-
-<WithMentions>
-
-Khi tạo một `Instruction`, bạn phải cung cấp mỗi tài khoản cần thiết dưới dạng
-[`AccountMeta`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25).
-`AccountMeta` chỉ định những điều sau:
-
-- [pubkey](mention:pubkey): Địa chỉ của tài khoản
-- [is_signer](mention:is-signer): Liệu tài khoản có phải ký giao dịch hay không
-- [is_writable](mention:is-writable): Liệu instruction có sửa đổi dữ liệu của
-  tài khoản hay không
-
-```rust title="AccountMeta"
-pub struct AccountMeta {
-    /// An account's public key.
-    // !mention pubkey
-    pub pubkey: Pubkey,
-    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
-    // !mention is-signer
-    pub is_signer: bool,
-    /// True if the account data or metadata may be mutated during program execution.
-    // !mention is-writable
-    pub is_writable: bool,
-}
-```
-
-</WithMentions>
-
-Bằng cách chỉ định trước các tài khoản mà một chỉ thị đọc hoặc ghi, các giao
-dịch không sửa đổi cùng một tài khoản có thể thực thi song song.
-
-<Callout type="info">
-
-Để biết chỉ thị yêu cầu những tài khoản nào, bao gồm tài khoản nào phải có khả
-năng ghi, chỉ đọc, hoặc ký giao dịch, bạn phải tham khảo việc triển khai chỉ thị
-được định nghĩa bởi chương trình.
-
-Trong thực tế, bạn thường không phải tạo một `Instruction` thủ công. Hầu hết các
-nhà phát triển chương trình cung cấp thư viện khách với các hàm trợ giúp tạo chỉ
-thị cho bạn.
-
+Để tương tác với mạng Solana, bạn phải gửi một giao dịch. Bạn có thể coi giao
+dịch như một phong bì chứa nhiều biểu mẫu. Mỗi biểu mẫu là một chỉ thị báo cho
+mạng biết phải làm gì. Việc gửi giao dịch giống như gửi phong bì qua đường bưu
+điện để các biểu mẫu có thể được xử lý.
+
+Ví dụ dưới đây cho thấy phiên bản đơn giản hóa của hai giao dịch. Khi giao dịch
+đầu tiên được xử lý, nó sẽ thực thi một chỉ thị duy nhất. Khi giao dịch thứ hai
+được xử lý, nó sẽ thực thi ba chỉ thị **theo thứ tự tuần tự**: đầu tiên là chỉ
+thị 1, tiếp theo là chỉ thị 2, và cuối cùng là chỉ thị 3.
+
+<Callout type="warn">
+  Giao dịch là **nguyên tử**: Nếu một chỉ thị đơn lẻ thất bại, toàn bộ giao dịch
+  sẽ thất bại và không có thay đổi nào xảy ra.
 </Callout>
 
-![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+![Sơ đồ đơn giản hóa hiển thị hai giao dịch](/assets/docs/core/transactions/transaction-simple.svg)
 
-### Cấu trúc chỉ thị ví dụ
-
-Chạy các ví dụ dưới đây để xem cấu trúc của chỉ thị chuyển SOL.
-
-<CodeTabs storage="sol-transfer" flags="r">
-
-```ts !! title="Kit"
-import { generateKeyPairSigner, lamports } from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
-
-// Generate sender and recipient keypairs
-const sender = await generateKeyPairSigner();
-const recipient = await generateKeyPairSigner();
-
-// Define the amount to transfer
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount
-});
-
-console.log(JSON.stringify(transferInstruction, null, 2));
-```
-
-```ts !! title="Legacy"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  Keypair
-} from "@solana/web3.js";
-
-// Generate sender and recipient keypairs
-const sender = Keypair.generate();
-const recipient = new Keypair();
-
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
-});
-
-console.log(JSON.stringify(transferInstruction, null, 2));
-```
-
-```rs !! title="Rust"
-use anyhow::Result;
-use solana_sdk::{native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair};
-use solana_system_interface::instruction::transfer;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Generate sender and recipient keypairs
-    let sender = Keypair::new();
-    let recipient = Keypair::new();
-
-    // Define the amount to transfer
-    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-    // Create a transfer instruction for transferring SOL from sender to recipient
-    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-
-    println!("{:#?}", transfer_instruction);
-
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-Các ví dụ sau đây hiển thị đầu ra từ các đoạn mã trước đó. Định dạng chính xác
-khác nhau tùy thuộc vào SDK, nhưng mọi chỉ thị Solana đều yêu cầu các thông tin
-sau:
+Một
+[`Transaction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+bao gồm các thông tin sau:
 
 <WithMentions>
 
-- [ID chương trình](mention:program-id): Địa chỉ của chương trình sẽ thực thi
-  chỉ thị.
-- [Tài khoản](mention:accounts): Danh sách các tài khoản mà chỉ thị yêu cầu. Đối
-  với mỗi tài khoản, chỉ thị phải chỉ định địa chỉ, liệu nó có phải ký giao dịch
-  hay không, và liệu nó sẽ được ghi vào hay không.
-- [Dữ liệu](mention:data): Một bộ đệm byte cho chương trình biết chỉ thị nào cần
-  thực thi và bao gồm bất kỳ đối số nào mà chỉ thị yêu cầu.
-
-<CodeTabs storage="sol-transfer">
-
-```json !! title="Kit"
-{
-  // !mention(1:16) accounts
-  "accounts": [
-    {
-      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
-      "role": 3,
-      "signer": {
-        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
-        "keyPair": {
-          "privateKey": {},
-          "publicKey": {}
-        }
-      }
-    },
-    {
-      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
-      "role": 1
-    }
-  ],
-  // !mention program-id
-  "programAddress": "11111111111111111111111111111111",
-  // !mention(1:14) data
-  "data": {
-    "0": 2,
-    "1": 0,
-    "2": 0,
-    "3": 0,
-    "4": 128,
-    "5": 150,
-    "6": 152,
-    "7": 0,
-    "8": 0,
-    "9": 0,
-    "10": 0,
-    "11": 0
-  }
-}
-```
-
-```json !! title="Legacy"
-{
-  // !mention(1:12) accounts
-  "keys": [
-    {
-      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
-      "isSigner": true,
-      "isWritable": true
-    },
-    {
-      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
-      "isSigner": false,
-      "isWritable": true
-    }
-  ],
-  // !mention program-id
-  "programId": "11111111111111111111111111111111",
-  // !mention data
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-```json !! title="Rust"
-{
-  // !mention program-id
-  "program_id": "11111111111111111111111111111111",
-  // !mention(1:12) accounts
-  "accounts": [
-    {
-      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
-      "is_signer": true,
-      "is_writable": true
-    },
-    {
-      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
-      "is_signer": false,
-      "is_writable": true
-    }
-  ],
-  // !mention data
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-</CodeTabs>
-
-</WithMentions>
-
-## Giao dịch
-
-Sau khi bạn đã tạo các chỉ thị muốn gọi, bước tiếp theo là tạo một `Transaction`
-và thêm các chỉ thị vào giao dịch. Một
-[giao dịch](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
-Solana bao gồm:
-
-<WithMentions>
-
-1. [Chữ ký](mention:signatures): Một mảng các
-   [chữ ký](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
-   từ tất cả các tài khoản cần thiết làm người ký cho các chỉ thị trong giao
-   dịch. Chữ ký được tạo ra bằng cách ký giao dịch `Message` với khóa riêng tư
-   của tài khoản.
-2. [Thông điệp](mention:message):
-   [Thông điệp](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)
-   giao dịch bao gồm danh sách các chỉ thị được xử lý một cách nguyên tử.
+- [`signatures`](mention:signatures): Một mảng [chữ ký](#signatures)
+- [`message`](mention:message): Thông tin giao dịch, bao gồm danh sách các chỉ
+  thị sẽ được xử lý
 
 ```rust title="Transaction"
 pub struct Transaction {
@@ -744,19 +48,55 @@ pub struct Transaction {
 
 </WithMentions>
 
-![Định dạng giao dịch](/assets/docs/core/transactions/tx_format.png)
+![Sơ đồ hiển thị hai phần của một giao dịch](/assets/docs/core/transactions/tx_format.png)
 
-Cấu trúc của một thông điệp giao dịch bao gồm:
+Giao dịch có giới hạn kích thước tổng cộng là
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+byte. Giới hạn này bao gồm cả mảng [`signatures`](#signatures) và cấu trúc
+[`message`](#message).
+
+<Callout>
+  Giới hạn này xuất phát từ kích thước Maximum Transmission Unit (MTU) của IPv6
+  là 1280 byte, trừ đi 48 byte cho các header mạng (40 byte IPv6 + 8 byte
+  header).
+</Callout>
+
+![Sơ đồ hiển thị định dạng giao dịch và giới hạn kích thước](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+## Chữ ký
+
+Mảng `signatures` của giao dịch chứa các cấu trúc `Signature`. Mỗi
+[`Signature`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
+có kích thước 64 byte và được tạo ra bằng cách ký `Message` của giao dịch với
+khóa riêng tư của tài khoản. Một chữ ký phải được cung cấp cho mỗi
+[tài khoản người ký](#account-addresses) được bao gồm trong bất kỳ chỉ thị nào
+của giao dịch.
+
+Chữ ký đầu tiên thuộc về tài khoản sẽ thanh toán
+[phí cơ bản](docs/core/fees#base-fee) của giao dịch và là chữ ký giao dịch. Chữ
+ký giao dịch có thể được sử dụng để tra cứu chi tiết giao dịch trên mạng.
+
+## Thông điệp
+
+`message` của giao dịch là một cấu trúc
+[`Message`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)
+chứa các thông tin sau:
 
 <WithMentions>
 
-- [Tiêu đề thông điệp](mention:message-header): Xác định số lượng tài khoản
-  người ký và tài khoản chỉ đọc.
-- [Địa chỉ tài khoản](mention:account-addresses): Một mảng các địa chỉ tài khoản
-  được yêu cầu bởi các hướng dẫn trong giao dịch.
-- [Blockhash gần đây](mention:recent-blockhash): Hoạt động như dấu thời gian cho
-  giao dịch.
-- [Hướng dẫn](mention:instructions): Một mảng các hướng dẫn sẽ được thực thi.
+- [`header`](mention:message-header): [Tiêu đề](#header) của thông điệp
+- [`account_keys`](mention:account-addresses): Một mảng
+  [địa chỉ tài khoản](#account-addresses) được yêu cầu bởi các chỉ thị của giao
+  dịch
+- [`recent_blockhash`](mention:recent-blockhash): Một
+  [blockhash](#recent-blockhash) đóng vai trò như dấu thời gian cho giao dịch
+- [`instructions`](mention:instructions): Một mảng [chỉ thị](#instructions)
+
+<Callout>
+  Để tiết kiệm không gian, giao dịch không lưu trữ quyền cho từng tài khoản
+  riêng lẻ. Thay vào đó, quyền của tài khoản được xác định bằng cách sử dụng
+  `header` và `account_keys`.
+</Callout>
 
 ```rust title="Message"
 pub struct Message {
@@ -783,35 +123,20 @@ pub struct Message {
 
 </WithMentions>
 
-### Kích thước giao dịch
-
-Các giao dịch Solana có giới hạn kích thước là
-[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-byte. Giới hạn này xuất phát từ kích thước Maximum Transmission Unit (MTU) của
-IPv6 là 1280 byte, trừ đi 48 byte cho các tiêu đề mạng (40 byte IPv6 + 8 byte
-tiêu đề).
-
-Tổng kích thước của một giao dịch (chữ ký và thông điệp) phải nằm dưới giới hạn
-này và bao gồm:
-
-- Chữ ký: 64 byte mỗi chữ ký
-- Thông điệp: Tiêu đề (3 byte), khóa tài khoản (32 byte mỗi khóa), blockhash gần
-  đây (32 byte), và các chỉ thị
-
-![Định dạng giao dịch](/assets/docs/core/transactions/issues_with_legacy_txs.png)
-
-### Tiêu đề thông điệp
-
-[Tiêu đề thông điệp](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
-xác định quyền hạn cho tài khoản trong giao dịch. Nó hoạt động kết hợp với
-[địa chỉ tài khoản](/docs/core/transactions#array-of-account-addresses) được sắp
-xếp nghiêm ngặt để xác định tài khoản nào là người ký và tài khoản nào có thể
-ghi.
+### Tiêu đề
 
 <WithMentions>
-1. [Số lượng chữ ký cần thiết cho tất cả các chỉ thị trong giao dịch.](mention:num_required_signatures)
-2. [Số lượng tài khoản đã ký chỉ đọc.](mention:num_readonly_signed_accounts)
-3. [Số lượng tài khoản không ký chỉ đọc.](mention:num_readonly_unsigned_accounts)
+
+`header` của thông điệp là một cấu trúc
+[`MessageHeader`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97).
+Nó chứa các thông tin sau:
+
+- [`num_required_signatures`](mention:num_required_signatures): Tổng số chữ ký
+  được yêu cầu bởi giao dịch
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): Tổng
+  số tài khoản chỉ đọc yêu cầu chữ ký
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts):
+  Tổng số tài khoản chỉ đọc không yêu cầu chữ ký
 
 ```rust title="MessageHeader"
 pub struct MessageHeader {
@@ -835,88 +160,64 @@ pub struct MessageHeader {
 
 </WithMentions>
 
-![Tiêu đề tin nhắn](/assets/docs/core/transactions/message_header.png)
+![Sơ đồ hiển thị ba phần của tiêu đề thông điệp](/assets/docs/core/transactions/message_header.png)
 
-### Định dạng mảng nhỏ gọn
+### Địa chỉ tài khoản
 
-Một mảng nhỏ gọn trong tin nhắn giao dịch là một mảng được tuần tự hóa theo định
-dạng sau:
+[`account_keys`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+của thông điệp là một mảng các địa chỉ tài khoản, được gửi ở
+[định dạng mảng nhỏ gọn](/docs/references/terminology#compact-array-format).
+Tiền tố của mảng chỉ ra độ dài của nó. Mỗi mục trong mảng là một khóa công khai,
+trỏ đến một tài khoản được sử dụng bởi các chỉ thị của nó. Mảng `accounts_keys`
+phải hoàn chỉnh và được sắp xếp nghiêm ngặt như sau:
 
-1. Độ dài mảng (được mã hóa dưới dạng
-   [compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs))
-2. Các mục trong mảng được liệt kê lần lượt
+1. Người ký + Có thể ghi
+2. Người ký + Chỉ đọc
+3. Không phải người ký + Có thể ghi
+4. Không phải người ký + Chỉ đọc
 
-![Định dạng mảng nhỏ gọn](/assets/docs/core/transactions/compact_array_format.png)
+<Callout>
+  Việc sắp xếp nghiêm ngặt cho phép mảng `account_keys` được kết hợp với thông
+  tin trong [`header`](#header) của thông điệp để xác định quyền cho mỗi tài
+  khoản.
+</Callout>
 
-Định dạng này được sử dụng để mã hóa độ dài của các mảng
-[Địa chỉ tài khoản](/docs/core/transactions#array-of-account-addresses) và
-[Hướng dẫn](/docs/core/transactions#array-of-instructions) trong tin nhắn giao
-dịch.
-
-### Mảng địa chỉ tài khoản
-
-Một tin nhắn giao dịch chứa một danh sách duy nhất gồm tất cả
-[địa chỉ tài khoản](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
-cần thiết cho các hướng dẫn của nó. Mảng bắt đầu với một số
-[compact-u16](/docs/core/transactions#compact-array-format) cho biết số lượng
-địa chỉ mà nó chứa.
-
-Để tiết kiệm không gian, giao dịch không lưu trữ quyền cho từng tài khoản riêng
-lẻ. Thay vào đó, nó dựa vào sự kết hợp của `MessageHeader` và thứ tự nghiêm ngặt
-của các địa chỉ tài khoản để xác định quyền.
-
-Các địa chỉ luôn được sắp xếp theo cách sau:
-
-1. Tài khoản **có thể ghi và là người ký**
-2. Tài khoản **chỉ đọc và là người ký**
-3. Tài khoản **có thể ghi và không phải người ký**
-4. Tài khoản **chỉ đọc và không phải người ký**
-
-`MessageHeader` cung cấp các giá trị được sử dụng để xác định số lượng tài khoản
-cho mỗi nhóm quyền.
-
-![Mảng nhỏ gọn của địa chỉ tài khoản](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+![Sơ đồ hiển thị thứ tự của mảng địa chỉ tài khoản](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
 ### Blockhash gần đây
 
-Mỗi giao dịch yêu cầu một
-[blockhash gần đây](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L141)
-phục vụ hai mục đích:
+`recent_blockhash` của message là một giá trị băm hoạt động như dấu thời gian
+của giao dịch và ngăn chặn các giao dịch trùng lặp. Một blockhash hết hạn sau
+[150 khối](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134).
+(Tương đương với một phút—giả định mỗi khối là 400ms.) Sau khi khối hết hạn,
+giao dịch cũng hết hạn và không thể được xử lý.
 
-1. Hoạt động như dấu thời gian cho thời điểm giao dịch được tạo
-2. Ngăn chặn các giao dịch trùng lặp
+<Callout>
+  Phương thức RPC [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) cho
+  phép bạn lấy blockhash hiện tại và chiều cao khối cuối cùng mà tại đó
+  blockhash sẽ còn hiệu lực.
+</Callout>
 
-Một blockhash hết hạn sau
-[150](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)
-khối (khoảng 1 phút giả định thời gian khối là 400ms), sau đó giao dịch được coi
-là hết hạn và không thể được xử lý.
+### Các chỉ thị
 
-Bạn có thể sử dụng phương thức RPC
-[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) để lấy blockhash hiện
-tại và chiều cao khối cuối cùng mà blockhash sẽ còn hiệu lực.
-
-### Mảng các Chỉ thị
-
-Một thông điệp giao dịch chứa một mảng các
-[chỉ thị](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
-ở dạng
-[CompiledInstruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22).
-Các chỉ thị được chuyển đổi sang dạng này khi được thêm vào giao dịch.
-
-Giống như mảng địa chỉ tài khoản trong thông điệp, nó bắt đầu với một độ dài
-[compact-u16](/docs/core/transactions#compact-array-format) theo sau là dữ liệu
-chỉ thị. Mỗi chỉ thị bao gồm:
+[`instructions`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+của message là một mảng tất cả các chỉ thị cần được xử lý, được gửi ở
+[định dạng mảng nhỏ gọn](/docs/references/terminology#compact-array-format).
+Tiền tố của mảng chỉ ra độ dài của nó. Mỗi mục trong mảng là một cấu trúc
+[`CompiledInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+và bao gồm các thông tin sau:
 
 <WithMentions>
 
-1. [Chỉ mục ID Chương trình](mention:program-id-index): Một chỉ mục trỏ đến địa
-   chỉ của chương trình trong mảng địa chỉ tài khoản. Điều này xác định chương
-   trình sẽ xử lý chỉ thị.
-2. [Chỉ mục Tài khoản](mention:account-indexes): Một mảng các chỉ mục trỏ đến
-   các địa chỉ tài khoản cần thiết cho chỉ thị này.
-3. [Instruction Data](mention:instruction-data): Một mảng byte xác định chỉ thị
-   nào sẽ được gọi trên chương trình và bất kỳ dữ liệu bổ sung nào cần thiết cho
-   chỉ thị (ví dụ: các đối số hàm).
+1. [`program_id_index`](mention:program-id-index): Một chỉ mục trỏ đến một địa
+   chỉ trong mảng [`account_keys`](#account-addresses). Giá trị này chỉ ra địa
+   chỉ của chương trình xử lý chỉ thị.
+2. [`accounts`](mention:account-indexes): Một mảng các chỉ mục trỏ đến các địa
+   chỉ trong mảng `account_keys`. Mỗi chỉ mục trỏ đến địa chỉ của một tài khoản
+   cần thiết cho chỉ thị này.
+3. [`data`](mention:instruction-data): Một mảng byte chỉ định chỉ thị nào cần
+   gọi trên chương trình. Nó cũng bao gồm bất kỳ dữ liệu bổ sung nào cần thiết
+   cho chỉ thị. (Ví dụ, các đối số hàm)
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -938,10 +239,10 @@ pub struct CompiledInstruction {
 
 ![Mảng nhỏ gọn của các Chỉ thị](/assets/docs/core/transactions/compact_array_of_ixs.png)
 
-### Ví dụ về Cấu trúc Giao dịch
+## Cấu trúc giao dịch mẫu
 
-Chạy các ví dụ dưới đây để xem cấu trúc của một giao dịch với một chỉ thị chuyển
-SOL đơn giản.
+Ví dụ sau đây cho thấy cấu trúc của một giao dịch chứa một chỉ thị chuyển SOL
+duy nhất.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -1077,25 +378,31 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-Các ví dụ sau đây hiển thị đầu ra thông điệp giao dịch từ các đoạn mã trước đó.
-Định dạng chính xác khác nhau tùy thuộc vào SDK, nhưng bao gồm cùng thông tin.
+<WithMentions>
+Đoạn mã dưới đây hiển thị đầu ra từ các đoạn mã trước đó.
+Định dạng khác nhau giữa các SDK,
+nhưng lưu ý rằng mỗi chỉ thị đều chứa cùng thông tin cần thiết.
 
 <CodeTabs storage="sol-transfer">
 
 ```json !! title="Kit"
 {
   "version": 0,
+  // !mention header
   "header": {
     "numSignerAccounts": 1,
     "numReadonlySignerAccounts": 0,
     "numReadonlyNonSignerAccounts": 1
   },
+  // !mention account_keys
   "staticAccounts": [
     "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
     "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
     "11111111111111111111111111111111"
   ],
+  // !mention recent_blockhash
   "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  // !mention instructions
   "instructions": [
     {
       "programAddressIndex": 2,
@@ -1121,17 +428,20 @@ Các ví dụ sau đây hiển thị đầu ra thông điệp giao dịch từ c
 
 ```json !! title="Legacy"
 {
+  // !mention header
   "header": {
     "numRequiredSignatures": 1,
     "numReadonlySignedAccounts": 0,
     "numReadonlyUnsignedAccounts": 1
   },
+  // !mention account_keys
   "accountKeys": [
     "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
     "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
     "11111111111111111111111111111111"
   ],
   "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  // !mention instructions
   "instructions": [
     {
       "programIdIndex": 2,
@@ -1149,6 +459,7 @@ Các ví dụ sau đây hiển thị đầu ra thông điệp giao dịch từ c
     "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
   ],
   "message": {
+    // !mention header
     "header": {
       "num_required_signatures": 1,
       "num_readonly_signed_accounts": 0,
@@ -1160,6 +471,7 @@ Các ví dụ sau đây hiển thị đầu ra thông điệp giao dịch từ c
       "11111111111111111111111111111111"
     ],
     "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    // !mention instructions
     "instructions": [
       {
         "program_id_index": 2,
@@ -1172,19 +484,16 @@ Các ví dụ sau đây hiển thị đầu ra thông điệp giao dịch từ c
 ```
 
 </CodeTabs>
+</WithMentions>
 
-Sau khi gửi giao dịch, bạn có thể truy xuất chi tiết của nó bằng phương thức RPC
+Sau khi một giao dịch được gửi đi, bạn có thể truy xuất chi tiết của nó bằng
+cách sử dụng chữ ký giao dịch và phương thức RPC
 [getTransaction](/docs/rpc/http/gettransaction). Phản hồi sẽ có cấu trúc tương
-tự như đoạn mã dưới đây. Ngoài ra, bạn có thể kiểm tra giao dịch bằng
-[Solana Explorer](https://explorer.solana.com).
+tự như đoạn mã dưới đây.
 
-<Callout type="info">
-
-"Chữ ký giao dịch" xác định duy nhất một giao dịch trên Solana. Bạn sử dụng chữ
-ký này để tra cứu chi tiết giao dịch trên mạng. Chữ ký giao dịch đơn giản là chữ
-ký đầu tiên trên giao dịch. Lưu ý rằng chữ ký đầu tiên cũng là chữ ký của người
-trả phí giao dịch.
-
+<Callout>
+  Bạn cũng có thể tìm giao dịch bằng cách sử dụng [Solana
+  Explorer](https://explorer.solana.com).
 </Callout>
 
 ```json title="Transaction Data"
