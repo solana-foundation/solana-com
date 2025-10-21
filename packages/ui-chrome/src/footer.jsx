@@ -76,7 +76,7 @@ export const Footer = ({ className = "" }) => {
                 <SolanaFoundationLogo
                   width={234}
                   height={40}
-                  viewBox="0 0 210px 35px"
+                  viewBox="0 0 210 35"
                 />
               </Link>
             </div>

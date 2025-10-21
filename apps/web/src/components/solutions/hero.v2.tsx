@@ -99,15 +99,16 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
     >
       {bgJsonFilePath && (
         <UnicornScene
-          className="!absolute top-0 right-0 bottom-0 -z-1"
+          className="!absolute inset-0 z-0"
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="100%"
           scale={1}
-          dpi={1}
+          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
           fps={30}
           lazyLoad={true}
           production={true}
+          onError={(error) => console.error("UnicornScene error:", error)}
         />
       )}
       <div className="min-h-[844px] md:min-h-[1080px] xl:min-h-[1200px] max-w-[1440px] mx-auto flex flex-col justify-between relative">
