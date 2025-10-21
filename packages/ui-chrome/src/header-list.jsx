@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import Dropdown from "react-bootstrap/Dropdown";
-import AngleUp from "../../../public/src/img/icons/Angle-up.inline.svg";
-import AngleDown from "../../../public/src/img/icons/Angle-down.inline.svg";
+import AngleUp from "./assets/angle-up.inline.svg";
+import AngleDown from "./assets/angle-down.inline.svg";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@@/src/hooks/useRouter";
-import HeaderListBuild from "./HeaderListBuild";
-import HeaderListSolutions from "./HeaderListSolutions";
-import HeaderListNetwork from "./HeaderListNetwork";
-import HeaderListCommunity from "./HeaderListCommunity";
-import HeaderListLearn from "./HeaderListLearn";
+import { useRouter } from "@workspace/i18n/use-router";
+import HeaderListBuild from "./header-list.build";
+import HeaderListSolutions from "./header-list.solutions";
+import HeaderListNetwork from "./header-list.network";
+import HeaderListCommunity from "./header-list.community";
+import HeaderListLearn from "./header-list.learn";
 
 const DownIcon = <AngleDown width={16} height={16} viewBox="0 0 24 24" />;
 const UpIcon = <AngleUp width={16} height={16} viewBox="0 0 24 24" />;
@@ -178,4 +178,4 @@ const HeaderList = () => {
   );
 };
 
-export default HeaderList;
+export { HeaderList };

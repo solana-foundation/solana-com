@@ -1,21 +1,20 @@
 "use client";
 
 import Dropdown from "react-bootstrap/Dropdown";
-import Globe from "../../public/src/img/icons/Globe.inline.svg";
-import ChevronGrabberVertical from "../../public/src/img/icons/ChevronGrabberVertical.inline.svg";
-// import { ChevronDown } from "react-feather";
+import Globe from "./assets/globe.inline.svg";
+import ChevronGrabberVertical from "./assets/chevron-grabber-vertical.inline.svg";
 import { languages } from "@workspace/i18n/config";
 import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
 
-const Language = () => {
+const LanguageSelector = () => {
   const currentLocale = useLocale();
   const asPath = usePathname();
 
   return (
     <Dropdown align="end" style={{ marginTop: "-5px" }} drop="auto">
       <Dropdown.Toggle
-        className="p-0 border-0"
+        className="p-0 border-0 !text-[#ababbc] hover:!text-white transition-colors"
         variant="none"
         suppressHydrationWarning={true}
       >
@@ -43,4 +42,4 @@ const Language = () => {
   );
 };
 
-export default Language;
+export { LanguageSelector };

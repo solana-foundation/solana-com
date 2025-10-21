@@ -6,6 +6,7 @@ export default {
   presets: [createPreset()],
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
     "./node_modules/fumadocs-ui/dist/**/*.js",
     "./node_modules/radix-ui/**/*.{js,ts,tsx}",
   ],
@@ -33,5 +34,10 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    function ({ addVariant }) {
+      addVariant("light", ".light &");
+    },
+  ],
 };

@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { InlineLink } from "../shared/Link";
+import { InlineLink } from "../../utils/Link";
 
 const BrandingWelcome = () => {
   const t = useTranslations();

@@ -1,21 +1,21 @@
 "use client";
 
 import Navbar from "react-bootstrap/Navbar";
-import { useRouter } from "@@/src/hooks/useRouter";
-import { Link } from "../utils/Link";
 import { useEffect, useState } from "react";
-import SolanaLogo from "../../public/src/img/logos-solana/logotype.inline.svg";
-import Moon from "../../public/src/img/icons/Moon.inline.svg";
-import Sun from "../../public/src/img/icons/Sun.inline.svg";
-import HeaderList from "./header/HeaderList";
-import { InkeepSearchBar } from "@@/src/app/components/inkeep/inkeep-searchbar";
-import { useTheme } from "@/themecontext";
 import { useTranslations } from "next-intl";
-import DevelopersNav from "./developers/DevelopersNav/DevelopersNav";
-import styles from "./Header.module.scss";
-import LanguageSelector from "@/components/LanguageSelector";
+import { useTheme } from "./theme-provider";
+import { useRouter } from "@workspace/i18n/use-router";
+import { Link } from "./link";
+import { HeaderList } from "./header-list";
+import { DevelopersNav } from "./developers-nav";
+import { InkeepSearchBar } from "./inkeep-searchbar";
+import { LanguageSelector } from "./language-selector";
 
-const Header = ({ className = "", containerClassName = "" }) => {
+import SolanaLogo from "./assets/logotype.inline.svg";
+import Moon from "./assets/moon.inline.svg";
+import Sun from "./assets/sun.inline.svg";
+
+function Header({ className = "", containerClassName = "" }) {
   const router = useRouter();
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
@@ -37,7 +37,6 @@ const Header = ({ className = "", containerClassName = "" }) => {
     // Close mobile navigation on route change
     setExpanded(false);
   }, [router.asPath]);
-
   return (
     <>
       <header className={`position-sticky sticky-top ${className}`}>
@@ -82,7 +81,7 @@ const Header = ({ className = "", containerClassName = "" }) => {
               </div>
               {isThemePage && (
                 <button
-                  className={styles.header__toggle}
+                  className="flex border-none ml-[15px] transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-[15deg] hover:[&>svg]:fill-[var(--body-text)]"
                   onClick={toggleTheme}
                   aria-label={t("commands.toggle")}
                 >
@@ -101,6 +100,6 @@ const Header = ({ className = "", containerClassName = "" }) => {
       )}
     </>
   );
-};
+}
 
-export default Header;
+export { Header };

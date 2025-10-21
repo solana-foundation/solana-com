@@ -1,1 +1,1 @@
-export { default, Link, InlineLink } from "../components/shared/Link";
+export { Link as default, Link, InlineLink } from "@solana-com/ui-chrome/link";

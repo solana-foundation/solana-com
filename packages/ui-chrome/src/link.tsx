@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import NextLink from "next/link";
-import { useRouter, usePathname } from "@@/src/hooks/useRouter";
+import { useRouter, usePathname } from "@workspace/i18n/use-router";
 import classNames from "classnames";
 
-export const Link = ({
+const Link = ({
   children,
   to,
   href,
@@ -53,10 +53,10 @@ export const Link = ({
   );
 };
 
-export const InlineLink = ({ to, children, ...props }) => (
+const InlineLink = ({ to, children, ...props }) => (
   <a href={to} {...props} target="_blank" rel="noopener noreferrer">
     {children}
   </a>
 );
 
-export default Link;
+export { Link, InlineLink };

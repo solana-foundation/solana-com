@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
-import { Link } from "../../utils/Link";
-import StartSVG from "../../../assets/nav/learn/start.inline.svg";
+import { Link } from "./link";
+import StartSVG from "./assets/nav/learn/start.inline.svg";
 
 const HeaderListLearn = () => {
   const t = useTranslations();

@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { ArrowRightCircle } from "react-feather";
 import CarouselCards from "../../../shared/CarouselCards";
-import Link from "../../../shared/Link";
+import { Link } from "@/utils/Link";
 import renaissanceImg from "../../../../../assets/hackathon/past-hackathons/renaissance.jpg";
 import hyperdriveImg from "../../../../../assets/hackathon/past-hackathons/hyperdrive.jpg";
 import grizzlythonImg from "../../../../../assets/hackathon/past-hackathons/grizzlython.jpg";

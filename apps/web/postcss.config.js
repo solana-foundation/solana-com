@@ -22,6 +22,7 @@ module.exports = {
           "./src/pages/**/*.{js,jsx,ts,tsx}",
           "./src/components/**/*.{js,jsx,ts,tsx}",
           "./src/app/**/*.{ts,tsx}",
+          "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
           "../../node_modules/fumadocs-ui/dist/**/*.js",
         ],
         defaultExtractor: (content) => content.match(/[\w-/:]+(?<!:)/g) || [],

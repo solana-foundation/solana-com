@@ -182,7 +182,11 @@ const aiChatSettings: InkeepAIChatSettings = {
   ],
 };
 
-export function useInkeepConfig() {
+export function useInkeepConfig(): {
+  baseSettings: InkeepBaseSettings;
+  searchSettings: InkeepSearchSettings;
+  aiChatSettings: InkeepAIChatSettings;
+} {
   const [syncTarget, setSyncTarget] = useState<HTMLElement | null>(null);
 
   // We do this because document is not available in the server

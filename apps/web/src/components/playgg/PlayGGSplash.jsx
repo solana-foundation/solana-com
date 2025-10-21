@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import styles from "./PlayGGSplash.module.scss";
-import Link, { InlineLink } from "../shared/Link";
+import Link, { InlineLink } from "@/utils/Link";
 import useReducedMotion from "../../hooks/useReducedMotion";
 import classNames from "classnames";
 import Solana from "../../../assets/playgg/solana.inline.svg";

@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersFeaturedResourcesListItem.module.scss";
 import Button from "@/components/shared/Button";
-import { Link, InlineLink } from "@/components/shared/Link";
+import { Link, InlineLink } from "@/utils/Link";
 
 const Content = memo(function Content({
   item,
