@@ -17,6 +17,27 @@ export default async function middleware(req: NextRequest) {
     );
   }
 
+  // Remove duplicate locale segments from path
+  const pathSegments = req.nextUrl.pathname.split("/").filter(Boolean);
+  const localeSegments = pathSegments.filter((segment) =>
+    locales.includes(segment),
+  );
+
+  if (localeSegments.length > 1) {
+    // Keep only the first locale, remove all others
+    const firstLocale = localeSegments[0];
+    const cleanedSegments = pathSegments.filter(
+      (segment, index) =>
+        !locales.includes(segment) ||
+        (segment === firstLocale && pathSegments.indexOf(segment) === index),
+    );
+
+    const cleanedPath = `/${cleanedSegments.join("/")}`;
+    return NextResponse.redirect(
+      `${req.nextUrl.origin}${cleanedPath}${req.nextUrl.search}`,
+    );
+  }
+
   const localeParam = req.nextUrl?.searchParams?.get("locale");
   if (localeParam && !locales.includes(localeParam)) {
     // An invalid locale search param means that the pages router was trying
