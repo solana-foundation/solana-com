@@ -14,7 +14,7 @@ const LanguageSelector = () => {
   return (
     <Dropdown align="end" style={{ marginTop: "-5px" }} drop="auto">
       <Dropdown.Toggle
-        className="p-0 border-0"
+        className="p-0 border-0 !text-[#ababbc] hover:!text-white transition-colors"
         variant="none"
         suppressHydrationWarning={true}
       >

@@ -15,6 +15,15 @@ import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
 import SolanaBgSvg from "./assets/solana-bg.svg";
 
+const SOCIAL_LINKS = [
+  { name: "YouTube", url: "/youtube", Icon: YoutubeIcon, size: 20 },
+  { name: "Twitter", url: "/twitter", Icon: TwitterIcon, size: 16 },
+  { name: "Discord", url: "/discord", Icon: DiscordIcon, size: 20 },
+  { name: "Reddit", url: "/reddit", Icon: RedditIcon, size: 20 },
+  { name: "GitHub", url: "/github", Icon: GithubIcon, size: 20 },
+  { name: "Telegram", url: "/telegram", Icon: TelegramIcon, size: 20 },
+];
+
 const CopyrightRow = () => {
   const t = useTranslations();
   const text = t("footer.copyright", {
@@ -48,8 +57,6 @@ export const Footer = ({ className = "" }) => {
     <div 
       className={classNames(
         "relative bg-black text-base text-white",
-        "[&_a:not(.dropdown-item)]:text-[#ababbc] [&_a:not(.dropdown-item)]:hover:text-white",
-        "[&_button]:text-[#ababbc] [&_button]:hover:text-white",
         "[&_ul_a]:inline-block [&_ul_a]:text-sm [&_ul_a]:md:text-base [&_ul_a]:font-normal [&_ul_a]:leading-[1.42] [&_ul_a]:md:leading-[1.5]",
         "[&_ul_li+li]:mt-3",
         className
@@ -65,7 +72,7 @@ export const Footer = ({ className = "" }) => {
               {t("footer.foundation")}
             </p>
             <div className="mt-6 mb-5">
-              <Link to="/" aria-label="Solana Foundation">
+              <Link to="/" aria-label="Solana Foundation" className="text-white hover:text-white">
                 <SolanaFoundationLogo
                   width={234}
                   height={40}
@@ -76,25 +83,17 @@ export const Footer = ({ className = "" }) => {
             <div>
               <CopyrightRow />
             </div>
-            <div className="mt-5 flex flex-wrap justify-stretch xl:mt-auto xl:block [&_a+a:before]:content-[''] [&_a+a:before]:absolute [&_a+a:before]:top-0 [&_a+a:before]:left-[-8px] [&_a+a:before]:bottom-0 [&_a+a:before]:my-auto [&_a+a:before]:w-px [&_a+a:before]:h-3 [&_a+a:before]:bg-[rgba(240,228,255,0.12)] [&_a]:relative [&_a]:text-[#ababbc] [&_a]:inline-flex [&_a]:p-2.5 [&_a]:rounded-full [&_a]:mr-4 [&_a]:flex-1 md:[&_a]:flex-none [&_a]:hover:text-white [&_a_svg]:m-auto">
-              <InlineLink to="/youtube" aria-label="YouTube">
-                <YoutubeIcon width="20" height="20" />
-              </InlineLink>
-              <InlineLink to="/twitter" aria-label="Twitter">
-                <TwitterIcon width="16" height="16" />
-              </InlineLink>
-              <InlineLink to="/discord" aria-label="Discord">
-                <DiscordIcon width="20" height="20" />
-              </InlineLink>
-              <InlineLink to="/reddit" aria-label="Reddit">
-                <RedditIcon width="20" height="20" />
-              </InlineLink>
-              <InlineLink to="/github" aria-label="GitHub">
-                <GithubIcon width="20" height="20" />
-              </InlineLink>
-              <InlineLink to="/telegram" aria-label="Telegram">
-                <TelegramIcon width="20" height="20" />
-              </InlineLink>
+            <div className="mt-5 flex flex-wrap justify-stretch xl:mt-auto xl:block [&_a+a:before]:content-[''] [&_a+a:before]:absolute [&_a+a:before]:top-0 [&_a+a:before]:left-[-8px] [&_a+a:before]:bottom-0 [&_a+a:before]:my-auto [&_a+a:before]:w-px [&_a+a:before]:h-3 [&_a+a:before]:bg-[rgba(240,228,255,0.12)]">
+              {SOCIAL_LINKS.map(({ name, url, Icon, size }) => (
+                <InlineLink
+                  key={name}
+                  to={url}
+                  aria-label={name}
+                  className="relative text-[#ababbc] hover:text-white transition-colors inline-flex p-2.5 rounded-full mr-4 flex-1 md:flex-none [&_svg]:m-auto"
+                >
+                  <Icon width={size} height={size} />
+                </InlineLink>
+              ))}
             </div>
           </div>
           <div className="col-span-1 absolute right-0 top-0 md:relative xl:order-4">
@@ -108,28 +107,28 @@ export const Footer = ({ className = "" }) => {
             </div>
             <ul className="list-unstyled m-0">
               <li>
-                <InlineLink to="https://solana.org/grants">
+                <InlineLink to="https://solana.org/grants" className="text-[#ababbc] hover:text-white transition-colors">
                   {t("footer.solana.grants")}
                 </InlineLink>
               </li>
               <li>
-                <InlineLink to="https://break.solana.com/">
+                <InlineLink to="https://break.solana.com/" className="text-[#ababbc] hover:text-white transition-colors">
                   {t("footer.solana.break")}
                 </InlineLink>
               </li>
               <li>
-                <Link to="/branding">{t("footer.solana.media")}</Link>
+                <Link to="/branding" className="text-[#ababbc] hover:text-white transition-colors">{t("footer.solana.media")}</Link>
               </li>
               <li>
-                <InlineLink to="https://jobs.solana.com/">
+                <InlineLink to="https://jobs.solana.com/" className="text-[#ababbc] hover:text-white transition-colors">
                   {t("footer.solana.careers")}
                 </InlineLink>
               </li>
               <li>
-                <Link to="/tos">{t("footer.solana.disclaimer")}</Link>
+                <Link to="/tos" className="text-[#ababbc] hover:text-white transition-colors">{t("footer.solana.disclaimer")}</Link>
               </li>
               <li>
-                <Link to="/privacy-policy">
+                <Link to="/privacy-policy" className="text-[#ababbc] hover:text-white transition-colors">
                   {t("footer.solana.privacy-policy")}
                 </Link>
               </li>
@@ -142,10 +141,10 @@ export const Footer = ({ className = "" }) => {
               </div>
               <ul className="list-unstyled m-0">
                 <li>
-                  <Link to="/news">{t("footer.get-connected.blog")}</Link>
+                  <Link to="/news" className="text-[#ababbc] hover:text-white transition-colors">{t("footer.get-connected.blog")}</Link>
                 </li>
                 <li>
-                  <Link to="/newsletter">
+                  <Link to="/newsletter" className="text-[#ababbc] hover:text-white transition-colors">
                     {t("footer.get-connected.newsletter")}
                   </Link>
                 </li>
