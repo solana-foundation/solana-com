@@ -934,5 +934,70 @@ export default {
       source: "/developers/guides/advanced/verified-builds",
       destination: "/docs/programs/verified-builds",
     },
+    {
+      source: "/developers/courses",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses",
+    },
+    {
+      source: "/developers/courses/intro-to-solana/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/intro-to-solana",
+    },
+    {
+      source: "/developers/courses/program-optimization/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/program-optimization",
+    },
+    {
+      source: "/developers/courses/token-extensions/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/token-extensions",
+    },
+    {
+      source: "/developers/courses/solana-pay/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/solana-pay",
+    },
+    {
+      source: "/developers/courses/tokens-and-nfts/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/tokens-and-nfts",
+    },
+    {
+      source: "/developers/courses/mobile/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/mobile",
+    },
+    {
+      source: "/developers/courses/program-security/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/program-security",
+    },
+    {
+      source: "/developers/courses/native-onchain-development/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/native-onchain-development",
+    },
+    {
+      source: "/developers/courses/offline-transactions/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/offline-transactions",
+    },
+    {
+      source: "/developers/courses/onchain-development/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/onchain-development",
+    },
+    {
+      source: "/developers/courses/state-compression/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/state-compression",
+    },
+    {
+      source: "/developers/courses/connecting-to-offchain-data/:path*",
+      destination:
+        "https://github.com/solana-foundation/developer-content/tree/main/content/courses/connecting-to-offchain-data",
+    },
   ],
 };

@@ -2,7 +2,6 @@ module.exports = {
   // simple strings for the content record groups
   RECORD_GROUPS: {
     cookbook: "cookbook",
-    courses: "courses",
     guides: "guides",
     docs: "docs",
     rpc: "docs/rpc",
