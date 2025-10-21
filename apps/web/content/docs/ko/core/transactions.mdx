@@ -1,723 +1,34 @@
 ---
-title: 트랜잭션 및 명령어
+title: 트랜잭션
 description:
-  솔라나 트랜잭션과 명령어에 대해 알아보세요 - 솔라나 블록체인과 상호작용하기
-  위한 기본 구성 요소입니다. 실용적인 예제를 통해 트랜잭션 구조와 명령어 구성을
-  이해하세요.
+  솔라나 블록체인과 상호작용하기 위한 기본 구성 요소인 솔라나 트랜잭션에 대해
+  알아보세요. 실용적인 예시를 통해 트랜잭션 구조와 명령어 구성을 이해하세요.
 ---
 
-솔라나에서 사용자는 네트워크와 상호작용하기 위해
-[트랜잭션](/docs/core/transactions#transaction)을 전송합니다. 트랜잭션은 처리할
-작업을 지정하는 하나 이상의 [명령어](/docs/core/transactions#instruction)를
-포함합니다. 명령어의 실행 로직은 솔라나 네트워크에 배포된
-[프로그램](/docs/core/programs)에 저장되며, 각 프로그램은 자체적인 명령어 세트를
-정의합니다.
-
-다음은 솔라나 트랜잭션 처리에 관한 주요 세부 사항입니다:
-
-- 트랜잭션에 여러 명령어가 포함된 경우, 명령어는 트랜잭션에 추가된 순서대로
-  실행됩니다.
-- 트랜잭션은 "원자적"입니다 - 모든 명령어가 성공적으로 처리되어야 하며, 그렇지
-  않으면 전체 트랜잭션이 실패하고 변경 사항이 적용되지 않습니다.
-
-트랜잭션은 본질적으로 하나 이상의 명령을 처리하기 위한 요청입니다. 트랜잭션을
-양식이 들어 있는 봉투로 생각할 수 있습니다. 각 양식은 네트워크에게 무엇을 해야
-하는지 알려주는 명령입니다. 트랜잭션을 보내는 것은 양식을 처리하기 위해 봉투를
-우편으로 보내는 것과 같습니다.
-
-![트랜잭션 간소화](/assets/docs/core/transactions/transaction-simple.svg)
-
-## 핵심 포인트
-
-- Solana 트랜잭션은 네트워크의 프로그램을 호출하는 명령어를 포함합니다.
-- 트랜잭션은 **원자적(atomic)**입니다 - 어떤 명령어라도 실패하면 전체 트랜잭션이
-  실패하고 어떤 변경도 발생하지 않습니다.
-- 트랜잭션 내의 명령어는 순차적으로 실행됩니다.
-- 트랜잭션 크기 제한은
-  [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-  바이트입니다.
-- 각 명령어는 세 가지 정보가 필요합니다:
-  1. 호출할 프로그램의 주소
-  2. 명령어가 읽거나 쓰는 계정들
-  3. 명령어에 필요한 추가 데이터(예: 함수 인자)
-
-## SOL 전송 예제
-
-아래 다이어그램은 발신자에서 수신자로 SOL을 전송하는 단일 명령이 있는 트랜잭션을
-나타냅니다.
-
-Solana에서 "지갑"은 [System Program](/docs/core/accounts#system-program)이
-소유한 계정입니다. 프로그램 소유자만 계정 데이터를 변경할 수 있으므로, SOL을
-전송하려면 System Program을 호출하는 트랜잭션을 보내야 합니다.
-
-![SOL 전송](/assets/docs/core/transactions/sol-transfer.svg)
-
-발신자 계정은 System Program이 lamport 잔액을 차감할 수 있도록 트랜잭션에
-서명(`is_signer`)해야 합니다. 발신자와 수신자 계정은 lamport 잔액이 변경되므로
-쓰기 가능(`is_writable`)해야 합니다.
-
-트랜잭션을 보낸 후, System Program이 전송 명령을 처리합니다. 그런 다음 System
-Program은 발신자와 수신자 계정 모두의 lamport 잔액을 업데이트합니다.
-
-![SOL 전송 프로세스](/assets/docs/core/transactions/sol-transfer-process.svg)
-
-아래 예제는 한 계정에서 다른 계정으로 SOL을 전송하는 트랜잭션을 보내는 방법을
-보여줍니다. System Program의 전송 명령 소스 코드는
-[여기](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L183)에서
-확인할 수 있습니다.
-
-<CodeTabs flags="r">
-
-```ts !! title="Kit"
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
-
-// Create a connection to cluster
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
-
-// Generate sender and recipient keypairs
-const sender = await generateKeyPairSigner();
-const recipient = await generateKeyPairSigner();
-
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
-
-// Fund sender with airdrop
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: sender.address,
-  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
-  commitment: "confirmed"
-});
-
-// Check balance before transfer
-const { value: preBalance1 } = await rpc.getBalance(sender.address).send();
-const { value: preBalance2 } = await rpc.getBalance(recipient.address).send();
-
-// !mark(1:6)
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount // 0.01 SOL in lamports
-});
-
-// Add the transfer instruction to a new transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
-);
-
-// Send the transaction to the network
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-// Check balance after transfer
-const { value: postBalance1 } = await rpc.getBalance(sender.address).send();
-const { value: postBalance2 } = await rpc.getBalance(recipient.address).send();
-
-console.log(
-  "Sender prebalance:",
-  Number(preBalance1) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Recipient prebalance:",
-  Number(preBalance2) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Sender postbalance:",
-  Number(postBalance1) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Recipient postbalance:",
-  Number(postBalance2) / Number(LAMPORTS_PER_SOL)
-);
-console.log("Transaction Signature:", transactionSignature);
-```
-
-```ts !! title="Legacy"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
-
-// Create a connection to cluster
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-// Generate sender and recipient keypairs
-const sender = Keypair.generate();
-const recipient = new Keypair();
-
-// Fund sender with airdrop
-const airdropSignature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(airdropSignature, "confirmed");
-
-// Check balance before transfer
-const preBalance1 = await connection.getBalance(sender.publicKey);
-const preBalance2 = await connection.getBalance(recipient.publicKey);
-
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// !mark(1:6)
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
-});
-
-// Add the transfer instruction to a new transaction
-const transaction = new Transaction().add(transferInstruction);
-
-// Send the transaction to the network
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [sender] // signer
-);
-
-// Check balance after transfer
-const postBalance1 = await connection.getBalance(sender.publicKey);
-const postBalance2 = await connection.getBalance(recipient.publicKey);
-
-console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
-console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
-console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
-console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
-console.log("Transaction Signature:", transactionSignature);
-```
-
-```rs !! title="Rust"
-use anyhow::Result;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_commitment_config::CommitmentConfig;
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
-    transaction::Transaction,
-};
-use solana_system_interface::instruction::transfer;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Create a connection to cluster
-    let connection = RpcClient::new_with_commitment(
-        "http://localhost:8899".to_string(),
-        CommitmentConfig::confirmed(),
-    );
-
-    // Generate sender and recipient keypairs
-    let sender = Keypair::new();
-    let recipient = Keypair::new();
-
-    // Fund sender with airdrop
-    let airdrop_signature = connection
-        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
-        .await?;
-    loop {
-        let confirmed = connection.confirm_transaction(&airdrop_signature).await?;
-        if confirmed {
-            break;
-        }
-    }
-
-    // Check balance before transfer
-    let pre_balance1 = connection.get_balance(&sender.pubkey()).await?;
-    let pre_balance2 = connection.get_balance(&recipient.pubkey()).await?;
-
-    // Define the amount to transfer
-    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-    // Create a transfer instruction for transferring SOL from sender to recipient
-    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-
-    // Add the transfer instruction to a new transaction
-    let mut transaction =
-        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
-    let blockhash = connection.get_latest_blockhash().await?;
-    transaction.sign(&[&sender], blockhash);
-
-    // Send the transaction to the network
-    let transaction_signature = connection
-        .send_and_confirm_transaction(&transaction)
-        .await?;
-
-    // Check balance after transfer
-    let post_balance1 = connection.get_balance(&sender.pubkey()).await?;
-    let post_balance2 = connection.get_balance(&recipient.pubkey()).await?;
-
-    println!(
-        "Sender prebalance: {}",
-        pre_balance1 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Recipient prebalance: {}",
-        pre_balance2 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Sender postbalance: {}",
-        post_balance1 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Recipient postbalance: {}",
-        post_balance2 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!("Transaction Signature: {}", transaction_signature);
-
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-클라이언트 라이브러리는 종종 프로그램 명령어 구축의 세부 사항을 추상화합니다.
-라이브러리를 사용할 수 없는 경우, 수동으로 명령어를 구축할 수 있습니다. 이를
-위해서는 명령어의 구현 세부 사항을 알아야 합니다.
-
-아래 예시는 전송 명령어를 수동으로 구축하는 방법을 보여줍니다.
-`Expanded Instruction` 탭은 기능적으로 `Instruction` 탭과 동일합니다.
-
-<Tabs items={['Kit', 'Legacy', 'Rust']}>
-
-<Tab value="Kit">
-
-<CodeTabs>
-
-```ts !! title="Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount * LAMPORTS_PER_SOL
-});
-```
-
-```ts !! title="Expanded Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the System Program's transfer instruction
-const TRANSFER_INSTRUCTION_INDEX = 2;
-
-// Create a buffer for the data to include in the instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
-instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
-
-const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
-
-// Manually create the transfer instruction
-const transferInstruction: IInstruction = {
-  programAddress: SYSTEM_PROGRAM_ADDRESS,
-  accounts: [
-    {
-      address: sender.address,
-      role: AccountRole.WRITABLE_SIGNER
-    },
-    {
-      address: recipient.address,
-      role: AccountRole.WRITABLE
-    }
-  ],
-  data: new Uint8Array(instructionData)
-};
-```
-
-</CodeTabs>
-
-</Tab>
-
-<Tab value="Legacy">
-
-<CodeTabs>
-
-```ts !! title="Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL
-});
-```
-
-```ts !! title="Expanded Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the System Program's transfer instruction
-const transferInstructionIndex = 2;
-
-// Create a buffer for the data to include in the instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-instructionData.writeUInt32LE(transferInstructionIndex, 0);
-instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
-
-// Manually create a transfer instruction
-const transferInstruction = new TransactionInstruction({
-  keys: [
-    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
-    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
-  ],
-  programId: SystemProgram.programId,
-  data: instructionData
-});
-```
-
-</CodeTabs>
-
-</Tab>
-
-<Tab value="Rust">
-
-<CodeTabs>
-
-```rs !! title="Instruction"
-let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-let transfer_instruction =
-    transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-```
-
-```rs !! title="Expanded Instruction"
-// Instruction index for the System Program's transfer instruction
-let transfer_instruction_index: u32 = 2;
-
-// Define the amount to transfer
-let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
-let mut instruction_data = Vec::with_capacity(12);
-instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
-instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
-
-// Manually create the transfer instruction
-let transfer_instruction = Instruction {
-    program_id: system_program::id(),
-    accounts: vec![
-        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
-        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
-    ],
-    data: instruction_data,
-};
-```
-
-</CodeTabs>
-
-</Tab>
-
-</Tabs>
-
-아래 섹션에서는 트랜잭션과 명령어의 세부 사항에 대해 살펴보겠습니다.
-
-## 명령어
-
-Solana [프로그램](/docs/core/accounts#program-account)의
-[명령어](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)는
-Solana 네트워크를 사용하는 누구나 호출할 수 있는 공개 함수로 생각할 수 있습니다.
-
-Solana 프로그램은 Solana 네트워크에서 호스팅되는 웹 서버와 같으며, 각 명령어는
-사용자가 특정 작업을 수행하기 위해 호출할 수 있는 공개 API 엔드포인트와
-유사합니다. 명령어를 호출하는 것은 API 엔드포인트에 `POST` 요청을 보내는 것과
-비슷하며, 사용자가 프로그램의 비즈니스 로직을 실행할 수 있게 합니다.
-
-<WithMentions>
-
-Solana에서 프로그램의 명령어를 호출하려면 세 가지 정보를 포함한 `Instruction`를
-구성해야 합니다:
-
-- [프로그램 ID](mention:program-id): 호출되는 명령어에 대한 비즈니스 로직이 있는
-  프로그램의 주소입니다.
-- [계정](mention:accounts): 명령어가 읽거나 쓰는 모든 계정의 목록입니다.
-- [instruction data](mention:instruction-data): 프로그램에서 어떤 명령어를
-  호출할지 지정하고 명령어에 필요한 인수를 포함하는 바이트 배열입니다.
-
-```rust title="Instruction"
-pub struct Instruction {
-    /// Pubkey of the program that executes this instruction.
-    // !mention program-id
-    pub program_id: Pubkey,
-    /// Metadata describing accounts that should be passed to the program.
-    // !mention accounts
-    pub accounts: Vec<AccountMeta>,
-    /// Opaque data passed to the program for its own interpretation.
-    // !mention instruction-data
-    pub data: Vec<u8>,
-}
-```
-
-</WithMentions>
-
-![트랜잭션 명령어](/assets/docs/core/transactions/instruction.svg)
-
-### AccountMeta
-
-<WithMentions>
-
-`Instruction`를 생성할 때 필요한 각 계정을
-[`AccountMeta`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25)로
-제공해야 합니다. `AccountMeta`는 다음을 지정합니다:
-
-- [pubkey](mention:pubkey): 계정의 주소
-- [is_signer](mention:is-signer): 계정이 트랜잭션에 서명해야 하는지 여부
-- [is_writable](mention:is-writable): 명령어가 계정의 데이터를 수정하는지 여부
-
-```rust title="AccountMeta"
-pub struct AccountMeta {
-    /// An account's public key.
-    // !mention pubkey
-    pub pubkey: Pubkey,
-    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
-    // !mention is-signer
-    pub is_signer: bool,
-    /// True if the account data or metadata may be mutated during program execution.
-    // !mention is-writable
-    pub is_writable: bool,
-}
-```
-
-</WithMentions>
-
-명령어가 어떤 계정을 읽거나 쓰는지 미리 지정함으로써, 동일한 계정을 수정하지
-않는 트랜잭션은 병렬로 실행될 수 있습니다.
-
-<Callout type="info">
-
-명령어가 어떤 계정을 필요로 하는지, 그리고 어떤 계정이 쓰기 가능, 읽기
-전용이어야 하는지, 또는 트랜잭션에 서명해야 하는지 알기 위해서는 프로그램에서
-정의한 명령어의 구현을 참조해야 합니다.
-
-실제로는 보통 `Instruction`를 직접 구성할 필요가 없습니다. 대부분의 프로그램
-개발자들은 명령어를 생성해주는 헬퍼 함수가 포함된 클라이언트 라이브러리를
-제공합니다.
-
+솔라나 네트워크와 상호작용하려면 트랜잭션을 보내야 합니다. 트랜잭션은 여러
+양식을 담고 있는 봉투라고 생각할 수 있습니다. 각 양식은 네트워크에 무엇을 해야
+할지 알려주는 명령어입니다. 트랜잭션을 보내는 것은 양식이 처리될 수 있도록
+봉투를 우편으로 보내는 것과 같습니다.
+
+아래 예시는 두 개의 트랜잭션을 간소화한 버전을 보여줍니다. 첫 번째 트랜잭션이
+처리되면 단일 명령어가 실행됩니다. 두 번째 트랜잭션이 처리되면 **순차적으로** 세
+개의 명령어가 실행됩니다: 먼저 명령어 1, 그 다음 명령어 2, 마지막으로 명령어 3이
+실행됩니다.
+
+<Callout type="warn">
+  트랜잭션은 **원자적**입니다: 단일 명령어가 실패하면 전체 트랜잭션이 실패하고
+  어떠한 변경도 발생하지 않습니다.
 </Callout>
 
-![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+![두 개의 트랜잭션을 보여주는 간소화된 다이어그램](/assets/docs/core/transactions/transaction-simple.svg)
 
-### 명령어 구조 예시
-
-아래 예제를 실행하여 SOL 전송 명령어의 구조를 확인해보세요.
-
-<CodeTabs storage="sol-transfer" flags="r">
-
-```ts !! title="Kit"
-import { generateKeyPairSigner, lamports } from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
-
-// Generate sender and recipient keypairs
-const sender = await generateKeyPairSigner();
-const recipient = await generateKeyPairSigner();
-
-// Define the amount to transfer
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount
-});
-
-console.log(JSON.stringify(transferInstruction, null, 2));
-```
-
-```ts !! title="Legacy"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  Keypair
-} from "@solana/web3.js";
-
-// Generate sender and recipient keypairs
-const sender = Keypair.generate();
-const recipient = new Keypair();
-
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
-});
-
-console.log(JSON.stringify(transferInstruction, null, 2));
-```
-
-```rs !! title="Rust"
-use anyhow::Result;
-use solana_sdk::{native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair};
-use solana_system_interface::instruction::transfer;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Generate sender and recipient keypairs
-    let sender = Keypair::new();
-    let recipient = Keypair::new();
-
-    // Define the amount to transfer
-    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-    // Create a transfer instruction for transferring SOL from sender to recipient
-    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-
-    println!("{:#?}", transfer_instruction);
-
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-다음 예제는 이전 코드 스니펫의 출력을 보여줍니다. 정확한 형식은 SDK에 따라
-다르지만, 모든 Solana 명령어는 다음 정보를 필요로 합니다:
+[`Transaction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)는
+다음 정보로 구성됩니다:
 
 <WithMentions>
 
-- [프로그램 ID](mention:program-id): 명령어를 실행할 프로그램의 주소입니다.
-- [계정](mention:accounts): 명령어에 필요한 계정 목록입니다. 각 계정에 대해
-  명령어는 주소, 트랜잭션에 서명해야 하는지 여부, 그리고 쓰기 작업이 수행될지
-  여부를 지정해야 합니다.
-- [데이터](mention:data): 프로그램에게 어떤 명령어를 실행할지 알려주고 명령어에
-  필요한 인수를 포함하는 바이트 버퍼입니다.
-
-<CodeTabs storage="sol-transfer">
-
-```json !! title="Kit"
-{
-  // !mention(1:16) accounts
-  "accounts": [
-    {
-      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
-      "role": 3,
-      "signer": {
-        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
-        "keyPair": {
-          "privateKey": {},
-          "publicKey": {}
-        }
-      }
-    },
-    {
-      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
-      "role": 1
-    }
-  ],
-  // !mention program-id
-  "programAddress": "11111111111111111111111111111111",
-  // !mention(1:14) data
-  "data": {
-    "0": 2,
-    "1": 0,
-    "2": 0,
-    "3": 0,
-    "4": 128,
-    "5": 150,
-    "6": 152,
-    "7": 0,
-    "8": 0,
-    "9": 0,
-    "10": 0,
-    "11": 0
-  }
-}
-```
-
-```json !! title="Legacy"
-{
-  // !mention(1:12) accounts
-  "keys": [
-    {
-      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
-      "isSigner": true,
-      "isWritable": true
-    },
-    {
-      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
-      "isSigner": false,
-      "isWritable": true
-    }
-  ],
-  // !mention program-id
-  "programId": "11111111111111111111111111111111",
-  // !mention data
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-```json !! title="Rust"
-{
-  // !mention program-id
-  "program_id": "11111111111111111111111111111111",
-  // !mention(1:12) accounts
-  "accounts": [
-    {
-      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
-      "is_signer": true,
-      "is_writable": true
-    },
-    {
-      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
-      "is_signer": false,
-      "is_writable": true
-    }
-  ],
-  // !mention data
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-</CodeTabs>
-
-</WithMentions>
-
-## 트랜잭션
-
-원하는 명령어를 생성한 후, 다음 단계는 `Transaction`를 생성하고 명령어를
-트랜잭션에 추가하는 것입니다. Solana
-[트랜잭션](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)은
-다음으로 구성됩니다:
-
-<WithMentions>
-
-1. [서명](mention:signatures): 트랜잭션의 명령어에 필요한 모든 서명 계정의
-   [서명](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
-   배열입니다. 서명은 계정의 개인 키로 트랜잭션 `Message`에 서명하여 생성됩니다.
-2. [메시지](mention:message): 트랜잭션
-   [메시지](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)는
-   원자적으로 처리될 명령어 목록을 포함합니다.
+- [`signatures`](mention:signatures): [서명](#signatures) 배열
+- [`message`](mention:message): 처리될 명령어 목록을 포함한 트랜잭션 정보
 
 ```rust title="Transaction"
 pub struct Transaction {
@@ -734,19 +45,51 @@ pub struct Transaction {
 
 </WithMentions>
 
-![트랜잭션 형식](/assets/docs/core/transactions/tx_format.png)
+![트랜잭션의 두 부분을 보여주는 다이어그램](/assets/docs/core/transactions/tx_format.png)
 
-트랜잭션 메시지의 구조는 다음과 같습니다:
+트랜잭션의 총 크기 제한은
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+바이트입니다. 이 제한에는 [`signatures`](#signatures) 배열과
+[`message`](#message) 구조체가 모두 포함됩니다.
+
+<Callout>
+  이 제한은 IPv6 최대 전송 단위(MTU) 크기인 1280바이트에서 네트워크 헤더(IPv6
+  40바이트 + 헤더 8바이트)를 위한 48바이트를 뺀 값에서 비롯됩니다.
+</Callout>
+
+![트랜잭션 형식과 크기 제한을 보여주는 다이어그램](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+## 서명
+
+트랜잭션의 `signatures` 배열에는 `Signature` 구조체가 포함되어 있습니다. 각
+[`Signature`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)는
+64바이트이며 계정의 개인 키로 트랜잭션의 `Message`에 서명하여 생성됩니다.
+트랜잭션의 명령어에 포함된 각 [서명자 계정](#account-addresses)에 대해 서명을
+제공해야 합니다.
+
+첫 번째 서명은 트랜잭션의 [기본 수수료](docs/core/fees#base-fee)를 지불할 계정에
+속하며 트랜잭션 서명입니다. 트랜잭션 서명은 네트워크에서 트랜잭션의 세부 정보를
+조회하는 데 사용할 수 있습니다.
+
+## 메시지
+
+트랜잭션의 `message`는 다음 정보를 포함하는
+[`Message`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)
+구조체입니다:
 
 <WithMentions>
 
-- [메시지 헤더](mention:message-header): 서명자 및 읽기 전용 계정의 수를
-  지정합니다.
-- [계정 주소](mention:account-addresses): 트랜잭션의 명령어에 필요한 계정 주소
-  배열입니다.
-- [최근 블록해시](mention:recent-blockhash): 트랜잭션의 타임스탬프 역할을
-  합니다.
-- [명령어](mention:instructions): 실행될 명령어 배열입니다.
+- [`header`](mention:message-header): 메시지 [헤더](#header)
+- [`account_keys`](mention:account-addresses): 트랜잭션의 명령어에 필요한
+  [계정 주소](#account-addresses) 배열
+- [`recent_blockhash`](mention:recent-blockhash): 트랜잭션의 타임스탬프 역할을
+  하는 [블록해시](#recent-blockhash)
+- [`instructions`](mention:instructions): [명령어](#instructions) 배열
+
+<Callout>
+  공간을 절약하기 위해 트랜잭션은 각 계정에 대한 권한을 개별적으로 저장하지
+  않습니다. 대신, 계정 권한은 `header`와 `account_keys`를 사용하여 결정됩니다.
+</Callout>
 
 ```rust title="Message"
 pub struct Message {
@@ -773,34 +116,20 @@ pub struct Message {
 
 </WithMentions>
 
-### 트랜잭션 크기
-
-솔라나 트랜잭션은
-[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-바이트의 크기 제한이 있습니다. 이 제한은 IPv6 최대 전송 단위(MTU) 크기인 1280
-바이트에서 네트워크 헤더(IPv6 40 바이트 + 헤더 8 바이트)를 위한 48 바이트를 뺀
-값입니다.
-
-트랜잭션의 총 크기(서명 및 메시지)는 이 제한 아래로 유지되어야 하며 다음을
-포함합니다:
-
-- 서명: 각 64 바이트
-- 메시지: 헤더(3 바이트), 계정 키(각 32 바이트), 최근 블록해시(32 바이트) 및
-  명령어
-
-![트랜잭션 형식](/assets/docs/core/transactions/issues_with_legacy_txs.png)
-
-### 메시지 헤더
-
-[메시지 헤더](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)는
-트랜잭션 내 계정의 권한을 지정합니다. 이는 엄격하게 정렬된
-[계정 주소](/docs/core/transactions#array-of-account-addresses)와 함께 작동하여
-어떤 계정이 서명자이고 어떤 계정이 쓰기 가능한지 결정합니다.
+### 헤더
 
 <WithMentions>
-1. [트랜잭션의 모든 명령어에 필요한 서명 수.](mention:num_required_signatures)
-2. [읽기 전용인 서명된 계정의 수.](mention:num_readonly_signed_accounts)
-3. [읽기 전용인 서명되지 않은 계정의 수.](mention:num_readonly_unsigned_accounts)
+
+메시지의 `header`는
+[`MessageHeader`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
+구조체입니다. 다음 정보를 포함합니다:
+
+- [`num_required_signatures`](mention:num_required_signatures): 트랜잭션에
+  필요한 총 서명 수
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): 서명이
+  필요한 읽기 전용 계정의 총 수
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts):
+  서명이 필요하지 않은 읽기 전용 계정의 총 수
 
 ```rust title="MessageHeader"
 pub struct MessageHeader {
@@ -824,83 +153,63 @@ pub struct MessageHeader {
 
 </WithMentions>
 
-![메시지 헤더](/assets/docs/core/transactions/message_header.png)
+![메시지 헤더의 세 부분을 보여주는 다이어그램](/assets/docs/core/transactions/message_header.png)
 
-### 컴팩트 배열 형식
+### 계정 주소
 
-트랜잭션 메시지의 컴팩트 배열은 다음 형식으로 직렬화된 배열입니다:
+메시지의
+[`account_keys`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)는
+[간결한 배열 형식](/docs/references/terminology#compact-array-format)으로 전송된
+계정 주소의 배열입니다. 배열의 접두사는 길이를 나타냅니다. 배열의 각 항목은
+명령어에서 사용하는 계정을 가리키는 공개 키입니다. `accounts_keys` 배열은
+완전해야 하며 다음과 같이 엄격하게 정렬되어야 합니다:
 
-1. 배열
-   길이([compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs)로
-   인코딩됨)
-2. 배열 항목들이 하나씩 나열됨
+1. 서명자 + 쓰기 가능
+2. 서명자 + 읽기 전용
+3. 서명자 아님 + 쓰기 가능
+4. 서명자 아님 + 읽기 전용
 
-![컴팩트 배열 형식](/assets/docs/core/transactions/compact_array_format.png)
+<Callout>
+  엄격한 정렬을 통해 `account_keys` 배열을 메시지의 [`header`](#header) 정보와
+  결합하여 각 계정의 권한을 결정할 수 있습니다.
+</Callout>
 
-이 형식은 트랜잭션 메시지에서
-[계정 주소](/docs/core/transactions#array-of-account-addresses)와
-[명령어](/docs/core/transactions#array-of-instructions) 배열의 길이를 인코딩하는
-데 사용됩니다.
-
-### 계정 주소 배열
-
-트랜잭션 메시지는 명령어에 필요한 모든
-[계정 주소](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)의
-단일 목록을 포함합니다. 배열은 포함된 주소 수를 나타내는
-[compact-u16](/docs/core/transactions#compact-array-format) 숫자로 시작합니다.
-
-공간을 절약하기 위해 트랜잭션은 각 계정의 권한을 개별적으로 저장하지 않습니다.
-대신, header와 계정 주소의 엄격한 순서를 조합하여 권한을 결정합니다.
-
-주소는 항상 다음과 같은 순서로 정렬됩니다:
-
-1.  **쓰기 가능하고 서명자인** 계정
-2.  **읽기 전용이고 서명자인** 계정
-3.  **쓰기 가능하고 서명자가 아닌** 계정
-4.  **읽기 전용이고 서명자가 아닌** 계정
-
-header는 각 권한 그룹의 계정 수를 결정하는 데 사용되는 값을 제공합니다.
-
-![계정 주소의 컴팩트 배열](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+![계정 주소 배열의 순서를 보여주는 다이어그램](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
 ### 최근 블록해시
 
-모든 트랜잭션은 다음 두 가지 목적으로 사용되는
-[최근 블록해시](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L141)가
-필요합니다:
+메시지의 `recent_blockhash`는 트랜잭션 타임스탬프 역할을 하고 중복 트랜잭션을
+방지하는 해시 값입니다. 블록해시는
+[150 블록](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)
+후에 만료됩니다. (각 블록이 400ms라고 가정할 때 약 1분에 해당합니다.) 블록이
+만료된 후에는 트랜잭션도 만료되어 처리될 수 없습니다.
 
-1. 트랜잭션이 생성된 시점의 타임스탬프 역할
-2. 중복 트랜잭션 방지
+<Callout>
+  [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC 메서드를
+  사용하면 현재 블록해시와 블록해시가 유효한 마지막 블록 높이를 얻을 수
+  있습니다.
+</Callout>
 
-블록해시는
-[150](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)개의
-블록(400ms 블록 시간을 가정할 때 약 1분) 후에 만료되며, 이후에는 트랜잭션이
-만료된 것으로 간주되어 처리될 수 없습니다.
+### 명령어
 
-[getLatestBlockhash](/docs/rpc/http/getlatestblockhash) RPC 메서드를 사용하여
-현재 블록해시와 블록해시가 유효한 마지막 블록 높이를 얻을 수 있습니다.
-
-### 명령어 배열
-
-트랜잭션 메시지는
-[CompiledInstruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
-타입의
-[명령어](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
-배열을 포함합니다. 명령어는 트랜잭션에 추가될 때 이 타입으로 변환됩니다.
-
-메시지의 계정 주소 배열과 마찬가지로,
-[compact-u16](/docs/core/transactions#compact-array-format) 길이로 시작하고 그
-뒤에 명령어 데이터가 옵니다. 각 명령어는 다음을 포함합니다:
+메시지의
+[`instructions`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)는
+처리될 모든 명령어의 배열로,
+[컴팩트 배열 형식](/docs/references/terminology#compact-array-format)으로
+전송됩니다. 배열의 접두사는 길이를 나타냅니다. 배열의 각 항목은
+[`CompiledInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+구조체이며 다음 정보를 포함합니다:
 
 <WithMentions>
 
-1. [프로그램 ID 인덱스](mention:program-id-index): 계정 주소 배열에서 프로그램의
-   주소를 가리키는 인덱스입니다. 이는 명령어를 처리할 프로그램을 지정합니다.
-2. [계정 인덱스](mention:account-indexes): 이 명령어에 필요한 계정 주소를
-   가리키는 인덱스 배열입니다.
-3. [instruction data](mention:instruction-data): 프로그램에서 어떤 명령어를
-   호출할지 지정하고 명령어에 필요한 추가 데이터(예: 함수 인수)를 포함하는
-   바이트 배열입니다.
+1. [`program_id_index`](mention:program-id-index):
+   [`account_keys`](#account-addresses) 배열의 주소를 가리키는 인덱스입니다. 이
+   값은 명령어를 처리하는 프로그램의 주소를 나타냅니다.
+2. [`accounts`](mention:account-indexes): `account_keys` 배열의 주소를 가리키는
+   인덱스 배열입니다. 각 인덱스는 이 명령어에 필요한 계정의 주소를 가리킵니다.
+3. [`data`](mention:instruction-data): 프로그램에서 어떤 명령어를 호출할지
+   지정하는 바이트 배열입니다. 또한 명령어에 필요한 추가 데이터도 포함합니다.
+   (예: 함수 인자)
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -922,9 +231,9 @@ pub struct CompiledInstruction {
 
 ![명령어의 컴팩트 배열](/assets/docs/core/transactions/compact_array_of_ixs.png)
 
-### 트랜잭션 구조 예시
+## 트랜잭션 구조 예시
 
-단일 SOL 전송 명령어가 포함된 트랜잭션의 구조를 보려면 아래 예제를 실행하세요.
+다음 예시는 단일 SOL 전송 명령어가 포함된 트랜잭션의 구조를 보여줍니다.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -1060,25 +369,30 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-다음 예제는 이전 코드 스니펫의 트랜잭션 메시지 출력을 보여줍니다. SDK에 따라
-정확한 형식은 다르지만 동일한 정보를 포함합니다.
+<WithMentions>
+이전 코드 스니펫의 출력을 아래 코드에서 보여줍니다.
+SDK마다 형식은 다르지만, 각 명령어가 동일한 필수 정보를 포함하고 있음을 확인하세요.
 
 <CodeTabs storage="sol-transfer">
 
 ```json !! title="Kit"
 {
   "version": 0,
+  // !mention header
   "header": {
     "numSignerAccounts": 1,
     "numReadonlySignerAccounts": 0,
     "numReadonlyNonSignerAccounts": 1
   },
+  // !mention account_keys
   "staticAccounts": [
     "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
     "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
     "11111111111111111111111111111111"
   ],
+  // !mention recent_blockhash
   "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  // !mention instructions
   "instructions": [
     {
       "programAddressIndex": 2,
@@ -1104,17 +418,20 @@ async fn main() -> Result<()> {
 
 ```json !! title="Legacy"
 {
+  // !mention header
   "header": {
     "numRequiredSignatures": 1,
     "numReadonlySignedAccounts": 0,
     "numReadonlyUnsignedAccounts": 1
   },
+  // !mention account_keys
   "accountKeys": [
     "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
     "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
     "11111111111111111111111111111111"
   ],
   "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  // !mention instructions
   "instructions": [
     {
       "programIdIndex": 2,
@@ -1132,6 +449,7 @@ async fn main() -> Result<()> {
     "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
   ],
   "message": {
+    // !mention header
     "header": {
       "num_required_signatures": 1,
       "num_readonly_signed_accounts": 0,
@@ -1143,6 +461,7 @@ async fn main() -> Result<()> {
       "11111111111111111111111111111111"
     ],
     "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    // !mention instructions
     "instructions": [
       {
         "program_id_index": 2,
@@ -1155,19 +474,15 @@ async fn main() -> Result<()> {
 ```
 
 </CodeTabs>
+</WithMentions>
 
-트랜잭션을 제출한 후, [getTransaction](/docs/rpc/http/gettransaction) RPC
-메서드를 사용하여 세부 정보를 검색할 수 있습니다. 응답은 다음 스니펫과 유사한
-구조를 가질 것입니다. 또는 [Solana Explorer](https://explorer.solana.com)를
-사용하여 트랜잭션을 검사할 수 있습니다.
+트랜잭션이 제출된 후에는 트랜잭션 서명과
+[getTransaction](/docs/rpc/http/gettransaction) RPC 메서드를 사용하여 세부
+정보를 검색할 수 있습니다. 응답은 다음 스니펫과 유사한 구조를 가질 것입니다.
 
-<Callout type="info">
-
-"트랜잭션 서명"은 Solana에서 트랜잭션을 고유하게 식별합니다. 이 서명을 사용하여
-네트워크에서 트랜잭션의 세부 정보를 조회할 수 있습니다. 트랜잭션 서명은 단순히
-트랜잭션의 첫 번째 서명입니다. 첫 번째 서명은 또한 트랜잭션 수수료 지불자의
-서명이기도 합니다.
-
+<Callout>
+  [Solana Explorer](https://explorer.solana.com)를 사용하여 트랜잭션을 찾을 수도
+  있습니다.
 </Callout>
 
 ```json title="Transaction Data"

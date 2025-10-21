@@ -1,685 +1,28 @@
 ---
-title: 交易与指令
+title: 交易
 description:
-  了解 Solana 的交易与指令——与 Solana
-  区块链交互的基本构建块。通过实际示例，理解交易结构和指令组成。
+  了解 Solana 交易——与 Solana
+  区块链交互的基本构建块。通过实际示例了解交易结构和指令组成。
 ---
 
-在 Solana 上，用户通过发送[交易](/docs/core/transactions#transaction)与网络交互。交易包含一个或多个[指令](/docs/core/transactions#instruction)，这些指令指定需要处理的操作。指令的执行逻辑存储在部署到 Solana 网络上的[程序](/docs/core/programs)中，每个程序定义其自己的指令集。
+要与 Solana 网络交互，您必须发送一笔交易。您可以将交易视为一个装有多种表单的信封。每个表单都是一条指令，告诉网络该做什么。发送交易就像邮寄信封，以便处理这些表单。
 
-以下是关于 Solana 交易处理的关键细节：
+下面的示例展示了两个交易的简化版本。当第一个交易被处理时，它将执行一条指令。当第二个交易被处理时，它将按**顺序**执行三条指令：首先是指令 1，然后是指令 2，最后是指令 3。
 
-- 如果一个交易包含多个指令，这些指令会按照添加到交易中的顺序依次执行。
-- 交易是“原子性”的——所有指令必须成功处理，否则整个交易失败且不会发生任何更改。
-
-交易本质上是一个处理一个或多个指令的请求。你可以将交易想象成一个装有表单的信封。每个表单就是一个指令，告诉网络需要执行的操作。发送交易就像邮寄信封以处理表单。
-
-![交易简化图](/assets/docs/core/transactions/transaction-simple.svg)
-
-## 关键点
-
-- Solana 交易包含调用网络上程序的指令。
-- 交易具有**原子性**——如果任何指令失败，整个交易将失败且不会发生任何更改。
-- 交易中的指令按顺序依次执行。
-- 交易的大小限制为
-  [1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-  字节。
-- 每个指令需要以下三部分信息：
-  1. 要调用的程序地址
-  2. 指令读取或写入的账户
-  3. 指令所需的任何额外数据（例如，函数参数）
-
-## SOL 转账示例
-
-下图展示了一笔包含单个指令的交易，用于将 SOL 从发送方转移到接收方。
-
-在 Solana 上，“钱包”是由[系统程序](/docs/core/accounts#system-program)拥有的账户。只有程序所有者可以更改账户的数据，因此转移 SOL 需要发送一笔交易以调用系统程序。
-
-![SOL 转账](/assets/docs/core/transactions/sol-transfer.svg)
-
-发送方账户必须签署 (`is_signer`) 交易，以允许系统程序扣除其 lamport 余额。由于 lamport 余额会发生变化，发送方和接收方账户必须是可写的 (`is_writable`)。
-
-发送交易后，系统程序会处理转账指令。然后，系统程序会更新发送方和接收方账户的 lamport 余额。
-
-![SOL 转账流程](/assets/docs/core/transactions/sol-transfer-process.svg)
-
-以下示例展示了如何发送一笔交易，将 SOL 从一个账户转移到另一个账户。查看系统程序的转账指令源代码[这里](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L183)。
-
-<CodeTabs flags="r">
-
-```ts !! title="Kit"
-import {
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners
-} from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
-
-// Create a connection to cluster
-const rpc = createSolanaRpc("http://localhost:8899");
-const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
-
-// Generate sender and recipient keypairs
-const sender = await generateKeyPairSigner();
-const recipient = await generateKeyPairSigner();
-
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
-
-// Fund sender with airdrop
-await airdropFactory({ rpc, rpcSubscriptions })({
-  recipientAddress: sender.address,
-  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
-  commitment: "confirmed"
-});
-
-// Check balance before transfer
-const { value: preBalance1 } = await rpc.getBalance(sender.address).send();
-const { value: preBalance2 } = await rpc.getBalance(recipient.address).send();
-
-// !mark(1:6)
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount // 0.01 SOL in lamports
-});
-
-// Add the transfer instruction to a new transaction
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
-);
-
-// Send the transaction to the network
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: "confirmed" }
-);
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-// Check balance after transfer
-const { value: postBalance1 } = await rpc.getBalance(sender.address).send();
-const { value: postBalance2 } = await rpc.getBalance(recipient.address).send();
-
-console.log(
-  "Sender prebalance:",
-  Number(preBalance1) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Recipient prebalance:",
-  Number(preBalance2) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Sender postbalance:",
-  Number(postBalance1) / Number(LAMPORTS_PER_SOL)
-);
-console.log(
-  "Recipient postbalance:",
-  Number(postBalance2) / Number(LAMPORTS_PER_SOL)
-);
-console.log("Transaction Signature:", transactionSignature);
-```
-
-```ts !! title="Legacy"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-  Keypair,
-  Connection
-} from "@solana/web3.js";
-
-// Create a connection to cluster
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-// Generate sender and recipient keypairs
-const sender = Keypair.generate();
-const recipient = new Keypair();
-
-// Fund sender with airdrop
-const airdropSignature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction(airdropSignature, "confirmed");
-
-// Check balance before transfer
-const preBalance1 = await connection.getBalance(sender.publicKey);
-const preBalance2 = await connection.getBalance(recipient.publicKey);
-
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// !mark(1:6)
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
-});
-
-// Add the transfer instruction to a new transaction
-const transaction = new Transaction().add(transferInstruction);
-
-// Send the transaction to the network
-const transactionSignature = await sendAndConfirmTransaction(
-  connection,
-  transaction,
-  [sender] // signer
-);
-
-// Check balance after transfer
-const postBalance1 = await connection.getBalance(sender.publicKey);
-const postBalance2 = await connection.getBalance(recipient.publicKey);
-
-console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
-console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
-console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
-console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
-console.log("Transaction Signature:", transactionSignature);
-```
-
-```rs !! title="Rust"
-use anyhow::Result;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_commitment_config::CommitmentConfig;
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
-    transaction::Transaction,
-};
-use solana_system_interface::instruction::transfer;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Create a connection to cluster
-    let connection = RpcClient::new_with_commitment(
-        "http://localhost:8899".to_string(),
-        CommitmentConfig::confirmed(),
-    );
-
-    // Generate sender and recipient keypairs
-    let sender = Keypair::new();
-    let recipient = Keypair::new();
-
-    // Fund sender with airdrop
-    let airdrop_signature = connection
-        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
-        .await?;
-    loop {
-        let confirmed = connection.confirm_transaction(&airdrop_signature).await?;
-        if confirmed {
-            break;
-        }
-    }
-
-    // Check balance before transfer
-    let pre_balance1 = connection.get_balance(&sender.pubkey()).await?;
-    let pre_balance2 = connection.get_balance(&recipient.pubkey()).await?;
-
-    // Define the amount to transfer
-    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-    // Create a transfer instruction for transferring SOL from sender to recipient
-    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-
-    // Add the transfer instruction to a new transaction
-    let mut transaction =
-        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
-    let blockhash = connection.get_latest_blockhash().await?;
-    transaction.sign(&[&sender], blockhash);
-
-    // Send the transaction to the network
-    let transaction_signature = connection
-        .send_and_confirm_transaction(&transaction)
-        .await?;
-
-    // Check balance after transfer
-    let post_balance1 = connection.get_balance(&sender.pubkey()).await?;
-    let post_balance2 = connection.get_balance(&recipient.pubkey()).await?;
-
-    println!(
-        "Sender prebalance: {}",
-        pre_balance1 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Recipient prebalance: {}",
-        pre_balance2 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Sender postbalance: {}",
-        post_balance1 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!(
-        "Recipient postbalance: {}",
-        post_balance2 as f64 / LAMPORTS_PER_SOL as f64
-    );
-    println!("Transaction Signature: {}", transaction_signature);
-
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-客户端库通常会抽象构建程序指令的细节。如果没有可用的库，您可以手动构建指令。这需要您了解指令的实现细节。
-
-以下示例展示了如何手动构建转账指令。`Expanded Instruction` 标签在功能上等同于
-`Instruction` 标签。
-
-<Tabs items={['Kit', 'Legacy', 'Rust']}>
-
-<Tab value="Kit">
-
-<CodeTabs>
-
-```ts !! title="Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount * LAMPORTS_PER_SOL
-});
-```
-
-```ts !! title="Expanded Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the System Program's transfer instruction
-const TRANSFER_INSTRUCTION_INDEX = 2;
-
-// Create a buffer for the data to include in the instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
-instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
-
-const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
-
-// Manually create the transfer instruction
-const transferInstruction: IInstruction = {
-  programAddress: SYSTEM_PROGRAM_ADDRESS,
-  accounts: [
-    {
-      address: sender.address,
-      role: AccountRole.WRITABLE_SIGNER
-    },
-    {
-      address: recipient.address,
-      role: AccountRole.WRITABLE
-    }
-  ],
-  data: new Uint8Array(instructionData)
-};
-```
-
-</CodeTabs>
-
-</Tab>
-
-<Tab value="Legacy">
-
-<CodeTabs>
-
-```ts !! title="Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: receiver.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL
-});
-```
-
-```ts !! title="Expanded Instruction"
-const transferAmount = 0.01; // 0.01 SOL
-
-// Instruction index for the System Program's transfer instruction
-const transferInstructionIndex = 2;
-
-// Create a buffer for the data to include in the instruction
-const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
-instructionData.writeUInt32LE(transferInstructionIndex, 0);
-instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
-
-// Manually create a transfer instruction
-const transferInstruction = new TransactionInstruction({
-  keys: [
-    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
-    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
-  ],
-  programId: SystemProgram.programId,
-  data: instructionData
-});
-```
-
-</CodeTabs>
-
-</Tab>
-
-<Tab value="Rust">
-
-<CodeTabs>
-
-```rs !! title="Instruction"
-let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-let transfer_instruction =
-    transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-```
-
-```rs !! title="Expanded Instruction"
-// Instruction index for the System Program's transfer instruction
-let transfer_instruction_index: u32 = 2;
-
-// Define the amount to transfer
-let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
-let mut instruction_data = Vec::with_capacity(12);
-instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
-instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
-
-// Manually create the transfer instruction
-let transfer_instruction = Instruction {
-    program_id: system_program::id(),
-    accounts: vec![
-        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
-        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
-    ],
-    data: instruction_data,
-};
-```
-
-</CodeTabs>
-
-</Tab>
-
-</Tabs>
-
-在以下部分中，我们将详细介绍交易和指令的内容。
-
-## 指令
-
-在 Solana [程序](/docs/core/accounts#program-account)中的
-[指令](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/lib.rs#L94)
-可以被视为一个公共函数，任何人都可以通过 Solana 网络调用它。
-
-您可以将 Solana 程序视为托管在 Solana 网络上的 Web 服务器，其中每个指令就像一个公共 API 端点，用户可以调用它来执行特定操作。调用指令类似于向 API 端点发送
-`POST` 请求，允许用户执行程序的业务逻辑。
-
-<WithMentions>
-
-要在 Solana 上调用程序的指令，您需要构建一个包含以下三部分信息的 `Instruction`：
-
-- [Program ID](mention:program-id)：包含指令业务逻辑的程序地址。
-- [Accounts](mention:accounts)：指令读取或写入的所有账户列表。
-- [Instruction Data](mention:instruction-data)：一个字节数组，指定要在程序上调用的指令以及指令所需的任何参数。
-
-```rust title="Instruction"
-pub struct Instruction {
-    /// Pubkey of the program that executes this instruction.
-    // !mention program-id
-    pub program_id: Pubkey,
-    /// Metadata describing accounts that should be passed to the program.
-    // !mention accounts
-    pub accounts: Vec<AccountMeta>,
-    /// Opaque data passed to the program for its own interpretation.
-    // !mention instruction-data
-    pub data: Vec<u8>,
-}
-```
-
-</WithMentions>
-
-![Transaction Instruction](/assets/docs/core/transactions/instruction.svg)
-
-### AccountMeta
-
-<WithMentions>
-
-在创建 `Instruction` 时，您必须将每个所需账户作为一个
-[`AccountMeta`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/instruction/src/account_meta.rs#L25)
-提供。 `AccountMeta` 指定以下内容：
-
-- [pubkey](mention:pubkey)：账户的地址
-- [is_signer](mention:is-signer)：账户是否必须签署交易
-- [is_writable](mention:is-writable)：指令是否修改账户的数据
-
-```rust title="AccountMeta"
-pub struct AccountMeta {
-    /// An account's public key.
-    // !mention pubkey
-    pub pubkey: Pubkey,
-    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
-    // !mention is-signer
-    pub is_signer: bool,
-    /// True if the account data or metadata may be mutated during program execution.
-    // !mention is-writable
-    pub is_writable: bool,
-}
-```
-
-</WithMentions>
-
-通过预先指定指令读取或写入的账户，不修改相同账户的交易可以并行执行。
-
-<Callout type="info">
-
-要了解指令需要哪些账户，包括哪些必须是可写的、只读的或需要签署交易的，您必须参考程序定义的指令实现。
-
-实际上，您通常不需要手动构造
-`Instruction`。大多数程序开发者会提供带有辅助函数的客户端库，为您创建指令。
-
+<Callout type="warn">
+  交易是**原子性**的：如果单条指令失败，整个交易将失败，并且不会发生任何更改。
 </Callout>
 
-![AccountMeta](/assets/docs/core/transactions/accountmeta.svg)
+![一个展示两个交易的简化图示](/assets/docs/core/transactions/transaction-simple.svg)
 
-### 指令结构示例
-
-运行以下示例以查看 SOL 转账指令的结构。
-
-<CodeTabs storage="sol-transfer" flags="r">
-
-```ts !! title="Kit"
-import { generateKeyPairSigner, lamports } from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
-
-// Generate sender and recipient keypairs
-const sender = await generateKeyPairSigner();
-const recipient = await generateKeyPairSigner();
-
-// Define the amount to transfer
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = getTransferSolInstruction({
-  source: sender,
-  destination: recipient.address,
-  amount: transferAmount
-});
-
-console.log(JSON.stringify(transferInstruction, null, 2));
-```
-
-```ts !! title="Legacy"
-import {
-  LAMPORTS_PER_SOL,
-  SystemProgram,
-  Transaction,
-  Keypair
-} from "@solana/web3.js";
-
-// Generate sender and recipient keypairs
-const sender = Keypair.generate();
-const recipient = new Keypair();
-
-// Define the amount to transfer
-const transferAmount = 0.01; // 0.01 SOL
-
-// Create a transfer instruction for transferring SOL from sender to recipient
-const transferInstruction = SystemProgram.transfer({
-  fromPubkey: sender.publicKey,
-  toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
-});
-
-console.log(JSON.stringify(transferInstruction, null, 2));
-```
-
-```rs !! title="Rust"
-use anyhow::Result;
-use solana_sdk::{native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair};
-use solana_system_interface::instruction::transfer;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Generate sender and recipient keypairs
-    let sender = Keypair::new();
-    let recipient = Keypair::new();
-
-    // Define the amount to transfer
-    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
-
-    // Create a transfer instruction for transferring SOL from sender to recipient
-    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
-
-    println!("{:#?}", transfer_instruction);
-
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-以下示例显示了前面代码片段的输出。具体格式因 SDK 而异，但每个 Solana 指令都需要以下信息：
+一个
+[`Transaction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+包含以下信息：
 
 <WithMentions>
 
-- [Program ID](mention:program-id)：将执行指令的程序地址。
-- [Accounts](mention:accounts)：指令所需的账户列表。对于每个账户，指令必须指定其地址、是否需要签署交易以及是否会被写入。
-- [Data](mention:data)：一个字节缓冲区，用于告诉程序要执行的指令以及指令所需的任何参数。
-
-<CodeTabs storage="sol-transfer">
-
-```json !! title="Kit"
-{
-  // !mention(1:16) accounts
-  "accounts": [
-    {
-      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
-      "role": 3,
-      "signer": {
-        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
-        "keyPair": {
-          "privateKey": {},
-          "publicKey": {}
-        }
-      }
-    },
-    {
-      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
-      "role": 1
-    }
-  ],
-  // !mention program-id
-  "programAddress": "11111111111111111111111111111111",
-  // !mention(1:14) data
-  "data": {
-    "0": 2,
-    "1": 0,
-    "2": 0,
-    "3": 0,
-    "4": 128,
-    "5": 150,
-    "6": 152,
-    "7": 0,
-    "8": 0,
-    "9": 0,
-    "10": 0,
-    "11": 0
-  }
-}
-```
-
-```json !! title="Legacy"
-{
-  // !mention(1:12) accounts
-  "keys": [
-    {
-      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
-      "isSigner": true,
-      "isWritable": true
-    },
-    {
-      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
-      "isSigner": false,
-      "isWritable": true
-    }
-  ],
-  // !mention program-id
-  "programId": "11111111111111111111111111111111",
-  // !mention data
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-```json !! title="Rust"
-{
-  // !mention program-id
-  "program_id": "11111111111111111111111111111111",
-  // !mention(1:12) accounts
-  "accounts": [
-    {
-      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
-      "is_signer": true,
-      "is_writable": true
-    },
-    {
-      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
-      "is_signer": false,
-      "is_writable": true
-    }
-  ],
-  // !mention data
-  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
-}
-```
-
-</CodeTabs>
-
-</WithMentions>
-
-## 交易
-
-在创建了您想要调用的指令之后，下一步是创建一个 `Transaction`
-并将指令添加到交易中。一个 Solana
-[交易](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
-由以下部分组成：
-
-<WithMentions>
-
-1. [签名](mention:signatures)：一个包含所有账户签名的数组，这些账户是交易中指令所需的签名者。签名是通过使用账户的私钥对交易
-   `Message`
-   进行签署而生成的。[签名](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)。
-2. [消息](mention:message)：交易[消息](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)包括需要原子性处理的指令列表。
+- [`signatures`](mention:signatures)：一个[签名](#signatures)数组
+- [`message`](mention:message)：交易信息，包括要处理的指令列表
 
 ```rust title="Transaction"
 pub struct Transaction {
@@ -696,16 +39,48 @@ pub struct Transaction {
 
 </WithMentions>
 
-![交易格式](/assets/docs/core/transactions/tx_format.png)
+![展示交易两部分的图示](/assets/docs/core/transactions/tx_format.png)
 
-交易消息的结构包括：
+交易的总大小限制为
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+字节。此限制包括 [`signatures`](#signatures) 数组和 [`message`](#message)
+结构体。
+
+<Callout>
+  此限制来源于 IPv6 最大传输单元 (MTU) 的大小为 1280 字节，减去 48
+  字节的网络头（40 字节 IPv6 + 8 字节头）。
+</Callout>
+
+![展示交易格式和大小限制的图示](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+## 签名
+
+交易的 `signatures` 数组包含 `Signature` 结构体。每个
+[`Signature`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
+为 64 字节，通过使用账户的私钥对交易的 `Message` 进行签名创建。每个
+[签名账户](#account-addresses) 的指令都必须提供一个签名。
+
+第一个签名属于支付交易[基础费用](docs/core/fees#base-fee)的账户，并且是交易签名。交易签名可用于在网络上查找交易的详细信息。
+
+## 消息
+
+交易的 `message` 是一个
+[`Message`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)
+结构体，包含以下信息：
 
 <WithMentions>
 
-- [消息头](mention:message-header)：指定签名者和只读账户的数量。
-- [账户地址](mention:account-addresses)：一个账户地址的数组，这些地址是交易指令所需的。
-- [最近区块哈希](mention:recent-blockhash)：作为交易的时间戳。
-- [指令](mention:instructions)：一个要执行的指令数组。
+- [`header`](mention:message-header)：消息的[头部](#header)
+- [`account_keys`](mention:account-addresses)：一个
+  [账户地址](#account-addresses)数组，交易指令所需的
+- [`recent_blockhash`](mention:recent-blockhash)：一个
+  [区块哈希](#recent-blockhash)，作为交易的时间戳
+- [`instructions`](mention:instructions)：一个 [指令](#instructions)数组
+
+<Callout>
+  为了节省空间，交易不会单独存储每个账户的权限。相反，账户权限是通过 `header` 和
+  `account_keys` 确定的。
+</Callout>
 
 ```rust title="Message"
 pub struct Message {
@@ -732,29 +107,17 @@ pub struct Message {
 
 </WithMentions>
 
-### 交易大小
-
-Solana 交易的大小限制为
-[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-字节。这个限制来源于 IPv6 最大传输单元 (MTU) 的大小 1280 字节，减去网络头的 48 字节（40 字节 IPv6 +
-8 字节头）。
-
-交易的总大小（签名和消息）必须保持在此限制之内，包括：
-
-- 签名：每个 64 字节
-- 消息：头部（3 字节）、账户密钥（每个 32 字节）、最近区块哈希（32 字节）和指令
-
-![交易格式](/assets/docs/core/transactions/issues_with_legacy_txs.png)
-
-### 消息头
-
-[消息头](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
-指定了交易中账户的权限。它与严格排序的[账户地址](/docs/core/transactions#array-of-account-addresses)结合使用，以确定哪些账户是签名者，哪些账户是可写的。
+### 头部
 
 <WithMentions>
-1. [交易中所有指令所需的签名数量。](mention:num_required_signatures)
-2. [已签名账户中只读账户的数量。](mention:num_readonly_signed_accounts)
-3. [未签名账户中只读账户的数量。](mention:num_readonly_unsigned_accounts)
+
+消息的 `header` 是一个
+[`MessageHeader`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
+结构体，包含以下信息：
+
+- [`num_required_signatures`](mention:num_required_signatures)：交易所需的总签名数
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts)：需要签名的只读账户总数
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts)：不需要签名的只读账户总数
 
 ```rust title="MessageHeader"
 pub struct MessageHeader {
@@ -778,66 +141,56 @@ pub struct MessageHeader {
 
 </WithMentions>
 
-![消息头](/assets/docs/core/transactions/message_header.png)
+![显示消息头部三个部分的图示](/assets/docs/core/transactions/message_header.png)
 
-### 紧凑数组格式
+### 账户地址
 
-交易消息中的紧凑数组是以以下格式序列化的数组：
+消息的
+[`account_keys`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+是一个账户地址数组，以
+[紧凑数组格式](/docs/references/terminology#compact-array-format)发送。数组的前缀表示其长度。数组中的每一项是一个公钥，指向其指令使用的账户。`accounts_keys`
+数组必须完整，并严格按以下顺序排列：
 
-1. 数组长度（编码为
-   [compact-u16](https://github.com/anza-xyz/agave/blob/v2.1.13/short-vec/src/lib.rs)）
-2. 数组项依次列出
+1. 签名者 + 可写
+2. 签名者 + 只读
+3. 非签名者 + 可写
+4. 非签名者 + 只读
 
-![紧凑数组格式](/assets/docs/core/transactions/compact_array_format.png)
+<Callout>
+  严格的排序允许 `account_keys` 数组与消息的 [`header`](#header)
+  中的信息结合，以确定每个账户的权限。
+</Callout>
 
-此格式用于对交易消息中的[账户地址](/docs/core/transactions#array-of-account-addresses)数组和[指令](/docs/core/transactions#array-of-instructions)数组的长度进行编码。
+![显示账户地址数组顺序的图示](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
-### 账户地址数组
+### 最近的区块哈希
 
-交易消息包含一个单一的[账户地址](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)列表，该列表由其指令所需的所有地址组成。数组以一个[compact-u16](/docs/core/transactions#compact-array-format)数字开头，指示其包含的地址数量。
+消息的 `recent_blockhash`
+是一个哈希值，作为交易的时间戳并防止重复交易。区块哈希在
+[150 个区块](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)后过期。（相当于一分钟——假设每个区块为 400 毫秒。）区块过期后，交易也会过期，无法被处理。
 
-为了节省空间，交易不会单独存储每个账户的权限。相反，它依赖于 `MessageHeader`
-和账户地址的严格排序来确定权限。
+<Callout>
+  [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC 方法
+  允许您获取当前的区块哈希以及区块哈希有效的最后区块高度。
+</Callout>
 
-地址始终按以下方式排序：
+### 指令
 
-1. **可写且为签名者**的账户
-2. **只读且为签名者**的账户
-3. **可写但不是签名者**的账户
-4. **只读且不是签名者**的账户
-
-`MessageHeader` 提供了用于确定每个权限组账户数量的值。
-
-![账户地址的紧凑数组](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
-
-### 最近区块哈希
-
-每笔交易都需要一个[最近区块哈希](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L141)，其有两个作用：
-
-1. 作为交易创建时的时间戳
-2. 防止重复交易
-
-区块哈希在[150](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134)个区块后（假设区块时间为 400 毫秒，大约 1 分钟）过期，之后交易将被视为过期，无法处理。
-
-您可以使用 [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash)
-RPC 方法获取当前区块哈希和区块哈希有效的最后区块高度。
-
-### 指令数组
-
-交易消息包含一个
-[instructions](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
-数组，类型为
-[CompiledInstruction](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)。指令在添加到交易中时会被转换为此类型。
-
-与消息中的账户地址数组类似，它以一个
-[compact-u16](/docs/core/transactions#compact-array-format)
-长度开头，后跟指令数据。每个指令包含：
+消息的
+[`instructions`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+是一个包含所有待处理指令的数组，采用
+[紧凑数组格式](/docs/references/terminology#compact-array-format)。数组的前缀表示其长度。数组中的每一项是一个
+[`CompiledInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+结构体，包含以下信息：
 
 <WithMentions>
 
-1. [Program ID Index](mention:program-id-index)：一个索引，指向账户地址数组中程序的地址。这指定了处理该指令的程序。
-2. [Account Indexes](mention:account-indexes)：一个索引数组，指向该指令所需的账户地址。
-3. [Instruction Data](mention:instruction-data)：一个字节数组，指定要在程序上调用的指令以及指令所需的任何附加数据（例如函数参数）。
+1. [`program_id_index`](mention:program-id-index)：一个索引，指向
+   [`account_keys`](#account-addresses)
+   数组中的地址。此值表示处理该指令的程序的地址。
+2. [`accounts`](mention:account-indexes)：一个索引数组，指向 `account_keys`
+   数组中的地址。每个索引指向该指令所需账户的地址。
+3. [`data`](mention:instruction-data)：一个字节数组，指定要在程序上调用的指令。它还包括指令所需的任何附加数据。（例如，函数参数）
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -859,9 +212,9 @@ pub struct CompiledInstruction {
 
 ![指令的紧凑数组](/assets/docs/core/transactions/compact_array_of_ixs.png)
 
-### 示例交易结构
+## 示例交易结构
 
-运行以下示例以查看包含单个 SOL 转账指令的交易结构。
+以下示例展示了包含单个 SOL 转账指令的交易结构。
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -997,24 +350,31 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-以下示例展示了前述代码片段生成的交易消息输出。具体格式因 SDK 而异，但包含相同的信息。
+<WithMentions>
+以下代码展示了前面代码片段的输出。
+格式因 SDK 而异，
+但请注意，每个指令都包含相同的必要信息。
 
 <CodeTabs storage="sol-transfer">
 
 ```json !! title="Kit"
 {
   "version": 0,
+  // !mention header
   "header": {
     "numSignerAccounts": 1,
     "numReadonlySignerAccounts": 0,
     "numReadonlyNonSignerAccounts": 1
   },
+  // !mention account_keys
   "staticAccounts": [
     "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
     "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
     "11111111111111111111111111111111"
   ],
+  // !mention recent_blockhash
   "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  // !mention instructions
   "instructions": [
     {
       "programAddressIndex": 2,
@@ -1040,17 +400,20 @@ async fn main() -> Result<()> {
 
 ```json !! title="Legacy"
 {
+  // !mention header
   "header": {
     "numRequiredSignatures": 1,
     "numReadonlySignedAccounts": 0,
     "numReadonlyUnsignedAccounts": 1
   },
+  // !mention account_keys
   "accountKeys": [
     "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
     "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
     "11111111111111111111111111111111"
   ],
   "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  // !mention instructions
   "instructions": [
     {
       "programIdIndex": 2,
@@ -1068,6 +431,7 @@ async fn main() -> Result<()> {
     "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
   ],
   "message": {
+    // !mention header
     "header": {
       "num_required_signatures": 1,
       "num_readonly_signed_accounts": 0,
@@ -1079,6 +443,7 @@ async fn main() -> Result<()> {
       "11111111111111111111111111111111"
     ],
     "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    // !mention instructions
     "instructions": [
       {
         "program_id_index": 2,
@@ -1091,15 +456,13 @@ async fn main() -> Result<()> {
 ```
 
 </CodeTabs>
+</WithMentions>
 
-提交交易后，您可以使用 [getTransaction](/docs/rpc/http/gettransaction)
-RPC 方法检索其详细信息。响应的结构将类似于以下代码片段。或者，您可以使用
-[Solana Explorer](https://explorer.solana.com) 检查交易。
+提交交易后，您可以使用交易签名和 [getTransaction](/docs/rpc/http/gettransaction)
+RPC 方法检索其详细信息。响应的结构将类似于以下代码片段。
 
-<Callout type="info">
-
-“交易签名”是 Solana 上唯一标识交易的标识符。您可以使用此签名在网络上查找交易的详细信息。交易签名只是交易中的第一个签名。请注意，第一个签名也是交易费用支付者的签名。
-
+<Callout>
+  您还可以使用 [Solana Explorer](https://explorer.solana.com) 查找交易。
 </Callout>
 
 ```json title="Transaction Data"
