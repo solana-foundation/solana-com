@@ -47,6 +47,10 @@ export function InkeepSearchBar() {
           </svg>
 
           <span className="text-left flex-1">{t("commands.search")}</span>
+
+          <kbd className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-900/50 rounded">
+            ⌘K
+          </kbd>
         </button>
       </div>
 
