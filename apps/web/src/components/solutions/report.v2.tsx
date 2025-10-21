@@ -72,10 +72,11 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
           height="100%"
           jsonFilePath={bgJsonFilePath}
           scale={1}
-          dpi={1}
+          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
           fps={30}
           lazyLoad={true}
           production={true}
+          onError={(error) => console.error("UnicornScene error:", error)}
         />
       </div>
       <div className="py-[64px] md:py-[112px] xl:py-[160px] relative">
