@@ -1043,5 +1043,17 @@ export default {
       source: "/developers/guides/token-extensions/getting-started",
       destination: "/docs/tokens/extensions",
     },
+    {
+      source: "/developers/guides/advanced/how-to-use-priority-fees",
+      destination: "/docs/core/fees",
+    },
+    {
+      source: "/developers/guides/advanced/how-to-request-optimal-compute",
+      destination: "/developers/cookbook/transactions/optimize-compute",
+    },
+    {
+      source: "/developers/guides/getstarted/full-stack-solana-development",
+      destination: "/developers/guides/dapps/journal",
+    },
   ],
 };
