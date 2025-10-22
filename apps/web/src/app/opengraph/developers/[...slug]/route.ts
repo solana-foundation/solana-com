@@ -5,7 +5,6 @@ import DeveloperDocsImage from "@@/src/components/opengraph/DeveloperDocsImage";
 import { docsSource as docs } from "@@/src/app/sources/docs";
 import { cookbookSource as cookbook } from "@@/src/app/sources/cookbook";
 import { guidesSource as guides } from "@@/src/app/sources/guides";
-import { coursesSource as courses } from "@@/src/app/sources/courses";
 
 // Route segment config
 export const runtime = "nodejs";
@@ -31,7 +30,6 @@ export async function GET(_request: Request, { params }: Params) {
 const collections = {
   cookbook,
   guides,
-  courses,
   docs,
 };
 function getImageProps(slugItems: Array<string>) {
@@ -45,11 +43,6 @@ function getImageProps(slugItems: Array<string>) {
     }
   }
   switch (name) {
-    case "courses":
-      return {
-        title,
-        heading: rest.length > 1 ? "Lesson" : "Developer Course",
-      };
     case "resources":
       return { title: "Developer Resources", heading: "Developer Resources" };
     case "cookbook":

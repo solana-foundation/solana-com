@@ -64,7 +64,7 @@ export default function LearnPageContent({
       ariaLabel: translations.cookbookAriaLabel,
     },
     {
-      href: "/developers/courses",
+      href: "https://learn.blueshift.gg/",
       label: translations.coursesLabel,
       description: translations.coursesDescription,
       ariaLabel: translations.coursesAriaLabel,
@@ -101,12 +101,12 @@ export default function LearnPageContent({
 
       <section
         id="tutorials"
-        className="pt-8 md:pt-12 pb-20 md:pb-24 text-white"
+        className="pt-8 pb-20 text-white md:pt-12 md:pb-24"
         aria-label={translations.tutorialsAriaLabel}
       >
         <div className="container">
           <div
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
             role="list"
           >
             {tutorials.map((tutorial, index) => (
@@ -134,10 +134,10 @@ export default function LearnPageContent({
         }}
       >
         <div className="container">
-          <div className="mb-8 pt-10">
+          <div className="pt-10 mb-8">
             <h2
               id="resources-heading"
-              className="text-2xl md:text-3xl font-bold mb-4 text-white"
+              className="mb-4 text-2xl font-bold text-white md:text-3xl"
             >
               {translations.continueJourneyTitle}
             </h2>
@@ -153,7 +153,7 @@ export default function LearnPageContent({
                 ctaLabel={translations.developersDocumentsViewAll}
               />
             </div>
-            <div className="col-12 col-lg-6 mt-10 mt-lg-0">
+            <div className="mt-10 col-12 col-lg-6 mt-lg-0">
               <DevelopersDocumentItem
                 title={resources[1].label}
                 description={resources[1].description}
@@ -163,17 +163,17 @@ export default function LearnPageContent({
               />
             </div>
           </div>
-          <div className="row mt-8 mt-lg-12">
+          <div className="mt-8 row mt-lg-12">
             <div className="col-12 col-lg-6">
               <DevelopersDocumentItem
                 title={resources[2].label}
                 description={resources[2].description}
                 url={resources[2].href}
-                newTab={false}
+                newTab={true}
                 ctaLabel={translations.developersDocumentsViewAll}
               />
             </div>
-            <div className="col-12 col-lg-6 mt-10 mt-lg-0">
+            <div className="mt-10 col-12 col-lg-6 mt-lg-0">
               <DevelopersDocumentItem
                 title={resources[3].label}
                 description={resources[3].description}

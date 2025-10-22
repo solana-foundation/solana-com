@@ -73,15 +73,14 @@ function scanContentRecursive(baseDir, urlPrefix = "", urls = []) {
     return urls;
   }
 
-  // Detect if we're at /content/courses or /content/guides
-  const isCoursesOrGuides =
-    baseDir.endsWith(`${path.sep}courses`) ||
+  // Detect if we're at /content/cookbook or /content/guides
+  const isCookbookOrGuides =
     baseDir.endsWith(`${path.sep}guides`) ||
     baseDir.endsWith(`${path.sep}cookbook`);
 
   // If so, prepend /developers to the urlPrefix
   const effectiveUrlPrefix =
-    isCoursesOrGuides && !urlPrefix.startsWith("/developers")
+    isCookbookOrGuides && !urlPrefix.startsWith("/developers")
       ? `/developers${urlPrefix}`
       : urlPrefix;
 
