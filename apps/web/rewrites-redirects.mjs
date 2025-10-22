@@ -698,10 +698,6 @@ export default {
       destination: "/developers/guides/javascript/get-program-accounts",
     },
     {
-      source: "/developers/guides/immutable-owner",
-      destination: "/developers/guides/token-extensions/immutable-owner",
-    },
-    {
       source: "/docs/more/exchange",
       destination: "/developers/guides/advanced/exchange",
     },
@@ -998,6 +994,54 @@ export default {
       source: "/developers/courses/connecting-to-offchain-data/:path*",
       destination:
         "https://github.com/solana-foundation/developer-content/tree/main/content/courses/connecting-to-offchain-data",
+    },
+    {
+      source: "/developers/guides/immutable-owner",
+      destination: "/developers/guides/token-extensions/immutable-owner",
+    },
+    {
+      source: "/developers/guides/token-extensions/default-account-state",
+      destination: "/docs/tokens/extensions/default-state",
+    },
+    {
+      source: "/developers/guides/token-extensions/immutable-owner",
+      destination: "/docs/tokens/extensions/immutable-owner",
+    },
+    {
+      source: "/developers/guides/token-extensions/interest-bearing-tokens",
+      destination: "/docs/tokens/extensions/interest-bearing-tokens",
+    },
+    {
+      source: "/developers/guides/token-extensions/required-memo",
+      destination: "/docs/tokens/extensions/memo-transfer",
+    },
+    {
+      source: "/developers/guides/token-extensions/mint-close-authority",
+      destination: "/docs/tokens/extensions/close-mint",
+    },
+    {
+      source: "/developers/guides/token-extensions/non-transferable",
+      destination: "/docs/tokens/extensions/non-transferrable-tokens",
+    },
+    {
+      source: "/developers/guides/token-extensions/permanent-delegate",
+      destination: "/docs/tokens/extensions/permanent-delegate",
+    },
+    {
+      source: "/developers/guides/token-extensions/transfer-fee",
+      destination: "/docs/tokens/extensions/transfer-fees",
+    },
+    {
+      source: "/developers/guides/token-extensions/metadata-pointer",
+      destination: "/docs/tokens/extensions/metadata",
+    },
+    {
+      source: "/developers/guides/token-extensions/reallocate",
+      destination: "/docs/tokens/extensions",
+    },
+    {
+      source: "/developers/guides/token-extensions/getting-started",
+      destination: "/docs/tokens/extensions",
     },
   ],
 };
