@@ -11,46 +11,46 @@ const HeaderListNetwork = () => {
   return (
     <div className="xl:flex">
       <div>
-        <div className="text-uppercase py-2 d-flex align-items-center">
+        <div className="uppercase py-2 flex items-center !text-[#848895]">
           <ResourcesSVG className="me-3" />
           {t("nav.network.resources.title")}
         </div>
         <div>
           <Link
             to="/validators"
-            className="nav-link nav-link--secondary"
-            activeClassName="active"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
+            activeClassName="!border-white/10 bg-[#151118]"
           >
-            <strong className="d-block text-white">
+            <strong className="block !text-white">
               {networkResourcesItems[0].title}
             </strong>
             {networkResourcesItems[0].description}
           </Link>
           <Link
             to="/rpc"
-            className="nav-link nav-link--secondary"
-            activeClassName="active"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
+            activeClassName="!border-white/10 bg-[#151118]"
           >
-            <strong className="d-block text-white">
+            <strong className="block !text-white">
               {networkResourcesItems[1].title}
             </strong>
             {networkResourcesItems[1].description}
           </Link>
           <InlineLink
             to="https://status.solana.com/"
-            className="nav-link nav-link--secondary"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
           >
-            <strong className="d-block text-white">
+            <strong className="block !text-white">
               {networkResourcesItems[2].title}
             </strong>
             {networkResourcesItems[2].description}
           </InlineLink>
           <Link
             to="/solanaramp"
-            className="nav-link nav-link--secondary"
-            activeClassName="active"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
+            activeClassName="!border-white/10 bg-[#151118]"
           >
-            <strong className="d-block text-white">
+            <strong className="block !text-white">
               {networkResourcesItems[3].title}
             </strong>
             {networkResourcesItems[3].description}
@@ -58,37 +58,37 @@ const HeaderListNetwork = () => {
         </div>
       </div>
 
-      <div className="divider"></div>
+      <div className="bg-white/10 w-px h-auto my-[-1.625rem] mx-10"></div>
 
       <div>
-        <div className="text-uppercase py-2 d-flex align-items-center">
+        <div className="uppercase py-2 flex items-center !text-[#848895]">
           <InspectSVG className="me-3" />
           {t("nav.network.inspect.title")}
         </div>
         <div>
           <InlineLink
             to="https://solscan.io/"
-            className="nav-link nav-link--secondary"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
           >
-            <strong className="d-block text-white">
+            <strong className="block !text-white">
               {networkInspectItems[0].title}
             </strong>
             {networkInspectItems[0].description}
           </InlineLink>
           <InlineLink
             to="https://solana.fm/"
-            className="nav-link nav-link--secondary"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
           >
-            <strong className="d-block text-white">
+            <strong className="block !text-white">
               {networkInspectItems[1].title}
             </strong>
             {networkInspectItems[1].description}
           </InlineLink>
           <InlineLink
             to="https://explorer.solana.com/"
-            className="nav-link nav-link--secondary"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
           >
-            <strong className="d-block text-white">
+            <strong className="block !text-white">
               {networkInspectItems[2].title}
             </strong>
             {networkInspectItems[2].description}
