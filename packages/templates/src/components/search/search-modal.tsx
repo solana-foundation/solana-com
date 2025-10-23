@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@workspace/ui";
 import { SearchBar } from "./search-bar";
 import { useTemplates } from "../../lib/templates/use-templates";
 

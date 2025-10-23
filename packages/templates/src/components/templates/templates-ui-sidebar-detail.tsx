@@ -5,7 +5,7 @@ import {
   useTemplateSourceMap,
   useTemplateFilters,
 } from "../../lib/templates";
-import { Button } from "../ui/button";
+import { Button } from "@workspace/ui";
 import { AppModal } from "../app-modal";
 import { TemplatesUiGenerateCommand } from "./templates-ui-generate-command";
 

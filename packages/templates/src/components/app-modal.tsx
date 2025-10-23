@@ -1,4 +1,4 @@
-import { Button } from "./ui/button";
+import { Button } from "@workspace/ui";
 import {
   Dialog,
   DialogContent,
@@ -6,8 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "./ui/dialog";
-import { VisuallyHidden } from "./ui/visually-hidden";
+} from "@workspace/ui";
+import { VisuallyHidden } from "@workspace/ui";
 import { ReactNode } from "react";
 
 export function AppModal({

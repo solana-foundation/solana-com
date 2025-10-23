@@ -4,7 +4,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "../ui/accordion";
+} from "@workspace/ui";
 import { TemplatesUiFilter } from "./templates-ui-filter";
 import { TemplatesUiMain } from "./templates-ui-main";
 import { Template } from "../../lib/types/templates";

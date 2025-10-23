@@ -1,6 +1,6 @@
 "use client";
 
-import { Input } from "../ui/input";
+import { Input } from "@workspace/ui";
 import { useTemplateFilterState } from "../../lib/templates";
 import { useTemplatesTranslations } from "../../lib/use-translations";
 import { useEffect, useState } from "react";

@@ -1,4 +1,4 @@
-import { Button } from "../ui/button";
+import { Button } from "@workspace/ui";
 import { useTemplateFilterState } from "../../lib/templates";
 import { useTemplatesTranslations } from "../../lib/use-translations";
 import { TemplatesUiGrid } from "./templates-ui-grid";

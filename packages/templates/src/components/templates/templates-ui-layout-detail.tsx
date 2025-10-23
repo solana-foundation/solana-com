@@ -6,8 +6,8 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "../ui/accordion";
-import { Button } from "../ui/button";
+} from "@workspace/ui";
+import { Button } from "@workspace/ui";
 import { AppHero } from "../app-hero";
 import { TemplatesUiImage } from "../../lib/templates";
 import { TemplatesUiSidebarDetail } from "./templates-ui-sidebar-detail";

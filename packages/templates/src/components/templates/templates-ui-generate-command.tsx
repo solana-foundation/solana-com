@@ -1,7 +1,7 @@
 "use client";
 import { Template } from "../../lib/templates";
 import { useEffect, useState } from "react";
-import { Button } from "../ui/button";
+import { Button } from "@workspace/ui";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { highlightCode } from "../../lib/syntax-highlight";
 
