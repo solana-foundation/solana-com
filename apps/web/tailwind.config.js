@@ -7,6 +7,7 @@ export default {
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
     "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
+    "../../packages/templates/src/**/*.{js,ts,jsx,tsx}",
     "./node_modules/fumadocs-ui/dist/**/*.js",
     "./node_modules/radix-ui/**/*.{js,ts,tsx}",
   ],
