@@ -12,6 +12,7 @@ import { AppHero } from "../app-hero";
 import { TemplatesUiImage } from "../../lib/templates";
 import { TemplatesUiSidebarDetail } from "./templates-ui-sidebar-detail";
 import { Template } from "../../lib/types/templates";
+import { PROSE_README_CLASSNAME } from "../../lib/prose-styles";
 
 export function TemplatesUiLayoutDetail({
   name,
@@ -55,8 +56,12 @@ export function TemplatesUiLayoutDetail({
                 {template.displayName || template.name}
               </h1>
             </div>
-            <div className="border border-white/5 rounded-lg overflow-hidden mb-4 max-w-5xl mx-auto">
-              <div className="w-full max-h-96 flex items-center justify-center">
+            <div className="relative overflow-hidden rounded-2xl mb-4 max-w-5xl mx-auto">
+              {/* Gradient border effect */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20" />
+              <div className="absolute inset-[1px] rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950" />
+
+              <div className="relative w-full max-h-96 flex items-center justify-center">
                 <TemplatesUiImage template={template} />
               </div>
             </div>
@@ -77,8 +82,14 @@ export function TemplatesUiLayoutDetail({
                 </Accordion>
               </div>
             </div>
-            <div className="col-span-2 md:col-span-3 prose dark:prose-invert max-w-none border border-white/5 rounded-lg p-4 bg-zinc-950 backdrop-blur-md [&_pre]:!bg-zinc-900 [&_pre]:!p-0 [&_pre]:!rounded-lg [&_pre]:overflow-x-auto [&_pre]:!m-0 [&_pre]:!my-4 [&_pre]:text-base [&_pre]:!w-full [&_pre]:box-border [&_code]:text-base [&_pre_code]:!text-base [&_pre_code]:!bg-zinc-900 [&_pre_code]:!p-4 [&_pre_code]:!block [&_pre_code]:!w-full">
-              <div dangerouslySetInnerHTML={{ __html: template.readme }} />
+            <div className="col-span-2 md:col-span-3 relative overflow-hidden rounded-2xl">
+              {/* Gradient border effect */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20" />
+              <div className="absolute inset-[1px] rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950" />
+
+              <div className={`relative ${PROSE_README_CLASSNAME}`}>
+                <div dangerouslySetInnerHTML={{ __html: template.readme }} />
+              </div>
             </div>
           </div>
         </div>

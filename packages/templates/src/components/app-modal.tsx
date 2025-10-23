@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@workspace/ui";
 import {
   Dialog,
