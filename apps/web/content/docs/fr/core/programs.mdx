@@ -67,12 +67,33 @@ d'Ellipsis Labs, pour vérifier indépendamment les programmes sur la chaîne.
 
 ## Programmes intégrés
 
+### Le System Program
+
+Le System Program est le seul compte qui peut créer de nouveaux comptes. Par
+défaut, tous les nouveaux comptes appartiennent au
+[System Program](https://github.com/anza-xyz/agave/tree/v2.1.13/programs/system/src),
+bien que beaucoup se voient attribuer un nouveau propriétaire lors de leur
+création. Le System Program remplit les fonctions clés suivantes :
+
+| Fonction                                                                                                                             | Description                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Création de nouveaux comptes](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L146)          | Seul le System Program peut créer de nouveaux comptes.                                                                                                                                                                                                 |
+| [Allocation d'espace](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L71)                    | Définit la capacité en octets pour le champ de données de chaque compte.                                                                                                                                                                               |
+| [Attribution de propriété de programme](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L113) | Une fois que le System Program crée un compte, il peut réattribuer le propriétaire désigné du programme à un autre program account. C'est ainsi que les programmes personnalisés prennent possession des nouveaux comptes créés par le System Program. |
+| [Transfert de SOL](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/system/src/system_processor.rs#L215)                      | Transfère des lamports (SOL) des comptes système vers d'autres comptes.                                                                                                                                                                                |
+
+L'adresse du System Program est `11111111111111111111111111111111`.
+
 ### Programmes chargeurs
 
 Chaque programme appartient à un autre — son chargeur. Les chargeurs sont
 utilisés pour déployer, redéployer, mettre à niveau ou fermer des programmes.
 Ils sont également utilisés pour finaliser un programme et transférer l'autorité
 du programme.
+
+<Callout>
+  Les programmes chargeurs sont parfois appelés « BPF Loaders ».
+</Callout>
 
 Il existe actuellement cinq programmes chargeurs, comme indiqué dans le tableau
 ci-dessous.
@@ -86,11 +107,16 @@ ci-dessous.
 | v4       | `LoaderV411111111111111111111111111111111111` | En développement (non publié)                                                                                                                | [Instructions](https://docs.rs/solana-loader-v4-interface/latest/solana_loader_v4_interface/instruction/enum.LoaderV4Instruction.html)          |
 
 Les programmes déployés avec loader-v3 ou loader-v4 peuvent être modifiables
-après déploiement, selon leur autorité de mise à niveau.
+après leur déploiement, selon ce que détermine leur autorité de mise à niveau.
+
+<Callout>
+  Lorsqu'un nouveau programme est déployé, la dernière version du chargeur sera
+  utilisée par défaut.
+</Callout>
 
 ### Programmes précompilés
 
-En plus des programmes chargeurs, Solana fournit les programmes précompilés
+En plus des programmes de chargement, Solana fournit les programmes précompilés
 suivants.
 
 #### Vérification de signature ed25519
@@ -107,24 +133,38 @@ contient un compteur du nombre de signatures à vérifier, suivi d'un octet de
 remplissage. Ensuite, la structure suivante est sérialisée, une pour chaque
 signature à vérifier.
 
-```rust
-pub struct Ed25519SignatureOffsets {
+```rs title="Ed25519SignatureOffsets"
+struct Ed25519SignatureOffsets {
     signature_offset: u16,             // offset to ed25519 signature of 64 bytes
     signature_instruction_index: u16,  // instruction index to find signature
     public_key_offset: u16,            // offset to public key of 32 bytes
     public_key_instruction_index: u16, // instruction index to find public key
     message_data_offset: u16,          // offset to start of message data
     message_data_size: u16,            // size of message data
-    message_instruction_index: u16,    // index of instruction for message data
+    message_instruction_index: u16,    // index of instruction data to get message data
 }
 ```
 
-Cela permet à l'utilisateur de spécifier n'importe quelles données d'instruction
-dans la transaction pour les données de signature et de message. En spécifiant
-une sysvar d'instructions spéciale, on peut aussi recevoir des données de la
-transaction elle-même.
+```txt title="Signature verification pseudocode"
+process_instruction() {
+    for i in 0..count {
+        // i'th index values referenced:
+        instructions = &transaction.message().instructions
+        instruction_index = ed25519_signature_instruction_index != u16::MAX ? ed25519_signature_instruction_index : current_instruction;
+        signature = instructions[instruction_index].data[ed25519_signature_offset..ed25519_signature_offset + 64]
+        instruction_index = ed25519_pubkey_instruction_index != u16::MAX ? ed25519_pubkey_instruction_index : current_instruction;
+        pubkey = instructions[instruction_index].data[ed25519_pubkey_offset..ed25519_pubkey_offset + 32]
+        instruction_index = ed25519_message_instruction_index != u16::MAX ? ed25519_message_instruction_index : current_instruction;
+        message = instructions[instruction_index].data[ed25519_message_data_offset..ed25519_message_data_offset + ed25519_message_data_size]
+        if pubkey.verify(signature, message) != Success {
+            return Error
+        }
+    }
+    return Success
+}
+```
 
-#### Vérifier la récupération secp256k1
+#### Vérification de récupération secp256k1
 
 Le programme secp256k1 est utilisé pour vérifier les opérations de récupération
 de clé publique secp256k1.
@@ -138,19 +178,36 @@ contient un compteur du nombre de clés publiques à vérifier. Ensuite, la
 structure suivante est créée une fois pour chaque clé publique, puis sérialisée
 et ajoutée aux données d'instruction.
 
-```rust
-pub struct Secp256k1SignatureOffsets {
-    signature_offset: u16,             // offset to secp256k1 signature data of 64 bytes
-    signature_instruction_index: u16,  // instruction index to find signature
-    eth_address_offset: u16,           // offset to eth_address of 20 bytes
-    eth_address_instruction_index: u16, // instruction index to find eth_address
-    message_data_offset: u16,          // offset to start of message data
-    message_data_size: u16,            // size of message data
-    message_instruction_index: u16,    // instruction index to find message data
+```rs title="Secp256k1SignatureOffsets"
+struct Secp256k1SignatureOffsets {
+    secp_signature_offset: u16,            // offset to [signature,recovery_id] of 64+1 bytes
+    secp_signature_instruction_index: u8,  // instruction index to find signature
+    secp_pubkey_offset: u16,               // offset to ethereum_address pubkey of 20 bytes
+    secp_pubkey_instruction_index: u8,     // instruction index to find pubkey
+    secp_message_data_offset: u16,         // offset to start of message data
+    secp_message_data_size: u16,           // size of message data
+    secp_message_instruction_index: u8,    // instruction index to find message data
 }
 ```
 
-Le pseudo-code de la vérification de récupération :
+```txt title="Recovery verification pseudocode"
+process_instruction() {
+  for i in 0..count {
+      // i'th index values referenced:
+      instructions = &transaction.message().instructions
+      signature = instructions[secp_signature_instruction_index].data[secp_signature_offset..secp_signature_offset + 64]
+      recovery_id = instructions[secp_signature_instruction_index].data[secp_signature_offset + 64]
+      ref_eth_pubkey = instructions[secp_pubkey_instruction_index].data[secp_pubkey_offset..secp_pubkey_offset + 20]
+      message_hash = keccak256(instructions[secp_message_instruction_index].data[secp_message_data_offset..secp_message_data_offset + secp_message_data_size])
+      pubkey = ecrecover(signature, recovery_id, message_hash)
+      eth_pubkey = keccak256(pubkey[1..])[12..]
+      if eth_pubkey != ref_eth_pubkey {
+          return Error
+      }
+  }
+  return Success
+}
+```
 
 Cela permet à l'utilisateur de spécifier n'importe quelles données d'instruction
 dans la transaction pour les données de signature et de message. En spécifiant
@@ -166,10 +223,10 @@ Le programme secp256r1 est utilisé pour vérifier jusqu'à 8 signatures secp256
 | ------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Programme Secp256r1 | `Secp256r1SigVerify1111111111111111111111111` | Vérifie jusqu'à 8 signatures secp256r1. Prend une signature, une clé publique et un message. Renvoie une erreur en cas d'échec. | [Instructions](https://docs.rs/solana-secp256r1-program/latest/solana_secp256r1_program/all.html) |
 
-Le programme secp256r1 traite une instruction. Le premier `u8` est un compteur
-du nombre de signatures à vérifier, suivi d'un octet unique de remplissage.
-Ensuite, la structure suivante est créée pour chaque signature, puis sérialisée
-et ajoutée aux données d'instruction.
+Le programme secp256r1 traite une instruction. Le premier `u8` de l'instruction
+est un compteur du nombre de signatures à vérifier, suivi d'un octet unique de
+remplissage. Ensuite, la structure suivante est créée pour chaque signature,
+puis sérialisée et ajoutée aux données d'instruction.
 
 ```rs title="Secp256r1SignatureOffsets"
 struct Secp256r1SignatureOffsets {
@@ -185,8 +242,8 @@ struct Secp256r1SignatureOffsets {
 ```
 
 <Callout>
-  Les valeurs S basses sont appliquées pour toutes les signatures afin d'éviter
-  la malléabilité accidentelle des signatures.
+  Les valeurs S basses sont imposées pour toutes les signatures afin d'éviter
+  une malléabilité accidentelle des signatures.
 </Callout>
 
 ```txt title="Signature verification psuedocode"
@@ -227,17 +284,17 @@ process_instruction() {
 }
 ```
 
-### Programmes principaux
+### Programmes de base
 
-Les programmes dans la liste ci-dessous fournissent les fonctionnalités de base
-du réseau.
+Les programmes de la liste ci-dessous fournissent les fonctionnalités de base du
+réseau.
 
-| Programme                | ID du programme                               | Description                                                                                                                                                                                                                                                                                                                                                                                               | Instructions                                                                                                                                          |
-| ------------------------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **System**               | `11111111111111111111111111111111`            | Créer de nouveaux comptes, allouer des données de compte, assigner des comptes aux programmes propriétaires, transférer des lamports depuis des comptes appartenant au Programme Système et payer les frais de transaction                                                                                                                                                                                | [SystemInstruction](https://docs.rs/solana-program/latest/solana_program/system_instruction/enum.SystemInstruction.html)                              |
-| **Vote**                 | `Vote111111111111111111111111111111111111111` | Créer et gérer des comptes qui suivent l'état de vote des validators et les récompenses                                                                                                                                                                                                                                                                                                                   | [VoteInstruction](https://docs.rs/solana-vote-program/latest/solana_vote_program/vote_instruction/enum.VoteInstruction.html)                          |
-| **Stake**                | `Stake11111111111111111111111111111111111111` | Créer et gérer des comptes représentant les stakes et les récompenses pour les délégations aux validators                                                                                                                                                                                                                                                                                                 | [StakeInstruction](https://docs.rs/solana-sdk/latest/solana_sdk/stake/instruction/enum.StakeInstruction.html)                                         |
-| **Config**               | `Config1111111111111111111111111111111111111` | Ajouter des données de configuration à la chaîne, suivies par la liste des clés publiques autorisées à les modifier. Contrairement aux autres programmes, le programme Config ne définit pas d'instructions individuelles. Il n'a qu'une seule instruction implicite : "store". Ses données d'instruction sont un ensemble de clés qui contrôlent l'accès au compte et aux données stockées à l'intérieur | [ConfigInstruction](https://docs.rs/solana-config-program/latest/solana_config_program/config_instruction/index.html)                                 |
-| **Compute Budget**       | `ComputeBudget111111111111111111111111111111` | Définir les limites et les prix des unités de calcul pour les transactions, permettant aux utilisateurs de contrôler les ressources de calcul et les frais de priorisation                                                                                                                                                                                                                                | [ComputeBudgetInstruction](https://docs.rs/solana-compute-budget-interface/latest/solana_compute_budget_interface/enum.ComputeBudgetInstruction.html) |
-| **Address Lookup Table** | `AddressLookupTab1e1111111111111111111111111` | Gérer les tables de recherche d'adresses, qui permettent aux transactions de référencer plus de comptes que ce qui pourrait normalement tenir dans la liste de comptes de la transaction                                                                                                                                                                                                                  | [ProgramInstruction](https://docs.rs/solana-sdk/latest/solana_sdk/address_lookup_table/instruction/enum.ProgramInstruction.html)                      |
-| **ZK ElGamal Proof**     | `ZkE1Gama1Proof11111111111111111111111111111` | Fournit une vérification de preuve à connaissance nulle pour les données chiffrées ElGamal                                                                                                                                                                                                                                                                                                                | —                                                                                                                                                     |
+| Programme                | ID du programme                               | Description                                                                                                                                                                                                                                                                                                                                                                                           | Instructions                                                                                                                                          |
+| ------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **System**               | `11111111111111111111111111111111`            | Créer de nouveaux comptes, allouer des données de compte, assigner des comptes aux programmes propriétaires, transférer des lamports depuis des comptes appartenant au Programme Système et payer les frais de transaction                                                                                                                                                                            | [SystemInstruction](https://docs.rs/solana-program/latest/solana_program/system_instruction/enum.SystemInstruction.html)                              |
+| **Vote**                 | `Vote111111111111111111111111111111111111111` | Créer et gérer des comptes qui suivent l'état de vote du validator et les récompenses                                                                                                                                                                                                                                                                                                                 | [VoteInstruction](https://docs.rs/solana-vote-program/latest/solana_vote_program/vote_instruction/enum.VoteInstruction.html)                          |
+| **Stake**                | `Stake11111111111111111111111111111111111111` | Créer et gérer des comptes représentant les enjeux et les récompenses pour les délégations aux validators                                                                                                                                                                                                                                                                                             | [StakeInstruction](https://docs.rs/solana-sdk/latest/solana_sdk/stake/instruction/enum.StakeInstruction.html)                                         |
+| **Config**               | `Config1111111111111111111111111111111111111` | Ajouter des données de configuration à la chaîne, suivies de la liste des clés publiques autorisées à les modifier. Contrairement aux autres programmes, le programme Config ne définit pas d'instructions individuelles. Il n'a qu'une seule instruction implicite : "store". Ses données d'instruction sont un ensemble de clés qui contrôlent l'accès au compte et aux données qui y sont stockées | [ConfigInstruction](https://docs.rs/solana-config-program/latest/solana_config_program/config_instruction/index.html)                                 |
+| **Compute Budget**       | `ComputeBudget111111111111111111111111111111` | Définir les limites et les prix des unités de calcul pour les transactions, permettant aux utilisateurs de contrôler les ressources de calcul et les frais de priorisation                                                                                                                                                                                                                            | [ComputeBudgetInstruction](https://docs.rs/solana-compute-budget-interface/latest/solana_compute_budget_interface/enum.ComputeBudgetInstruction.html) |
+| **Address Lookup Table** | `AddressLookupTab1e1111111111111111111111111` | Gérer les tables de recherche d'adresses, qui permettent aux transactions de référencer plus de comptes que ce qui pourrait normalement tenir dans la liste de comptes de la transaction                                                                                                                                                                                                              | [ProgramInstruction](https://docs.rs/solana-sdk/latest/solana_sdk/address_lookup_table/instruction/enum.ProgramInstruction.html)                      |
+| **ZK ElGamal Proof**     | `ZkE1Gama1Proof11111111111111111111111111111` | Fournit une vérification de preuve à connaissance nulle pour les données chiffrées ElGamal                                                                                                                                                                                                                                                                                                            | —                                                                                                                                                     |
