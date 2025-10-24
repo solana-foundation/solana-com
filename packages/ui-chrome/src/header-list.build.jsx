@@ -8,7 +8,7 @@ const HeaderListBuild = () => {
 
   return (
     <div className="xl:flex">
-      <div>
+      <div className="w-max">
         <div className="uppercase py-2 flex items-center !text-[#848895]">
           <DevelopersSVG className="me-3" />
           {t("nav.developers.items.title")}
@@ -59,7 +59,7 @@ const HeaderListBuild = () => {
 
       <div className="bg-white/10 w-px h-auto my-[-1.625rem] mx-10"></div>
 
-      <div>
+      <div className="w-max">
         <div className="uppercase py-2 flex items-center !text-[#848895]">
           <MoreSVG className="me-3" />
           {t("nav.developers.tutorials.title")}

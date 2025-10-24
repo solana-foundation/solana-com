@@ -10,7 +10,7 @@ const HeaderListNetwork = () => {
 
   return (
     <div className="xl:flex">
-      <div>
+      <div className="w-max">
         <div className="uppercase py-2 flex items-center !text-[#848895]">
           <ResourcesSVG className="me-3" />
           {t("nav.network.resources.title")}
@@ -60,7 +60,7 @@ const HeaderListNetwork = () => {
 
       <div className="bg-white/10 w-px h-auto my-[-1.625rem] mx-10"></div>
 
-      <div>
+      <div className="w-max">
         <div className="uppercase py-2 flex items-center !text-[#848895]">
           <InspectSVG className="me-3" />
           {t("nav.network.inspect.title")}

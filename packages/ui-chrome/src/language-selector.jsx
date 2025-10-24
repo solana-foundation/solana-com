@@ -16,7 +16,6 @@ const LanguageSelector = () => {
       <DropdownMenu.Trigger asChild>
         <button
           className="p-0 border-0 hover:!text-[var(--body-text)] dark:hover:!text-white transition-colors inline-flex items-center"
-          style={{ marginTop: "-5px" }}
           type="button"
           suppressHydrationWarning={true}
         >
@@ -37,7 +36,7 @@ const LanguageSelector = () => {
           <DropdownMenu.Item asChild key={language}>
             <a
               href={"/" + language + asPath}
-              className="block px-2 py-1.5 rounded no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[var(--body-text)] light:hover:bg-neutral-100"
+              className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[var(--body-text)] light:hover:bg-neutral-100"
             >
               {languages[language]}
             </a>

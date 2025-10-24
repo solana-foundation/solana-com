@@ -15,7 +15,7 @@ const HeaderListSolutions = () => {
   return (
     <>
       <div className="xl:flex">
-        <div>
+        <div className="w-max">
           <div className="uppercase py-2 flex items-center !text-[#848895]">
             <SolutionsToolsSVG className="me-3" />
             {t("nav.solutions.tools.title")}
@@ -126,7 +126,7 @@ const HeaderListSolutions = () => {
 
         <div className="bg-white/10 w-px h-auto my-[-1.625rem] mx-10"></div>
 
-        <div>
+        <div className="w-max">
           <div className="uppercase py-2 flex items-center !text-[#848895]">
             <SolutionsCasesSVG className="me-3" />
             {t("nav.solutions.cases.title")}
@@ -244,7 +244,7 @@ const HeaderListSolutions = () => {
         </div>
       </div>
       <div className="xl:flex border-t border-white/10 bg-[#151118] mt-[1.625rem] -mx-6 -mb-6 px-6 pb-6 pt-6 rounded-b-xl">
-        <div className="xl:w-1/2">
+        <div className="xl:w-1/2 w-max">
           <div className="uppercase py-2 flex items-center !text-[#848895]">
             <SolutionsResourcesSVG className="me-3" />
             {t("nav.solutions.resources.title")}
@@ -273,7 +273,7 @@ const HeaderListSolutions = () => {
 
         <div className="bg-white/10 w-px h-auto my-[-1.625rem] mx-10 hidden xl:block invisible"></div>
 
-        <div className="xl:w-1/2">
+        <div className="xl:w-1/2 w-max">
           <div className="hidden xl:block uppercase py-2 flex items-center !text-[#848895]">
             &nbsp;
           </div>

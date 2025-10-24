@@ -1,6 +1,5 @@
 "use client";
 
-import Navbar from "react-bootstrap/Navbar";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "./theme-provider";
@@ -37,20 +36,24 @@ function Header({ className = "", containerClassName = "" }) {
     // Close mobile navigation on route change
     setExpanded(false);
   }, [router.asPath]);
+
+  const toggleMenu = () => setExpanded(!expanded);
+
   return (
     <>
-      <header className={`position-sticky sticky-top ${className}`}>
-        <Navbar
+      <header className={`sticky top-0 z-50 ${className}`}>
+        <nav
           id="navbar"
-          expand="xl"
-          variant=""
-          expanded={expanded}
-          onToggle={setExpanded}
+          className="navbar py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)]"
         >
           <div
             className={`w-full max-w-[1440px] px-[20px] xl:px-[14px] mx-auto flex items-center justify-between gap-x-5 xl:gap-x-12 ${containerClassName}`}
           >
-            <Link to="/" className="block shrink-0 grow-0" aria-label="Solana">
+            <Link
+              to="/"
+              className="block shrink-0 grow-0 !text-white light:!text-[#121212] "
+              aria-label="Solana"
+            >
               <SolanaLogo
                 style={{ color: "var(--body-text)" }}
                 width={134}
@@ -61,18 +64,25 @@ function Header({ className = "", containerClassName = "" }) {
             </Link>
 
             <div className="xl:grow flex items-center gap-x-5 xl:gap-x-12">
-              <Navbar.Toggle
+              <button
+                className="navbar-toggler xl:hidden -m-1.5 border-0 cursor-pointer p-3 h-10 w-10"
                 aria-controls="navbarCollapse"
-                as="button"
+                aria-expanded={expanded}
+                onClick={toggleMenu}
                 type="button"
               >
-                <span className="bar"></span>
-                <span className="bar max-w-[60%] ml-auto"></span>
-                <span className="bar"></span>
-              </Navbar.Toggle>
-              <Navbar.Collapse id="navbarCollapse">
+                <span className={`bar ${expanded ? "" : ""}`}></span>
+                <span
+                  className={`bar max-w-[60%] ml-auto ${expanded ? "" : ""}`}
+                ></span>
+                <span className={`bar ${expanded ? "" : ""}`}></span>
+              </button>
+              <div
+                id="navbarCollapse"
+                className={`navbar-collapse ${expanded ? "block" : "hidden"} xl:block`}
+              >
                 <HeaderList />
-              </Navbar.Collapse>
+              </div>
               <div className="hidden xl:flex items-center gap-x-5">
                 <InkeepSearchBar />
                 <div className="language-selector relative">
@@ -91,7 +101,7 @@ function Header({ className = "", containerClassName = "" }) {
               )}
             </div>
           </div>
-        </Navbar>
+        </nav>
       </header>
       {/* Secondary nav for /developers/* and /docs/* */}
       {(router.asPath.includes("/developers") ||

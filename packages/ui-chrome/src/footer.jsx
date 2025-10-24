@@ -54,15 +54,15 @@ export const Footer = ({ className = "" }) => {
   const t = useTranslations();
 
   return (
-    <div 
+    <div
       className={classNames(
         "relative bg-black text-base text-white",
         "[&_ul_a]:inline-block [&_ul_a]:text-sm [&_ul_a]:md:text-base [&_ul_a]:font-normal [&_ul_a]:leading-[1.42] [&_ul_a]:md:leading-[1.5]",
         "[&_ul_li+li]:mt-3",
-        className
+        className,
       )}
     >
-      <div 
+      <div
         className="w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[72px] pt-[56px] xl:pt-[88px] pb-[136px] md:pb-[164px] xl:pb-[320px] mx-auto bg-[length:100%_auto] bg-bottom md:bg-[position:center_120%] xl:bg-bottom bg-no-repeat"
         style={{ backgroundImage: `url(${SolanaBgSvg})` }}
       >
@@ -72,7 +72,11 @@ export const Footer = ({ className = "" }) => {
               {t("footer.foundation")}
             </p>
             <div className="mt-6 mb-5">
-              <Link to="/" aria-label="Solana Foundation" className="text-white hover:text-white">
+              <Link
+                to="/"
+                aria-label="Solana Foundation"
+                className="!no-underline !text-white hover:!text-white"
+              >
                 <SolanaFoundationLogo
                   width={234}
                   height={40}
@@ -89,7 +93,7 @@ export const Footer = ({ className = "" }) => {
                   key={name}
                   to={url}
                   aria-label={name}
-                  className="relative text-[#ababbc] hover:text-white transition-colors inline-flex p-2.5 rounded-full mr-4 flex-1 md:flex-none [&_svg]:m-auto"
+                  className="relative !no-underline !text-[#ababbc] hover:!text-white transition-colors inline-flex p-2.5 rounded-full mr-4 flex-1 md:flex-none [&_svg]:m-auto"
                 >
                   <Icon width={size} height={size} />
                 </InlineLink>
@@ -107,28 +111,50 @@ export const Footer = ({ className = "" }) => {
             </div>
             <ul className="list-unstyled m-0">
               <li>
-                <InlineLink to="https://solana.org/grants" className="text-[#ababbc] hover:text-white transition-colors">
+                <InlineLink
+                  to="https://solana.org/grants"
+                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+                >
                   {t("footer.solana.grants")}
                 </InlineLink>
               </li>
               <li>
-                <InlineLink to="https://break.solana.com/" className="text-[#ababbc] hover:text-white transition-colors">
+                <InlineLink
+                  to="https://break.solana.com/"
+                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+                >
                   {t("footer.solana.break")}
                 </InlineLink>
               </li>
               <li>
-                <Link to="/branding" className="text-[#ababbc] hover:text-white transition-colors">{t("footer.solana.media")}</Link>
+                <Link
+                  to="/branding"
+                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+                >
+                  {t("footer.solana.media")}
+                </Link>
               </li>
               <li>
-                <InlineLink to="https://jobs.solana.com/" className="text-[#ababbc] hover:text-white transition-colors">
+                <InlineLink
+                  to="https://jobs.solana.com/"
+                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+                >
                   {t("footer.solana.careers")}
                 </InlineLink>
               </li>
               <li>
-                <Link to="/tos" className="text-[#ababbc] hover:text-white transition-colors">{t("footer.solana.disclaimer")}</Link>
+                <Link
+                  to="/tos"
+                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+                >
+                  {t("footer.solana.disclaimer")}
+                </Link>
               </li>
               <li>
-                <Link to="/privacy-policy" className="text-[#ababbc] hover:text-white transition-colors">
+                <Link
+                  to="/privacy-policy"
+                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+                >
                   {t("footer.solana.privacy-policy")}
                 </Link>
               </li>
@@ -141,10 +167,18 @@ export const Footer = ({ className = "" }) => {
               </div>
               <ul className="list-unstyled m-0">
                 <li>
-                  <Link to="/news" className="text-[#ababbc] hover:text-white transition-colors">{t("footer.get-connected.blog")}</Link>
+                  <Link
+                    to="/news"
+                    className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+                  >
+                    {t("footer.get-connected.blog")}
+                  </Link>
                 </li>
                 <li>
-                  <Link to="/newsletter" className="text-[#ababbc] hover:text-white transition-colors">
+                  <Link
+                    to="/newsletter"
+                    className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
+                  >
                     {t("footer.get-connected.newsletter")}
                   </Link>
                 </li>

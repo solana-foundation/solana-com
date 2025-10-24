@@ -9,7 +9,7 @@ const HeaderListCommunity = () => {
 
   return (
     <div className="xl:flex">
-      <div>
+      <div className="w-max">
         <div className="uppercase py-2 flex items-center !text-[#848895]">
           <InvolvedSVG className="me-3" />
           {t("nav.community.involved.title")}
@@ -72,7 +72,7 @@ const HeaderListCommunity = () => {
 
       <div className="bg-white/10 w-px h-auto my-[-1.625rem] mx-10"></div>
 
-      <div>
+      <div className="w-max">
         <div className="uppercase py-2">{t("nav.community.event.title")}</div>
         <div>
           <Link to="/breakpoint" className="!text-white !no-underline">

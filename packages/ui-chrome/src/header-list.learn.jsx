@@ -6,7 +6,7 @@ const HeaderListLearn = () => {
   const t = useTranslations();
 
   return (
-    <div>
+    <div className="w-max">
       <div className="uppercase py-2 flex items-center !text-[#848895]">
         <StartSVG className="me-3" />
         {t("nav.learn.start.title")}
