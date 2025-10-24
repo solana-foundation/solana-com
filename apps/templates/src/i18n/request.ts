@@ -1,20 +1,42 @@
 import { getRequestConfig } from "next-intl/server";
-import { routing } from "./routing";
+import { IntlErrorCode } from "next-intl";
+import { routing } from "@workspace/i18n/routing";
+import { locales } from "@workspace/i18n/config";
+
+const enMessages = (await import("../../public/locales/en/common.json"))
+  .default;
 
 export default getRequestConfig(async ({ requestLocale }) => {
-  let locale = await requestLocale;
-
-  // Ensure that a valid locale is used
-  if (
-    !locale ||
-    !routing.locales.includes(locale as (typeof routing.locales)[number])
-  ) {
-    locale = routing.defaultLocale;
-  }
+  const requested = await requestLocale;
+  const locale =
+    requested && locales.includes(requested)
+      ? requested
+      : routing.defaultLocale;
+  const messages = (await import(`../../public/locales/${locale}/common.json`))
+    .default;
 
   return {
     locale,
-    messages: (await import(`../../public/locales/${locale}/common.json`))
-      .default,
+    messages,
+    getMessageFallback({ namespace, key, error }) {
+      if (error.code !== IntlErrorCode.MISSING_MESSAGE) return "";
+      const path = [namespace, key].filter(Boolean).join(".");
+
+      // Helper to get nested value by path
+      function getByPath(obj: Record<string, unknown>, path: string): unknown {
+        return path.split(".").reduce<unknown>((acc, part) => {
+          if (acc && typeof acc === "object" && part in acc) {
+            return (acc as Record<string, unknown>)[part];
+          }
+          return undefined;
+        }, obj);
+      }
+
+      // Try to get the fallback from English messages
+      const fallback = getByPath(enMessages, path);
+
+      // Return the fallback if found, otherwise the path
+      return typeof fallback === "string" ? fallback : path;
+    },
   };
 });
