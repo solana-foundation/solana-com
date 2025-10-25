@@ -84,14 +84,14 @@ function NavigationMenuTrigger({
         navigationMenuTriggerStyle,
         "group",
         "flex justify-between items-center w-full xl:w-auto px-3",
-        "text-[#ababbc] text-base leading-6 font-normal",
+        "text-[#848895] dark:text-[#ababbc] text-base leading-6 font-normal",
         "bg-transparent border-0 rounded-none",
-        "hover:text-white focus:text-white",
+        "hover:text-gray-900 focus:text-gray-900 dark:hover:text-white dark:focus:text-white",
         "relative",
         "transition-colors duration-200",
         "before:transition-all before:duration-300 before:ease-out",
-        "data-[state=open]:text-white",
-        isActive && "text-white",
+        "data-[state=open]:text-gray-900 dark:data-[state=open]:text-white",
+        isActive && "text-gray-900 dark:text-white",
         "data-[state=open]:before:content-[''] data-[state=open]:before:absolute data-[state=open]:before:h-px data-[state=open]:before:left-4 data-[state=open]:before:right-4 data-[state=open]:before:bottom-[-5px] data-[state=open]:before:bg-[var(--color-active)] xl:data-[state=open]:before:block data-[state=open]:before:hidden data-[state=open]:before:opacity-100",
         className,
       )}
@@ -124,7 +124,7 @@ function NavigationMenuContent({
         "group-data-[viewport=false]/navigation-menu:bg-popover group-data-[viewport=false]/navigation-menu:text-popover-foreground group-data-[viewport=false]/navigation-menu:data-[state=open]:animate-in group-data-[viewport=false]/navigation-menu:data-[state=closed]:animate-out group-data-[viewport=false]/navigation-menu:data-[state=closed]:zoom-out-95 group-data-[viewport=false]/navigation-menu:data-[state=open]:zoom-in-95 group-data-[viewport=false]/navigation-menu:data-[state=open]:fade-in-0 group-data-[viewport=false]/navigation-menu:data-[state=closed]:fade-out-0 group-data-[viewport=false]/navigation-menu:overflow-hidden group-data-[viewport=false]/navigation-menu:rounded-md group-data-[viewport=false]/navigation-menu:shadow group-data-[viewport=false]/navigation-menu:duration-200 **:data-[slot=navigation-menu-link]:focus:ring-0 **:data-[slot=navigation-menu-link]:focus:outline-none",
         align === "center" && "xl:left-1/2 xl:-translate-x-1/2",
         align === "right" && "xl:right-0 xl:left-auto xl:translate-x-0",
-        "min-w-[300px] bg-[#111214] p-[25px] rounded-xl text-[#848895] shadow-[0_10px_10px_rgba(0,0,0,0.5)] xl:backdrop-blur-[10px] xl:bg-black/90",
+        "min-w-[300px] bg-[#111214] p-[25px] rounded-xl text-[#848895] text-base shadow-[0_10px_10px_rgba(0,0,0,0.5)] xl:backdrop-blur-[10px] xl:bg-black/90",
         className,
       )}
       {...props}
