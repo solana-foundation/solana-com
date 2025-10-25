@@ -46,7 +46,8 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
   const headersList = await headers();
   const host = headersList.get("host") || "localhost:3000";
   const protocol = host.includes("localhost") ? "http" : "https";
-  const locale = resolvedParams.locale === "en" ? "" : `/${resolvedParams.locale}`;
+  const locale =
+    resolvedParams.locale === "en" ? "" : `/${resolvedParams.locale}`;
   const episodeUrl = `${protocol}://${host}${locale}/media/listen/${resolvedParams.podcastSlug}/episodes/${resolvedParams.episodeId}`;
 
   return (

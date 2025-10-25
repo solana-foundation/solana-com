@@ -51,6 +51,7 @@ pnpm dev
 ```
 
 The app will be available at:
+
 - Frontend: http://localhost:3000
 - TinaCMS Admin: http://localhost:3000/admin
 
@@ -109,4 +110,3 @@ All routes are prefixed with locale:
 - `pnpm lint:fix` - Fix ESLint errors
 - `pnpm format` - Format code with Prettier
 - `pnpm clean` - Clean node_modules and generated files
-
