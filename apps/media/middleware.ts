@@ -1,39 +1,31 @@
 import createMiddleware from "next-intl/middleware";
 import { routing } from "@workspace/i18n/routing";
 import { NextRequest, NextResponse } from "next/server";
-import { locales } from "@workspace/i18n/config";
 
 const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
+
   // Skip i18n for /admin path (TinaCMS admin panel)
-  if (req.nextUrl.pathname.startsWith("/admin")) {
+  if (pathname.startsWith("/admin")) {
     return NextResponse.next();
   }
 
   // Skip i18n for API routes
-  if (req.nextUrl.pathname.startsWith("/api")) {
+  if (pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
   // Lowercase all paths
-  if (req.nextUrl.pathname !== req.nextUrl.pathname.toLowerCase()) {
+  if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
-      `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}${req.nextUrl.search}`
+      new URL(pathname.toLowerCase() + req.nextUrl.search, req.url)
     );
   }
 
-  // Handle paths that don't start with a valid locale
-  const pathSegments = req.nextUrl.pathname.split("/").filter(Boolean);
-  const firstSegment = pathSegments[0];
-
-  if (firstSegment && !locales.includes(firstSegment)) {
-    // Redirect to include default locale
-    return NextResponse.redirect(
-      new URL(`/en${req.nextUrl.pathname}${req.nextUrl.search}`, req.url)
-    );
-  }
-
+  // Let next-intl handle locale detection and routing
+  // It will treat paths without locale prefix as default locale (en)
   return handleI18nRouting(req);
 }
 
