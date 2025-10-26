@@ -58,7 +58,7 @@ const HeaderListNetwork = () => {
         </div>
       </div>
 
-      <div className="bg-white/10 w-px h-auto my-[-1.625rem] mx-10"></div>
+      <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px]"></div>
 
       <div className="w-max">
         <div className="uppercase py-2 flex items-center !text-[#848895]">

@@ -85,7 +85,7 @@ function Header({ className = "", containerClassName = "" }) {
               </div>
               <div className="hidden xl:flex items-center gap-x-5">
                 <InkeepSearchBar />
-                <div className="language-selector relative">
+                <div className="relative flex items-center">
                   <LanguageSelector />
                 </div>
               </div>

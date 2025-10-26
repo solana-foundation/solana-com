@@ -102,7 +102,7 @@ export const Footer = ({ className = "" }) => {
           </div>
           <div className="col-span-1 absolute right-0 top-0 md:relative xl:order-4">
             <div className="relative flex justify-end xl:justify-start">
-              <LanguageSelector />
+              <LanguageSelector className="!text-[#ababbc] hover:!text-white" />
             </div>
           </div>
           <div className="col-span-1">

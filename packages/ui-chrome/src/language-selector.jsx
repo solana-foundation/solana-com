@@ -6,8 +6,14 @@ import ChevronGrabberVertical from "./assets/chevron-grabber-vertical.inline.svg
 import { languages } from "@workspace/i18n/config";
 import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
+import classNames from "classnames";
+import { twMerge } from "tailwind-merge";
 
-const LanguageSelector = () => {
+function cn(...inputs) {
+  return twMerge(classNames(inputs));
+}
+
+const LanguageSelector = ({ className = "" }) => {
   const currentLocale = useLocale();
   const asPath = usePathname();
 
@@ -15,7 +21,13 @@ const LanguageSelector = () => {
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <button
-          className="p-0 border-0 hover:!text-[var(--body-text)] dark:hover:!text-white transition-colors inline-flex items-center"
+          className={cn(
+            "p-0 border-0 inline-flex items-center",
+            "text-[#848895] dark:text-[#ababbc] text-base",
+            "hover:text-gray-900 dark:hover:text-white",
+            "transition-colors duration-200",
+            className,
+          )}
           type="button"
           suppressHydrationWarning={true}
         >
