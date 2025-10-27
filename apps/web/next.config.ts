@@ -52,13 +52,13 @@ const nextConfig: NextConfig = {
     // the same domain for SEO and UX (prefetching, etc.)
     if (process.env.TEMPLATES_APP_URL) {
       baseRewrites.beforeFiles.push({
-        source: "/templates",
-        destination: `${process.env.TEMPLATES_APP_URL}/templates`,
+        source: "/:locale/templates",
+        destination: `${process.env.TEMPLATES_APP_URL}/:locale/templates`,
         locale: false,
       });
       baseRewrites.beforeFiles.push({
-        source: "/templates/:path*",
-        destination: `${process.env.TEMPLATES_APP_URL}/templates/:path*`,
+        source: "/:locale/templates/:path*",
+        destination: `${process.env.TEMPLATES_APP_URL}/:locale/templates/:path*`,
         locale: false,
       });
     }
