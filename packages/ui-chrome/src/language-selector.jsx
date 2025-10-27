@@ -23,8 +23,8 @@ const LanguageSelector = ({ className = "" }) => {
         <button
           className={cn(
             "p-0 border-0 inline-flex items-center",
-            "text-[#848895] dark:text-[#ababbc] text-base",
-            "hover:text-gray-900 dark:hover:text-white",
+            "text-[#848895] text-base light:text-[#7f8391]",
+            "hover:text-white light:hover:text-gray-900",
             "transition-colors duration-200",
             className,
           )}
@@ -42,13 +42,13 @@ const LanguageSelector = ({ className = "" }) => {
         align="end"
         side="bottom"
         sideOffset={8}
-        className="max-h-[50vh] overflow-y-auto bg-[#111214] text-[#848895] p-[12px] rounded !border border-white/10 shadow-lg light:bg-white light:text-[var(--body-text)] light:border-black/10"
+        className="max-h-[50vh] overflow-y-auto bg-[#111214] text-[#848895] p-[12px] rounded !border border-white/10 shadow-lg light:bg-white light:text-[#121212] light:border-black/10"
       >
         {Object.keys(languages).map((language) => (
           <DropdownMenu.Item asChild key={language}>
             <a
               href={"/" + language + asPath}
-              className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[var(--body-text)] light:hover:bg-neutral-100"
+              className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[#121212] light:hover:bg-neutral-100"
             >
               {languages[language]}
             </a>

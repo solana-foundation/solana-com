@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "./theme-provider";
 import { useRouter } from "@workspace/i18n/use-router";
@@ -21,24 +21,12 @@ function Header({ className = "", containerClassName = "" }) {
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    const navbar = document.getElementById("navbar");
-    if (navbar) {
-      if (isThemePage) {
-        navbar.classList.remove("navbar-light", "navbar-dark");
-        navbar.classList.add("navbar-" + theme);
-      } else {
-        navbar.classList.add("navbar-dark");
-      }
-    }
-  }, [t, theme, isThemePage]);
-
   return (
     <>
       <header className={`sticky top-0 z-50 ${className}`}>
         <nav
           id="navbar"
-          className="navbar py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)]"
+          className={`navbar py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)] bg-[rgb(18_18_18/95%)] light:bg-white/95`}
         >
           <div
             className={`w-full max-w-[1440px] px-[20px] xl:px-[14px] mx-auto flex items-center justify-between gap-x-5 xl:gap-x-12 ${containerClassName}`}
@@ -49,7 +37,7 @@ function Header({ className = "", containerClassName = "" }) {
               aria-label="Solana"
             >
               <SolanaLogo
-                style={{ color: "var(--body-text)" }}
+                style={{ color: "currentColor" }}
                 width={134}
                 height={40}
                 viewBox="0 0 149 22"
@@ -77,7 +65,7 @@ function Header({ className = "", containerClassName = "" }) {
               {/* Theme Toggle */}
               {isThemePage && (
                 <button
-                  className="flex border-none ml-[15px] transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-[15deg] hover:[&>svg]:fill-[var(--body-text)]"
+                  className="flex border-none ml-[15px] transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-[15deg] hover:[&>svg]:fill-current"
                   onClick={toggleTheme}
                   aria-label={t("commands.toggle")}
                 >

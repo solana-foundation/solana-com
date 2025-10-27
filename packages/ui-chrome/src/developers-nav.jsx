@@ -18,7 +18,7 @@ export function DevelopersNav({ containerClassName }) {
   const t = useTranslations();
 
   return (
-    <div className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[var(--body-text-secondary)] border-t border-b border-[rgba(255,255,255,0.05)] light:bg-[rgb(255_255_255/95%)] light:border-[rgba(0,0,0,0.05)]">
+    <div className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[#ababbc] border-t border-b border-[rgba(255,255,255,0.05)] light:!bg-[rgba(255,255,255,0.95)] light:text-[#7f8391] light:border-[rgba(0,0,0,0.05)]">
       <div className={`w-full max-w-[1440px] mx-auto ${containerClassName}`}>
         <div className="py-2 text-[17px] font-light ml-3 xl:ml-0">
           <nav>
