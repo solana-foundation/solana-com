@@ -32,7 +32,7 @@ const LanguageSelector = ({ className = "" }) => {
           suppressHydrationWarning={true}
         >
           <Globe height="20" />
-          <span className="align-middle fw-normal mx-1 text-uppercase text-base">
+          <span className="align-middle fw-normal mx-1 uppercase text-base">
             {currentLocale}
           </span>
           <ChevronGrabberVertical width="20" height="20" />
