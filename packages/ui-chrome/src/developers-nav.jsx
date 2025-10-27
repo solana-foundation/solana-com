@@ -9,7 +9,7 @@ function NavLink(props) {
   return (
     <Link
       {...props}
-      className="!no-underline !text-[#848895] inline-block rounded-md px-[10px] py-[2px] !border border-transparent hover:!text-white mr-[5px] last:mr-0"
+      className="!no-underline !text-[#848895] inline-block rounded-md px-[10px] py-[2px] !border border-transparent hover:!text-white light:hover:!text-gray-900 mr-[5px] last:mr-0"
     />
   );
 }
@@ -20,7 +20,7 @@ export function DevelopersNav({ containerClassName }) {
   return (
     <div className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[var(--body-text-secondary)] border-t border-b border-[rgba(255,255,255,0.05)] light:bg-[rgb(255_255_255/95%)] light:border-[rgba(0,0,0,0.05)]">
       <div className={`w-full max-w-[1440px] mx-auto ${containerClassName}`}>
-        <div className="py-2 text-[17px] font-light">
+        <div className="py-2 text-[17px] font-light ml-3 xl:ml-0">
           <nav>
             <NavLink
               partiallyActive

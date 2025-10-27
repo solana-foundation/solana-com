@@ -54,7 +54,7 @@ function CustomSidebar() {
     <>
       <Sidebar
         className="md:bg-transparent text-base"
-        style={{ maxHeight: "calc(100vh - 76px)" }}
+        style={{ maxHeight: "calc(100vh - 65px)" }}
       >
         <SidebarViewport>
           <div className="mt-1">

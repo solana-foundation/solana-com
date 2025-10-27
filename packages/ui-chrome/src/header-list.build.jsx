@@ -8,48 +8,48 @@ const HeaderListBuild = () => {
 
   return (
     <div className="xl:flex">
-      <div className="w-max">
-        <div className="uppercase py-2 flex items-center !text-[#848895]">
+      <div className="w-full xl:w-max">
+        <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
           <DevelopersSVG className="me-3" />
           {t("nav.developers.items.title")}
         </div>
         <div>
           <Link
             to="/docs"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
-            <strong className="block !text-white">
+            <strong className="block !text-white text-sm">
               {t("nav.developers.items.docs.title")}
             </strong>
             {t("nav.developers.items.docs.description")}
           </Link>
           <Link
             to="/docs/rpc"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
-            <strong className="block !text-white">
+            <strong className="block !text-white text-sm">
               {t("nav.developers.items.api.title")}
             </strong>
             {t("nav.developers.items.api.description")}
           </Link>
           <Link
             to="/developers/cookbook"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
-            <strong className="block !text-white">
+            <strong className="block !text-white text-sm">
               {t("nav.developers.items.cookbook.title")}
             </strong>
             {t("nav.developers.items.cookbook.description")}
           </Link>
           <Link
             to="/developers"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
-            <strong className="block text-white">
+            <strong className="block text-white text-sm">
               {t("nav.developers.items.hub.title")}
             </strong>
             {t("nav.developers.items.hub.description")}
@@ -57,31 +57,31 @@ const HeaderListBuild = () => {
         </div>
       </div>
 
-      <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px]"></div>
+      <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px] hidden xl:block"></div>
 
-      <div className="w-max">
-        <div className="uppercase py-2 flex items-center !text-[#848895]">
+      <div className="w-full xl:w-max">
+        <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
           <MoreSVG className="me-3" />
           {t("nav.developers.tutorials.title")}
         </div>
         <div>
           <Link
             to="/docs/intro/quick-start"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
             {t("nav.developers.tutorials.hello-world")}
           </Link>
           <Link
             to="/docs/intro/installation"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
             {t("nav.developers.tutorials.local-setup")}
           </Link>
           <Link
             to="/developers/evm-to-svm"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
             {t("nav.developers.tutorials.evm-to-svm")}

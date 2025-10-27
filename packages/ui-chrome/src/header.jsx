@@ -9,6 +9,7 @@ import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
 import { InkeepSearchBar } from "./inkeep-searchbar";
 import { LanguageSelector } from "./language-selector";
+import { MobileMenu } from "./mobile-menu";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/moon.inline.svg";
@@ -31,13 +32,6 @@ function Header({ className = "", containerClassName = "" }) {
       }
     }
   }, [t, theme, isThemePage]);
-
-  useEffect(() => {
-    // Close mobile navigation on route change
-    setExpanded(false);
-  }, [router.asPath]);
-
-  const toggleMenu = () => setExpanded(!expanded);
 
   return (
     <>
@@ -63,32 +57,24 @@ function Header({ className = "", containerClassName = "" }) {
               />
             </Link>
 
-            <div className="xl:grow flex items-center gap-x-5 xl:gap-x-12">
-              <button
-                className="navbar-toggler xl:hidden -m-1.5 border-0 cursor-pointer p-3 h-10 w-10"
-                aria-controls="navbarCollapse"
-                aria-expanded={expanded}
-                onClick={toggleMenu}
-                type="button"
-              >
-                <span className={`bar ${expanded ? "" : ""}`}></span>
-                <span
-                  className={`bar max-w-[60%] ml-auto ${expanded ? "" : ""}`}
-                ></span>
-                <span className={`bar ${expanded ? "" : ""}`}></span>
-              </button>
-              <div
-                id="navbarCollapse"
-                className={`navbar-collapse ${expanded ? "block" : "hidden"} xl:block`}
-              >
+            <div className="xl:grow flex items-center gap-x-2">
+              {/* Mobile Menu */}
+              <MobileMenu expanded={expanded} setExpanded={setExpanded} />
+
+              {/* Desktop Menu */}
+              <div className="hidden xl:block flex-1">
                 <HeaderList />
               </div>
+
+              {/* Desktop Search and Language */}
               <div className="hidden xl:flex items-center gap-x-5">
                 <InkeepSearchBar />
                 <div className="relative flex items-center">
                   <LanguageSelector />
                 </div>
               </div>
+
+              {/* Theme Toggle */}
               {isThemePage && (
                 <button
                   className="flex border-none ml-[15px] transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-[15deg] hover:[&>svg]:fill-[var(--body-text)]"
