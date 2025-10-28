@@ -64,7 +64,7 @@ interface X402HackathonPageProps {
 }
 
 export function X402HackathonPage({ translations }: X402HackathonPageProps) {
-  const TYPEFORM_URL = "https://solanafoundation.typeform.com/to/x402hack";
+  const TYPEFORM_URL = "https://solanafoundation.typeform.com/to/ZpxQvxER";
 
   return (
     <div className="overflow-hidden">
