@@ -10,11 +10,11 @@ description: تعلم كيفية تمكين امتداد MintCloseAuthority.
 إغلاق حسابات mint واسترداد الـ rent الخاص بها. يجب تهيئة هذا الامتداد عند إنشاء
 الـ mint.
 
-فقط سلطة الإغلاق المعينة يمكنها إغلاق حساب الـ mint. وبشكل مشابه لكيفية إغلاق
+فقط السلطة المخولة بالإغلاق يمكنها إغلاق حساب mint. وبشكل مشابه لكيفية إغلاق
 حسابات الرموز فقط عندما يكون رصيد الرمز صفرًا، يمكن إغلاق حسابات mint التي تحتوي
 على هذا الامتداد فقط عندما يتم تخفيض إجمالي عرض الرموز إلى صفر.
 
-### تايب سكريبت
+### تايبسكريبت
 
 <CodeTabs storage="token-ts" flags="r">
 
@@ -303,228 +303,141 @@ console.log("Transaction Signature:", transactionSignature3);
 ```rust !! title="Rust"
 use anyhow::Result;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-  commitment_config::CommitmentConfig,
-  signature::{Keypair, Signer},
-  system_instruction::create_account,
-  transaction::Transaction,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
 };
-
-use spl_token_2022::{
-  ID as TOKEN_2022_ID,
-  extension::ExtensionType,
-  instruction::{close_account, initialize_mint, initialize_mint_close_authority},
-  state::Mint,
+use solana_system_interface::instruction::create_account;
+use spl_token_2022_interface::{
+    extension::{
+        mint_close_authority::MintCloseAuthority, BaseStateWithExtensions, ExtensionType,
+        StateWithExtensions,
+    },
+    instruction::{close_account, initialize_mint, initialize_mint_close_authority},
+    state::Mint,
+    ID as TOKEN_2022_PROGRAM_ID,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  // Create connection to local validator
-  let client = RpcClient::new_with_commitment(
-    String::from("http://localhost:8899"),
-    CommitmentConfig::confirmed(),
-  );
-  let latest_blockhash = client.get_latest_blockhash().await?;
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let latest_blockhash = client.get_latest_blockhash().await?;
 
-  // Generate a new keypair for the fee payer
-  let fee_payer = Keypair::new();
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
 
-  // Generate a keypair for the destination
-  let destination = Keypair::new();
+    // Generate a keypair for the destination
+    let destination = Keypair::new();
 
-  // Airdrop 5 SOL to fee payer
-  let airdrop_signature = client
-    .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
-    .await?;
-  client.confirm_transaction(&airdrop_signature).await?;
+    // Airdrop 5 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
+        .await?;
 
-  loop {
-    let confirmed = client.confirm_transaction(&airdrop_signature).await?;
-    if confirmed {
-      break;
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
     }
-  }
 
-  // Generate keypair to use as address of mint
-  let mint = Keypair::new();
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
 
-  // Get default mint account size (in bytes),
-  let mint_space =
-    ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::MintCloseAuthority])?;
+    // Get default mint account size (in bytes),
+    let mint_space =
+        ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::MintCloseAuthority])?;
 
-  // get the rent in lamports for the mint account
-  let mint_rent = client
-    .get_minimum_balance_for_rent_exemption(mint_space)
-    .await?;
+    // get the rent in lamports for the mint account
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_space)
+        .await?;
 
-  // Instruction to create new account for mint (token program)
-  let create_account_instruction = create_account(
-    &fee_payer.pubkey(), // payer
-    &mint.pubkey(),      // new account (mint)
-    mint_rent,           // lamports
-    mint_space as u64,   // space
-    &TOKEN_2022_ID,      // program id
-  );
+    // Instruction to create new account for mint
+    let create_account_instruction = create_account(
+        &fee_payer.pubkey(),    // payer
+        &mint.pubkey(),         // new account (mint)
+        mint_rent,              // lamports
+        mint_space as u64,      // space
+        &TOKEN_2022_PROGRAM_ID, // program id
+    );
 
-  let initialize_close_mint_instruction = initialize_mint_close_authority(
-    &TOKEN_2022_ID,            // token program
-    &mint.pubkey(),            // mint
-    Some(&fee_payer.pubkey()), // close authority
-  )?;
+    let initialize_close_mint_instruction = initialize_mint_close_authority(
+        &TOKEN_2022_PROGRAM_ID,    // token program
+        &mint.pubkey(),            // mint
+        Some(&fee_payer.pubkey()), // close authority
+    )?;
 
-  // Instruction to initialize mint account data
-  let initialize_mint_instruction = initialize_mint(
-    &TOKEN_2022_ID,            // token program
-    &mint.pubkey(),            // mint
-    &fee_payer.pubkey(),       // mint authority
-    Some(&fee_payer.pubkey()), // freeze authority
-    9,                         // decimals
-  )?;
+    // Instruction to initialize mint account data
+    let initialize_mint_instruction = initialize_mint(
+        &TOKEN_2022_PROGRAM_ID,    // token program
+        &mint.pubkey(),            // mint
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
 
-  // Create transaction and add instructions
-  let transaction = Transaction::new_signed_with_payer(
-    &[
-      create_account_instruction,
-      initialize_close_mint_instruction,
-      initialize_mint_instruction,
-    ],
-    Some(&fee_payer.pubkey()),
-    &[&fee_payer, &mint],
-    latest_blockhash,
-  );
+    // Create transaction and add instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[
+            create_account_instruction,
+            initialize_close_mint_instruction,
+            initialize_mint_instruction,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        latest_blockhash,
+    );
 
-  // Send and confirm transaction
-  let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+    // Send and confirm transaction
+    client.send_and_confirm_transaction(&transaction).await?;
 
-  println!("Mint Address: {}", mint.pubkey());
-  println!("\nTransaction Signature: {}", transaction_signature);
+    println!("Mint Address: {}", mint.pubkey());
 
-  // Get the latest blockhash for the close transaction
-  let latest_blockhash = client.get_latest_blockhash().await?;
+    // Fetch mint account
+    let mint_account = client.get_account(&mint.pubkey()).await?;
+    // Deserialize the mint account with extensions
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_account.data)?;
 
-  let close_mint_instruction = close_account(
-    &TOKEN_2022_ID,         // token program
-    &mint.pubkey(),         // mint
-    &destination.pubkey(),  // destination
-    &fee_payer.pubkey(),    // authority
-    &[&fee_payer.pubkey()], // signer keys
-  )?;
+    // Get all extension types enabled on this mint
+    let mint_extension_types = mint_state.get_extension_types()?;
+    println!("\nMint extensions enabled: {:?}", mint_extension_types);
 
-  // Create transaction for closing the mint account
-  let transaction = Transaction::new_signed_with_payer(
-    &[close_mint_instruction],
-    Some(&fee_payer.pubkey()),
-    &[&fee_payer],
-    latest_blockhash,
-  );
+    // Deserialize the MintCloseAuthority extension data
+    let mint_close_authority = mint_state.get_extension::<MintCloseAuthority>()?;
+    println!("\n{:#?}", mint_close_authority);
 
-  // Send and confirm transaction
-  let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+    let close_mint_instruction = close_account(
+        &TOKEN_2022_PROGRAM_ID, // token program
+        &mint.pubkey(),         // mint
+        &destination.pubkey(),  // destination
+        &fee_payer.pubkey(),    // authority
+        &[&fee_payer.pubkey()], // signer keys
+    )?;
 
-  println!("\nDestination Address: {}", destination.pubkey());
-  println!("Transaction Signature: {}", transaction_signature);
+    // Create transaction for closing the mint account
+    let transaction = Transaction::new_signed_with_payer(
+        &[close_mint_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
 
-  Ok(())
-}
-```
+    // Send and confirm transaction
+    client.send_and_confirm_transaction(&transaction).await?;
 
-```rust !! title="Token Client"
-use anyhow::Result;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-  commitment_config::CommitmentConfig,
-  signature::{Keypair, Signer},
-};
-use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
-use spl_token_client::{
-  client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
-  token::{ExtensionInitializationParams, Token},
-};
-use std::sync::Arc;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-  // Create connection to local validator
-  let rpc_client = RpcClient::new_with_commitment(
-    String::from("http://localhost:8899"),
-    CommitmentConfig::confirmed(),
-  );
-
-  // Generate a new keypair for the fee payer
-  let payer = Keypair::new();
-
-  // Generate a keypair for the destination rent SOL
-  let destination = Keypair::new();
-
-  // Airdrop 5 SOL to fee payer
-  let airdrop_signature = rpc_client
-    .request_airdrop(&payer.pubkey(), 5_000_000_000)
-    .await?;
-  rpc_client.confirm_transaction(&airdrop_signature).await?;
-
-  loop {
-    let confirmed = rpc_client.confirm_transaction(&airdrop_signature).await?;
-    if confirmed {
-      break;
+    // Try to fetch the mint account (should fail)
+    match client.get_account(&mint.pubkey()).await {
+        Ok(_) => println!("\nMint account still exists (unexpected)"),
+        Err(e) => println!("\nMint account successfully closed: {:#?}", e),
     }
-  }
 
-  // Generate keypair to use as address of mint
-  let mint = Keypair::new();
-
-  // Create a new program client
-  let program_client = ProgramRpcClient::new(
-    Arc::new(RpcClient::new_with_commitment(
-      String::from("http://localhost:8899"),
-      CommitmentConfig::confirmed(),
-    )),
-    ProgramRpcClientSendTransaction,
-  );
-
-  // Number of decimals for the mint
-  let decimals = 9;
-
-  // Create a token client for Token program
-  let token = Token::new(
-    Arc::new(program_client),
-    &TOKEN_2022_PROGRAM_ID,
-    &mint.pubkey(),
-    Some(decimals),
-    Arc::new(payer.insecure_clone()),
-  );
-
-  // declare the MintCloseAuthority extension that will be initialized together with the mint
-  let extension_initialization_params: Vec<ExtensionInitializationParams> =
-    vec![ExtensionInitializationParams::MintCloseAuthority {
-      close_authority: Some(payer.pubkey()),
-    }];
-
-  let mint_result = token
-    .create_mint(
-      &payer.pubkey(),                 // mint authority
-      Some(&payer.pubkey()),           // freeze authority
-      extension_initialization_params, // MintCloseAuthority extension
-      &[&mint],                        // mint keypair needed as signer
-    )
-    .await?;
-
-  println!("Mint Address: {}", mint.pubkey());
-  println!("Created Mint Account: {}", mint_result);
-
-  // close the created mint account
-  let close_mint_result = token
-    .close_account(
-      &mint.pubkey(),        // account to close
-      &destination.pubkey(), // rent destination
-      &payer.pubkey(),       // authority
-      &[&payer],             // signers
-    )
-    .await?;
-
-  println!("Destination Address: {}", destination.pubkey());
-  println!("Transaction Signature: {}", close_mint_result);
-
-  Ok(())
+    Ok(())
 }
 ```
 
