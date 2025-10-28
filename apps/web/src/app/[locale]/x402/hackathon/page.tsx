@@ -14,42 +14,26 @@ export default async function Page(_props: Props) {
     heroRegisterButton: t("x402.hackathon.hero.registerButton"),
     heroResourcesButton: t("x402.hackathon.hero.resourcesButton"),
 
-    welcomeEyebrow: t("x402.hackathon.welcome.eyebrow"),
-    welcomeTitle: t("x402.hackathon.welcome.title"),
-    welcomeDescription: t("x402.hackathon.welcome.description"),
-    welcomeCta: t("x402.hackathon.welcome.cta"),
-
     timelineTitle: t("x402.hackathon.timeline.title"),
     timelinePhaseHeader: t("x402.hackathon.timeline.phaseHeader"),
     timelineDateHeader: t("x402.hackathon.timeline.dateHeader"),
-    timelineDescriptionHeader: t("x402.hackathon.timeline.descriptionHeader"),
+    timelineDescriptionHeader: undefined,
     timelineEvents: [
       {
         phase: t("x402.hackathon.timeline.events.registration.phase"),
         date: t("x402.hackathon.timeline.events.registration.date"),
-        description: t(
-          "x402.hackathon.timeline.events.registration.description",
-        ),
-      },
-      {
-        phase: t("x402.hackathon.timeline.events.kickoff.phase"),
-        date: t("x402.hackathon.timeline.events.kickoff.date"),
-        description: t("x402.hackathon.timeline.events.kickoff.description"),
       },
       {
         phase: t("x402.hackathon.timeline.events.building.phase"),
         date: t("x402.hackathon.timeline.events.building.date"),
-        description: t("x402.hackathon.timeline.events.building.description"),
       },
       {
         phase: t("x402.hackathon.timeline.events.submission.phase"),
         date: t("x402.hackathon.timeline.events.submission.date"),
-        description: t("x402.hackathon.timeline.events.submission.description"),
       },
       {
         phase: t("x402.hackathon.timeline.events.winners.phase"),
         date: t("x402.hackathon.timeline.events.winners.date"),
-        description: t("x402.hackathon.timeline.events.winners.description"),
       },
     ],
 

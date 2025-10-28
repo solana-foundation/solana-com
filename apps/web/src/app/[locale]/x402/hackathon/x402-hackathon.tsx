@@ -2,7 +2,6 @@
 
 import React from "react";
 import DevelopersHeroSection from "@/components/developers/sections/DevelopersHeroSection/DevelopersHeroSection";
-import HackathonCTASection from "@/components/universities/HackathonCTASection";
 import HackathonTimeline from "@/components/universities/HackathonTimeline";
 import HackathonRequirements from "@/components/universities/HackathonRequirements";
 import HackathonTracks from "@/components/universities/HackathonTracks";
@@ -17,18 +16,14 @@ interface X402HackathonPageProps {
     heroSubtitle: string;
     heroRegisterButton: string;
     heroResourcesButton: string;
-    welcomeEyebrow: string;
-    welcomeTitle: string;
-    welcomeDescription: string;
-    welcomeCta: string;
     timelineTitle: string;
     timelinePhaseHeader: string;
     timelineDateHeader: string;
-    timelineDescriptionHeader: string;
+    timelineDescriptionHeader?: string;
     timelineEvents: Array<{
       phase: string;
       date: string;
-      description: string;
+      description?: string;
     }>;
     prerequisitesTitle: string;
     x402IntroTitle: string;
@@ -64,7 +59,6 @@ interface X402HackathonPageProps {
 
 export function X402HackathonPage({ translations }: X402HackathonPageProps) {
   const TYPEFORM_URL = "https://solanafoundation.typeform.com/to/x402hack";
-  const TELEGRAM_URL = "https://t.me/+x402community";
 
   return (
     <div className="overflow-hidden">
@@ -89,24 +83,12 @@ export function X402HackathonPage({ translations }: X402HackathonPageProps) {
         }}
       />
 
-      {/* Welcome Section */}
-      <HackathonCTASection
-        translations={{
-          eyebrowText: translations.welcomeEyebrow,
-          title: translations.welcomeTitle,
-          description: translations.welcomeDescription,
-          ctaLabel: translations.welcomeCta,
-        }}
-        ctaUrl={TELEGRAM_URL}
-      />
-
       {/* Timeline Section */}
       <HackathonTimeline
         translations={{
           title: translations.timelineTitle,
           phaseHeader: translations.timelinePhaseHeader,
           dateHeader: translations.timelineDateHeader,
-          descriptionHeader: translations.timelineDescriptionHeader,
           events: translations.timelineEvents,
         }}
       />
@@ -122,15 +104,15 @@ export function X402HackathonPage({ translations }: X402HackathonPageProps) {
               <DevelopersDocumentItem
                 title={translations.x402IntroTitle}
                 description={translations.x402IntroDescription}
-                url="https://www.x402.org/"
+                url="https://solana.com/x402"
                 newTab={true}
                 ctaLabel={translations.x402IntroCta}
               />
               <DevelopersDocumentItem
                 title={translations.solanaTitle}
                 description={translations.solanaDescription}
-                url="https://solana.com/developers"
-                newTab={true}
+                url="#resources"
+                newTab={false}
                 ctaLabel={translations.solanaCta}
               />
             </div>
@@ -177,26 +159,6 @@ export function X402HackathonPage({ translations }: X402HackathonPageProps) {
               {translations.resources.slice(0, 4).map((resource, index) => (
                 <DevelopersResourceItem
                   key={index}
-                  category={resource.category}
-                  title={resource.title}
-                  description={resource.description}
-                  url={resource.url}
-                  isExternal={true}
-                  ctaLabel={translations.resourcesLearnMore}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Advanced Topics */}
-          <div>
-            <h3 className="text-2xl font-bold text-white mb-6">
-              {translations.resourcesAdvancedTopics}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {translations.resources.slice(4).map((resource, index) => (
-                <DevelopersResourceItem
-                  key={index + 4}
                   category={resource.category}
                   title={resource.title}
                   description={resource.description}
