@@ -47,10 +47,10 @@ export default function PodcastsClientPage({
   return (
     <ErrorBoundary>
       <Section>
-        <div className="flex flex-col gap-16 px-4 md:px-6 lg:px-8 pt-8 md:pt-12">
+        <div className="flex flex-col gap-16">
           {/* Featured Podcast Hero */}
           {featuredPodcast && (
-            <div className="relative w-full overflow-hidden bg-[#070b14] text-white shadow-[0_60px_120px_-60px_rgba(7,12,28,0.9)] p-6 md:p-12 rounded-lg">
+            <div className="relative w-full overflow-hidden bg-[#070b14] text-white shadow-[0_60px_120px_-60px_rgba(7,12,28,0.9)] p-6 md:p-12">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
               <div className="relative z-10 flex flex-col gap-12 lg:flex-row lg:items-center max-w-6xl mx-auto">
                 <div className="flex flex-1 flex-col gap-8">
@@ -136,15 +136,15 @@ export default function PodcastsClientPage({
                 </div>
 
                 {featuredPodcast.coverImage && (
-                  <div className="flex flex-1 justify-end">
-                    <div className="relative aspect-square w-full max-w-[400px]">
-                      <div className="relative h-full w-full overflow-hidden rounded-lg shadow-2xl">
+                  <div className="flex flex-1 lg:justify-end">
+                    <div className="relative aspect-square w-full lg:max-w-[520px]">
+                      <div className="relative h-full w-full overflow-hidden shadow-2xl">
                         <Image
                           src={featuredPodcast.coverImage}
                           alt={featuredPodcast.title}
                           fill
                           priority
-                          sizes="(min-width: 1024px) 400px, (min-width: 768px) 60vw, 90vw"
+                          sizes="(min-width: 1024px) 520px, (min-width: 768px) 60vw, 90vw"
                           className="h-full w-full object-cover"
                         />
                       </div>
@@ -154,63 +154,66 @@ export default function PodcastsClientPage({
               </div>
             </div>
           )}
+          <div className="px-4 md:px-6 lg:px-0">
+            {/* Page Title for non-featured case */}
+            {!featuredPodcast && (
+              <div className="max-w-6xl mx-auto w-full">
+                <h1 className="text-4xl font-bold md:text-6xl mb-4">
+                  Podcasts
+                </h1>
+                <p className="text-lg text-muted-foreground">
+                  Explore our collection of podcasts
+                </p>
+              </div>
+            )}
 
-          {/* Page Title for non-featured case */}
-          {!featuredPodcast && (
-            <div className="max-w-6xl mx-auto w-full">
-              <h1 className="text-4xl font-bold md:text-6xl mb-4">Podcasts</h1>
-              <p className="text-lg text-muted-foreground">
-                Explore our collection of podcasts
-              </p>
-            </div>
-          )}
-
-          {/* Category Filter */}
-          {categories.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3 max-w-6xl mx-auto w-full">
-              <span className="text-sm font-medium text-muted-foreground">
-                Filter by category:
-              </span>
-              <Button
-                variant={selectedCategory === null ? "default" : "secondary"}
-                size="sm"
-                onClick={() => setSelectedCategory(null)}
-                className="capitalize"
-              >
-                All
-              </Button>
-              {categories.map((category) => (
+            {/* Category Filter */}
+            {categories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 max-w-6xl mx-auto w-full mb-6">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Filter by category:
+                </span>
                 <Button
-                  key={category}
-                  variant={
-                    selectedCategory === category ? "default" : "secondary"
-                  }
+                  variant={selectedCategory === null ? "default" : "secondary"}
                   size="sm"
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => setSelectedCategory(null)}
                   className="capitalize"
                 >
-                  {category}
+                  All
                 </Button>
-              ))}
-            </div>
-          )}
+                {categories.map((category) => (
+                  <Button
+                    key={category}
+                    variant={
+                      selectedCategory === category ? "default" : "secondary"
+                    }
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                    className="capitalize"
+                  >
+                    {category}
+                  </Button>
+                ))}
+              </div>
+            )}
 
-          {/* Podcasts Grid */}
-          {filteredPodcasts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
-              {filteredPodcasts.map((podcast) => (
-                <PodcastCard key={podcast.id} podcast={podcast} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 max-w-6xl mx-auto w-full">
-              <p className="text-muted-foreground">
-                {selectedCategory
-                  ? `No podcasts found in the "${selectedCategory}" category.`
-                  : "No podcasts available at the moment."}
-              </p>
-            </div>
-          )}
+            {/* Podcasts Grid */}
+            {filteredPodcasts.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
+                {filteredPodcasts.map((podcast) => (
+                  <PodcastCard key={podcast.id} podcast={podcast} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 max-w-6xl mx-auto w-full">
+                <p className="text-muted-foreground">
+                  {selectedCategory
+                    ? `No podcasts found in the "${selectedCategory}" category.`
+                    : "No podcasts available at the moment."}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </Section>
     </ErrorBoundary>
