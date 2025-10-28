@@ -236,9 +236,9 @@ export default function PostsClientPage(props: ClientPostProps) {
   return (
     <ErrorBoundary>
       <Section>
-        <div className="flex flex-col gap-16 px-4 md:px-6 lg:px-8 pt-8 md:pt-12">
+        <div className="flex flex-col gap-16">
           {featuredPost && (
-            <div className="relative w-full overflow-hidden bg-[#070b14] text-white shadow-[0_60px_120px_-60px_rgba(7,12,28,0.9)] p-6 md:p-12 rounded-lg">
+            <div className="relative w-full overflow-hidden bg-[#070b14] text-white shadow-[0_60px_120px_-60px_rgba(7,12,28,0.9)] p-6 md:p-12">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
               <div className="relative z-10 flex flex-col gap-12 lg:flex-row lg:items-center max-w-6xl mx-auto">
                 <div className="flex flex-1 flex-col gap-8">
@@ -277,8 +277,8 @@ export default function PostsClientPage(props: ClientPostProps) {
                 </div>
 
                 {featuredPost.heroImage && (
-                  <div className="flex flex-1 justify-end">
-                    <div className="relative aspect-[5/3] w-full max-w-[520px]">
+                  <div className="flex flex-1 lg:justify-end">
+                    <div className="relative aspect-[5/3] w-full lg:max-w-[520px]">
                       <div className="relative h-full w-full overflow-hidden">
                         <Image
                           src={featuredPost.heroImage}
@@ -295,114 +295,115 @@ export default function PostsClientPage(props: ClientPostProps) {
               </div>
             </div>
           )}
-
-          {/* Category Filter Button Group */}
-          {allCategories.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3 max-w-6xl mx-auto w-full">
-              <span className="text-sm font-medium text-muted-foreground">
-                Filter by category:
-              </span>
-              <Button
-                variant={selectedCategory === null ? "default" : "secondary"}
-                size="sm"
-                onClick={() => setSelectedCategory(null)}
-                className="capitalize"
-              >
-                All
-              </Button>
-              {allCategories.map((category) => (
+          <div className="px-4 md:px-6 lg:px-0">
+            {/* Category Filter Button Group */}
+            {allCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 max-w-6xl mx-auto w-full">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Filter by category:
+                </span>
                 <Button
-                  key={category}
-                  variant={
-                    selectedCategory === category ? "default" : "secondary"
-                  }
+                  variant={selectedCategory === null ? "default" : "secondary"}
                   size="sm"
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => setSelectedCategory(null)}
                   className="capitalize"
                 >
-                  {category}
+                  All
                 </Button>
-              ))}
-            </div>
-          )}
-
-          {filteredPosts.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
-              {filteredPosts.map(
-                (post) =>
-                  post && (
-                    <Link
-                      key={post.id}
-                      href={post.url}
-                      className="flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border"
-                    >
-                      {post?.heroImage && (
-                        <div className="relative aspect-video w-full overflow-hidden">
-                          <Image
-                            src={post?.heroImage}
-                            alt={post?.title}
-                            fill
-                            sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                      )}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {post.published}
-                        </span>
-                        {post.tags?.map(
-                          (tag: string) =>
-                            tag && (
-                              <Badge
-                                key={`${post.id}-${tag}`}
-                                variant="outline"
-                              >
-                                {tag}
-                              </Badge>
-                            )
-                        )}
-                      </div>
-                      <h3 className="text-xl font-semibold group-hover:underline">
-                        {post.title}
-                      </h3>
-                      <div className="text-muted-foreground flex-grow">
-                        <TinaMarkdown content={post.description} />
-                      </div>
-                      <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
-                        Read more
-                        <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                      </span>
-                    </Link>
-                  )
-              )}
-            </div>
-          )}
-
-          {/* Show message when no posts match the filter */}
-          {filteredPosts.length === 0 && selectedCategory && (
-            <div className="text-center py-12 max-w-6xl mx-auto w-full">
-              <p className="text-muted-foreground">
-                No posts found for &quot;{selectedCategory}&quot; category.
-              </p>
-            </div>
-          )}
-
-          <div
-            ref={sentinelRef}
-            className="w-full mt-6 mx-auto max-w-6xl flex justify-center"
-          >
-            {isLoadingMore && (
-              <div className="flex items-center gap-2 text-muted-foreground py-4">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                <span>Loading more posts...</span>
+                {allCategories.map((category) => (
+                  <Button
+                    key={category}
+                    variant={
+                      selectedCategory === category ? "default" : "secondary"
+                    }
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                    className="capitalize"
+                  >
+                    {category}
+                  </Button>
+                ))}
               </div>
             )}
-            {!pageInfo.hasPreviousPage && (
-              <p className="text-muted-foreground py-4">
-                No more posts to load
-              </p>
+
+            {filteredPosts.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
+                {filteredPosts.map(
+                  (post) =>
+                    post && (
+                      <Link
+                        key={post.id}
+                        href={post.url}
+                        className="flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border"
+                      >
+                        {post?.heroImage && (
+                          <div className="relative aspect-video w-full overflow-hidden">
+                            <Image
+                              src={post?.heroImage}
+                              alt={post?.title}
+                              fill
+                              sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {post.published}
+                          </span>
+                          {post.tags?.map(
+                            (tag: string) =>
+                              tag && (
+                                <Badge
+                                  key={`${post.id}-${tag}`}
+                                  variant="outline"
+                                >
+                                  {tag}
+                                </Badge>
+                              )
+                          )}
+                        </div>
+                        <h3 className="text-xl font-semibold group-hover:underline">
+                          {post.title}
+                        </h3>
+                        <div className="text-muted-foreground flex-grow">
+                          <TinaMarkdown content={post.description} />
+                        </div>
+                        <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
+                          Read more
+                          <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                        </span>
+                      </Link>
+                    )
+                )}
+              </div>
             )}
+
+            {/* Show message when no posts match the filter */}
+            {filteredPosts.length === 0 && selectedCategory && (
+              <div className="text-center py-12 max-w-6xl mx-auto w-full">
+                <p className="text-muted-foreground">
+                  No posts found for &quot;{selectedCategory}&quot; category.
+                </p>
+              </div>
+            )}
+
+            <div
+              ref={sentinelRef}
+              className="w-full mt-6 mx-auto max-w-6xl flex justify-center"
+            >
+              {isLoadingMore && (
+                <div className="flex items-center gap-2 text-muted-foreground py-4">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <span>Loading more posts...</span>
+                </div>
+              )}
+              {!pageInfo.hasPreviousPage && (
+                <p className="text-muted-foreground py-4">
+                  No more posts to load
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </Section>
