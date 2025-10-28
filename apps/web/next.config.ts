@@ -41,11 +41,25 @@ const nextConfig: NextConfig = {
   transpilePackages: ["gsap"],
 
   async rewrites() {
-    return rewritesAndRedirectsJson.rewrites as {
+    const baseRewrites = rewritesAndRedirectsJson.rewrites as {
       beforeFiles: Array<Omit<Rewrite, "locale"> & { locale: false }>;
       afterFiles: Rewrite[];
       fallback: Rewrite[];
     };
+
+    // TODO: In production, add rewrite for /templates/* to templates app
+    // This allows the templates app to be deployed separately while maintaining
+    // the same domain for SEO and UX (prefetching, etc.)
+    // Example:
+    // if (process.env.TEMPLATES_APP_URL) {
+    //   baseRewrites.beforeFiles.push({
+    //     source: '/templates/:path*',
+    //     destination: `${process.env.TEMPLATES_APP_URL}/:path*`,
+    //     locale: false,
+    //   });
+    // }
+
+    return baseRewrites;
   },
 
   async redirects() {
@@ -199,6 +213,11 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "placehold.co",
+      },
+      {
+        protocol: "https",
+        hostname: "raw.githubusercontent.com",
+        pathname: "/solana-foundation/templates/**",
       },
     ],
   },
