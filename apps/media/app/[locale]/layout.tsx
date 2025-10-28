@@ -10,6 +10,9 @@ import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
 import { LayoutProvider } from "@/components/layout/layout-context";
 import client from "@/tina/__generated__/client";
 import { staticLocales } from "@workspace/i18n/config";
+import { GTMTrackingSnippet } from "@/components/GTMTrackingSnippet";
+import { CookieConsent } from "@/components/CookieConsent/CookieConsent";
+import { config } from "@/lib/config";
 
 import "@/styles.css";
 import { TailwindIndicator } from "@/components/ui/breakpoint-indicator";
@@ -163,6 +166,8 @@ export default async function LocaleLayout({ children, params }: Props) {
     }
   );
 
+  const googleTagManagerID = config.siteMetadata.googleTagManagerID;
+
   return (
     <html
       lang={locale}
@@ -174,8 +179,20 @@ export default async function LocaleLayout({ children, params }: Props) {
         className="min-h-screen bg-background font-sans antialiased"
         suppressHydrationWarning
       >
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          ></iframe>
+        </noscript>
+        {/* End Google Tag Manager (noscript) */}
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
+            <GTMTrackingSnippet />
+            <CookieConsent />
             <LayoutProvider globalSettings={globalData.global} pageData={null}>
               <VideoDialogProvider>
                 <Header />
