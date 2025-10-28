@@ -28,7 +28,7 @@ export function InkeepSearchBar() {
       <div className="relative xl:w-[21.75rem]">
         <button
           onClick={() => setIsOpen(true)}
-          className="w-full flex items-center gap-2 m-0 py-2.5 pr-6 pl-5 rounded-full !bg-gray-800/50 text-gray-400 text-sm md:text-base leading-6 tracking-normal cursor-text transition-all duration-200 ease-in-out hover:!bg-gray-800/70 hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500/50"
+          className="w-full flex items-center gap-2 m-0 py-2.5 pr-6 pl-5 !rounded-full bg-gray-900/50 text-gray-400 hover:text-gray-300 hover:bg-gray-900/70 focus:ring-gray-700 !border !border-gray-700 shadow-sm light:!bg-white light:!border-gray-300 light:text-gray-700 light:hover:!bg-white light:hover:text-gray-900 focus:outline-none focus:ring-2 text-sm md:text-base leading-6 tracking-normal cursor-text transition-all duration-200 ease-in-out"
         >
           <svg
             width="16"
@@ -48,7 +48,7 @@ export function InkeepSearchBar() {
 
           <span className="text-left flex-1">{t("commands.search")}</span>
 
-          <kbd className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-900/50 rounded">
+          <kbd className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-900/50 rounded light:text-gray-700 light:bg-gray-200">
             ⌘K
           </kbd>
         </button>

@@ -15,275 +15,275 @@ const HeaderListSolutions = () => {
   return (
     <>
       <div className="xl:flex">
-        <div>
-          <div className="text-uppercase py-2 d-flex align-items-center">
+        <div className="w-full xl:w-max">
+          <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
             <SolutionsToolsSVG className="me-3" />
             {t("nav.solutions.tools.title")}
           </div>
           <div>
             <Link
               to="/solutions/token-extensions"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[0].title}
               </strong>
             </Link>
             <Link
               to="/solutions/actions"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[9].title}
               </strong>
             </Link>
             <Link
               to="/wallets"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[10].title}
               </strong>
             </Link>
             <Link
               to="/solutions/solana-permissioned-environments"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[7].title}
               </strong>
             </Link>
             <Link
               to="/solutions/games-tooling"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[1].title}
               </strong>
             </Link>
             <Link
               to="/solutions/payments-tooling"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[2].title}
               </strong>
             </Link>
             <Link
               to="/solutions/commerce-tooling"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[3].title}
               </strong>
             </Link>
             <Link
               to="/solutions/financial-infrastructure"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[4].title}
               </strong>
             </Link>
             <Link
               to="/solutions/digital-assets"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[5].title}
               </strong>
             </Link>
             <Link
               to="/solutions/real-world-assets"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[8].title}
               </strong>
             </Link>
             <Link
               to="https://solanamobile.com/developers"
-              className="nav-link nav-link--secondary"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
               target="_blank"
-              activeClassName="active"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsToolsItems[6].title}
               </strong>
             </Link>
           </div>
         </div>
 
-        <div className="divider"></div>
+        <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px] hidden xl:block"></div>
 
-        <div>
-          <div className="text-uppercase py-2 d-flex align-items-center">
+        <div className="w-full xl:w-max">
+          <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
             <SolutionsCasesSVG className="me-3" />
             {t("nav.solutions.cases.title")}
           </div>
           <div>
             <Link
               to="/solutions/tokenization"
-              className="nav-link nav-link--secondary text-primary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-primary hover:!text-primary transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-primary">
+              <strong className="block !text-primary text-sm">
                 {solutionsCasesItems[5].title}
               </strong>
             </Link>
             <Link
               to="/solutions/depin"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[4].title}
               </strong>
             </Link>
             <Link
               to="/solutions/btcfi"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[6].title}
               </strong>
             </Link>
             <Link
               to="/solutions/institutional-payments"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[7].title}
               </strong>
             </Link>
             <Link
               to="/solutions/stablecoins"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[8].title}
               </strong>
             </Link>
             <Link
               to="/solutions/defi"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[9].title}
               </strong>
             </Link>
             <Link
               to="/solutions/consumer"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[10].title}
               </strong>
             </Link>
             <Link
               to="/solutions/ai"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[11].title}
               </strong>
             </Link>
             <Link
               to="/solutions/desci"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[12].title}
               </strong>
             </Link>
             <Link
               to="/solutions/enterprise"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[1].title}
               </strong>
             </Link>
             <Link
               to="/solutions/gaming-and-entertainment"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[0].title}
               </strong>
             </Link>
             <Link
               to="/solutions/artists-creators"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/10 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsCasesItems[2].title}
               </strong>
             </Link>
           </div>
         </div>
       </div>
-      <div className="xl:flex nav-footer">
-        <div className="xl:w-1/2">
-          <div className="text-uppercase py-2 d-flex align-items-center">
+      <div className="xl:flex border-t border-white/10 bg-[#151118] mt-[26px] -mx-6 -mb-6 px-6 pb-6 pt-6 rounded-b-xl">
+        <div className="xl:w-1/2 w-full">
+          <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
             <SolutionsResourcesSVG className="me-3" />
             {t("nav.solutions.resources.title")}
           </div>
           <div>
             <Link
               to="/solutions"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/30 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/30 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsResourcesItems[0].title}
               </strong>
             </Link>
             <Link
               to="/ai"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/30 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/30 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsResourcesItems[1].title}
               </strong>
             </Link>
           </div>
         </div>
 
-        <div className="divider d-none xl:block invisible"></div>
+        <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px] hidden xl:block invisible"></div>
 
-        <div className="xl:w-1/2">
-          <div className="d-none xl:block text-uppercase py-2 d-flex align-items-center">
+        <div className="xl:w-1/2 w-full">
+          <div className="hidden xl:block uppercase py-2 flex items-center !text-[#848895] text-xs">
             &nbsp;
           </div>
           <div>
             <Link
               to="/developers/dao"
-              className="nav-link nav-link--secondary"
-              activeClassName="active"
+              className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/30 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+              activeClassName="!border-white/30 bg-[#151118]"
             >
-              <strong className="d-block text-white">
+              <strong className="block !text-white text-sm">
                 {solutionsResourcesItems[2].title}
               </strong>
             </Link>
