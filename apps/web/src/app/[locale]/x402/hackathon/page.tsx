@@ -66,38 +66,41 @@ export default async function Page(_props: Props) {
     resourcesGettingStarted: t("x402.hackathon.resources.gettingStarted"),
     resourcesAdvancedTopics: t("x402.hackathon.resources.advancedTopics"),
     resourcesLearnMore: t("x402.hackathon.resources.learnMore"),
+
+    ctaEyebrow: t("x402.hackathon.cta.eyebrow"),
+    ctaTitle: t("x402.hackathon.cta.title"),
+    ctaDescription: t("x402.hackathon.cta.description"),
+    ctaLabel: t("x402.hackathon.cta.label"),
+    ctaUrl: t("x402.hackathon.cta.url"),
+
     resources: [
       {
         title: t("x402.hackathon.resources.items.x402Docs.title"),
         description: t("x402.hackathon.resources.items.x402Docs.description"),
         category: t("x402.hackathon.resources.items.x402Docs.category"),
-        url: "https://www.x402.org/",
+        url: "https://solana.com/x402/what-is-x402",
       },
       {
         title: t("x402.hackathon.resources.items.x402SDK.title"),
         description: t("x402.hackathon.resources.items.x402SDK.description"),
         category: t("x402.hackathon.resources.items.x402SDK.category"),
-        url: "https://www.x402dev.com/",
+        url: "https://docs.corbits.dev/quickstart",
       },
       {
-        title: t("x402.hackathon.resources.items.mcpDocs.title"),
-        description: t("x402.hackathon.resources.items.mcpDocs.description"),
-        category: t("x402.hackathon.resources.items.mcpDocs.category"),
-        url: "https://modelcontextprotocol.io/",
-      },
-      {
-        title: t("x402.hackathon.resources.items.solanaAgentKit.title"),
+        title: t("x402.hackathon.resources.items.facilitatorDocs.title"),
         description: t(
-          "x402.hackathon.resources.items.solanaAgentKit.description",
+          "x402.hackathon.resources.items.facilitatorDocs.description",
         ),
-        category: t("x402.hackathon.resources.items.solanaAgentKit.category"),
-        url: "https://github.com/sendaifun/solana-agent-kit",
+        category: t("x402.hackathon.resources.items.facilitatorDocs.category"),
+        url: "https://solana.com/developers/guides/getstarted/build-a-x402-facilitator",
       },
       {
-        title: t("x402.hackathon.resources.items.erc8004.title"),
-        description: t("x402.hackathon.resources.items.erc8004.description"),
-        category: t("x402.hackathon.resources.items.erc8004.category"),
-        url: "https://eips.ethereum.org/EIPS/eip-8004",
+        title: t("x402.hackathon.resources.items.x402Template.title"),
+        description: t(
+          "x402.hackathon.resources.items.x402Template.description",
+        ),
+        category: t("x402.hackathon.resources.items.x402Template.category"),
+        url: "https://templates.solana.com/solana/x402-solana-protocol",
       },
       {
         title: t("x402.hackathon.resources.items.coinbaseDocs.title"),

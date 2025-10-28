@@ -5,6 +5,7 @@ import DevelopersHeroSection from "@/components/developers/sections/DevelopersHe
 import HackathonTimeline from "@/components/universities/HackathonTimeline";
 import HackathonRequirements from "@/components/universities/HackathonRequirements";
 import HackathonTracks from "@/components/universities/HackathonTracks";
+import HackathonCTASection from "@/components/universities/HackathonCTASection";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
 import hackathonHeroImg from "@@/assets/universities/hackathon-hero.webp";
@@ -54,6 +55,11 @@ interface X402HackathonPageProps {
       category: string;
       url: string;
     }>;
+    ctaEyebrow: string;
+    ctaTitle: string;
+    ctaDescription: string;
+    ctaLabel: string;
+    ctaUrl: string;
   };
 }
 
@@ -81,6 +87,17 @@ export function X402HackathonPage({ translations }: X402HackathonPageProps) {
             icon: <Book size={20} />,
           },
         }}
+      />
+
+      {/* CTA Section */}
+      <HackathonCTASection
+        translations={{
+          eyebrowText: translations.ctaEyebrow,
+          title: translations.ctaTitle,
+          description: translations.ctaDescription,
+          ctaLabel: translations.ctaLabel,
+        }}
+        ctaUrl={translations.ctaUrl}
       />
 
       {/* Timeline Section */}
