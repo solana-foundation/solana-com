@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 // Get localstorage with expiry date
 const getLocalStorage = function (key: string, defaultValue: any) {
@@ -92,9 +93,9 @@ export const CookieConsent = () => {
                 {t("cookie-consent.button.optout")}
               </Button>
               <Button variant="ghost" size="sm" className="h-auto" asChild>
-                <a href="/privacy-policy#collection-of-information">
+                <Link href="/privacy-policy#collection-of-information">
                   {t("cookie-consent.button.details")}
-                </a>
+                </Link>
               </Button>
             </div>
             <Button
