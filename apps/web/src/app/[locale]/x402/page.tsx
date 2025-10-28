@@ -1,19 +1,41 @@
 import { X402Page } from "./x402";
 import { getIndexMetadata } from "@/app/metadata";
 import { getTranslations } from "next-intl/server";
+import { SolutionHeroStat } from "@/components/solutions/hero.v2";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function Page(_props: Props) {
   const t = await getTranslations();
 
+  const stats: SolutionHeroStat[] = [
+    {
+      value: t("x402.hero.stats.0.value"),
+      label: t("x402.hero.stats.0.label"),
+    },
+    {
+      value: t("x402.hero.stats.1.value"),
+      label: t("x402.hero.stats.1.label"),
+    },
+    {
+      value: t("x402.hero.stats.2.value"),
+      label: t("x402.hero.stats.2.label"),
+    },
+    {
+      value: t("x402.hero.stats.3.value"),
+      label: t("x402.hero.stats.3.label"),
+    },
+  ];
+
   const translations = {
     heroTitle: t("x402.hero.title"),
     heroSubtitle: t("x402.hero.subtitle"),
-    intro: t("x402.hero.intro"),
-    build: t("x402.hero.build"),
-    textSectionTitle: t("x402.textSection.title"),
-    textSectionContent: t("x402.textSection.content"),
+    extraCta: t("x402.hero.intro"),
+    extraCtaHref: "/x402/what-is-x402",
+    stats,
+    featuresTitle: t("x402.features.title"),
+    featuresDescription: t("x402.features.description"),
+    ecoProjectsTitle: t("x402.ecoProjects.title"),
     toolsTitle: t("x402.tools.title"),
     toolsDescription: t("x402.tools.description"),
   };
