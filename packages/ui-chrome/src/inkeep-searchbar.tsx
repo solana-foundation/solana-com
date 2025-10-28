@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useInkeepConfig } from "./inkeep-config";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
@@ -28,7 +28,7 @@ export function InkeepSearchBar() {
       <div className="relative xl:w-[21.75rem]">
         <button
           onClick={() => setIsOpen(true)}
-          className="w-full flex items-center gap-2 m-0 py-2.5 pr-6 pl-5 !rounded-full bg-gray-900/50 text-gray-400 hover:text-gray-300 hover:bg-gray-900/70 focus:ring-gray-700 !border !border-gray-700 shadow-sm light:!bg-white light:!border-gray-300 light:text-gray-700 light:hover:!bg-white light:hover:text-gray-900 focus:outline-none focus:ring-2 text-sm md:text-base leading-6 tracking-normal cursor-text transition-all duration-200 ease-in-out"
+          className="w-full flex items-center gap-2 m-0 py-2.5 pr-6 pl-5 !rounded-full bg-gray-900/50 text-gray-400 hover:text-gray-300 hover:bg-gray-900/70 focus:ring-gray-700 !border !border-gray-700 shadow-sm light:!bg-white light:!border-gray-300 light:text-[#7f8391] light:hover:!bg-white light:hover:text-gray-900 focus:outline-none focus:ring-2 text-sm md:text-base leading-6 tracking-normal cursor-text transition-all duration-200 ease-in-out"
         >
           <svg
             width="16"

@@ -48,10 +48,7 @@ const HeaderList = () => {
           activeColor="#19fb9b"
           value="learn"
         >
-          <NavigationMenuTrigger
-            isActive={isLearnActive}
-            suppressHydrationWarning={true}
-          >
+          <NavigationMenuTrigger isActive={isLearnActive}>
             {t("nav.learn.title")}
           </NavigationMenuTrigger>
           <NavigationMenuContent>
@@ -65,10 +62,7 @@ const HeaderList = () => {
           activeColor="#fed612"
           value="developers"
         >
-          <NavigationMenuTrigger
-            isActive={isBuildActive}
-            suppressHydrationWarning={true}
-          >
+          <NavigationMenuTrigger isActive={isBuildActive}>
             {t("nav.developers.title")}
           </NavigationMenuTrigger>
           <NavigationMenuContent>
@@ -82,10 +76,7 @@ const HeaderList = () => {
           activeColor="#FF5722"
           value="solutions"
         >
-          <NavigationMenuTrigger
-            isActive={isSolutionsActive}
-            suppressHydrationWarning={true}
-          >
+          <NavigationMenuTrigger isActive={isSolutionsActive}>
             {t("nav.solutions.title")}
           </NavigationMenuTrigger>
           <NavigationMenuContent className="xl:overflow-y-auto xl:max-h-[90vh]">
@@ -99,10 +90,7 @@ const HeaderList = () => {
           activeColor="#9945ff"
           value="network"
         >
-          <NavigationMenuTrigger
-            isActive={isNetworkActive}
-            suppressHydrationWarning={true}
-          >
+          <NavigationMenuTrigger isActive={isNetworkActive}>
             {t("nav.network.title")}
           </NavigationMenuTrigger>
           <NavigationMenuContent className="xl:-ml-[120px]">
@@ -116,10 +104,7 @@ const HeaderList = () => {
           activeColor="#f087ff"
           value="community"
         >
-          <NavigationMenuTrigger
-            isActive={isCommunityActive}
-            suppressHydrationWarning={true}
-          >
+          <NavigationMenuTrigger isActive={isCommunityActive}>
             {t("nav.community.title")}
           </NavigationMenuTrigger>
           <NavigationMenuContent align="right">

@@ -115,7 +115,6 @@ const HeaderListSolutions = () => {
               to="https://solanamobile.com/developers"
               className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
               target="_blank"
-              activeClassName="!border-white/10 bg-[#151118]"
             >
               <strong className="block !text-white text-sm">
                 {solutionsToolsItems[6].title}
@@ -274,9 +273,7 @@ const HeaderListSolutions = () => {
         <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px] hidden xl:block invisible"></div>
 
         <div className="xl:w-1/2 w-full">
-          <div className="hidden xl:block uppercase py-2 flex items-center !text-[#848895] text-xs">
-            &nbsp;
-          </div>
+          <div className="hidden xl:block py-2">&nbsp;</div>
           <div>
             <Link
               to="/developers/dao"
