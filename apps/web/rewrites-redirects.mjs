@@ -1,3 +1,8 @@
+const mediaUrl =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:3001"
+    : "https://media-delta-blush.vercel.app";
+
 export default {
   rewrites: {
     beforeFiles: [
@@ -13,16 +18,28 @@ export default {
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
         locale: false,
       },
+      // Media app rewrites
+      {
+        source: "/media",
+        destination: `${mediaUrl}/media`,
+        locale: false,
+      },
+      {
+        source: "/media/:path*",
+        destination: `${mediaUrl}/media/:path*`,
+        locale: false,
+      },
     ],
     afterFiles: [],
     fallback: [],
   },
 
   redirects: [
+    { source: "/news", destination: "/media/read" },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
-    { source: "/upgrade", destination: "/news/solana-network-upgrades" },
-    { source: "/upgrades", destination: "/news/solana-network-upgrades" },
+    { source: "/upgrade", destination: "/media/read/solana-network-upgrades" },
+    { source: "/upgrades", destination: "/media/read/solana-network-upgrades" },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
@@ -43,7 +60,7 @@ export default {
       source: "/skyline",
       destination: "https://lu.ma/solana-nyc",
     },
-    { source: "/blog", destination: "/news" },
+    { source: "/blog", destination: "/media/read" },
     {
       source: "/news/solana-scaffold-part-1-wallet-adapter",
       destination:
@@ -863,7 +880,7 @@ export default {
     },
     {
       source: "/news/blog-solana-bench",
-      destination: "/news/solana-bench",
+      destination: "/media/read/solana-bench",
     },
     {
       source: "/docs/references/feature-gates/consume-cus-on-sbpf-failure",
