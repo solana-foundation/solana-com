@@ -7,11 +7,11 @@ interface HackathonTimelineProps {
     title: string;
     phaseHeader: string;
     dateHeader: string;
-    descriptionHeader: string;
+    descriptionHeader?: string;
     events: Array<{
       phase: string;
       date: string;
-      description: string;
+      description?: string;
     }>;
   };
 }
@@ -36,9 +36,11 @@ export default function HackathonTimeline({
                   <th className="py-4 px-4 md:px-6 text-green-400 font-semibold text-sm uppercase tracking-wider">
                     {translations.dateHeader}
                   </th>
-                  <th className="py-4 px-4 md:px-6 text-green-400 font-semibold text-sm uppercase tracking-wider">
-                    {translations.descriptionHeader}
-                  </th>
+                  {translations.descriptionHeader && (
+                    <th className="py-4 px-4 md:px-6 text-green-400 font-semibold text-sm uppercase tracking-wider">
+                      {translations.descriptionHeader}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -53,9 +55,11 @@ export default function HackathonTimeline({
                     <td className="py-4 px-4 md:px-6 text-gray-300">
                       {event.date}
                     </td>
-                    <td className="py-4 px-4 md:px-6 text-gray-400">
-                      {event.description}
-                    </td>
+                    {translations.descriptionHeader && (
+                      <td className="py-4 px-4 md:px-6 text-gray-400">
+                        {event.description}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
