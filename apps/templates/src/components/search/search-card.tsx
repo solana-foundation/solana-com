@@ -60,7 +60,7 @@ export const SearchCard = React.memo<SearchCardProps>(
       return <PlaceholderLogo />;
     };
 
-    const templateUrl = `/${template.source.id}/${template.name}`;
+    const templateUrl = `/${template.name}`;
 
     return (
       <Link
