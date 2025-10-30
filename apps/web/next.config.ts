@@ -50,32 +50,6 @@ const nextConfig: NextConfig = {
     // Rewrite /templates/* to templates app deployed separately
     // This allows the templates app to be deployed separately while maintaining
     // the same domain for SEO and UX (prefetching, etc.)
-    if (process.env.TEMPLATES_APP_URL) {
-      const templatesAppUrl = process.env.TEMPLATES_APP_URL.replace(/\/$/, "");
-      baseRewrites.beforeFiles.push(
-        {
-          source: "/templates",
-          destination: `${templatesAppUrl}/templates`,
-          locale: false,
-        },
-        {
-          source: "/templates/:path*",
-          destination: `${templatesAppUrl}/templates/:path*`,
-          locale: false,
-        },
-        {
-          source: "/:locale/templates",
-          destination: `${templatesAppUrl}/:locale/templates`,
-          locale: false,
-        },
-        {
-          source: "/:locale/templates/:path*",
-          destination: `${templatesAppUrl}/:locale/templates/:path*`,
-          locale: false,
-        },
-      );
-    }
-
     return baseRewrites;
   },
 

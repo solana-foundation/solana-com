@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 
 const handleI18nRouting = createMiddleware(routing);
+const templatesAppUrl =
+  process.env.TEMPLATES_APP_URL?.replace(/\/$/, "") || null;
 
 export default async function middleware(req: NextRequest) {
   // Skip i18n for /breakpoint/* paths
@@ -56,6 +58,23 @@ export default async function middleware(req: NextRequest) {
     // we can safely remove the locale and slug params to avoid poluting the URL
     req.nextUrl.searchParams.delete("locale");
     req.nextUrl.searchParams.delete("slug");
+  }
+
+  if (templatesAppUrl) {
+    const pathname = req.nextUrl.pathname;
+    const isTemplatesRoot =
+      pathname === "/templates" || pathname.startsWith("/templates/");
+    const matchedLocale = locales.find(
+      (locale) =>
+        pathname === `/${locale}/templates` ||
+        pathname.startsWith(`/${locale}/templates/`),
+    );
+
+    if (isTemplatesRoot || matchedLocale) {
+      const rewriteUrl = new URL(pathname, `${templatesAppUrl}/`);
+      rewriteUrl.search = req.nextUrl.search;
+      return NextResponse.rewrite(rewriteUrl);
+    }
   }
 
   return handleI18nRouting(req);
