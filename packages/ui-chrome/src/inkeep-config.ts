@@ -54,6 +54,7 @@ const baseSettings: InkeepBaseSettings = {
     const urlPatterns = {
       docs: "solana.com",
       anchorLang: "https://www.anchor-lang.com/docs",
+      kitDocs: "https://www.solanakit.com",
       anzaDocs: "https://docs.anza.xyz/",
       stackExchange: "https://solana.stackexchange.com/",
       github: "github.com",
@@ -68,6 +69,12 @@ const baseSettings: InkeepBaseSettings = {
       },
       [urlPatterns.anchorLang]: {
         tab: "Anchor Docs",
+        icon: undefined,
+        shouldOpenInNewTab: true,
+        getBreadcrumbs: (crumbs: string[]) => crumbs,
+      },
+      [urlPatterns.kitDocs]: {
+        tab: "Kit Docs",
         icon: undefined,
         shouldOpenInNewTab: true,
         getBreadcrumbs: (crumbs: string[]) => crumbs,
