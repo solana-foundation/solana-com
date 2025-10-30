@@ -5,11 +5,8 @@ import { locales } from "@workspace/i18n/config";
 
 const handleI18nRouting = createMiddleware(routing);
 
-const rawTemplatesAppUrl =
-  process.env.TEMPLATES_APP_URL ||
-  (process.env.NODE_ENV !== "production" ? "http://localhost:3001" : null);
-const templatesAppUrl = rawTemplatesAppUrl
-  ? rawTemplatesAppUrl.replace(/\/$/, "")
+const templatesAppUrl = process.env.TEMPLATES_APP_URL
+  ? process.env.TEMPLATES_APP_URL.replace(/\/$/, "")
   : null;
 
 export default async function middleware(req: NextRequest) {
