@@ -4,8 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 
 const handleI18nRouting = createMiddleware(routing);
-const templatesAppUrl =
-  process.env.TEMPLATES_APP_URL?.replace(/\/$/, "") || null;
+
+const rawTemplatesAppUrl =
+  process.env.TEMPLATES_APP_URL ||
+  (process.env.NODE_ENV !== "production" ? "http://localhost:3001" : null);
+const templatesAppUrl = rawTemplatesAppUrl
+  ? rawTemplatesAppUrl.replace(/\/$/, "")
+  : null;
 
 export default async function middleware(req: NextRequest) {
   // Skip i18n for /breakpoint/* paths
