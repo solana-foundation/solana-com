@@ -152,6 +152,7 @@ const searchSettings: InkeepSearchSettings = {
     "All",
     "Solana Docs",
     "Anchor Docs",
+    "Kit Docs",
     "Anza Docs",
     "Stack Exchange",
     "GitHub",
