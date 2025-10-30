@@ -1,284 +1,68 @@
 ---
-title: Program Derived Address
+title: 程序派生地址
 description:
-  了解 Solana 上的 Program Derived Address
-  (PDA)——一种确定性账户地址，支持安全的程序签名。了解 PDA 的推导、规范化 bump
-  以及如何创建 PDA 账户。
-h1: Program Derived Address (PDA)
+  了解 Solana 的程序派生地址
+  (PDA)——一种确定性的账户地址，能够实现安全的程序签名。了解 PDA
+  的派生、规范性偏移量以及如何创建 PDA 账户。
 ---
 
-Program Derived Address (PDA) 为 Solana 开发者提供了两个主要用例：
+Solana 的[账户地址](/docs/core/accounts#account-address)指向区块链上账户的位置。许多账户地址是 keypair 的公钥，在这种情况下，相应的私钥用于签署涉及该账户的交易。
 
-- **确定性账户地址**：PDA 提供了一种机制，可以通过组合可选的 "seed"（预定义输入）和特定的程序 ID 来确定性地创建地址。
-- **支持程序签名**：Solana 运行时允许程序为从其地址推导出的 PDA "签名"。
+公钥地址的一个有用替代方案是程序派生地址 (PDA)。PDA 提供了一种简单的方法来存储、映射和获取程序状态。PDA 是使用程序 ID 和一组可选的预定义输入确定性创建的地址。PDA 看起来与公钥地址类似，但没有对应的私钥。
 
-您可以将 PDA 理解为一种在链上通过预定义输入（例如字符串、数字和其他账户地址）创建类似哈希映射结构的方式。
+Solana 运行时允许程序为 PDA 签名而无需私钥。使用 PDA 消除了跟踪账户地址的需要。相反，您可以回忆用于 PDA 派生的特定输入。（要了解程序如何使用 PDA 进行签名，请参阅[跨程序调用](/docs/core/cpi)部分。）
 
-这种方法的好处在于，它消除了需要跟踪确切地址的需求。相反，您只需记住用于推导地址的特定输入即可。
+## 背景
 
-![Program Derived Address](/assets/docs/core/pda/pda.svg)
+Solana 的
+[keypair](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/keypair/src/lib.rs#L26)
+是
+[Ed25519 曲线](https://ed25519.cr.yp.to/)（椭圆曲线加密）上的点。它们由公钥和私钥组成。公钥成为账户地址，私钥用于为账户生成有效的[签名](/docs/core/transactions#signatures)。
 
-需要注意的是，仅仅推导出一个 Program Derived Address
-(PDA) 并不会自动在该地址创建链上账户。使用 PDA 作为链上地址的账户必须通过用于推导该地址的程序显式创建。您可以将推导 PDA 理解为在地图上找到一个地址。仅仅拥有一个地址并不意味着该位置已经建有任何东西。
+![两个具有曲线地址的账户](/assets/docs/core/pda/address-on-curve.svg)
 
-<Callout type="info">
-  本节介绍了 PDA 推导的详细信息。[Cross Program Invocation
-  (CPI)](/docs/core/cpi) 部分解释了程序如何使用 PDA 进行签名。
-</Callout>
+PDA 被有意派生为落在 Ed25519 曲线之外。这意味着它没有有效的对应私钥，无法执行加密操作（例如提供签名）。然而，Solana 允许程序为 PDA 签名而无需私钥。
 
-## 关键点
+![非曲线地址](/assets/docs/core/pda/address-off-curve.svg)
 
-- PDA 是通过组合预定义的 seed、bump seed 和程序 ID **确定性推导**出的地址。
-- PDA 是位于 Ed25519 曲线之外的地址，**没有对应的私钥**。
-- Solana 程序可以**代表从其程序 ID 推导出的 PDA 进行签名**。
-- 推导 PDA 并不会自动创建链上账户。
-- 使用 PDA 作为地址的账户必须通过 Solana 程序中的指令创建。
+您可以将 PDA 理解为一种在链上使用预定义输入集（例如字符串、数字和其他账户地址）创建类似哈希映射结构的方式。
 
-## 什么是 PDA
+![程序派生地址](/assets/docs/core/pda/pda.svg)
 
-PDA 是一种确定性派生的地址，看起来像公钥，但没有私钥。这意味着无法为该地址生成有效的签名。然而，Solana 运行时允许程序无需私钥即可为 PDA
-"签名"。
+## 派生一个 PDA
 
-作为背景知识，Solana 的
-[密钥对](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/keypair/src/lib.rs#L26)
-是 Ed25519 曲线（椭圆曲线加密）上的点，包含一个公钥和对应的私钥。公钥用作链上账户的地址（唯一标识符）。
+在使用 PDA 创建账户之前，您必须首先派生地址。派生 PDA _并不会_
+自动在该地址创建链上账户——账户必须通过用于派生 PDA 的程序显式创建。您可以将 PDA 想象成地图上的一个地址：仅仅因为地址存在并不意味着那里已经建造了什么。
 
-![曲线上地址](/assets/docs/core/pda/address-on-curve.svg)
+Solana SDK 支持使用下表中显示的函数创建 PDA。每个函数接收以下输入：
 
-PDA 是一个通过预定义输入集有意派生的点，落在 Ed25519 曲线之外。一个不在 Ed25519 曲线上的点没有有效的对应私钥，无法执行加密操作（签名）。
+- **程序 ID**：用于派生 PDA 的程序地址。该程序可以代表 PDA 签名。
+- **可选种子**：预定义的输入，例如字符串、数字或其他账户地址。
 
-PDA 可以作为链上账户的地址（唯一标识符），提供一种轻松存储、映射和获取程序状态的方法。
-
-![曲线外地址](/assets/docs/core/pda/address-off-curve.svg)
-
-## 如何派生 PDA
-
-派生 PDA 需要以下三个输入：
-
-- **可选种子**：用于 PDA 派生的预定义输入（例如字符串、数字、其他账户地址）。
-- **Bump
-  seed**：附加到可选种子上的一个额外字节，用于确保生成有效的 PDA（曲线外）。Bump
-  seed 从 255 开始，每次递减 1，直到找到有效的 PDA。
-- **程序 ID**：派生 PDA 的程序地址。该程序可以代表 PDA 签名。
-
-![PDA 派生](/assets/docs/core/pda/pda-derivation.svg)
-
-使用各自 SDK 中的以下函数来派生 PDA。
-
-| SDK                            | 功能                                                                                                                             |
+| SDK                            | 函数                                                                                                                             |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@solana/kit` (Typescript)     | [`getProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L157) |
 | `@solana/web3.js` (Typescript) | [`findProgramAddressSync`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/publickey.ts#L212)               |
 | `solana_sdk` (Rust)            | [`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/pubkey/src/lib.rs#L617)                        |
 
-要派生一个 PDA，请将以下输入提供给 SDK 函数：
+该函数使用程序 ID 和可选种子，然后通过迭代 bump 值尝试创建一个有效的程序地址。bump 值的迭代从 255 开始，每次递减 1，直到找到一个有效的 PDA。找到有效的 PDA 后，函数返回 PDA 和 bump
+seed。
 
-- 转换为字节的预定义可选种子
-- 用于派生的程序 ID（地址）
+<Callout>
+  bump seed 是附加到可选种子上的一个额外字节，用于确保生成一个有效的非曲线地址。
+</Callout>
 
-一旦找到有效的 PDA，该函数将返回地址（PDA）和用于派生的 bump seed。
+![PDA 派生](/assets/docs/core/pda/pda-derivation.svg)
 
-### 示例
+### 标准 bump
 
-以下示例展示了如何使用相应的 SDK 派生 PDA。
-
-点击“运行”按钮执行代码。
-
-#### 使用可选字符串种子派生 PDA
-
-<CodeTabs storage="pda-examples" flags="r">
-
-```ts !! title="Kit"
-import { Address, getProgramDerivedAddress } from "@solana/kit";
-
-const programAddress = "11111111111111111111111111111111" as Address;
-
-const seeds = ["helloWorld"];
-const [pda, bump] = await getProgramDerivedAddress({
-  programAddress,
-  seeds
-});
-
-console.log(`PDA: ${pda}`);
-console.log(`Bump: ${bump}`);
-```
-
-```ts !! title="Legacy"
-import { PublicKey } from "@solana/web3.js";
-
-const programAddress = new PublicKey("11111111111111111111111111111111");
-
-const seeds = [Buffer.from("helloWorld")];
-const [pda, bump] = await PublicKey.findProgramAddressSync(
-  seeds,
-  programAddress
-);
-
-console.log(`PDA: ${pda}`);
-console.log(`Bump: ${bump}`);
-```
-
-```rs !! title="Rust"
-use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
-
-    let seeds: &[&[u8]] = &[b"helloWorld"];
-    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
-
-    println!("PDA: {}", pda);
-    println!("Bump: {}", bump);
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-#### 使用可选地址种子派生 PDA
-
-<CodeTabs storage="pda-examples"flags="r">
-
-```ts !! title="Kit"
-import {
-  Address,
-  getAddressEncoder,
-  getProgramDerivedAddress
-} from "@solana/kit";
-
-const programAddress = "11111111111111111111111111111111" as Address;
-
-const addressEncoder = getAddressEncoder();
-const optionalSeedAddress = addressEncoder.encode(
-  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
-);
-const seeds = [optionalSeedAddress];
-const [pda, bump] = await getProgramDerivedAddress({
-  programAddress,
-  seeds
-});
-
-console.log(`PDA: ${pda}`);
-console.log(`Bump: ${bump}`);
-```
-
-```ts !! title="Legacy"
-import { PublicKey } from "@solana/web3.js";
-
-const programAddress = new PublicKey("11111111111111111111111111111111");
-
-const optionalSeedAddress = new PublicKey(
-  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
-);
-const seeds = [optionalSeedAddress.toBuffer()];
-const [pda, bump] = await PublicKey.findProgramAddressSync(
-  seeds,
-  programAddress
-);
-
-console.log(`PDA: ${pda}`);
-console.log(`Bump: ${bump}`);
-```
-
-```rs !! title="Rust"
-use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
-
-    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
-    let seeds: &[&[u8]] = &[optional_seed_address.as_ref()];
-    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
-
-    println!("PDA: {}", pda);
-    println!("Bump: {}", bump);
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-#### 使用多个可选种子派生 PDA
-
-<CodeTabs storage="pda-examples" flags="r">
-
-```ts !! title="Kit"
-import {
-  Address,
-  getAddressEncoder,
-  getProgramDerivedAddress
-} from "@solana/kit";
-
-const programAddress = "11111111111111111111111111111111" as Address;
-
-const optionalSeedString = "helloWorld";
-const addressEncoder = getAddressEncoder();
-const optionalSeedAddress = addressEncoder.encode(
-  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
-);
-const seeds = [optionalSeedString, optionalSeedAddress];
-const [pda, bump] = await getProgramDerivedAddress({
-  programAddress,
-  seeds
-});
-
-console.log(`PDA: ${pda}`);
-console.log(`Bump: ${bump}`);
-```
-
-```ts !! title="Legacy"
-import { PublicKey } from "@solana/web3.js";
-
-const programAddress = new PublicKey("11111111111111111111111111111111");
-
-const optionalSeedString = "helloWorld";
-const optionalSeedAddress = new PublicKey(
-  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
-);
-const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
-const [pda, bump] = await PublicKey.findProgramAddressSync(
-  seeds,
-  programAddress
-);
-
-console.log(`PDA: ${pda}`);
-console.log(`Bump: ${bump}`);
-```
-
-```rs !! title="Rust"
-use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
-
-    let optional_seed_bytes = b"helloWorld";
-    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
-    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
-    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
-
-    println!("PDA: {}", pda);
-    println!("Bump: {}", bump);
-    Ok(())
-}
-```
-
-</CodeTabs>
-
-### 标准 Bump
-
-PDA 派生需要一个 "bump
-seed"，这是附加到可选种子后的一个额外字节。派生函数从 255 开始迭代 bump 值，每次递减 1，直到找到一个生成有效非曲线地址的值。第一个生成有效非曲线地址的 bump 值被称为 "标准 bump"。
+bump
+seed 是附加到可选种子后的一个额外字节。派生函数从 255 开始迭代 bump 值，每次递减 1，直到找到一个生成有效非曲线地址的值。第一个生成有效非曲线地址的值被称为“标准 bump”。
 
 以下示例展示了使用所有可能的 bump seed（从 255 到 0）进行 PDA 派生：
 
 <Callout type="info">
-  示例中未包含 Kit 示例，因为
+  未包含 Kit 示例，因为
   [createProgramDerivedAddress](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L101)
   函数未被导出。
 </Callout>
@@ -354,30 +138,226 @@ bump 250: Provided seeds do not result in a valid address
 
 </CodeTabs>
 
-bump seed 255 会抛出错误，而第一个派生出有效 PDA 的 bump seed 是 254。
+在此示例中，第一个 bump seed 抛出错误。第一个派生出有效 PDA 的 bump
+seed 是 254。bump seed 253-251 也派生出唯一且有效的 PDA。
 
-请注意，bump seed
-253-251 都能派生出有效的 PDA，但地址各不相同。这意味着在相同的可选种子和
-`programId` 下，不同值的 bump seed 仍然可以派生出有效的 PDA。
+这意味着在相同的可选种子和 `programId` 下，不同值的 bump
+seed 仍然可以派生出有效的 PDA。
 
 <Callout type="warn">
-  在构建 Solana 程序时，请务必包含安全检查，以确保传递给程序的 PDA 是从标准 bump
-  派生的。如果未包含这些检查，可能会引入漏洞，允许在程序指令中使用意外的账户。最佳实践是在派生
+  始终包含安全检查，以确保传递给程序的 PDA 是从标准 bump
+  派生的。如果未执行此操作，可能会引入漏洞，允许在程序指令中使用意外的账户。最佳实践是在派生
   PDA 时仅使用标准 bump。
 </Callout>
 
-## 创建 PDA 账户
+### 示例
 
-以下示例程序展示了如何使用 PDA 作为新账户地址来创建账户。示例程序使用了
-[Anchor 框架](https://www.anchor-lang.com/docs)。
+以下示例使用 Solana SDK 派生 PDA。点击 **&#9655; 运行** 执行代码。
 
-该程序包含一个 `initialize`
-指令，用于使用 PDA 作为账户地址创建新账户。新账户存储了 `user`
-的地址和用于派生 PDA 的 `bump` 种子。
+#### 使用字符串种子派生 PDA
 
-<CodeTabs>
+以下示例使用程序 ID 和一个可选的字符串种子派生 PDA。
 
-```rs !! title="Program"
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let seeds: &[&[u8]] = &[b"helloWorld"];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+#### 使用地址种子派生 PDA
+
+下面的示例使用程序 ID 和一个可选的地址种子派生 PDA。
+
+<CodeTabs storage="pda-examples"flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:4)
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+// !focus(1:3)
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+#### 使用多个种子派生 PDA
+
+下面的示例使用程序 ID 和多个可选种子派生 PDA。
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:5)
+const optionalSeedString = "helloWorld";
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedString, optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus(1:4)
+const optionalSeedString = "helloWorld";
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus(1:2)
+    let optional_seed_bytes = b"helloWorld";
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+## 创建一个 PDA 账户
+
+<WithMentions>
+
+下面的示例使用 [Anchor 框架](https://www.anchor-lang.com/docs)
+创建一个带有程序派生地址的新账户。程序包含一个
+[`initialize`](mention:initialize)
+指令，用于创建新账户，该账户将存储用于派生 PDA 的
+[用户地址](mention:user-address) 和 [bump seed](mention:bump)。
+
+```rs title="Program"
 use anchor_lang::prelude::*;
 
 declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
@@ -386,13 +366,16 @@ declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
 pub mod pda_account {
     use super::*;
 
+    // !mention initialize
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         let account_data = &mut ctx.accounts.pda_account;
         // store the address of the `user`
         // !mark
+        // !mention user-address
         account_data.user = *ctx.accounts.user.key;
-        // store the canonical bump
+        // store the canonical bumpd
         // !mark
+        // !mention bump
         account_data.bump = ctx.bumps.pda_account;
         Ok(())
     }
@@ -401,15 +384,18 @@ pub mod pda_account {
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(mut)]
+    // !mention user-address
     pub user: Signer<'info>,
 
     #[account(
         init,
         // define the seeds to derive the PDA
         // !mark
+        // !mention user-address
         seeds = [b"data", user.key().as_ref()],
         // use the canonical bump
         // !mark
+        // !mention bump
         bump,
         payer = user,
         space = 8 + DataAccount::INIT_SPACE
@@ -419,15 +405,57 @@ pub struct Initialize<'info> {
 }
 
 #[account]
-
 #[derive(InitSpace)]
 pub struct DataAccount {
+    // !mark
+    // !mention user-address
     pub user: Pubkey,
+    // !mark
+    // !mention bump
     pub bump: u8,
 }
 ```
 
-```ts !! title="Test"
+</WithMentions>
+
+<WithMentions>
+
+[`init`](mention:init) 约束指示 Anchor
+[调用系统程序](/docs/core/programs#the-system-program)，使用 PDA 作为地址创建一个新账户。用于创建 PDA 的
+[种子](mention:seeds) 包括：
+
+- 指令中提供的用户账户地址
+- 固定字符串："data"
+- 规范的 [bump seed](mention:bump)
+
+在此示例中，bump 约束未分配值，因此 Anchor 将使用 `find_program_address`
+来派生 PDA 并找到 bump。
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+下面的测试文件包含一个交易，该交易调用了 [`initialize`](mention:initialize)
+指令，以创建一个具有程序派生地址的新账户。文件中包含了 [派生 PDA](mention:pda)
+的代码。
+
+该示例还展示了如何[获取](mention:fetch)将要创建的新账户。
+
+```ts title="Test"
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { PdaAccount } from "../target/types/pda_account";
@@ -440,6 +468,7 @@ describe("pda-account", () => {
   const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
   const user = provider.wallet as anchor.Wallet;
 
+  // !mention(1:5) pda
   // Derive the PDA address using the seeds specified on the program
   const [PDA] = PublicKey.findProgramAddressSync(
     [Buffer.from("data"), user.publicKey.toBuffer()],
@@ -448,6 +477,7 @@ describe("pda-account", () => {
 
   it("Is initialized!", async () => {
     const transactionSignature = await program.methods
+      // !mention initialize
       .initialize()
       .accounts({
         user: user.publicKey
@@ -458,121 +488,16 @@ describe("pda-account", () => {
   });
 
   it("Fetch Account", async () => {
+    // !mention fetch
     const pdaAccount = await program.account.dataAccount.fetch(PDA);
     console.log(JSON.stringify(pdaAccount, null, 2));
   });
 });
 ```
 
-</CodeTabs>
+</WithMentions>
 
-在此示例中，用于 PDA 推导的种子包括固定字符串 `data` 和指令中提供的 `user`
-账户地址。Anchor 框架会自动找到规范的 `bump` 种子。
-
-```rust title="pda_account"
-#[account(
-    init,
-    // !mark[/seeds/]
-    seeds = [b"data", user.key().as_ref()],
-    // !mark[/bump/]
-    bump,
-    payer = user,
-    space = 8 + DataAccount::INIT_SPACE
-)]
-pub pda_account: Account<'info, DataAccount>,
-```
-
-`init` 约束指示 Anchor 调用 System
-Program，使用 PDA 作为地址创建一个新账户。Anchor 通过 [CPI](/docs/core/cpi)
-实现这一操作。
-
-```rust title="pda_account"
-#[account(
-    // !mark[/init/]
-    init,
-    seeds = [b"data", user.key().as_ref()],
-    bump,
-    payer = user,
-    space = 8 + DataAccount::INIT_SPACE
-)]
-pub pda_account: Account<'info, DataAccount>,
-```
-
-测试文件包含用于推导 PDA 的 Typescript 代码。
-
-```ts title="Derive PDA"
-const [PDA] = PublicKey.findProgramAddressSync(
-  // !mark
-  [Buffer.from("data"), user.publicKey.toBuffer()],
-  program.programId
-);
-```
-
-测试文件中的交易调用 `initialize`
-指令，使用 PDA 作为地址创建一个新的链上账户。在此示例中，Anchor 可以在指令账户中推断出 PDA 地址，因此无需显式提供。
-
-```ts title="Invoke Initialize Instruction"
-it("Is initialized!", async () => {
-  const transactionSignature = await program.methods
-    // !mark
-    .initialize()
-    .accounts({
-      user: user.publicKey
-    })
-    .rpc();
-
-  console.log("Transaction Signature:", transactionSignature);
-});
-```
-
-测试文件还展示了如何在发送交易后获取在该地址创建的链上账户。
-
-```ts title="Fetch Account"
-it("Fetch Account", async () => {
-  // !mark
-  const pdaAccount = await program.account.dataAccount.fetch(PDA);
-  console.log(JSON.stringify(pdaAccount, null, 2));
-});
-```
-
-请注意，在此示例中，如果您多次调用 `initialize` 指令，并使用相同的 `user`
-地址作为种子，则交易会失败。这是因为在推导出的地址上已经存在一个账户。
-
-```ts title="Derive PDA"
-// !mention(1:4) derive
-const [PDA] = PublicKey.findProgramAddressSync(
-  // !mark
-  [Buffer.from("data"), user.publicKey.toBuffer()],
-  program.programId
-);
-```
-
-测试文件中的交易调用了 `initialize`
-指令，使用 PDA 作为地址创建一个新的链上账户。在此示例中，Anchor 可以推断指令账户中的 PDA 地址，因此不需要显式提供。
-
-```ts title="Invoke Initialize Instruction"
-it("Is initialized!", async () => {
-  const transactionSignature = await program.methods
-    // !mark
-    .initialize()
-    .accounts({
-      user: user.publicKey
-    })
-    .rpc();
-
-  console.log("Transaction Signature:", transactionSignature);
-});
-```
-
-测试文件还展示了如何在交易发送后，获取在该地址创建的链上账户。
-
-```ts title="Fetch Account"
-it("Fetch Account", async () => {
-  // !mark
-  const pdaAccount = await program.account.dataAccount.fetch(PDA);
-  console.log(JSON.stringify(pdaAccount, null, 2));
-});
-```
-
-请注意，在此示例中，如果您多次调用 `initialize` 指令，并使用相同的 `user`
-地址作为 seed，则交易会失败。这是因为在派生地址上已经存在一个账户。
+<Callout type="warn">
+  如果您使用相同的 `initialize` 指令和相同的 `user`
+  地址种子再次调用，交易将失败。这是因为在派生地址处已经存在一个账户。
+</Callout>

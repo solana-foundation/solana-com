@@ -1,429 +1,63 @@
 ---
 title: Cross Program Invocation
 description:
-  Pelajari tentang Cross Program Invocation (CPI) di Solana - bagaimana program
+  Pelajari tentang Cross Program Invocation (CPI) di Solana — bagaimana program
   dapat memanggil instruksi pada program lain, menangani penandatangan PDA, dan
   menyusun fungsionalitas di seluruh jaringan Solana.
-h1: Cross Program Invocation (CPI)
 ---
 
-Cross Program Invocation (CPI) mengacu pada saat satu program memanggil
-instruksi program lain. Ini memungkinkan komposabilitas program Solana.
+Cross Program Invocation (CPI) terjadi ketika satu program Solana secara
+langsung memanggil instruksi program lain. Ini memungkinkan komposabilitas
+program. Jika Anda menganggap [instruksi](/docs/core/instructions) Solana
+sebagai endpoint API yang diekspos program ke jaringan, CPI seperti satu
+endpoint yang secara internal memanggil endpoint lainnya.
 
-Anda dapat menganggap instruksi sebagai endpoint API yang diekspos program ke
-jaringan dan CPI sebagai satu API yang secara internal memanggil API lain.
+Saat membuat CPI, sebuah program dapat
+[menandatangani](/docs/references/terminology#signature) atas nama
+[PDA](/docs/core/pda) yang diturunkan dari ID programnya. Hak istimewa
+penandatangan ini diperluas dari program pemanggil ke program yang dipanggil.
 
-![Cross Program Invocation](/assets/docs/core/cpi/cpi.svg)
+![Contoh cross-program invocation](/assets/docs/core/cpi/cpi.svg)
 
-## Poin-poin penting
-
-- **Cross Program Invocation** memungkinkan instruksi program Solana untuk
-  secara langsung memanggil instruksi pada program lain.
-- **Hak istimewa penandatangan** dari program pemanggil diperluas ke program
-  yang dipanggil.
-- Saat melakukan Cross Program Invocation, **program dapat menandatangani atas
-  nama PDA** yang diturunkan dari ID program mereka sendiri.
-- Program yang dipanggil dapat membuat CPI lebih lanjut ke program lain, hingga
-  kedalaman 4.
-
-## Apa itu CPI?
-
-Cross Program Invocation (CPI) adalah ketika satu program memanggil instruksi
-program lain.
-
-Menulis instruksi program dengan CPI mengikuti pola yang sama seperti membangun
-[instruksi](/docs/core/transactions#instruction) untuk ditambahkan ke transaksi.
-Di balik layar, setiap instruksi CPI harus menentukan:
-
-- **Alamat program**: Menentukan program yang akan dipanggil
-- **Akun**: Mencantumkan setiap akun yang dibaca atau ditulis oleh instruksi,
-  termasuk program lain
-- **Instruction data**: Menentukan instruksi mana yang akan dipanggil pada
-  program, ditambah data apa pun yang dibutuhkan instruksi (argumen fungsi)
-
-Ketika sebuah program membuat Cross Program Invocation (CPI) ke program lain:
-
-- Hak istimewa penandatangan dari transaksi awal diperluas ke program yang
-  dipanggil (contoh: A->B)
-- Program yang dipanggil dapat membuat CPI lebih lanjut ke program lain, hingga
-  kedalaman 4 (contoh: B->C, C->D)
-- Program dapat "menandatangani" atas nama [PDA](/docs/core/pda) yang diturunkan
-  dari ID programnya
+Saat membuat CPI, hak istimewa akun diperluas dari satu program ke program
+lainnya. Misalkan Program A menerima instruksi dengan akun penandatangan dan
+akun yang dapat ditulis. Program A kemudian membuat CPI ke Program B. Sekarang,
+Program B dapat menggunakan akun yang sama seperti Program A, dengan izin
+aslinya. (Artinya Program B dapat menandatangani dengan akun penandatangan dan
+dapat menulis ke akun yang dapat ditulis.) Jika Program B membuat CPI sendiri,
+ia dapat meneruskan izin yang sama, hingga kedalaman 4.
 
 <Callout>
-  Runtime program Solana menetapkan konstanta
+  Ketinggian maksimum pemanggilan instruksi program disebut
   [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget.rs#L38)
-  [MAX_INSTRUCTION_STACK_DEPTH](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget.rs#L13)
-  sebesar 5. Ini mewakili ketinggian maksimum dari tumpukan pemanggilan
-  instruksi program. Ketinggian tumpukan dimulai pada 1 untuk transaksi awal dan
-  bertambah 1 setiap kali program memanggil instruksi lain. Pengaturan ini
-  membatasi kedalaman pemanggilan untuk CPI hingga 4.
+  dan ditetapkan ke konstanta [MAX_INSTRUCTION_STACK_DEPTH](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget.rs#L13)
+  sebesar 5.
+
+Ketinggian stack dimulai pada 1 untuk transaksi awal dan bertambah 1 setiap kali
+program memanggil instruksi lain, membatasi kedalaman pemanggilan untuk CPI
+hingga 4.
+
 </Callout>
 
-Ketika transaksi diproses, hak istimewa akun diperluas dari satu program ke
-program lainnya. Berikut adalah artinya:
+## CPI dengan penandatangan PDA
 
-Misalkan Program A menerima instruksi dengan:
+<WithMentions>
 
-- Akun yang menandatangani transaksi
-- Akun yang dapat ditulis (mutable)
-
-Ketika Program A membuat CPI ke Program B:
-
-- Program B dapat menggunakan akun yang sama dengan izin aslinya
-- Program B dapat menandatangani dengan akun penandatangan
-- Program B dapat menulis ke akun yang dapat ditulis
-- Program B bahkan dapat meneruskan izin yang sama jika membuat CPI sendiri
-
-## Cross Program Invocation
-
-Fungsi
-[`invoke`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/program.rs#L26-L28)
-menangani CPI yang tidak memerlukan penandatangan PDA. Fungsi ini memanggil
-fungsi `invoke_signed` dengan array `signers_seeds` kosong, yang menunjukkan
-tidak ada PDA yang diperlukan untuk penandatanganan.
-
-```rust title="Invoke Function"
-pub fn invoke(instruction: &Instruction, account_infos: &[AccountInfo]) -> ProgramResult {
-    invoke_signed(instruction, account_infos, &[])
-}
-```
-
-Contoh berikut menunjukkan cara membuat CPI menggunakan
-[Anchor Framework](https://www.anchor-lang.com/docs) dan Rust Native. Program
-contoh mencakup satu instruksi yang mentransfer SOL dari satu akun ke akun lain
-menggunakan CPI.
-
-### Anchor Framework
-
-Contoh-contoh berikut menunjukkan tiga cara untuk membuat Cross Program
-Invocations (CPIs) dalam program Anchor, masing-masing pada tingkat abstraksi
-yang berbeda. Semua contoh bekerja dengan cara yang sama. Tujuan utamanya adalah
-untuk menunjukkan detail implementasi dari CPI.
-
-- Contoh 1: Menggunakan _rs`CpiContext`_ Anchor dan fungsi pembantu untuk
-  membangun instruksi CPI.
-- Contoh 2: Menggunakan fungsi _rs`system_instruction::transfer`_ dari crate
-  `solana_program` untuk membangun instruksi CPI. Contoh 1 mengabstraksi
-  implementasi ini.
-- Contoh 3: Membangun instruksi CPI secara manual. Pendekatan ini berguna ketika
-  tidak ada crate yang tersedia untuk membantu membangun instruksi.
-
-<CodeTabs>
-
-```rs !! title="Example 1"
-use anchor_lang::prelude::*;
-use anchor_lang::system_program::{transfer, Transfer};
-
-declare_id!("9AvUNHjxscdkiKQ8tUn12QCMXtcnbR9BVGq3ULNzFMRi");
-
-#[program]
-pub mod cpi {
-    use super::*;
-
-    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
-        let from_pubkey = ctx.accounts.sender.to_account_info();
-        let to_pubkey = ctx.accounts.recipient.to_account_info();
-        let program_id = ctx.accounts.system_program.to_account_info();
-
-        let cpi_context = CpiContext::new(
-            program_id,
-            Transfer {
-                from: from_pubkey,
-                to: to_pubkey,
-            },
-        );
-
-        transfer(cpi_context, amount)?;
-        Ok(())
-    }
-}
-
-#[derive(Accounts)]
-pub struct SolTransfer<'info> {
-    #[account(mut)]
-    sender: Signer<'info>,
-    #[account(mut)]
-    recipient: SystemAccount<'info>,
-    system_program: Program<'info, System>,
-}
-```
-
-```rs !! title="Example 2"
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{program::invoke, system_instruction};
-
-declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
-
-#[program]
-pub mod cpi {
-    use super::*;
-
-    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
-        let from_pubkey = ctx.accounts.sender.to_account_info();
-        let to_pubkey = ctx.accounts.recipient.to_account_info();
-        let program_id = ctx.accounts.system_program.to_account_info();
-
-        let instruction =
-            &system_instruction::transfer(&from_pubkey.key(), &to_pubkey.key(), amount);
-
-        invoke(instruction, &[from_pubkey, to_pubkey, program_id])?;
-        Ok(())
-    }
-}
-
-#[derive(Accounts)]
-pub struct SolTransfer<'info> {
-    #[account(mut)]
-    sender: Signer<'info>,
-    #[account(mut)]
-    recipient: SystemAccount<'info>,
-    system_program: Program<'info, System>,
-}
-```
-
-```rs !! title="Example 3"
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{program::invoke, instruction::Instruction};
-
-declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
-
-#[program]
-pub mod cpi {
-    use super::*;
-
-    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
-        let from_pubkey = ctx.accounts.sender.to_account_info();
-        let to_pubkey = ctx.accounts.recipient.to_account_info();
-        let program_id = ctx.accounts.system_program.to_account_info();
-
-        // Prepare instruction AccountMetas
-        let account_metas = vec![
-            AccountMeta::new(from_pubkey.key(), true),
-            AccountMeta::new(to_pubkey.key(), false),
-        ];
-
-        // SOL transfer instruction discriminator
-        let instruction_discriminator: u32 = 2;
-
-        // Prepare instruction data
-        let mut instruction_data = Vec::with_capacity(4 + 8);
-        instruction_data.extend_from_slice(&instruction_discriminator.to_le_bytes());
-        instruction_data.extend_from_slice(&amount.to_le_bytes());
-
-        // Create instruction
-        let instruction = Instruction {
-            program_id: program_id.key(),
-            accounts: account_metas,
-            data: instruction_data,
-        };
-
-        // Invoke instruction
-        invoke(&instruction, &[from_pubkey, to_pubkey, program_id])?;
-        Ok(())
-    }
-}
-
-#[derive(Accounts)]
-pub struct SolTransfer<'info> {
-    #[account(mut)]
-    sender: Signer<'info>,
-    #[account(mut)]
-    recipient: SystemAccount<'info>,
-    system_program: Program<'info, System>,
-}
-```
-
-```ts !! title="Test"
-import * as anchor from "@coral-xyz/anchor";
-import { BN, Program } from "@coral-xyz/anchor";
-import { Cpi } from "../target/types/cpi";
-import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-
-describe("cpi", () => {
-  const provider = anchor.AnchorProvider.env();
-  anchor.setProvider(provider);
-
-  const program = anchor.workspace.Cpi as Program<Cpi>;
-  const sender = provider.wallet as anchor.Wallet;
-  const recipient = new Keypair();
-
-  const transferAmount = 0.01 * LAMPORTS_PER_SOL;
-
-  it("SOL Transfer Anchor", async () => {
-    const transactionSignature = await program.methods
-      .solTransfer(new BN(transferAmount))
-      .accounts({
-        sender: sender.publicKey,
-        recipient: recipient.publicKey
-      })
-      .rpc();
-
-    console.log(`\nTransaction Signature: ${transactionSignature}`);
-  });
-});
-```
-
-</CodeTabs>
-
-### Native Rust
-
-Contoh berikut menunjukkan cara membuat CPI dari program yang ditulis dalam
-Native Rust. Program ini mencakup satu instruksi yang mentransfer SOL dari satu
-akun ke akun lain menggunakan CPI. File pengujian menggunakan
-[LiteSVM](https://github.com/LiteSVM/litesvm) untuk menguji program.
-
-<CodeTabs>
-
-```rs !! title="Example"
-use borsh::BorshDeserialize;
-use solana_program::{
-    account_info::AccountInfo,
-    entrypoint,
-    entrypoint::ProgramResult,
-    program::invoke,
-    program_error::ProgramError,
-    pubkey::Pubkey,
-    system_instruction,
-};
-
-// Declare program entrypoint
-entrypoint!(process_instruction);
-
-// Define program instructions
-#[derive(BorshDeserialize)]
-enum ProgramInstruction {
-    SolTransfer { amount: u64 },
-}
-
-impl ProgramInstruction {
-    fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
-        Self::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)
-    }
-}
-
-pub fn process_instruction(
-    _program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    instruction_data: &[u8],
-) -> ProgramResult {
-    // Deserialize instruction data
-    let instruction = ProgramInstruction::unpack(instruction_data)?;
-
-    // Process instruction
-    match instruction {
-        ProgramInstruction::SolTransfer { amount } => {
-            // Parse accounts
-            let [sender_info, recipient_info, system_program_info] = accounts else {
-                return Err(ProgramError::NotEnoughAccountKeys);
-            };
-
-            // Verify the sender is a signer
-            if !sender_info.is_signer {
-                return Err(ProgramError::MissingRequiredSignature);
-            }
-
-            // Create and invoke the transfer instruction
-            let transfer_ix = system_instruction::transfer(
-                sender_info.key,
-                recipient_info.key,
-                amount,
-            );
-
-            invoke(
-                &transfer_ix,
-                &[
-                    sender_info.clone(),
-                    recipient_info.clone(),
-                    system_program_info.clone(),
-                ],
-            )?;
-
-            Ok(())
-        }
-    }
-}
-```
-
-```ts !! title="Test"
-import * as path from "path";
-import {
-  Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction
-} from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
-
-test("sol transfer cpi", () => {
-  const svm = new LiteSVM();
-
-  const programId = PublicKey.unique();
-  const programPath = path.join(__dirname, "program.so");
-  svm.addProgramFromFile(programId, programPath);
-
-  // Create sender and recipient
-  const sender = new Keypair();
-  const recipient = new Keypair();
-
-  // Fund sender
-  const amount = BigInt(LAMPORTS_PER_SOL);
-  svm.airdrop(sender.publicKey, amount); // 1 SOL
-
-  // Create instruction data buffer
-  const transferAmount = amount / BigInt(2); // 0.5 SOL
-  const instructionIndex = 0; // instruction index 0 for SolTransfer enum
-
-  const data = Buffer.alloc(9); // 1 byte for instruction enum + 8 bytes for u64
-  data.writeUInt8(instructionIndex, 0); // first byte identifies the instruction
-  data.writeBigUInt64LE(transferAmount, 1); // remaining bytes are instruction arguments
-
-  // Create instruction
-  const instruction = new TransactionInstruction({
-    programId,
-    keys: [
-      { pubkey: sender.publicKey, isSigner: true, isWritable: true },
-      { pubkey: recipient.publicKey, isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
-    ],
-    data
-  });
-
-  // Create and send transaction
-  const transaction = new Transaction().add(instruction);
-  transaction.recentBlockhash = svm.latestBlockhash();
-  transaction.sign(sender);
-
-  svm.sendTransaction(transaction);
-
-  // Check balances
-  const recipientBalance = svm.getBalance(recipient.publicKey);
-  const senderBalance = svm.getBalance(sender.publicKey);
-
-  const transactionFee = BigInt(5000);
-  expect(recipientBalance).toBe(transferAmount);
-  expect(senderBalance).toBe(amount - transferAmount - transactionFee);
-});
-```
-
-</CodeTabs>
-
-## Cross Program Invocations dengan PDA Signers
-
-Fungsi
+Ketika CPI memerlukan PDA signer, fungsi
 [`invoke_signed`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/program.rs#L51-L73)
-menangani CPIs yang memerlukan PDA signers. Fungsi ini mengambil seed untuk
-menurunkan signer PDAs sebagai `signer_seeds`.
+digunakan. Fungsi ini mengambil [signer seeds](mention:signer-seeds) yang
+digunakan untuk menurunkan [PDA](<(/docs/core/pda)>) signer. Runtime Solana
+secara internal memanggil
+[`create_program_address`](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/bpf_loader/src/syscalls/cpi.rs#L552)
+menggunakan `signers_seeds` dan `program_id` dari program pemanggil. Ketika PDA
+terverifikasi, alamat tersebut
+[ditambahkan sebagai signer yang valid](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/bpf_loader/src/syscalls/cpi.rs#L554).
 
-Anda dapat merujuk ke halaman [Program Derived Address](/docs/core/pda) untuk
-detail tentang cara menurunkan PDAs.
-
-```rust title="Invoke Signed"
+```rust title="Invoke signed"
 pub fn invoke_signed(
     instruction: &Instruction,
     account_infos: &[AccountInfo],
+    // !mention signer-seeds
     signers_seeds: &[&[&[u8]]],
 ) -> ProgramResult {
     // --snip--
@@ -431,33 +65,25 @@ pub fn invoke_signed(
 }
 ```
 
-Ketika memproses instruksi yang mencakup CPI, runtime Solana secara internal
-memanggil
-[`create_program_address`](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/bpf_loader/src/syscalls/cpi.rs#L552)
-menggunakan `signers_seeds` dan `program_id` dari program yang memanggil. Ketika
-PDA valid diverifikasi, alamat tersebut
-[ditambahkan sebagai signer yang valid](https://github.com/anza-xyz/agave/blob/v2.1.13/programs/bpf_loader/src/syscalls/cpi.rs#L554).
+</WithMentions>
 
-Contoh-contoh berikut mendemonstrasikan cara membuat CPI dengan PDA signers
-menggunakan [Anchor Framework](https://www.anchor-lang.com/docs) dan Native
-Rust. Program contoh mencakup satu instruksi yang mentransfer SOL dari PDA ke
-akun penerima menggunakan CPI yang ditandatangani oleh PDA.
+Contoh-contoh berikut membuat CPI dengan PDA signer menggunakan Anchor dan
+Native Rust. Setiap contoh mencakup satu instruksi untuk mentransfer SOL dari
+PDA ke akun penerima, menggunakan CPI yang ditandatangani oleh PDA.
 
-### Anchor Framework
+#### Anchor
 
-Contoh-contoh berikut mencakup tiga pendekatan untuk mengimplementasikan Cross
-Program Invocations (CPIs) dalam program Anchor, masing-masing pada tingkat
-abstraksi yang berbeda. Semua contoh secara fungsional setara. Tujuan utamanya
-adalah untuk mengilustrasikan detail implementasi dari CPI.
+Contoh-contoh berikut menunjukkan tiga pendekatan untuk mengimplementasikan CPI
+dalam program [Anchor](https://www.anchor-lang.com/docs). Contoh-contoh tersebut
+secara fungsional setara, tetapi masing-masing mendemonstrasikan tingkat
+abstraksi yang berbeda.
 
-- Contoh 1: Menggunakan _rs`CpiContext`_ Anchor dan fungsi pembantu untuk
-  membangun instruksi CPI.
-- Contoh 2: Menggunakan fungsi _rs`system_instruction::transfer`_ dari crate
-  `solana_program` untuk membangun instruksi CPI. Contoh 1 adalah abstraksi dari
-  implementasi ini.
-- Contoh 3: Membangun instruksi CPI secara manual. Pendekatan ini berguna ketika
-  tidak ada crate yang tersedia untuk membantu membangun instruksi yang ingin
-  Anda panggil.
+- **Contoh 1**: Menggunakan _rs`CpiContext`_ Anchor dan fungsi pembantu.
+- **Contoh 2**: Menggunakan fungsi _rs`system_instruction::transfer`_ dari crate
+  `solana_program`. (Contoh 1 adalah abstraksi dari implementasi ini.)
+- **Contoh 3**: Membangun instruksi CPI secara manual. Pendekatan ini berguna
+  ketika tidak ada crate yang tersedia untuk membantu membangun instruksi yang
+  ingin Anda panggil.
 
 <CodeTabs>
 
@@ -663,13 +289,13 @@ describe("cpi", () => {
 
 </CodeTabs>
 
-### Native Rust
+#### Rust
 
-Contoh berikut menunjukkan cara melakukan CPI dengan penanda tangan PDA dari
-program yang ditulis dalam Native Rust. Program ini mencakup satu instruksi yang
-mentransfer SOL dari PDA ke akun penerima menggunakan CPI yang ditandatangani
-oleh PDA. File pengujian menggunakan
-[LiteSVM](https://github.com/LiteSVM/litesvm) untuk menguji program.
+Contoh di bawah ini membuat CPI dengan PDA signer dari program yang ditulis
+dalam Native Rust. Contoh ini mencakup satu instruksi yang mentransfer SOL dari
+akun PDA ke akun lain. CPI ditandatangani oleh akun PDA. (File pengujian
+menggunakan [LiteSVM](https://github.com/LiteSVM/litesvm) untuk menguji
+program.)
 
 <CodeTabs>
 
@@ -820,6 +446,338 @@ test("sol transfer cpi with pda signer", () => {
   expect(recipientBalance).toBe(amount + transferAmount - transactionFee);
   // PDA starts with 1 SOL, sends 0.5 SOL
   expect(pdaBalance).toBe(amount - transferAmount);
+});
+```
+
+</CodeTabs>
+
+## CPI tanpa PDA signer
+
+Ketika CPI tidak memerlukan PDA signer, fungsi
+[`invoke`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/program.rs#L26-L28)
+digunakan. Fungsi `invoke` memanggil fungsi `invoke_signed` dengan array
+`signers_seeds` kosong. Array signer kosong menunjukkan bahwa tidak ada PDA yang
+diperlukan untuk penandatanganan.
+
+```rust title="Invoke function"
+pub fn invoke(instruction: &Instruction, account_infos: &[AccountInfo]) -> ProgramResult {
+    invoke_signed(instruction, account_infos, &[])
+}
+```
+
+Contoh-contoh di bawah ini membuat CPI menggunakan Anchor dan Native Rust. Ini
+mencakup satu instruksi yang mentransfer SOL dari satu akun ke akun lainnya.
+
+#### Anchor
+
+Contoh-contoh berikut menunjukkan tiga pendekatan untuk mengimplementasikan CPI
+dalam program [Anchor](https://www.anchor-lang.com/docs). Contoh-contoh tersebut
+secara fungsional setara, tetapi masing-masing menunjukkan tingkat abstraksi
+yang berbeda.
+
+- **Contoh 1**: Menggunakan _rs`CpiContext`_ Anchor dan fungsi pembantu.
+- **Contoh 2**: Menggunakan fungsi _rs`system_instruction::transfer`_ dari crate
+  `solana_program`.
+- **Contoh 3**: Membangun instruksi CPI secara manual. Pendekatan ini berguna
+  ketika tidak ada crate yang tersedia untuk membantu membangun instruksi yang
+  ingin Anda panggil.
+
+<CodeTabs>
+
+```rs !! title="Example 1"
+use anchor_lang::prelude::*;
+use anchor_lang::system_program::{transfer, Transfer};
+
+declare_id!("9AvUNHjxscdkiKQ8tUn12QCMXtcnbR9BVGq3ULNzFMRi");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.sender.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        let cpi_context = CpiContext::new(
+            program_id,
+            Transfer {
+                from: from_pubkey,
+                to: to_pubkey,
+            },
+        );
+
+        transfer(cpi_context, amount)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(mut)]
+    sender: Signer<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```rs !! title="Example 2"
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke, system_instruction};
+
+declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.sender.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        let instruction =
+            &system_instruction::transfer(&from_pubkey.key(), &to_pubkey.key(), amount);
+
+        invoke(instruction, &[from_pubkey, to_pubkey, program_id])?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(mut)]
+    sender: Signer<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```rs !! title="Example 3"
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{program::invoke, instruction::Instruction};
+
+declare_id!("BrcdB9sV7z9DvF9rDHG263HUxXgJM3iCQdF36TcxbFEn");
+
+#[program]
+pub mod cpi {
+    use super::*;
+
+    pub fn sol_transfer(ctx: Context<SolTransfer>, amount: u64) -> Result<()> {
+        let from_pubkey = ctx.accounts.sender.to_account_info();
+        let to_pubkey = ctx.accounts.recipient.to_account_info();
+        let program_id = ctx.accounts.system_program.to_account_info();
+
+        // Prepare instruction AccountMetas
+        let account_metas = vec![
+            AccountMeta::new(from_pubkey.key(), true),
+            AccountMeta::new(to_pubkey.key(), false),
+        ];
+
+        // SOL transfer instruction discriminator
+        let instruction_discriminator: u32 = 2;
+
+        // Prepare instruction data
+        let mut instruction_data = Vec::with_capacity(4 + 8);
+        instruction_data.extend_from_slice(&instruction_discriminator.to_le_bytes());
+        instruction_data.extend_from_slice(&amount.to_le_bytes());
+
+        // Create instruction
+        let instruction = Instruction {
+            program_id: program_id.key(),
+            accounts: account_metas,
+            data: instruction_data,
+        };
+
+        // Invoke instruction
+        invoke(&instruction, &[from_pubkey, to_pubkey, program_id])?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct SolTransfer<'info> {
+    #[account(mut)]
+    sender: Signer<'info>,
+    #[account(mut)]
+    recipient: SystemAccount<'info>,
+    system_program: Program<'info, System>,
+}
+```
+
+```ts !! title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { BN, Program } from "@coral-xyz/anchor";
+import { Cpi } from "../target/types/cpi";
+import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+describe("cpi", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.Cpi as Program<Cpi>;
+  const sender = provider.wallet as anchor.Wallet;
+  const recipient = new Keypair();
+
+  const transferAmount = 0.01 * LAMPORTS_PER_SOL;
+
+  it("SOL Transfer Anchor", async () => {
+    const transactionSignature = await program.methods
+      .solTransfer(new BN(transferAmount))
+      .accounts({
+        sender: sender.publicKey,
+        recipient: recipient.publicKey
+      })
+      .rpc();
+
+    console.log(`\nTransaction Signature: ${transactionSignature}`);
+  });
+});
+```
+
+</CodeTabs>
+
+#### Rust
+
+Contoh berikut menunjukkan cara membuat CPI dari program yang ditulis dalam
+Native Rust. Ini mencakup satu instruksi yang mentransfer SOL dari satu akun ke
+akun lainnya. (File pengujian menggunakan
+[LiteSVM](https://github.com/LiteSVM/litesvm) untuk menguji program.)
+
+<CodeTabs>
+
+```rs !! title="Example"
+use borsh::BorshDeserialize;
+use solana_program::{
+    account_info::AccountInfo,
+    entrypoint,
+    entrypoint::ProgramResult,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+};
+
+// Declare program entrypoint
+entrypoint!(process_instruction);
+
+// Define program instructions
+#[derive(BorshDeserialize)]
+enum ProgramInstruction {
+    SolTransfer { amount: u64 },
+}
+
+impl ProgramInstruction {
+    fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
+        Self::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)
+    }
+}
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Deserialize instruction data
+    let instruction = ProgramInstruction::unpack(instruction_data)?;
+
+    // Process instruction
+    match instruction {
+        ProgramInstruction::SolTransfer { amount } => {
+            // Parse accounts
+            let [sender_info, recipient_info, system_program_info] = accounts else {
+                return Err(ProgramError::NotEnoughAccountKeys);
+            };
+
+            // Verify the sender is a signer
+            if !sender_info.is_signer {
+                return Err(ProgramError::MissingRequiredSignature);
+            }
+
+            // Create and invoke the transfer instruction
+            let transfer_ix = system_instruction::transfer(
+                sender_info.key,
+                recipient_info.key,
+                amount,
+            );
+
+            invoke(
+                &transfer_ix,
+                &[
+                    sender_info.clone(),
+                    recipient_info.clone(),
+                    system_program_info.clone(),
+                ],
+            )?;
+
+            Ok(())
+        }
+    }
+}
+```
+
+```ts !! title="Test"
+import * as path from "path";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction
+} from "@solana/web3.js";
+import { LiteSVM } from "litesvm";
+
+test("sol transfer cpi", () => {
+  const svm = new LiteSVM();
+
+  const programId = PublicKey.unique();
+  const programPath = path.join(__dirname, "program.so");
+  svm.addProgramFromFile(programId, programPath);
+
+  // Create sender and recipient
+  const sender = new Keypair();
+  const recipient = new Keypair();
+
+  // Fund sender
+  const amount = BigInt(LAMPORTS_PER_SOL);
+  svm.airdrop(sender.publicKey, amount); // 1 SOL
+
+  // Create instruction data buffer
+  const transferAmount = amount / BigInt(2); // 0.5 SOL
+  const instructionIndex = 0; // instruction index 0 for SolTransfer enum
+
+  const data = Buffer.alloc(9); // 1 byte for instruction enum + 8 bytes for u64
+  data.writeUInt8(instructionIndex, 0); // first byte identifies the instruction
+  data.writeBigUInt64LE(transferAmount, 1); // remaining bytes are instruction arguments
+
+  // Create instruction
+  const instruction = new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: sender.publicKey, isSigner: true, isWritable: true },
+      { pubkey: recipient.publicKey, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+    ],
+    data
+  });
+
+  // Create and send transaction
+  const transaction = new Transaction().add(instruction);
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(sender);
+
+  svm.sendTransaction(transaction);
+
+  // Check balances
+  const recipientBalance = svm.getBalance(recipient.publicKey);
+  const senderBalance = svm.getBalance(sender.publicKey);
+
+  const transactionFee = BigInt(5000);
+  expect(recipientBalance).toBe(transferAmount);
+  expect(senderBalance).toBe(amount - transferAmount - transactionFee);
 });
 ```
 
