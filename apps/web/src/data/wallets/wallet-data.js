@@ -163,7 +163,8 @@ export const walletData = [
   {
     name: "Jupiter",
     body: "The most powerful trading wallet on Solana.",
-    website: "https://chromewebstore.google.com/detail/jupiter-wallet/iledlaeogohbilgbfhmbgkgmpplbfboh",
+    website:
+      "https://chromewebstore.google.com/detail/jupiter-wallet/iledlaeogohbilgbfhmbgkgmpplbfboh",
     additionalInfo:
       "The official browser wallet from Jupiter Exchange — the DeFi Superapp of Solana. Designed from the ground up for performance, security, and user experience, it gives you everything you need to thrive in DeFi.",
     icon: jupiterIcon,
