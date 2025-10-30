@@ -11,6 +11,16 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow the templates rewrite to execute without i18n interference
+  if (
+    req.nextUrl.pathname.startsWith("/templates") ||
+    locales.some((locale) =>
+      req.nextUrl.pathname.startsWith(`/${locale}/templates`),
+    )
+  ) {
+    return NextResponse.next();
+  }
+
   if (req.nextUrl.pathname !== req.nextUrl.pathname.toLowerCase()) {
     return NextResponse.redirect(
       `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}`,
