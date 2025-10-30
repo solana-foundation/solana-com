@@ -37,6 +37,7 @@ import turnkeyIcon from "../../../assets/wallets/icons/turnkey.png";
 import walletConnectIcon from "../../../assets/wallets/icons/walletconnect.png";
 import web3authIcon from "../../../assets/wallets/icons/web3auth.png";
 import atomicwalletIcon from "../../../assets/wallets/icons/atomicwallet.png";
+import jupiterIcon from "../../../assets/wallets/icons/jupiter.png";
 
 export const walletData = [
   {
@@ -155,6 +156,30 @@ export const walletData = [
     social_recovery: true,
     staking: true,
     spending_limits: true,
+    open_source: false,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "Jupiter",
+    body: "The most powerful trading wallet on Solana.",
+    website: "https://chromewebstore.google.com/detail/jupiter-wallet/iledlaeogohbilgbfhmbgkgmpplbfboh",
+    additionalInfo:
+      "The official browser wallet from Jupiter Exchange — the DeFi Superapp of Solana. Designed from the ground up for performance, security, and user experience, it gives you everything you need to thrive in DeFi.",
+    icon: jupiterIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: true,
+    gas_abstraction: true,
+    social_recovery: true,
+    staking: false,
+    spending_limits: false,
     open_source: false,
     hardware: false,
     private_key_infrastructure: false,
