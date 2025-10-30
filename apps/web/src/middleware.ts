@@ -10,6 +10,30 @@ const templatesAppUrl = process.env.TEMPLATES_APP_URL
   : null;
 
 export default async function middleware(req: NextRequest) {
+  // Handle _next static assets for templates app (check referer)
+  if (templatesAppUrl && req.nextUrl.pathname.startsWith("/_next/")) {
+    const referer = req.headers.get("referer");
+    if (referer) {
+      const refererUrl = new URL(referer);
+      const refererPath = refererUrl.pathname;
+
+      // If the referer is from /templates, proxy the asset request
+      if (
+        refererPath.startsWith("/templates/") ||
+        refererPath === "/templates" ||
+        locales.some(
+          (locale) =>
+            refererPath.startsWith(`/${locale}/templates/`) ||
+            refererPath === `/${locale}/templates`,
+        )
+      ) {
+        const rewriteUrl = new URL(req.nextUrl.pathname, templatesAppUrl);
+        rewriteUrl.search = req.nextUrl.search;
+        return NextResponse.rewrite(rewriteUrl);
+      }
+    }
+  }
+
   // Skip i18n for /breakpoint/* paths
   if (req.nextUrl.pathname.startsWith("/breakpoint")) {
     return NextResponse.next();
@@ -73,6 +97,6 @@ export default async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|opengraph|_next|_vercel|breakpoint|.*\\..*).*)"],
+  matcher: ["/((?!api|opengraph|_vercel|breakpoint|.*\\..*).*)"],
   runtime: "nodejs",
 };
