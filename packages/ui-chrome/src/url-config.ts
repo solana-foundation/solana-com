@@ -17,6 +17,11 @@
  * @returns The resolved href (absolute URL if on subdomain, relative if on main site)
  */
 export function resolveHref(href: string): string {
+  // Handle undefined/null/empty values
+  if (!href || typeof href !== "string") {
+    return href || "";
+  }
+
   // If already an absolute URL, return as-is
   if (href.startsWith("http://") || href.startsWith("https://")) {
     return href;
@@ -46,6 +51,11 @@ export function resolveHref(href: string): string {
  * @returns true if should use <Link>, false if should use <a>
  */
 export function shouldUseNextLink(href: string): boolean {
+  // Handle undefined/null/empty values
+  if (!href || typeof href !== "string") {
+    return false;
+  }
+
   const mainSiteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL;
 
   // If we're on the main site (no env var set), use Link for relative URLs
