@@ -14,7 +14,7 @@ export function TemplatesUiGridItem({ template }: { template: Template }) {
 
   return (
     <MotionLink
-      href={`/templates/${template.name}`}
+      href={`/${template.name}`}
       className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 block h-full flex flex-col"
       variants={fadeIn}
       initial="hidden"
