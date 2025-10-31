@@ -1,44 +1,60 @@
 "use client";
 
-import Dropdown from "react-bootstrap/Dropdown";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import Globe from "./assets/globe.inline.svg";
 import ChevronGrabberVertical from "./assets/chevron-grabber-vertical.inline.svg";
 import { languages } from "@workspace/i18n/config";
 import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
+import classNames from "classnames";
+import { twMerge } from "tailwind-merge";
 
-const LanguageSelector = () => {
+function cn(...inputs) {
+  return twMerge(classNames(inputs));
+}
+
+const LanguageSelector = ({ className = "" }) => {
   const currentLocale = useLocale();
   const asPath = usePathname();
 
   return (
-    <Dropdown align="end" style={{ marginTop: "-5px" }} drop="auto">
-      <Dropdown.Toggle
-        className="p-0 border-0 !text-[#ababbc] hover:!text-white transition-colors"
-        variant="none"
-        suppressHydrationWarning={true}
-      >
-        <Globe height="20" />
-        <span className="align-middle fw-normal mx-1 text-uppercase">
-          {currentLocale}
-        </span>
-        <ChevronGrabberVertical width="20" height="20" />
-      </Dropdown.Toggle>
-
-      <Dropdown.Menu
-        className="bg-light"
-        style={{
-          maxHeight: "50vh",
-          overflowY: "auto",
-        }}
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          className={cn(
+            "p-0 border-0 inline-flex items-center",
+            "text-[#848895] text-base light:text-[#7f8391]",
+            "hover:text-white light:hover:text-gray-900",
+            "transition-colors duration-200",
+            className,
+          )}
+          type="button"
+        >
+          <Globe height="20" />
+          <span className="align-middle font-normal mx-1 uppercase text-base">
+            {currentLocale}
+          </span>
+          <ChevronGrabberVertical width="20" height="20" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content
+        align="end"
+        side="bottom"
+        sideOffset={8}
+        className="max-h-[50vh] overflow-y-auto bg-[#111214] text-[#848895] p-[12px] rounded !border border-white/10 shadow-lg light:bg-white light:text-[#121212] light:border-black/10"
       >
         {Object.keys(languages).map((language) => (
-          <Dropdown.Item key={language} href={"/" + language + asPath}>
-            {languages[language]}
-          </Dropdown.Item>
+          <DropdownMenu.Item asChild key={language}>
+            <a
+              href={"/" + language + asPath}
+              className="block px-2 py-1.5 rounded !no-underline text-base !text-[#848895] hover:!text-white hover:bg-[#151118] focus:bg-[#151118] outline-none light:!text-[#121212] light:hover:bg-neutral-100"
+            >
+              {languages[language]}
+            </a>
+          </DropdownMenu.Item>
         ))}
-      </Dropdown.Menu>
-    </Dropdown>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   );
 };
 
