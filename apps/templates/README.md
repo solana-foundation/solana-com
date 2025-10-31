@@ -30,12 +30,30 @@ pnpm --filter solana-templates check-types
 
 ## Deployment
 
-This app is designed to be deployed separately from the main solana.com website.
-The main site will rewrite `/templates` routes to this app's deployment URL via
+This app is deployed at
+**[templates.solana.com](https://templates.solana.com)**.
+
+The app is designed to be deployed separately from the main solana.com website.
+The main site rewrites `/templates` routes to this app's deployment URL via
 Next.js rewrites configuration.
 
 To enable the rewrite in production, set the `TEMPLATES_APP_URL` environment
 variable in the main web app's deployment.
+
+### Environment Variables
+
+#### `NEXT_PUBLIC_MAIN_SITE_URL`
+
+This environment variable should be set when deploying the templates app to a
+subdomain. It enables header links to navigate back to the main solana.com site.
+
+- **Production**: `https://solana.com`
+- **Preview/Staging**: Your preview URL (e.g., `https://preview.solana.com`)
+- **Local Development**: `http://localhost:3000` (if main site runs on
+  port 3000)
+- **Main Site**: Leave empty or unset
+
+See `.env.example` for more details.
 
 ## Architecture
 
