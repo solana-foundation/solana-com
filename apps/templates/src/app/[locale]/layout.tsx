@@ -11,10 +11,19 @@ type Props = {
 export default async function LocaleLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
   const direction = getLangDir(locale);
-  // Load messages directly
-  const messages = (
+
+  // Load messages from main web app (shared translations)
+  const webMessages = (
+    await import(`../../../../../apps/web/public/locales/${locale}/common.json`)
+  ).default;
+
+  // Load templates-specific messages
+  const templatesMessages = (
     await import(`../../../public/locales/${locale}/common.json`)
   ).default;
+
+  // Merge translations, with templates-specific taking precedence
+  const messages = { ...webMessages, ...templatesMessages };
 
   return (
     <html
