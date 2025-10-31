@@ -12,8 +12,17 @@ export default getRequestConfig(async ({ requestLocale }) => {
     requested && locales.includes(requested)
       ? requested
       : routing.defaultLocale;
-  const messages = (await import(`../../public/locales/${locale}/common.json`))
-    .default;
+
+  // Try to load the requested locale, fall back to English if it doesn't exist
+  // Currently, only English translations are available for the templates site
+  let messages;
+  try {
+    messages = (await import(`../../public/locales/${locale}/common.json`))
+      .default;
+  } catch (error) {
+    // Locale file doesn't exist, use English as fallback
+    messages = enMessages;
+  }
 
   return {
     locale,

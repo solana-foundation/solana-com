@@ -13,14 +13,31 @@ export default async function LocaleLayout({ children, params }: Props) {
   const direction = getLangDir(locale);
 
   // Load messages from main web app (shared translations)
-  const webMessages = (
-    await import(`../../../../../apps/web/public/locales/${locale}/common.json`)
-  ).default;
+  let webMessages;
+  try {
+    webMessages = (
+      await import(
+        `../../../../../apps/web/public/locales/${locale}/common.json`
+      )
+    ).default;
+  } catch (error) {
+    // Fallback to English if locale doesn't exist
+    webMessages = (
+      await import(`../../../../../apps/web/public/locales/en/common.json`)
+    ).default;
+  }
 
   // Load templates-specific messages
-  const templatesMessages = (
-    await import(`../../../public/locales/${locale}/common.json`)
-  ).default;
+  let templatesMessages;
+  try {
+    templatesMessages = (
+      await import(`../../../public/locales/${locale}/common.json`)
+    ).default;
+  } catch (error) {
+    // Fallback to English if locale doesn't exist
+    templatesMessages = (await import(`../../../public/locales/en/common.json`))
+      .default;
+  }
 
   // Merge translations, with templates-specific taking precedence
   const messages = { ...webMessages, ...templatesMessages };
