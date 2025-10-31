@@ -2,6 +2,7 @@ import { AbstractIntlMessages } from "next-intl";
 
 /**
  * Loads translation messages from a locale file with automatic fallback to English.
+ *
  * @param importPath - A function that returns the dynamic import for the given locale
  * @param locale - The locale to load
  * @returns The loaded messages object
