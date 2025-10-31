@@ -17,8 +17,8 @@
 export function resolveHref(href: string): string {
   const mainSiteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL;
 
-  // If no main site URL configured, return original href
-  if (!mainSiteUrl) {
+  // If no main site URL configured or it's an empty string, return original href
+  if (!mainSiteUrl || mainSiteUrl.trim() === "") {
     return href;
   }
 
@@ -38,8 +38,8 @@ export function resolveHref(href: string): string {
 export function shouldUseNextLink(href: string): boolean {
   const mainSiteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL;
 
-  // If main site URL is set, always use <a> tag
-  if (mainSiteUrl) {
+  // If main site URL is set and not empty, always use <a> tag
+  if (mainSiteUrl && mainSiteUrl.trim() !== "") {
     return false;
   }
 
