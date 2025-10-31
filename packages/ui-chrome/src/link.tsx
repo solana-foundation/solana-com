@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import NextLink from "next/link";
 import { useRouter, usePathname } from "@workspace/i18n/use-router";
 import classNames from "classnames";
+import { resolveHref, shouldUseNextLink } from "./url-config";
 
 interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   children: React.ReactNode;
@@ -26,7 +27,8 @@ const Link = ({
   ...other
 }: LinkProps) => {
   const linkTo = to ?? href ?? "";
-  const internal = /^\/(?!\/)/.test(linkTo);
+  const resolvedHref = resolveHref(linkTo);
+  const useNextLink = shouldUseNextLink(linkTo);
 
   const { isReady } = useRouter();
 
@@ -41,11 +43,11 @@ const Link = ({
     );
   }, [partiallyActive, asPath, linkTo, partiallyActiveIgnore]);
 
-  if (internal) {
+  if (useNextLink) {
     const { scroll, prefetch, ...aProps } = other;
     return (
       <NextLink
-        href={linkTo}
+        href={resolvedHref}
         scroll={scroll}
         prefetch={prefetch}
         passHref
@@ -59,7 +61,7 @@ const Link = ({
     );
   }
   return (
-    <a href={linkTo} {...other} className={className}>
+    <a href={resolvedHref} {...other} className={className}>
       {children}
     </a>
   );
@@ -71,10 +73,13 @@ interface InlineLinkProps
   children: React.ReactNode;
 }
 
-const InlineLink = ({ to, children, ...props }: InlineLinkProps) => (
-  <a href={to} {...props} target="_blank" rel="noopener noreferrer">
-    {children}
-  </a>
-);
+const InlineLink = ({ to, children, ...props }: InlineLinkProps) => {
+  const resolvedHref = resolveHref(to);
+  return (
+    <a href={resolvedHref} {...props} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+};
 
 export { Link, InlineLink };

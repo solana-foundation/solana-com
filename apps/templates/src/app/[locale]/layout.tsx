@@ -2,6 +2,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
+import { loadMessages } from "@/lib/load-messages";
 
 type Props = {
   children: React.ReactNode;
@@ -11,10 +12,22 @@ type Props = {
 export default async function LocaleLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
   const direction = getLangDir(locale);
-  // Load messages directly
-  const messages = (
-    await import(`../../../public/locales/${locale}/common.json`)
-  ).default;
+
+  // Load messages from both sources in parallel with automatic fallback to English
+  const [webMessages, templatesMessages] = await Promise.all([
+    loadMessages(
+      (loc) =>
+        import(`../../../../../apps/web/public/locales/${loc}/common.json`),
+      locale,
+    ),
+    loadMessages(
+      (loc) => import(`../../../public/locales/${loc}/common.json`),
+      locale,
+    ),
+  ]);
+
+  // Merge translations, with templates-specific taking precedence.
+  const messages = { ...webMessages, ...templatesMessages };
 
   return (
     <html
