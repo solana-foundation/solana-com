@@ -2,6 +2,7 @@ import { getRequestConfig } from "next-intl/server";
 import { IntlErrorCode } from "next-intl";
 import { routing } from "@workspace/i18n/routing";
 import { locales } from "@workspace/i18n/config";
+import { loadMessages } from "@/lib/load-messages";
 
 const enMessages = (await import("../../public/locales/en/common.json"))
   .default;
@@ -13,16 +14,11 @@ export default getRequestConfig(async ({ requestLocale }) => {
       ? requested
       : routing.defaultLocale;
 
-  // Try to load the requested locale, fall back to English if it doesn't exist
-  // Currently, only English translations are available for the templates site
-  let messages;
-  try {
-    messages = (await import(`../../public/locales/${locale}/common.json`))
-      .default;
-  } catch (error) {
-    // Locale file doesn't exist, use English as fallback
-    messages = enMessages;
-  }
+  // Load the requested locale with automatic fallback to English if it doesn't exist
+  const messages = await loadMessages(
+    (loc) => import(`../../public/locales/${loc}/common.json`),
+    locale,
+  );
 
   return {
     locale,
