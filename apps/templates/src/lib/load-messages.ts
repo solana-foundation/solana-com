@@ -1,3 +1,5 @@
+import { AbstractIntlMessages } from "next-intl";
+
 /**
  * Loads translation messages from a locale file with automatic fallback to English.
  * @param importPath - A function that returns the dynamic import for the given locale
@@ -5,9 +7,9 @@
  * @returns The loaded messages object
  */
 export async function loadMessages(
-  importPath: (locale: string) => Promise<{ default: Record<string, unknown> }>,
+  importPath: (locale: string) => Promise<{ default: AbstractIntlMessages }>,
   locale: string,
-) {
+): Promise<AbstractIntlMessages> {
   try {
     return (await importPath(locale)).default;
   } catch {
