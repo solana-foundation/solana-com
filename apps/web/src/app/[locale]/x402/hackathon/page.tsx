@@ -46,6 +46,11 @@ export default async function Page(_props: Props) {
     solanaTitle: t("x402.hackathon.prerequisites.solana.title"),
     solanaDescription: t("x402.hackathon.prerequisites.solana.description"),
     solanaCta: t("x402.hackathon.prerequisites.solana.cta"),
+    x402NextTitle: t("x402.hackathon.prerequisites.x402NextTemplate.title"),
+    x402NextDescription: t(
+      "x402.hackathon.prerequisites.x402NextTemplate.description",
+    ),
+    x402NextCta: t("x402.hackathon.prerequisites.x402NextTemplate.cta"),
 
     problemTitle: t("x402.hackathon.problem.title"),
     problemDescription: t("x402.hackathon.problem.description"),

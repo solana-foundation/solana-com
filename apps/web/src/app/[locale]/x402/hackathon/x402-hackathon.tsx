@@ -33,6 +33,9 @@ interface X402HackathonPageProps {
     solanaTitle: string;
     solanaDescription: string;
     solanaCta: string;
+    x402NextTitle: string;
+    x402NextDescription: string;
+    x402NextCta: string;
     problemTitle: string;
     problemDescription: string;
     requirementsTitle: string;
@@ -131,6 +134,13 @@ export function X402HackathonPage({ translations }: X402HackathonPageProps) {
                 url="#resources"
                 newTab={false}
                 ctaLabel={translations.solanaCta}
+              />
+              <DevelopersDocumentItem
+                title={translations.x402NextTitle}
+                description={translations.x402NextDescription}
+                url="https://templates.solana.com/x402-template"
+                newTab={false}
+                ctaLabel={translations.x402NextCta}
               />
             </div>
           </div>
