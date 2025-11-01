@@ -2,9 +2,9 @@ import React from "react";
 import client from "@/tina/__generated__/client";
 import PostClientPage from "./client-page";
 import type { Metadata } from "next";
-import { pathsWithLocales } from "@workspace/i18n/routing";
 
 export const revalidate = 300;
+export const dynamicParams = true;
 
 export default async function PostPage({
   params,
@@ -40,14 +40,11 @@ export async function generateStaticParams() {
     allPosts.data.postConnection.edges.push(...posts.data.postConnection.edges);
   }
 
-  const params =
+  return (
     allPosts.data?.postConnection.edges.map((edge) => ({
-      params: {
-        urlSegments: edge?.node?._sys.breadcrumbs,
-      },
-    })) || [];
-
-  return pathsWithLocales(params);
+      urlSegments: edge?.node?._sys.breadcrumbs,
+    })) || []
+  );
 }
 
 export async function generateMetadata({

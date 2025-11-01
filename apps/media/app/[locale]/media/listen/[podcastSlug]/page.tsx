@@ -7,9 +7,9 @@ import {
   fetchEpisodesForPodcast,
 } from "@/lib/podcast-data";
 import PodcastShowClientPage from "./client-page";
-import { pathsWithLocales } from "@workspace/i18n/routing";
 
 export const revalidate = 1800; // 30 minutes - cache to avoid rate limits
+export const dynamicParams = true;
 
 interface PodcastShowPageProps {
   params: Promise<{ podcastSlug: string; locale: string }>;
@@ -40,13 +40,9 @@ export default async function PodcastShowPage({
 export async function generateStaticParams() {
   const podcasts = await fetchAllPodcasts();
 
-  const params = podcasts.map((podcast) => ({
-    params: {
-      podcastSlug: podcast.slug,
-    },
+  return podcasts.map((podcast) => ({
+    podcastSlug: podcast.slug,
   }));
-
-  return pathsWithLocales(params);
 }
 
 export async function generateMetadata({
