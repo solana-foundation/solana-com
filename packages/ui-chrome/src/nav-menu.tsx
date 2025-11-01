@@ -92,7 +92,7 @@ function NavigationMenuTrigger({
         "before:transition-all before:duration-300 before:ease-out",
         "data-[state=open]:text-white light:data-[state=open]:text-gray-900",
         isActive && "text-white light:!text-gray-900",
-        "data-[state=open]:before:content-[''] data-[state=open]:before:absolute data-[state=open]:before:h-px data-[state=open]:before:left-4 data-[state=open]:before:right-4 data-[state=open]:before:bottom-[-5px] data-[state=open]:before:bg-[var(--color-active)] xl:data-[state=open]:before:block data-[state=open]:before:hidden data-[state=open]:before:opacity-100",
+        "data-[state=open]:before:content-[''] data-[state=open]:before:absolute data-[state=open]:before:h-px data-[state=open]:before:left-3 data-[state=open]:before:right-3 data-[state=open]:before:bottom-[-5px] data-[state=open]:before:bg-[var(--color-active)] xl:data-[state=open]:before:block data-[state=open]:before:hidden data-[state=open]:before:opacity-100",
         className,
       )}
       {...props}
@@ -135,7 +135,7 @@ function NavigationMenuContent({
         // "group-data-[viewport=false]/navigation-menu:overflow-hidden group-data-[viewport=false]/navigation-menu:rounded-md",
         // "group-data-[viewport=false]/navigation-menu:shadow group-data-[viewport=false]/navigation-menu:duration-200",
         // Focus states for nested links
-        "**:data-[slot=navigation-menu-link]:focus:ring-0 **:data-[slot=navigation-menu-link]:focus:outline-none",
+        "[&_data-[slot=navigation-menu-link]]:focus:ring-0 [&_data-[slot=navigation-menu-link]]:focus:outline-none",
         // Alignment
         align === "center" && "xl:left-1/2 xl:-translate-x-1/2",
         align === "right" && "xl:right-0 xl:left-auto xl:translate-x-0",

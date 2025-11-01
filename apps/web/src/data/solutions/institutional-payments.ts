@@ -3,6 +3,10 @@ import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
   {
+    src: "/src/img/logos-eco/western-union.svg",
+    key: "western-union",
+  },
+  {
     src: "/src/img/logos-eco/worldpay.svg",
     key: "worldpay",
   },

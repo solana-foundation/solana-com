@@ -67,21 +67,21 @@ const HeaderListBuild = () => {
         <div>
           <Link
             to="/docs/intro/quick-start"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
             {t("nav.developers.tutorials.hello-world")}
           </Link>
           <Link
             to="/docs/intro/installation"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
             {t("nav.developers.tutorials.local-setup")}
           </Link>
           <Link
             to="/developers/evm-to-svm"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
             {t("nav.developers.tutorials.evm-to-svm")}

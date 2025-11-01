@@ -39,7 +39,6 @@ const HeaderListCommunity = () => {
             to="https://www.solanacollective.com/"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             target="_blank"
-            activeClassName="!border-white/10 bg-[#151118]"
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[2].title}
@@ -60,7 +59,6 @@ const HeaderListCommunity = () => {
             to="https://www.solanapolicyinstitute.org/"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             target="_blank"
-            activeClassName="!border-white/10 bg-[#151118]"
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[4].title}

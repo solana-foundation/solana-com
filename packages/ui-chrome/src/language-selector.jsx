@@ -29,10 +29,9 @@ const LanguageSelector = ({ className = "" }) => {
             className,
           )}
           type="button"
-          suppressHydrationWarning={true}
         >
           <Globe height="20" />
-          <span className="align-middle fw-normal mx-1 uppercase text-base">
+          <span className="align-middle font-normal mx-1 uppercase text-base">
             {currentLocale}
           </span>
           <ChevronGrabberVertical width="20" height="20" />
