@@ -27,7 +27,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   // Load the requested locale with automatic fallback to English if it doesn't exist
   const messages = await loadMessages(
-    (loc) => import(`../../public/locales/${loc}/common.json`),
+    (loc) => import(`../../web/public/locales/${loc}/common.json`),
     locale
   );
 
