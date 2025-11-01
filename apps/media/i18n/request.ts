@@ -15,7 +15,8 @@ export async function loadMessages(
   }
 }
 
-const enMessages = (await import("@@/public/locales/en/common.json")).default;
+const enMessages = (await import("../../web/public/locales/en/common.json"))
+  .default;
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const requested = await requestLocale;
