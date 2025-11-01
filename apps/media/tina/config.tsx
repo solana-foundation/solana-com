@@ -14,7 +14,7 @@ import Podcast from "./collection/podcast";
 // Check if we're using local mode (no authentication)
 const isLocalMode = process.env.TINA_PUBLIC_IS_LOCAL === "true";
 
-const config = defineConfig({
+const config: any = defineConfig({
   // Only require clientId and token if not in local mode
   clientId: isLocalMode ? undefined : process.env.NEXT_PUBLIC_TINA_CLIENT_ID,
   branch: process.env.NEXT_PUBLIC_TINA_BRANCH!,

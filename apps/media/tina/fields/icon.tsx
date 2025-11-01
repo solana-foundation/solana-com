@@ -21,7 +21,7 @@ const parseIconName = (name: string) => {
   }
 };
 
-export const IconPickerInput = wrapFieldsWithMeta(({ input }) => {
+export const IconPickerInput: any = wrapFieldsWithMeta(({ input }) => {
   const [filter, setFilter] = React.useState("");
   const filteredBlocks = React.useMemo(() => {
     return Object.keys(IconOptions).filter((name) => {
@@ -142,7 +142,7 @@ export const IconPickerInput = wrapFieldsWithMeta(({ input }) => {
   );
 });
 
-export const iconSchema = {
+export const iconSchema: any = {
   type: "object",
   label: "Icon",
   name: "icon",

@@ -39,7 +39,7 @@ export const fetchAllPodcasts = async (): Promise<PodcastShow[]> => {
             ...(hostData.avatar && { avatar: hostData.avatar }),
           };
         })
-        .filter((host): host is PodcastHost => host !== null);
+        .filter((host) => host !== null);
 
       // Get tags array (stored as strings)
       const podcastWithTags = podcast as any;
@@ -102,7 +102,7 @@ export const fetchPodcastBySlug = async (
           ...(hostData.avatar && { avatar: hostData.avatar }),
         };
       })
-      .filter((host): host is PodcastHost => host !== null);
+      .filter((host) => host !== null);
 
     // Get tags array (stored as strings)
     const podcastWithTags = podcast as any;
