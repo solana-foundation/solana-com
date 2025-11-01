@@ -2,24 +2,16 @@
 
 import React from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { ArrowLeft } from "lucide-react";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AudioPlayer } from "@/components/podcast/audio-player";
 import { EpisodeCard } from "@/components/podcast/episode-card";
 import { SocialShare } from "@/components/ui/social-share";
 import { formatDuration, formatEpisodeDate } from "@/lib/podcast-data";
 import type { PodcastShow, PodcastEpisode } from "@/lib/podcast-types";
 import ErrorBoundary from "@/components/error-boundary";
-
-const AudioPlayer = dynamic(
-  () =>
-    import("@/components/podcast/audio-player").then((mod) => ({
-      default: mod.AudioPlayer,
-    })),
-  { ssr: false }
-);
 
 interface EpisodeClientPageProps {
   podcast: PodcastShow;
