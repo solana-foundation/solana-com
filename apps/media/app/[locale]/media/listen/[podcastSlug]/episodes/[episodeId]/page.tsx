@@ -8,6 +8,7 @@ import {
 } from "@/lib/podcast-data";
 import EpisodeClientPage from "./client-page";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 1800; // 30 minutes
 
 interface EpisodePageProps {
