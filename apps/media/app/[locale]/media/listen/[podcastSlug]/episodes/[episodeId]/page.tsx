@@ -1,7 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
 import {
   fetchPodcastBySlug,
   fetchEpisodeById,
@@ -42,20 +41,11 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
     (ep) => ep.id !== episode!.id
   );
 
-  // Construct absolute URL for social sharing (works on server and client)
-  const headersList = await headers();
-  const host = headersList.get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  const locale =
-    resolvedParams.locale === "en" ? "" : `/${resolvedParams.locale}`;
-  const episodeUrl = `${protocol}://${host}${locale}/media/listen/${resolvedParams.podcastSlug}/episodes/${resolvedParams.episodeId}`;
-
   return (
     <EpisodeClientPage
       podcast={podcast}
       episode={episode}
       relatedEpisodes={relatedEpisodes.slice(0, 3)}
-      episodeUrl={episodeUrl}
     />
   );
 }

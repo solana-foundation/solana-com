@@ -25,15 +25,21 @@ interface EpisodeClientPageProps {
   podcast: PodcastShow;
   episode: PodcastEpisode;
   relatedEpisodes: PodcastEpisode[];
-  episodeUrl: string;
 }
 
 export default function EpisodeClientPage({
   podcast,
   episode,
   relatedEpisodes,
-  episodeUrl,
 }: EpisodeClientPageProps) {
+  const [episodeUrl, setEpisodeUrl] = React.useState("");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setEpisodeUrl(window.location.href);
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <Section>

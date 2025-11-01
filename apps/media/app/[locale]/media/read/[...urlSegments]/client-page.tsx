@@ -25,7 +25,9 @@ export default function PostClientPage(props: ClientPostProps) {
   const [shareUrl, setShareUrl] = React.useState("");
 
   React.useEffect(() => {
-    setShareUrl(window.location.href);
+    if (typeof window !== "undefined") {
+      setShareUrl(window.location.href);
+    }
   }, []);
 
   const { theme } = useLayout();
