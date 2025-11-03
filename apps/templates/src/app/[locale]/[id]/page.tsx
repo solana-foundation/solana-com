@@ -5,6 +5,8 @@ import { TemplatesProviderWrapper } from "@/components/providers/templates-provi
 import { BackgroundShapes } from "@/components/background-shapes";
 import type { Metadata } from "next";
 
+export const revalidate = 3600;
+
 export async function generateStaticParams() {
   const templates = await fetchTemplatesFromGitHub();
   return templates.map((template) => ({

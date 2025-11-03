@@ -7,7 +7,7 @@ const DEFAULT_TEMPLATE_NAMES = [
   "gill-react-vite-tailwind-basic", // Fullstack boilerplate (Vite)
   "web3js-expo", // Mobile
   "gill-jito-airdrop", // Airdrop
-  "x402-solana-protocol", // Payments
+  "x402-template", // X402 Next.js
   "gill-node-express", // Backend
 ];
 
