@@ -40,7 +40,11 @@ export default async function RootLayout({ children, params }: Props) {
           ></iframe>
         </noscript>
         {/* End Google Tag Manager (noscript) */}
-        <NextIntlClientProvider messages={messages} locale={locale}>
+        <NextIntlClientProvider
+          messages={messages}
+          locale={locale}
+          timeZone="UTC"
+        >
           <PostHogProvider>
             <ThemeProvider>
               <GTMTrackingSnippet />
