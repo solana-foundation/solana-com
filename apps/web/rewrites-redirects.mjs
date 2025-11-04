@@ -13,6 +13,17 @@ export default {
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
         locale: false,
       },
+      {
+        source: "/templates",
+        destination: "https://solana-com-templates.vercel.app/templates",
+        locale: false,
+      },
+      // everything underneath
+      {
+        source: "/templates/:path*",
+        destination: "https://solana-com-templates.vercel.app/templates/:path*",
+        locale: false,
+      },
     ],
     afterFiles: [],
     fallback: [],
