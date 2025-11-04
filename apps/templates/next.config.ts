@@ -4,7 +4,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
-  basePath: "/templates",
+  // Only use basePath when deployed for proxy integration
+  ...(process.env.NEXT_PUBLIC_BASE_PATH && {
+    basePath: process.env.NEXT_PUBLIC_BASE_PATH,
+  }),
 
   webpack(config) {
     // Handle inline SVGs
