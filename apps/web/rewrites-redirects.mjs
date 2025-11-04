@@ -15,13 +15,13 @@ export default {
       },
       {
         source: "/templates",
-        destination: "https://solana-com-templates.vercel.app/",
+        destination: "https://solana-com-templates.vercel.app/templates",
         locale: false,
       },
       // everything underneath
       {
         source: "/templates/:path*",
-        destination: "https://solana-com-templates.vercel.app/:path*",
+        destination: "https://solana-com-templates.vercel.app/templates/:path*",
         locale: false,
       },
     ],
