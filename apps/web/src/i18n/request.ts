@@ -16,6 +16,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
   return {
     locale,
     messages,
+    timeZone: "UTC",
     getMessageFallback({ namespace, key, error }) {
       if (error.code !== IntlErrorCode.MISSING_MESSAGE) return "";
       const path = [namespace, key].filter(Boolean).join(".");
