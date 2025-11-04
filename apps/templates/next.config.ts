@@ -4,10 +4,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
-  // Only use basePath when deployed for proxy integration
-  ...(process.env.NEXT_PUBLIC_BASE_PATH && {
-    basePath: process.env.NEXT_PUBLIC_BASE_PATH,
-  }),
+  // Load assets directly from templates deployment for proxy support
+  assetPrefix: "https://solana-com-templates.vercel.app",
 
   webpack(config) {
     // Handle inline SVGs
