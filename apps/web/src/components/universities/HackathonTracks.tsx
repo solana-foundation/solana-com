@@ -11,6 +11,9 @@ interface HackathonTracksProps {
     tracks: Array<{
       title: string;
       description: string;
+      prizeAmount?: string;
+      sponsor?: string;
+      logo?: string;
     }>;
   };
 }
@@ -84,7 +87,7 @@ export default function HackathonTracks({
                 </p>
                 <div className={`pt-4 border-t border-gray-800`}>
                   <span className={`text-2xl font-bold ${iconConfig.color}`}>
-                    {translations.prizeAmount}
+                    {track.prizeAmount || translations.prizeAmount}
                   </span>
                   <span className="text-gray-500 text-sm ml-2">prize</span>
                 </div>

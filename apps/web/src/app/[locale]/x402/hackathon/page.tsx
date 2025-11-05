@@ -64,6 +64,25 @@ export default async function Page(_props: Props) {
     tracks: t.raw("x402.hackathon.tracks.items") as Array<{
       title: string;
       description: string;
+      prizeAmount?: string;
+      sponsor?: string;
+      logo?: string;
+    }>,
+
+    sponsorBountiesTitle: t("x402.hackathon.sponsorBounties.title"),
+    sponsorBountiesSubtitle: t("x402.hackathon.sponsorBounties.subtitle"),
+    sponsorBounties: t.raw("x402.hackathon.sponsorBounties.items") as Array<{
+      sponsor: string;
+      logo: string;
+      title: string;
+      description: string;
+      prizeAmount: string;
+    }>,
+
+    sponsorBannerTitle: t("x402.hackathon.sponsorBanner.title"),
+    sponsorBannerLogos: t.raw("x402.hackathon.sponsorBanner.logos") as Array<{
+      src: string;
+      alt: string;
     }>,
 
     resourcesTitle: t("x402.hackathon.resources.title"),
