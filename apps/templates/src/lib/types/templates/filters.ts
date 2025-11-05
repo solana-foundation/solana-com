@@ -28,6 +28,10 @@ export const createFilters = (t: (key: string) => string): TemplateFilter[] => [
         id: "airdrop",
         name: t("keywords.airdrop"),
       },
+      {
+        id: "auth",
+        name: t("keywords.auth"),
+      },
     ],
     name: t("categories.usecases"),
   },
@@ -109,6 +113,7 @@ export const filters: TemplateFilter[] = [
       { id: "mobile", name: "Mobile" },
       { id: "payments", name: "Payments" },
       { id: "airdrop", name: "Airdrop" },
+      { id: "auth", name: "Auth" },
     ],
     name: "Use Cases",
   },
