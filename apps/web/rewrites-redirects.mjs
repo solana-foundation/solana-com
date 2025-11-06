@@ -14,14 +14,16 @@ export default {
         locale: false,
       },
       {
-        source: "/templates",
-        destination: "https://solana-com-templates.vercel.app/templates",
+        source: "/developers/templates",
+        destination:
+          "https://solana-com-templates.vercel.app/developers/templates",
         locale: false,
       },
       // everything underneath
       {
-        source: "/templates/:path*",
-        destination: "https://solana-com-templates.vercel.app/templates/:path*",
+        source: "/developers/templates/:path*",
+        destination:
+          "https://solana-com-templates.vercel.app/developers/templates/:path*",
         locale: false,
       },
     ],
