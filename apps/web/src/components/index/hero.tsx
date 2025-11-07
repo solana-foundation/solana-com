@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@/app/components/utils";
+import { Container } from "@/component-library/container";
 
 export type HeroProps = {
   title: React.ReactNode;
@@ -34,7 +35,7 @@ export const Hero: React.FC<HeroProps> = ({
   return (
     <section
       id="hero"
-      className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left"
+      className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left border-b border-nd-border-light m-twd-0"
       aria-labelledby="hero-title"
     >
       {bgVideoSrc && (
@@ -50,7 +51,7 @@ export const Hero: React.FC<HeroProps> = ({
         />
       )}
       <div className="flex min-h-[700px]">
-        <div className="max-w-screen-2xl w-full mx-twd-auto flex flex-col justify-between relative px-twd-5 md:px-twd-8 xl:px-twd-10 pt-twd-12 xl:pt-[165px] md:pb-twd-8 xl:pb-twd-10 min-h-[calc(100vh-70px)]">
+        <Container className="flex flex-col justify-between relative pt-twd-12 xl:pt-[165px] md:pb-twd-8 xl:pb-twd-10 min-h-[calc(100vh-70px)]">
           <div className="max-w-5xl">
             <h1 className="nd-heading-2xl" id="hero-title">
               {title}
@@ -134,7 +135,7 @@ export const Hero: React.FC<HeroProps> = ({
               </div>
             </div>
           )}
-        </div>
+        </Container>
       </div>
     </section>
   );

@@ -1,6 +1,7 @@
 import React from "react";
 import Marquee from "@/component-library/marquee";
 import { cn } from "@/app/components/utils";
+import { twMerge } from "tailwind-merge";
 
 export type Logo = {
   src: string;
@@ -9,34 +10,26 @@ export type Logo = {
 };
 
 export type LogosProps = {
-  logos: Logo[];
+  logos?: Logo[];
   className?: string;
+  itemClassName?: string;
   fadeColor?: string;
+  animation?: boolean;
 };
 
-/**
- * Displays a scrolling marquee of project logos.
- *
- * @component
- * @param {LogosProps} props - The props for the component.
- * @param {Logo[]} props.logos - Array of logo objects to display in the marquee. Each logo includes a source URL and alt text.
- * @param {string} [props.className] - Optional CSS class to apply to each logo container.
- * @param {string} [props.fadeColor="#000"] - Color for the edge fade effect.
- * @returns {JSX.Element} The rendered Logos section.
- *
- * @example
- * <Logos
- *   logos={[{ src: "/logo.png", alt: "Company Logo", height: "40px" }]}
- *   fadeColor="#ffffff"
- * />
- */
-export const Logos = ({ logos, className, fadeColor = "#000" }: LogosProps) => {
+export const Logos: React.FC<LogosProps> = ({
+  logos = [],
+  className,
+  itemClassName,
+  fadeColor = "#000",
+  animation = true,
+}) => {
   const items = logos.map((logo, i) => (
     <div
       key={`${logo.alt}-${i}`}
       className={cn(
-        "flex items-center justify-center relative h-[40px] mr-8 md:mr-12 xl:mr-32 self-center",
-        className,
+        "flex items-center justify-center relative mr-twd-8 md:mr-twd-12 xl:mr-twd-32 self-center h-[40px]",
+        itemClassName,
       )}
       style={{
         height: logo.height ?? "",
@@ -51,9 +44,22 @@ export const Logos = ({ logos, className, fadeColor = "#000" }: LogosProps) => {
     </div>
   ));
 
+  if (!animation) {
+    return (
+      <div
+        className={twMerge(
+          "relative w-full flex whitespace-nowrap items-center justify-center scrollbar-hidden overflow-auto",
+          className,
+        )}
+      >
+        {items}
+      </div>
+    );
+  }
+
   return (
     <div
-      className="relative w-full"
+      className={cn("relative w-full", className)}
       style={
         {
           "--fade-color": fadeColor,
