@@ -48,7 +48,7 @@ function Sticker(props: {
 
   return (
     <>
-      <Files className="flex-1 shrink-0">
+      <Files className="flex-1 shrink-0 hidden">
         <FileNodes
           nodes={filetree}
           onSelect={setSelected}
