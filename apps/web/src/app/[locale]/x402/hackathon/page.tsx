@@ -124,7 +124,7 @@ export default async function Page(_props: Props) {
           "x402.hackathon.resources.items.x402Template.description",
         ),
         category: t("x402.hackathon.resources.items.x402Template.category"),
-        url: "https://templates.solana.com/x402-solana-protocol",
+        url: "https://templates.solana.com/x402-template",
       },
       {
         title: t("x402.hackathon.resources.items.coinbaseDocs.title"),
