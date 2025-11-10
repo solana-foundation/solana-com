@@ -91,7 +91,6 @@ export const Hero: React.FC<HeroProps> = ({
                         width={153}
                         height={153}
                         className="!h-auto w-[74px] md:w-[153px] rounded-lg md:rounded-sm aspect-square"
-                        quality={100}
                         style={{
                           objectFit: "cover",
                         }}

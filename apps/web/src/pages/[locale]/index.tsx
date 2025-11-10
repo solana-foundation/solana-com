@@ -1,0 +1,157 @@
+import Layout from "@/components/solutions/layout";
+import { withLocales } from "@workspace/i18n/routing";
+import { Hero } from "@/components/index/hero";
+import { useTranslations } from "next-intl";
+import HTMLHead from "@/components/HTMLHead";
+import { Logos } from "@/component-library/logos";
+import { Divider } from "@/component-library/divider";
+import { LOGOS } from "@/data/index/data";
+import { CardCariuselSection } from "@/component-library/card-cariusel-section";
+import { PlaceMediaCard } from "@/component-library/place-media-card";
+import {
+  fetchCalendarEvents,
+  CalendarEvent,
+} from "@/lib/events/fetchCalendarEvents";
+
+interface HomeProps {
+  events: (Omit<CalendarEvent, "schedule"> & {
+    schedule: CalendarEvent["schedule"] & { from: string; to: string };
+  })[];
+  firstFeaturedEventIndex: number;
+}
+
+export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
+  const t = useTranslations();
+
+  return (
+    <Layout className="bg-nd-bg">
+      <HTMLHead
+        title={t("index.meta.title")}
+        description={t("index.meta.description")}
+        socialShare="/src/img/index/og-image.jpeg"
+      />
+
+      <Hero
+        title={t.rich("index.hero.title", {
+          light: (chunks) => (
+            <>
+              <br />
+              <span className="font-light">{chunks}</span>
+            </>
+          ),
+        })}
+        subtitle={t("index.hero.subtitle")}
+        bannerEyebrow={t("index.hero.bannerEyebrow")}
+        bannerDescription={t("index.hero.bannerDescription")}
+        bannerImgSrc="/src/img/index/hero-banner.webp"
+        // TODO: Add banner href
+        bannerHref="#"
+        bannerLabel={t("index.hero.bannerLabel")}
+        // TODO: Add onCtaClick function
+        onCtaClick={() => {}}
+        cta={t("index.hero.cta")}
+        bgVideoSrc="/src/img/index/hero-bg.webm"
+        bgVideoPoster="/src/img/index/hero-bg.webp"
+      />
+
+      <Logos
+        className="h-[73px] xl:h-[123px] gap-twd-6 xl:gap-twd-12 justify-start max-w-screen-2xl w-full mx-twd-auto px-twd-5 md:px-twd-8 xl:px-twd-10 py-twd-6 xl:py-twd-11"
+        itemClassName="h-full m-0"
+        logos={LOGOS}
+        animation={false}
+      />
+
+      <Divider />
+
+      <CardCariuselSection
+        title={t.rich("index.events.title", {
+          light: (chunks) => (
+            <>
+              <br />
+              <span className="font-light">{chunks}</span>
+            </>
+          ),
+        })}
+        subtitle={t("index.events.subtitle")}
+        totalItems={events.length}
+        desktopLastPageOffset={2}
+        tabletLastPageOffset={2}
+        cardWidthClassName="w-full md:w-[350px] xl:w-[450px]"
+        startIndex={firstFeaturedEventIndex}
+      >
+        {events.map((event) => (
+          <PlaceMediaCard
+            key={event.key}
+            imageSrc={event.img.primary}
+            title={event.title}
+            date={event.schedule.from}
+            location={event.venue.city}
+            href={event.rsvp}
+          />
+        ))}
+      </CardCariuselSection>
+    </Layout>
+  );
+}
+
+export async function getStaticProps({ params }) {
+  const { locale = "en" } = params;
+  try {
+    const messages = (await import(`@@/public/locales/${locale}/common.json`))
+      .default;
+
+    let events: CalendarEvent[] = [];
+    let firstFeaturedEventIndex = 0;
+
+    try {
+      const pastEvents = await fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
+        time: "past",
+        limit: 10,
+      });
+      events = [...pastEvents];
+    } catch (error) {
+      console.error(error);
+    }
+
+    try {
+      const featuredEvents = await fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
+        period: "future",
+      });
+      firstFeaturedEventIndex = events.length;
+      events = [...events, ...featuredEvents];
+    } catch (error) {
+      console.error(error);
+    }
+
+    return {
+      props: {
+        locale,
+        messages,
+        events: events
+          ? events.map((event) => {
+              return {
+                ...event,
+                schedule: {
+                  ...event.schedule,
+                  from: event.schedule?.from?.toISOString?.() || null,
+                  to: event.schedule?.to?.toISOString?.() || null,
+                },
+              };
+            })
+          : [],
+        firstFeaturedEventIndex,
+      },
+      revalidate: 60,
+    };
+  } catch (error) {
+    console.error(error);
+    return { notFound: true };
+  }
+}
+
+export async function getStaticPaths() {
+  return {
+    paths: withLocales(),
+    fallback: "blocking",
+  };
+}

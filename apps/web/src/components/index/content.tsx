@@ -7,8 +7,10 @@ import HTMLHead from "@/components/HTMLHead";
 import { Logos } from "@/component-library/logos";
 import { Divider } from "@/component-library/divider";
 import { LOGOS } from "@/data/index/data";
+import { CardCariuselSection } from "@/component-library/card-cariusel-section";
+import { PlaceMediaCard } from "@/component-library/place-media-card";
 
-export default function Home() {
+export default function HomeContent() {
   const t = useTranslations();
 
   return (
@@ -50,6 +52,42 @@ export default function Home() {
       />
 
       <Divider />
+
+      <CardCariuselSection
+        title={t.rich("index.events.title", {
+          light: (chunks) => (
+            <>
+              <br />
+              <span className="font-light">{chunks}</span>
+            </>
+          ),
+        })}
+        subtitle={t("index.events.subtitle")}
+        totalItems={3}
+        desktopLastPageOffset={2}
+        tabletLastPageOffset={2}
+        cardWidthClassName="w-full md:w-[350px] xl:w-[450px]"
+      >
+        <PlaceMediaCard
+          imageSrc="https://img.youtube.com/vi/4jbz_YGzrVk/maxresdefault.jpg"
+          title="Event 1"
+          date="2025-01-01"
+          location="New York"
+          href="https://www.youtube.com/watch?v=4jbz_YGzrVk"
+        />
+        <PlaceMediaCard
+          imageSrc="https://img.youtube.com/vi/4jbz_YGzrVk/maxresdefault.jpg"
+          title="Event 2"
+          date="2025-01-02"
+          location="Los Angeles"
+        />
+        <PlaceMediaCard
+          imageSrc="https://img.youtube.com/vi/4jbz_YGzrVk/maxresdefault.jpg"
+          title="Event 3"
+          date="2025-01-03"
+          location="Chicago"
+        />
+      </CardCariuselSection>
     </Layout>
   );
 }

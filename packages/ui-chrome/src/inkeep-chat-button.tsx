@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useInkeepConfig } from "./inkeep-config";
 import { useTranslations } from "next-intl";
-import SolanaIcon from "@@/public/src/img/icons/solana.inline.svg";
+import SolanaIcon from "./assets/solana.inline.svg";
 
 const InkeepModalSearchAndChat = dynamic(
   () =>

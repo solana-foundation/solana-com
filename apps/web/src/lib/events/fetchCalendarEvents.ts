@@ -1,5 +1,50 @@
 import slugify from "@sindresorhus/slugify";
 
+export type LumaEvent = {
+  event: {
+    api_id: string;
+    name: string;
+    url: string;
+    start_at: string;
+    end_at: string;
+    timezone: string;
+    geo_address_info: {
+      city: string | null;
+      region: string | null;
+      city_state: string | null;
+      country: string | null;
+      address: string | null;
+    };
+    cover_url: string | null;
+    event_type: string;
+  };
+  platform: string;
+};
+
+export type CalendarEvent = {
+  key: string;
+  title: string;
+  description: string;
+  platform: string;
+  rsvp: string;
+  schedule: {
+    from: Date;
+    to: Date;
+    timezone: string;
+  };
+  img: {
+    primary: string | null;
+    alt: string | null;
+  };
+  venue: {
+    city: string | null;
+    region: string | null;
+    city_state: string | null;
+    country: string | null;
+    address: string | null;
+  };
+};
+
 const dummyEvent = [
   {
     key: "dummy-event",
@@ -38,7 +83,7 @@ export async function fetchCalendarEvents(calendarId, options) {
     return dummyEvent;
   }
 
-  let allEvents = [];
+  let allEvents: CalendarEvent[] = [];
 
   const getCalendarEventsUrl = new URL("https://api.lu.ma/calendar/get-items");
 
@@ -60,8 +105,12 @@ export async function fetchCalendarEvents(calendarId, options) {
 
   const { entries } = await res.json();
 
+  if (!entries) {
+    return allEvents;
+  }
+
   allEvents = allEvents.concat(
-    entries.map((el) => {
+    entries.map((el: LumaEvent) => {
       const {
         name,
         api_id,
@@ -94,15 +143,15 @@ export async function fetchCalendarEvents(calendarId, options) {
           timezone,
         },
         img: {
-          primary: cover_url,
-          alt: name,
+          primary: cover_url || null,
+          alt: name || null,
         },
         venue: {
-          city: geo_address_info?.city,
-          region: geo_address_info?.region,
-          city_state: geo_address_info?.city_state,
-          country: geo_address_info?.country,
-          address: geo_address_info?.address,
+          city: geo_address_info?.city || null,
+          region: geo_address_info?.region || null,
+          city_state: geo_address_info?.city_state || null,
+          country: geo_address_info?.country || null,
+          address: geo_address_info?.address || null,
         },
       };
     }),

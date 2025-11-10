@@ -1,0 +1,40 @@
+import React from "react";
+import Image from "next/image";
+import { cn } from "@/app/components/utils";
+
+export type BadgeProps = {
+  className?: string;
+  title?: React.ReactNode | string;
+  LeftIcon?:
+    | string
+    | React.ComponentType<{
+        className?: string;
+        size?: string | number;
+      }>;
+};
+
+export const Badge: React.FC<BadgeProps> = ({ className, title, LeftIcon }) => {
+  return (
+    <div
+      className={cn(
+        "p-twd-1.5 text-nd-primary bg-nd-border-light rounded-sm font-medium nd-body-s inline-block",
+        className,
+      )}
+    >
+      {typeof LeftIcon === "string" ? (
+        <Image
+          className="inline-block align-middle mr-twd-0.5 max-xl:size-[18px] rounded-[2px]"
+          src={LeftIcon}
+          width={20}
+          height={20}
+          alt=""
+        />
+      ) : Boolean(LeftIcon) ? (
+        <LeftIcon size={20} />
+      ) : null}
+      <span className="px-twd-1.5 inline-block align-middle pt-twd-0.5">
+        {title}
+      </span>
+    </div>
+  );
+};
