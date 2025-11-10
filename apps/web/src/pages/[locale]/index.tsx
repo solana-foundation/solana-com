@@ -12,6 +12,18 @@ import {
   fetchCalendarEvents,
   CalendarEvent,
 } from "@/lib/events/fetchCalendarEvents";
+import { Performance } from "@/components/index/performance";
+import dynamic from "next/dynamic";
+
+const TransactionsStat = dynamic(
+  () =>
+    import("@/components/index/transactions-stat").then(
+      (mod) => mod.TransactionsStat,
+    ),
+  {
+    ssr: false,
+  },
+);
 
 interface HomeProps {
   events: (Omit<CalendarEvent, "schedule"> & {
@@ -63,8 +75,41 @@ export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
 
       <Divider />
 
-      <CardCariuselSection
-        title={t.rich("index.events.title", {
+      {events.length > 0 && (
+        <>
+          <CardCariuselSection
+            title={t.rich("index.events.title", {
+              light: (chunks) => (
+                <>
+                  <br />
+                  <span className="font-light">{chunks}</span>
+                </>
+              ),
+            })}
+            subtitle={t("index.events.subtitle")}
+            totalItems={events.length}
+            desktopLastPageOffset={2}
+            tabletLastPageOffset={2}
+            cardWidthClassName="w-full md:w-[350px] xl:w-[450px]"
+            startIndex={firstFeaturedEventIndex}
+          >
+            {events.map((event) => (
+              <PlaceMediaCard
+                key={event.key}
+                imageSrc={event.img.primary}
+                title={event.title}
+                date={event.schedule.from}
+                location={event.venue.city}
+                href={event.rsvp}
+              />
+            ))}
+          </CardCariuselSection>
+          <Divider />
+        </>
+      )}
+
+      <Performance
+        title={t.rich("index.performance.title", {
           light: (chunks) => (
             <>
               <br />
@@ -72,24 +117,40 @@ export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
             </>
           ),
         })}
-        subtitle={t("index.events.subtitle")}
-        totalItems={events.length}
-        desktopLastPageOffset={2}
-        tabletLastPageOffset={2}
-        cardWidthClassName="w-full md:w-[350px] xl:w-[450px]"
-        startIndex={firstFeaturedEventIndex}
-      >
-        {events.map((event) => (
-          <PlaceMediaCard
-            key={event.key}
-            imageSrc={event.img.primary}
-            title={event.title}
-            date={event.schedule.from}
-            location={event.venue.city}
-            href={event.rsvp}
-          />
-        ))}
-      </CardCariuselSection>
+        subtitle={t("index.performance.subtitle")}
+        counters={[
+          {
+            value: <TransactionsStat variant="total" />,
+            label: t("index.performance.counters.0.label"),
+            Icon: "/src/img/index/icons/steps.svg",
+          },
+          {
+            value: <TransactionsStat variant="per-sec" />,
+            label: t("index.performance.counters.1.label"),
+            Icon: "/src/img/index/icons/speed.svg",
+          },
+        ]}
+        stats={[
+          {
+            value: t("index.performance.stats.0.value"),
+            label: t("index.performance.stats.0.label"),
+          },
+          {
+            value: t("index.performance.stats.1.value"),
+            label: t("index.performance.stats.1.label"),
+          },
+          {
+            value: t("index.performance.stats.2.value"),
+            label: t("index.performance.stats.2.label"),
+          },
+          {
+            value: t("index.performance.stats.3.value"),
+            label: t("index.performance.stats.3.label"),
+          },
+        ]}
+        bgVideoSrc="/src/img/index/performance-bg.webm"
+        bgVideoPoster="/src/img/index/performance-bg.webp"
+      />
     </Layout>
   );
 }
