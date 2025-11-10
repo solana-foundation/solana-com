@@ -28,6 +28,10 @@ export const TOOLS = [
   },
   {
     key: "2",
+    href: "https://templates.solana.com/x402-template",
+  },
+  {
+    key: "3",
     href: "https://templates.solana.com/x402-solana-protocol",
   },
 ];

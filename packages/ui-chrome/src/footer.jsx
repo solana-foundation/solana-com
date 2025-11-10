@@ -119,14 +119,6 @@ export const Footer = ({ className = "" }) => {
                 </InlineLink>
               </li>
               <li>
-                <InlineLink
-                  to="https://break.solana.com/"
-                  className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
-                >
-                  {t("footer.solana.break")}
-                </InlineLink>
-              </li>
-              <li>
                 <Link
                   to="/branding"
                   className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"

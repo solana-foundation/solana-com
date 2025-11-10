@@ -7,8 +7,10 @@ const DEFAULT_TEMPLATE_NAMES = [
   "gill-react-vite-tailwind-basic", // Fullstack boilerplate (Vite)
   "web3js-expo", // Mobile
   "gill-jito-airdrop", // Airdrop
-  "x402-solana-protocol", // Payments
+  "x402-template", // X402 Next.js
+  "gill-node-solanax402", // X402 Express Server
   "gill-node-express", // Backend
+  "supabase-auth", // Auth
 ];
 
 export function filterTemplates({

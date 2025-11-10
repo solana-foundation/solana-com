@@ -46,6 +46,11 @@ export default async function Page(_props: Props) {
     solanaTitle: t("x402.hackathon.prerequisites.solana.title"),
     solanaDescription: t("x402.hackathon.prerequisites.solana.description"),
     solanaCta: t("x402.hackathon.prerequisites.solana.cta"),
+    x402NextTitle: t("x402.hackathon.prerequisites.x402NextTemplate.title"),
+    x402NextDescription: t(
+      "x402.hackathon.prerequisites.x402NextTemplate.description",
+    ),
+    x402NextCta: t("x402.hackathon.prerequisites.x402NextTemplate.cta"),
 
     problemTitle: t("x402.hackathon.problem.title"),
     problemDescription: t("x402.hackathon.problem.description"),
@@ -59,6 +64,25 @@ export default async function Page(_props: Props) {
     tracks: t.raw("x402.hackathon.tracks.items") as Array<{
       title: string;
       description: string;
+      prizeAmount?: string;
+      sponsor?: string;
+      logo?: string;
+    }>,
+
+    sponsorBountiesTitle: t("x402.hackathon.sponsorBounties.title"),
+    sponsorBountiesSubtitle: t("x402.hackathon.sponsorBounties.subtitle"),
+    sponsorBounties: t.raw("x402.hackathon.sponsorBounties.items") as Array<{
+      sponsor: string;
+      logo: string;
+      title: string;
+      description: string;
+      prizeAmount: string;
+    }>,
+
+    sponsorBannerTitle: t("x402.hackathon.sponsorBanner.title"),
+    sponsorBannerLogos: t.raw("x402.hackathon.sponsorBanner.logos") as Array<{
+      src: string;
+      alt: string;
     }>,
 
     resourcesTitle: t("x402.hackathon.resources.title"),
@@ -100,7 +124,7 @@ export default async function Page(_props: Props) {
           "x402.hackathon.resources.items.x402Template.description",
         ),
         category: t("x402.hackathon.resources.items.x402Template.category"),
-        url: "https://templates.solana.com/x402-solana-protocol",
+        url: "https://templates.solana.com/x402-template",
       },
       {
         title: t("x402.hackathon.resources.items.coinbaseDocs.title"),

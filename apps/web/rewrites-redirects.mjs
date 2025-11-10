@@ -29,6 +29,19 @@ export default {
         destination: `${mediaUrl}/media/:path*`,
         locale: false,
       },
+      {
+        source: "/developers/templates",
+        destination:
+          "https://solana-com-templates.vercel.app/developers/templates",
+        locale: false,
+      },
+      // everything underneath
+      {
+        source: "/developers/templates/:path*",
+        destination:
+          "https://solana-com-templates.vercel.app/developers/templates/:path*",
+        locale: false,
+      },
     ],
     afterFiles: [],
     fallback: [],

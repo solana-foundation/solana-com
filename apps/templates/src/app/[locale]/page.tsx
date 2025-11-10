@@ -6,6 +6,8 @@ import { fetchTemplatesFromGitHub } from "@/lib/fetch-templates";
 import { AppProviders } from "@/components/app-providers";
 import { TemplatesProviderWrapper } from "@/components/providers/templates-provider-wrapper";
 
+export const revalidate = 3600;
+
 export default async function TemplatesPage() {
   const templates = await fetchTemplatesFromGitHub();
   const t = await getTranslations("templates");
