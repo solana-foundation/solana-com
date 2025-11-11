@@ -1,19 +1,8 @@
 import { getRequestConfig } from "next-intl/server";
-import { AbstractIntlMessages, IntlErrorCode } from "next-intl";
+import { IntlErrorCode } from "next-intl";
 import { routing } from "@workspace/i18n/routing";
 import { locales } from "@workspace/i18n/config";
-
-export async function loadMessages(
-  importPath: (locale: string) => Promise<{ default: AbstractIntlMessages }>,
-  locale: string
-): Promise<AbstractIntlMessages> {
-  try {
-    return (await importPath(locale)).default;
-  } catch {
-    // Fallback to English if locale doesn't exist
-    return (await importPath("en")).default;
-  }
-}
+import { loadMessages } from "@workspace/i18n/load-messages";
 
 const enMessages = (await import("../../web/public/locales/en/common.json"))
   .default;

@@ -1,4 +1,5 @@
 import { AbstractIntlMessages } from "next-intl";
+import { defaultLocale } from "./config";
 
 /**
  * Loads translation messages from a locale file with automatic fallback to English.
@@ -15,6 +16,6 @@ export async function loadMessages(
     return (await importPath(locale)).default;
   } catch {
     // Fallback to English if locale doesn't exist
-    return (await importPath("en")).default;
+    return (await importPath(defaultLocale)).default;
   }
 }

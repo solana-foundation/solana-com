@@ -89,6 +89,21 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/media/read",
+        permanent: true,
+      },
+      {
+        source: "/:locale",
+        destination: "/:locale/media/read",
+        permanent: true,
+      },
+    ];
+  },
+
   experimental: {
     scrollRestoration: true,
     externalDir: true,

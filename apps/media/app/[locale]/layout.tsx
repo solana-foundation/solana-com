@@ -13,6 +13,7 @@ import { staticLocales } from "@workspace/i18n/config";
 import { GTMTrackingSnippet } from "@/components/GTMTrackingSnippet";
 import { CookieConsent } from "@/components/CookieConsent/CookieConsent";
 import { config } from "@/lib/config";
+import { loadMessages } from "@workspace/i18n/load-messages";
 
 import "@/styles.css";
 import { TailwindIndicator } from "@/components/ui/breakpoint-indicator";
@@ -137,20 +138,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function LocaleLayout({ children, params }: Props) {
-  const { locale: rawLocale = "en" } = await params;
-
-  // Validate locale - fallback to "en" if invalid
-  const locale = staticLocales.includes(rawLocale) ? rawLocale : "en";
+  const { locale = "en" } = await params;
   const direction = getLangDir(locale);
 
-  // Load locale messages with fallback
-  let messages;
-  try {
-    messages = (await import(`../../public/locales/${locale}/common.json`))
-      .default;
-  } catch {
-    messages = (await import(`../../public/locales/en/common.json`)).default;
-  }
+  // Load the requested locale with automatic fallback to English if it doesn't exist
+  const messages = await loadMessages(
+    (loc) => import(`../../../web/public/locales/${loc}/common.json`),
+    locale
+  );
 
   // Fetch global data for LayoutProvider
   const { data: globalData } = await client.queries.global(
