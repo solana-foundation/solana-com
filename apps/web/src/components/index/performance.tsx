@@ -5,8 +5,8 @@ import { cn } from "@/app/components/utils";
 import Image from "next/image";
 
 export type PerformanceProps = {
-  title: React.ReactNode;
-  subtitle: React.ReactNode;
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
   bgVideoSrc?: string;
   bgVideoPoster?: string;
   stats?: StatsGridItem[];
@@ -36,7 +36,7 @@ export const Performance: React.FC<PerformanceProps> = ({
         />
       )}
       <div className="flex">
-        <Container className="py-[64px] md:py-[108px] xl:py-[160px] flex flex-col justify-between relative min-h-[calc(100vh-70px)]">
+        <Container className="py-[64px] md:py-[108px] xl:py-[160px] flex flex-col justify-between relative">
           <div className="flex flex-col xl:flex-row gap-[52px] justify-between items-start">
             <div className="xl:max-w-[50%] grow-0">
               {title && <h2 className="nd-heading-l">{title}</h2>}

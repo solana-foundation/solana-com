@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import { Logos } from "@/component-library/logos";
 import { Divider } from "@/component-library/divider";
-import { LOGOS } from "@/data/index/data";
+import { LOGOS, PROJECTS, PROJECTS_LOGOS } from "@/data/index/data";
 import { CardCariuselSection } from "@/component-library/card-cariusel-section";
 import { PlaceMediaCard } from "@/component-library/place-media-card";
 import {
@@ -15,6 +15,7 @@ import {
 import { Performance } from "@/components/index/performance";
 import dynamic from "next/dynamic";
 import defaultImg from "@@/assets/events/solana-event.jpg";
+import { Projects } from "@/components/index/projects";
 
 const TransactionsStat = dynamic(
   () =>
@@ -151,6 +152,25 @@ export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
         ]}
         bgVideoSrc="/src/img/index/performance-bg.webm"
         bgVideoPoster="/src/img/index/performance-bg.webp"
+      />
+
+      <Projects
+        title={t.rich("index.projects.title", {
+          light: (chunks) => (
+            <>
+              <br />
+              <span className="font-light">{chunks}</span>
+            </>
+          ),
+        })}
+        projects={PROJECTS.map((item) => ({
+          ...item,
+          name: t(`index.projects.${item.key}.name`),
+          stat: t(`index.projects.${item.key}.stat`),
+          statLabel: t(`index.projects.${item.key}.statLabel`),
+        }))}
+        bgSrc="/src/img/index/projects-bg.webp"
+        logos={PROJECTS_LOGOS}
       />
     </Layout>
   );
