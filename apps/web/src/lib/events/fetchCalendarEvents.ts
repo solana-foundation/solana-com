@@ -1,4 +1,9 @@
 import slugify from "@sindresorhus/slugify";
+import { isExternalLink } from "../utils/isExternalLink";
+import breakpointImg from "@@/assets/events/breakpoint.jpg";
+import shipordieImg from "@@/assets/events/shipordie.jpg";
+import scaleordieImg from "@@/assets/events/scaleordie.jpg";
+import crossroadsImg from "@@/assets/events/crossroads.jpg";
 
 export type LumaEvent = {
   event: {
@@ -28,8 +33,8 @@ export type CalendarEvent = {
   platform: string;
   rsvp: string;
   schedule: {
-    from: Date;
-    to: Date;
+    from: string | null;
+    to: string | null;
     timezone: string;
   };
   img: {
@@ -53,8 +58,8 @@ const dummyEvent = [
     platform: "Zoom",
     rsvp: "https://solana.com",
     schedule: {
-      from: new Date("2024-06-01T10:00:00Z"),
-      to: new Date("2024-06-03T10:00:00Z"),
+      from: "2024-06-01T10:00:00Z",
+      to: "2024-06-03T10:00:00Z",
       timezone: "UTC",
     },
     img: {
@@ -77,7 +82,10 @@ const dummyEvent = [
  * @param {object} options Options for the query.
  * @returns {Promise<Array>} An array of events.
  */
-export async function fetchCalendarEvents(calendarId, options) {
+export async function fetchCalendarEvents(
+  calendarId: string,
+  options: Record<string, any>,
+): Promise<CalendarEvent[]> {
   if (!process.env.LUMA_PRIVATE_API_KEY) {
     console.warn("LUMA_PRIVATE_API_KEY is not set. Returning dummy data.");
     return dummyEvent;
@@ -122,8 +130,8 @@ export async function fetchCalendarEvents(calendarId, options) {
         cover_url,
         event_type,
       } = el.event;
-      const startDate = new Date(start_at);
-      const endDate = new Date(end_at);
+      const startDate = start_at ?? null;
+      const endDate = end_at ?? null;
       const platform = el.platform;
 
       const slug =
@@ -136,7 +144,7 @@ export async function fetchCalendarEvents(calendarId, options) {
         title: name,
         description: name,
         platform: platform,
-        rsvp: `https://lu.ma/${url}`,
+        rsvp: isExternalLink(url) ? url : `https://lu.ma/${url}`,
         schedule: {
           from: startDate,
           to: endDate,
@@ -157,6 +165,36 @@ export async function fetchCalendarEvents(calendarId, options) {
     }),
   );
 
+  // Add custom img and timezone overrides
+  allEvents.map((el) => {
+    if (el.key === "https://solana.com/breakpoint") {
+      el.img.primary = breakpointImg.src;
+      el.schedule.timezone = "Asia/Dubai";
+      el.schedule.to = "2025-12-13T23:59:59+04:00";
+    } else if (el.key === "https://solana.com/accelerate/ship-or-die") {
+      el.img.primary = shipordieImg.src;
+      el.schedule.timezone = "America/New_York";
+      el.schedule.to = "2025-05-23T23:59:59-04:00";
+    } else if (el.key === "https://solana.com/accelerate/scale-or-die") {
+      el.img.primary = scaleordieImg.src;
+      el.schedule.timezone = "America/New_York";
+      el.schedule.to = "2025-05-20T23:59:59-04:00";
+    } else if (el.key === "https://www.solanacrossroads.com/") {
+      el.img.primary = crossroadsImg.src;
+      el.schedule.timezone = "Europe/Istanbul";
+      el.schedule.to = "2025-04-26T23:59:59+03:00";
+    } else if (el.rsvp === "https://lu.ma/solana-summit-apac-2025") {
+      el.schedule.timezone = "Asia/Ho_Chi_Minh";
+      el.schedule.to = "2025-04-26T23:59:59+07:00";
+    }
+    return el;
+  });
+
+  const subevents = ["https://lu.ma/Mega-mixer-2025"];
+
+  // Filter out subevents from being featured
+  allEvents = allEvents.filter((event) => !subevents.includes(event.rsvp));
+
   return allEvents;
 }
 
@@ -165,7 +203,7 @@ export async function fetchCalendarEvents(calendarId, options) {
  * @param {object} options Options for the query.
  * @returns {Promise<Array>} An array of events.
  */
-export async function fetchCalendarRiverEvents(options) {
+export async function fetchCalendarRiverEvents(options: Record<string, any>) {
   if (!process.env.RIVER_KEY) {
     console.warn("RIVER_KEY is not set. Returning dummy data.");
     return dummyEvent;

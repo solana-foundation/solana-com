@@ -14,6 +14,7 @@ import {
 } from "@/lib/events/fetchCalendarEvents";
 import { Performance } from "@/components/index/performance";
 import dynamic from "next/dynamic";
+import defaultImg from "@@/assets/events/solana-event.jpg";
 
 const TransactionsStat = dynamic(
   () =>
@@ -96,10 +97,10 @@ export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
             {events.map((event) => (
               <PlaceMediaCard
                 key={event.key}
-                imageSrc={event.img.primary}
+                imageSrc={event.img.primary || defaultImg.src}
                 title={event.title}
                 date={event.schedule.from}
-                location={event.venue.city}
+                location={event.venue.city || event.venue.address}
                 href={event.rsvp}
               />
             ))}
@@ -165,9 +166,9 @@ export async function getStaticProps({ params }) {
     let firstFeaturedEventIndex = 0;
 
     try {
-      const pastEvents = await fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
-        time: "past",
-        limit: 10,
+      const pastEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
+        period: "past",
+        pagination_limit: 20,
       });
       events = [...pastEvents];
     } catch (error) {
@@ -175,7 +176,7 @@ export async function getStaticProps({ params }) {
     }
 
     try {
-      const featuredEvents = await fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
+      const featuredEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
         period: "future",
       });
       firstFeaturedEventIndex = events.length;
@@ -184,22 +185,17 @@ export async function getStaticProps({ params }) {
       console.error(error);
     }
 
+    events.sort(
+      (a, b) =>
+        new Date(a.schedule.from).getTime() -
+        new Date(b.schedule.from).getTime(),
+    );
+
     return {
       props: {
         locale,
         messages,
-        events: events
-          ? events.map((event) => {
-              return {
-                ...event,
-                schedule: {
-                  ...event.schedule,
-                  from: event.schedule?.from?.toISOString?.() || null,
-                  to: event.schedule?.to?.toISOString?.() || null,
-                },
-              };
-            })
-          : [],
+        events: events ? events : [],
         firstFeaturedEventIndex,
       },
       revalidate: 60,
