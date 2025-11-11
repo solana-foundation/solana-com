@@ -16,6 +16,7 @@ import { Performance } from "@/components/index/performance";
 import dynamic from "next/dynamic";
 import defaultImg from "@@/assets/events/solana-event.jpg";
 import { Projects } from "@/components/index/projects";
+import { BigBannerCard } from "@/component-library/big-banner-card";
 
 const TransactionsStat = dynamic(
   () =>
@@ -172,6 +173,40 @@ export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
         bgSrc="/src/img/index/projects-bg.webp"
         logos={PROJECTS_LOGOS}
       />
+
+      <CardCariuselSection
+        title={t.rich("index.news.title", {
+          light: (chunks) => (
+            <>
+              <br />
+              <span className="font-light">{chunks}</span>
+            </>
+          ),
+        })}
+        // TODO: Add actual news count
+        totalItems={2}
+        cardWidthClassName="w-full md:w-[700px] xl:w-[1360px]"
+      >
+        {/* TODO: Add actual news */}
+        <BigBannerCard
+          className="px-twd-1"
+          imageSrc="/src/img/index/news/news-1.webp"
+          title={t(`index.news.items.0.title`)}
+          description={t(`index.news.items.0.description`)}
+          href="https://solanamobile.com/seeker"
+          buttonLabel={t(`index.news.items.0.button`)}
+        />
+        <BigBannerCard
+          className="px-twd-1"
+          imageSrc="/src/img/index/news/news-1.webp"
+          title={t(`index.news.items.0.title`)}
+          description={t(`index.news.items.0.description`)}
+          href="https://solanamobile.com/seeker"
+          buttonLabel={t(`index.news.items.0.button`)}
+        />
+      </CardCariuselSection>
+
+      <Divider />
     </Layout>
   );
 }

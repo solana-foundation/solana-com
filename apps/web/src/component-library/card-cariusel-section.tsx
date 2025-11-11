@@ -10,7 +10,7 @@ export type CardCariuselSectionProps = {
   containerClassName?: string;
   cardWidthClassName?: string;
   title: React.ReactNode;
-  subtitle: React.ReactNode;
+  subtitle?: React.ReactNode;
   totalItems?: number;
   children: React.ReactNode | React.ReactNode[];
   desktopLastPageOffset?: number;
