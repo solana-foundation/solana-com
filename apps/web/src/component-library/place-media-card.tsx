@@ -54,7 +54,7 @@ export const PlaceMediaCard: React.FC<PlaceMediaCardProps> = ({
   return href ? (
     <a
       className={cn(
-        "flex flex-col w-full self-start px-twd-1 min-w-0 text-inherit",
+        "flex flex-col w-full self-start min-w-0 text-inherit",
         className,
       )}
       style={style}
@@ -66,10 +66,7 @@ export const PlaceMediaCard: React.FC<PlaceMediaCardProps> = ({
     </a>
   ) : (
     <div
-      className={cn(
-        "flex flex-col w-full self-start px-twd-1 min-w-0",
-        className,
-      )}
+      className={cn("flex flex-col w-full self-start min-w-0", className)}
       style={style}
     >
       {content}

@@ -17,6 +17,10 @@ import dynamic from "next/dynamic";
 import defaultImg from "@@/assets/events/solana-event.jpg";
 import { Projects } from "@/components/index/projects";
 import { BigBannerCard } from "@/component-library/big-banner-card";
+import { BigVideoCard } from "@/component-library/big-video-card";
+import { VideoPlayerModal } from "@/component-library/video-modal";
+import { YouTubePlaylistItem } from "@/lib/youtube/types";
+import { getAllPlaylistItems } from "@/lib/youtube/getYoutubePlaylist";
 
 const TransactionsStat = dynamic(
   () =>
@@ -32,10 +36,15 @@ interface HomeProps {
   events: (Omit<CalendarEvent, "schedule"> & {
     schedule: CalendarEvent["schedule"] & { from: string; to: string };
   })[];
+  videos: YouTubePlaylistItem[];
   firstFeaturedEventIndex: number;
 }
 
-export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
+export default function Home({
+  events,
+  firstFeaturedEventIndex,
+  videos,
+}: HomeProps) {
   const t = useTranslations();
 
   return (
@@ -104,6 +113,7 @@ export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
                 date={event.schedule.from}
                 location={event.venue.city || event.venue.address}
                 href={event.rsvp}
+                className="px-twd-1"
               />
             ))}
           </CardCariuselSection>
@@ -207,6 +217,27 @@ export default function Home({ events, firstFeaturedEventIndex }: HomeProps) {
       </CardCariuselSection>
 
       <Divider />
+
+      <CardCariuselSection
+        title={t("index.videos.title")}
+        subtitle={t("index.videos.subtitle")}
+        totalItems={videos.length}
+        cardWidthClassName="w-full md:w-[700px] xl:w-[800px]"
+      >
+        {videos.map((item) => (
+          <BigVideoCard
+            key={item.id}
+            id={item.contentDetails.videoId}
+            thumbnail={item.snippet.thumbnails.high.url}
+            alt={item.snippet.title}
+            className="px-twd-1"
+            title={item.snippet.title}
+            description={item.snippet.description}
+          />
+        ))}
+      </CardCariuselSection>
+
+      <VideoPlayerModal />
     </Layout>
   );
 }
@@ -226,20 +257,29 @@ export async function getStaticProps({ params }) {
         pagination_limit: 20,
       });
       events = [...pastEvents];
-    } catch (error) {
-      console.error(error);
-    }
-
-    try {
       const featuredEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
         period: "future",
       });
-      firstFeaturedEventIndex = events.length;
+      firstFeaturedEventIndex =
+        featuredEvents.length > 0 ? pastEvents.length : 0;
       events = [...events, ...featuredEvents];
     } catch (error) {
       console.error(error);
     }
 
+    let videos: YouTubePlaylistItem[] = [];
+
+    try {
+      // TODO: Add actual playlist ID
+      const ytVideos = await getAllPlaylistItems(
+        "PLilwLeBwGuK51Ji870apdb88dnBr1Xqhm",
+      );
+      videos = ytVideos;
+    } catch (error) {
+      console.error(error);
+    }
+
+    // Sort events by date
     events.sort(
       (a, b) =>
         new Date(a.schedule.from).getTime() -
@@ -252,6 +292,7 @@ export async function getStaticProps({ params }) {
         messages,
         events: events ? events : [],
         firstFeaturedEventIndex,
+        videos: videos ? videos : [],
       },
       revalidate: 60,
     };

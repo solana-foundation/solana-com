@@ -58,7 +58,7 @@ export const CardCariuselSection: React.FC<CardCariuselSectionProps> = ({
             <div className="max-w-xl">
               {title && <h2 className="nd-heading-l">{title}</h2>}
               {subtitle && (
-                <p className="text-nd-mid-em-text nd-body-xl mt-twd-2 xl:mt-twd-5">
+                <p className="text-nd-mid-em-text nd-body-xl max-xl:mt-twd-3 xl:mt-twd-5">
                   {subtitle}
                 </p>
               )}

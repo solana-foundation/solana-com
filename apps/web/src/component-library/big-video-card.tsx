@@ -62,7 +62,7 @@ export const BigVideoCard: React.FC<BigVideoCardProps> = ({
 
   return (
     <div
-      className={cn("flex flex-col w-full self-start px-1 min-w-0", className)}
+      className={cn("flex flex-col w-full self-start min-w-0", className)}
       style={style}
     >
       <div className="relative w-full aspect-video rounded-xl overflow-hidden cursor-pointer group">
@@ -104,13 +104,9 @@ export const BigVideoCard: React.FC<BigVideoCardProps> = ({
           </div>
         )}
       </div>
-      <h3 className="text-lg md:text-3xl xl:text-4xl font-medium mt-6 mb-0 tracking-[-0.54px] md:tracking-[-0.96px] xl:tracking-[-1.08px]  leading-[1.33] md:leading-[1.25] xl:leading-[1.22]">
-        {title}
-      </h3>
+      <h3 className="nd-heading-m max-xl:mt-twd-5 xl:mt-twd-7">{title}</h3>
       {description && (
-        <p className="text-[#ABABBA] max-md:text-base md:text-lg xl:text-xl mt-1 mb-0 tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.5] md:leading-[1.77] xl:leading-[1.6]">
-          {description}
-        </p>
+        <p className="nd-body-xl text-nd-mid-em-text !mt-1">{description}</p>
       )}
     </div>
   );
