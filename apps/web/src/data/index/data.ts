@@ -1,3 +1,9 @@
+import CoinsAdd from "@@/public/src/img/icons/CoinsAdd.inline.svg";
+import CodeInSquear from "@@/public/src/img/icons/CodeInSquear.inline.svg";
+import Bezier from "@@/public/src/img/icons/Bezier.inline.svg";
+import ShieldCheck from "@@/public/src/img/icons/ShieldCheck.inline.svg";
+import WindowCursor from "@@/public/src/img/icons/WindowCursor.inline.svg";
+
 export const LOGOS = [
   {
     src: "/src/img/logos-eco/circle.svg",
@@ -75,5 +81,28 @@ export const PROJECTS_LOGOS = [
     src: "/src/img/logos-eco/vaneck.png",
     alt: "Vaneck",
     height: "80%",
+  },
+];
+
+export const LINKS = [
+  {
+    href: "/validators",
+    Icon: Bezier,
+  },
+  {
+    href: "/staking",
+    Icon: ShieldCheck,
+  },
+  {
+    href: "/docs/intro/quick-start",
+    Icon: WindowCursor,
+  },
+  {
+    href: "/grants-funding",
+    Icon: CodeInSquear,
+  },
+  {
+    href: "/solutions/tokenization",
+    Icon: CoinsAdd,
   },
 ];

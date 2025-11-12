@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import { Logos } from "@/component-library/logos";
 import { Divider } from "@/component-library/divider";
-import { LOGOS, PROJECTS, PROJECTS_LOGOS } from "@/data/index/data";
+import { LOGOS, PROJECTS, PROJECTS_LOGOS, LINKS } from "@/data/index/data";
 import { CardCariuselSection } from "@/component-library/card-cariusel-section";
 import { PlaceMediaCard } from "@/component-library/place-media-card";
 import {
@@ -21,6 +21,7 @@ import { BigVideoCard } from "@/component-library/big-video-card";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { YouTubePlaylistItem } from "@/lib/youtube/types";
 import { getAllPlaylistItems } from "@/lib/youtube/getYoutubePlaylist";
+import { Community } from "@/components/index/community";
 
 const TransactionsStat = dynamic(
   () =>
@@ -236,6 +237,25 @@ export default function Home({
           />
         ))}
       </CardCariuselSection>
+
+      <Community
+        title={t.rich("index.community.title", {
+          light: (chunks) => (
+            <>
+              <br />
+              <span className="font-light">{chunks}</span>
+            </>
+          ),
+        })}
+        subtitle={t("index.community.subtitle")}
+        bgVideoSrc="/src/img/index/community-bg.webm"
+        bgVideoPoster="/src/img/index/projects-bg.webp"
+        links={LINKS.map((item, index) => ({
+          ...item,
+          title: t(`index.community.links.${index}.title`),
+          description: t(`index.community.links.${index}.description`),
+        }))}
+      />
 
       <VideoPlayerModal />
     </Layout>
