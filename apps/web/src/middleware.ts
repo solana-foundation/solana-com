@@ -9,7 +9,8 @@ export default async function middleware(req: NextRequest) {
   // Skip i18n for /breakpoint/* and /developers/templates/* paths
   if (
     req.nextUrl.pathname.startsWith("/breakpoint") ||
-    req.nextUrl.pathname.startsWith("/developers/templates")
+    req.nextUrl.pathname.startsWith("/developers/templates") ||
+    req.nextUrl.pathname.startsWith("/media")
   ) {
     return NextResponse.next();
   }
