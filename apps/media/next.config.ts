@@ -6,8 +6,14 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
+  assetPrefix: "/media-assets",
 
   images: {
+    localPatterns: [
+      {
+        pathname: "/uploads/**",
+      },
+    ],
     remotePatterns: [
       {
         protocol: "https",
@@ -89,19 +95,15 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  async redirects() {
-    return [
-      {
-        source: "/",
-        destination: "/media/read",
-        permanent: true,
-      },
-      {
-        source: "/:locale",
-        destination: "/:locale/media/read",
-        permanent: true,
-      },
-    ];
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/media-assets/_next/:path+",
+          destination: "/_next/:path+",
+        },
+      ],
+    };
   },
 
   experimental: {

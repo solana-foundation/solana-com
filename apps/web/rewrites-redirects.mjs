@@ -21,12 +21,28 @@ export default {
       // Media app rewrites
       {
         source: "/media",
-        destination: `${mediaUrl}/media`,
+        destination: `${mediaUrl}`,
         locale: false,
       },
       {
         source: "/media/:path*",
         destination: `${mediaUrl}/media/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/media",
+        destination: `${mediaUrl}/:locale`,
+        locale: false,
+      },
+      {
+        source: "/:locale/media/:path*",
+        destination: `${mediaUrl}/:locale/media/:path*`,
+        locale: false,
+      },
+      // Media app assets
+      {
+        source: "/media-assets/:path+",
+        destination: `${mediaUrl}/media-assets/:path+`,
         locale: false,
       },
       {
