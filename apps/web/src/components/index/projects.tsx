@@ -9,6 +9,7 @@ import Image from "next/image";
 import { Logo, Logos } from "@/component-library/logos";
 
 export type ProjectsProps = {
+  className?: string;
   title?: React.ReactNode;
   projects?: (CompanyStatsCardProps & { colSpan?: number })[];
   bgSrc?: string;
@@ -16,6 +17,7 @@ export type ProjectsProps = {
 };
 
 export const Projects: React.FC<ProjectsProps> = ({
+  className,
   title,
   projects,
   bgSrc,
@@ -23,14 +25,19 @@ export const Projects: React.FC<ProjectsProps> = ({
 }) => {
   let colCounter = 0;
   return (
-    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
+    <section
+      className={cn(
+        "relative overflow-hidden text-nd-high-em-text text-left m-twd-0",
+        className,
+      )}
+    >
       <Container className="py-[64px] md:py-[108px] xl:py-[160px] flex flex-col justify-between relative">
         <div className="flex flex-col xl:flex-row gap-[52px] justify-between items-start">
           <div className="xl:max-w-[70%] grow-0">
             {title && <h2 className="nd-heading-l">{title}</h2>}
           </div>
         </div>
-        <div className="mt-twd-10 xl:mt-twd-16 rounded-2xl border-nd-border-light border-[1px] overflow-hidden relative">
+        <div className="mt-twd-10 xl:mt-twd-16 rounded-2xl border-nd-border-light border-[1px] bg-nd-inverse overflow-hidden relative">
           <Image
             className="opacity-30"
             src={bgSrc}

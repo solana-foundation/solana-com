@@ -29,6 +29,7 @@ import { YouTubePlaylistItem } from "@/lib/youtube/types";
 import { getAllPlaylistItems } from "@/lib/youtube/getYoutubePlaylist";
 import { Community } from "@/components/index/community";
 import { WhatsUp } from "@/components/index/whats-up";
+import { Decor } from "@/components/index/decor";
 
 const TransactionsStat = dynamic(
   () =>
@@ -190,6 +191,7 @@ export default function Home({
       <Divider />
 
       <Projects
+        className="z-1"
         title={t.rich("index.projects.title", {
           light: (chunks) => (
             <>
@@ -207,6 +209,8 @@ export default function Home({
         bgSrc="/src/img/index/projects-bg.webp"
         logos={PROJECTS_LOGOS}
       />
+
+      <Decor />
 
       <CardCariuselSection
         title={t.rich("index.news.title", {
