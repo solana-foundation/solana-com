@@ -5,7 +5,13 @@ import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import { Logos } from "@/component-library/logos";
 import { Divider } from "@/component-library/divider";
-import { LOGOS, PROJECTS, PROJECTS_LOGOS, LINKS } from "@/data/index/data";
+import {
+  LOGOS,
+  PROJECTS,
+  PROJECTS_LOGOS,
+  LINKS,
+  TERMINAL_ITEMS,
+} from "@/data/index/data";
 import { CardCariuselSection } from "@/component-library/card-cariusel-section";
 import { PlaceMediaCard } from "@/component-library/place-media-card";
 import {
@@ -22,6 +28,7 @@ import { VideoPlayerModal } from "@/component-library/video-modal";
 import { YouTubePlaylistItem } from "@/lib/youtube/types";
 import { getAllPlaylistItems } from "@/lib/youtube/getYoutubePlaylist";
 import { Community } from "@/components/index/community";
+import { WhatsUp } from "@/components/index/whats-up";
 
 const TransactionsStat = dynamic(
   () =>
@@ -165,6 +172,22 @@ export default function Home({
         bgVideoSrc="/src/img/index/performance-bg.webm"
         bgVideoPoster="/src/img/index/performance-bg.webp"
       />
+
+      <Divider />
+
+      <WhatsUp
+        title={t.rich("index.whats-up.title", {
+          light: (chunks) => (
+            <>
+              <br />
+              <span className="font-light">{chunks}</span>
+            </>
+          ),
+        })}
+        items={TERMINAL_ITEMS}
+      />
+
+      <Divider />
 
       <Projects
         title={t.rich("index.projects.title", {

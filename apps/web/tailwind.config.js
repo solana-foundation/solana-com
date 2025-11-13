@@ -54,6 +54,7 @@ export default {
       },
       fontFamily: {
         brand: ["Diatype", "sans-serif"],
+        "brand-mono": ["DSemi", "monospace"],
       },
       screens: {
         "2xl": "1440px",
