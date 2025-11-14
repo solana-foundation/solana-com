@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { cn } from "@/app/components/utils";
 import { Container } from "./container";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { Button } from "@/app/components/ui/button";
 
 export type CardCariuselSectionProps = {
   className?: string;
@@ -17,6 +18,8 @@ export type CardCariuselSectionProps = {
   tabletLastPageOffset?: number;
   mobileLastPageOffset?: number;
   startIndex?: number;
+  cta?: React.ReactNode;
+  ctaHref?: string;
 };
 
 export const CardCariuselSection: React.FC<CardCariuselSectionProps> = ({
@@ -32,6 +35,8 @@ export const CardCariuselSection: React.FC<CardCariuselSectionProps> = ({
   tabletLastPageOffset = 1,
   mobileLastPageOffset = 1,
   startIndex,
+  cta,
+  ctaHref,
 }) => {
   const carouselRef = useRef(null);
   const isTablet = useMediaQuery("(min-width: 768px)");
@@ -52,7 +57,7 @@ export const CardCariuselSection: React.FC<CardCariuselSectionProps> = ({
           wrapperClassName,
         )}
       >
-        <Container className="mb-twd-8 xl:mb-twd-12 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-twd-4">
+        <Container className="mb-twd-8 xl:mb-twd-12 flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
           {(title || subtitle) && (
             // Title and subtitle
             <div className="max-w-xl">
@@ -64,10 +69,34 @@ export const CardCariuselSection: React.FC<CardCariuselSectionProps> = ({
               )}
             </div>
           )}
-          {totalItems > 1 ? (
-            // Carousel controls
-            <div className="hidden xl:inline-flex">
-              <CarouselControls carouselRef={carouselRef} />
+          {totalItems > 1 || cta ? (
+            <div className="flex gap-twd-3 items-center">
+              {/** CTA */}
+              {cta && (
+                <Button
+                  className="h-12 w-auto nd-body-m"
+                  asChild
+                  variant="secondary-outline"
+                  size="lg"
+                  rounded
+                >
+                  <a
+                    className="text-inherit"
+                    href={ctaHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {cta}
+                  </a>
+                </Button>
+              )}
+
+              {/* Carousel controls */}
+              {totalItems > 1 ? (
+                <div className="hidden xl:inline-flex">
+                  <CarouselControls carouselRef={carouselRef} />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </Container>

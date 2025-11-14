@@ -12,6 +12,7 @@ import ChevronRight from "@@/public/src/img/icons/ChevronRight.inline.svg";
 import SolanaMono from "@@/public/src/img/icons/SolanaMono.inline.svg";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
+import { Button } from "@/app/components/ui/button";
 
 export const CATEGORIES = {
   all: {
@@ -62,9 +63,16 @@ export type WhatsUpProps = {
     categoryId: string;
     date: string;
   }[];
+  cta?: string;
+  ctaHref?: string;
 };
 
-export const WhatsUp: React.FC<WhatsUpProps> = ({ title, items }) => {
+export const WhatsUp: React.FC<WhatsUpProps> = ({
+  title,
+  items,
+  cta,
+  ctaHref,
+}) => {
   const t = useTranslations();
   const categories = useMemo(
     () =>
@@ -81,10 +89,30 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({ title, items }) => {
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
       <div className="py-[64px] md:py-[108px] xl:py-[160px]">
         <Container className="flex flex-col justify-between relative">
-          <div className="flex flex-col xl:flex-row gap-[52px] justify-between items-start">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
             <div className="xl:max-w-[70%] grow-0">
               {title && <h2 className="nd-heading-l">{title}</h2>}
             </div>
+            {cta && (
+              <div>
+                <Button
+                  className="h-12 w-auto nd-body-m"
+                  asChild
+                  variant="secondary-outline"
+                  size="lg"
+                  rounded
+                >
+                  <a
+                    className="text-inherit"
+                    href={ctaHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {cta}
+                  </a>
+                </Button>
+              </div>
+            )}
           </div>
         </Container>
         <div className="border-t border-b border-nd-border-light mt-twd-10 xl:mt-twd-16">

@@ -24,12 +24,12 @@ const buttonVariants = cva(
           "hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-50",
         link: "text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-50",
         "secondary-outline":
-          "border-[1px] border-nd-border-prominent bg-transparent hover:bg-nd-border-prominent dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-800 dark:hover:text-zinc-50",
+          "border-[1px] border-nd-border-prominent not-hover:bg-transparent hover:bg-nd-border-prominent",
       },
       size: {
         default: "h-10 px-twd-4 py-twd-2",
         sm: "h-9 px-twd-3",
-        lg: "h-11 px-twd-8",
+        lg: "h-11 px-twd-6",
         icon: "h-10 w-10",
       },
     },

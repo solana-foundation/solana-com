@@ -7,6 +7,7 @@ import {
 import { cn } from "@/app/components/utils";
 import Image from "next/image";
 import { Logo, Logos } from "@/component-library/logos";
+import { Button } from "@/app/components/ui/button";
 
 export type ProjectsProps = {
   className?: string;
@@ -14,6 +15,8 @@ export type ProjectsProps = {
   projects?: (CompanyStatsCardProps & { colSpan?: number })[];
   bgSrc?: string;
   logos?: Logo[];
+  cta?: string;
+  ctaHref?: string;
 };
 
 export const Projects: React.FC<ProjectsProps> = ({
@@ -22,6 +25,8 @@ export const Projects: React.FC<ProjectsProps> = ({
   projects,
   bgSrc,
   logos,
+  cta,
+  ctaHref,
 }) => {
   let colCounter = 0;
   return (
@@ -32,10 +37,30 @@ export const Projects: React.FC<ProjectsProps> = ({
       )}
     >
       <Container className="py-[64px] md:py-[108px] xl:py-[160px] flex flex-col justify-between relative">
-        <div className="flex flex-col xl:flex-row gap-[52px] justify-between items-start">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
           <div className="xl:max-w-[70%] grow-0">
             {title && <h2 className="nd-heading-l">{title}</h2>}
           </div>
+          {cta && (
+            <div>
+              <Button
+                className="h-12 w-auto nd-body-m"
+                asChild
+                variant="secondary-outline"
+                size="lg"
+                rounded
+              >
+                <a
+                  className="text-inherit"
+                  href={ctaHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {cta}
+                </a>
+              </Button>
+            </div>
+          )}
         </div>
         <div className="mt-twd-10 xl:mt-twd-16 rounded-2xl border-nd-border-light border-[1px] bg-nd-inverse overflow-hidden relative">
           <Image

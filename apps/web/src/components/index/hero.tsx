@@ -56,7 +56,7 @@ export const Hero: React.FC<HeroProps> = ({
             <h1 className="nd-heading-2xl" id="hero-title">
               {title}
             </h1>
-            <p className="text-nd-mid-em-text font-medium mt-twd-5 md:mt-twd-6 nd-body-xl xl:max-w-[440px]">
+            <p className="text-nd-mid-em-text font-medium max-md:mt-twd-5 md:mt-twd-6 nd-body-xl xl:max-w-[440px]">
               {subtitle}
             </p>
 

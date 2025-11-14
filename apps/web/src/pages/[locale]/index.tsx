@@ -113,6 +113,8 @@ export default function Home({
             tabletLastPageOffset={2}
             cardWidthClassName="w-full md:w-[350px] xl:w-[450px]"
             startIndex={firstFeaturedEventIndex}
+            cta={t("index.events.cta")}
+            ctaHref="/events"
           >
             {events.map((event) => (
               <PlaceMediaCard
@@ -186,6 +188,8 @@ export default function Home({
           ),
         })}
         items={TERMINAL_ITEMS}
+        cta={t("index.whats-up.cta")}
+        ctaHref="/news"
       />
 
       <Divider />
@@ -208,6 +212,8 @@ export default function Home({
         }))}
         bgSrc="/src/img/index/projects-bg.webp"
         logos={PROJECTS_LOGOS}
+        cta={t("index.projects.cta")}
+        ctaHref="/institutional-payments"
       />
 
       <Decor />
