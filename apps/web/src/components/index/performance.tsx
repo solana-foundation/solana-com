@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { Container } from "@/component-library/container";
 import { StatsGrid, StatsGridItem } from "@/component-library/stats-grid";
 import { cn } from "@/app/components/utils";
 import Image from "next/image";
+import { useViewportVisibility } from "@/hooks/useViewportVisibility";
 
 export type PerformanceProps = {
   title?: React.ReactNode;
@@ -21,18 +22,30 @@ export const Performance: React.FC<PerformanceProps> = ({
   stats,
   counters,
 }) => {
+  const handler = useCallback((node: HTMLVideoElement | null) => {
+    if (!node) return;
+    if (node.paused) {
+      node.play();
+    }
+  }, []);
+  const { ref } = useViewportVisibility<HTMLVideoElement>(handler, {
+    topOffset: 100,
+    bottomOffset: 100,
+  });
   return (
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
       {bgVideoSrc && (
         <video
           src={bgVideoSrc}
-          autoPlay
+          autoPlay={false}
           loop
           muted
           playsInline
           controls={false}
+          preload="none"
           poster={bgVideoPoster}
           className="absolute left-0 right-0 bottom-0 w-full h-[80%] xl:h-full object-cover"
+          ref={ref}
         />
       )}
       <Container className="py-[64px] md:py-[108px] xl:py-[160px] flex flex-col justify-between relative">

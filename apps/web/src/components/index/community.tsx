@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { Container } from "@/component-library/container";
 import { cn } from "@/app/components/utils";
 import dynamic from "next/dynamic";
+import { useViewportVisibility } from "@/hooks/useViewportVisibility";
 
 const EarthAnimation = dynamic(
   () =>
@@ -36,19 +37,32 @@ export const Community: React.FC<CommunityProps> = ({
   bgVideoPoster,
   links = [],
 }) => {
+  const handler = useCallback((node: HTMLVideoElement | null) => {
+    if (!node) return;
+    if (node.paused) {
+      node.play();
+    }
+  }, []);
+  const { ref } = useViewportVisibility<HTMLVideoElement>(handler, {
+    topOffset: 100,
+    bottomOffset: 100,
+  });
+
   return (
-    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0 px-2">
+    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0 px-2 transform-gpu">
       <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative transform-gpu">
         {bgVideoSrc && (
           <video
             src={bgVideoSrc}
-            autoPlay
+            autoPlay={false}
+            preload="none"
             loop
             muted
             playsInline
             controls={false}
             poster={bgVideoPoster}
             className="absolute inset-0 w-full h-[101%] object-cover"
+            ref={ref}
           />
         )}
         <Container className="pt-[32px] pb-[12px] md:pt-[40px] md:pb-[20px] xl:py-[128px] flex flex-col justify-between">

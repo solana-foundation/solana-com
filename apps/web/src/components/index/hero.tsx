@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useCallback } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@/app/components/utils";
 import { Container } from "@/component-library/container";
+import { useViewportVisibility } from "@/hooks/useViewportVisibility";
 
 export type HeroProps = {
   title: React.ReactNode;
@@ -32,6 +33,17 @@ export const Hero: React.FC<HeroProps> = ({
   bgVideoSrc,
   bgVideoPoster,
 }) => {
+  const handler = useCallback((node: HTMLVideoElement | null) => {
+    if (!node) return;
+    if (node.paused) {
+      node.play();
+    }
+  }, []);
+  const { ref } = useViewportVisibility<HTMLVideoElement>(handler, {
+    topOffset: 100,
+    bottomOffset: 100,
+  });
+
   return (
     <section
       id="hero"
@@ -41,13 +53,15 @@ export const Hero: React.FC<HeroProps> = ({
       {bgVideoSrc && (
         <video
           src={bgVideoSrc}
-          autoPlay
+          preload="none"
+          autoPlay={false}
           loop
           muted
           playsInline
           controls={false}
           poster={bgVideoPoster}
           className="absolute inset-0 w-full h-full object-cover"
+          ref={ref}
         />
       )}
       <div className="flex min-h-[700px]">

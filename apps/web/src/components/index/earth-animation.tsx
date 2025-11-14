@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import { useViewportVisibility } from "@/hooks/useViewportVisibility";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 export type EarthAnimationProps = {
   dotSize?: number;
@@ -84,34 +85,53 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
   const dotsRef = useRef<Dot[]>([]);
   const subpathsRef = useRef<Subpath[]>([]);
   const cursorRef = useRef<Cursor>({ x: Infinity, y: Infinity, inside: false });
+  const [ready, setReady] = useState(false);
 
   // Initialize subpaths
-  useEffect(() => {
-    if (!glowSvgRef.current || !basePathRef.current) return;
+  const viewportHandler = useCallback(
+    (node: HTMLElement | null) => {
+      if (!node) return;
+      if (!glowSvgRef.current || !basePathRef.current) return;
+      if (ready) return;
 
-    const glowSVG = glowSvgRef.current;
-    const d = BASE_PATH_D;
-    const subDs = (d.match(/M[^M]+/g) || []).map((s) => s.trim());
+      const glowSVG = glowSvgRef.current;
+      const d = BASE_PATH_D;
+      const subDs = (d.match(/M[^M]+/g) || []).map((s) => s.trim());
 
-    const subpaths: Subpath[] = subDs.map((sd) => {
-      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      p.setAttribute("d", sd);
-      p.setAttribute("fill", "none");
-      p.setAttribute("stroke", "none");
-      glowSVG.appendChild(p);
-      return { path: p, length: p.getTotalLength() };
-    });
-
-    subpathsRef.current = subpaths;
-
-    return () => {
-      subpaths.forEach((sp) => {
-        if (sp.path.parentNode) {
-          sp.path.parentNode.removeChild(sp.path);
-        }
+      const subpaths: Subpath[] = subDs.map((sd) => {
+        const p = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "path",
+        );
+        p.setAttribute("d", sd);
+        p.setAttribute("fill", "none");
+        p.setAttribute("stroke", "none");
+        glowSVG.appendChild(p);
+        return { path: p, length: p.getTotalLength() };
       });
-    };
-  }, []);
+
+      subpathsRef.current = subpaths;
+
+      setReady(true);
+
+      return () => {
+        subpaths.forEach((sp) => {
+          if (sp.path.parentNode) {
+            sp.path.parentNode.removeChild(sp.path);
+          }
+        });
+      };
+    },
+    [ready],
+  );
+
+  const { ref: divRef } = useViewportVisibility<HTMLDivElement>(
+    viewportHandler,
+    {
+      topOffset: 100,
+      bottomOffset: 100,
+    },
+  );
 
   // Rebuild dots when config changes
   useEffect(() => {
@@ -154,7 +174,7 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
     });
 
     dotsRef.current = dots;
-  }, [dotSize, gap, dotColor]);
+  }, [dotSize, gap, dotColor, ready]);
 
   // Animation loop
   useEffect(() => {
@@ -213,7 +233,7 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [lapSeconds, dotColor]);
+  }, [lapSeconds, dotColor, ready]);
 
   // Cursor tracking
   useEffect(() => {
@@ -237,10 +257,10 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
       stack.removeEventListener("pointermove", handlePointerMove);
       stack.removeEventListener("pointerleave", handlePointerLeave);
     };
-  }, []);
+  }, [ready]);
 
   return (
-    <div className={className}>
+    <div className={className} ref={divRef}>
       <div
         ref={stackRef}
         className="relative w-full"

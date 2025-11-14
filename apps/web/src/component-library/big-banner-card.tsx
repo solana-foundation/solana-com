@@ -54,6 +54,7 @@ export const BigBannerCard: React.FC<BigBannerCardProps> = ({
               variant="secondary-outline"
               size="lg"
               rounded
+              aria-label={title}
             >
               <a
                 className="text-inherit"
