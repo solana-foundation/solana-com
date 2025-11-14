@@ -93,6 +93,15 @@ const HeaderListNetwork = () => {
             </strong>
             {networkInspectItems[2].description}
           </InlineLink>
+          <InlineLink
+            to="https://orb.helius.dev/"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+          >
+            <strong className="block !text-white text-sm">
+              {networkInspectItems[3].title}
+            </strong>
+            {networkInspectItems[3].description}
+          </InlineLink>
         </div>
       </div>
     </div>
