@@ -78,6 +78,7 @@ export const Footer = ({ className = "" }) => {
                 className="!no-underline !text-white hover:!text-white"
               >
                 <SolanaFoundationLogo
+                  className="max-w-full"
                   width={234}
                   height={40}
                   viewBox="0 0 210 35"

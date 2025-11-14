@@ -4,13 +4,14 @@ import { Footer, Header } from "@solana-com/ui-chrome";
 import styles from "./Layout.module.scss";
 
 interface LayoutProps {
+  className?: string;
   headerClassName?: string;
   children: ReactNode;
 }
 
-const Layout = ({ headerClassName, children }: LayoutProps) => {
+const Layout = ({ className, headerClassName, children }: LayoutProps) => {
   return (
-    <div className={styles.Layout}>
+    <div className={classNames(styles.Layout, className)}>
       <Header className={classNames(styles.Header, headerClassName)} />
       <main>{children}</main>
       <Footer className={styles.Footer} />

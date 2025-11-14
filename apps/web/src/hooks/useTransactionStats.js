@@ -143,12 +143,16 @@ export const useTransactionStats = ({
               setAvailableStats(true);
             })(),
           ]);
+
+          return true;
         }
+        return false;
       } catch (error) {
         if (error.name === "AbortError" || error.name === "TypeError") {
-          return;
+          return false;
         }
         console.error("Error fetching RPC data:", error);
+        return false;
       }
     },
     [sampleHistoryHours],
@@ -156,7 +160,13 @@ export const useTransactionStats = ({
 
   // Load statistics only when the component is visible
   useEffect(() => {
+    // If the RPC node URL is not set, don't fetch any data
+    if (!rpcNodeURL) {
+      return;
+    }
+
     const abortController = initAbortController();
+
     if (visible) {
       getRPCData(
         getCurrentValidatorNodes,
@@ -172,8 +182,17 @@ export const useTransactionStats = ({
       fetchSuperminorityData();
     }
 
-    const interval = setInterval(() => {
-      getRPCData(false, getLiveTransactionCount, abortController.signal);
+    let intervalFailsLimit = 10;
+    const interval = setInterval(async () => {
+      const success = await getRPCData(
+        false,
+        getLiveTransactionCount,
+        abortController.signal,
+      );
+      if (!success && --intervalFailsLimit <= 0) {
+        clearInterval(interval);
+        setAvailableStats(true);
+      }
     }, performanceUpdateSeconds * 1000);
 
     return () => {

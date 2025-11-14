@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import { useInkeepConfig } from "./inkeep-config";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
@@ -14,12 +13,7 @@ const InkeepModalSearchAndChat = dynamic(
 );
 
 export function InkeepSearchBar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const baseConfig = useInkeepConfig();
-
-  const handleOpenChange = useCallback((newOpen: boolean) => {
-    setIsOpen(newOpen);
-  }, []);
+  const inkeepConfig = useInkeepConfig();
 
   const t = useTranslations();
 
@@ -27,7 +21,7 @@ export function InkeepSearchBar() {
     <>
       <div className="relative xl:w-[21.75rem]">
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => inkeepConfig.modalSettings.onOpenChange(true)}
           className="w-full flex items-center gap-2 m-0 py-2.5 pr-6 pl-5 !rounded-full bg-gray-900/50 text-gray-400 hover:text-gray-300 hover:bg-gray-900/70 focus:ring-gray-700 !border !border-gray-700 shadow-sm light:!bg-white light:!border-gray-300 light:text-[#7f8391] light:hover:!bg-white light:hover:text-gray-900 focus:outline-none focus:ring-2 text-sm md:text-base leading-6 tracking-normal cursor-text transition-all duration-200 ease-in-out"
         >
           <svg
@@ -46,7 +40,9 @@ export function InkeepSearchBar() {
             />
           </svg>
 
-          <span className="text-left flex-1">{t("commands.search")}</span>
+          <span className="text-left flex-1">
+            {t("commands.searchOrAskAI")}
+          </span>
 
           <kbd className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-900/50 rounded light:text-gray-700 light:bg-gray-200">
             ⌘K
@@ -55,12 +51,12 @@ export function InkeepSearchBar() {
       </div>
 
       <InkeepModalSearchAndChat
-        baseSettings={baseConfig.baseSettings}
-        searchSettings={baseConfig.searchSettings}
-        aiChatSettings={baseConfig.aiChatSettings}
+        baseSettings={inkeepConfig.baseSettings}
+        searchSettings={inkeepConfig.searchSettings}
+        aiChatSettings={inkeepConfig.aiChatSettings}
         modalSettings={{
-          isOpen,
-          onOpenChange: handleOpenChange,
+          isOpen: inkeepConfig.modalSettings.isOpen,
+          onOpenChange: inkeepConfig.modalSettings.onOpenChange,
           shortcutKey: "k",
         }}
       />
