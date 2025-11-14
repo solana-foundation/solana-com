@@ -71,7 +71,7 @@ export const BigVideoCard: React.FC<BigVideoCardProps> = ({
           alt={alt}
           fill
           className="object-cover z-0"
-          sizes="(max-width: 768px) 120vw, 50vw"
+          sizes="(max-width: 768px) 120vw, 80vw"
         />
         <VideoTrigger
           platform="youtube"

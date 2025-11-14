@@ -32,7 +32,7 @@ export const PlaceMediaCard: React.FC<PlaceMediaCardProps> = ({
           alt={title}
           fill
           className="object-cover z-0"
-          sizes="100vw"
+          sizes="(max-width: 768px) 100vw, 50vw"
           loading="lazy"
         />
       </div>

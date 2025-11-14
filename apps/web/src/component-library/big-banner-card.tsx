@@ -35,7 +35,7 @@ export const BigBannerCard: React.FC<BigBannerCardProps> = ({
           alt={title}
           fill
           className="object-cover z-0"
-          sizes="100vw"
+          sizes="(max-width: 768px) 100vw, 50vw"
           loading="lazy"
         />
       </div>

@@ -4,6 +4,7 @@ import breakpointImg from "@@/assets/events/breakpoint.jpg";
 import shipordieImg from "@@/assets/events/shipordie.jpg";
 import scaleordieImg from "@@/assets/events/scaleordie.jpg";
 import crossroadsImg from "@@/assets/events/crossroads.jpg";
+import solanaEventImg from "@@/assets/events/solana-event.jpg";
 
 export type LumaEvent = {
   event: {
@@ -63,7 +64,7 @@ const dummyEvent = [
       timezone: "UTC",
     },
     img: {
-      primary: require("../../../assets/events/solana-event.jpg"),
+      primary: solanaEventImg.src,
       alt: "Dummy Event",
     },
     venue: {
