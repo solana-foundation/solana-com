@@ -8,7 +8,7 @@ export interface UseMouseFollowerOptions {
 
 export const useMouseFollower = <T extends HTMLElement, I extends HTMLElement>(
   options: UseMouseFollowerOptions,
-): { ref: React.RefObject<T>; imageRef: React.RefObject<I> } => {
+): { ref: React.RefObject<T | null>; imageRef: React.RefObject<I | null> } => {
   const { offsetX = 0, offsetY = 0, className = "" } = options;
 
   const nodeRef = useRef<T | null>(null);
