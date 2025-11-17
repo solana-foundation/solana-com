@@ -1,32 +1,38 @@
 ---
-title: Fee Sponsorship
+title: Pay Fees with Any Token
 description:
-  Learn about Solana's fee sponsorship, including how to sponsor fees for other
-  users and how to get paid for sponsoring fees.
+  Learn how to pay transaction fees with any token using Solana's native fee
+  payer and batching features.
 ---
 
 ## Overview
 
-Fee sponsorship is a feature that allows you to sponsor fees for other users.
-This is useful if you want to prioritize your transaction or if you want to
-reward someone for sponsoring your transaction.
+In order to improve UX for users, apps should consider allowing users to pay for
+transactions using any token they have available in their wallet. This way apps
+do not have to sponsor transaction fees for users, but still improve UX for end
+users and not require them to hold SOL. This concept is often referred to as
+"gas abstraction" on other blockchains. Paying transaction fees with any token
+is enabled via two key native capabilities of Solana transactions:
 
-## How fee payment works
+- The `feePayer` field in the transaction message.
+- The ability to batch instructions in a single transaction.
 
-Every transaction requires a transaction fee, paid in SOL. This fee is paid by
-the "fee payer" of the transaction. Any EOA that signs the transaction can be
-the fee payer which enables native fee sponsorship or "gas abstraction" for
-Solana. For more information on how fees are determined see the
-[Transaction Fees](/docs/core/fees) page.
+## How to pay transaction fees with any token
 
-## How to sponsor fees on a transaction
+To pay transaction fees with any token, you'll need to have an EOA to use as the
+fee payer and a transaction with an instruction that transfers tokens from the
+user's wallet to the fee payer's wallet. The fee payer will then forward the
+transaction to the Solana network and pay the transaction fees in SOL covered
+monetarily by the tokens it received from the user.
 
-To sponsor fees for other users, you need to create a transaction with the
-`feePayer` field set to the public key of the EOA that will pay the fees. The
-following example shows how to transfer a token from one user to another and
-sponsor the fees for the transaction.
+This flow can be simplified by using a fee relayer, like
+[Kora](https://launch.solana.com/products/kora), that accepts a transfer
+transaction that transfers tokens from the user's wallet to the fee relayer's
+wallet.
 
-<CodeTabs storage="fee-sponsorship-ts" flags="r">
+The following example shows how to pay transaction fees with any token.
+
+<CodeTabs storage="pay-fees-with-any-token-ts" flags="r">
 
 ```ts !! title="Kit"
 import {
@@ -65,7 +71,8 @@ const feePayer = await generateKeyPairSigner();
 const sender = await generateKeyPairSigner();
 const recipient = await generateKeyPairSigner();
 
-console.log("Fee Payer/Sender Address:", feePayer.address.toString());
+console.log("Fee Payer Address:", feePayer.address.toString());
+console.log("Sender Address:", sender.address.toString());
 console.log("Recipient Address:", recipient.address.toString());
 
 // Fund fee payer
@@ -129,6 +136,14 @@ console.log(
 );
 
 // Create instruction for sender's ATA
+const createFeePayerAtaInstruction =
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: feePayer,
+    mint: mint.address,
+    owner: feePayer.address
+  });
+
+// Create instruction for sender's ATA
 const createSenderAtaInstruction =
   await getCreateAssociatedTokenInstructionAsync({
     payer: feePayer,
@@ -156,6 +171,7 @@ const mintToInstruction = getMintToInstruction({
 const instructions = [
   createAccountInstruction, // Create mint account
   initializeMintInstruction, // Initialize mint
+  createFeePayerAtaInstruction, // Create fee payer's ATA
   createSenderAtaInstruction, // Create sender's ATA
   createRecipientAtaInstruction, // Create recipient's ATA
   mintToInstruction // Mint tokens to sender
@@ -196,12 +212,25 @@ const transferInstruction = getTransferInstruction({
   amount: 50n // 0.50 tokens with 2 decimals
 });
 
+// Create instruction to transfer tokens to the fee payer to cover the transaction fees
+// For a real world application, you would need to determine the amount of tokens to transfer to the fee payer based on the transaction fees.
+const transferFeePayerInstruction = getTransferInstruction({
+  source: senderAssociatedTokenAddress,
+  destination: feePayer.address,
+  authority: sender.address,
+  amount: 50n // 0.50 tokens with 2 decimals
+});
+
 // Create transaction message for token transfer
 const transferTxMessage = pipe(
   createTransactionMessage({ version: 0 }),
   (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
   (tx) => setTransactionMessageLifetimeUsingBlockhash(transferBlockhash, tx),
-  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+  (tx) =>
+    appendTransactionMessageInstructions(
+      [transferInstruction, transferFeePayerInstruction],
+      tx
+    )
 );
 
 // Sign transaction message with all required signers
@@ -220,6 +249,9 @@ const transactionSignature2 = getSignatureFromTransaction(signedTransferTx);
 console.log("Transaction Signature:", transactionSignature2);
 console.log("Successfully transferred 0.5 tokens");
 
+const feePayerTokenAccount = await fetchToken(rpc, feePayer.address, {
+  commitment: "confirmed"
+});
 const senderTokenAccount = await fetchToken(rpc, senderAssociatedTokenAddress, {
   commitment: "confirmed"
 });
@@ -231,10 +263,12 @@ const recipientTokenAccount = await fetchToken(
   }
 );
 
+const feePayerBalance = feePayerTokenAccount.data.amount;
 const senderBalance = senderTokenAccount.data.amount;
 const recipientBalance = recipientTokenAccount.data.amount;
 
 console.log("=== Final Balances ===");
+console.log("Fee Payer balance:", Number(feePayerBalance) / 100, "tokens");
 console.log("Sender balance:", Number(senderBalance) / 100, "tokens");
 console.log("Recipient balance:", Number(recipientBalance) / 100, "tokens");
 ```
@@ -312,6 +346,15 @@ const mint = Keypair.generate();
 // Get minimum balance for rent exemption
 const mintRent = await getMinimumBalanceForRentExemptMint(connection);
 
+// Get the associated token account address for the fee payer
+const feePayerATA = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  feePayer.publicKey,
+  false, // allowOwnerOffCurve
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
 // Get the associated token account address for the sender
 const senderATA = getAssociatedTokenAddressSync(
   mint.publicKey,
@@ -348,9 +391,19 @@ const initializeMintInstruction = createInitializeMintInstruction(
   TOKEN_PROGRAM_ID
 );
 
+// Create associated token account instruction for fee payer
+const createFeePayerATA = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey, // payer
+  feePayerATA, // associated token account address
+  feePayer.publicKey, // owner
+  mint.publicKey, // mint
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
 // Create associated token account instruction for sender
 const createSenderATA = createAssociatedTokenAccountInstruction(
-  sender.publicKey, // payer
+  feePayer.publicKey, // payer
   senderATA, // associated token account address
   sender.publicKey, // owner
   mint.publicKey, // mint
@@ -388,6 +441,7 @@ const transaction = new Transaction({
 }).add(
   createAccountInstruction,
   initializeMintInstruction,
+  createFeePayerATA,
   createSenderATA,
   createRecipientATA,
   mintToInstruction
@@ -413,6 +467,17 @@ const transferInstruction = createTransferInstruction(
   TOKEN_PROGRAM_ID // programId
 );
 
+// Create transfer instruction to transfer tokens to the fee payer to cover the transaction fees
+// For a real world application, you would need to determine the amount of tokens to transfer to the fee payer based on the transaction fees.
+const transferFeePayerInstruction = createTransferInstruction(
+  senderATA, // source
+  feePayerATA, // destination
+  sender.publicKey, // owner
+  transferAmount, // amount
+  [], // multiSigners
+  TOKEN_PROGRAM_ID // programId
+);
+
 // Get a new blockhash for the transfer transaction
 const transferBlockhash = await connection.getLatestBlockhash();
 
@@ -421,7 +486,7 @@ let transferTransaction = new Transaction({
   feePayer: feePayer.publicKey,
   blockhash: transferBlockhash.blockhash,
   lastValidBlockHeight: transferBlockhash.lastValidBlockHeight
-}).add(transferInstruction);
+}).add(transferInstruction, transferFeePayerInstruction);
 
 // Sign and send transfer transaction
 const transactionSignature2 = await sendAndConfirmTransaction(
@@ -436,6 +501,12 @@ console.log("Transaction Signature:", transactionSignature2);
 // Fetch and display actual balances after transfer
 import { getAccount } from "@solana/spl-token";
 
+const feePayerTokenAccount = await getAccount(
+  connection,
+  feePayerATA,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
 const senderTokenAccount = await getAccount(
   connection,
   senderATA,
@@ -451,167 +522,10 @@ const recipientTokenAccount = await getAccount(
 
 console.log("=== Final Balances ===");
 console.log(
-  "Sender balance:",
-  Number(senderTokenAccount.amount) / 100,
+  "Fee Payer balance:",
+  Number(feePayerTokenAccount.amount) / 100,
   "tokens"
 );
-console.log(
-  "Recipient balance:",
-  Number(recipientTokenAccount.amount) / 100,
-  "tokens"
-);
-```
-
-```ts !! title="Legacy Helper"
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import {
-  createMint,
-  createAssociatedTokenAccount,
-  mintTo,
-  TOKEN_PROGRAM_ID,
-  transfer
-} from "@solana/spl-token";
-
-// Create connection to local validator
-const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
-
-// Generate a new keypair for the fee payer
-const feePayer = Keypair.generate();
-
-// Generate a new keypair for the sender
-const sender = Keypair.generate();
-
-// Generate a new keypair for the recipient
-const recipient = Keypair.generate();
-
-// Airdrop 1 SOL to fee payer
-const airdropSignature = await connection.requestAirdrop(
-  feePayer.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature
-});
-
-// Airdrop 1 SOL to sender for rent exemption
-const senderAirdropSignature = await connection.requestAirdrop(
-  sender.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: senderAirdropSignature
-});
-
-// Airdrop 0.1 SOL to recipient for rent exemption
-const recipientAirdropSignature = await connection.requestAirdrop(
-  recipient.publicKey,
-  LAMPORTS_PER_SOL / 10
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: recipientAirdropSignature
-});
-
-// Create mint using helper function
-const mintPubkey = await createMint(
-  connection, // connection
-  feePayer, // fee payer
-  sender.publicKey, // mint authority
-  sender.publicKey, // freeze authority
-  2, // decimals
-  Keypair.generate(), // keypair (optional)
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log("Mint Address:", mintPubkey.toBase58());
-
-// Create associated token account using helper function for fee payer
-const feePayerATA = await createAssociatedTokenAccount(
-  connection, // connection
-  feePayer, // fee payer
-  mintPubkey, // mint
-  sender.publicKey, // owner
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log("Fee Payer ATA Address:", feePayerATA.toBase58());
-
-// Create associated token account using helper function for recipient
-const recipientATA = await createAssociatedTokenAccount(
-  connection, // connection
-  feePayer, // fee payer (still paying for the transaction)
-  mintPubkey, // mint
-  recipient.publicKey, // owner (the recipient)
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log("Recipient ATA Address:", recipientATA.toBase58());
-
-// Mint 100 tokens to the fee payer's associated token account (with 2 decimals, this is 1.00 tokens)
-const mintAmount = 100; // 1.00 tokens with 2 decimals
-const mintSignature = await mintTo(
-  connection, // connection
-  feePayer, // payer
-  mintPubkey, // mint
-  senderATA, // destination
-  sender.publicKey, // authority (mint authority)
-  mintAmount, // amount
-  [], // additional signers
-  {
-    commitment: "confirmed" // confirmation options
-  },
-  TOKEN_PROGRAM_ID // program id
-);
-console.log("Successfully minted 1.0 tokens");
-console.log("Transaction Signature:", mintSignature);
-
-// Transfer 50 tokens (0.50 with 2 decimals) from fee payer to recipient
-const transferAmount = 50;
-const transactionSignature2 = await transfer(
-  connection,
-  feePayer,
-  senderATA,
-  recipientATA,
-  sender.publicKey, // Owner of source account
-  transferAmount,
-  [],
-  {
-    commitment: "confirmed"
-  },
-  TOKEN_PROGRAM_ID
-);
-console.log("Successfully transferred 0.5 tokens");
-console.log("Transaction Signature:", transactionSignature2);
-
-// Fetch and display actual balances after transfer
-import { getAccount } from "@solana/spl-token";
-
-const senderTokenAccount = await getAccount(
-  connection,
-  senderATA,
-  "confirmed",
-  TOKEN_PROGRAM_ID
-);
-const recipientTokenAccount = await getAccount(
-  connection,
-  recipientATA,
-  "confirmed",
-  TOKEN_PROGRAM_ID
-);
-
-console.log("=== Final Balances ===");
 console.log(
   "Sender balance:",
   Number(senderTokenAccount.amount) / 100,
@@ -626,11 +540,15 @@ console.log(
 
 </CodeTabs>
 
-## How to run a fee relayer service
+## Recommended: Use a fee relayer service
 
-A fee relayer service is a service that allows you to relay transactions for
-other users. This is useful if you want to provide an application that removes
-the complexity of users having to manage and procure SOL. Kora, by the Solana
-Foundation, is a fee relayer service that allows you to relay transactions for
-other users. More information can be found in the
+It is recommended to use a fee relayer service to pay transaction fees with any
+token. Kora is built to support such a use case and also includes additional
+features like configuring which tokens are accepted as well as automatically
+swapping the received tokens for SOL for continued operation.
+
+Kora, by the Solana Foundation, is a fee relayer service that allows you to
+relay transactions for other users. In addition to accepting fee payment for
+configured tokens, it also provides full fee sponsorship for transactions. More
+information can be found in the
 [Kora documentation](https://launch.solana.com/products/kora).
