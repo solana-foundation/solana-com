@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AudioPlayer } from "@/components/podcast/audio-player";
 import { EpisodeCard } from "@/components/podcast/episode-card";
 import { SubscribeButtons } from "@/components/podcast/subscribe-buttons";
-import { fetchEpisodesForPodcast } from "@/lib/podcast-data";
+import { fetchEpisodesForPodcast, formatEpisodeDate } from "@/lib/podcast-data";
 import type { PodcastShow, PodcastEpisode } from "@/lib/podcast-types";
 import ErrorBoundary from "@/components/error-boundary";
 
@@ -177,7 +177,7 @@ export default function PodcastShowClientPage({
               <h2 className="text-2xl font-semibold">Latest Episode</h2>
               <AudioPlayer
                 url={latestEpisode.audioUrl}
-                title={latestEpisode.title}
+                title={`${latestEpisode.title} - ${formatEpisodeDate(latestEpisode.publishedDate)}`}
               />
             </div>
           )}
