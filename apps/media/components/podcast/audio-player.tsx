@@ -248,7 +248,7 @@ export const AudioPlayer = ({
 
       {/* Title */}
       <div className="mb-2">
-        <h3 className="text-sm font-semibold text-foreground truncate">
+        <h3 className="text-lg font-semibold text-foreground truncate">
           {title}
         </h3>
       </div>
@@ -274,7 +274,7 @@ export const AudioPlayer = ({
           style={{ width: `${progress * 100}%` }}
         />
         <div
-          className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute top-1/2 h-3 w-3 rounded-full bg-primary opacity-20 transition-opacity group-hover:opacity-100"
           style={{
             left: `${progress * 100}%`,
             transform: "translate(-50%, -50%)",
