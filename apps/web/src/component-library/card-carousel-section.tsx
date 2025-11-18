@@ -5,7 +5,7 @@ import { Container } from "./container";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Button } from "@/app/components/ui/button";
 
-export type CardCariuselSectionProps = {
+export type CardCarouselSectionProps = {
   className?: string;
   wrapperClassName?: string;
   containerClassName?: string;
@@ -22,7 +22,7 @@ export type CardCariuselSectionProps = {
   ctaHref?: string;
 };
 
-export const CardCariuselSection: React.FC<CardCariuselSectionProps> = ({
+export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
   className,
   wrapperClassName,
   containerClassName,

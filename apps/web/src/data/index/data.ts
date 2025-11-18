@@ -98,7 +98,7 @@ export const LINKS = [
     Icon: WindowCursor,
   },
   {
-    href: "/grants-funding",
+    href: "https://solana.org/grants-funding",
     Icon: CodeInSquear,
   },
   {

@@ -13,7 +13,7 @@ import {
   TERMINAL_ITEMS,
   GET_STARTED_LINKS,
 } from "@/data/index/data";
-import { CardCariuselSection } from "@/component-library/card-cariusel-section";
+import { CardCarouselSection } from "@/component-library/card-carousel-section";
 import { PlaceMediaCard } from "@/component-library/place-media-card";
 import {
   fetchCalendarEvents,
@@ -128,7 +128,7 @@ export default function Home({
 
       {events.length > 0 && (
         <>
-          <CardCariuselSection
+          <CardCarouselSection
             title={t.rich("index.events.title", {
               light: (chunks) => (
                 <>
@@ -157,7 +157,7 @@ export default function Home({
                 className="px-twd-1"
               />
             ))}
-          </CardCariuselSection>
+          </CardCarouselSection>
           <Divider />
         </>
       )}
@@ -248,7 +248,7 @@ export default function Home({
 
       <Decor />
 
-      <CardCariuselSection
+      <CardCarouselSection
         title={t.rich("index.news.title", {
           light: (chunks) => (
             <>
@@ -278,11 +278,11 @@ export default function Home({
           href="https://solanamobile.com/seeker"
           buttonLabel={t(`index.news.items.0.button`)}
         />
-      </CardCariuselSection>
+      </CardCarouselSection>
 
       <Divider />
 
-      <CardCariuselSection
+      <CardCarouselSection
         title={t("index.videos.title")}
         subtitle={t("index.videos.subtitle")}
         totalItems={videos.length}
@@ -299,7 +299,7 @@ export default function Home({
             description={item.snippet.description}
           />
         ))}
-      </CardCariuselSection>
+      </CardCarouselSection>
 
       <Community
         title={t.rich("index.community.title", {
