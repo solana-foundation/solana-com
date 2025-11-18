@@ -149,7 +149,7 @@ export default function PostClientPage(props: ClientPostProps) {
 
         {/* Main content area with CTA sidebar */}
         {post.cta ? (
-          <div className="max-w-4xl mx-auto mt-12">
+          <div className="max-w-4xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
             <div className="flex gap-8 lg:gap-12 items-start">
               {/* Main content column */}
               <div className="flex-1 min-w-0" ref={contentRef}>
@@ -185,7 +185,7 @@ export default function PostClientPage(props: ClientPostProps) {
           </div>
         ) : (
           /* No CTA - full width content */
-          <div className="max-w-4xl mx-auto mt-12">
+          <div className="max-w-4xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
             <div
               data-tina-field={tinaField(post, "_body")}
               className="prose dark:prose-dark w-full max-w-none"
