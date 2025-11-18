@@ -147,9 +147,23 @@ export const components: Components<{
       return <></>;
     }
     return (
-      <span className="flex items-center justify-center">
-        <Image src={props.url} alt={props.alt || ""} width={500} height={500} />
-      </span>
+      <figure className="w-full my-6">
+        <div className="relative w-full">
+          <Image
+            src={props.url}
+            alt={props.alt || ""}
+            width={1200}
+            height={800}
+            className="w-full h-auto object-contain"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 896px, 896px"
+          />
+        </div>
+        {props.alt && (
+          <figcaption className="text-sm text-muted-foreground mt-2 text-center">
+            {props.alt}
+          </figcaption>
+        )}
+      </figure>
     );
   },
   mermaid: (props: any) => <Mermaid {...props} />,
