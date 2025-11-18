@@ -99,14 +99,9 @@ export default function PodcastShowClientPage({
   return (
     <ErrorBoundary>
       <Section>
-        <div className="flex flex-col gap-16 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 pt-8 md:pt-8">
+        <div className="flex flex-col gap-16 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 pt-8">
           {/* Back Navigation */}
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="w-fit gap-2 -mb-10"
-          >
+          <Button asChild variant="ghost" size="sm" className="w-fit gap-2">
             <Link href="/media/listen">
               <ArrowLeft className="h-4 w-4" />
               <span>Back to Listen</span>

@@ -35,7 +35,7 @@ export default function EpisodeClientPage({
   return (
     <ErrorBoundary>
       <Section>
-        <div className="flex flex-col gap-12 max-w-4xl mx-auto px-4 md:px-6 lg:px-8 pt-8 md:pt-16">
+        <div className="flex flex-col gap-12 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 pt-8">
           {/* Back Navigation */}
           <Button asChild variant="ghost" size="sm" className="w-fit gap-2">
             <Link href={`/media/listen/${podcast.slug}`}>
