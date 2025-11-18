@@ -226,7 +226,7 @@ export const AudioPlayer = ({
   }, [progress]);
 
   return (
-    <div className={cn("w-full rounded-lg bg-card p-4 shadow-lg", className)}>
+    <div className={cn("w-full rounded-lg bg-card p-3 shadow-lg", className)}>
       {/* Hidden ReactPlayer */}
       <ReactPlayer
         ref={playerRef}
@@ -247,13 +247,15 @@ export const AudioPlayer = ({
       />
 
       {/* Title */}
-      <div className="mb-4">
-        <h3 className="font-semibold text-foreground truncate">{title}</h3>
+      <div className="mb-2">
+        <h3 className="text-sm font-semibold text-foreground truncate">
+          {title}
+        </h3>
       </div>
 
       {/* Waveform Canvas */}
       <div
-        className="relative mb-4 h-16 w-full cursor-pointer"
+        className="relative mb-4 h-12 w-full cursor-pointer"
         onClick={handleSeek}
       >
         <canvas
@@ -264,7 +266,7 @@ export const AudioPlayer = ({
 
       {/* Progress Bar */}
       <div
-        className="group relative mb-4 h-2 cursor-pointer rounded-full bg-muted"
+        className="group relative mb-4 h-1.5 cursor-pointer rounded-full bg-muted"
         onClick={handleSeek}
       >
         <div
@@ -272,7 +274,7 @@ export const AudioPlayer = ({
           style={{ width: `${progress * 100}%` }}
         />
         <div
-          className="absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
           style={{
             left: `${progress * 100}%`,
             transform: "translate(-50%, -50%)",
@@ -281,23 +283,24 @@ export const AudioPlayer = ({
       </div>
 
       {/* Time Display */}
-      <div className="mb-4 flex justify-between text-sm text-muted-foreground">
+      <div className="mb-2 flex justify-between text-xs text-muted-foreground">
         <span>{formatTime(progress * duration || 0)}</span>
         <span>{formatTime(duration)}</span>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-2">
         {/* Playback Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             onClick={handleSkipBackward}
             disabled={!isReady}
+            className="h-8 w-8"
             aria-label="Skip backward 15 seconds"
           >
-            <SkipBack className="h-5 w-5" />
+            <SkipBack className="h-4 w-4" />
           </Button>
 
           <Button
@@ -305,13 +308,13 @@ export const AudioPlayer = ({
             size="icon"
             onClick={handlePlayPause}
             disabled={!isReady}
-            className="h-12 w-12"
+            className="h-9 w-9"
             aria-label={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? (
-              <Pause className="h-6 w-6" />
+              <Pause className="h-4 w-4" />
             ) : (
-              <Play className="h-6 w-6 ml-0.5" />
+              <Play className="h-4 w-4 ml-0.5" />
             )}
           </Button>
 
@@ -320,9 +323,10 @@ export const AudioPlayer = ({
             size="icon"
             onClick={handleSkipForward}
             disabled={!isReady}
+            className="h-8 w-8"
             aria-label="Skip forward 30 seconds"
           >
-            <SkipForward className="h-5 w-5" />
+            <SkipForward className="h-4 w-4" />
           </Button>
         </div>
 
@@ -331,23 +335,24 @@ export const AudioPlayer = ({
           variant="ghost"
           size="sm"
           onClick={handlePlaybackRateChange}
-          className="text-xs font-medium"
+          className="h-7 text-xs font-medium px-2"
         >
           {playbackRate}x
         </Button>
 
         {/* Volume Controls */}
-        <div className="hidden sm:flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-1.5">
           <Button
             variant="ghost"
             size="icon"
             onClick={handleMuteToggle}
+            className="h-8 w-8"
             aria-label={isMuted ? "Unmute" : "Mute"}
           >
             {isMuted ? (
-              <VolumeX className="h-5 w-5" />
+              <VolumeX className="h-4 w-4" />
             ) : (
-              <Volume2 className="h-5 w-5" />
+              <Volume2 className="h-4 w-4" />
             )}
           </Button>
 
@@ -358,14 +363,14 @@ export const AudioPlayer = ({
             step="0.01"
             value={isMuted ? 0 : volume}
             onChange={handleVolumeChange}
-            className="w-20 accent-primary"
+            className="w-16 accent-primary"
             aria-label="Volume"
           />
         </div>
       </div>
 
       {!isReady && (
-        <div className="mt-2 text-center text-sm text-muted-foreground">
+        <div className="mt-2 text-center text-xs text-muted-foreground">
           Loading...
         </div>
       )}
