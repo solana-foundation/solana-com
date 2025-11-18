@@ -172,3 +172,25 @@ export const TERMINAL_ITEMS = [
     date: "2025-07-21",
   },
 ];
+
+// TODO: Replace with actual data
+export const GET_STARTED_LINKS = {
+  institution: [
+    { href: "/solutions/tokenization" },
+    { href: "/solutions/stablecoins" },
+    { href: "/solutions/institutional-payments" },
+    { href: "/solutions/enterprise" },
+  ],
+  developer: [
+    { href: "/developers" },
+    { href: "/docs/intro/quick-start" },
+    { href: "/solutions/real-world-assets" },
+    { href: "/events" },
+  ],
+  user: [
+    { href: "#" },
+    { href: "/wallets" },
+    { href: "#" },
+    { href: "https://jobs.solana.com/jobs" },
+  ],
+};

@@ -11,6 +11,7 @@ import {
   PROJECTS_LOGOS,
   LINKS,
   TERMINAL_ITEMS,
+  GET_STARTED_LINKS,
 } from "@/data/index/data";
 import { CardCariuselSection } from "@/component-library/card-cariusel-section";
 import { PlaceMediaCard } from "@/component-library/place-media-card";
@@ -30,6 +31,9 @@ import { getAllPlaylistItems } from "@/lib/youtube/getYoutubePlaylist";
 import { Community } from "@/components/index/community";
 import { WhatsUp } from "@/components/index/whats-up";
 import { Decor } from "@/components/index/decor";
+import Avatar from "@@/public/src/img/icons/Avatar.inline.svg";
+import Bank from "@@/public/src/img/icons/Bank.inline.svg";
+import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
 
 const TransactionsStat = dynamic(
   () =>
@@ -80,11 +84,37 @@ export default function Home({
         // TODO: Add banner href
         bannerHref="#"
         bannerLabel={t("index.hero.bannerLabel")}
-        // TODO: Add onCtaClick function
-        onCtaClick={() => {}}
         cta={t("index.hero.cta")}
         bgVideoSrc="/src/img/index/hero-bg.webm"
         bgVideoPoster="/src/img/index/hero-bg.webp"
+        getStartedTitle={t("index.get-started.title")}
+        getStartedTabs={[
+          {
+            id: "institution",
+            title: t("index.get-started.tabs.institution"),
+            Icon: Bank,
+          },
+          { id: "user", title: t("index.get-started.tabs.user"), Icon: Avatar },
+          {
+            id: "developer",
+            title: t("index.get-started.tabs.developer"),
+            Icon: CodeFilled,
+          },
+        ]}
+        getStartedLinks={{
+          institution: GET_STARTED_LINKS.institution.map((item, index) => ({
+            title: t(`index.get-started.links.institution.${index}`),
+            href: item.href,
+          })),
+          developer: GET_STARTED_LINKS.developer.map((item, index) => ({
+            title: t(`index.get-started.links.developer.${index}`),
+            href: item.href,
+          })),
+          user: GET_STARTED_LINKS.user.map((item, index) => ({
+            title: t(`index.get-started.links.user.${index}`),
+            href: item.href,
+          })),
+        }}
       />
 
       <Logos
