@@ -1068,5 +1068,18 @@ export default {
       source: "/developers/guides/getstarted/full-stack-solana-development",
       destination: "/developers/guides/dapps/journal",
     },
+    {
+      source: "/developers/guides/getstarted/solana-test-validator",
+      destination: "/docs/intro/installation/surfpool-cli-basics",
+    },
+    {
+      source: "/developers/cookbook/development/start-local-validator",
+      destination: "/docs/intro/installation/surfpool-cli-basics",
+    },
+    {
+      source:
+        "/developers/cookbook/development/using-mainnet-accounts-programs",
+      destination: "/docs/intro/installation/surfpool-cli-basics",
+    },
   ],
 };
