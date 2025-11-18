@@ -246,7 +246,12 @@ export default function PostsClientPage(props: ClientPostProps) {
                     Solana News | Updates from the Solana ecosystem
                   </span>
                   <h3 className="text-4xl font-bold leading-[1.05] md:text-6xl">
-                    {featuredPost.title}
+                    <Link
+                      href={featuredPost.url}
+                      className="no-underline hover:no-underline text-inherit"
+                    >
+                      {featuredPost.title}
+                    </Link>
                   </h3>
 
                   <div className="flex flex-col gap-6">
