@@ -200,8 +200,8 @@ export const AudioPlayer = ({
     const barCount = waveformBarsRef.current.length;
     const barWidth = width / barCount;
 
-    // Draw static waveform background
-    ctx.fillStyle = "rgba(82, 158, 255, 0.3)";
+    // Draw static waveform background (transparent white)
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
     for (let i = 0; i < barCount; i++) {
       const barHeight = waveformBarsRef.current[i] * height;
       const x = i * barWidth;
@@ -210,8 +210,8 @@ export const AudioPlayer = ({
       ctx.fillRect(x, y, barWidth * 0.8, barHeight);
     }
 
-    // Draw progress overlay
-    ctx.fillStyle = "rgba(82, 158, 255, 0.8)";
+    // Draw progress overlay (white)
+    ctx.fillStyle = "rgba(255, 255, 255, 1)";
     const progressWidth = width * progress;
 
     for (let i = 0; i < barCount; i++) {
