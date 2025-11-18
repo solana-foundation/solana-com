@@ -2,8 +2,11 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { TinaMarkdown } from "tinacms/dist/rich-text";
 import { Section } from "@/components/layout/section";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AudioPlayer } from "@/components/podcast/audio-player";
 import { EpisodeCard } from "@/components/podcast/episode-card";
@@ -96,7 +99,20 @@ export default function PodcastShowClientPage({
   return (
     <ErrorBoundary>
       <Section>
-        <div className="flex flex-col gap-16 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 pt-8 md:pt-16">
+        <div className="flex flex-col gap-16 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 pt-8 md:pt-8">
+          {/* Back Navigation */}
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="w-fit gap-2 -mb-10"
+          >
+            <Link href="/media/listen">
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Listen</span>
+            </Link>
+          </Button>
+
           {/* Podcast Header */}
           <div className="flex flex-col md:flex-row gap-8 items-start">
             {/* Cover Image */}
