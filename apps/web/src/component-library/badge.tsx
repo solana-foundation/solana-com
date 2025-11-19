@@ -25,8 +25,8 @@ export const Badge: React.FC<BadgeProps> = ({ className, title, LeftIcon }) => {
         <Image
           className="inline-block align-middle mr-twd-0.5 max-xl:size-[18px] rounded-[2px]"
           src={LeftIcon}
-          width={20}
-          height={20}
+          width={0}
+          height={0}
           alt=""
         />
       ) : Boolean(LeftIcon) ? (

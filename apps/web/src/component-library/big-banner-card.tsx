@@ -32,10 +32,10 @@ export const BigBannerCard: React.FC<BigBannerCardProps> = ({
       <div className="relative w-full xl:w-2/3 aspect-[16/9] xl:aspect-[875/492] rounded-tl-xl rounded-tr-xl xl:rounded-tr-none xl:rounded-bl-xl overflow-hidden group">
         <Image
           src={imageSrc}
-          alt={title}
+          alt={title || ""}
           fill
           className="object-cover z-0"
-          sizes="(max-width: 768px) 100vw, 50vw"
+          sizes="(max-width: 1280px) 100vw, 66vw"
           loading="lazy"
         />
       </div>
@@ -46,7 +46,7 @@ export const BigBannerCard: React.FC<BigBannerCardProps> = ({
             {description}
           </p>
         )}
-        {href && (
+        {href && buttonLabel && (
           <div className="mt-[25px] xl:mt-twd-8 xl:order-2 xl:grow">
             <Button
               className="w-full xl:w-auto nd-body-m"
@@ -54,7 +54,7 @@ export const BigBannerCard: React.FC<BigBannerCardProps> = ({
               variant="secondary-outline"
               size="lg"
               rounded
-              aria-label={title}
+              aria-label={title || buttonLabel}
             >
               <a
                 className="text-inherit"

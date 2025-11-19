@@ -341,9 +341,15 @@ export async function getStaticProps({ params }) {
       const featuredEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
         period: "future",
       });
+      events = [...events, ...featuredEvents];
+      // Sort events by date
+      events.sort(
+        (a, b) =>
+          new Date(a.schedule.from).getTime() -
+          new Date(b.schedule.from).getTime(),
+      );
       firstFeaturedEventIndex =
         featuredEvents.length > 0 ? pastEvents.length : 0;
-      events = [...events, ...featuredEvents];
     } catch (error) {
       console.error(error);
     }
@@ -359,13 +365,6 @@ export async function getStaticProps({ params }) {
     } catch (error) {
       console.error(error);
     }
-
-    // Sort events by date
-    events.sort(
-      (a, b) =>
-        new Date(a.schedule.from).getTime() -
-        new Date(b.schedule.from).getTime(),
-    );
 
     return {
       props: {

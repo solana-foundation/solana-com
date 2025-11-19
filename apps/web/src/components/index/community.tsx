@@ -22,10 +22,10 @@ export type CommunityProps = {
   links?: {
     title: string;
     description?: string;
-    href?: string;
+    href: string;
     Icon?: React.ComponentType<{
       className?: string;
-      "aria-hidden"?: boolean | "true" | "false";
+      "aria-hidden"?: boolean;
     }>;
   }[];
 };

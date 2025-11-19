@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export interface UseMouseFollowerOptions {
   offsetX?: number;
@@ -13,7 +13,7 @@ export const useMouseFollower = <T extends HTMLElement, I extends HTMLElement>(
 
   const nodeRef = useRef<T | null>(null);
   const imageRef = useRef<I | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const isVisibleRef = useRef(false);
 
   useEffect(() => {
     const node = nodeRef.current;
@@ -22,6 +22,7 @@ export const useMouseFollower = <T extends HTMLElement, I extends HTMLElement>(
     if (!node || !image) return;
 
     image.style.position = "fixed";
+    image.style.visibility = "visible";
     image.style.pointerEvents = "none";
     image.style.opacity = "0";
     image.style.transition = "opacity 0.2s ease-out";
@@ -41,17 +42,17 @@ export const useMouseFollower = <T extends HTMLElement, I extends HTMLElement>(
         e.clientY <= rect.top + rect.height;
 
       if (isInside) {
-        setIsVisible(true);
+        isVisibleRef.current = true;
         image.style.transform = `translate(${e.clientX + offsetX}px, ${e.clientY + offsetY}px)`;
         image.style.opacity = "1";
       } else {
-        setIsVisible(false);
+        isVisibleRef.current = false;
         image.style.opacity = "0";
       }
     };
 
     const handleMouseLeave = () => {
-      setIsVisible(false);
+      isVisibleRef.current = false;
       if (image) {
         image.style.opacity = "0";
       }
@@ -64,7 +65,7 @@ export const useMouseFollower = <T extends HTMLElement, I extends HTMLElement>(
       node.removeEventListener("mousemove", handleMouseMove);
       node.removeEventListener("mouseleave", handleMouseLeave);
     };
-  }, [offsetX, offsetY, className, isVisible]);
+  }, [offsetX, offsetY, className]);
 
   return {
     ref: nodeRef,

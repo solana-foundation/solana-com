@@ -82,6 +82,7 @@ export default async function getLatest(
   _req: NextApiRequest,
   res: NextApiResponse,
 ) {
+  const { category } = _req.query;
   items = [
     ...items.slice(-2).map((item) => ({
       ...item,
@@ -92,5 +93,15 @@ export default async function getLatest(
     ...item,
     index: index + 1,
   }));
+  if (category && category !== "all") {
+    return res.status(200).json(
+      items
+        .filter((item) => item.categoryId === category)
+        .map((item, index) => ({
+          ...item,
+          index: index + 1,
+        })),
+    );
+  }
   return res.status(200).json(items);
 }

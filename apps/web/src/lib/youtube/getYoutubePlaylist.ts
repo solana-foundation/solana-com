@@ -1,11 +1,4 @@
 import { cache } from "react";
-
-/**
- * Fetches playlist data from YouTube Data API v3
- * @param playlistId - The YouTube playlist ID (e.g., "PLrAXtmRdnEQy6nKXYTKxEOENtctrCACVt")
- * @param options - Optional configuration
- * @returns Promise with playlist data including videos
- */
 import {
   GetPlaylistOptions,
   YouTubePlaylistItem,
@@ -13,6 +6,12 @@ import {
   YoutubePlaylistData,
 } from "./types";
 
+/**
+ * Fetches playlist data from YouTube Data API v3
+ * @param playlistId - The YouTube playlist ID (e.g., "PLrAXtmRdnEQy6nKXYTKxEOENtctrCACVt")
+ * @param options - Optional configuration
+ * @returns Promise with playlist data including videos
+ */
 async function getYoutubePlaylist(
   playlistId: string,
   options: GetPlaylistOptions = {},
@@ -30,7 +29,7 @@ async function getYoutubePlaylist(
   }
 
   const {
-    limit = 50,
+    limit = Math.min(options.limit ?? 50, 50),
     pageToken,
     part = ["snippet", "contentDetails"],
   } = options;
@@ -56,6 +55,7 @@ async function getYoutubePlaylist(
       headers: {
         accept: "application/json",
       },
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {
@@ -94,8 +94,17 @@ async function getAllPlaylistItems(
   let allItems: YouTubePlaylistItem[] = [];
   let nextPageToken: string | undefined = undefined;
   let hasMore = true;
+  let iterationCount = 0;
+  const MAX_ITERATIONS = 100; // Safety limit (50 items/page * 100 = 5000 max items)
 
   while (hasMore) {
+    if (++iterationCount > MAX_ITERATIONS) {
+      console.warn(
+        `Reached maximum iteration limit (${MAX_ITERATIONS}) for playlist ${playlistId}`,
+      );
+      break;
+    }
+
     const result = await getYoutubePlaylist(playlistId, {
       pageToken: nextPageToken,
     });

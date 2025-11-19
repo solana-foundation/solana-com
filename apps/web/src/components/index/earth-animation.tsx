@@ -186,6 +186,8 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
       const dt = (now - lastTRef.current) / 1000;
       lastTRef.current = now;
 
+      const { r, g, b } = hexToRgb(dotColor);
+
       dotsRef.current.forEach((d) => {
         const sp = subpathsRef.current[d.subIdx];
         if (!sp) return;
@@ -218,7 +220,6 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
         d.elem.setAttribute("cy", pt2.y.toString());
         d.elem.setAttribute("r", (d.baseR * grow).toFixed(3));
 
-        const { r, g, b } = hexToRgb(dotColor);
         const blur = (6 * glowM).toFixed(2);
         d.elem.style.filter = `drop-shadow(0 0 ${blur}px rgba(${r},${g},${b},0.95))`;
       });
@@ -299,15 +300,6 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
           aria-hidden="true"
           className="absolute inset-0 w-full h-full block pointer-events-none"
         >
-          <defs>
-            <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b" />
-              <feMerge>
-                <feMergeNode in="b" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
           <g ref={dotLayerRef} id="dotLayer" />
         </svg>
       </div>

@@ -30,7 +30,7 @@ export type HeroProps = {
     title: string;
     Icon?: React.ComponentType<{
       className?: string;
-      "aria-hidden"?: boolean | "true" | "false";
+      "aria-hidden"?: boolean;
     }>;
   }[];
   getStartedLinks?: Record<
@@ -61,7 +61,9 @@ export const Hero: React.FC<HeroProps> = ({
   const handler = useCallback((node: HTMLVideoElement | null) => {
     if (!node) return;
     if (node.paused) {
-      node.play();
+      node.play().catch((error) => {
+        console.warn("Video autoplay failed:", error);
+      });
     }
   }, []);
   const { ref } = useViewportVisibility<HTMLVideoElement>(handler, {

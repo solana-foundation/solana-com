@@ -125,7 +125,7 @@ export async function getStaticProps({ params }) {
   );
 
   // Set featured event and keep all events in the regular list
-  let featuredEvent = unique[0];
+  let featuredEvent = unique[0] || null;
   let events = [...unique];
 
   return {

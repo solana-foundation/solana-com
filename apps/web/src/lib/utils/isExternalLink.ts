@@ -7,7 +7,7 @@ export const isExternalLink = (url: string | undefined) => {
 
   // If it contains a domain (with or without protocol)
   const hasDomain =
-    /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/.test(url);
+    /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?::\d+)?(\/.*)?$/.test(url);
 
   return hasDomain;
 };

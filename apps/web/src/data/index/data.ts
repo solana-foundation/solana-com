@@ -1,5 +1,5 @@
 import CoinsAdd from "@@/public/src/img/icons/CoinsAdd.inline.svg";
-import CodeInSquear from "@@/public/src/img/icons/CodeInSquear.inline.svg";
+import CodeInSquare from "@@/public/src/img/icons/CodeInSquare.inline.svg";
 import Bezier from "@@/public/src/img/icons/Bezier.inline.svg";
 import ShieldCheck from "@@/public/src/img/icons/ShieldCheck.inline.svg";
 import WindowCursor from "@@/public/src/img/icons/WindowCursor.inline.svg";
@@ -99,7 +99,7 @@ export const LINKS = [
   },
   {
     href: "https://solana.org/grants-funding",
-    Icon: CodeInSquear,
+    Icon: CodeInSquare,
   },
   {
     href: "/solutions/tokenization",

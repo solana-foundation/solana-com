@@ -7,7 +7,7 @@ export type CompanyStatsCardProps = {
   stat?: string;
   statLabel?: string;
   statIcon?: string;
-  name?: string;
+  name: string;
   hideStats?: boolean;
   src?: string;
   statType?: "text" | "icon";
@@ -33,20 +33,22 @@ export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
       )}
       aria-label={name}
     >
-      <div className="relative">
-        <div className="relative h-twd-6 xl:h-twd-8">
-          <Image
-            src={src}
-            alt={name}
-            fill
-            sizes="(max-width: 768px) 340px, 420px"
-            className="object-contain w-auto"
-            loading="lazy"
-          />
+      {src && (
+        <div className="relative">
+          <div className="relative h-twd-6 xl:h-twd-8">
+            <Image
+              src={src}
+              alt={name || ""}
+              fill
+              sizes="(max-width: 768px) 340px, 420px"
+              className="object-contain w-auto"
+              loading="lazy"
+            />
+          </div>
         </div>
-      </div>
+      )}
       {!hideStats && (
-        <dl className="mt-twd-8 mb-twd-0 relative">
+        <div className="mt-twd-8 mb-twd-0 relative">
           {statType === "icon" ? (
             <div className="relative h-twd-10 overflow-hidden">
               {statIcon && (
@@ -61,14 +63,14 @@ export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
             </div>
           ) : (
             <>
-              <dt className="sr-only">{statLabel}</dt>
-              <dd className="text-[24px] xl:text-[40px] leading-[1.33] xl:leading-[1.2] mb-twd-1 uppercase">
+              <div className="sr-only">{statLabel}</div>
+              <div className="text-[24px] xl:text-[40px] leading-[1.33] xl:leading-[1.2] mb-twd-1 uppercase">
                 {stat}
-              </dd>
+              </div>
               <div className="nd-body-m font-medium">{statLabel}</div>
             </>
           )}
-        </dl>
+        </div>
       )}
     </article>
   );

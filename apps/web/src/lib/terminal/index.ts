@@ -4,17 +4,23 @@ import fetcher from "../../utils/fetcher";
 
 export default function useTerminal({
   enabled = true,
+  category,
 }: {
   enabled?: boolean;
+  category?: string;
 } = {}) {
-  const { data, isLoading, isValidating } = useSWR(
-    enabled ? `/api/terminal/latest` : null,
-    fetcher,
+  const { data, isLoading, isValidating } = useSWR<
     {
-      revalidateOnFocus: false,
-      refreshInterval: 10000,
-    },
-  );
+      index: number;
+      id: string;
+      title: string;
+      categoryId: string;
+      date: string;
+    }[]
+  >(enabled ? `/api/terminal/latest?category=${category}` : null, fetcher, {
+    revalidateOnFocus: false,
+    refreshInterval: 10000,
+  });
 
   return {
     items: data,

@@ -33,7 +33,7 @@ const AnimatedTransactionCountup: React.FC<AnimatedTransactionCountupProps> = ({
     if (countUpRef.current) {
       update(totalTransactionCount + avgTPS * perfUpdateSec);
     }
-  }, [countUpRef, totalTransactionCount]);
+  }, [totalTransactionCount, avgTPS, perfUpdateSec, update]);
   return <span ref={countUpRef} />;
 };
 

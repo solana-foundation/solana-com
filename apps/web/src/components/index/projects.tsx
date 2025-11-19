@@ -22,7 +22,7 @@ export type ProjectsProps = {
 export const Projects: React.FC<ProjectsProps> = ({
   className,
   title,
-  projects,
+  projects = [],
   bgSrc,
   logos,
   cta,
@@ -63,13 +63,15 @@ export const Projects: React.FC<ProjectsProps> = ({
           )}
         </div>
         <div className="mt-twd-10 xl:mt-twd-16 rounded-2xl border-nd-border-light border-[1px] bg-nd-inverse overflow-hidden relative">
-          <Image
-            className="opacity-30"
-            src={bgSrc}
-            alt=""
-            fill
-            loading="lazy"
-          />
+          {bgSrc && (
+            <Image
+              className="opacity-30"
+              src={bgSrc}
+              alt=""
+              fill
+              loading="lazy"
+            />
+          )}
           <Image
             className="absolute bottom-[-23px] right-[-900px] mix-blend-overlay opacity-40 max-w-none hidden xl:block"
             src="/src/img/index/pattern-parallelogram-r.svg"

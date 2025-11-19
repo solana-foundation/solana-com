@@ -16,6 +16,7 @@ import { Button } from "@/app/components/ui/button";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import useTerminal from "@/lib/terminal";
 import { motion, AnimatePresence } from "framer-motion";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 export const CATEGORIES = {
   all: {
@@ -64,12 +65,12 @@ export const CATEGORIES = {
 
 export type WhatsUpProps = {
   title?: React.ReactNode;
-  items?: {
-    index: number;
-    title: string;
-    categoryId: string;
-    date: string;
-  }[];
+  // items?: {
+  //   index: number;
+  //   title: string;
+  //   categoryId: string;
+  //   date: string;
+  // }[];
   cta?: string;
   ctaHref?: string;
 };
@@ -96,28 +97,37 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
     threshold: 0.2,
     triggerOnce: true,
   });
-  const { items, isLoading } = useTerminal();
+  const { items, isLoading } = useTerminal({ category: activeCategory });
   const prevItemsRef = useRef<typeof items>([]);
   const [newItemIds, setNewItemIds] = useState<string[]>([]);
   const totalItems = items?.length || 0;
-  const allNew = newItemIds.length === totalItems;
+  const allNew = newItemIds.length >= totalItems;
   const [firstRender, setFirstRender] = useState(true);
   const [firstRenderItems, setFirstRenderItems] = useState<typeof items>([]);
+  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    if (!isIntersecting) return;
-    setFirstRenderItems(items || []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isIntersecting]);
+  // useEffect(() => {
+  //   if (!isIntersecting) return;
+  //   setFirstRenderItems(items || []);
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [isIntersecting]);
+
+  // useEffect(() => {
+  //   if (!firstRender) return;
+  //   setFirstRenderItems(items || []);
+  // }, [firstRender, items]);
 
   useEffect(() => {
     if (!firstRender || !isIntersecting) return;
+
+    setFirstRenderItems(items || []);
 
     const timer = setTimeout(() => {
       setFirstRender(false);
     }, 10000);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstRender, isIntersecting]);
 
   useEffect(() => {
@@ -137,6 +147,8 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
 
     prevItemsRef.current = items;
   }, [items]);
+
+  const isDesktop = useMediaQuery("(min-width: 1280px)");
 
   return (
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
@@ -230,7 +242,11 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                         { "animate-curtain-top-to-bottom": isIntersecting },
                       )}
                       type="button"
-                      onClick={() => setActiveCategory(category.id)}
+                      onClick={() => {
+                        setActiveCategory(category.id);
+                        setPage(1);
+                        setFirstRender(false);
+                      }}
                       disabled={activeCategory === category.id}
                       style={
                         isIntersecting
@@ -251,9 +267,14 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                   ))}
                 </div>
               </div>
-              <div className="divide-y divide-nd-border-light border-t xl:border-t-0 border-nd-border-light grow-0 shrink-0 overflow-hidden relative hidden xl:block">
+              <div className="w-16 divide-y divide-nd-border-light border-t xl:border-t-0 border-nd-border-light grow-0 shrink-0 overflow-hidden relative hidden xl:block">
                 {(firstRender ? firstRenderItems : items)?.map(
                   (item, index) => {
+                    if (!isDesktop) {
+                      if (page === 1 && index >= 5) return null;
+                      if (page === 2 && index < 5) return null;
+                    }
+
                     return (
                       <div
                         key={item.id}
@@ -288,6 +309,11 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                 <AnimatePresence mode="popLayout">
                   {(firstRender ? firstRenderItems : items)?.map(
                     (item, index) => {
+                      if (!isDesktop) {
+                        if (page === 1 && index >= 5) return null;
+                        if (page === 2 && index < 5) return null;
+                      }
+
                       const category = CATEGORIES[item.categoryId];
                       const CategoryIcon = category?.Icon;
                       const isNewItem = newItemIds.includes(item.id);
@@ -320,7 +346,8 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                           </div>
                           <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[160px]">
                             <span className="font-brand-mono font-medium text-nd-mid-em-text text-[14px] leading-[1.42] uppercase">
-                              {format(item.date, "MMM d yyyy")}
+                              {item.date &&
+                                format(new Date(item.date), "MMM d yyyy")}
                             </span>
                           </div>
                         </>
@@ -353,7 +380,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
 
                       return (
                         <motion.div
-                          key={item.id}
+                          key={`${item.id}-${activeCategory}`}
                           layout={true}
                           initial={{ y: 0 }}
                           animate={{ y: 0, opacity: 1 }}
@@ -382,9 +409,13 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
               <div className="flex flex-1 flex-row divide-x divide-nd-border-light border-t border-nd-border-light xl:hidden">
                 <button
                   className={cn(
-                    "py-twd-3 px-twd-5 flex flex-col items-start justify-start gap-twd-2.5 w-full hover:bg-nd-border-light/20",
+                    "py-twd-3 px-twd-5 flex flex-col items-start justify-start gap-twd-2.5 w-full hover:bg-nd-border-light/20 disabled:opacity-50 disabled:cursor-not-allowed",
                   )}
                   type="button"
+                  disabled={page === 1}
+                  onClick={() => {
+                    setPage(1);
+                  }}
                 >
                   <ChevronLeft className={cn("w-4 h-4 -mt-0.5")} />
                   <span className="nd-body-l leading-[1.5]">
@@ -393,9 +424,13 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                 </button>
                 <button
                   className={cn(
-                    "py-twd-3 px-twd-5 flex flex-col items-end justify-end gap-twd-2.5 w-full hover:bg-nd-border-light/20",
+                    "py-twd-3 px-twd-5 flex flex-col items-end justify-end gap-twd-2.5 w-full hover:bg-nd-border-light/20 disabled:opacity-50 disabled:cursor-not-allowed",
                   )}
                   type="button"
+                  disabled={page === 2 || items?.length <= 5}
+                  onClick={() => {
+                    setPage(2);
+                  }}
                 >
                   <ChevronRight className={cn("w-4 h-4 -mt-0.5")} />
                   <span className="nd-body-l leading-[1.5]">

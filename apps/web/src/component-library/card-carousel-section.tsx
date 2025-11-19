@@ -72,7 +72,7 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
           {totalItems > 1 || cta ? (
             <div className="flex gap-twd-3 items-center">
               {/** CTA */}
-              {cta && (
+              {cta && ctaHref && (
                 <Button
                   className="h-12 w-auto nd-body-m"
                   asChild

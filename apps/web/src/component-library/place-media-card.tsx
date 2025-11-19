@@ -29,7 +29,7 @@ export const PlaceMediaCard: React.FC<PlaceMediaCardProps> = ({
       <div className="relative w-full aspect-square rounded-xl overflow-hidden group">
         <Image
           src={imageSrc}
-          alt={title}
+          alt={title || ""}
           fill
           className="object-cover z-0"
           sizes="(max-width: 768px) 100vw, 50vw"
@@ -41,7 +41,7 @@ export const PlaceMediaCard: React.FC<PlaceMediaCardProps> = ({
         <div className="mt-twd-2 flex gap-twd-1 flex-wrap">
           {date && (
             <Badge
-              title={format(date, "EEE, MMM d")}
+              title={format(new Date(date), "EEE, MMM d")}
               LeftIcon={CalendarTodayIcon}
             />
           )}

@@ -33,12 +33,15 @@ export const StatsGrid: React.FC<StatsGridProps> = ({
 
   return (
     <div
-      className={cn("grid grid-cols-2 xl:grid-cols-4 w-full", {
-        "xl:grid-cols-2": items.length === 2,
-        "xl:grid-cols-3": items.length === 3,
-        "xl:grid-cols-4": items.length > 3,
+      className={cn(
+        "grid grid-cols-2 xl:grid-cols-4 w-full",
+        {
+          "xl:grid-cols-2": items.length === 2,
+          "xl:grid-cols-3": items.length === 3,
+          "xl:grid-cols-4": items.length > 3,
+        },
         className,
-      })}
+      )}
       ref={statsRef}
     >
       {items?.map((stat, index) => (

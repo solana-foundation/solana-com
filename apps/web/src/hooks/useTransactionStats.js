@@ -183,13 +183,18 @@ export const useTransactionStats = ({
     }
 
     let intervalFailsLimit = 10;
+    let isPolling = false;
     const interval = setInterval(async () => {
+      if (isPolling) return;
+      isPolling = true;
       const success = await getRPCData(
         false,
         getLiveTransactionCount,
         abortController.signal,
       );
+      isPolling = false;
       if (!success && --intervalFailsLimit <= 0) {
+        console.warn(`RPC polling failed ${10} times, stopping interval`);
         clearInterval(interval);
         setAvailableStats(true);
       }

@@ -27,11 +27,13 @@ export interface GetStartedProps {
 
 export const GetStarted: React.FC<GetStartedProps> = (props) => {
   const { title, tabs, links, onClose, open } = props;
-  const [activeTab, setActiveTab] = useState<string | null>(tabs[0]?.id);
+  const [activeTab, setActiveTab] = useState<string | null>(
+    tabs[0]?.id ?? null,
+  );
   useEffect(() => {
-    setActiveTab((state) => state ?? tabs[0]?.id);
+    setActiveTab((state) => state ?? tabs[0]?.id ?? null);
   }, [tabs]);
-  const activeLinks = links?.[activeTab];
+  const activeLinks = activeTab ? links?.[activeTab] : undefined;
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent

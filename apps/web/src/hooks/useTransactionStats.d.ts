@@ -17,6 +17,6 @@ export interface UseTransactionStatsReturn {
   superminority: number | null;
 }
 
-export declare const useTransactionStats = (
+export declare function useTransactionStats(
   _params: UseTransactionStatsParams,
-) => UseTransactionStatsReturn;
+): UseTransactionStatsReturn;

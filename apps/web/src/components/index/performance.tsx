@@ -97,7 +97,7 @@ export const Performance: React.FC<PerformanceProps> = ({
           </div>
         </div>
 
-        {stats.length > 0 && (
+        {stats && stats.length > 0 && (
           <div className="mt-[380px] md:mt-[350px] xl:mt-[560px] -mx-twd-5 md:-mx-twd-8 xl:mx-twd-0">
             <StatsGrid items={stats} />
           </div>

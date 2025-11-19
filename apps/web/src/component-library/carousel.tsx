@@ -306,10 +306,10 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
 
     // Set the current page to the start index if it is provided
     useEffect(() => {
-      if (startIndex) {
-        setCurrentPage(startIndex);
+      if (startIndex !== undefined) {
+        setCurrentPage(Math.max(0, Math.min(startIndex, lastPage)));
       }
-    }, [startIndex]);
+    }, [lastPage, startIndex]);
 
     // Mouse event listeners
     useEffect(() => {

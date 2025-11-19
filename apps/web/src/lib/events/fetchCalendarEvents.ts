@@ -24,14 +24,27 @@ export type LumaEvent = {
     cover_url: string | null;
     event_type: string;
   };
-  platform: string;
+  platform?: string;
+};
+
+export type RiverEvent = {
+  id: string;
+  name: string;
+  description: string;
+  link: string;
+  startTime: string;
+  endTime: string;
+  timezone: string;
+  city: string;
+  country: string;
+  image: string;
 };
 
 export type CalendarEvent = {
   key: string;
   title: string;
   description: string;
-  platform: string;
+  platform?: string;
   rsvp: string;
   schedule: {
     from: string | null;
@@ -112,14 +125,27 @@ export async function fetchCalendarEvents(
     },
   });
 
-  const { entries } = await res.json();
+  if (!res.ok) {
+    console.warn(`LUMA API returned status ${res.status}`);
+    return [];
+  }
 
-  if (!entries) {
+  let events: LumaEvent[] = [];
+
+  try {
+    const data = await res.json();
+    events = data.entries;
+  } catch (error) {
+    console.warn("Failed to parse LUMA API response:", error);
+    return [];
+  }
+
+  if (!events) {
     return allEvents;
   }
 
   allEvents = allEvents.concat(
-    entries.map((el: LumaEvent) => {
+    events.map((el) => {
       const {
         name,
         api_id,
@@ -167,7 +193,7 @@ export async function fetchCalendarEvents(
   );
 
   // Add custom img and timezone overrides
-  allEvents.map((el) => {
+  allEvents.forEach((el) => {
     if (el.key === "https://solana.com/breakpoint") {
       el.img.primary = breakpointImg.src;
       el.schedule.timezone = "Asia/Dubai";
@@ -210,7 +236,8 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
     return dummyEvent;
   }
 
-  let allEvents = [];
+  let allEvents: CalendarEvent[] = [];
+
   const getCalendarEventsUrl = new URL(
     "https://app.getriver.io/api/v1alpha1/community/solana/list-events",
   );
@@ -225,7 +252,20 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
     },
   });
 
-  const { events } = await res.json();
+  if (!res.ok) {
+    console.warn(`River API returned status ${res.status}`);
+    return [];
+  }
+
+  let events: RiverEvent[] = [];
+
+  try {
+    const data = await res.json();
+    events = data.events;
+  } catch (error) {
+    console.warn("Failed to parse River API response:", error);
+    return [];
+  }
 
   allEvents = allEvents.concat(
     events && events.length
@@ -242,8 +282,8 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
             country,
             image,
           } = el;
-          const startDate = new Date(startTime);
-          const endDate = new Date(endTime);
+          const startDate = startTime;
+          const endDate = endTime;
           const imageUrl = image;
 
           return {
@@ -263,6 +303,9 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
             venue: {
               city: city,
               country: country,
+              address: null,
+              region: null,
+              city_state: null,
             },
           };
         })

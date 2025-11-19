@@ -22,9 +22,9 @@ export const FooterMouseEffect: React.FC<FooterMouseEffectProps> = ({
       <div
         className="mix-blend-overlay"
         ref={imageRef}
-        style={{ display: "none" }}
+        style={{ visibility: "hidden", opacity: 0 }}
       >
-        <FooterMouseEffectSvg className="absolute top-0 left-0 translate-x-[-50%] translate-y-[-50%] w-[370px] h-[290px] max-w-none object-contain filter-blur-[32px]" />
+        <FooterMouseEffectSvg className="absolute top-0 left-0 translate-x-[-50%] translate-y-[-50%] w-[370px] h-[290px] max-w-none object-contain blur-[32px]" />
       </div>
       {children}
     </div>
