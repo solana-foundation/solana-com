@@ -4,7 +4,6 @@ import nextConfig from "../next.config";
 import Post from "./collection/post";
 import Global from "./collection/global";
 import Author from "./collection/author";
-import Page from "./collection/page";
 import Tag from "./collection/tag";
 import Category from "./collection/category";
 import CTA from "./collection/cta";
@@ -37,7 +36,6 @@ const config: any = defineConfig({
       Author,
       CTA,
       Global,
-      Page,
       Podcast,
       Post,
       Switchback,
