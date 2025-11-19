@@ -10,6 +10,7 @@ import DevelopersResourceItem from "@/components/developers/sections/DevelopersR
 import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
 import hackathonHeroImg from "@@/assets/universities/hackathon-hero.webp";
 import { Book } from "react-feather";
+import { Logos } from "@/components/solutions/logos.v2";
 
 interface X402HackathonPageProps {
   translations: {
@@ -46,6 +47,23 @@ interface X402HackathonPageProps {
     tracks: Array<{
       title: string;
       description: string;
+      prizeAmount?: string;
+      sponsor?: string;
+      logo?: string;
+    }>;
+    sponsorBountiesTitle: string;
+    sponsorBountiesSubtitle: string;
+    sponsorBounties: Array<{
+      sponsor: string;
+      logo: string;
+      title: string;
+      description: string;
+      prizeAmount: string;
+    }>;
+    sponsorBannerTitle: string;
+    sponsorBannerLogos: Array<{
+      src: string;
+      alt: string;
     }>;
     resourcesTitle: string;
     resourcesDescription: string;
@@ -162,6 +180,40 @@ export function X402HackathonPage({ translations }: X402HackathonPageProps) {
           subtitle: translations.tracksSubtitle,
           prizeAmount: translations.tracksPrizeAmount,
           tracks: translations.tracks,
+        }}
+      />
+
+      {/* Sponsor Banner Section */}
+      <section className="py-8 md:py-12 bg-gray-900/30">
+        <div className="container">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-white">
+              {translations.sponsorBannerTitle}
+            </h2>
+          </div>
+          <Logos
+            logos={translations.sponsorBannerLogos.map((logo) => ({
+              ...logo,
+              height: "40px",
+            }))}
+            fadeColor="rgb(17, 24, 39)"
+          />
+        </div>
+      </section>
+
+      {/* Sponsor Bounties Section */}
+      <HackathonTracks
+        translations={{
+          title: translations.sponsorBountiesTitle,
+          subtitle: translations.sponsorBountiesSubtitle,
+          prizeAmount: "$10,000",
+          tracks: translations.sponsorBounties.map((bounty) => ({
+            title: bounty.title,
+            description: bounty.description,
+            prizeAmount: bounty.prizeAmount,
+            sponsor: bounty.sponsor,
+            logo: bounty.logo,
+          })),
         }}
       />
 

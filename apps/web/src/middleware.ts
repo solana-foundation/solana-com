@@ -6,8 +6,11 @@ import { locales } from "@workspace/i18n/config";
 const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {
-  // Skip i18n for /breakpoint/* paths
-  if (req.nextUrl.pathname.startsWith("/breakpoint")) {
+  // Skip i18n for /breakpoint/* and /developers/templates/* paths
+  if (
+    req.nextUrl.pathname.startsWith("/breakpoint") ||
+    req.nextUrl.pathname.startsWith("/developers/templates")
+  ) {
     return NextResponse.next();
   }
 
