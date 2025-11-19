@@ -13,38 +13,55 @@ export default async function PostPage({
 }) {
   const resolvedParams = await params;
   const filepath = resolvedParams.urlSegments.join("/");
-  const data = await client.queries.post({
-    relativePath: `${filepath}.mdx`,
-  });
+
+  let data;
+  try {
+    data = await client.queries.post({
+      relativePath: `${filepath}.mdx`,
+    });
+  } catch (error) {
+    // During build, if the server isn't available, the query will fail
+    // In production, this should be handled by Tina Cloud
+    throw error;
+  }
 
   return <PostClientPage {...data} />;
 }
 
 export async function generateStaticParams() {
-  let posts = await client.queries.postConnection();
-  const allPosts = posts;
+  try {
+    let posts = await client.queries.postConnection();
+    const allPosts = posts;
 
-  if (!allPosts.data.postConnection.edges) {
-    return [];
-  }
-
-  while (posts.data?.postConnection.pageInfo.hasNextPage) {
-    posts = await client.queries.postConnection({
-      after: posts.data.postConnection.pageInfo.endCursor,
-    });
-
-    if (!posts.data.postConnection.edges) {
-      break;
+    if (!allPosts.data.postConnection.edges) {
+      return [];
     }
 
-    allPosts.data.postConnection.edges.push(...posts.data.postConnection.edges);
-  }
+    while (posts.data?.postConnection.pageInfo.hasNextPage) {
+      posts = await client.queries.postConnection({
+        after: posts.data.postConnection.pageInfo.endCursor,
+      });
 
-  return (
-    allPosts.data?.postConnection.edges.map((edge) => ({
-      urlSegments: edge?.node?._sys.breadcrumbs,
-    })) || []
-  );
+      if (!posts.data.postConnection.edges) {
+        break;
+      }
+
+      allPosts.data.postConnection.edges.push(
+        ...posts.data.postConnection.edges
+      );
+    }
+
+    return (
+      allPosts.data?.postConnection.edges.map((edge) => ({
+        urlSegments: edge?.node?._sys.breadcrumbs,
+      })) || []
+    );
+  } catch (error) {
+    // During build, if the server isn't available, return empty array
+    // This allows the build to complete even if static generation fails
+    console.warn("Failed to generate static params for posts:", error);
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -54,8 +71,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const filepath = resolvedParams.urlSegments.join("/");
-  const res = await client.queries.post({ relativePath: `${filepath}.mdx` });
-  const post = res.data.post;
+
+  let post;
+  try {
+    const res = await client.queries.post({ relativePath: `${filepath}.mdx` });
+    post = res.data.post;
+  } catch (error) {
+    // Fallback metadata if query fails during build
+    return {
+      title: "Post Not Found",
+      description: "",
+    };
+  }
 
   const title = post.seo?.title || post.title;
   const description =
