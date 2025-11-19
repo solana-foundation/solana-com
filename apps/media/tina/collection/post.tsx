@@ -12,7 +12,7 @@ const Post: Collection = {
   format: "mdx",
   ui: {
     router: ({ document }) => {
-      return `/media/read/${document._sys.breadcrumbs.join("/")}`;
+      return `/news/${document._sys.breadcrumbs.join("/")}`;
     },
   },
   fields: [

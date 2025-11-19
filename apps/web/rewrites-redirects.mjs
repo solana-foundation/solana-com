@@ -18,28 +18,48 @@ export default {
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
         locale: false,
       },
-      // Media app rewrites
+      // Media app rewrites - new routes
       {
-        source: "/media",
-        destination: `${mediaUrl}`,
+        source: "/news",
+        destination: `${mediaUrl}/news`,
         locale: false,
       },
       {
-        source: "/media/:path*",
-        destination: `${mediaUrl}/media/:path*`,
+        source: "/news/:path*",
+        destination: `${mediaUrl}/news/:path*`,
         locale: false,
       },
       {
-        source: "/:locale/media",
-        destination: `${mediaUrl}/:locale`,
+        source: "/podcasts",
+        destination: `${mediaUrl}/podcasts`,
         locale: false,
       },
       {
-        source: "/:locale/media/:path*",
-        destination: `${mediaUrl}/:locale/media/:path*`,
+        source: "/podcasts/:path*",
+        destination: `${mediaUrl}/podcasts/:path*`,
         locale: false,
       },
-      // Media app assets
+      {
+        source: "/:locale/news",
+        destination: `${mediaUrl}/:locale/news`,
+        locale: false,
+      },
+      {
+        source: "/:locale/news/:path*",
+        destination: `${mediaUrl}/:locale/news/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/podcasts",
+        destination: `${mediaUrl}/:locale/podcasts`,
+        locale: false,
+      },
+      {
+        source: "/:locale/podcasts/:path*",
+        destination: `${mediaUrl}/:locale/podcasts/:path*`,
+        locale: false,
+      },
+      // Media app assets (required for static assets with assetPrefix: "/media-assets")
       {
         source: "/media-assets/:path+",
         destination: `${mediaUrl}/media-assets/:path+`,
@@ -64,11 +84,10 @@ export default {
   },
 
   redirects: [
-    { source: "/news", destination: "/media/read" },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
-    { source: "/upgrade", destination: "/media/read/solana-network-upgrades" },
-    { source: "/upgrades", destination: "/media/read/solana-network-upgrades" },
+    { source: "/upgrade", destination: "/news/upgrades" },
+    { source: "/upgrades", destination: "/news/upgrades" },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
@@ -89,7 +108,7 @@ export default {
       source: "/skyline",
       destination: "https://lu.ma/solana-nyc",
     },
-    { source: "/blog", destination: "/media/read" },
+    { source: "/blog", destination: "/news" },
     {
       source: "/news/solana-scaffold-part-1-wallet-adapter",
       destination:
@@ -909,7 +928,7 @@ export default {
     },
     {
       source: "/news/blog-solana-bench",
-      destination: "/media/read/solana-bench",
+      destination: "/news/solana-bench",
     },
     {
       source: "/docs/references/feature-gates/consume-cus-on-sbpf-failure",

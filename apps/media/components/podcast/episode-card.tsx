@@ -25,7 +25,7 @@ export const EpisodeCard = ({
 
   return (
     <Link
-      href={`/media/listen/${episode.podcastSlug}/episodes/${episode.id}`}
+      href={`/podcasts/${episode.podcastSlug}/episodes/${episode.id}`}
       className="group flex flex-col gap-4 rounded-lg border border-border bg-card p-4 transition-all hover:shadow-lg hover:border-primary/50"
     >
       {/* Thumbnail with Play Button */}

@@ -5,5 +5,5 @@ export async function GET(
   { params }: { params: Promise<{ locale: string }> }
 ) {
   const { locale } = await params;
-  redirect(`/${locale}/media/read`);
+  redirect(`/${locale}/news`);
 }

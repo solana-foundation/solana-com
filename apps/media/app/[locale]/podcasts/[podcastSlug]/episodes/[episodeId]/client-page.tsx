@@ -38,7 +38,7 @@ export default function EpisodeClientPage({
         <div className="flex flex-col gap-12 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 pt-8">
           {/* Back Navigation */}
           <Button asChild variant="ghost" size="sm" className="w-fit gap-2">
-            <Link href={`/media/listen/${podcast.slug}`}>
+            <Link href={`/podcasts/${podcast.slug}`}>
               <ArrowLeft className="h-4 w-4" />
               <span>Back to {podcast.title}</span>
             </Link>
@@ -102,7 +102,7 @@ export default function EpisodeClientPage({
           {/* Back to Podcast Link */}
           <div className="flex justify-center pt-8 border-t border-border">
             <Button asChild variant="outline" size="lg">
-              <Link href={`/media/listen/${podcast.slug}`}>
+              <Link href={`/podcasts/${podcast.slug}`}>
                 View all episodes from {podcast.title}
               </Link>
             </Button>

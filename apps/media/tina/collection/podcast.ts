@@ -7,7 +7,7 @@ const Podcast: Collection = {
   format: "mdx",
   ui: {
     router: ({ document }) => {
-      return `/media/listen/${document._sys.breadcrumbs.join("/")}`;
+      return `/podcasts/${document._sys.breadcrumbs.join("/")}`;
     },
   },
   fields: [

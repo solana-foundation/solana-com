@@ -432,7 +432,7 @@ function transformPost(postData: PostConnectionEdges): PostItem | null {
     tags: post.tags?.map((tag) => tag?.tag?.name),
     categories:
       post.categories?.map((category) => category?.category?.name) || [],
-    url: `/media/read/${post._sys.breadcrumbs.join("/")}`,
+    url: `/news/${post._sys.breadcrumbs.join("/")}`,
     description: post.description,
     heroImage: post.heroImage || "/uploads/posts/default-blog.webp",
     author: {

@@ -119,8 +119,8 @@ export default function PodcastsClientPage({
                     <Link
                       href={
                         featuredPodcast.latestEpisode
-                          ? `/media/listen/${featuredPodcast.slug}/episodes/${featuredPodcast.latestEpisode.id}`
-                          : `/media/listen/${featuredPodcast.slug}`
+                          ? `/podcasts/${featuredPodcast.slug}/episodes/${featuredPodcast.latestEpisode.id}`
+                          : `/podcasts/${featuredPodcast.slug}`
                       }
                     >
                       <span>

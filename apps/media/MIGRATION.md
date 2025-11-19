@@ -6,8 +6,8 @@ This document summarizes the migration of the tina-news application into the sol
 
 ### 1. Turbo Repo Integration
 
-- **Location**: Moved from standalone `/Users/karambit/Sites/tina-news` to `/Users/karambit/Sites/solana-com/apps/media`
-- **Package Name**: Changed to `@solana-com/media`
+- **Location**: Moved from standalone `~/tina-news` to `~/solana-com/apps/media`
+- **Package Name**: Changed to `@solana-com-media`
 - **Dependencies**: Now uses workspace packages:
   - `@workspace/i18n` for internationalization
   - `@workspace/config-typescript` for TypeScript configuration
@@ -19,33 +19,28 @@ This document summarizes the migration of the tina-news application into the sol
 - **Middleware**: Added `src/middleware.ts` to handle locale routing
 - **i18n Config**: Created `src/i18n/request.ts` for next-intl setup
 - **Locale Messages**: Added `public/locales/en/common.json` for translations
-- **Route Structure**: All routes now prefixed with locale (e.g., `/en/media/read`)
+- **Route Structure**: All routes now prefixed with locale (e.g., `/en/news`)
 - **Admin Exclusion**: `/admin` path bypasses i18n middleware for TinaCMS
 
 ### 3. App Directory Restructure
-
-**Before**:
-
-```
-app/
-  ├── layout.tsx
-  ├── page.tsx
-  ├── media/
-  │   ├── read/
-  │   └── listen/
-  └── [...urlSegments]/
-```
-
-**After**:
 
 ```
 app/
   └── [locale]/
       ├── layout.tsx
       ├── page.tsx
-      ├── media/
-      │   ├── read/
-      │   └── listen/
+      ├── news/
+      │   ├── [...urlSegments]/
+      │   ├── client-page.tsx
+      │   └── page.tsx
+      ├── podcasts/
+      │   ├── [podcastSlug]/
+      │   │   ├── episodes/
+      │   │   │   └── [episodeId]/
+      │   │   ├── client-page.tsx
+      │   │   └── page.tsx
+      │   ├── client-page.tsx
+      │   └── page.tsx
       └── [...urlSegments]/
 ```
 
@@ -111,26 +106,26 @@ All page components updated to:
 ### Development
 
 - Frontend: `http://localhost:3000`
-- With locale: `http://localhost:3000/en/media/read`
+- With locale: `http://localhost:3000/en/news`
 - Admin: `http://localhost:3000/admin` (no locale)
 
 ### Production
 
-- English (default): `solana.com/media/read`
-- Other locales: `solana.com/<lang>/media/read` (e.g., `solana.com/es/media/read`)
-- Podcasts: `solana.com/<lang>/media/listen`
+- English (default): `solana.com/news`
+- Other locales: `solana.com/<lang>/news` (e.g., `solana.com/es/news`)
+- Podcasts: `solana.com/<lang>/podcasts`
 - Admin: `solana.com/admin`
 
 ## Routes
 
 All routes now support i18n:
 
-- `/<locale>/` - Redirects to `/<locale>/media/read`
-- `/<locale>/media/read` - News articles listing
-- `/<locale>/media/read/:slug` - Individual article
-- `/<locale>/media/listen` - Podcasts listing
-- `/<locale>/media/listen/:podcast` - Podcast show page
-- `/<locale>/media/listen/:podcast/episodes/:id` - Individual episode
+- `/<locale>/` - Redirects to `/<locale>/news`
+- `/<locale>/news` - News articles listing
+- `/<locale>/news/:slug` - Individual article
+- `/<locale>/podcasts` - Podcasts listing
+- `/<locale>/podcasts/:podcast` - Podcast show page
+- `/<locale>/podcasts/:podcast/episodes/:id` - Individual episode
 - `/admin` - TinaCMS admin panel (no locale)
 
 ## Static Generation
@@ -154,7 +149,7 @@ All pages use Next.js static generation with ISR:
 
 ```bash
 pnpm install
-pnpm --filter @solana-com/media dev
+pnpm --filter @solana-com-media dev
 ```
 
 ### From Media App Directory
@@ -168,7 +163,7 @@ pnpm dev
 
 1. Install dependencies: `pnpm install` (from monorepo root)
 2. Set up environment variables in `apps/media/.env`
-3. Run `pnpm --filter @solana-com/media dev`
+3. Run `pnpm --filter @solana-com-media dev`
 4. Test all routes with locale prefix
 5. Verify TinaCMS admin panel at `/admin`
 6. Add additional locale translations to `public/locales/`

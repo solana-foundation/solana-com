@@ -26,7 +26,7 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
 
   return (
     <Link
-      href={`/media/listen/${podcast.slug}`}
+      href={`/podcasts/${podcast.slug}`}
       className="group flex flex-col gap-4 rounded-lg border border-border bg-card p-4 transition-all hover:shadow-lg hover:border-primary/50"
     >
       {/* Cover Image */}
