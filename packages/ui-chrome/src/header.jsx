@@ -10,6 +10,7 @@ import { DevelopersNav } from "./developers-nav";
 import { InkeepSearchBar } from "./inkeep-searchbar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
+import { InkeepChatButton } from "./inkeep-chat-button";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/moon.inline.svg";
@@ -45,9 +46,7 @@ function Header({ className = "", containerClassName = "" }) {
               />
             </Link>
 
-            <div className="xl:grow flex items-center gap-x-2">
-              {/* Mobile Menu */}
-              <MobileMenu expanded={expanded} setExpanded={setExpanded} />
+            <div className="xl:grow flex items-center gap-twd-4 md:gap-twd-2">
 
               {/* Desktop Menu */}
               <div className="hidden xl:block flex-1">
@@ -55,12 +54,16 @@ function Header({ className = "", containerClassName = "" }) {
               </div>
 
               {/* Desktop Search and Language */}
-              <div className="hidden xl:flex items-center gap-x-5">
-                <InkeepSearchBar />
-                <div className="relative flex items-center">
+              <div className="flex gap-twd-5 items-center">
+                <InkeepSearchBar className="hidden md:block" />
+                <InkeepChatButton variant="inline" className="md:hidden" />
+                <div className="relative items-center hidden xl:flex">
                   <LanguageSelector />
                 </div>
               </div>
+
+              {/* Mobile Menu */}
+              <MobileMenu expanded={expanded} setExpanded={setExpanded} />
 
               {/* Theme Toggle */}
               {isThemePage && (

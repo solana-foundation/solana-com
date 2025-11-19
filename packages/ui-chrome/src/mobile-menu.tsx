@@ -12,7 +12,6 @@ import {
   SheetTitle,
   VisuallyHidden,
 } from "./sheet";
-import { InkeepSearchBar } from "./inkeep-searchbar";
 import HeaderListLearn from "./header-list.learn";
 import HeaderListBuild from "./header-list.build";
 import HeaderListSolutions from "./header-list.solutions";
@@ -159,11 +158,6 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
                 </svg>
               </button>
             </SheetClose>
-          </div>
-
-          {/* Search */}
-          <div className="pb-4 border-b border-white/10">
-            <InkeepSearchBar />
           </div>
 
           {/* Navigation Sections */}
