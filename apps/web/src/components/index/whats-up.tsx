@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Container } from "@/component-library/container";
 import { cn } from "@/app/components/utils";
 import MagicBrush from "@@/public/src/img/icons/MagicBrush.inline.svg";
@@ -13,6 +13,9 @@ import SolanaMono from "@@/public/src/img/icons/SolanaMono.inline.svg";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { Button } from "@/app/components/ui/button";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import useTerminal from "@/lib/terminal";
+import { motion, AnimatePresence } from "framer-motion";
 
 export const CATEGORIES = {
   all: {
@@ -20,40 +23,44 @@ export const CATEGORIES = {
     name: "All",
     Icon: Tasks,
     color: "text-white",
+    bg: "white",
   },
   reports: {
     id: "reports",
     name: "Reports",
     Icon: Statistics,
     color: "text-nd-highlight-lavendar",
+    bg: "#CA9FF5",
   },
   developers: {
     id: "developers",
     name: "Developers",
     Icon: CodeFilled,
     color: "text-nd-highlight-orange",
+    bg: "#F48252",
   },
   solutions: {
     id: "solutions",
     name: "Solutions",
     Icon: Todos,
     color: "text-nd-highlight-gold",
+    bg: "#FFC526",
   },
   caseStudies: {
     id: "caseStudies",
     name: "Case studies",
     Icon: FileText,
     color: "text-nd-highlight-green",
+    bg: "#55E9AB",
   },
   artists: {
     id: "artists",
     name: "Artists",
     Icon: MagicBrush,
     color: "text-nd-highlight-lime",
+    bg: "#CFF15E",
   },
 };
-
-const loadingItems = new Array(10).fill(null);
 
 export type WhatsUpProps = {
   title?: React.ReactNode;
@@ -69,7 +76,7 @@ export type WhatsUpProps = {
 
 export const WhatsUp: React.FC<WhatsUpProps> = ({
   title,
-  items,
+  // items,
   cta,
   ctaHref,
 }) => {
@@ -85,6 +92,52 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
   const [activeCategory, setActiveCategory] = useState<string>(
     categories[0].id,
   );
+  const { ref, isIntersecting } = useIntersectionObserver<HTMLDivElement>({
+    threshold: 0.2,
+    triggerOnce: true,
+  });
+  const { items, isLoading } = useTerminal();
+  const prevItemsRef = useRef<typeof items>([]);
+  const [newItemIds, setNewItemIds] = useState<string[]>([]);
+  const totalItems = items?.length || 0;
+  const allNew = newItemIds.length === totalItems;
+  const [firstRender, setFirstRender] = useState(true);
+  const [firstRenderItems, setFirstRenderItems] = useState<typeof items>([]);
+
+  useEffect(() => {
+    if (!isIntersecting) return;
+    setFirstRenderItems(items || []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isIntersecting]);
+
+  useEffect(() => {
+    if (!firstRender || !isIntersecting) return;
+
+    const timer = setTimeout(() => {
+      setFirstRender(false);
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [firstRender, isIntersecting]);
+
+  useEffect(() => {
+    if (!items || items.length === 0) {
+      prevItemsRef.current = items || [];
+      setNewItemIds([]);
+      return;
+    }
+
+    const prevItems = prevItemsRef.current;
+    const prevItemIds = prevItems.map((item) => item.id);
+    const newIds = items
+      .filter((item) => !prevItemIds.includes(item.id))
+      .map((item) => item.id);
+
+    setNewItemIds(newIds);
+
+    prevItemsRef.current = items;
+  }, [items]);
+
   return (
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
       <div className="py-[64px] md:py-[108px] xl:py-[160px]">
@@ -115,30 +168,43 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
             )}
           </div>
         </Container>
-        <div className="border-t border-b border-nd-border-light mt-twd-10 xl:mt-twd-16">
+        <div
+          className="border-t border-b border-nd-border-light mt-twd-10 xl:mt-twd-16"
+          ref={ref}
+        >
           <Container>
             <div className="xl:border-l xl:border-r border-nd-border-light -mx-twd-5 md:-mx-twd-8 xl:mx-0 divide-x divide-nd-border-light flex flex-col xl:flex-row">
               <div className="xl:w-[220px] border-b xl:border-b-0 border-nd-border-light shrink-0 mb-twd-2 xl:mb-twd-0 overflow-hidden relative">
-                <div className="h-16 px-twd-6 items-center justify-between flex gap-twd-3 border-b xl:border-b-0 border-nd-border-light mb-twd-2 xl:mb-twd-0">
+                <div
+                  className={cn(
+                    "h-16 px-twd-6 items-center justify-between flex gap-twd-3 border-b xl:border-b-0 border-nd-border-light mb-twd-2 xl:mb-twd-0",
+                    { "animate-curtain-left-to-right": isIntersecting },
+                  )}
+                  style={
+                    isIntersecting ? { animationDelay: `0s` } : { opacity: 0 }
+                  }
+                >
                   <span className="font-brand-mono text-[14px] leading-[1.14] font-bold uppercase">
                     <SolanaMono className={cn("w-3 h-3 -mt-0.5 mr-[7px]")} />
                     TERMINAL
                   </span>
                   <div className="flex gap-twd-1">
-                    {loadingItems.map((_, index) => (
-                      <div
-                        key={index}
-                        className={cn(
-                          "w-[1.5px] h-[13px]",
-                          index === 0
-                            ? "bg-nd-highlight-green shadow-[0_0_3.7px_0_rgba(0,248,174,0.82)]"
-                            : "bg-nd-border-prominent",
-                        )}
-                      ></div>
-                    ))}
+                    <div
+                      className={cn("terminal-loader", {
+                        animate: isLoading,
+                      })}
+                    ></div>
                   </div>
                 </div>
-                <div className="h-48 p-twd-6 items-end justify-start hidden xl:flex border-t border-nd-border-light">
+                <div
+                  className={cn(
+                    "h-48 p-twd-6 items-end justify-start hidden xl:flex border-t border-nd-border-light",
+                    { "animate-curtain-left-to-right": isIntersecting },
+                  )}
+                  style={
+                    isIntersecting ? { animationDelay: `0.2s` } : { opacity: 0 }
+                  }
+                >
                   <span className="text-[28px] leading-[1.14] font-medium">
                     {t.rich("terminal.title", {
                       gray: (chunks) => (
@@ -152,7 +218,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                 </div>
                 <div className="xl:divide-y xl:divide-nd-border-light grid grid-cols-3 xl:grid-cols-1 mr-[-1px] mb-[-1px] xl:mr-0 xl:mb-0 border-t xl:border-t-0 border-nd-border-light">
                   <div className="hidden xl:block h-0 xl:mb-[-1px]"></div>
-                  {categories.map((category) => (
+                  {categories.map((category, index) => (
                     <button
                       key={category.id}
                       className={cn(
@@ -161,10 +227,16 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                         activeCategory === category.id
                           ? "!bg-nd-primary !text-nd-inverse xl:before:absolute xl:before:top-1.5 xl:before:left-1.5 xl:before:bottom-1.5 xl:before:w-[3px] xl:before:bg-nd-inverse"
                           : "text-nd-mid-em-text",
+                        { "animate-curtain-top-to-bottom": isIntersecting },
                       )}
                       type="button"
                       onClick={() => setActiveCategory(category.id)}
                       disabled={activeCategory === category.id}
+                      style={
+                        isIntersecting
+                          ? { animationDelay: `${0.2 + index * 0.1}s` }
+                          : { opacity: 0 }
+                      }
                     >
                       <category.Icon
                         className={cn(
@@ -179,49 +251,133 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                   ))}
                 </div>
               </div>
-              <div className="divide-y divide-nd-border-light border-t xl:border-t-0 border-nd-border-light grow overflow-hidden">
-                {items?.map((item) => {
-                  const category = CATEGORIES[item.categoryId];
-                  const CategoryIcon = category?.Icon;
-                  return (
-                    <div
-                      key={item.index}
-                      className="flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 divide-x divide-nd-border-light"
-                    >
-                      <div className="shrink-0 grow-0 xl:w-16 flex items-start xl:items-center justify-center">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center bg-nd-border-light">
-                          <span className="nd-body-s text-nd-mid-em-text pt-[1px]">
-                            {item.index}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="w-auto grow xl:px-twd-5 flex items-center justify-start min-w-0">
-                        <div className="xl:text-ellipsis xl:text-nowrap overflow-hidden max-w-full nd-body-l leading-[1.5]">
-                          {item.title}
-                        </div>
-                      </div>
-                      <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[180px]">
-                        {CategoryIcon && (
-                          <CategoryIcon
-                            className={cn(
-                              "w-4 h-4 mr-twd-2.5 -mt-0.5",
-                              category?.color,
-                            )}
-                          />
+              <div className="divide-y divide-nd-border-light border-t xl:border-t-0 border-nd-border-light grow-0 shrink-0 overflow-hidden relative hidden xl:block">
+                {(firstRender ? firstRenderItems : items)?.map(
+                  (item, index) => {
+                    return (
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 divide-x divide-nd-border-light",
+                          {
+                            "animate-stretch-in": isIntersecting && firstRender,
+                          },
                         )}
-                        <span className="font-brand-mono font-medium text-[14px] leading-[1.42] uppercase">
-                          {t(`terminal.categories.${item.categoryId}`)}
-                        </span>
+                        style={
+                          isIntersecting && firstRender
+                            ? {
+                                animationDelay: `${1 + (totalItems - index) * 0.15}s`,
+                              }
+                            : undefined
+                        }
+                      >
+                        <div className="shrink-0 grow-0 xl:w-16 flex items-start xl:items-center justify-center">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center bg-nd-border-light">
+                            <span className="nd-body-s text-nd-mid-em-text pt-[1px]">
+                              {item.index}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[160px]">
-                        <span className="font-brand-mono font-medium text-nd-mid-em-text text-[14px] leading-[1.42] uppercase">
-                          {format(item.date, "MMM d yyyy")}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  },
+                )}
                 <div className="h-0 mb-[-1px]"></div>
+              </div>
+              <div className="divide-y divide-nd-border-light border-t xl:border-t-0 border-nd-border-light grow overflow-hidden relative">
+                <AnimatePresence mode="popLayout">
+                  {(firstRender ? firstRenderItems : items)?.map(
+                    (item, index) => {
+                      const category = CATEGORIES[item.categoryId];
+                      const CategoryIcon = category?.Icon;
+                      const isNewItem = newItemIds.includes(item.id);
+                      const content = (
+                        <>
+                          <div className="shrink-0 grow-0 xl:w-16 flex xl:hidden items-start xl:items-center justify-center">
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center bg-nd-border-light">
+                              <span className="nd-body-s text-nd-mid-em-text pt-[1px]">
+                                {item.index}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="w-auto grow xl:px-twd-5 flex items-center justify-start min-w-0 xl:!border-l-0">
+                            <div className="xl:text-ellipsis xl:text-nowrap overflow-hidden max-w-full nd-body-l leading-[1.5]">
+                              {item.title}
+                            </div>
+                          </div>
+                          <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[180px]">
+                            {CategoryIcon && (
+                              <CategoryIcon
+                                className={cn(
+                                  "w-4 h-4 mr-twd-2.5 -mt-0.5",
+                                  category?.color,
+                                )}
+                              />
+                            )}
+                            <span className="font-brand-mono font-medium text-[14px] leading-[1.42] uppercase">
+                              {t(`terminal.categories.${item.categoryId}`)}
+                            </span>
+                          </div>
+                          <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[160px]">
+                            <span className="font-brand-mono font-medium text-nd-mid-em-text text-[14px] leading-[1.42] uppercase">
+                              {format(item.date, "MMM d yyyy")}
+                            </span>
+                          </div>
+                        </>
+                      );
+
+                      if (firstRender) {
+                        return (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 divide-x divide-nd-border-light",
+                              {
+                                "animate-stretch-in": isIntersecting,
+                              },
+                            )}
+                            style={
+                              isIntersecting
+                                ? {
+                                    animationDelay: `${1 + (totalItems - index) * 0.15}s`,
+                                  }
+                                : {
+                                    opacity: 0,
+                                  }
+                            }
+                          >
+                            {content}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <motion.div
+                          key={item.id}
+                          layout={true}
+                          initial={{ y: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: 100, opacity: 0 }}
+                          transition={{ duration: 0.4 }}
+                          className={cn(
+                            "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 divide-x divide-nd-border-light",
+                            {
+                              "animate-flash-background": isNewItem && !allNew,
+                            },
+                          )}
+                          style={
+                            {
+                              "--flash-bg-color": category?.bg,
+                            } as React.CSSProperties
+                          }
+                        >
+                          {content}
+                        </motion.div>
+                      );
+                    },
+                  )}
+                  <div className="h-0 mb-[-1px]"></div>
+                </AnimatePresence>
               </div>
               <div className="flex flex-1 flex-row divide-x divide-nd-border-light border-t border-nd-border-light xl:hidden">
                 <button

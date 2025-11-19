@@ -10,7 +10,6 @@ import {
   PROJECTS,
   PROJECTS_LOGOS,
   LINKS,
-  TERMINAL_ITEMS,
   GET_STARTED_LINKS,
 } from "@/data/index/data";
 import { CardCarouselSection } from "@/component-library/card-carousel-section";
@@ -217,7 +216,6 @@ export default function Home({
             </>
           ),
         })}
-        items={TERMINAL_ITEMS}
         cta={t("index.whats-up.cta")}
         ctaHref="/news"
       />
