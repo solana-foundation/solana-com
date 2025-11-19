@@ -8,7 +8,28 @@ import {
 import Image from "next/image";
 import { Prism } from "tinacms/dist/rich-text/prism";
 import { Video } from "./blocks/video";
-import { PageBlocksStats, PageBlocksVideo } from "@/tina/__generated__/types";
+// Block types for post body templates
+type VideoBlockData = {
+  __typename?: "Post_BodyVideo";
+  background?: string;
+  color?: string;
+  url?: string;
+  autoPlay?: boolean;
+  loop?: boolean;
+  controls?: boolean;
+  muted?: boolean;
+};
+
+type StatsBlockData = {
+  __typename?: "Post_BodyStats";
+  background?: string;
+  title?: string;
+  description?: string;
+  stats?: Array<{
+    stat?: string;
+    type?: string;
+  }>;
+};
 import { Mermaid } from "./blocks/mermaid";
 import { Tweet } from "react-tweet";
 import { Gallery, GalleryProps } from "./ui/gallery";
@@ -28,7 +49,7 @@ export const components: Components<{
     children: TinaMarkdownContent;
     disclaimer?: TinaMarkdownContent;
   };
-  video: PageBlocksVideo;
+  video: VideoBlockData;
   tweet: {
     id: string;
   };
@@ -39,7 +60,7 @@ export const components: Components<{
     allow?: string;
   };
   gallery: GalleryProps;
-  stats: PageBlocksStats;
+  stats: StatsBlockData;
   sup: {
     children: TinaMarkdownContent;
   };

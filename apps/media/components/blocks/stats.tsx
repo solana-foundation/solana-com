@@ -1,6 +1,16 @@
 import type { Template } from "tinacms";
 import { tinaField } from "tinacms/dist/react";
-import { PageBlocksStats } from "@/tina/__generated__/types";
+// Stats block type based on template schema structure
+type StatsBlockData = {
+  __typename?: "Post_BodyStats";
+  background?: string;
+  title?: string;
+  description?: string;
+  stats?: Array<{
+    stat?: string;
+    type?: string;
+  }>;
+};
 import { Section } from "../layout/section";
 import { sectionBlockSchemaField } from "../layout/section";
 
@@ -13,7 +23,7 @@ const getGradientClass = (index: number): string => {
   return gradients[index % 3];
 };
 
-export const Stats = ({ data }: { data: PageBlocksStats }) => {
+export const Stats = ({ data }: { data: StatsBlockData }) => {
   return (
     <Section background={data.background!}>
       <div className="mx-auto max-w-5xl space-y-8 px-6 md:space-y-16">

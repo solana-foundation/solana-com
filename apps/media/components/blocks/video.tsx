@@ -2,13 +2,23 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 import type { Template } from "tinacms";
-import { PageBlocksVideo } from "@/tina/__generated__/types";
+// Video block type based on template schema structure
+type VideoBlockData = {
+  __typename?: "Post_BodyVideo";
+  background?: string;
+  color?: string;
+  url?: string;
+  autoPlay?: boolean;
+  loop?: boolean;
+  controls?: boolean;
+  muted?: boolean;
+};
 import { Section } from "../layout/section";
 import { sectionBlockSchemaField } from "../layout/section";
 
 const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
 
-export const Video = ({ data }: { data: PageBlocksVideo }) => {
+export const Video = ({ data }: { data: VideoBlockData }) => {
   if (!data.url) {
     return null;
   }
