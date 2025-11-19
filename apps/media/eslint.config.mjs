@@ -62,9 +62,9 @@ const config = [
       "next-env.d.ts",
       "tina/__generated__/**",
       "public/**",
+      "**/*.md",
     ],
   },
 ];
 
 export default config;
-
