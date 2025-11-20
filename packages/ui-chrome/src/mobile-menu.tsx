@@ -97,7 +97,8 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
     asPath === "/community" ||
     asPath.includes("/events") ||
     asPath === "/breakpoint" ||
-    asPath === "/news";
+    asPath === "/news" ||
+    asPath.includes("/podcasts");
 
   // Close menu on route change
   React.useEffect(() => {
