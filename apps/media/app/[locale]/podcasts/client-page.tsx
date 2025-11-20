@@ -24,11 +24,22 @@ export default function PodcastsClientPage({
 }: PodcastsClientPageProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Get featured podcast (one with "Featured" tag)
-  const featuredPodcast = useMemo(() => {
-    return podcasts.find((p) =>
-      p.tags?.some((tag) => tag.toLowerCase() === "featured")
+  // Get latest podcast (one with the most recent episode upload)
+  const latestPodcast = useMemo(() => {
+    const podcastsWithEpisodes = podcasts.filter(
+      (p) => p.latestEpisode?.publishedDate
     );
+
+    if (podcastsWithEpisodes.length === 0) {
+      return null;
+    }
+
+    // Sort by publishedDate (most recent first) and return the first one
+    return podcastsWithEpisodes.sort((a, b) => {
+      const dateA = new Date(a.latestEpisode!.publishedDate).getTime();
+      const dateB = new Date(b.latestEpisode!.publishedDate).getTime();
+      return dateB - dateA;
+    })[0];
   }, [podcasts]);
 
   // Get unique categories
@@ -40,9 +51,9 @@ export default function PodcastsClientPage({
   const filteredPodcasts = useMemo(() => {
     let filtered = podcasts;
 
-    // Exclude featured podcast from the list (it's shown in the hero)
-    if (featuredPodcast) {
-      filtered = filtered.filter((p) => p.id !== featuredPodcast.id);
+    // Exclude latest podcast from the list (it's shown in the hero)
+    if (latestPodcast) {
+      filtered = filtered.filter((p) => p.id !== latestPodcast.id);
     }
 
     // Filter by category if selected
@@ -51,7 +62,7 @@ export default function PodcastsClientPage({
     }
 
     return filtered;
-  }, [podcasts, selectedCategory, featuredPodcast]);
+  }, [podcasts, selectedCategory, latestPodcast]);
 
   // Group podcasts by foundation status
   const groupedPodcasts = useMemo(() => {
@@ -69,60 +80,59 @@ export default function PodcastsClientPage({
     <ErrorBoundary>
       <Section>
         <div className="flex flex-col gap-16">
-          {/* Featured Podcast Hero */}
-          {featuredPodcast && (
+          {/* Latest Podcast Hero */}
+          {latestPodcast && (
             <div className="relative w-full overflow-hidden bg-[#070b14] text-white shadow-[0_60px_120px_-60px_rgba(7,12,28,0.9)] p-6 md:p-12">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
               <div className="relative z-10 flex flex-col gap-12 lg:flex-row lg:items-center max-w-6xl mx-auto">
                 <div className="flex flex-1 flex-col gap-8">
-                  <span className="text-xs font-base uppercase tracking-[0.1em] text-sky-300/80">
-                    Featured Podcast
+                  <span className="text-xs font-base uppercase tracking-[0.1em] text-primary">
+                    Latest Podcast
                   </span>
                   <h1 className="text-4xl font-bold leading-[1.05] md:text-6xl">
-                    {featuredPodcast.title}
+                    {latestPodcast.title}
                   </h1>
 
-                  {typeof featuredPodcast.description === "string" && (
+                  {typeof latestPodcast.description === "string" && (
                     <p className="text-lg text-white/80 line-clamp-3">
-                      {featuredPodcast.description}
+                      {latestPodcast.description}
                     </p>
                   )}
 
                   {/* Hosts */}
-                  {featuredPodcast.hosts &&
-                    featuredPodcast.hosts.length > 0 && (
-                      <p className="text-sm text-white/60">
-                        Hosted by{" "}
-                        {featuredPodcast.hosts.map((h) => h.name).join(", ")}
-                      </p>
-                    )}
+                  {latestPodcast.hosts && latestPodcast.hosts.length > 0 && (
+                    <p className="text-sm text-white/60">
+                      Hosted by{" "}
+                      {latestPodcast.hosts.map((h) => h.name).join(", ")}
+                    </p>
+                  )}
 
                   {/* Latest Episode Info */}
-                  {featuredPodcast.latestEpisode && (
+                  {latestPodcast.latestEpisode && (
                     <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-                      <p className="text-xs font-medium uppercase tracking-[0.1em] text-sky-300/80">
+                      <p className="text-xs font-medium uppercase tracking-[0.1em] text-primary">
                         Latest Episode
                       </p>
                       <p className="text-base font-semibold text-white">
-                        {featuredPodcast.latestEpisode.title}
+                        {latestPodcast.latestEpisode.title}
                       </p>
                       <div className="flex flex-wrap items-center gap-4 text-sm text-white/60">
-                        {featuredPodcast.latestEpisode.publishedDate && (
+                        {latestPodcast.latestEpisode.publishedDate && (
                           <div className="flex items-center gap-1.5">
                             <Calendar className="size-4" />
                             <span>
                               {formatEpisodeDate(
-                                featuredPodcast.latestEpisode.publishedDate
+                                latestPodcast.latestEpisode.publishedDate
                               )}
                             </span>
                           </div>
                         )}
-                        {featuredPodcast.latestEpisode.duration > 0 && (
+                        {latestPodcast.latestEpisode.duration > 0 && (
                           <div className="flex items-center gap-1.5">
                             <Clock className="size-4" />
                             <span>
                               {formatDuration(
-                                featuredPodcast.latestEpisode.duration
+                                latestPodcast.latestEpisode.duration
                               )}
                             </span>
                           </div>
@@ -139,13 +149,13 @@ export default function PodcastsClientPage({
                   >
                     <Link
                       href={
-                        featuredPodcast.latestEpisode
-                          ? `/podcasts/${featuredPodcast.slug}/episodes/${featuredPodcast.latestEpisode.id}`
-                          : `/podcasts/${featuredPodcast.slug}`
+                        latestPodcast.latestEpisode
+                          ? `/podcasts/${latestPodcast.slug}/episodes/${latestPodcast.latestEpisode.id}`
+                          : `/podcasts/${latestPodcast.slug}`
                       }
                     >
                       <span>
-                        {featuredPodcast.latestEpisode
+                        {latestPodcast.latestEpisode
                           ? "Listen to Episode"
                           : "Listen Now"}
                       </span>
@@ -156,13 +166,13 @@ export default function PodcastsClientPage({
                   </Button>
                 </div>
 
-                {featuredPodcast.coverImage && (
+                {latestPodcast.coverImage && (
                   <div className="flex flex-1 lg:justify-end">
                     <div className="relative aspect-square w-full lg:max-w-[520px]">
                       <div className="relative h-full w-full overflow-hidden shadow-2xl">
                         <Image
-                          src={featuredPodcast.coverImage}
-                          alt={featuredPodcast.title}
+                          src={latestPodcast.coverImage}
+                          alt={latestPodcast.title}
                           fill
                           priority
                           sizes="(min-width: 1024px) 520px, (min-width: 768px) 60vw, 90vw"
@@ -176,8 +186,8 @@ export default function PodcastsClientPage({
             </div>
           )}
           <div className="px-4 md:px-6 lg:px-0">
-            {/* Page Title for non-featured case */}
-            {!featuredPodcast && (
+            {/* Page Title for non-latest case */}
+            {!latestPodcast && (
               <div className="max-w-6xl mx-auto w-full">
                 <h1 className="text-4xl font-bold md:text-6xl mb-4">
                   Podcasts
@@ -235,7 +245,7 @@ export default function PodcastsClientPage({
             {/* Other Podcasts */}
             {groupedPodcasts.otherPodcasts.length > 0 && (
               <div className="max-w-6xl mx-auto w-full">
-                <h2 className="text-2xl font-bold mb-6">Other Podcasts</h2>
+                <h2 className="text-2xl font-bold mb-6">Ecosystem Podcasts</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {groupedPodcasts.otherPodcasts.map((podcast) => (
                     <PodcastCard key={podcast.id} podcast={podcast} />

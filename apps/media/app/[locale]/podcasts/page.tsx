@@ -39,17 +39,16 @@ export default async function PodcastsPage({
     status: "active",
   });
 
-  // Find featured podcast (one with "Featured" tag) and fetch its latest episode
-  const featuredPodcast = activePodcasts.find((p) =>
-    p.tags?.some((tag) => tag.toLowerCase() === "featured")
+  // Fetch latest episodes for all podcasts to determine the most recent upload
+  const podcastsWithEpisodes = await Promise.all(
+    activePodcasts.map(async (podcast) => {
+      const latestEpisode = await fetchLatestEpisodeForPodcast(podcast);
+      return {
+        ...podcast,
+        latestEpisode: latestEpisode || undefined,
+      };
+    })
   );
 
-  if (featuredPodcast) {
-    const latestEpisode = await fetchLatestEpisodeForPodcast(featuredPodcast);
-    if (latestEpisode) {
-      featuredPodcast.latestEpisode = latestEpisode;
-    }
-  }
-
-  return <PodcastsClientPage podcasts={activePodcasts} />;
+  return <PodcastsClientPage podcasts={podcastsWithEpisodes} />;
 }
