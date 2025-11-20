@@ -87,7 +87,7 @@ export default function PodcastsClientPage({
               <div className="relative z-10 flex flex-col gap-12 lg:flex-row lg:items-center max-w-6xl mx-auto">
                 <div className="flex flex-1 flex-col gap-8">
                   <span className="text-xs font-base uppercase tracking-[0.1em] text-primary">
-                    Latest Podcast
+                    Featured Podcast
                   </span>
                   <h1 className="text-4xl font-bold leading-[1.05] md:text-6xl">
                     {latestPodcast.title}
@@ -109,7 +109,7 @@ export default function PodcastsClientPage({
 
                   {/* Latest Episode Info */}
                   {latestPodcast.latestEpisode && (
-                    <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+                    <div className="flex flex-col gap-3 border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
                       <p className="text-xs font-medium uppercase tracking-[0.1em] text-primary">
                         Latest Episode
                       </p>

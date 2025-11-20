@@ -226,7 +226,7 @@ export const AudioPlayer = ({
   }, [progress]);
 
   return (
-    <div className={cn("w-full rounded-lg bg-card p-3 shadow-lg", className)}>
+    <div className={cn("w-full bg-card p-3 shadow-lg", className)}>
       {/* Hidden ReactPlayer */}
       <ReactPlayer
         ref={playerRef}

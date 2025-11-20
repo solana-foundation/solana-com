@@ -1,4 +1,4 @@
 ---
 name: Nick Ducoff
-avatar: /uploads/authors/default-avatar.png
+avatar: /uploads/authors/nick-ducoff.jpg
 ---

@@ -1,4 +1,4 @@
 ---
 name: Alex Scott
-avatar: /uploads/authors/default-avatar.png
+avatar: /uploads/authors/alex-scott.jpg
 ---

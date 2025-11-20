@@ -27,7 +27,7 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
   return (
     <Link
       href={`/podcasts/${podcast.slug}`}
-      className="group flex flex-col gap-4 rounded-lg border border-border bg-card p-4 transition-all hover:shadow-lg hover:border-primary/50"
+      className="group flex flex-col gap-4 bg-card p-4 transition-all hover:shadow-lg"
     >
       {/* Cover Image */}
       <div className="relative aspect-square w-full overflow-hidden rounded-lg">
@@ -66,10 +66,7 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
           <div className="flex items-center gap-2 mt-2">
             <div className="flex -space-x-2">
               {podcast.hosts.slice(0, 3).map((host, index) => (
-                <Avatar
-                  key={index}
-                  className="h-8 w-8 border-2 border-background"
-                >
+                <Avatar key={index} className="h-8 w-8">
                   {host.avatar && (
                     <AvatarImage src={host.avatar} alt={host.name} />
                   )}
