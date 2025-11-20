@@ -38,11 +38,32 @@ export default function PodcastsClientPage({
 
   // Filter podcasts by category
   const filteredPodcasts = useMemo(() => {
-    if (!selectedCategory) {
-      return podcasts;
+    let filtered = podcasts;
+
+    // Exclude featured podcast from the list (it's shown in the hero)
+    if (featuredPodcast) {
+      filtered = filtered.filter((p) => p.id !== featuredPodcast.id);
     }
-    return podcasts.filter((p) => p.category === selectedCategory);
-  }, [podcasts, selectedCategory]);
+
+    // Filter by category if selected
+    if (selectedCategory) {
+      filtered = filtered.filter((p) => p.category === selectedCategory);
+    }
+
+    return filtered;
+  }, [podcasts, selectedCategory, featuredPodcast]);
+
+  // Group podcasts by foundation status
+  const groupedPodcasts = useMemo(() => {
+    const solanaFoundation = filteredPodcasts.filter((p) =>
+      p.tags?.some((tag) => tag.toLowerCase() === "solana foundation")
+    );
+    const otherPodcasts = filteredPodcasts.filter(
+      (p) => !p.tags?.some((tag) => tag.toLowerCase() === "solana foundation")
+    );
+
+    return { solanaFoundation, otherPodcasts };
+  }, [filteredPodcasts]);
 
   return (
     <ErrorBoundary>
@@ -197,22 +218,43 @@ export default function PodcastsClientPage({
               </div>
             )}
 
-            {/* Podcasts Grid */}
-            {filteredPodcasts.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
-                {filteredPodcasts.map((podcast) => (
-                  <PodcastCard key={podcast.id} podcast={podcast} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 max-w-6xl mx-auto w-full">
-                <p className="text-muted-foreground">
-                  {selectedCategory
-                    ? `No podcasts found in the "${selectedCategory}" category.`
-                    : "No podcasts available at the moment."}
-                </p>
+            {/* Solana Foundation Podcasts */}
+            {groupedPodcasts.solanaFoundation.length > 0 && (
+              <div className="max-w-6xl mx-auto w-full mb-12">
+                <h2 className="text-2xl font-bold mb-6">
+                  Solana Foundation Podcasts
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {groupedPodcasts.solanaFoundation.map((podcast) => (
+                    <PodcastCard key={podcast.id} podcast={podcast} />
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* Other Podcasts */}
+            {groupedPodcasts.otherPodcasts.length > 0 && (
+              <div className="max-w-6xl mx-auto w-full">
+                <h2 className="text-2xl font-bold mb-6">Other Podcasts</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {groupedPodcasts.otherPodcasts.map((podcast) => (
+                    <PodcastCard key={podcast.id} podcast={podcast} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {groupedPodcasts.solanaFoundation.length === 0 &&
+              groupedPodcasts.otherPodcasts.length === 0 && (
+                <div className="text-center py-12 max-w-6xl mx-auto w-full">
+                  <p className="text-muted-foreground">
+                    {selectedCategory
+                      ? `No podcasts found in the "${selectedCategory}" category.`
+                      : "No podcasts available at the moment."}
+                  </p>
+                </div>
+              )}
           </div>
         </div>
       </Section>
