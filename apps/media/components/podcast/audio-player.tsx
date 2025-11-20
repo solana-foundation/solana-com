@@ -34,6 +34,10 @@ export const AudioPlayer = ({
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isReady, setIsReady] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragProgress, setDragProgress] = useState(0);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const justSeekedRef = useRef(false);
 
   // Waveform canvas ref
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,20 +66,90 @@ export const AudioPlayer = ({
     setIsPlaying((prev) => !prev);
   }, []);
 
+  // Calculate progress from mouse position
+  const getProgressFromPosition = useCallback(
+    (clientX: number, element?: HTMLElement) => {
+      const targetElement = element || progressBarRef.current;
+      if (!targetElement || duration === 0) return 0;
+      const rect = targetElement.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const percentage = Math.max(0, Math.min(1, x / rect.width));
+      return percentage;
+    },
+    [duration]
+  );
+
   // Handle seek
   const handleSeek = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const percentage = x / rect.width;
-      const newTime = percentage * duration;
+      if (isDragging) return;
+      const progressValue = getProgressFromPosition(e.clientX, e.currentTarget);
+      const newTime = progressValue * duration;
 
       if (playerRef.current) {
         playerRef.current.seekTo(newTime, "seconds");
       }
     },
-    [duration]
+    [duration, getProgressFromPosition, isDragging]
   );
+
+  // Handle drag start
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDragging(true);
+      const progressValue = getProgressFromPosition(e.clientX);
+      setDragProgress(progressValue);
+    },
+    [getProgressFromPosition]
+  );
+
+  // Handle drag
+  const handleDrag = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
+      const progressValue = getProgressFromPosition(e.clientX);
+      setDragProgress(progressValue);
+    },
+    [isDragging, getProgressFromPosition]
+  );
+
+  // Handle drag end
+  const handleDragEnd = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
+      const progressValue = getProgressFromPosition(e.clientX);
+      const newTime = progressValue * duration;
+
+      // Update progress immediately to prevent snap-back
+      setProgress(progressValue);
+      justSeekedRef.current = true;
+      setIsDragging(false);
+
+      if (playerRef.current) {
+        playerRef.current.seekTo(newTime, "seconds");
+      }
+      setDragProgress(0);
+
+      // Clear the flag after a brief moment to allow normal progress updates
+      setTimeout(() => {
+        justSeekedRef.current = false;
+      }, 100);
+    },
+    [isDragging, duration, getProgressFromPosition]
+  );
+
+  // Add mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleDrag);
+      window.addEventListener("mouseup", handleDragEnd);
+      return () => {
+        window.removeEventListener("mousemove", handleDrag);
+        window.removeEventListener("mouseup", handleDragEnd);
+      };
+    }
+  }, [isDragging, handleDrag, handleDragEnd]);
 
   // Handle skip backward (15 seconds)
   const handleSkipBackward = useCallback(() => {
@@ -210,9 +284,10 @@ export const AudioPlayer = ({
       ctx.fillRect(x, y, barWidth * 0.8, barHeight);
     }
 
-    // Draw progress overlay (white)
+    // Draw progress overlay (white) - use drag progress if dragging
     ctx.fillStyle = "rgba(255, 255, 255, 1)";
-    const progressWidth = width * progress;
+    const currentProgress = isDragging ? dragProgress : progress;
+    const progressWidth = width * currentProgress;
 
     for (let i = 0; i < barCount; i++) {
       const x = i * barWidth;
@@ -223,7 +298,7 @@ export const AudioPlayer = ({
 
       ctx.fillRect(x, y, barWidth * 0.8, barHeight);
     }
-  }, [progress]);
+  }, [progress, isDragging, dragProgress]);
 
   return (
     <div className={cn("w-full bg-card p-3 shadow-lg", className)}>
@@ -236,7 +311,13 @@ export const AudioPlayer = ({
         playbackRate={playbackRate}
         onReady={() => setIsReady(true)}
         onDuration={setDuration}
-        onProgress={(state) => setProgress(state.played)}
+        onProgress={(state) => {
+          // Ignore progress updates while dragging (handled by dragProgress)
+          // Ignore stale updates immediately after seeking
+          if (!isDragging && !justSeekedRef.current) {
+            setProgress(state.played);
+          }
+        }}
         width="0"
         height="0"
         config={{
@@ -266,25 +347,34 @@ export const AudioPlayer = ({
 
       {/* Progress Bar */}
       <div
+        ref={progressBarRef}
         className="group relative mb-4 h-1.5 cursor-pointer rounded-full bg-muted"
         onClick={handleSeek}
       >
         <div
           className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${progress * 100}%` }}
+          style={{
+            width: `${(isDragging ? dragProgress : progress) * 100}%`,
+            transition: isDragging ? "none" : "width 0.1s linear",
+          }}
         />
         <div
-          className="absolute top-1/2 h-3 w-3 rounded-full bg-primary opacity-20 transition-opacity group-hover:opacity-100"
+          className="absolute top-1/2 h-3 w-3 cursor-grab active:cursor-grabbing rounded-full bg-primary opacity-20 transition-opacity group-hover:opacity-100"
           style={{
-            left: `${progress * 100}%`,
+            left: `${(isDragging ? dragProgress : progress) * 100}%`,
             transform: "translate(-50%, -50%)",
+            transition: isDragging ? "none" : "left 0.1s linear, opacity 0.2s",
+            opacity: isDragging ? 1 : undefined,
           }}
+          onMouseDown={handleDragStart}
         />
       </div>
 
       {/* Time Display */}
       <div className="mb-2 flex justify-between text-xs text-muted-foreground">
-        <span>{formatTime(progress * duration || 0)}</span>
+        <span>
+          {formatTime((isDragging ? dragProgress : progress) * duration || 0)}
+        </span>
         <span>{formatTime(duration)}</span>
       </div>
 
