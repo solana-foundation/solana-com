@@ -41,7 +41,6 @@ import jupiterIcon from "../../../assets/wallets/icons/jupiter.png";
 import openfortIcon from "../../../assets/wallets/icons/openfort.png";
 import opensignerIcon from "../../../assets/wallets/icons/opensigner.png";
 
-
 export const walletData = [
   {
     name: "Phantom",
@@ -69,7 +68,7 @@ export const walletData = [
   },
   {
     name: "Openfort",
-    body: "Complete non-cusotdial wallet infrastructure solution with social onboarding and gas abstraction.",
+    body: "Complete non-custodial wallet infrastructure solution with social onboarding and gas abstraction.",
     website: "https://openfort.io/",
     additionalInfo:
       "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • Gas Abstraction • Social Recovery • Open Source",
