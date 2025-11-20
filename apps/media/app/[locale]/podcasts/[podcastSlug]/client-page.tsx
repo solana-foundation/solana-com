@@ -112,7 +112,7 @@ export default function PodcastShowClientPage({
           <div className="flex flex-col md:flex-row gap-8 items-start">
             {/* Cover Image */}
             <div className="w-full md:w-64 flex-shrink-0">
-              <div className="relative aspect-square w-full overflow-hidden rounded-lg shadow-lg">
+              <div className="relative aspect-square w-full overflow-hidden shadow-lg">
                 <Image
                   src={podcast.coverImage}
                   alt={podcast.title}

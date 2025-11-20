@@ -37,7 +37,7 @@ const Switchback: React.FC<SwitchbackProps> = ({
               <img
                 src={image.src}
                 alt={image.alt}
-                className="w-full h-auto rounded-lg shadow-lg"
+                className="w-full h-auto shadow-lg"
               />
             </div>
           )}

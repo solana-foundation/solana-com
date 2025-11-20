@@ -30,7 +30,7 @@ export const PodcastCard = ({ podcast }: PodcastCardProps) => {
       className="group flex flex-col gap-4 bg-card p-4 transition-all hover:shadow-lg"
     >
       {/* Cover Image */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-lg">
+      <div className="relative aspect-square w-full overflow-hidden">
         <Image
           src={podcast.coverImage}
           alt={podcast.title}

@@ -127,7 +127,7 @@ export const components: Components<{
   },
   NewsletterSignup: (props) => {
     return (
-      <div className="bg-card rounded-lg">
+      <div className="bg-card">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div>
             <TinaMarkdown content={props.children} />

@@ -29,7 +29,7 @@ export const EpisodeCard = ({
       className="group flex flex-col gap-4 bg-card p-4 transition-all hover:shadow-lg"
     >
       {/* Thumbnail with Play Button */}
-      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+      <div className="relative aspect-video w-full overflow-hidden bg-muted">
         {episode.thumbnailUrl ? (
           <Image
             src={episode.thumbnailUrl}
