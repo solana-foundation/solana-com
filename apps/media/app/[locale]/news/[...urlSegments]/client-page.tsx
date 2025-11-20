@@ -94,7 +94,7 @@ export default function PostClientPage(props: ClientPostProps) {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
 
           {/* Contained content */}
-          <div className="max-w-4xl mx-auto w-full">
+          <div className="max-w-6xl mx-auto w-full">
             <div className="flex flex-col lg:flex-row lg:gap-12 lg:items-start">
               {/* Left Column - Text & Meta */}
               <div className="flex-1 lg:max-w-xl">
@@ -149,7 +149,7 @@ export default function PostClientPage(props: ClientPostProps) {
 
         {/* Main content area with CTA sidebar */}
         {post.cta ? (
-          <div className="max-w-4xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
             <div className="flex gap-8 lg:gap-12 items-start">
               {/* Main content column */}
               <div className="flex-1 min-w-0" ref={contentRef}>
@@ -185,7 +185,7 @@ export default function PostClientPage(props: ClientPostProps) {
           </div>
         ) : (
           /* No CTA - full width content */
-          <div className="max-w-4xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
             <div
               data-tina-field={tinaField(post, "_body")}
               className="prose dark:prose-dark w-full max-w-none"
@@ -201,7 +201,7 @@ export default function PostClientPage(props: ClientPostProps) {
         )}
       </Section>
       {post.switchback && (
-        <Section className="max-w-4xl mx-auto">
+        <Section className="max-w-6xl mx-auto">
           <Switchback
             title={post.switchback.title}
             image={{
