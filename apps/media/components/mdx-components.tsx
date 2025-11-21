@@ -163,33 +163,13 @@ export const components: Components<{
       </div>
     );
   },
-  p: (props) => {
-    // If the paragraph only contains an image or other block-level content,
-    // render without the <p> wrapper to avoid invalid HTML nesting
-    if (props?.children && typeof props.children === "object") {
-      const children = Array.isArray(props.children)
-        ? props.children
-        : [props.children];
-      const hasOnlyBlockContent = children.every(
-        (child: any) =>
-          child?.type?.name === "img" ||
-          child?.props?.node?.type === "img" ||
-          child?.type === "img"
-      );
-
-      if (hasOnlyBlockContent) {
-        return <>{props.children}</>;
-      }
-    }
-    return <p>{props.children}</p>;
-  },
   img: (props) => {
     if (!props) {
       return <></>;
     }
     return (
-      <figure className="w-full my-6">
-        <div className="relative w-full">
+      <span className="block w-full my-6">
+        <span className="block relative w-full">
           <Image
             src={props.url}
             alt={props.alt || ""}
@@ -198,13 +178,13 @@ export const components: Components<{
             className="w-full h-auto object-contain"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 896px, 896px"
           />
-        </div>
+        </span>
         {props.alt && (
-          <figcaption className="text-sm text-muted-foreground mt-2 text-center">
+          <span className="block text-sm text-muted-foreground mt-2 text-center">
             {props.alt}
-          </figcaption>
+          </span>
         )}
-      </figure>
+      </span>
     );
   },
   mermaid: (props: any) => <Mermaid {...props} />,
