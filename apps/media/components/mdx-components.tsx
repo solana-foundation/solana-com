@@ -168,8 +168,8 @@ export const components: Components<{
       return <></>;
     }
     return (
-      <figure className="w-full my-6">
-        <div className="relative w-full">
+      <span className="block w-full my-6">
+        <span className="block relative w-full">
           <Image
             src={props.url}
             alt={props.alt || ""}
@@ -178,13 +178,13 @@ export const components: Components<{
             className="w-full h-auto object-contain"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 896px, 896px"
           />
-        </div>
+        </span>
         {props.alt && (
-          <figcaption className="text-sm text-muted-foreground mt-2 text-center">
+          <span className="block text-sm text-muted-foreground mt-2 text-center">
             {props.alt}
-          </figcaption>
+          </span>
         )}
-      </figure>
+      </span>
     );
   },
   mermaid: (props: any) => <Mermaid {...props} />,
