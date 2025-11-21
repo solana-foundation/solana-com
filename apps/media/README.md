@@ -19,7 +19,7 @@ Solana Media is a Next.js application for publishing news articles and podcasts 
 
 ### Environment Variables
 
-Create a `.env` file in the root of the media app:
+Create a `.env` file in the root of the media app (see `.env.example` for reference):
 
 ```bash
 # TinaCMS Cloud (optional - use local mode if not set)
@@ -30,7 +30,23 @@ TINA_SEARCH_INDEXER_TOKEN=your_indexer_token
 
 # Or use local mode (no cloud)
 TINA_PUBLIC_IS_LOCAL=true
+
+# Cross-app navigation (IMPORTANT for production deployments)
+# Set this to the main site URL so header/footer links navigate correctly
+# Production: https://solana.com
+# Preview: https://solana-com-git-[branch].vercel.app
+# Local dev: http://localhost:3000 (leave unset if web app runs on port 3000)
+NEXT_PUBLIC_MAIN_SITE_URL=https://solana.com
 ```
+
+#### `NEXT_PUBLIC_MAIN_SITE_URL` (Required for Separate Deployments)
+
+When the media app is deployed separately from the main site (e.g., on its own Vercel project), this environment variable **must** be set to ensure header and footer navigation links correctly route to the main site for non-media routes (like `/developers`, `/docs`, `/learn`, etc.).
+
+- **Why it's needed**: The shared `@solana-com/ui-chrome` header/footer components include links to various sections of solana.com. Without this variable, those links will try to route within the media app where those pages don't exist.
+- **Local development**: If you're running the web app on port 3000 and media app on port 3001, set this to `http://localhost:3000`
+- **Production**: Set to `https://solana.com`
+- **Preview deployments**: Set to your preview deployment URL
 
 ### Running Locally
 

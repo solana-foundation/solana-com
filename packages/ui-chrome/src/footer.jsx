@@ -159,14 +159,13 @@ export const Footer = ({ className = "" }) => {
               </div>
               <ul className="list-unstyled m-0">
                 <li>
-                  <InlineLink
+                  <Link
                     to="/news"
-                    target="_self"
                     aria-label={t("footer.get-connected.blog")}
                     className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
                   >
                     {t("footer.get-connected.blog")}
-                  </InlineLink>
+                  </Link>
                 </li>
                 <li>
                   <Link

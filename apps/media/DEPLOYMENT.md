@@ -73,10 +73,50 @@ When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrite
    # Or use local mode
    TINA_PUBLIC_IS_LOCAL=true
 
+   # Cross-app navigation (REQUIRED for production)
+   NEXT_PUBLIC_MAIN_SITE_URL=https://solana.com
+
    # Vercel (auto-set)
    VERCEL_ENV=production
    VERCEL_URL=solana-com-media.vercel.app
    ```
+
+## Environment Variables
+
+### Required for Production
+
+#### `NEXT_PUBLIC_MAIN_SITE_URL`
+
+**This environment variable is REQUIRED for production deployments.**
+
+This must be set to the main Solana.com site URL to ensure header and footer navigation links correctly route to the main site for non-media routes (like `/developers`, `/docs`, `/learn`, etc.).
+
+**Why it's needed:**
+
+The media app uses the shared `@solana-com/ui-chrome` package for header and footer components. These components include navigation links to various sections of solana.com. When deployed separately, the media app needs to know where to point these links.
+
+Without this variable:
+
+- Links to `/developers`, `/docs`, `/learn`, etc. will try to route within the media app
+- These routes don't exist in the media app, resulting in 404 errors
+
+**Configuration by environment:**
+
+- **Production:** `https://solana.com`
+- **Preview/Staging:** Your main site preview URL (e.g., `https://solana-com-git-preview.vercel.app`)
+- **Local Development:** `http://localhost:3000` (if web app runs on port 3000)
+
+**How it works:**
+
+The `url-config.ts` helper in `@solana-com/ui-chrome` checks this variable:
+
+- If set: All relative links in header/footer are prefixed with this URL (except `/news` and `/podcasts`)
+- If not set: Links use Next.js routing (appropriate for main site deployment)
+
+This allows the same header/footer components to work correctly in both:
+
+1. The main site (where all routes exist)
+2. The media app (where only `/news` and `/podcasts` exist)
 
 ### Deploying Updates
 

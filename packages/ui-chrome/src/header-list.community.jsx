@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { Link, InlineLink } from "./link";
+import { Link } from "./link";
 import BreakpointLogo from "./assets/nav/community/breakpoint-logo.inline.svg";
 import InvolvedSVG from "./assets/nav/community/involved.inline.svg";
 
@@ -15,16 +15,16 @@ const HeaderListCommunity = () => {
           {t("nav.community.involved.title")}
         </div>
         <div>
-          <InlineLink
+          <Link
             to="/news"
-            target="_self"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+            activeClassName="!border-white/10 bg-[#151118]"
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[0].title}
             </strong>
             {communityInvolvedItems[0].description}
-          </InlineLink>
+          </Link>
           <Link
             to="/podcasts"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
