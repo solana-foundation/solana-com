@@ -1,90 +1,108 @@
 import { useTranslations } from "next-intl";
 import { Link } from "./link";
-import DevelopersSVG from "./assets/nav/build/developers.inline.svg";
-import MoreSVG from "./assets/nav/build/cases.inline.svg";
+import { HeaderItem } from "./header-item";
+import NewspaperIcon from "./assets/nav/build/newspaper.inline.svg";
+import ApiConnectionIcon from "./assets/nav/build/api-connection.inline.svg";
+import CodeIcon from "./assets/nav/build/code.inline.svg";
+import EthereumIcon from "./assets/nav/build/ethereum.inline.svg";
+import SchoolIcon from "./assets/nav/build/school.inline.svg";
+import HandIcon from "./assets/nav/build/hand.inline.svg";
+import MaintenanceIcon from "./assets/nav/build/maintenance.inline.svg";
 
 const HeaderListBuild = () => {
   const t = useTranslations();
 
   return (
-    <div className="xl:flex">
-      <div className="w-full xl:w-max">
-        <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
-          <DevelopersSVG className="me-3" />
+    <div className="xl:w-[800px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-2">
+      <div className="xl:w-[480px] px-3">
+        <div className="py-2 font-brand-mono font-medium text-[rgba(255,255,255,0.64)] text-[12px] xl:text-[14px] tracking-[1px] uppercase">
           {t("nav.developers.items.title")}
         </div>
-        <div>
+        <div className="divide-y divide-[rgba(238,228,255,0.04)]">
           <Link
             to="/docs"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {t("nav.developers.items.docs.title")}
-            </strong>
-            {t("nav.developers.items.docs.description")}
+            <HeaderItem
+              title={t("nav.developers.items.docs.title")}
+              description={t("nav.developers.items.docs.description")}
+              Icon={NewspaperIcon}
+              variant="large"
+            />
           </Link>
           <Link
             to="/docs/rpc"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {t("nav.developers.items.api.title")}
-            </strong>
-            {t("nav.developers.items.api.description")}
+            <HeaderItem
+              title={t("nav.developers.items.api.title")}
+              description={t("nav.developers.items.api.description")}
+              Icon={ApiConnectionIcon}
+              variant="large"
+            />
           </Link>
           <Link
             to="/developers/cookbook"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {t("nav.developers.items.cookbook.title")}
-            </strong>
-            {t("nav.developers.items.cookbook.description")}
+            <HeaderItem
+              title={t("nav.developers.items.cookbook.title")}
+              description={t("nav.developers.items.cookbook.description")}
+              Icon={CodeIcon}
+              variant="large"
+            />
           </Link>
           <Link
             to="/developers"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block text-white text-sm">
-              {t("nav.developers.items.hub.title")}
-            </strong>
-            {t("nav.developers.items.hub.description")}
+            <HeaderItem
+              title={t("nav.developers.items.hub.title")}
+              description={t("nav.developers.items.hub.description")}
+              Icon={SchoolIcon}
+              variant="large"
+            />
           </Link>
         </div>
       </div>
-
-      <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px] hidden xl:block"></div>
-
-      <div className="w-full xl:w-max">
-        <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
-          <MoreSVG className="me-3" />
+      <div className="px-3 grow">
+        <div className="py-2 font-brand-mono font-medium text-[rgba(255,255,255,0.64)] text-[12px] xl:text-[14px] tracking-[1px] uppercase">
           {t("nav.developers.tutorials.title")}
         </div>
-        <div>
+        <div className="divide-y divide-[rgba(238,228,255,0.04)]">
           <Link
             to="/docs/intro/quick-start"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            {t("nav.developers.tutorials.hello-world")}
+            <HeaderItem
+              title={t("nav.developers.tutorials.hello-world")}
+              Icon={HandIcon}
+            />
           </Link>
           <Link
             to="/docs/intro/installation"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            {t("nav.developers.tutorials.local-setup")}
+            <HeaderItem
+              title={t("nav.developers.tutorials.local-setup")}
+              Icon={MaintenanceIcon}
+            />
           </Link>
           <Link
             to="/developers/evm-to-svm"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:bg-[#151118] !text-white font-bold hover:!border-white/30 transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            {t("nav.developers.tutorials.evm-to-svm")}
+            <HeaderItem
+              title={t("nav.developers.tutorials.evm-to-svm")}
+              Icon={EthereumIcon}
+            />
           </Link>
         </div>
       </div>

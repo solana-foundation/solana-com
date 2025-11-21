@@ -1,93 +1,98 @@
 import { useTranslations } from "next-intl";
 import { Link } from "./link";
+import { HeaderItem } from "./header-item";
+import { HeaderBanner } from "./header-banner";
+import NewspaperIcon from "./assets/nav/community/newspaper.inline.svg";
+import CalendarIcon from "./assets/nav/community/calendar.inline.svg";
+import FistbumpIcon from "./assets/nav/community/fistbump.inline.svg";
+import GlobusIcon from "./assets/nav/community/globus.inline.svg";
+import ScriptIcon from "./assets/nav/community/script.inline.svg";
 import BreakpointLogo from "./assets/nav/community/breakpoint-logo.inline.svg";
-import InvolvedSVG from "./assets/nav/community/involved.inline.svg";
 
 const HeaderListCommunity = () => {
   const t = useTranslations();
   const communityInvolvedItems = t.raw("nav.community.involved.items");
 
   return (
-    <div className="xl:flex">
-      <div className="w-full xl:w-max">
-        <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
-          <InvolvedSVG className="me-3" />
+    <div className="xl:w-[800px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-2">
+      <div className="px-3 grow">
+        <div className="py-2 font-brand-mono font-medium text-[rgba(255,255,255,0.64)] text-[12px] xl:text-[14px] tracking-[1px] uppercase">
           {t("nav.community.involved.title")}
         </div>
-        <div>
+        <div className="divide-y divide-[rgba(238,228,255,0.04)]">
           <Link
             to="/news"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {communityInvolvedItems[0].title}
-            </strong>
-            {communityInvolvedItems[0].description}
+            <HeaderItem
+              title={communityInvolvedItems[0].title}
+              // description={communityInvolvedItems[0].description}
+              Icon={NewspaperIcon}
+              // variant="large"
+            />
           </Link>
           <Link
             to="/events"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {communityInvolvedItems[1].title}
-            </strong>
-            {communityInvolvedItems[1].description}
-          </Link>
-          <Link
-            to="https://www.solanacollective.com/"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            target="_blank"
-          >
-            <strong className="block !text-white text-sm">
-              {communityInvolvedItems[2].title}
-            </strong>
-            {communityInvolvedItems[2].description}
+            <HeaderItem
+              title={communityInvolvedItems[1].title}
+              // description={communityInvolvedItems[1].description}
+              Icon={CalendarIcon}
+              // variant="large"
+            />
           </Link>
           <Link
             to="/community"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {communityInvolvedItems[3].title}
-            </strong>
-            {communityInvolvedItems[3].description}
+            <HeaderItem
+              title={communityInvolvedItems[3].title}
+              // description={communityInvolvedItems[3].description}
+              Icon={GlobusIcon}
+              // variant="large"
+            />
+          </Link>
+          <Link
+            to="https://www.solanacollective.com/"
+            className="block no-underline text-inherit group/link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <HeaderItem
+              title={communityInvolvedItems[2].title}
+              description={communityInvolvedItems[2].description}
+              Icon={FistbumpIcon}
+              variant="large"
+            />
           </Link>
           <Link
             to="https://www.solanapolicyinstitute.org/"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+            className="block no-underline text-inherit group/link"
             target="_blank"
+            rel="noopener noreferrer"
           >
-            <strong className="block !text-white text-sm">
-              {communityInvolvedItems[4].title}
-            </strong>
-            {communityInvolvedItems[4].description}
-          </Link>
-        </div>
-      </div>
-
-      <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px] hidden xl:block"></div>
-
-      <div className="w-full xl:w-max">
-        <div className="uppercase py-2 text-xs">
-          {t("nav.community.event.title")}
-        </div>
-        <div>
-          <Link to="/breakpoint" className="!text-white !no-underline">
-            <BreakpointLogo
-              width={228}
-              height={131}
-              className="my-5 w-full md:w-auto"
+            <HeaderItem
+              title={communityInvolvedItems[4].title}
+              description={communityInvolvedItems[4].description}
+              Icon={ScriptIcon}
+              variant="large"
             />
-
-            <div className="!text-white" style={{ lineHeight: 1.2 }}>
-              Dec. 11-13, 2025 - ABU DHABI
-            </div>
           </Link>
         </div>
       </div>
+
+      <HeaderBanner
+        className="w-[350px] max-w-full"
+        logo={<BreakpointLogo width={158} height={64} />}
+        cta={t("nav.community.event.cta")}
+        ctaHref="/learn/what-is-solana"
+        location={t("nav.community.event.location")}
+        date={t("nav.community.event.date")}
+      />
     </div>
   );
 };

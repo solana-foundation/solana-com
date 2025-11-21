@@ -46,7 +46,7 @@ function Header({ className = "", containerClassName = "" }) {
               />
             </Link>
 
-            <div className="xl:grow flex items-center gap-twd-4 md:gap-twd-2">
+            <div className="xl:grow flex items-center max-md:gap-4 md:gap-2">
 
               {/* Desktop Menu */}
               <div className="hidden xl:block flex-1">
@@ -54,7 +54,7 @@ function Header({ className = "", containerClassName = "" }) {
               </div>
 
               {/* Desktop Search and Language */}
-              <div className="flex gap-twd-5 items-center">
+              <div className="flex gap-5 items-center">
                 <InkeepSearchBar className="hidden md:block" />
                 <InkeepChatButton variant="inline" className="md:hidden" />
                 <div className="relative items-center hidden xl:flex">
