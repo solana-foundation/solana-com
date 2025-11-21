@@ -161,8 +161,6 @@ export default async function LocaleLayout({ children, params }: Props) {
     }
   );
 
-  const googleTagManagerID = config.siteMetadata.googleTagManagerID;
-
   return (
     <html
       lang={locale}
@@ -174,16 +172,6 @@ export default async function LocaleLayout({ children, params }: Props) {
         className="min-h-screen bg-background font-sans antialiased"
         suppressHydrationWarning
       >
-        {/* Google Tag Manager (noscript) */}
-        <noscript>
-          <iframe
-            src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          ></iframe>
-        </noscript>
-        {/* End Google Tag Manager (noscript) */}
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             <GTMTrackingSnippet />

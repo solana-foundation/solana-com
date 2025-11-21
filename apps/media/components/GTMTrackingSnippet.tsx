@@ -18,7 +18,17 @@ export const GTMTrackingSnippet = () => {
       `}
       </Script>
 
-      {/* The consent */}
+      {/* GTM noscript fallback for when JavaScript is disabled */}
+      <noscript>
+        <iframe
+          src={`https://www.googletagmanager.com/ns.html?id=${id}`}
+          height="0"
+          width="0"
+          style={{ display: "none", visibility: "hidden" }}
+        />
+      </noscript>
+
+      {/* Default consent configuration */}
       <Script strategy="afterInteractive" id="gtag-invocation">
         {`
         window.dataLayer = window.dataLayer || [];
