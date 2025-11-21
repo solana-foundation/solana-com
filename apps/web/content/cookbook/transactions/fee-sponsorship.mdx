@@ -1,0 +1,641 @@
+---
+title: Fee Sponsorship
+description:
+  Learn about Solana's fee sponsorship, including how to sponsor fees for other
+  users and how to get paid for sponsoring fees.
+---
+
+## Overview
+
+Fee sponsorship is a native feature in Solana that allows for one account to pay
+transaction fees for another account. This is useful if you want to abstract
+away holding SOL from your users or provide a fee-free experience. This is also
+often referred to as "gas abstraction" on other blockchains.
+
+## How fee payment works
+
+Every transaction requires a transaction fee, paid in SOL. This fee is paid by
+the "fee payer" of the transaction. Any EOA that signs the transaction can be
+the fee payer which enables native fee sponsorship or "gas abstraction" for
+Solana. This capability extends to all transaction types including token
+transfers, DeFi actions, and more. For more information on how fees are
+determined see the [Transaction Fees](/docs/core/fees) page.
+
+## How to sponsor fees on a transaction
+
+To sponsor fees for other users, you need to create a transaction with the
+`feePayer` field set to the public key of the EOA that will pay the fees. The
+following example shows how to transfer a token from one user to another and
+sponsor the fees for the transaction.
+
+<CodeTabs storage="fee-sponsorship-ts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getTransferInstruction,
+  fetchToken
+} from "@solana-program/token";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate keypairs for fee payer, sender and recipient
+const feePayer = await generateKeyPairSigner();
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+console.log("Fee Payer Address:", feePayer.address.toString());
+console.log("Sender Address:", sender.address.toString());
+console.log("Recipient Address:", recipient.address.toString());
+
+// Fund fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
+console.log("Mint Address:", mint.address.toString());
+
+// Get default mint account size (in bytes), no extensions enabled
+const space = BigInt(getMintSize());
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Instruction to create new account for mint (token  program)
+// Invokes the system program
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize mint account data
+// Invokes the token program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 2,
+  mintAuthority: sender.address
+});
+
+// Derive the ATAs for sender and recipient
+const [senderAssociatedTokenAddress] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [recipientAssociatedTokenAddress] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+console.log(
+  "Sender Associated Token Account Address:",
+  senderAssociatedTokenAddress.toString()
+);
+console.log(
+  "Recipient Associated Token Account Address:",
+  recipientAssociatedTokenAddress.toString()
+);
+
+// Create instruction for sender's ATA
+const createSenderAtaInstruction =
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: feePayer,
+    mint: mint.address,
+    owner: sender.address
+  });
+
+// Create instruction for recipient's ATA
+const createRecipientAtaInstruction =
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: feePayer,
+    mint: mint.address,
+    owner: recipient.address
+  });
+
+// Create instruction to mint tokens to sender
+const mintToInstruction = getMintToInstruction({
+  mint: mint.address,
+  token: senderAssociatedTokenAddress,
+  mintAuthority: sender.address,
+  amount: 100n
+});
+
+// Combine all instructions in order
+const instructions = [
+  createAccountInstruction, // Create mint account
+  initializeMintInstruction, // Initialize mint
+  createSenderAtaInstruction, // Create sender's ATA
+  createRecipientAtaInstruction, // Create recipient's ATA
+  mintToInstruction // Mint tokens to sender
+];
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions(instructions, tx)
+);
+
+// Sign transaction message with all required signers
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Transaction Signature:", transactionSignature);
+console.log("Successfully minted 1.0 tokens");
+
+// Get a fresh blockhash for the transfer transaction
+const { value: transferBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Create instruction to transfer tokens
+const transferInstruction = getTransferInstruction({
+  source: senderAssociatedTokenAddress,
+  destination: recipientAssociatedTokenAddress,
+  authority: sender.address,
+  amount: 50n // 0.50 tokens with 2 decimals
+});
+
+// Create transaction message for token transfer
+const transferTxMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(transferBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+// Sign transaction message with all required signers
+const signedTransferTx =
+  await signTransactionMessageWithSigners(transferTxMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransferTx,
+  { commitment: "confirmed" }
+);
+
+// Get transaction signature
+const transactionSignature2 = getSignatureFromTransaction(signedTransferTx);
+
+console.log("Transaction Signature:", transactionSignature2);
+console.log("Successfully transferred 0.5 tokens");
+
+const senderTokenAccount = await fetchToken(rpc, senderAssociatedTokenAddress, {
+  commitment: "confirmed"
+});
+const recipientTokenAccount = await fetchToken(
+  rpc,
+  recipientAssociatedTokenAddress,
+  {
+    commitment: "confirmed"
+  }
+);
+
+const senderBalance = senderTokenAccount.data.amount;
+const recipientBalance = recipientTokenAccount.data.amount;
+
+console.log("=== Final Balances ===");
+console.log("Sender balance:", Number(senderBalance) / 100, "tokens");
+console.log("Recipient balance:", Number(recipientBalance) / 100, "tokens");
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  MINT_SIZE,
+  getMinimumBalanceForRentExemptMint,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createMintToInstruction,
+  createTransferInstruction
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Generate a new keypair for the sender
+const sender = Keypair.generate();
+
+// Generate a new keypair for the recipient
+const recipient = Keypair.generate();
+
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// Airdrop 0.1 SOL to sender for rent exemption
+const senderAirdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL / 10
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: senderAirdropSignature
+});
+
+// Airdrop 0.1 SOL to recipient for rent exemption
+const recipientAirdropSignature = await connection.requestAirdrop(
+  recipient.publicKey,
+  LAMPORTS_PER_SOL / 10
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: recipientAirdropSignature
+});
+
+// Generate keypair to use as address of mint
+const mint = Keypair.generate();
+
+// Get minimum balance for rent exemption
+const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+
+// Get the associated token account address for the sender
+const senderATA = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  sender.publicKey,
+  false, // allowOwnerOffCurve
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// Get the associated token account address for the recipient
+const recipientATA = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  recipient.publicKey,
+  false, // allowOwnerOffCurve
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// Create account instruction
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: sender.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: mintRent,
+  programId: TOKEN_PROGRAM_ID
+});
+
+// Initialize mint instruction
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint pubkey
+  2, // decimals
+  sender.publicKey, // mint authority
+  sender.publicKey, // freeze authority
+  TOKEN_PROGRAM_ID
+);
+
+// Create associated token account instruction for sender
+const createSenderATA = createAssociatedTokenAccountInstruction(
+  sender.publicKey, // payer
+  senderATA, // associated token account address
+  sender.publicKey, // owner
+  mint.publicKey, // mint
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// Create recipient's associated token account
+const createRecipientATA = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey, // payer
+  recipientATA, // associated token account address
+  recipient.publicKey, // owner
+  mint.publicKey, // mint
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// Create a separate transaction for minting tokens
+// Create mint to instruction (mint 100 tokens = 1.00 with 2 decimals)
+const mintAmount = 100;
+const mintToInstruction = createMintToInstruction(
+  mint.publicKey, // mint
+  senderATA, // destination
+  sender.publicKey, // authority
+  mintAmount, // amount
+  [], // multiSigners
+  TOKEN_PROGRAM_ID // programId
+);
+
+// Create and sign transaction with mint creation and fee payer ATA creation
+const transaction = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+}).add(
+  createAccountInstruction,
+  initializeMintInstruction,
+  createSenderATA,
+  createRecipientATA,
+  mintToInstruction
+);
+
+// Sign transaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, sender, mint]
+);
+
+console.log("Transaction Signature:", transactionSignature);
+
+// Create transfer instruction (transfer 50 tokens = 0.50 with 2 decimals)
+const transferAmount = 50;
+const transferInstruction = createTransferInstruction(
+  senderATA, // source
+  recipientATA, // destination
+  sender.publicKey, // owner
+  transferAmount, // amount
+  [], // multiSigners
+  TOKEN_PROGRAM_ID // programId
+);
+
+// Get a new blockhash for the transfer transaction
+const transferBlockhash = await connection.getLatestBlockhash();
+
+// Create transaction for token transfer
+let transferTransaction = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: transferBlockhash.blockhash,
+  lastValidBlockHeight: transferBlockhash.lastValidBlockHeight
+}).add(transferInstruction);
+
+// Sign and send transfer transaction
+const transactionSignature2 = await sendAndConfirmTransaction(
+  connection,
+  transferTransaction,
+  [feePayer, sender]
+);
+
+console.log("Successfully transferred 0.5 tokens");
+console.log("Transaction Signature:", transactionSignature2);
+
+// Fetch and display actual balances after transfer
+import { getAccount } from "@solana/spl-token";
+
+const senderTokenAccount = await getAccount(
+  connection,
+  senderATA,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+const recipientTokenAccount = await getAccount(
+  connection,
+  recipientATA,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+
+console.log("=== Final Balances ===");
+console.log(
+  "Sender balance:",
+  Number(senderTokenAccount.amount) / 100,
+  "tokens"
+);
+console.log(
+  "Recipient balance:",
+  Number(recipientTokenAccount.amount) / 100,
+  "tokens"
+);
+```
+
+```ts !! title="Legacy Helper"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  createMint,
+  createAssociatedTokenAccount,
+  mintTo,
+  TOKEN_PROGRAM_ID,
+  transfer
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Generate a new keypair for the sender
+const sender = Keypair.generate();
+
+// Generate a new keypair for the recipient
+const recipient = Keypair.generate();
+
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// Airdrop 1 SOL to sender for rent exemption
+const senderAirdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: senderAirdropSignature
+});
+
+// Airdrop 0.1 SOL to recipient for rent exemption
+const recipientAirdropSignature = await connection.requestAirdrop(
+  recipient.publicKey,
+  LAMPORTS_PER_SOL / 10
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: recipientAirdropSignature
+});
+
+// Create mint using helper function
+const mintPubkey = await createMint(
+  connection, // connection
+  feePayer, // fee payer
+  sender.publicKey, // mint authority
+  sender.publicKey, // freeze authority
+  2, // decimals
+  Keypair.generate(), // keypair (optional)
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_PROGRAM_ID // program id
+);
+console.log("Mint Address:", mintPubkey.toBase58());
+
+// Create associated token account using helper function for fee payer
+const feePayerATA = await createAssociatedTokenAccount(
+  connection, // connection
+  feePayer, // fee payer
+  mintPubkey, // mint
+  sender.publicKey, // owner
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_PROGRAM_ID // program id
+);
+console.log("Fee Payer ATA Address:", feePayerATA.toBase58());
+
+// Create associated token account using helper function for recipient
+const recipientATA = await createAssociatedTokenAccount(
+  connection, // connection
+  feePayer, // fee payer (still paying for the transaction)
+  mintPubkey, // mint
+  recipient.publicKey, // owner (the recipient)
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_PROGRAM_ID // program id
+);
+console.log("Recipient ATA Address:", recipientATA.toBase58());
+
+// Mint 100 tokens to the fee payer's associated token account (with 2 decimals, this is 1.00 tokens)
+const mintAmount = 100; // 1.00 tokens with 2 decimals
+const mintSignature = await mintTo(
+  connection, // connection
+  feePayer, // payer
+  mintPubkey, // mint
+  senderATA, // destination
+  sender.publicKey, // authority (mint authority)
+  mintAmount, // amount
+  [], // additional signers
+  {
+    commitment: "confirmed" // confirmation options
+  },
+  TOKEN_PROGRAM_ID // program id
+);
+console.log("Successfully minted 1.0 tokens");
+console.log("Transaction Signature:", mintSignature);
+
+// Transfer 50 tokens (0.50 with 2 decimals) from fee payer to recipient
+const transferAmount = 50;
+const transactionSignature2 = await transfer(
+  connection,
+  feePayer,
+  senderATA,
+  recipientATA,
+  sender.publicKey, // Owner of source account
+  transferAmount,
+  [],
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+console.log("Successfully transferred 0.5 tokens");
+console.log("Transaction Signature:", transactionSignature2);
+
+// Fetch and display actual balances after transfer
+import { getAccount } from "@solana/spl-token";
+
+const senderTokenAccount = await getAccount(
+  connection,
+  senderATA,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+const recipientTokenAccount = await getAccount(
+  connection,
+  recipientATA,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+
+console.log("=== Final Balances ===");
+console.log(
+  "Sender balance:",
+  Number(senderTokenAccount.amount) / 100,
+  "tokens"
+);
+console.log(
+  "Recipient balance:",
+  Number(recipientTokenAccount.amount) / 100,
+  "tokens"
+);
+```
+
+</CodeTabs>
+
+## How to run a fee relayer service
+
+A fee relayer service is a service that allows you to relay transactions for
+other users. This is useful if you want to provide an application that removes
+the complexity of users having to manage and procure SOL. Kora, by the Solana
+Foundation, is a fee relayer service that allows you to relay transactions for
+other users. In addition to providing fee sponsorship, it can also accept fee
+payment in configured tokens to still be compensated for transaction processing.
+More information can be found in the
+[Kora documentation](https://launch.solana.com/products/kora).
