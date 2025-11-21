@@ -375,7 +375,7 @@ export default function PostsClientPage(props: ClientPostProps) {
                           <TinaMarkdown content={post.description} />
                         </div>
                         <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
-                          Read more
+                          Read article
                           <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                         </span>
                       </Link>
