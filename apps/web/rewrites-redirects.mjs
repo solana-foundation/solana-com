@@ -86,8 +86,9 @@ export default {
   redirects: [
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
-    { source: "/upgrade", destination: "/news/upgrades" },
-    { source: "/upgrades", destination: "/news/upgrades" },
+    // TODO: set to newws/upgrades when we have articles
+    { source: "/upgrade", destination: "/news/solana-network-upgrades" },
+    { source: "/upgrades", destination: "/news/solana-network-upgrades" },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
