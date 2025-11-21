@@ -26,6 +26,7 @@ export const useSwipeDown = <T extends HTMLElement>(
       const handleTouchStart = (e: TouchEvent) => {
         // Only start swipe from the top of the menu
         const touch = e.touches[0];
+        if (!touch) return;
         if (touch.clientY < swipeArea.getBoundingClientRect().top + 50) {
           startYRef.current = touch.clientY;
           isSwipingRef.current = true;
@@ -38,6 +39,7 @@ export const useSwipeDown = <T extends HTMLElement>(
         if (!isSwipingRef.current || startYRef.current === null) return;
 
         const touch = e.touches[0];
+        if (!touch) return;
         const deltaY = touch.clientY - startYRef.current;
 
         // Only allow downward swipes
