@@ -63,6 +63,9 @@ export async function makeRPCCall({ abortSignal, method, params, rpcNodeURL }) {
             method: "POST",
             signal: abortSignal,
           });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch RPC data: ${response.statusText}`);
+          }
           const result = await response.json();
           resolve(result);
         } catch (e) {
@@ -86,6 +89,9 @@ export async function makeRPCCall({ abortSignal, method, params, rpcNodeURL }) {
         method: "POST",
         signal: abortSignal,
       });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch RPC data: ${response.statusText}`);
+      }
       return await response.json();
     } catch (e) {
       throw e;
