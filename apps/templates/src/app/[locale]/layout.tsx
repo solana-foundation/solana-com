@@ -2,7 +2,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
-import { loadMessages } from "@/lib/load-messages";
+import { loadMessages } from "@workspace/i18n/load-messages";
 
 type Props = {
   children: React.ReactNode;

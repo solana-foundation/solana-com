@@ -37,7 +37,8 @@ const HeaderList = () => {
     asPath === "/community" ||
     asPath.includes("/events") ||
     asPath === "/breakpoint" ||
-    asPath === "/news";
+    asPath === "/news" ||
+    asPath.includes("/podcasts");
 
   return (
     <NavigationMenu viewport={false} className="flex-1">
