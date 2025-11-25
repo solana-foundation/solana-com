@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Template } from "tinacms";
 import { tinaField } from "tinacms/dist/react";
 import { Section, sectionBlockSchemaField } from "../layout/section";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import { InfiniteSlider } from "./infinite-slider";
 
 export interface GalleryImageProps extends ComponentPropsWithoutRef<"figure"> {

@@ -6,7 +6,7 @@ import React, {
   useState,
   useRef,
 } from "react";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { format } from "date-fns";
 import { TinaMarkdown, TinaMarkdownContent } from "tinacms/dist/rich-text";

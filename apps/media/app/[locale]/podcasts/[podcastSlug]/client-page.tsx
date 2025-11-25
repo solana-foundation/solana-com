@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft } from "lucide-react";
 import { TinaMarkdown } from "tinacms/dist/rich-text";
 import { Section } from "@/components/layout/section";

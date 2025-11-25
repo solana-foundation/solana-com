@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/components/ui/button";
 import React from "react";
 

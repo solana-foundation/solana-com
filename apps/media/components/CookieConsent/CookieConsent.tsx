@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 
 // Get localstorage with expiry date
 const getLocalStorage = function (key: string, defaultValue: any) {

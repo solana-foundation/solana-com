@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { ArrowUpRight, Calendar, Clock } from "lucide-react";
 import { Section } from "@/components/layout/section";
