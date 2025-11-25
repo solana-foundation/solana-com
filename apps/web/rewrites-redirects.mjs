@@ -20,6 +20,11 @@ export default {
       },
       // Media app rewrites - new routes
       {
+        source: "/admin",
+        destination: `${mediaUrl}/admin`,
+        locale: false,
+      },
+      {
         source: "/news",
         destination: `${mediaUrl}/news`,
         locale: false,
