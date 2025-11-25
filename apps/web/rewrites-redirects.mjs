@@ -148,7 +148,14 @@ export default {
     { source: "/solanapay", destination: "https://solanapay.com/" },
     { source: "/pay", destination: "https://solanapay.com/" },
     { source: "/mobile", destination: "https://solanamobile.com/" },
-    { source: "/podcast", destination: "/validated" },
+    {
+      source: "/podcast",
+      destination: "/podcasts",
+    },
+    {
+      source: "/validated",
+      destination: "/podcasts/validated-with-austin-federa",
+    },
     { source: "/careers", destination: "https://jobs.solana.com" },
     { source: "/jobs", destination: "https://jobs.solana.com" },
     {
