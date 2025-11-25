@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import NextLink from "next/link";
+import { Link as I18nLink } from "@workspace/i18n/routing";
 import { useRouter, usePathname } from "@workspace/i18n/use-router";
 import classNames from "classnames";
 import { resolveHref, shouldUseNextLink } from "./url-config";
@@ -46,18 +46,17 @@ const Link = ({
   if (useNextLink) {
     const { scroll, prefetch, ...aProps } = other;
     return (
-      <NextLink
+      <I18nLink
         href={resolvedHref}
         scroll={scroll}
         prefetch={prefetch}
-        passHref
         {...aProps}
         className={classNames(className, {
           [activeClassName]: isReady && isActive,
         })}
       >
         {children}
-      </NextLink>
+      </I18nLink>
     );
   }
   return (
