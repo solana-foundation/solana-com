@@ -17,7 +17,7 @@ import HeaderListLearn from "./header-list.learn";
 import HeaderListBuild from "./header-list.build";
 import HeaderListSolutions from "./header-list.solutions";
 import HeaderListNetwork from "./header-list.network";
-import HeaderListCommunity from "./header-list.community";
+import { HeaderListCommunity } from "./header-list.community";
 import AngleDown from "./assets/angle-down.inline.svg";
 
 interface MobileMenuProps {
