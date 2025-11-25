@@ -1,7 +1,7 @@
 const mediaUrl =
   process.env.NODE_ENV === "development"
     ? "http://localhost:3001"
-    : "https://solana-com-media.vercel.app";
+    : "https://solana.com";
 
 export default {
   rewrites: {
