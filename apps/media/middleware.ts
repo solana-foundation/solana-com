@@ -17,11 +17,30 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Get the correct origin from Vercel's forwarded headers (when accessed via rewrites)
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const origin = forwardedHost
+    ? `${req.headers.get("x-forwarded-proto") || "https"}://${forwardedHost}`
+    : req.nextUrl.origin;
+
   // Lowercase all paths
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
-      new URL(pathname.toLowerCase() + req.nextUrl.search, req.url)
+      new URL(pathname.toLowerCase() + req.nextUrl.search, origin)
     );
+  }
+
+  // If origin differs, create a modified request so next-intl uses the correct domain
+  if (origin !== req.nextUrl.origin) {
+    const modifiedUrl = new URL(
+      req.nextUrl.pathname + req.nextUrl.search,
+      origin
+    );
+    const modifiedReq = new NextRequest(modifiedUrl, {
+      headers: req.headers,
+      method: req.method,
+    });
+    return handleI18nRouting(modifiedReq);
   }
 
   // Let next-intl handle locale detection and routing
