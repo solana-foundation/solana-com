@@ -26,7 +26,7 @@ const HeaderListCommunity = () => {
             {communityInvolvedItems[0].description}
           </Link>
           <Link
-            to="/events"
+            to="/podcasts"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             activeClassName="!border-white/10 bg-[#151118]"
           >
@@ -36,9 +36,9 @@ const HeaderListCommunity = () => {
             {communityInvolvedItems[1].description}
           </Link>
           <Link
-            to="https://www.solanacollective.com/"
+            to="/events"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            target="_blank"
+            activeClassName="!border-white/10 bg-[#151118]"
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[2].title}
@@ -46,9 +46,9 @@ const HeaderListCommunity = () => {
             {communityInvolvedItems[2].description}
           </Link>
           <Link
-            to="/community"
+            to="https://www.solanacollective.com/"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            target="_blank"
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[3].title}
@@ -56,14 +56,24 @@ const HeaderListCommunity = () => {
             {communityInvolvedItems[3].description}
           </Link>
           <Link
-            to="https://www.solanapolicyinstitute.org/"
+            to="/community"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            target="_blank"
+            activeClassName="!border-white/10 bg-[#151118]"
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[4].title}
             </strong>
             {communityInvolvedItems[4].description}
+          </Link>
+          <Link
+            to="https://www.solanapolicyinstitute.org/"
+            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+            target="_blank"
+          >
+            <strong className="block !text-white text-sm">
+              {communityInvolvedItems[5].title}
+            </strong>
+            {communityInvolvedItems[5].description}
           </Link>
         </div>
       </div>

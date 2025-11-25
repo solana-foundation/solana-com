@@ -1,3 +1,8 @@
+const mediaUrl =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:3001"
+    : "https://solana-com-media.vercel.app";
+
 export default {
   rewrites: {
     beforeFiles: [
@@ -11,6 +16,53 @@ export default {
         source: "/breakpoint/:path*",
         destination:
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
+        locale: false,
+      },
+      // Media app rewrites - new routes
+      {
+        source: "/news",
+        destination: `${mediaUrl}/news`,
+        locale: false,
+      },
+      {
+        source: "/news/:path*",
+        destination: `${mediaUrl}/news/:path*`,
+        locale: false,
+      },
+      {
+        source: "/podcasts",
+        destination: `${mediaUrl}/podcasts`,
+        locale: false,
+      },
+      {
+        source: "/podcasts/:path*",
+        destination: `${mediaUrl}/podcasts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/news",
+        destination: `${mediaUrl}/:locale/news`,
+        locale: false,
+      },
+      {
+        source: "/:locale/news/:path*",
+        destination: `${mediaUrl}/:locale/news/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/podcasts",
+        destination: `${mediaUrl}/:locale/podcasts`,
+        locale: false,
+      },
+      {
+        source: "/:locale/podcasts/:path*",
+        destination: `${mediaUrl}/:locale/podcasts/:path*`,
+        locale: false,
+      },
+      // Media app assets (required for static assets with assetPrefix: "/media-assets")
+      {
+        source: "/media-assets/:path+",
+        destination: `${mediaUrl}/media-assets/:path+`,
         locale: false,
       },
       {
@@ -34,6 +86,7 @@ export default {
   redirects: [
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
+    // TODO: set to newws/upgrades when we have articles
     { source: "/upgrade", destination: "/news/solana-network-upgrades" },
     { source: "/upgrades", destination: "/news/solana-network-upgrades" },
 

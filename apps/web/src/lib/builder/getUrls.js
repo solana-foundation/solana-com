@@ -35,9 +35,9 @@ function httpsGet(url) {
 }
 
 // Models to fetch slugs from and their corresponding URL paths
+// NOTE: "post" model removed - news URLs are now generated from @apps/media/content/posts
 const MODELS = [
   { name: "section-page", slugField: "data.slug", urlPrefix: "/" },
-  { name: "post", slugField: "data.slug", urlPrefix: "/news/" },
   {
     name: "breakpoint",
     slugField: "data.slug",

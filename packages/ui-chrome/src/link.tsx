@@ -73,10 +73,15 @@ interface InlineLinkProps
   children: React.ReactNode;
 }
 
-const InlineLink = ({ to, children, ...props }: InlineLinkProps) => {
+const InlineLink = ({
+  to,
+  children,
+  target = "_blank",
+  ...props
+}: InlineLinkProps) => {
   const resolvedHref = resolveHref(to);
   return (
-    <a href={resolvedHref} {...props} target="_blank" rel="noopener noreferrer">
+    <a href={resolvedHref} {...props} target={target} rel="noopener noreferrer">
       {children}
     </a>
   );
