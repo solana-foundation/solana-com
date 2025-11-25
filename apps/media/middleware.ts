@@ -1,7 +1,6 @@
 import createMiddleware from "next-intl/middleware";
 import { routing } from "@workspace/i18n/routing";
 import { NextRequest, NextResponse } from "next/server";
-import { defaultLocale } from "@workspace/i18n/config";
 
 const handleI18nRouting = createMiddleware(routing);
 
@@ -22,15 +21,6 @@ export default async function middleware(req: NextRequest) {
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
       new URL(pathname.toLowerCase() + req.nextUrl.search, req.url)
-    );
-  }
-
-  // Redirect default locale paths to remove locale prefix (e.g., /en/news -> /news)
-  // This ensures consistency with localePrefix: "as-needed"
-  if (pathname.startsWith(`/${defaultLocale}/`)) {
-    const pathWithoutLocale = pathname.slice(`/${defaultLocale}`.length);
-    return NextResponse.redirect(
-      new URL(pathWithoutLocale + req.nextUrl.search, req.url)
     );
   }
 
