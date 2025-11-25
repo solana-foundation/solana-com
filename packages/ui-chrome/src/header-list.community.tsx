@@ -1,10 +1,13 @@
 import { useTranslations } from "next-intl";
-import { Link } from "./link";
+import { Link } from "@workspace/i18n/routing";
+import { usePathname } from "@workspace/i18n/use-router";
+import classNames from "classnames";
 import BreakpointLogo from "./assets/nav/community/breakpoint-logo.inline.svg";
 import InvolvedSVG from "./assets/nav/community/involved.inline.svg";
 
-const HeaderListCommunity = () => {
+export const HeaderListCommunity = () => {
   const t = useTranslations();
+  const pathname = usePathname();
   const communityInvolvedItems = t.raw("nav.community.involved.items");
 
   return (
@@ -16,9 +19,14 @@ const HeaderListCommunity = () => {
         </div>
         <div>
           <Link
-            to="/news"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            href="/news"
+            className={classNames(
+              "block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm",
+              {
+                "!border-white/10 bg-[#151118]":
+                  pathname === "/news" || pathname.startsWith("/news/"),
+              },
+            )}
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[0].title}
@@ -26,9 +34,14 @@ const HeaderListCommunity = () => {
             {communityInvolvedItems[0].description}
           </Link>
           <Link
-            to="/podcasts"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            href="/podcasts"
+            className={classNames(
+              "block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm",
+              {
+                "!border-white/10 bg-[#151118]":
+                  pathname === "/podcasts" || pathname.startsWith("/podcasts/"),
+              },
+            )}
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[1].title}
@@ -36,45 +49,58 @@ const HeaderListCommunity = () => {
             {communityInvolvedItems[1].description}
           </Link>
           <Link
-            to="/events"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            href="/events"
+            className={classNames(
+              "block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm",
+              {
+                "!border-white/10 bg-[#151118]":
+                  pathname === "/events" || pathname.startsWith("/events/"),
+              },
+            )}
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[2].title}
             </strong>
             {communityInvolvedItems[2].description}
           </Link>
-          <Link
-            to="https://www.solanacollective.com/"
+          <a
+            href="https://www.solanacollective.com/"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             target="_blank"
+            rel="noopener noreferrer"
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[3].title}
             </strong>
             {communityInvolvedItems[3].description}
-          </Link>
+          </a>
           <Link
-            to="/community"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            href="/community"
+            className={classNames(
+              "block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm",
+              {
+                "!border-white/10 bg-[#151118]":
+                  pathname === "/community" ||
+                  pathname.startsWith("/community/"),
+              },
+            )}
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[4].title}
             </strong>
             {communityInvolvedItems[4].description}
           </Link>
-          <Link
-            to="https://www.solanapolicyinstitute.org/"
+          <a
+            href="https://www.solanapolicyinstitute.org/"
             className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
             target="_blank"
+            rel="noopener noreferrer"
           >
             <strong className="block !text-white text-sm">
               {communityInvolvedItems[5].title}
             </strong>
             {communityInvolvedItems[5].description}
-          </Link>
+          </a>
         </div>
       </div>
 
@@ -85,7 +111,7 @@ const HeaderListCommunity = () => {
           {t("nav.community.event.title")}
         </div>
         <div>
-          <Link to="/breakpoint" className="!text-white !no-underline">
+          <Link href="/breakpoint" className="!text-white !no-underline">
             <BreakpointLogo
               width={228}
               height={131}
@@ -101,5 +127,3 @@ const HeaderListCommunity = () => {
     </div>
   );
 };
-
-export default HeaderListCommunity;
