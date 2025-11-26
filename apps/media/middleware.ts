@@ -2,7 +2,13 @@ import createMiddleware from "next-intl/middleware";
 import { routing } from "@workspace/i18n/routing";
 import { NextRequest, NextResponse } from "next/server";
 
-const handleI18nRouting = createMiddleware(routing);
+// localeDetection: false prevents redirects that leak the Vercel URL
+// When accessed via rewrite from solana.com, next-intl would redirect to
+// solana-com-media.vercel.app/ru/... because req.url is the rewrite destination
+const handleI18nRouting = createMiddleware({
+  ...routing,
+  localeDetection: false,
+});
 
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
@@ -24,8 +30,6 @@ export default async function middleware(req: NextRequest) {
     );
   }
 
-  // Let next-intl handle locale detection and routing
-  // It will treat paths without locale prefix as default locale (en)
   return handleI18nRouting(req);
 }
 
