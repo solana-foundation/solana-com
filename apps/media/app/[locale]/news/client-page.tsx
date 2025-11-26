@@ -28,7 +28,14 @@ export default function PostsClientPage(props: PostsClientPageProps) {
 
   const [posts, setPosts] = useState<(PostItem | null)[]>(latestPosts);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [pageInfo, setPageInfo] = useState(initialPageInfo);
+  const [pageInfo, setPageInfo] = useState(
+    initialPageInfo ?? {
+      hasPreviousPage: false,
+      hasNextPage: false,
+      startCursor: null,
+      endCursor: null,
+    }
+  );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
   // Load more posts

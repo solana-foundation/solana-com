@@ -62,31 +62,36 @@ export interface FeaturedPostResponse {
 }
 
 export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
-  const response = await client.queries.postConnection({
-    last: 1,
-    sort: "date",
-    filter: {
-      tags: {
-        tag: {
+  try {
+    const response = await client.queries.postConnection({
+      last: 1,
+      sort: "date",
+      filter: {
+        tags: {
           tag: {
-            name: {
-              eq: "Featured",
+            tag: {
+              name: {
+                eq: "Featured",
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  const edge = response.data.postConnection.edges?.[0];
+    const edge = response.data.postConnection.edges?.[0];
 
-  if (!edge) {
+    if (!edge) {
+      return { post: null };
+    }
+
+    const post: PostItem = transformPost(edge as PostConnectionEdges);
+
+    return {
+      post,
+    };
+  } catch (error) {
+    console.error("Failed to fetch featured post from TinaCMS:", error);
     return { post: null };
   }
-
-  const post: PostItem = transformPost(edge as PostConnectionEdges);
-
-  return {
-    post,
-  };
 };

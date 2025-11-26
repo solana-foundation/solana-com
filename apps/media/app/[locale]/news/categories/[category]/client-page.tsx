@@ -24,7 +24,14 @@ export default function CategoryPostsClientPage(
   const { category, latestPosts } = props;
   const [posts, setPosts] = useState<(PostItem | null)[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [pageInfo, setPageInfo] = useState(props.initialPageInfo);
+  const [pageInfo, setPageInfo] = useState<PageInfo>(
+    props.initialPageInfo ?? {
+      hasPreviousPage: false,
+      hasNextPage: false,
+      startCursor: null,
+      endCursor: null,
+    }
+  );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
   // Load more posts
@@ -70,11 +77,12 @@ export default function CategoryPostsClientPage(
 
   // Extract regular posts from postsData
   useEffect(() => {
-    // Remove featured post from latest posts if it exists
+    // Initialize posts from latestPosts
     setPosts(latestPosts || []);
 
     // Set the cursor from the last (oldest) post edge
-    const lastPost = latestPosts[latestPosts.length - 1];
+    const lastPost =
+      latestPosts?.length > 0 ? latestPosts[latestPosts.length - 1] : null;
     if (lastPost?.cursor) {
       setCurrentCursor(lastPost.cursor);
     }

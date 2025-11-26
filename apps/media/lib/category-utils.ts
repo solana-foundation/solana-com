@@ -15,5 +15,5 @@ export function transformCategory(
   return {
     id: categoryData.id,
     name: categoryData.name,
-  } as CategoryItem;
+  };
 }

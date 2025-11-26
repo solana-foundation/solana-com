@@ -15,10 +15,13 @@ export function transformPost(postData: PostConnectionEdges): PostItem | null {
     id: post.id,
     published: formattedDate,
     title: post.title,
-    tags: post.tags?.map((tag) => tag?.tag?.name),
+    tags:
+      post.tags
+        ?.map((tag) => tag?.tag?.name)
+        .filter((name): name is string => name !== undefined) || [],
     categories:
       post.categories?.map((category) => category?.category?.name) || [],
-    url: `/news/${post._sys.breadcrumbs.join("/")}`,
+    url: `/news/${post._sys?.breadcrumbs?.join("/") || ""}`,
     description: post.description,
     heroImage: post.heroImage || "/uploads/posts/default-blog.webp",
     author: {

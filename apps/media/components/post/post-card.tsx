@@ -12,7 +12,6 @@ interface PostCardProps {
 export const PostCard = ({ post }: PostCardProps) => {
   return (
     <Link
-      key={post.id}
       href={post.url}
       className="flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border"
     >

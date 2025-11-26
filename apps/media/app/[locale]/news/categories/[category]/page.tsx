@@ -22,13 +22,13 @@ export default async function CategoryPostsPage({
     return notFound();
   }
 
-  try {
-    latestPosts = await fetchLatestPosts({ limit: 13, category: categoryName });
-  } catch (error) {
+  if (!categoryName) {
     return notFound();
   }
 
-  if (!categoryName) {
+  try {
+    latestPosts = await fetchLatestPosts({ limit: 13, category: categoryName });
+  } catch (error) {
     return notFound();
   }
 
