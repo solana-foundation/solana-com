@@ -1,4 +1,5 @@
 import React from "react";
+import { notFound } from "next/navigation";
 import client from "@/tina/__generated__/client";
 import PostClientPage from "./client-page";
 import type { Metadata } from "next";
@@ -20,9 +21,7 @@ export default async function PostPage({
       relativePath: `${filepath}.mdx`,
     });
   } catch (error) {
-    // During build, if the server isn't available, the query will fail
-    // In production, this should be handled by Tina Cloud
-    throw error;
+    notFound();
   }
 
   return <PostClientPage {...data} />;
