@@ -162,6 +162,10 @@ export default {
       source: "/validated",
       destination: "/podcasts/validated-with-austin-federa",
     },
+    {
+      source: "/validated/:path*",
+      destination: "/podcasts/validated-with-austin-federa",
+    },
     { source: "/careers", destination: "https://jobs.solana.com" },
     { source: "/jobs", destination: "https://jobs.solana.com" },
     {
