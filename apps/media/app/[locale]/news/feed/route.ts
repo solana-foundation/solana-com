@@ -43,6 +43,22 @@ function markdownToPlainText(
   return "";
 }
 
+// Helper function to get image MIME type from file extension
+function getImageMimeType(imageUrl: string): string {
+  const extension = imageUrl.split(".").pop()?.toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    webp: "image/webp",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    gif: "image/gif",
+    svg: "image/svg+xml",
+    avif: "image/avif",
+    ico: "image/x-icon",
+  };
+  return mimeTypes[extension || ""] || "image/webp"; // Default to webp if unknown
+}
+
 export async function GET(request: Request) {
   try {
     // Get the base URL from the request
@@ -108,7 +124,7 @@ export async function GET(request: Request) {
           : `${baseUrl}${post.heroImage}`;
         feedItem.image = {
           url: imageUrl,
-          type: "image/webp", // Default to webp, adjust if needed
+          type: getImageMimeType(imageUrl),
         };
       }
 
