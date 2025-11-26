@@ -115,6 +115,7 @@ export default {
       destination: "https://lu.ma/solana-nyc",
     },
     { source: "/blog", destination: "/news" },
+    { source: "/news/tag/:path*", destination: "/news" },
     {
       source: "/news/solana-scaffold-part-1-wallet-adapter",
       destination:
