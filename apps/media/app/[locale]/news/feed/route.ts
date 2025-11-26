@@ -61,9 +61,8 @@ function getImageMimeType(imageUrl: string): string {
 
 export async function GET(request: Request) {
   try {
-    // Get the base URL from the request
-    const url = new URL(request.url);
-    const baseUrl = `${url.protocol}//${url.host}`;
+    // Use solana.com as the base URL for feed links
+    const baseUrl = `https://solana.com`;
     const newsUrl = `${baseUrl}/news`;
 
     // Fetch posts (limit to 20 most recent)
