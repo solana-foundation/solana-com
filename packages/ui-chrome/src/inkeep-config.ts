@@ -194,13 +194,19 @@ export function useInkeepConfig(): {
   baseSettings: InkeepBaseSettings;
   searchSettings: InkeepSearchSettings;
   aiChatSettings: InkeepAIChatSettings;
+  modalSettings: {
+    isOpen: boolean;
+    onOpenChange: (isOpen: boolean) => void;
+  };
 } {
   const [syncTarget, setSyncTarget] = useState<HTMLElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   // We do this because document is not available in the server
   useEffect(() => {
     setSyncTarget(document.documentElement);
   }, []);
+
   return {
     baseSettings: {
       ...baseSettings,
@@ -211,6 +217,10 @@ export function useInkeepConfig(): {
           isDarkMode: (attributes) => !!attributes.class?.includes("dark"),
         },
       },
+    },
+    modalSettings: {
+      isOpen,
+      onOpenChange: setIsOpen,
     },
     searchSettings,
     aiChatSettings,
