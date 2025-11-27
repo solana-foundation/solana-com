@@ -358,7 +358,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                           <div
                             key={item.id}
                             className={cn(
-                              "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 divide-x divide-nd-border-light",
+                              "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light",
                               {
                                 "animate-stretch-in": isIntersecting,
                               },
@@ -387,7 +387,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                           exit={{ y: 100, opacity: 0 }}
                           transition={{ duration: 0.4 }}
                           className={cn(
-                            "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 divide-x divide-nd-border-light",
+                            "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light",
                             {
                               "animate-flash-background": isNewItem && !allNew,
                             },

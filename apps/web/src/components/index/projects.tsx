@@ -65,7 +65,7 @@ export const Projects: React.FC<ProjectsProps> = ({
         <div className="mt-twd-10 xl:mt-twd-16 rounded-2xl border-nd-border-light border-[1px] bg-nd-inverse overflow-hidden relative">
           {bgSrc && (
             <Image
-              className="opacity-30"
+              className="opacity-30 blur-[40px]"
               src={bgSrc}
               alt=""
               fill

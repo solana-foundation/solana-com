@@ -106,17 +106,19 @@ export const Hero: React.FC<HeroProps> = ({
               {cta && (
                 <div className="mt-[52px]">
                   <Button
-                    className="rounded-full nd-body-m !px-twd-5 py-twd-3 bg-nd-cta text-nd-inverse hover:!bg-nd-primary/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                    className="rounded-full md:h-[48px] nd-body-m !px-twd-5 py-twd-3 bg-nd-cta text-nd-inverse hover:!bg-nd-primary/90 tracking-[-0.16px] md:tracking-[-0.18px]"
                     size="lg"
                     aria-label={cta}
                     onClick={() => setOpen(true)}
                   >
                     {cta}
-                    <ArrowRightIcon
-                      aria-hidden={true}
-                      className="-mr-twd-2 p-twd-1 !size-6 bg-nd-inverse text-nd-cta rounded-full"
-                      strokeWidth={3}
-                    />
+                    <span className="-mr-twd-3 p-twd-1 !size-8 bg-nd-inverse text-nd-cta rounded-full inline-flex items-center justify-center">
+                      <ArrowRightIcon
+                        aria-hidden={true}
+                        className="!size-[16px] block"
+                        strokeWidth={3}
+                      />
+                    </span>
                   </Button>
                 </div>
               )}
@@ -140,8 +142,8 @@ export const Hero: React.FC<HeroProps> = ({
                         />
                       </div>
                     )}
-                    <div className="grow flex flex-col justify-between gap-twd-3 xl:gap-twd-4">
-                      <div>
+                    <div className="grow flex flex-col justify-between md:py-twd-1.5 xl:py-twd-2 md:pr-twd-2">
+                      <div className="max-md:py-twd-1 max-md:pr-twd-1">
                         {bannerEyebrow && (
                           <p className="font-medium nd-body-l">
                             {bannerEyebrow}
@@ -153,7 +155,7 @@ export const Hero: React.FC<HeroProps> = ({
                           </p>
                         )}
                       </div>
-                      <div className="mt-twd-2">
+                      <div className="mt-twd-2 md:mt-twd-3">
                         <Button
                           className={cn(
                             "rounded-full font-normal nd-body-s tracking-[-0.1em] !px-twd-4 py-[6px] h-8 bg-nd-inverse text-nd-primary hover:!bg-nd-inverse/90",

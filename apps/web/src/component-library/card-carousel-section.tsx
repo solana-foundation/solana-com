@@ -15,6 +15,7 @@ export type CardCarouselSectionProps = {
   totalItems?: number;
   children: React.ReactNode | React.ReactNode[];
   desktopLastPageOffset?: number;
+  desktop2xlLastPageOffset?: number;
   tabletLastPageOffset?: number;
   mobileLastPageOffset?: number;
   startIndex?: number;
@@ -31,6 +32,7 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
   subtitle,
   totalItems = 1,
   children,
+  desktop2xlLastPageOffset = 1,
   desktopLastPageOffset = 1,
   tabletLastPageOffset = 1,
   mobileLastPageOffset = 1,
@@ -41,11 +43,14 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
   const carouselRef = useRef(null);
   const isTablet = useMediaQuery("(min-width: 768px)");
   const isDesktop = useMediaQuery("(min-width: 1280px)");
-  const lastPageOffset = isDesktop
-    ? desktopLastPageOffset
-    : isTablet
-      ? tabletLastPageOffset
-      : mobileLastPageOffset;
+  const isDesktop2xl = useMediaQuery("(min-width: 1440px)");
+  const lastPageOffset = isDesktop2xl
+    ? desktop2xlLastPageOffset
+    : isDesktop
+      ? desktopLastPageOffset
+      : isTablet
+        ? tabletLastPageOffset
+        : mobileLastPageOffset;
 
   return (
     <section

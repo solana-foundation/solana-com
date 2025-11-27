@@ -58,14 +58,14 @@ export const Performance: React.FC<PerformanceProps> = ({
               </p>
             )}
           </div>
-          <div className="xl:w-[35%] relative before:absolute before:top-0 before:left-0 before:w-px before:h-full before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]">
+          <div className="w-full xl:w-[35%] relative before:absolute before:top-0 before:left-0 before:w-px before:h-full before:bg-gradient-to-b before:from-[#D884F0] before:to-[#44EBA6]">
             {counters?.map((item, index) => (
               <div
                 key={item.label}
                 className={cn(
                   "py-twd-5 px-twd-3 md:px-twd-8 xl:py-twd-8 flex flex-row gap-twd-4 md:gap-twd-8 xl:gap-[28px] border-nd-border-light",
                   {
-                    "xl:border-t ": index,
+                    "border-t ": index,
                   },
                 )}
               >

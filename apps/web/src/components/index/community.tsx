@@ -67,6 +67,7 @@ export const Community: React.FC<CommunityProps> = ({
         )}
         <Container className="pt-[32px] pb-[12px] md:pt-[40px] md:pb-[20px] xl:py-[128px] flex flex-col justify-between">
           <EarthAnimation className="absolute bottom-0 left-[-20%] md:left-[-10%] xl:left-0 w-[140%] md:w-[120%] xl:w-full" />
+          <div className="absolute top-0 left-0 right-0 h-[80%] bg-gradient-to-b from-black via-black via-40% to-transparent pointer-events-none" />
           <div className="xl:flex xl:justify-between xl:items-center relative">
             {title && <h2 className="nd-heading-l xl:max-w-[50%]">{title}</h2>}
             {subtitle && (
@@ -95,8 +96,10 @@ export const Community: React.FC<CommunityProps> = ({
                   )}
                 </div>
                 <div className="">
-                  <h4 className="font-medium nd-body-xl">{item.title}</h4>
-                  <p className="nd-body-m text-nd-mid-em-text !mt-twd-1">
+                  <h4 className="font-medium nd-body-xl max-xl:!text-[16px]">
+                    {item.title}
+                  </h4>
+                  <p className="nd-body-m text-nd-mid-em-text !mt-twd-1 max-xl:!text-[14px]">
                     {item.description}
                   </p>
                 </div>

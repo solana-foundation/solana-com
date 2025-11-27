@@ -140,7 +140,8 @@ export default function Home({
             totalItems={events.length}
             desktopLastPageOffset={2}
             tabletLastPageOffset={2}
-            cardWidthClassName="w-full md:w-[350px] xl:w-[450px]"
+            desktop2xlLastPageOffset={3}
+            cardWidthClassName="w-full md:w-[356px] xl:w-[456px]"
             startIndex={firstFeaturedEventIndex}
             cta={t("index.events.cta")}
             ctaHref="/events"
@@ -227,7 +228,7 @@ export default function Home({
         title={t.rich("index.projects.title", {
           light: (chunks) => (
             <>
-              <br />
+              <br className="max-md:hidden" />
               <span className="font-light">{chunks}</span>
             </>
           ),
@@ -282,7 +283,9 @@ export default function Home({
 
       <CardCarouselSection
         title={t("index.videos.title")}
-        subtitle={t("index.videos.subtitle")}
+        subtitle={t.rich("index.videos.subtitle", {
+          brDesktop: () => <br className="max-xl:hidden" />,
+        })}
         totalItems={videos.length}
         cardWidthClassName="w-full md:w-[700px] xl:w-[800px]"
       >

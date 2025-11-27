@@ -11,7 +11,7 @@ const HeaderListLearn = () => {
   const t = useTranslations();
 
   return (
-    <div className="xl:w-[800px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-2">
+    <div className="xl:w-[840px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-2">
       <HeaderBanner
         className="w-[400px] max-w-full"
         title={t("nav.learn.start.items.what-is-solana.title")}
