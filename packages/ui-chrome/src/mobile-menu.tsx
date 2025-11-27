@@ -15,7 +15,7 @@ import HeaderListLearn from "./header-list.learn";
 import HeaderListBuild from "./header-list.build";
 import HeaderListSolutions from "./header-list.solutions";
 import HeaderListNetwork from "./header-list.network";
-import HeaderListCommunity from "./header-list.community";
+import { HeaderListCommunity } from "./header-list.community";
 import AngleDown from "./assets/angle-down.inline.svg";
 import ArrowLeft from "./assets/arrow-left.inline.svg";
 import SolanaMono from "./assets/solana-mono.inline.svg";
@@ -82,7 +82,8 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
     asPath === "/community" ||
     asPath.includes("/events") ||
     asPath === "/breakpoint" ||
-    asPath === "/news";
+    asPath === "/news" ||
+    asPath.includes("/podcasts");
 
   // Close menu on route change
   React.useEffect(() => {

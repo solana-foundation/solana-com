@@ -171,6 +171,7 @@ export const Footer = ({ className = "" }) => {
                 <li>
                   <Link
                     to="/news"
+                    aria-label={t("footer.get-connected.blog")}
                     className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
                   >
                     {t("footer.get-connected.blog")}
