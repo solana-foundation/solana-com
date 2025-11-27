@@ -434,7 +434,8 @@ function transformPost(postData: PostConnectionEdges): PostItem | null {
       post.categories?.map((category) => category?.category?.name) || [],
     url: `/news/${post._sys.breadcrumbs.join("/")}`,
     description: post.description,
-    heroImage: post.heroImage || "/uploads/posts/default-blog.webp",
+    heroImage:
+      post.heroImage || "/media-assets/uploads/posts/default-blog.webp",
     author: {
       name: post.author?.name || "Solana Foundation",
       avatar: post.author?.avatar,
