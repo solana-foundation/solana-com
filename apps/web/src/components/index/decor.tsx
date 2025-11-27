@@ -1,7 +1,4 @@
 import React from "react";
-import Svg from "@@/public/src/img/index/decor.inline.svg";
-import Svg1 from "@@/public/src/img/index/d-1.inline.svg";
-import Svg2 from "@@/public/src/img/index/d-2.inline.svg";
 
 export const Decor = () => {
   return (
@@ -40,9 +37,6 @@ export const Decor = () => {
             />
           </div>
         </div>
-        <Svg className="absolute top-0 left-0 mix-blend-plus-lighter" />
-        <Svg1 className="absolute top-0 left-0 mix-blend-plus-lighter" />
-        <Svg2 className="absolute top-[5%] left-0 mix-blend-plus-lighter" />
       </div>
       <div className="pb-twd-10 xl:pb-twd-0"></div>
     </div>
