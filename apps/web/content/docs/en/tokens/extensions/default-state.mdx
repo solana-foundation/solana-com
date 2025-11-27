@@ -22,12 +22,14 @@ import { getCreateAccountInstruction } from "@solana-program/system";
 import {
   AccountState,
   extension,
-  getInitializeAccountInstruction,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstructionAsync,
   getInitializeDefaultAccountStateInstruction,
   getInitializeMintInstruction,
   getMintSize,
   getTokenSize,
-  TOKEN_2022_PROGRAM_ADDRESS
+  TOKEN_2022_PROGRAM_ADDRESS,
+  ASSOCIATED_TOKEN_PROGRAM_ADDRESS
 } from "@solana-program/token-2022";
 import {
   airdropFactory,
@@ -86,32 +88,20 @@ const createMintAccountInstruction = getCreateAccountInstruction({
   programAddress: TOKEN_2022_PROGRAM_ADDRESS
 });
 
-// Generate keypair to use as address of token account
-const tokenAccount = await generateKeyPairSigner();
-
-// get token account size with extension enabled
-const tokenAccountLen = BigInt(getTokenSize([defaultAccountStateExtension]));
-
-// Get minimum balance for rent exemption
-const tokenAccountRent = await rpc
-  .getMinimumBalanceForRentExemption(tokenAccountLen)
-  .send();
-
-// Instruction to create new account for the token account
-// Invokes the system program
-const createTokenAccountInstruction = getCreateAccountInstruction({
-  payer: authority,
-  newAccount: tokenAccount,
-  lamports: tokenAccountRent,
-  space: tokenAccountLen,
-  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+// Use findAssociatedTokenPda to derive the ATA address
+const [associatedTokenAddress] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: authority.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
 });
 
-// Instruction to initialize the created token account
-const initializeTokenAccountInstruction = getInitializeAccountInstruction({
-  account: tokenAccount.address,
+// Create instruction to create the associated token account
+const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
+  payer: authority,
+  ata: associatedTokenAddress,
   mint: mint.address,
-  owner: authority.address
+  owner: authority.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
 });
 
 // Instruction to initialize account with default account state (frozen)
@@ -135,8 +125,7 @@ const instructions = [
   createMintAccountInstruction,
   initializeDefaultAccountState,
   initializeMintInstruction,
-  createTokenAccountInstruction,
-  initializeTokenAccountInstruction
+  createAtaInstruction
 ];
 
 // Create transaction message
@@ -161,7 +150,7 @@ await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
 const transactionSignature = getSignatureFromTransaction(signedTransaction);
 
 console.log("Mint Address:", mint.address.toString());
-console.log("Frozen token account:", tokenAccount.address.toString());
+console.log("Frozen token account:", associatedTokenAddress.toString());
 console.log("Transaction Signature:", transactionSignature);
 ```
 
@@ -183,8 +172,9 @@ import {
   TOKEN_2022_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAccountLen,
-  createInitializeAccountInstruction,
   createInitializeDefaultAccountStateInstruction,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
   AccountState
 } from "@solana/spl-token";
 
@@ -236,24 +226,22 @@ const initializeMintInstruction = createInitializeMintInstruction(
   TOKEN_2022_PROGRAM_ID
 );
 
-// Generate keypair to use as token account
-const tokenAccount = new Keypair();
+const ata = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  feePayer.publicKey,
+  true,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
 
-// Get token account size with extension enabled
-const tokenAccountLen = getAccountLen(extensions);
-
-// Get minimum balance for rent exemption
-const tokenAccountRent =
-  await connection.getMinimumBalanceForRentExemption(tokenAccountLen);
-
-// Instruction to create new account for the token account
-const createTokenAccountInstruction = SystemProgram.createAccount({
-  fromPubkey: feePayer.publicKey,
-  newAccountPubkey: tokenAccount.publicKey,
-  space: tokenAccountLen,
-  lamports: tokenAccountRent,
-  programId: TOKEN_2022_PROGRAM_ID
-});
+const createAtaInstruction = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey,
+  ata,
+  feePayer.publicKey,
+  mint.publicKey,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
 
 // Initialize the default account state extension
 const initializeDefaultStateInstruction =
@@ -262,14 +250,6 @@ const initializeDefaultStateInstruction =
     AccountState.Frozen,
     TOKEN_2022_PROGRAM_ID
   );
-
-// Initialize token account
-const initializeTokenAccountInstruction = createInitializeAccountInstruction(
-  tokenAccount.publicKey,
-  mint.publicKey,
-  feePayer.publicKey,
-  TOKEN_2022_PROGRAM_ID
-);
 
 // Construct transaction to create mint, ATA, mint tokens, create token account,
 // and initialize with default account state extension
@@ -281,19 +261,18 @@ const transaction = new Transaction({
   createMintAccountInstruction,
   initializeDefaultStateInstruction,
   initializeMintInstruction,
-  createTokenAccountInstruction,
-  initializeTokenAccountInstruction
+  createAtaInstruction
 );
 
 // Sign transaction
 const transactionSignature = await sendAndConfirmTransaction(
   connection,
   transaction,
-  [feePayer, mint, tokenAccount]
+  [feePayer, mint]
 );
 
 console.log("Mint Address:", mint.publicKey.toBase58());
-console.log("Token Account (frozen state):", tokenAccount.publicKey.toBase58());
+console.log("Token Account (frozen state):", ata.toBase58());
 console.log("Transaction Signature:", transactionSignature);
 ```
 
