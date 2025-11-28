@@ -23,9 +23,9 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
         <h3 className="text-xl font-semibold group-hover:underline">
           {post.title}
         </h3>
-        <div className="flex flex-row items-start gap-4">
+        <div className="flex flex-col sm:flex-row items-start gap-4">
           {post?.heroImage && (
-            <div className="relative aspect-video overflow-hidden w-[30%] shrink-0">
+            <div className="relative aspect-video overflow-hidden w-full max-w-80 sm:w-[30%] shrink-0">
               <Image
                 src={post?.heroImage}
                 alt={post?.title}
