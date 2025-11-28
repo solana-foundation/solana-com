@@ -80,19 +80,19 @@ purposes only. **Do NOT use this code directly in production** without:
 
 ## Why Solana for DvP?
 
-After exploring both EVM and Solana approaches for securities settlement, the
-Solana paradigm proves superior for this use case:
+Solana's architecture provides significant advantages over traditional
+securities settlement:
 
-| Aspect             | Traditional/EVM    | Solana                           |
-| ------------------ | ------------------ | -------------------------------- |
-| Settlement Logic   | Smart contracts    | Atomic transaction bundling      |
-| Settlement Time    | 2 minutes - 2 days | &lt;1 second                     |
-| Transaction Cost   | $0.20-100          | &lt;$0.01                        |
-| Counterparty Risk  | Contract risk      | Atomic execution (zero risk)     |
-| Custom Development | High complexity    | Native features (low complexity) |
+| Aspect            | Traditional (T+2)     | Solana                      |
+| ----------------- | --------------------- | --------------------------- |
+| Settlement Logic  | Clearinghouses        | Atomic transaction bundling |
+| Settlement Time   | 2 days                | &lt;1 second                |
+| Transaction Cost  | $50-500               | &lt;$0.01                   |
+| Counterparty Risk | High (intermediaries) | Zero (atomic execution)     |
+| Finality          | End of day            | ~400ms                      |
 
-Solana's atomic transaction bundling eliminates the need for complex smart
-contracts while providing faster, cheaper, and more secure settlements.
+Solana's atomic transaction bundling eliminates intermediaries while providing
+instant, cheap, and secure settlements.
 
 ## Architecture Overview
 
@@ -120,7 +120,7 @@ The DvP system consists of these core components:
 │                                                     │
 │  1. Bond Creation (Token-2022 + Extensions)         │
 │     └─> Default State: FROZEN                       │
-│     └─> Freeze Authority: Settlement Agent          │
+│     └─> Freeze Authority: Settlement Agent/Issuer   │
 │     └─> Token metadata: Bond information            │
 │                                                     │
 │  2. Whitelist Participants                          │
@@ -137,6 +137,19 @@ The DvP system consists of these core components:
 │         (Both or neither - atomic)                  │
 │                                                     │
 └─────────────────────────────────────────────────────┘
+```
+
+A trusted party that orchestrates the trade. Both sides delegate authority to
+the settlement agent, who then executes the atomic swap.
+
+```
+┌─────────┐     delegates      ┌──────────────────┐     delegates     ┌──────────┐
+│ Issuer  │ ─────────────────→ │ Settlement Agent │ ←──────────────── │ Investor │
+└─────────┘    (bonds)         │    (trusted)     │      (USDC)       └──────────┘
+                               │                  │
+                               │  executes atomic │
+                               │   transaction    │
+                               └──────────────────┘
 ```
 
 ## Bond Token with Token 2022 Extensions
@@ -800,6 +813,10 @@ runDvPExample().catch(console.error);
 
 The settlement agent (with update authority) can update metadata fields:
 
+<Tabs items={["Helper Function", "Usage Example"]}>
+
+<Tab value="Helper Function">
+
 ```typescript
 import { createUpdateFieldInstruction } from "@solana/spl-token-metadata";
 
@@ -822,8 +839,14 @@ async function updateBondMetadata(
 
   await sendAndConfirmTransaction(connection, transaction, [settlementAgent]);
 }
+```
 
-// Example: Update coupon rate after rate adjustment
+</Tab>
+
+<Tab value="Usage Example">
+
+```typescript
+// Update coupon rate after rate adjustment
 await updateBondMetadata(
   connection,
   settlementAgent,
@@ -831,7 +854,20 @@ await updateBondMetadata(
   "couponRate",
   "4.75"
 );
+
+// Update maturity date
+await updateBondMetadata(
+  connection,
+  settlementAgent,
+  bondMint,
+  "maturityDate",
+  "2027-06-30T00:00:00.000Z"
+);
 ```
+
+</Tab>
+
+</Tabs>
 
 ### Removing from Whitelist
 
@@ -854,6 +890,10 @@ then freeze the account.
 
 For more complex scenarios involving multiple parties, you can bundle multiple
 transfers into a single atomic transaction:
+
+<Tabs items={["Function Definition", "Three-Way Swap Example"]}>
+
+<Tab value="Function Definition">
 
 ```typescript
 import { sendAndConfirmTransaction } from "@solana/web3.js";
@@ -917,8 +957,17 @@ async function executeMultiPartyDvP(
   console.log(`✅ Multi-party DvP settled: ${legs.length} legs`);
   return signature;
 }
+```
 
+</Tab>
+
+<Tab value="Three-Way Swap Example">
+
+```typescript
 // Example: Three-way swap (Bond A → Bond B → Cash)
+// Party A sends Bond A to Party B
+// Party B sends Bond B to Party C
+// Party C sends USDC to Party A
 const signature = await executeMultiPartyDvP(connection, settlementAgent, [
   {
     from: partyA.publicKey,
@@ -947,6 +996,10 @@ const signature = await executeMultiPartyDvP(connection, settlementAgent, [
 ]);
 ```
 
+</Tab>
+
+</Tabs>
+
 <Callout type="info" title="Transaction Size Limits">
 
 Solana transactions have a size limit (~1232 bytes). Each transfer instruction
@@ -960,15 +1013,17 @@ account addresses and fit more transfers per transaction.
 
 Before deploying to production, ensure you address:
 
-1. **Security**: HSMs for key storage, multi-sig controls, comprehensive audits,
-   and disaster recovery procedures
+1. **Security**: Professional key management infrastructure, multi-sig controls,
+   comprehensive audits, and disaster recovery procedures
 2. **Regulatory Compliance**: Securities registration, KYC/AML systems, transfer
    restrictions, and legal framework
 3. **Key Management**: Professional custody solutions with proper backup and
    recovery procedures
-4. **Operations**: Settlement scheduling, failed trade handling, reconciliation,
+4. **Transaction Processing**: Priority fees, retry logic, confirmation
+   handling, and RPC redundancy for reliable settlement execution
+5. **Operations**: Settlement scheduling, failed trade handling, reconciliation,
    and customer support
-5. **Monitoring**: Real-time tracking, alerting, and automated regulatory
+6. **Monitoring**: Real-time tracking, alerting, and automated regulatory
    reporting
 
 <Callout type="caution" title="SPL Token Limitation">
@@ -981,7 +1036,13 @@ multiple sequential delegations or different architectural patterns.
 
 ### Inspecting Account State
 
-The `DvPEngine` includes a helper to inspect token account state:
+The `DvPEngine` includes a helper to inspect token account state. This is useful
+for verifying whitelist status, confirming settlement completion, debugging
+transfer issues, and auditing account states.
+
+<Tabs items={["Get Account Info", "Pre-Settlement Check"]}>
+
+<Tab value="Get Account Info">
 
 ```typescript
 // Get detailed account information
@@ -998,14 +1059,9 @@ console.log(`  Balance: ${accountInfo.amount}`);
 console.log(`  Frozen: ${accountInfo.isFrozen}`);
 ```
 
-This is particularly useful for:
+</Tab>
 
-- Verifying whitelist status (checking if account is frozen)
-- Confirming settlement completion (checking balances)
-- Debugging transfer issues
-- Auditing account states
-
-You can also use this to verify an account's state before attempting transfers:
+<Tab value="Pre-Settlement Check">
 
 ```typescript
 // Check if investor is whitelisted before settlement
@@ -1023,6 +1079,10 @@ await dvp.executeDvP({
   /* ... */
 });
 ```
+
+</Tab>
+
+</Tabs>
 
 ## Next Steps
 
