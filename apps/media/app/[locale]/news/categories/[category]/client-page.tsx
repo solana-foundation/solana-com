@@ -108,9 +108,16 @@ export default function CategoryPostsClientPage(
           {/* Posts */}
           <div className="flex flex-col gap-6">
             {posts.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-12">
                 {posts.map(
-                  (post) => post && <PostCard key={post.id} post={post} />
+                  (post) =>
+                    post && (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        variant="horizontal"
+                      />
+                    )
                 )}
               </div>
             )}

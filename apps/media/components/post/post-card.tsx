@@ -4,16 +4,66 @@ import { Badge } from "@/components/ui/badge";
 import { PostItem } from "@/lib/post-types";
 import { TinaMarkdown } from "tinacms/dist/rich-text";
 import { ArrowUpRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface PostCardProps {
   post: PostItem;
+  variant?: "vertical" | "horizontal";
 }
 
-export const PostCard = ({ post }: PostCardProps) => {
+export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
+  if (variant === "horizontal") {
+    return (
+      <Link
+        href={post.url}
+        className={cn(
+          "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer"
+        )}
+      >
+        <h3 className="text-xl font-semibold group-hover:underline">
+          {post.title}
+        </h3>
+        <div className="flex flex-row items-start gap-4">
+          {post?.heroImage && (
+            <div className="relative aspect-video overflow-hidden w-[30%] shrink-0">
+              <Image
+                src={post?.heroImage}
+                alt={post?.title}
+                fill
+                sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+          )}
+          <div className="flex flex-col gap-4 grow">
+            <div className="text-muted-foreground grow">
+              <TinaMarkdown content={post.description} />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {post.published}
+              </span>
+              {post.tags?.map(
+                (tag: string) =>
+                  tag && (
+                    <Badge key={`${post.id}-${tag}`} variant="outline">
+                      {tag}
+                    </Badge>
+                  )
+              )}
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  }
+
   return (
     <Link
       href={post.url}
-      className="flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border"
+      className={cn(
+        "flex flex-col gap-4 group hover:opacity-80 transition-all cursor-pointer pb-6 border-b border-border"
+      )}
     >
       {post?.heroImage && (
         <div className="relative aspect-video w-full overflow-hidden">
