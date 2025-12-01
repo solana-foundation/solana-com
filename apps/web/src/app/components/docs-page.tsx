@@ -12,6 +12,7 @@ import { findNeighbour } from "fumadocs-core/server";
 import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
+import { LLMCopyButton, ViewOptions } from "./page-actions";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -22,6 +23,7 @@ export function DocsPage(props: {
   title: string;
   pageTree?: any;
   href: string;
+  markdown: string;
 }) {
   const path = props.filePath;
   const editUrl = getEditUrl(path);
@@ -57,6 +59,10 @@ export function DocsPage(props: {
         >
           {props.title}
         </Link>
+        <div className="flex flex-row gap-2 items-center border-b py-4">
+          <LLMCopyButton markdown={props.markdown} />
+          <ViewOptions markdown={props.markdown} />
+        </div>
       </DocsTitle>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
       <Rate onRateAction={onRateAction} />
