@@ -1,11 +1,6 @@
 "use client";
 import { useMemo, useState, useCallback, useEffect } from "react";
-import {
-  Check,
-  ChevronDown,
-  Copy,
-  ExternalLinkIcon,
-} from "lucide-react";
+import { Check, ChevronDown, Copy, ExternalLinkIcon } from "lucide-react";
 import {
   Popover,
   PopoverContent,
