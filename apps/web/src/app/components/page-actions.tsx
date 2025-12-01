@@ -5,7 +5,6 @@ import {
   ChevronDown,
   Copy,
   ExternalLinkIcon,
-  MessageCircleIcon,
 } from "lucide-react";
 import {
   Popover,
