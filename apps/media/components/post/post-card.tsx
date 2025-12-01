@@ -32,6 +32,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
                 fill
                 sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                 className="object-cover group-hover:scale-105 transition-transform duration-300"
+                loading="lazy"
               />
             </div>
           )}
@@ -73,6 +74,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
             fill
             sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
           />
         </div>
       )}
