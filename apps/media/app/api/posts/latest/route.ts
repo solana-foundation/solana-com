@@ -2,51 +2,8 @@ import client from "@/tina/__generated__/client";
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { PostConnectionEdges } from "@/tina/__generated__/types";
-import { TinaMarkdownContent } from "tinacms/dist/rich-text";
-import { format } from "date-fns";
 import { extractPlainText } from "@/lib/utils";
-
-// TODO: remove
-type PostItem = {
-  id: string;
-  published: string;
-  title: string;
-  tags: string[];
-  categories: string[];
-  url: string;
-  description: TinaMarkdownContent;
-  heroImage: string | null | undefined;
-  author: {
-    name: string;
-    avatar: string | null | undefined;
-  };
-};
-
-// TODO: remove
-function transformPost(postData: PostConnectionEdges): PostItem | null {
-  const post = postData?.node;
-  if (!post) return null;
-
-  const date = post.date ? new Date(post.date) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
-
-  return {
-    id: post.id,
-    published: formattedDate,
-    title: post.title,
-    tags: post.tags?.map((tag) => tag?.tag?.name),
-    categories:
-      post.categories?.map((category) => category?.category?.name) || [],
-    url: `/news/${post._sys.breadcrumbs.join("/")}`,
-    description: post.description,
-    heroImage: post.heroImage || "/uploads/posts/default-blog.webp",
-    author: {
-      name: post.author?.name || "Solana Foundation",
-      avatar: post.author?.avatar,
-    },
-  } as PostItem;
-}
+import { transformPost } from "@/lib/post-utils";
 
 const CACHE_TAG = "posts";
 const REVALIDATE_SECONDS = 300; // 5 minutes
@@ -71,7 +28,7 @@ async function fetchPosts(params: PostConnectionParams) {
       posts:
         posts.data.postConnection.edges
           ?.map((edge) => transformPost(edge as PostConnectionEdges))
-          // Convert TinaMarkdownContent to plain text
+          // Convert TinaMarkdownContent to a plain text
           ?.map((post) => ({
             ...post,
             description: extractPlainText(post.description),
