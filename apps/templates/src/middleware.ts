@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const basePath =
+  process.env.NEXT_PUBLIC_USE_BASE_PATH === "true"
+    ? "/developers/templates"
+    : "";
+
 export default function middleware(req: NextRequest) {
   console.log(
     "[templates-mw]",
@@ -9,16 +14,19 @@ export default function middleware(req: NextRequest) {
     }),
   );
 
+  const defaultLocalePath = `${basePath || ""}/en`;
+
+  // Redirect root to default locale (respecting basePath when set)
   if (req.nextUrl.pathname === "/" || req.nextUrl.pathname === "") {
-    return NextResponse.redirect(new URL("/en", req.nextUrl));
+    return NextResponse.redirect(new URL(defaultLocalePath, req.nextUrl));
   }
 
   // Redirect base path to default locale
   if (
-    req.nextUrl.pathname === "/developers/templates" ||
-    req.nextUrl.pathname === "/developers/templates/"
+    (basePath && req.nextUrl.pathname === basePath) ||
+    (basePath && req.nextUrl.pathname === `${basePath}/`)
   ) {
-    return NextResponse.redirect(new URL("/en", req.nextUrl));
+    return NextResponse.redirect(new URL(defaultLocalePath, req.nextUrl));
   }
 
   return NextResponse.next();
