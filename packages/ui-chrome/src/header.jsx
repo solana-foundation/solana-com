@@ -15,7 +15,11 @@ import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/moon.inline.svg";
 import Sun from "./assets/sun.inline.svg";
 
-function Header({ className = "", containerClassName = "" }) {
+function Header({
+  className = "",
+  containerClassName = "",
+  showLanguage = true,
+}) {
   const router = useRouter();
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
@@ -57,9 +61,11 @@ function Header({ className = "", containerClassName = "" }) {
               {/* Desktop Search and Language */}
               <div className="hidden xl:flex items-center gap-x-5">
                 <InkeepSearchBar />
-                <div className="relative flex items-center">
-                  <LanguageSelector />
-                </div>
+                {showLanguage && (
+                  <div className="relative flex items-center">
+                    <LanguageSelector />
+                  </div>
+                )}
               </div>
 
               {/* Theme Toggle */}
