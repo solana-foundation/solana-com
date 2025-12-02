@@ -20,7 +20,15 @@ export default async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     const stripped = url.pathname.slice(basePath.length) || "/";
     url.pathname = stripped.startsWith("/") ? stripped : `/${stripped}`;
-    return handleI18nRouting(url);
+    const rewrittenReq = new NextRequest(url, {
+      headers: req.headers,
+      method: req.method,
+      body: req.body,
+      geo: req.geo,
+      ip: req.ip,
+      nextConfig: req.nextConfig,
+    });
+    return handleI18nRouting(rewrittenReq);
   }
 
   // Lowercase URL redirect
