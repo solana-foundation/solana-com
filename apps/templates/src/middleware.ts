@@ -15,6 +15,14 @@ const handleI18nRouting = createMiddleware(routing, {
 } as unknown as Parameters<typeof createMiddleware>[1]);
 
 export default async function middleware(req: NextRequest) {
+  console.log(
+    "[templates-mw]",
+    JSON.stringify({
+      path: req.nextUrl.pathname,
+      useBasePath: !!basePath,
+    }),
+  );
+
   // If basePath is active, strip it before handing off to next-intl so routes resolve.
   if (basePath && req.nextUrl.pathname.startsWith(basePath)) {
     const url = req.nextUrl.clone();
