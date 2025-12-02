@@ -24,7 +24,6 @@ export default async function middleware(req: NextRequest) {
       headers: req.headers,
       method: req.method,
       body: req.body,
-      nextConfig: req.nextConfig,
     });
     return handleI18nRouting(rewrittenReq);
   }
