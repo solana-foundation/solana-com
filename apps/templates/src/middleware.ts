@@ -1,70 +1,47 @@
-import createMiddleware from "next-intl/middleware";
-import { routing } from "@workspace/i18n/routing";
+import { locales } from "@workspace/i18n/config";
 import { NextRequest, NextResponse } from "next/server";
 
 const basePath =
   process.env.NEXT_PUBLIC_USE_BASE_PATH === "true"
     ? "/developers/templates"
     : "";
-
-const handleI18nRouting = createMiddleware(routing);
+const defaultLocale = "en";
+const localeSet = new Set(locales);
 
 export default function middleware(req: NextRequest) {
-  console.log(
-    "[templates-mw]",
-    JSON.stringify({
-      path: req.nextUrl.pathname,
-      search: req.nextUrl.search,
-    }),
-  );
+  const path = req.nextUrl.pathname;
+  const search = req.nextUrl.search;
 
-  const defaultLocalePath = `${basePath || ""}/en`;
+  // Normalize base path handling: if missing locale, insert default locale
+  const prefix = basePath || "";
+  const isUnderBasePath =
+    prefix === "" ? true : path === prefix || path.startsWith(`${prefix}/`);
 
-  // Redirect root to default locale (respecting basePath when set)
-  if (req.nextUrl.pathname === "/" || req.nextUrl.pathname === "") {
-    return NextResponse.redirect(new URL(defaultLocalePath, req.nextUrl));
+  if (isUnderBasePath) {
+    // Compute path relative to basePath
+    const relative =
+      prefix && path.startsWith(prefix)
+        ? path.slice(prefix.length) || "/"
+        : path;
+    const segments = relative.split("/").filter(Boolean);
+
+    if (segments.length === 0) {
+      // / or /developers/templates -> redirect to default locale
+      return NextResponse.redirect(
+        new URL(`${prefix}/${defaultLocale}`, req.nextUrl),
+      );
+    }
+
+    const first = segments[0];
+    if (!localeSet.has(first)) {
+      // Missing locale segment; insert default locale
+      const rest = segments.join("/");
+      const target = `${prefix}/${defaultLocale}/${rest}`;
+      return NextResponse.redirect(new URL(target, req.nextUrl));
+    }
   }
 
-  // Redirect base path to default locale
-  if (
-    (basePath && req.nextUrl.pathname === basePath) ||
-    (basePath && req.nextUrl.pathname === `${basePath}/`)
-  ) {
-    return NextResponse.redirect(new URL(defaultLocalePath, req.nextUrl));
-  }
-
-  // Safety: handle common typos/missing trailing slash on base path
-  if (
-    req.nextUrl.pathname === "/developers/template" ||
-    req.nextUrl.pathname === "/developers/template/"
-  ) {
-    return NextResponse.redirect(
-      new URL("/developers/templates/en", req.nextUrl),
-    );
-  }
-
-  // If basePath is active, strip it and hand off to next-intl so routes resolve.
-  if (basePath && req.nextUrl.pathname.startsWith(basePath)) {
-    const url = req.nextUrl.clone();
-    const stripped = url.pathname.slice(basePath.length) || "/";
-    url.pathname = stripped.startsWith("/") ? stripped : `/${stripped}`;
-    console.log(
-      "[templates-mw]",
-      JSON.stringify({
-        action: "rewrite",
-        original: req.nextUrl.pathname,
-        stripped: url.pathname,
-      }),
-    );
-    const rewrittenReq = new NextRequest(url, {
-      headers: req.headers,
-      method: req.method,
-      body: req.body,
-    });
-    return handleI18nRouting(rewrittenReq);
-  }
-
-  return handleI18nRouting(req);
+  return NextResponse.next();
 }
 
 export const config = {
