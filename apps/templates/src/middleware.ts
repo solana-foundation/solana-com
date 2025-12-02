@@ -10,7 +10,9 @@ const basePath =
 
 // next-intl's middleware options typing doesn't expose basePath, but the runtime supports it.
 // Cast to keep TypeScript happy while allowing basePath-aware routing in the proxied build.
-const handleI18nRouting = createMiddleware(routing, { basePath } as any);
+const handleI18nRouting = createMiddleware(routing, {
+  basePath,
+} as unknown as Parameters<typeof createMiddleware>[1]);
 
 export default async function middleware(req: NextRequest) {
   // Lowercase URL redirect
