@@ -28,6 +28,14 @@ export default async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     const stripped = url.pathname.slice(basePath.length) || "/";
     url.pathname = stripped.startsWith("/") ? stripped : `/${stripped}`;
+    console.log(
+      "[templates-mw]",
+      JSON.stringify({
+        action: "rewrite",
+        original: req.nextUrl.pathname,
+        stripped: url.pathname,
+      }),
+    );
     const rewrittenReq = new NextRequest(url, {
       headers: req.headers,
       method: req.method,
@@ -35,6 +43,11 @@ export default async function middleware(req: NextRequest) {
     });
     return handleI18nRouting(rewrittenReq);
   }
+
+  console.log(
+    "[templates-mw]",
+    JSON.stringify({ action: "passthrough", path: req.nextUrl.pathname }),
+  );
 
   // Lowercase URL redirect
   if (req.nextUrl.pathname !== req.nextUrl.pathname.toLowerCase()) {
