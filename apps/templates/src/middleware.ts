@@ -8,6 +8,17 @@ export default function middleware(req: NextRequest) {
       search: req.nextUrl.search,
     }),
   );
+
+  // Redirect base path to default locale
+  if (
+    req.nextUrl.pathname === "/developers/templates" ||
+    req.nextUrl.pathname === "/developers/templates/"
+  ) {
+    return NextResponse.redirect(
+      new URL("/developers/templates/en", req.nextUrl),
+    );
+  }
+
   return NextResponse.next();
 }
 
