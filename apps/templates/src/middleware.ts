@@ -3,7 +3,14 @@ import { routing } from "@workspace/i18n/routing";
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 
-const handleI18nRouting = createMiddleware(routing);
+const basePath =
+  process.env.NEXT_PUBLIC_USE_BASE_PATH === "true"
+    ? "/developers/templates"
+    : undefined;
+
+// next-intl's middleware options typing doesn't expose basePath, but the runtime supports it.
+// Cast to keep TypeScript happy while allowing basePath-aware routing in the proxied build.
+const handleI18nRouting = createMiddleware(routing, { basePath } as any);
 
 export default async function middleware(req: NextRequest) {
   // Lowercase URL redirect
