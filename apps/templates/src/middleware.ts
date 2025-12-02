@@ -48,8 +48,6 @@ export default function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|opengraph|_next/static|_next/image|_vercel|.*\\..*).*)",
-  ],
+  matcher: ["/((?!api|opengraph|_next/static|_next/image|_vercel|.*\\..*).*)"],
   runtime: "nodejs",
 };
