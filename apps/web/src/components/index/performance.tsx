@@ -1,15 +1,21 @@
-import React, { useCallback } from "react";
+import React from "react";
 import { Container } from "@/component-library/container";
 import { StatsGrid, StatsGridItem } from "@/component-library/stats-grid";
 import { cn } from "@/app/components/utils";
 import Image from "next/image";
-import { useViewportVisibility } from "@/hooks/useViewportVisibility";
+import dynamic from "next/dynamic";
+
+const UnicornScene = dynamic(
+  () => import("unicornstudio-react").then((mod) => mod.default),
+  {
+    ssr: false,
+  },
+);
 
 export type PerformanceProps = {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
-  bgVideoSrc?: string;
-  bgVideoPoster?: string;
+  bgJsonFilePath?: string;
   stats?: StatsGridItem[];
   counters?: StatsGridItem[];
 };
@@ -17,35 +23,24 @@ export type PerformanceProps = {
 export const Performance: React.FC<PerformanceProps> = ({
   title,
   subtitle,
-  bgVideoSrc,
-  bgVideoPoster,
+  bgJsonFilePath,
   stats,
   counters,
 }) => {
-  const handler = useCallback((node: HTMLVideoElement | null) => {
-    if (!node) return;
-    if (node.paused) {
-      node.play();
-    }
-  }, []);
-  const { ref } = useViewportVisibility<HTMLVideoElement>(handler, {
-    topOffset: 100,
-    bottomOffset: 100,
-  });
   return (
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
-      {bgVideoSrc && (
-        <video
-          src={bgVideoSrc}
-          autoPlay={false}
-          loop
-          muted
-          playsInline
-          controls={false}
-          preload="none"
-          poster={bgVideoPoster}
-          className="absolute left-0 right-0 bottom-0 w-full h-[80%] xl:h-full object-cover"
-          ref={ref}
+      {bgJsonFilePath && (
+        <UnicornScene
+          className="!absolute inset-0 z-0"
+          jsonFilePath={bgJsonFilePath}
+          width="100%"
+          height="101%"
+          scale={1}
+          dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
+          fps={30}
+          lazyLoad={true}
+          production={true}
+          onError={(error) => console.error("UnicornScene error:", error)}
         />
       )}
       <Container className="py-[64px] md:py-[108px] xl:py-[160px] flex flex-col justify-between relative">

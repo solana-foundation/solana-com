@@ -7,7 +7,7 @@ export type BigBannerCardProps = {
   style?: React.CSSProperties;
   imageSrc: string;
   title?: string;
-  description?: string;
+  description?: React.ReactNode;
   href?: string;
   buttonLabel?: string;
 };

@@ -33,6 +33,7 @@ import { Decor } from "@/components/index/decor";
 import Avatar from "@@/public/src/img/icons/Avatar.inline.svg";
 import Bank from "@@/public/src/img/icons/Bank.inline.svg";
 import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
+import { PostItem } from "@/types/media";
 
 const TransactionsStat = dynamic(
   () =>
@@ -50,12 +51,14 @@ interface HomeProps {
   })[];
   videos: YouTubePlaylistItem[];
   firstFeaturedEventIndex: number;
+  news: PostItem[];
 }
 
 export default function Home({
   events,
   firstFeaturedEventIndex,
   videos,
+  news,
 }: HomeProps) {
   const t = useTranslations();
 
@@ -84,8 +87,7 @@ export default function Home({
         bannerHref="#"
         bannerLabel={t("index.hero.bannerLabel")}
         cta={t("index.hero.cta")}
-        bgVideoSrc="/src/img/index/hero-bg.webm"
-        bgVideoPoster="/src/img/index/hero-bg.webp"
+        bgJsonFilePath="/src/img/index/hero-bg.json"
         getStartedTitle={t("index.get-started.title")}
         getStartedTabs={[
           {
@@ -202,8 +204,7 @@ export default function Home({
             label: t("index.performance.stats.3.label"),
           },
         ]}
-        bgVideoSrc="/src/img/index/performance-bg.webm"
-        bgVideoPoster="/src/img/index/performance-bg.webp"
+        bgJsonFilePath="/src/img/index/performance-bg.json"
       />
 
       <Divider />
@@ -256,27 +257,20 @@ export default function Home({
             </>
           ),
         })}
-        // TODO: Add actual news count
-        totalItems={2}
+        totalItems={news.length}
         cardWidthClassName="w-full md:w-[700px] xl:w-[1360px]"
       >
-        {/* TODO: Add actual news */}
-        <BigBannerCard
-          className="px-twd-1"
-          imageSrc="/src/img/index/news/news-1.webp"
-          title={t(`index.news.items.0.title`)}
-          description={t(`index.news.items.0.description`)}
-          href="https://solanamobile.com/seeker"
-          buttonLabel={t(`index.news.items.0.button`)}
-        />
-        <BigBannerCard
-          className="px-twd-1"
-          imageSrc="/src/img/index/news/news-1.webp"
-          title={t(`index.news.items.0.title`)}
-          description={t(`index.news.items.0.description`)}
-          href="https://solanamobile.com/seeker"
-          buttonLabel={t(`index.news.items.0.button`)}
-        />
+        {news.map((item) => (
+          <BigBannerCard
+            key={item.id}
+            className="px-twd-1"
+            imageSrc={`${process.env.NEXT_PUBLIC_MEDIA_API_URL || ""}${item.heroImage}`}
+            title={item.title}
+            description={item.description}
+            href={item.url}
+            buttonLabel={t(`index.news.button`)}
+          />
+        ))}
       </CardCarouselSection>
 
       <Divider />
@@ -312,8 +306,7 @@ export default function Home({
           ),
         })}
         subtitle={t("index.community.subtitle")}
-        bgVideoSrc="/src/img/index/community-bg.webm"
-        bgVideoPoster="/src/img/index/projects-bg.webp"
+        bgJsonFilePath="/src/img/index/community-bg.json"
         links={LINKS.map((item, index) => ({
           ...item,
           title: t(`index.community.links.${index}.title`),
@@ -369,6 +362,18 @@ export async function getStaticProps({ params }) {
       console.error(error);
     }
 
+    let news: PostItem[] = [];
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_MEDIA_API_URL || ""}/api/posts/latest`,
+      );
+      const data = await res.json();
+      news = data.posts as PostItem[];
+    } catch (error) {
+      console.error(error);
+    }
+
     return {
       props: {
         locale,
@@ -376,6 +381,7 @@ export async function getStaticProps({ params }) {
         events: events ? events : [],
         firstFeaturedEventIndex,
         videos: videos ? videos : [],
+        news: news ? news : [],
       },
       revalidate: 60,
     };

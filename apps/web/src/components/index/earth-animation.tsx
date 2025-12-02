@@ -274,8 +274,13 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
           className="absolute inset-0 w-full h-full block"
+          style={{
+            mixBlendMode: "overlay",
+            maskImage:
+              "linear-gradient(to bottom, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 1))",
+          }}
         >
-          <g style={{ mixBlendMode: "overlay" }}>
+          <g>
             <path
               ref={basePathRef}
               id="basePath"
@@ -299,6 +304,11 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
           className="absolute inset-0 w-full h-full block pointer-events-none"
+          style={{
+            mixBlendMode: "overlay",
+            maskImage:
+              "linear-gradient(to bottom, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 1))",
+          }}
         >
           <g ref={dotLayerRef} id="dotLayer" />
         </svg>

@@ -1,11 +1,17 @@
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@/app/components/utils";
 import { Container } from "@/component-library/container";
-import { useViewportVisibility } from "@/hooks/useViewportVisibility";
 import dynamic from "next/dynamic";
+
+const UnicornScene = dynamic(
+  () => import("unicornstudio-react").then((mod) => mod.default),
+  {
+    ssr: false,
+  },
+);
 
 const GetStarted = dynamic(
   () => import("./get-started").then((mod) => mod.GetStarted),
@@ -22,8 +28,7 @@ export type HeroProps = {
   bannerLabel?: string;
   cta?: string;
   // onCtaClick?: () => void;
-  bgVideoSrc?: string;
-  bgVideoPoster?: string;
+  bgJsonFilePath?: string;
   getStartedTitle?: string;
   getStartedTabs?: {
     id: string;
@@ -52,24 +57,11 @@ export const Hero: React.FC<HeroProps> = ({
   bannerLabel,
   cta,
   // onCtaClick,
-  bgVideoSrc,
-  bgVideoPoster,
+  bgJsonFilePath,
   getStartedTitle,
   getStartedTabs,
   getStartedLinks,
 }) => {
-  const handler = useCallback((node: HTMLVideoElement | null) => {
-    if (!node) return;
-    if (node.paused) {
-      node.play().catch((error) => {
-        console.warn("Video autoplay failed:", error);
-      });
-    }
-  }, []);
-  const { ref } = useViewportVisibility<HTMLVideoElement>(handler, {
-    topOffset: 100,
-    bottomOffset: 100,
-  });
   const [open, setOpen] = useState(false);
 
   return (
@@ -79,18 +71,18 @@ export const Hero: React.FC<HeroProps> = ({
         className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left border-b border-nd-border-light m-twd-0"
         aria-labelledby="hero-title"
       >
-        {bgVideoSrc && (
-          <video
-            src={bgVideoSrc}
-            preload="none"
-            autoPlay={false}
-            loop
-            muted
-            playsInline
-            controls={false}
-            poster={bgVideoPoster}
-            className="absolute inset-0 w-full h-full object-cover"
-            ref={ref}
+        {bgJsonFilePath && (
+          <UnicornScene
+            className="!absolute inset-0 z-0"
+            jsonFilePath={bgJsonFilePath}
+            width="100%"
+            height="101%"
+            scale={1}
+            dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
+            fps={30}
+            lazyLoad={true}
+            production={true}
+            onError={(error) => console.error("UnicornScene error:", error)}
           />
         )}
         <div className="flex min-h-[700px]">
