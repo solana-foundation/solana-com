@@ -10,6 +10,7 @@ export default async function middleware(req: NextRequest) {
   // These paths are handled by their respective app's middleware
   if (
     req.nextUrl.pathname.startsWith("/breakpoint") ||
+    req.nextUrl.pathname.startsWith("/templates") ||
     req.nextUrl.pathname.startsWith("/developers/templates") ||
     req.nextUrl.pathname.startsWith("/news") ||
     req.nextUrl.pathname.startsWith("/podcasts") ||
