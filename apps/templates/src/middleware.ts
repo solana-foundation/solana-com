@@ -57,6 +57,9 @@ export default async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|opengraph|_next|_vercel|.*\\..*).*)"],
+  matcher: [
+    "/developers/templates/:path*",
+    "/((?!api|opengraph|_next|_vercel|.*\\..*).*)",
+  ],
   runtime: "nodejs",
 };
