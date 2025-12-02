@@ -9,14 +9,16 @@ export default function middleware(req: NextRequest) {
     }),
   );
 
+  if (req.nextUrl.pathname === "/" || req.nextUrl.pathname === "") {
+    return NextResponse.redirect(new URL("/en", req.nextUrl));
+  }
+
   // Redirect base path to default locale
   if (
     req.nextUrl.pathname === "/developers/templates" ||
     req.nextUrl.pathname === "/developers/templates/"
   ) {
-    return NextResponse.redirect(
-      new URL("/developers/templates/en", req.nextUrl),
-    );
+    return NextResponse.redirect(new URL("/en", req.nextUrl));
   }
 
   return NextResponse.next();
