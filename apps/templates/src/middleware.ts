@@ -29,6 +29,16 @@ export default function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(defaultLocalePath, req.nextUrl));
   }
 
+  // Safety: handle common typos/missing trailing slash on base path
+  if (
+    req.nextUrl.pathname === "/developers/template" ||
+    req.nextUrl.pathname === "/developers/template/"
+  ) {
+    return NextResponse.redirect(
+      new URL("/developers/templates/en", req.nextUrl),
+    );
+  }
+
   return NextResponse.next();
 }
 
