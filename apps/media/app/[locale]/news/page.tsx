@@ -1,5 +1,5 @@
-import client from "@/tina/__generated__/client";
 import PostsClientPage from "./client-page";
+import { fetchFeaturedPost, fetchLatestPosts } from "@/lib/post-data";
 
 export const revalidate = 300;
 
@@ -8,32 +8,14 @@ export default async function PostsPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const featuredPost = await client.queries.postConnection({
-    last: 1,
-    sort: "date",
-    filter: {
-      tags: {
-        tag: {
-          tag: {
-            name: {
-              eq: "Featured",
-            },
-          },
-        },
-      },
-    },
-  });
-
-  const posts = await client.queries.postConnection({
-    last: 13,
-    sort: "date",
-  });
+  const featuredPost = await fetchFeaturedPost();
+  const latestPosts = await fetchLatestPosts({ limit: 13 });
 
   return (
     <PostsClientPage
-      featuredPostData={featuredPost.data}
-      postsData={posts.data}
-      initialPageInfo={posts.data.postConnection.pageInfo}
+      featuredPost={featuredPost.post}
+      latestPosts={latestPosts.posts}
+      initialPageInfo={latestPosts.pageInfo}
     />
   );
 }

@@ -10,7 +10,7 @@ import PodcastsClientPage from "./client-page";
 export const revalidate = 1800; // 30 minutes
 
 export const metadata: Metadata = {
-  title: "Podcasts | Solana Media",
+  title: "Podcasts",
   description:
     "Explore our collection of podcasts covering blockchain technology, web3, and the Solana ecosystem.",
   openGraph: {

@@ -50,6 +50,10 @@ const config: any = defineConfig({
     indexBatchSize: 100,
     maxSearchIndexFieldLength: 100,
   },
+  cmsCallback: (cms) => {
+    cms.flags.set("branch-switcher", true);
+    return cms;
+  },
 });
 
 export default config;

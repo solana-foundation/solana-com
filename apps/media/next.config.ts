@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
       {
         pathname: "/uploads/**",
       },
+      {
+        pathname: "/media-assets/uploads/**",
+      },
     ],
     remotePatterns: [
       {
@@ -102,6 +105,10 @@ const nextConfig: NextConfig = {
         {
           source: "/media-assets/_next/:path+",
           destination: "/_next/:path+",
+        },
+        {
+          source: "/media-assets/uploads/:path+",
+          destination: "/uploads/:path+",
         },
       ],
     };
