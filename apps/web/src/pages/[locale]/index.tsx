@@ -34,6 +34,7 @@ import Avatar from "@@/public/src/img/icons/Avatar.inline.svg";
 import Bank from "@@/public/src/img/icons/Bank.inline.svg";
 import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
 import { PostItem } from "@/types/media";
+import { fetchLatestPosts } from "@/lib/media/post";
 
 const TransactionsStat = dynamic(
   () =>
@@ -264,7 +265,7 @@ export default function Home({
           <BigBannerCard
             key={item.id}
             className="px-twd-1"
-            imageSrc={`${process.env.NEXT_PUBLIC_MEDIA_API_URL || ""}${item.heroImage}`}
+            imageSrc={item.heroImage}
             title={item.title}
             description={item.description}
             href={item.url}
@@ -362,17 +363,7 @@ export async function getStaticProps({ params }) {
       console.error(error);
     }
 
-    let news: PostItem[] = [];
-
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_MEDIA_API_URL || ""}/api/posts/latest`,
-      );
-      const data = await res.json();
-      news = data.posts as PostItem[];
-    } catch (error) {
-      console.error(error);
-    }
+    const { posts } = await fetchLatestPosts({ limit: 10 });
 
     return {
       props: {
@@ -381,7 +372,7 @@ export async function getStaticProps({ params }) {
         events: events ? events : [],
         firstFeaturedEventIndex,
         videos: videos ? videos : [],
-        news: news ? news : [],
+        news: posts ? posts : [],
       },
       revalidate: 60,
     };

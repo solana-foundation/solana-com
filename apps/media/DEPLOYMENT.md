@@ -164,10 +164,7 @@ https://solana-com-media.vercel.app/news
 The rewrite is configured in `apps/web/rewrites-redirects.mjs`:
 
 ```javascript
-const mediaUrl =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3001"
-    : "https://solana-com-media.vercel.app";
+const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_APP_URL || "https://solana-com-media.vercel.app";
 
 // Rewrites for new routes
 {
@@ -258,9 +255,8 @@ If you want a custom domain:
 
    ```javascript
    const mediaUrl =
-     process.env.NODE_ENV === "development"
-       ? "http://localhost:3001"
-       : "https://media.solana.com"; // your custom domain
+     process.env.NEXT_PUBLIC_MEDIA_APP_URL ||
+     "https://solana-com-media.vercel.app"; // your custom domain
    ```
 
    Note: Update all rewrite destinations to use the new domain.

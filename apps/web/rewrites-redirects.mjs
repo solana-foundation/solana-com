@@ -1,7 +1,6 @@
 const mediaUrl =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3001"
-    : "https://solana-com-media.vercel.app";
+  process.env.NEXT_PUBLIC_MEDIA_APP_URL ||
+  "https://solana-com-media.vercel.app";
 
 export default {
   rewrites: {
@@ -62,6 +61,11 @@ export default {
       {
         source: "/:locale/podcasts/:path*",
         destination: `${mediaUrl}/:locale/podcasts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/posts/:path*",
+        destination: `${mediaUrl}/api/posts/:path*`,
         locale: false,
       },
       // Media app assets (required for static assets with assetPrefix: "/media-assets")
