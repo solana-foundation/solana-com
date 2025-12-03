@@ -117,13 +117,31 @@ export async function fetchCalendarEvents(
 
   getCalendarEventsUrl.search = new URLSearchParams(query).toString();
 
-  const res = await fetch(getCalendarEventsUrl, {
-    method: "GET",
-    headers: {
-      accept: "application/json",
-      "x-luma-api-key": process.env.LUMA_PRIVATE_API_KEY,
-    },
-  });
+  let res: Response;
+  try {
+    // Add timeout to prevent hanging during build
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    res = await fetch(getCalendarEventsUrl, {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        "x-luma-api-key": process.env.LUMA_PRIVATE_API_KEY,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+  } catch (error: any) {
+    // Handle network errors, timeouts, and other fetch failures
+    if (error.name === "AbortError" || error.code === "ETIMEDOUT") {
+      console.warn("LUMA API request timed out. Returning empty array.");
+    } else {
+      console.warn("LUMA API request failed:", error.message || error);
+    }
+    return [];
+  }
 
   if (!res.ok) {
     console.warn(`LUMA API returned status ${res.status}`);
@@ -244,13 +262,31 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
 
   getCalendarEventsUrl.search = new URLSearchParams(options).toString();
 
-  const res = await fetch(getCalendarEventsUrl, {
-    method: "GET",
-    headers: {
-      accept: "application/json",
-      "RIVER-ACCESS-KEY": process.env.RIVER_KEY,
-    },
-  });
+  let res: Response;
+  try {
+    // Add timeout to prevent hanging during build
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    res = await fetch(getCalendarEventsUrl, {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        "RIVER-ACCESS-KEY": process.env.RIVER_KEY,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+  } catch (error: any) {
+    // Handle network errors, timeouts, and other fetch failures
+    if (error.name === "AbortError" || error.code === "ETIMEDOUT") {
+      console.warn("River API request timed out. Returning empty array.");
+    } else {
+      console.warn("River API request failed:", error.message || error);
+    }
+    return [];
+  }
 
   if (!res.ok) {
     console.warn(`River API returned status ${res.status}`);
