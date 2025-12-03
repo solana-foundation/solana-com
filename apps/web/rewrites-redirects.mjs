@@ -89,6 +89,11 @@ export default {
   },
 
   redirects: [
+    { source: "/templates", destination: "/developers/templates" },
+    {
+      source: "/templates/:path*",
+      destination: "/developers/templates/:path*",
+    },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     // TODO: set to newws/upgrades when we have articles
