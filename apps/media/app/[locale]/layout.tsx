@@ -131,9 +131,62 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
+  const { siteMetadata, siteUrl, siteIcon, social } = config;
+
   return {
-    title: "Solana Media",
-    description: "Solana Media - News, Podcasts, and More",
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: siteMetadata.title,
+      template: `%s | ${siteMetadata.title}`,
+    },
+    description: siteMetadata.description,
+    keywords: siteMetadata.keywords,
+    authors: [{ name: siteMetadata.author }],
+    creator: siteMetadata.author,
+    publisher: siteMetadata.title,
+    openGraph: {
+      type: "website",
+      locale,
+      url: siteUrl,
+      siteName: siteMetadata.title,
+      title: siteMetadata.title,
+      description: siteMetadata.shortDescription,
+      images: [
+        {
+          url: siteMetadata.socialShare,
+          width: 1200,
+          height: 630,
+          alt: siteMetadata.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      site: `@${social.twitter.name}`,
+      creator: siteMetadata.author,
+      title: siteMetadata.title,
+      description: siteMetadata.shortDescription,
+      images: [siteMetadata.socialShare],
+    },
+    icons: {
+      icon: siteIcon,
+      shortcut: siteIcon,
+      apple: siteIcon,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
+    alternates: {
+      canonical: siteUrl,
+    },
   };
 }
 

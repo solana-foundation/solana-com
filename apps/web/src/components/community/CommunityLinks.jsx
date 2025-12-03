@@ -31,7 +31,7 @@ const CommunityLinks = () => {
             shadow="bottom"
           >
             <h2 className="h3 mb-8">{t("community.info")}</h2>
-            <Button to="/validated" arrow noBorder>
+            <Button to="/podcasts" arrow noBorder>
               {t("community.podcast")}
             </Button>
           </RoundedDepthCard>
