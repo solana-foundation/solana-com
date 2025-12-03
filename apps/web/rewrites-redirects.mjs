@@ -72,12 +72,12 @@ export default {
         destination: `${mediaUrl}/media-assets/:path+`,
         locale: false,
       },
+      // Templates app rewrites - proxies to templates deployment with basePath
       {
         source: "/developers/templates",
         destination: `${templatesUrl}/developers/templates`,
         locale: false,
       },
-      // everything underneath
       {
         source: "/developers/templates/:path*",
         destination: `${templatesUrl}/developers/templates/:path*`,
