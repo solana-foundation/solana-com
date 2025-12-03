@@ -41,9 +41,9 @@ export const AudioPlayer = ({
 
   // Waveform canvas ref
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  // const audioContextRef = useRef<AudioContext | null>(null);
+  // const analyserRef = useRef<AnalyserNode | null>(null);
+  // const animationFrameRef = useRef<number | null>(null);
   const waveformBarsRef = useRef<number[]>([]);
 
   // Format time in MM:SS or HH:MM:SS
@@ -252,9 +252,6 @@ export const AudioPlayer = ({
 
     return () => {
       window.removeEventListener("resize", updateCanvasSize);
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
     };
   }, []);
 
