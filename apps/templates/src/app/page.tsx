@@ -10,7 +10,7 @@ export const revalidate = 3600;
 
 export default async function TemplatesPage() {
   const templates = await fetchTemplatesFromGitHub();
-  const t = await getTranslations({ locale: "en" }, "templates");
+  const t = await getTranslations("templates");
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-purple-500/5 via-background via-50% to-emerald-400/8">
