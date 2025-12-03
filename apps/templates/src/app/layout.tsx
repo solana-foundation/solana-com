@@ -34,7 +34,12 @@ export default async function RootLayout({ children }: Props) {
   const messages = { ...webMessages, ...templatesMessages };
 
   return (
-    <html lang={locale} dir={direction} className="dark" suppressHydrationWarning>
+    <html
+      lang={locale}
+      dir={direction}
+      className="dark"
+      suppressHydrationWarning
+    >
       <body suppressHydrationWarning>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>

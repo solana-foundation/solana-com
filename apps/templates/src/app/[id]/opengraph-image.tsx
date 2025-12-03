@@ -56,14 +56,16 @@ export default async function Image({
     const parts = name.toLowerCase().split("-");
     const tech = [];
     let type = "template";
-    if (parts.includes("next") || parts.includes("nextjs")) tech.push("Next.js");
+    if (parts.includes("next") || parts.includes("nextjs"))
+      tech.push("Next.js");
     if (parts.includes("react")) tech.push("React");
     if (parts.includes("vite")) tech.push("Vite");
     if (parts.includes("tailwind")) tech.push("Tailwind CSS");
     if (parts.includes("typescript")) tech.push("TypeScript");
     if (parts.includes("expo")) tech.push("Expo");
     if (parts.includes("express")) tech.push("Express");
-    if (parts.includes("node") || parts.includes("nodejs")) tech.push("Node.js");
+    if (parts.includes("node") || parts.includes("nodejs"))
+      tech.push("Node.js");
     if (parts.includes("web3js")) tech.push("Web3.js");
     if (parts.includes("gill")) tech.push("Gill (based on @solana/kit)");
     if (parts.includes("mobile")) type = "mobile template";
@@ -222,7 +224,8 @@ export default async function Image({
     {
       ...size,
       headers: {
-        "Cache-Control": "public, immutable, no-transform, s-maxage=31536000, max-age=31536000",
+        "Cache-Control":
+          "public, immutable, no-transform, s-maxage=31536000, max-age=31536000",
       },
     },
   );
