@@ -23,11 +23,11 @@ export default async function RootLayout({ children }: Props) {
   // Load English messages from both web and templates (templates overrides take precedence)
   const [webMessages, templatesMessages] = await Promise.all([
     loadMessages(
-      (loc) => import(`../apps/web/public/locales/${loc}/common.json`),
+      (loc) => import(`../../../../web/public/locales/${loc}/common.json`),
       locale,
     ),
     loadMessages(
-      (loc) => import(`./public/locales/${loc}/common.json`),
+      (loc) => import(`../../../public/locales/${loc}/common.json`),
       locale,
     ),
   ]);
