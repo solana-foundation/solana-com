@@ -2,8 +2,6 @@ const mediaUrl =
   process.env.NODE_ENV === "development"
     ? "http://localhost:3001"
     : "https://solana-com-media.vercel.app";
-const templatesUrl =
-  process.env.TEMPLATES_APP_URL || "https://solana-com-templates.vercel.app";
 
 export default {
   rewrites: {
@@ -72,15 +70,17 @@ export default {
         destination: `${mediaUrl}/media-assets/:path+`,
         locale: false,
       },
-      // Templates app rewrites - proxies to templates deployment with basePath
       {
         source: "/developers/templates",
-        destination: `${templatesUrl}/developers/templates`,
+        destination:
+          "https://solana-com-templates.vercel.app/developers/templates",
         locale: false,
       },
+      // everything underneath
       {
         source: "/developers/templates/:path*",
-        destination: `${templatesUrl}/developers/templates/:path*`,
+        destination:
+          "https://solana-com-templates.vercel.app/developers/templates/:path*",
         locale: false,
       },
     ],
@@ -89,11 +89,6 @@ export default {
   },
 
   redirects: [
-    { source: "/templates", destination: "/developers/templates" },
-    {
-      source: "/templates/:path*",
-      destination: "/developers/templates/:path*",
-    },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     // TODO: set to newws/upgrades when we have articles
