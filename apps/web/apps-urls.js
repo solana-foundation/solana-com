@@ -1,10 +1,10 @@
 import { withRelatedProject } from "@vercel/related-projects";
 
 // Media app URLs
-const vercelMediaUrl = `https://${withRelatedProject({
+const vercelMediaUrl = withRelatedProject({
   projectName: "solana-com-media",
-  defaultHost: "solana-com-media.vercel.app",
-})}`;
+  defaultHost: "https://solana-com-media.vercel.app",
+});
 const developmentMediaUrl = "http://localhost:3002";
 
 export const MEDIA_APP_URL =
@@ -14,10 +14,10 @@ export const MEDIA_APP_URL =
     : developmentMediaUrl);
 
 // Main app URLs
-const vercelMainUrl = `https://${withRelatedProject({
+const vercelMainUrl = withRelatedProject({
   projectName: "solana-com",
-  defaultHost: "solana.com",
-})}`;
+  defaultHost: "https://solana.com",
+});
 const developmentMainUrl = "http://localhost:3000";
 
 export const MAIN_APP_URL =
