@@ -27,3 +27,21 @@ export const MAIN_APP_URL =
     : process.env.VERCEL_ENV === "preview"
       ? vercelMainUrl
       : developmentMainUrl;
+
+console.log("MAIN_APP_URL", MAIN_APP_URL);
+console.log("MEDIA_APP_URL", MEDIA_APP_URL);
+console.log("vercelMediaUrl", vercelMediaUrl);
+console.log("vercelMainUrl", vercelMainUrl);
+console.log("process.env.VERCEL_ENV", process.env.VERCEL_ENV);
+console.log(
+  "process.env.VERCEL_RELATED_PROJECTS",
+  process.env.VERCEL_RELATED_PROJECTS,
+);
+console.log(
+  "process.env.NEXT_PUBLIC_MAIN_SITE_URL",
+  process.env.NEXT_PUBLIC_MAIN_SITE_URL,
+);
+console.log(
+  "process.env.NEXT_PUBLIC_MEDIA_APP_URL",
+  process.env.NEXT_PUBLIC_MEDIA_APP_URL,
+);
