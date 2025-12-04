@@ -1,0 +1,212 @@
+import HTMLHead from "@/components/HTMLHead";
+import Layout from "@/components/solutions/layout";
+import { useTranslations } from "next-intl";
+import { withLocales } from "@workspace/i18n/routing";
+import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
+import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
+import { Products } from "@/components/solutions/products.v2";
+import { Divider } from "@/components/solutions/divider.v2";
+import { SelectionColor } from "@/component-library/selection-color";
+import {
+  SOLUTION_LINKS,
+  TECHNICAL_GUIDES,
+  FAQ_ITEMS,
+  RESOURCES,
+} from "@/data/solutions/enterprise";
+
+const EnterprisePage = () => {
+  const t = useTranslations();
+
+  const stats: SolutionHeroStat[] = [
+    {
+      value: t("partners.hero.stats.0.value"),
+      label: t("partners.hero.stats.0.label"),
+      Icon: "/src/img/solutions/institutional-payments/icons/flow.svg",
+    },
+    {
+      value: t("partners.hero.stats.1.value"),
+      label: t("partners.hero.stats.1.label"),
+      Icon: "/src/img/solutions/institutional-payments/icons/arrows.svg",
+    },
+    {
+      value: t("partners.hero.stats.2.value"),
+      label: t("partners.hero.stats.2.label"),
+      Icon: "/src/img/solutions/institutional-payments/icons/discount.svg",
+    },
+  ];
+
+  return (
+    <Layout>
+      <HTMLHead
+        title={t("partners.meta.title")}
+        description={t("partners.meta.description")}
+      />
+
+      <SelectionColor selectionColor="#14F195" selectionTextColor="#000000" />
+
+      <div
+        id="enterprise-page"
+        aria-labelledby="hero-title"
+        className="bg-black"
+      >
+        <SolutionHero
+          title={t("partners.hero.title")}
+          subtitle={t("partners.hero.subtitle")}
+          stats={stats}
+          bgJsonFilePath="/src/img/solutions/icm/hero-bg.json"
+        />
+
+        <Divider />
+
+        <WhatIsIt
+          title={t.rich("partners.features.title", {
+            light: (chunks) => (
+              <span className="font-light">
+                {chunks}
+                <br />
+              </span>
+            ),
+          })}
+          description={t("partners.features.description")}
+          highlightColor="#14F195"
+        />
+
+        <Divider />
+
+        {/* Solutions Section */}
+        <Products
+          className="z-1"
+          title={t("partners.solutions.title")}
+          description={t("partners.solutions.description")}
+          products={SOLUTION_LINKS}
+          translationBase="partners.solutions"
+          highlightColor="#14F195"
+        />
+
+        <Divider />
+
+        {/* Technical Guides Section */}
+        <section className="tw-py-16 md:tw-py-24">
+          <div className="tw-container tw-mx-auto tw-px-4">
+            <h2 className="tw-text-3xl md:tw-text-4xl tw-font-bold tw-text-white tw-mb-4">
+              {t("partners.guides.title")}
+            </h2>
+            <p className="tw-text-gray-400 tw-mb-12 tw-max-w-2xl">
+              {t("partners.guides.description")}
+            </p>
+            <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 lg:tw-grid-cols-3 tw-gap-6">
+              {TECHNICAL_GUIDES.map((guide) => (
+                <a
+                  key={guide.key}
+                  href={guide.href}
+                  className="tw-group tw-bg-gray-900 tw-border tw-border-gray-800 tw-rounded-xl tw-p-6 hover:tw-border-[#14F195] tw-transition-all tw-duration-300"
+                >
+                  <div className="tw-text-[#14F195] tw-text-sm tw-font-medium tw-mb-2">
+                    {t(`partners.guides.items.${guide.key}.tag`)}
+                  </div>
+                  <h3 className="tw-text-xl tw-font-semibold tw-text-white tw-mb-3 group-hover:tw-text-[#14F195] tw-transition-colors">
+                    {t(`partners.guides.items.${guide.key}.title`)}
+                  </h3>
+                  <p className="tw-text-gray-400 tw-text-sm">
+                    {t(`partners.guides.items.${guide.key}.description`)}
+                  </p>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <Divider />
+
+        {/* FAQ Section */}
+        <section className="tw-py-16 md:tw-py-24">
+          <div className="tw-container tw-mx-auto tw-px-4">
+            <h2 className="tw-text-3xl md:tw-text-4xl tw-font-bold tw-text-white tw-mb-4">
+              {t("partners.faq.title")}
+            </h2>
+            <p className="tw-text-gray-400 tw-mb-12 tw-max-w-2xl">
+              {t("partners.faq.description")}
+            </p>
+            <div className="tw-space-y-6">
+              {FAQ_ITEMS.map((faq) => (
+                <div
+                  key={faq.key}
+                  className="tw-bg-gray-900 tw-border tw-border-gray-800 tw-rounded-xl tw-p-6"
+                >
+                  <h3 className="tw-text-lg tw-font-semibold tw-text-white tw-mb-3">
+                    {t(`partners.faq.items.${faq.key}.question`)}
+                  </h3>
+                  <p className="tw-text-gray-400">
+                    {t(`partners.faq.items.${faq.key}.answer`)}
+                  </p>
+                  {faq.link && (
+                    <a
+                      href={faq.link}
+                      className="tw-inline-block tw-mt-4 tw-text-[#14F195] hover:tw-underline tw-text-sm tw-font-medium"
+                    >
+                      {t("partners.faq.learnMore")} →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <Divider />
+
+        {/* Resources Section */}
+        <section className="tw-py-16 md:tw-py-24">
+          <div className="tw-container tw-mx-auto tw-px-4">
+            <h2 className="tw-text-3xl md:tw-text-4xl tw-font-bold tw-text-white tw-mb-4">
+              {t("partners.resources.title")}
+            </h2>
+            <p className="tw-text-gray-400 tw-mb-12 tw-max-w-2xl">
+              {t("partners.resources.description")}
+            </p>
+            <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-6">
+              {RESOURCES.map((resource) => (
+                <a
+                  key={resource.key}
+                  href={resource.href}
+                  target={resource.external ? "_blank" : undefined}
+                  rel={resource.external ? "noopener noreferrer" : undefined}
+                  className="tw-group tw-bg-gray-900 tw-border tw-border-gray-800 tw-rounded-xl tw-p-6 hover:tw-border-[#14F195] tw-transition-all tw-duration-300"
+                >
+                  <h3 className="tw-text-lg tw-font-semibold tw-text-white tw-mb-2 group-hover:tw-text-[#14F195] tw-transition-colors">
+                    {t(`partners.resources.items.${resource.key}.title`)}
+                  </h3>
+                  <p className="tw-text-gray-400 tw-text-sm">
+                    {t(`partners.resources.items.${resource.key}.description`)}
+                  </p>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+    </Layout>
+  );
+};
+
+export default EnterprisePage;
+
+export async function getStaticProps({ params }) {
+  const { locale = "en" } = params;
+  const messages = (await import(`@@/public/locales/${locale}/common.json`))
+    .default;
+  return {
+    props: {
+      locale,
+      messages,
+    },
+    revalidate: 60,
+  };
+}
+
+export async function getStaticPaths() {
+  return {
+    paths: withLocales(),
+    fallback: "blocking",
+  };
+}
