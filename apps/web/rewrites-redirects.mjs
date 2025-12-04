@@ -1,6 +1,10 @@
 const mediaUrl =
   process.env.NEXT_PUBLIC_MEDIA_APP_URL ||
-  "https://solana-com-media.vercel.app";
+  (process.env.NEXT_PUBLIC_VERCEL_ENV === "production"
+    ? "https://solana-com-media.vercel.app"
+    : `https://solana-com-media-git-${process.env.VERCEL_GIT_COMMIT_REF}-solana-foundation.vercel.app`);
+
+console.log("Media app URL:", mediaUrl);
 
 export default {
   rewrites: {
