@@ -1,19 +1,6 @@
-const productionMediaUrl = "https://solana-com-media.vercel.app";
-const branchMediaUrl = process.env.VERCEL_BRANCH_URL
-  ? `https://${process.env.VERCEL_BRANCH_URL.replace("solana-com-git", "solana-com-media-git")}`
-  : "";
-const mediaUrl =
-  process.env.NEXT_PUBLIC_MEDIA_APP_URL ||
-  (process.env.NEXT_PUBLIC_VERCEL_ENV === "production"
-    ? productionMediaUrl
-    : branchMediaUrl || productionMediaUrl);
+import { MEDIA_APP_URL } from "./apps-urls";
 
-console.log("Media app URL:", mediaUrl);
-
-console.log(
-  "process.env.VERCEL_RELATED_PROJECTS",
-  process.env.VERCEL_RELATED_PROJECTS,
-);
+console.log("MEDIA_APP_URL", MEDIA_APP_URL);
 
 export default {
   rewrites: {
@@ -33,58 +20,58 @@ export default {
       // Media app rewrites - new routes
       {
         source: "/admin",
-        destination: `${mediaUrl}/admin`,
+        destination: `${MEDIA_APP_URL}/admin`,
         locale: false,
       },
       {
         source: "/news",
-        destination: `${mediaUrl}/news`,
+        destination: `${MEDIA_APP_URL}/news`,
         locale: false,
       },
       {
         source: "/news/:path*",
-        destination: `${mediaUrl}/news/:path*`,
+        destination: `${MEDIA_APP_URL}/news/:path*`,
         locale: false,
       },
       {
         source: "/podcasts",
-        destination: `${mediaUrl}/podcasts`,
+        destination: `${MEDIA_APP_URL}/podcasts`,
         locale: false,
       },
       {
         source: "/podcasts/:path*",
-        destination: `${mediaUrl}/podcasts/:path*`,
+        destination: `${MEDIA_APP_URL}/podcasts/:path*`,
         locale: false,
       },
       {
         source: "/:locale/news",
-        destination: `${mediaUrl}/:locale/news`,
+        destination: `${MEDIA_APP_URL}/:locale/news`,
         locale: false,
       },
       {
         source: "/:locale/news/:path*",
-        destination: `${mediaUrl}/:locale/news/:path*`,
+        destination: `${MEDIA_APP_URL}/:locale/news/:path*`,
         locale: false,
       },
       {
         source: "/:locale/podcasts",
-        destination: `${mediaUrl}/:locale/podcasts`,
+        destination: `${MEDIA_APP_URL}/:locale/podcasts`,
         locale: false,
       },
       {
         source: "/:locale/podcasts/:path*",
-        destination: `${mediaUrl}/:locale/podcasts/:path*`,
+        destination: `${MEDIA_APP_URL}/:locale/podcasts/:path*`,
         locale: false,
       },
       {
         source: "/api/posts/:path*",
-        destination: `${mediaUrl}/api/posts/:path*`,
+        destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
       },
       // Media app assets (required for static assets with assetPrefix: "/media-assets")
       {
         source: "/media-assets/:path+",
-        destination: `${mediaUrl}/media-assets/:path+`,
+        destination: `${MEDIA_APP_URL}/media-assets/:path+`,
         locale: false,
       },
       {

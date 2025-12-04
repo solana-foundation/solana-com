@@ -1,5 +1,6 @@
 import { PostItem } from "@/types/media";
 import { isExternalLink } from "../utils/isExternalLink";
+import { MAIN_APP_URL } from "@@/apps-urls";
 
 export interface FetchLatestPostsParams {
   limit?: number;
@@ -16,11 +17,7 @@ export const fetchLatestPosts = async (
   params: FetchLatestPostsParams = {},
 ): Promise<FetchLatestPostsResponse> => {
   try {
-    const mediaAppUrl =
-      process.env.NEXT_PUBLIC_MEDIA_APP_URL ||
-      "https://solana-com-media.vercel.app";
-
-    let url = `${mediaAppUrl}/api/posts/latest`;
+    let url = `${MAIN_APP_URL}/api/posts/latest`;
 
     if (params.limit) {
       url += `?limit=${params.limit}`;
@@ -41,8 +38,8 @@ export const fetchLatestPosts = async (
         ...post,
         heroImage:
           post.heroImage && !isExternalLink(post.heroImage)
-            ? `${mediaAppUrl}${post.heroImage}`
-            : null,
+            ? `/media-assets${post.heroImage}`
+            : post.heroImage,
       })) || []) as PostItem[],
     };
   } catch (error) {
