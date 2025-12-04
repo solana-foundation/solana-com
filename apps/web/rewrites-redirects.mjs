@@ -1,6 +1,6 @@
 const productionMediaUrl = "https://solana-com-media.vercel.app";
 const branchMediaUrl = process.env.VERCEL_BRANCH_URL
-  ? `https://${process.env.VERCEL_BRANCH_URL.replace("solana-com", "solana-com-media")}-solana-foundation.vercel.app`
+  ? `https://${process.env.VERCEL_BRANCH_URL.replace("solana-com-git", "solana-com-media-git")}`
   : "";
 const mediaUrl =
   process.env.NEXT_PUBLIC_MEDIA_APP_URL ||
@@ -9,6 +9,11 @@ const mediaUrl =
     : branchMediaUrl || productionMediaUrl);
 
 console.log("Media app URL:", mediaUrl);
+
+console.log(
+  "process.env.VERCEL_RELATED_PROJECTS",
+  process.env.VERCEL_RELATED_PROJECTS,
+);
 
 export default {
   rewrites: {
