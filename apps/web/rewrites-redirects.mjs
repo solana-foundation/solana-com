@@ -1,7 +1,5 @@
 import { MEDIA_APP_URL } from "./apps-urls";
 
-console.log("MEDIA_APP_URL", MEDIA_APP_URL);
-
 export default {
   rewrites: {
     beforeFiles: [

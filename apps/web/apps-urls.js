@@ -23,3 +23,6 @@ const developmentMainUrl = "http://localhost:3000";
 export const MAIN_APP_URL =
   process.env.NEXT_PUBLIC_MAIN_SITE_URL ||
   (process.env.NODE_ENV === "production" ? vercelMainUrl : developmentMainUrl);
+
+console.log("MEDIA_APP_URL", MEDIA_APP_URL);
+console.log("MAIN_APP_URL", MAIN_APP_URL);
