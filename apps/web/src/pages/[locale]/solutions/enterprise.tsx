@@ -140,13 +140,27 @@ const EnterprisePage = () => {
                   <p className="tw-text-gray-400">
                     {t(`partners.faq.items.${faq.key}.answer`)}
                   </p>
-                  {faq.link && (
-                    <a
-                      href={faq.link}
-                      className="tw-inline-block tw-mt-4 tw-text-[#14F195] hover:tw-underline tw-text-sm tw-font-medium"
-                    >
-                      {t("partners.faq.learnMore")} →
-                    </a>
+                  {(faq.link || faq.secondaryLink) && (
+                    <div className="tw-flex tw-gap-4 tw-mt-4">
+                      {faq.link && (
+                        <a
+                          href={faq.link}
+                          className="tw-text-[#14F195] hover:tw-underline tw-text-sm tw-font-medium"
+                        >
+                          {t("partners.faq.learnMore")} →
+                        </a>
+                      )}
+                      {faq.secondaryLink && (
+                        <a
+                          href={faq.secondaryLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="tw-text-[#14F195] hover:tw-underline tw-text-sm tw-font-medium"
+                        >
+                          {faq.secondaryLinkLabel} →
+                        </a>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

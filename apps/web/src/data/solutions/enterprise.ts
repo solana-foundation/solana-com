@@ -55,6 +55,8 @@ export const FAQ_ITEMS = [
   {
     key: "compliance",
     link: "/docs/tokens/extensions",
+    secondaryLink: "https://github.com/solana-foundation/token-acl",
+    secondaryLinkLabel: "Token ACL",
   },
 ];
 
