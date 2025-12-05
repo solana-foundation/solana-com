@@ -35,6 +35,7 @@ import Bank from "@@/public/src/img/icons/Bank.inline.svg";
 import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
 import { PostItem } from "@/types/media";
 import { fetchLatestPosts } from "@/lib/media/post";
+import { useEffect, useState } from "react";
 
 const TransactionsStat = dynamic(
   () =>
@@ -62,6 +63,30 @@ export default function Home({
   news,
 }: HomeProps) {
   const t = useTranslations();
+  const [newsFallback, setNewsFallback] = useState<PostItem[] | null>(null);
+
+  // Workaround for Vercel preview mode
+  // Fetch news fallback if news is empty
+  useEffect(() => {
+    let isMounted = true;
+    if (news.length === 0 && newsFallback === null) {
+      fetchLatestPosts({ limit: 10 })
+        .then(({ posts }) => {
+          if (isMounted) {
+            setNewsFallback(posts);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            // Fallback to empty array if fetch fails to avoid infinite loop
+            setNewsFallback([]);
+          }
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [news, newsFallback]);
 
   return (
     <Layout className="bg-nd-bg">

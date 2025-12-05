@@ -1,6 +1,5 @@
 import { PostItem } from "@/types/media";
 import { MAIN_APP_URL } from "@@/apps-urls";
-import { getVercelHeaders } from "../utils/vercel";
 
 export interface FetchLatestPostsParams {
   limit?: number;
@@ -23,10 +22,7 @@ export const fetchLatestPosts = async (
       url += `?limit=${params.limit}`;
     }
 
-    const headers = await getVercelHeaders();
-
     const response = await fetch(url, {
-      headers,
       next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
