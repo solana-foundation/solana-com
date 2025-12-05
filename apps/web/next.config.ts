@@ -219,6 +219,18 @@ const nextConfig: NextConfig = {
         hostname: "raw.githubusercontent.com",
         pathname: "/solana-foundation/templates/**",
       },
+      {
+        protocol: "https",
+        hostname: "assets.tina.io",
+      },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.cloudfront.net",
+      },
     ],
   },
 

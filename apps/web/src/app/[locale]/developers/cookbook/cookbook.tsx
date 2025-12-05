@@ -15,7 +15,7 @@ export async function CookbookPage({
   if (!page) notFound();
 
   const { body: MDX, toc } = await page.data.load();
-
+  const markdown = await page.data.getText("raw");
   return (
     <DocsPage
       toc={toc}
@@ -25,6 +25,7 @@ export async function CookbookPage({
       hideTableOfContents={true}
       pageTree={cookbookSource.pageTree[locale]}
       href={page.url}
+      markdown={markdown}
     >
       <MDX components={mdxComponents} />
     </DocsPage>

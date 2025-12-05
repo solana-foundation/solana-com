@@ -1,7 +1,6 @@
 import {
   DocsPage as FumaDocsPage,
   DocsBody,
-  DocsTitle,
   DocsPageProps,
 } from "fumadocs-ui/page";
 import { ReactNode } from "react";
@@ -12,6 +11,7 @@ import { findNeighbour } from "fumadocs-core/server";
 import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
+import { LLMCopyButton, ViewOptions } from "./page-actions";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -22,6 +22,7 @@ export function DocsPage(props: {
   title: string;
   pageTree?: any;
   href: string;
+  markdown: string;
 }) {
   const path = props.filePath;
   const editUrl = getEditUrl(path);
@@ -50,14 +51,20 @@ export function DocsPage(props: {
         component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
       }}
     >
-      <DocsTitle>
-        <Link
-          className="!text-fd-accent-foreground text-4xl md:text-5xl"
-          href={props.href}
-        >
-          {props.title}
-        </Link>
-      </DocsTitle>
+      <div>
+        <h1 className="text-3xl font-bold">
+          <Link
+            className="!text-fd-accent-foreground text-4xl md:text-5xl"
+            href={props.href}
+          >
+            {props.title}
+          </Link>
+        </h1>
+        <div className="flex flex-row gap-2 items-center border-b pb-4 pt-2">
+          <LLMCopyButton markdown={props.markdown} />
+          <ViewOptions markdown={props.markdown} />
+        </div>
+      </div>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
       <Rate onRateAction={onRateAction} />
     </FumaDocsPage>
