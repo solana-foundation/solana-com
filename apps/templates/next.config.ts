@@ -1,14 +1,23 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 
+const basePath =
+  process.env.NEXT_PUBLIC_USE_BASE_PATH === "true"
+    ? "/developers/templates"
+    : "";
+
+console.log(
+  `[templates] basePath=${basePath || "(none)"} useBasePath=${
+    process.env.NEXT_PUBLIC_USE_BASE_PATH
+  } env=${process.env.VERCEL_ENV || "local"}`,
+);
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
   // Use basePath only when env var is set (for proxy integration)
   // Without env var, templates serves at root for standalone subdomain
-  ...(process.env.NEXT_PUBLIC_USE_BASE_PATH === "true" && {
-    basePath: "/developers/templates",
-  }),
+  ...(basePath && { basePath }),
 
   webpack(config) {
     // Handle inline SVGs
