@@ -88,6 +88,8 @@ export default function Home({
     };
   }, [news, newsFallback]);
 
+  const newsToDisplay = newsFallback || news;
+
   return (
     <Layout className="bg-nd-bg">
       <HTMLHead
@@ -283,10 +285,10 @@ export default function Home({
             </>
           ),
         })}
-        totalItems={news.length}
+        totalItems={newsToDisplay.length}
         cardWidthClassName="w-full md:w-[700px] xl:w-[1360px]"
       >
-        {news.map((item) => (
+        {newsToDisplay.map((item) => (
           <BigBannerCard
             key={item.id}
             className="px-twd-1"
