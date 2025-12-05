@@ -231,6 +231,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "**.cloudfront.net",
       },
+      {
+        protocol: "http",
+        hostname: "localhost",
+      },
     ],
   },
 
