@@ -7,6 +7,7 @@ import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { Products } from "@/components/solutions/products.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import { Mail } from "lucide-react";
 import {
   SOLUTION_LINKS,
   TECHNICAL_GUIDES,
@@ -182,6 +183,22 @@ const EnterprisePage = () => {
                 </a>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Get in Touch */}
+        <section className="tw-py-12 tw-border-t tw-border-gray-800">
+          <div className="tw-container tw-mx-auto tw-px-4 tw-flex tw-flex-col sm:tw-flex-row tw-items-center tw-justify-center tw-gap-4">
+            <span className="tw-text-gray-400 tw-text-lg">
+              {t("partners.contact.text")}
+            </span>
+            <a
+              href="mailto:product@solana.org"
+              className="tw-inline-flex tw-items-center tw-gap-2 tw-bg-[#14F195] tw-text-black tw-font-semibold tw-px-6 tw-py-3 tw-rounded-full hover:tw-bg-[#14F195]/90 tw-transition-colors"
+            >
+              <Mail className="tw-w-4 tw-h-4" />
+              {t("partners.contact.button")}
+            </a>
           </div>
         </section>
       </div>
