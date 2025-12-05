@@ -1,6 +1,6 @@
 import { PostItem } from "@/types/media";
-import { isExternalLink } from "../utils/isExternalLink";
 import { MAIN_APP_URL } from "@@/apps-urls";
+import { getVercelHeaders } from "../utils/vercel";
 
 export interface FetchLatestPostsParams {
   limit?: number;
@@ -23,8 +23,10 @@ export const fetchLatestPosts = async (
       url += `?limit=${params.limit}`;
     }
 
+    const headers = await getVercelHeaders();
+
     const response = await fetch(url, {
-      credentials: "include",
+      headers,
       next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
@@ -35,13 +37,7 @@ export const fetchLatestPosts = async (
     const data = await response.json();
 
     return {
-      posts: (data.posts?.map((post: PostItem) => ({
-        ...post,
-        heroImage:
-          post.heroImage && !isExternalLink(post.heroImage)
-            ? `/media-assets${post.heroImage}`
-            : post.heroImage,
-      })) || []) as PostItem[],
+      posts: (data.posts || []) as PostItem[],
     };
   } catch (error) {
     console.error("Failed to fetch latest posts:", error);

@@ -75,6 +75,11 @@ export default {
         locale: false,
       },
       {
+        source: "/uploads/builder/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/uploads/builder/:path+`,
+        locale: false,
+      },
+      {
         source: "/developers/templates",
         destination:
           "https://solana-com-templates.vercel.app/developers/templates",
