@@ -24,11 +24,12 @@ export const fetchLatestPosts = async (
     }
 
     const response = await fetch(url, {
+      credentials: "include",
       next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch posts: ${response.statusText}`);
+      throw new Error(response.statusText);
     }
 
     const data = await response.json();
