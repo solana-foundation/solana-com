@@ -1,5 +1,5 @@
+import { NEXT_PUBLIC_MAIN_APP_URL } from "@/constants/apps";
 import { PostItem } from "@/types/media";
-import { MAIN_APP_URL } from "@@/apps-urls";
 
 export interface FetchLatestPostsParams {
   limit?: number;
@@ -16,7 +16,7 @@ export const fetchLatestPosts = async (
   params: FetchLatestPostsParams = {},
 ): Promise<FetchLatestPostsResponse> => {
   try {
-    let url = `${MAIN_APP_URL}/api/posts/latest`;
+    let url = `${NEXT_PUBLIC_MAIN_APP_URL}/api/posts/latest`;
 
     if (params.limit) {
       url += `?limit=${params.limit}`;
