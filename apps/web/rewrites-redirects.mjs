@@ -68,6 +68,11 @@ export default {
       },
       // Media app assets (required for static assets with assetPrefix: "/media-assets")
       {
+        source: "/media-assets/uploads/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/uploads/:path+`,
+        locale: false,
+      },
+      {
         source: "/media-assets/:path+",
         destination: `${MEDIA_APP_URL}/media-assets/:path+`,
         locale: false,
