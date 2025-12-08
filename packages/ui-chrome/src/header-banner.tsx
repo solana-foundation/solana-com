@@ -64,10 +64,10 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
           <div className="mt-5">
             <Link
               to={ctaHref}
-              className="block group/cta pl-4 pr-2 h-[36px] font-medium text-black text-[16px] leading-[36px] tracking-[-0.16px] xl:tracking-[-0.18px] bg-white rounded-full"
+              className="block group/cta pl-4 pr-2 h-[36px] font-medium text-black text-[16px] leading-[36px] tracking-[-0.16px] xl:tracking-[-0.18px] bg-white rounded-full text-nowrap"
             >
               {cta}
-              <ChevronRightSmallIcon className="ml-1 size-6 group-hover/cta:translate-x-[2px] transition-transform duration-200" />
+              <ChevronRightSmallIcon className="ml-1 size-6 group-hover/cta:translate-x-[2px] transition-transform duration-200 inline-flex" />
             </Link>
           </div>
         )}
