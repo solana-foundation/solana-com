@@ -76,7 +76,7 @@ function NavigationMenuTrigger({
         navigationMenuTriggerStyle,
         "group",
         "flex justify-between items-center w-full xl:w-auto py-1 px-4",
-        "text-[rgba(255,255,255,0.64)] text-[16px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)]",
+        "text-[rgba(255,255,255,0.64)] text-[16px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)] bg-transparent",
         "border-0 rounded-full",
         "hover:text-white focus:text-white hover:bg-[rgba(240,228,255,0.12)] focus:bg-[rgba(240,228,255,0.12)] light:hover:text-black light:focus:text-black light:hover:bg-black/5 light:focus:bg-black/5",
         "relative",
