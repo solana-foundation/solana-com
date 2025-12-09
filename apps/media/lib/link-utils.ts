@@ -1,5 +1,6 @@
 import { LinkItem, LinkMetadata, LinkType } from "./link-types";
 import { format } from "date-fns";
+import { TinaMarkdownContent } from "tinacms/dist/rich-text";
 
 // Type for the TinaCMS link connection edge
 interface LinkConnectionEdge {
@@ -57,11 +58,13 @@ export function transformLink(linkData: LinkConnectionEdge): LinkItem | null {
  * Check if a link needs metadata enrichment
  */
 function needsMetadataEnrichment(link: LinkItem): boolean {
+  if (!link.description) return false;
+
+  const desc = link.description as TinaMarkdownContent | string;
   const hasDescription =
-    link.description &&
-    (typeof link.description === "string"
-      ? link.description.trim().length > 0
-      : link.description.children?.length > 0);
+    typeof desc === "string"
+      ? desc.trim().length > 0
+      : (desc as TinaMarkdownContent).children?.length > 0;
 
   return !link.thumbnailImage || !hasDescription;
 }
@@ -77,28 +80,30 @@ async function enrichLinkWithMetadata(link: LinkItem): Promise<LinkItem> {
   try {
     const metadata = await fetchLinkMetadata(link.url);
 
-    const hasDescription =
-      link.description &&
-      (typeof link.description === "string"
-        ? link.description.trim().length > 0
-        : link.description.children?.length > 0);
+    const desc = link.description as TinaMarkdownContent | string | undefined;
+    const hasDescription = desc
+      ? typeof desc === "string"
+        ? desc.trim().length > 0
+        : (desc as TinaMarkdownContent).children?.length > 0
+      : false;
+
+    let newDescription: TinaMarkdownContent | undefined = link.description;
+    if (!hasDescription && metadata.description) {
+      newDescription = {
+        type: "root",
+        children: [
+          {
+            type: "p",
+            children: [{ type: "text", text: metadata.description }],
+          },
+        ],
+      } as unknown as TinaMarkdownContent;
+    }
 
     return {
       ...link,
       thumbnailImage: link.thumbnailImage || metadata.image || null,
-      description: hasDescription
-        ? link.description
-        : metadata.description
-          ? {
-              type: "root",
-              children: [
-                {
-                  type: "p",
-                  children: [{ type: "text", text: metadata.description }],
-                },
-              ],
-            }
-          : link.description,
+      description: newDescription,
       source: link.source || metadata.siteName || getSourceFromUrl(link.url),
     };
   } catch (error) {

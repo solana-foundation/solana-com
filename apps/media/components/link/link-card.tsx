@@ -40,6 +40,7 @@ const isExternalImage = (src: string): boolean => {
 export const LinkCard = ({ link }: LinkCardProps) => {
   const Icon = linkTypeIcons[link.linkType] || LinkIcon;
   const typeLabel = linkTypeLabels[link.linkType] || "Link";
+  // External images should skip Next.js optimization
   const hasExternalImage =
     link.thumbnailImage && isExternalImage(link.thumbnailImage);
 
