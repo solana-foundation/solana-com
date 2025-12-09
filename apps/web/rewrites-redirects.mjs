@@ -66,6 +66,11 @@ export default {
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
       },
+      {
+        source: "/api/links/:path*",
+        destination: `${MEDIA_APP_URL}/api/links/:path*`,
+        locale: false,
+      },
       // Media app assets (required for static assets with assetPrefix: "/media-assets")
       {
         source: "/media-assets/uploads/:path+",

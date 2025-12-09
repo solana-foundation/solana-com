@@ -17,7 +17,7 @@ export default function useTerminal({
       categoryId: string;
       date: string;
     }[]
-  >(enabled ? `/api/terminal/latest?category=${category}` : null, fetcher, {
+  >(enabled ? `/api/links/latest?category=${category}` : null, fetcher, {
     revalidateOnFocus: false,
     refreshInterval: 10000,
   });

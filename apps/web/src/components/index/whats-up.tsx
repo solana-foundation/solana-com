@@ -18,7 +18,16 @@ import useTerminal from "@/lib/terminal";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
-export const CATEGORIES = {
+export const CATEGORIES: Record<
+  string,
+  {
+    id: string;
+    name: string;
+    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+    color: string;
+    bg: string;
+  }
+> = {
   all: {
     id: "all",
     name: "All",
@@ -26,12 +35,26 @@ export const CATEGORIES = {
     color: "text-white",
     bg: "white",
   },
-  reports: {
-    id: "reports",
-    name: "Reports",
+  defi: {
+    id: "defi",
+    name: "DeFi",
     Icon: Statistics,
     color: "text-nd-highlight-lavendar",
     bg: "#CA9FF5",
+  },
+  institutions: {
+    id: "institutions",
+    name: "Institutions",
+    Icon: FileText,
+    color: "text-nd-highlight-green",
+    bg: "#55E9AB",
+  },
+  consumer: {
+    id: "consumer",
+    name: "Consumer",
+    Icon: MagicBrush,
+    color: "text-nd-highlight-lime",
+    bg: "#CFF15E",
   },
   developers: {
     id: "developers",
@@ -40,26 +63,12 @@ export const CATEGORIES = {
     color: "text-nd-highlight-orange",
     bg: "#F48252",
   },
-  solutions: {
-    id: "solutions",
-    name: "Solutions",
+  finance: {
+    id: "finance",
+    name: "Finance",
     Icon: Todos,
     color: "text-nd-highlight-gold",
     bg: "#FFC526",
-  },
-  caseStudies: {
-    id: "caseStudies",
-    name: "Case studies",
-    Icon: FileText,
-    color: "text-nd-highlight-green",
-    bg: "#55E9AB",
-  },
-  artists: {
-    id: "artists",
-    name: "Artists",
-    Icon: MagicBrush,
-    color: "text-nd-highlight-lime",
-    bg: "#CFF15E",
   },
 };
 
