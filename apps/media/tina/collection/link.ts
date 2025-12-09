@@ -40,7 +40,7 @@ const Link: Collection = {
       label: "Description",
       name: "description",
       overrides: {
-        toolbar: ["bold", "italic", "link"],
+        toolbar: ["bold", "italic"],
       },
       description: "Brief description or excerpt of the linked content",
     },
