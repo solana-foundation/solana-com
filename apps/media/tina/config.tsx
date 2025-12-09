@@ -9,6 +9,7 @@ import Category from "./collection/category";
 import CTA from "./collection/cta";
 import Switchback from "./collection/switchback";
 import Podcast from "./collection/podcast";
+import Link from "./collection/link";
 
 // Check if we're using local mode (no authentication)
 const isLocalMode = process.env.TINA_PUBLIC_IS_LOCAL === "true";
@@ -36,6 +37,7 @@ const config: any = defineConfig({
       Author,
       CTA,
       Global,
+      Link,
       Podcast,
       Post,
       Switchback,
