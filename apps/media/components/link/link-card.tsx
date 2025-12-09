@@ -32,9 +32,16 @@ const linkTypeLabels = {
   other: "Link",
 };
 
+// Check if image is external (starts with http)
+const isExternalImage = (src: string): boolean => {
+  return src.startsWith("http://") || src.startsWith("https://");
+};
+
 export const LinkCard = ({ link }: LinkCardProps) => {
   const Icon = linkTypeIcons[link.linkType] || LinkIcon;
   const typeLabel = linkTypeLabels[link.linkType] || "Link";
+  const hasExternalImage =
+    link.thumbnailImage && isExternalImage(link.thumbnailImage);
 
   return (
     <a
@@ -46,7 +53,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
       )}
     >
       {link.thumbnailImage && (
-        <div className="relative aspect-video w-full overflow-hidden">
+        <div className="relative aspect-video w-full overflow-hidden bg-muted">
           <Image
             src={link.thumbnailImage}
             alt={link.title}
@@ -54,6 +61,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
             sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
+            unoptimized={hasExternalImage}
           />
         </div>
       )}

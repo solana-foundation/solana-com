@@ -120,16 +120,105 @@ export async function enrichLinksWithMetadata(
 }
 
 /**
+ * Extract YouTube video ID from various URL formats
+ */
+function extractYouTubeVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+/**
+ * Extract GitHub repo path from URL
+ */
+function extractGitHubRepo(url: string): string | null {
+  const match = url.match(/github\.com\/([^/]+\/[^/]+)/);
+  return match ? match[1] : null;
+}
+
+/**
  * Fetch Open Graph metadata from a URL
  * This can be used to auto-populate link fields
  */
 export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
   try {
+    // Special handling for YouTube - use direct thumbnail URL
+    const youtubeId = extractYouTubeVideoId(url);
+    if (youtubeId) {
+      // YouTube thumbnails are predictable
+      const metadata: LinkMetadata = {
+        image: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
+        siteName: "YouTube",
+      };
+
+      // Try to fetch page for title/description
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(url, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const html = await response.text();
+          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+          if (titleMatch) {
+            metadata.title = titleMatch[1]
+              .replace(" - YouTube", "")
+              .replace(/&amp;/g, "&")
+              .replace(/&#39;/g, "'");
+          }
+          const descMatch = html.match(
+            /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i
+          );
+          if (descMatch) {
+            metadata.description = descMatch[1]
+              .replace(/&amp;/g, "&")
+              .replace(/&#39;/g, "'");
+          }
+        }
+      } catch {
+        // Ignore fetch errors for YouTube metadata, we have the thumbnail
+      }
+
+      return metadata;
+    }
+
+    // Special handling for GitHub - use OpenGraph image API
+    const githubRepo = extractGitHubRepo(url);
+    if (githubRepo) {
+      return {
+        image: `https://opengraph.githubassets.com/1/${githubRepo}`,
+        siteName: "GitHub",
+      };
+    }
+
+    // Generic fetch with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; SolanaBot/1.0)",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml",
       },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch URL: ${response.status}`);
@@ -138,43 +227,67 @@ export async function fetchLinkMetadata(url: string): Promise<LinkMetadata> {
     const html = await response.text();
     const metadata: LinkMetadata = {};
 
+    // Helper to extract meta content (handles both property/content orders)
+    const extractMeta = (
+      property: string,
+      attrName: string = "property"
+    ): string | null => {
+      // Try property="..." content="..."
+      let match = html.match(
+        new RegExp(
+          `<meta[^>]*${attrName}=["']${property}["'][^>]*content=["']([^"']+)["']`,
+          "i"
+        )
+      );
+      if (match) return match[1];
+
+      // Try content="..." property="..."
+      match = html.match(
+        new RegExp(
+          `<meta[^>]*content=["']([^"']+)["'][^>]*${attrName}=["']${property}["']`,
+          "i"
+        )
+      );
+      return match ? match[1] : null;
+    };
+
     // Extract Open Graph tags
-    const ogTitleMatch = html.match(
-      /<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i
-    );
-    if (ogTitleMatch) metadata.title = ogTitleMatch[1];
+    metadata.title = extractMeta("og:title");
+    metadata.description = extractMeta("og:description");
+    metadata.image = extractMeta("og:image");
+    metadata.siteName = extractMeta("og:site_name");
+    metadata.type = extractMeta("og:type");
 
-    const ogDescMatch = html.match(
-      /<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i
-    );
-    if (ogDescMatch) metadata.description = ogDescMatch[1];
-
-    const ogImageMatch = html.match(
-      /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i
-    );
-    if (ogImageMatch) metadata.image = ogImageMatch[1];
-
-    const ogSiteNameMatch = html.match(
-      /<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i
-    );
-    if (ogSiteNameMatch) metadata.siteName = ogSiteNameMatch[1];
-
-    const ogTypeMatch = html.match(
-      /<meta[^>]*property=["']og:type["'][^>]*content=["']([^"']+)["']/i
-    );
-    if (ogTypeMatch) metadata.type = ogTypeMatch[1];
+    // Fallback to Twitter Card tags
+    if (!metadata.image) {
+      metadata.image = extractMeta("twitter:image", "name");
+    }
+    if (!metadata.description) {
+      metadata.description = extractMeta("twitter:description", "name");
+    }
 
     // Fallback to standard meta tags if OG tags not found
     if (!metadata.title) {
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      if (titleMatch) metadata.title = titleMatch[1];
+      if (titleMatch) {
+        metadata.title = titleMatch[1]
+          .replace(/&amp;/g, "&")
+          .replace(/&#39;/g, "'");
+      }
     }
 
     if (!metadata.description) {
-      const descMatch = html.match(
-        /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i
-      );
-      if (descMatch) metadata.description = descMatch[1];
+      metadata.description = extractMeta("description", "name");
+    }
+
+    // Decode HTML entities
+    if (metadata.description) {
+      metadata.description = metadata.description
+        .replace(/&amp;/g, "&")
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">");
     }
 
     return metadata;
