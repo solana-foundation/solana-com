@@ -315,11 +315,11 @@ export default function Home({
           <BigVideoCard
             key={item.id}
             id={item.contentDetails.videoId}
-            thumbnail={item.snippet.thumbnails.high.url}
+            thumbnail={item.snippet.thumbnails.maxres.url}
             alt={item.snippet.title}
             className="px-twd-1"
             title={item.snippet.title}
-            description={item.snippet.description}
+            // description={item.snippet.resourceId.kind}
           />
         ))}
       </CardCarouselSection>
@@ -384,6 +384,7 @@ export async function getStaticProps({ params }) {
       // TODO: Add actual playlist ID
       const ytVideos = await getAllPlaylistItems(
         "PLilwLeBwGuK6p3pB-vUQf1TjkX48j0Af-",
+        5,
       );
       videos = ytVideos;
     } catch (error) {

@@ -83,13 +83,14 @@ async function getYoutubePlaylist(
 }
 
 /**
- * Fetches all videos from a playlist, handling pagination automatically
+ * Fetches videos from a playlist, handling pagination automatically
  * @param playlistId - The YouTube playlist ID
- * @param options - Optional configuration
- * @returns Promise with all playlist items
+ * @param limit - Optional limit on the number of videos to fetch. If not provided, fetches all videos.
+ * @returns Promise with playlist items (up to the limit if specified)
  */
 async function getAllPlaylistItems(
   playlistId: string,
+  limit?: number,
 ): Promise<YouTubePlaylistItem[]> {
   let allItems: YouTubePlaylistItem[] = [];
   let nextPageToken: string | undefined = undefined;
@@ -105,25 +106,53 @@ async function getAllPlaylistItems(
       break;
     }
 
+    // Calculate how many items we still need
+    const remainingLimit = limit ? limit - allItems.length : undefined;
+
+    // If we have a limit and we've reached it, stop fetching
+    if (limit !== undefined && allItems.length >= limit) {
+      break;
+    }
+
+    // Adjust the request limit to avoid fetching more than needed
+    const requestLimit = remainingLimit
+      ? Math.min(remainingLimit, 50)
+      : undefined;
+
     const result = await getYoutubePlaylist(playlistId, {
       pageToken: nextPageToken,
+      limit: requestLimit,
     });
 
     allItems.push(...result.items);
     nextPageToken = result.pagination.nextPageToken;
     hasMore = !!nextPageToken;
 
+    // Stop if we've reached the requested limit
+    if (limit !== undefined && allItems.length >= limit) {
+      hasMore = false;
+    }
+
+    // Stop if we've fetched all available items
     if (allItems.length >= result.pagination.totalCount) {
       hasMore = false;
       allItems = allItems.slice(0, result.pagination.totalCount);
     }
   }
 
-  return allItems.filter(
+  // Filter out deleted/private videos and apply limit
+  const filteredItems = allItems.filter(
     (item) =>
       item.snippet?.title !== "Deleted video" &&
       item.snippet?.title !== "Private video",
   );
+
+  // Apply limit after filtering (in case some items were filtered out)
+  if (limit !== undefined) {
+    return filteredItems.slice(0, limit);
+  }
+
+  return filteredItems;
 }
 
 const getAllPlaylistItemsCached = cache(getAllPlaylistItems);
