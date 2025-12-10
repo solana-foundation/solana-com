@@ -56,12 +56,7 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
     <section
       className={cn("relative overflow-hidden text-white text-left", className)}
     >
-      <div
-        className={cn(
-          "py-[64px] md:py-[108px] xl:py-[160px]",
-          wrapperClassName,
-        )}
-      >
+      <div className={cn("py-10", wrapperClassName)}>
         <Container className="mb-twd-8 xl:mb-twd-12 flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
           {(title || subtitle) && (
             // Title and subtitle

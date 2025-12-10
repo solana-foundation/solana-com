@@ -161,7 +161,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
 
   return (
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
-      <div className="py-[48px] md:py-[80px] xl:py-[120px]">
+      <div className="py-10">
         <Container className="flex flex-col justify-between relative">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
             <div className="xl:max-w-[70%] grow-0">
