@@ -289,7 +289,7 @@ export default function Home({
         bgSrc="/src/img/index/projects-bg.webp"
         logos={PROJECTS_LOGOS}
         cta={t("index.projects.cta")}
-        ctaHref="/institutional-payments"
+        ctaHref="/solutions/institutional-payments"
       />
 
       <Decor />
