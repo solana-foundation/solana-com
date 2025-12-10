@@ -1,6 +1,10 @@
 import { TinaMarkdownContent } from "tinacms/dist/rich-text";
 
-export const extractPlainText = (richTextContent: TinaMarkdownContent) => {
+export const extractPlainText = (
+  richTextContent: TinaMarkdownContent | null | undefined
+) => {
+  if (!richTextContent) return "";
+
   const traverse = (node: TinaMarkdownContent & { text?: string }) => {
     if (node.type === "text") {
       return node.text;
