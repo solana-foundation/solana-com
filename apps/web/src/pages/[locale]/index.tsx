@@ -171,7 +171,7 @@ export default function Home({
         animation={false}
       />
 
-      <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
+      <Divider className="pt-4" />
 
       {filteredAndSortedEvents.length > 0 && (
         <>
@@ -206,7 +206,7 @@ export default function Home({
               />
             ))}
           </CardCarouselSection>
-          <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
+          <Divider />
         </>
       )}
 
@@ -253,7 +253,7 @@ export default function Home({
         bgJsonFilePath="/src/img/index/performance-bg.json"
       />
 
-      <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
+      <Divider />
 
       <WhatsUp
         title={t.rich("index.whats-up.title", {
@@ -268,7 +268,7 @@ export default function Home({
         ctaHref="/news"
       />
 
-      <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
+      <Divider />
 
       <Projects
         className="z-1"
@@ -289,7 +289,7 @@ export default function Home({
         bgSrc="/src/img/index/projects-bg.webp"
         logos={PROJECTS_LOGOS}
         cta={t("index.projects.cta")}
-        ctaHref="/solutions/institutional-payments"
+        ctaHref="/solutions/tokenization"
       />
 
       <Decor />
@@ -319,7 +319,7 @@ export default function Home({
         ))}
       </CardCarouselSection>
 
-      <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
+      <Divider />
 
       <CardCarouselSection
         title={t("index.videos.title")}
