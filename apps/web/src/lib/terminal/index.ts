@@ -20,7 +20,7 @@ export default function useTerminal({
     }[]
   >(enabled ? `/api/links/latest?category=${category}` : null, fetcher, {
     revalidateOnFocus: false,
-    refreshInterval: 10000,
+    refreshInterval: 600000, // 10 minutes
   });
 
   return {
