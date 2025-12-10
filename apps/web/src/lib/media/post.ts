@@ -1,4 +1,5 @@
 import { PostItem } from "@/types/media";
+import { MEDIA_APP_URL } from "../../../apps-urls";
 
 export interface FetchLatestPostsParams {
   limit?: number;
@@ -17,8 +18,6 @@ function getBaseUrl(): string {
   // Check if we're in a server environment (getStaticProps, etc.)
   if (typeof window === "undefined") {
     // Server-side: use MEDIA_APP_URL directly
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { MEDIA_APP_URL } = require("../../../apps-urls");
     return MEDIA_APP_URL;
   }
   // Client-side: use relative URL that goes through rewrite
