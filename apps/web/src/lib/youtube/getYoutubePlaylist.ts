@@ -16,7 +16,7 @@ async function getYoutubePlaylist(
   playlistId: string,
   options: GetPlaylistOptions = {},
 ): Promise<YoutubePlaylistData> {
-  const apiKey = process.env.YOUTUBE_DATA_API_KEY;
+  const apiKey = process.env.YOUTUBE_API_KEY;
 
   if (!apiKey) {
     throw new Error(

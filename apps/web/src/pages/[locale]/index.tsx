@@ -383,7 +383,7 @@ export async function getStaticProps({ params }) {
     try {
       // TODO: Add actual playlist ID
       const ytVideos = await getAllPlaylistItems(
-        "PLilwLeBwGuK51Ji870apdb88dnBr1Xqhm",
+        "PLilwLeBwGuK6p3pB-vUQf1TjkX48j0Af-",
       );
       videos = ytVideos;
     } catch (error) {

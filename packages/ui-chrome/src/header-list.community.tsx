@@ -106,7 +106,7 @@ export const HeaderListCommunity = () => {
         className="w-[350px] max-w-full"
         logo={<BreakpointLogo width={158} height={64} />}
         cta={t("nav.community.event.cta")}
-        ctaHref="/learn/what-is-solana"
+        ctaHref="/breakpoint/registration"
         location={t("nav.community.event.location")}
         date={t("nav.community.event.date")}
       />
