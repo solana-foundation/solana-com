@@ -165,13 +165,13 @@ export default function Home({
       />
 
       <Logos
-        className="h-[73px] xl:h-[123px] gap-twd-4 md:gap-twd-6 xl:gap-twd-8 justify-evenly max-w-screen-2xl w-full mx-twd-auto px-twd-5 md:px-twd-8 xl:px-twd-10 py-twd-6 xl:py-twd-11"
+        className="h-[73px] xl:h-[123px] gap-twd-4 md:gap-twd-3 xl:gap-twd-4 justify-evenly max-w-screen-2xl w-full mx-twd-auto px-twd-5 md:px-twd-8 xl:px-twd-10 py-twd-6 xl:py-twd-11 mt-twd-4 md:mt-twd-6 xl:mt-twd-8"
         itemClassName="h-full m-0 !mr-0 flex-shrink-0"
         logos={LOGOS}
         animation={false}
       />
 
-      <Divider />
+      <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
 
       {filteredAndSortedEvents.length > 0 && (
         <>
@@ -206,7 +206,7 @@ export default function Home({
               />
             ))}
           </CardCarouselSection>
-          <Divider />
+          <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
         </>
       )}
 
@@ -253,7 +253,7 @@ export default function Home({
         bgJsonFilePath="/src/img/index/performance-bg.json"
       />
 
-      <Divider />
+      <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
 
       <WhatsUp
         title={t.rich("index.whats-up.title", {
@@ -268,7 +268,7 @@ export default function Home({
         ctaHref="/news"
       />
 
-      <Divider />
+      <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
 
       <Projects
         className="z-1"
@@ -319,7 +319,7 @@ export default function Home({
         ))}
       </CardCarouselSection>
 
-      <Divider />
+      <Divider className="py-twd-4 md:py-twd-6 xl:py-twd-8" />
 
       <CardCarouselSection
         title={t("index.videos.title")}

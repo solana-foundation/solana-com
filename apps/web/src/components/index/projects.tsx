@@ -36,7 +36,7 @@ export const Projects: React.FC<ProjectsProps> = ({
         className,
       )}
     >
-      <Container className="py-[64px] md:py-[108px] xl:py-[160px] flex flex-col justify-between relative">
+      <Container className="py-[48px] md:py-[80px] xl:py-[120px] flex flex-col justify-between relative">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
           <div className="xl:max-w-[70%] grow-0">
             {title && <h2 className="nd-heading-l">{title}</h2>}

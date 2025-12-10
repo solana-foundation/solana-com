@@ -58,7 +58,7 @@ export const Community: React.FC<CommunityProps> = ({
             onError={(error) => console.error("UnicornScene error:", error)}
           />
         )}
-        <Container className="pt-[32px] pb-[12px] md:pt-[40px] md:pb-[20px] xl:py-[128px] flex flex-col justify-between">
+        <Container className="py-[48px] md:py-[80px] xl:py-[120px] flex flex-col justify-between">
           <EarthAnimation className="absolute bottom-0 left-[-20%] md:left-[-10%] xl:left-0 w-[140%] md:w-[120%] xl:w-full" />
           <div className="absolute top-0 left-0 right-0 h-[80%] bg-gradient-to-b from-[#0B0A10] via-[#0B0A10] via-19% to-transparent pointer-events-none" />
           <div className="xl:flex xl:justify-between xl:items-center relative">

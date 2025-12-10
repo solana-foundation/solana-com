@@ -43,7 +43,7 @@ export const Performance: React.FC<PerformanceProps> = ({
           onError={(error) => console.error("UnicornScene error:", error)}
         />
       )}
-      <Container className="py-[64px] md:py-[108px] xl:py-[160px] flex flex-col justify-between relative">
+      <Container className="py-[48px] md:py-[80px] xl:py-[120px] flex flex-col justify-between relative">
         <div className="flex flex-col xl:flex-row gap-[52px] justify-between items-start">
           <div className="xl:max-w-[50%] grow-0">
             {title && <h2 className="nd-heading-l">{title}</h2>}
