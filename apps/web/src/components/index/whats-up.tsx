@@ -315,7 +315,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                 <div className="h-0 mb-[-1px]"></div>
               </div>
               <div className="divide-y divide-nd-border-light border-t xl:border-t-0 border-nd-border-light grow overflow-hidden relative">
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="popLayout" initial={false}>
                   {(firstRender ? firstRenderItems : items)?.map(
                     (item, index) => {
                       if (!isDesktop) {
@@ -364,10 +364,13 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
 
                       if (firstRender) {
                         return (
-                          <div
+                          <a
                             key={item.id}
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className={cn(
-                              "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light",
+                              "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light hover:bg-nd-border-light/10 transition-colors text-white cursor-pointer",
                               {
                                 "animate-stretch-in": isIntersecting,
                               },
@@ -383,20 +386,25 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                             }
                           >
                             {content}
-                          </div>
+                          </a>
                         );
                       }
 
                       return (
-                        <motion.div
+                        <motion.a
                           key={`${item.id}-${activeCategory}`}
-                          layout={true}
-                          initial={{ y: 0 }}
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          initial={{ y: 20, opacity: 0 }}
                           animate={{ y: 0, opacity: 1 }}
-                          exit={{ y: 100, opacity: 0 }}
-                          transition={{ duration: 0.4 }}
+                          exit={{ y: -20, opacity: 0 }}
+                          transition={{
+                            duration: 0.2,
+                            opacity: { duration: 0.1 },
+                          }}
                           className={cn(
-                            "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light",
+                            "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light hover:bg-nd-border-light/10 transition-colors text-white cursor-pointer",
                             {
                               "animate-flash-background": isNewItem && !allNew,
                             },
@@ -408,7 +416,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                           }
                         >
                           {content}
-                        </motion.div>
+                        </motion.a>
                       );
                     },
                   )}

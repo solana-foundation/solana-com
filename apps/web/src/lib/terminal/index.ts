@@ -16,6 +16,7 @@ export default function useTerminal({
       title: string;
       categoryId: string;
       date: string;
+      url: string;
     }[]
   >(enabled ? `/api/links/latest?category=${category}` : null, fetcher, {
     revalidateOnFocus: false,
