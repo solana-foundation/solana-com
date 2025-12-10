@@ -231,6 +231,15 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "**.cloudfront.net",
       },
+      {
+        protocol: "http",
+        hostname: "localhost",
+      },
+      {
+        protocol: "https",
+        hostname: "*.vercel.app",
+        port: "",
+      },
     ],
   },
 

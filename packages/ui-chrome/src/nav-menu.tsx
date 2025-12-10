@@ -47,20 +47,12 @@ function NavigationMenuList({
 
 function NavigationMenuItem({
   className,
-  activeColor,
   ...props
-}: React.ComponentProps<typeof NavigationMenuPrimitive.Item> & {
-  activeColor?: string;
-}) {
+}: React.ComponentProps<typeof NavigationMenuPrimitive.Item>) {
   return (
     <NavigationMenuPrimitive.Item
       data-slot="navigation-menu-item"
       className={cn("relative", className)}
-      style={
-        activeColor
-          ? ({ "--color-active": activeColor } as React.CSSProperties)
-          : undefined
-      }
       {...props}
     />
   );
@@ -83,26 +75,25 @@ function NavigationMenuTrigger({
       className={cn(
         navigationMenuTriggerStyle,
         "group",
-        "flex justify-between items-center w-full xl:w-auto px-3",
-        "text-[#848895] text-base leading-6 font-normal light:text-[#7f8391]",
-        "bg-transparent border-0 rounded-none",
-        "hover:text-white focus:text-white light:hover:text-gray-900 light:focus:text-gray-900",
+        "flex justify-between items-center w-full xl:w-auto py-1 px-4",
+        "text-[rgba(255,255,255,0.64)] text-[16px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)] bg-transparent",
+        "border-0 rounded-full",
+        "hover:text-white focus:text-white hover:bg-[rgba(240,228,255,0.12)] focus:bg-[rgba(240,228,255,0.12)] light:hover:text-black light:focus:text-black light:hover:bg-black/5 light:focus:bg-black/5",
         "relative",
         "transition-colors duration-200",
         "before:transition-all before:duration-300 before:ease-out",
-        "data-[state=open]:text-white light:data-[state=open]:text-gray-900",
-        isActive && "text-white light:!text-gray-900",
-        "data-[state=open]:before:content-[''] data-[state=open]:before:absolute data-[state=open]:before:h-px data-[state=open]:before:left-3 data-[state=open]:before:right-3 data-[state=open]:before:bottom-[-5px] data-[state=open]:before:bg-[var(--color-active)] xl:data-[state=open]:before:block data-[state=open]:before:hidden data-[state=open]:before:opacity-100",
+        "data-[state=open]:text-white data-[state=open]:bg-[rgba(240,228,255,0.12)] light:data-[state=open]:text-black light:data-[state=open]:bg-black/5",
+        isActive && "text-white light:!text-black",
         className,
       )}
       {...props}
     >
       {children}{" "}
       <AngleDown
-        className="relative top-[1px] ml-2 size-4 transition duration-300 group-data-[state=open]:rotate-180"
+        className="relative top-[1px] ml-1 -mr-2 size-5"
         aria-hidden="true"
-        width={16}
-        height={16}
+        width={20}
+        height={20}
         viewBox="0 0 24 24"
       />
     </NavigationMenuPrimitive.Trigger>
@@ -126,7 +117,7 @@ function NavigationMenuContent({
         // "data-[motion=from-end]:slide-in-from-right-52 data-[motion=from-start]:slide-in-from-left-52",
         // "data-[motion=to-end]:slide-out-to-right-52 data-[motion=to-start]:slide-out-to-left-52",
         // Positioning
-        "top-[60px] left-0 w-full xl:absolute xl:w-auto",
+        "top-[45px] left-0 w-full xl:absolute xl:w-auto",
         // Viewport-less mode animations - when NavigationMenu has viewport={false}
         // "group-data-[viewport=false]/navigation-menu:bg-popover group-data-[viewport=false]/navigation-menu:text-popover-foreground",
         // "group-data-[viewport=false]/navigation-menu:data-[state=open]:animate-in group-data-[viewport=false]/navigation-menu:data-[state=closed]:animate-out",
@@ -140,7 +131,7 @@ function NavigationMenuContent({
         align === "center" && "xl:left-1/2 xl:-translate-x-1/2",
         align === "right" && "xl:right-0 xl:left-auto xl:translate-x-0",
         // Visual styling
-        "min-w-[300px] bg-[#111214] p-[25px] rounded-xl text-[#848895] text-base shadow-[0_10px_10px_rgba(0,0,0,0.5)] xl:backdrop-blur-[10px] xl:bg-black/90",
+        "min-w-[300px] bg-[rgba(25,24,27,0.90)] p-2 rounded-xl text-[rgba(255,255,255,0.64)] text-[14px] xl:text-[16px] leading-[1.5] backdrop-blur-[12px]",
         className,
       )}
       {...props}

@@ -51,19 +51,33 @@ export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
   const messages = (await import(`@@/public/locales/${locale}/common.json`))
     .default;
-  const sideEventsBreakpointFeatured = await fetchCalendarEvents(
-    "cal-J8paV20F2tKUEXI",
-    {
-      period: "future",
-    },
-  );
 
-  const sideEventsBreakpointCommunity = await fetchCalendarEvents(
-    "cal-NFEDisEmJoSg0TU",
-    {
-      period: "future",
-    },
-  );
+  let sideEventsBreakpointFeatured = [];
+  let sideEventsBreakpointCommunity = [];
+
+  try {
+    sideEventsBreakpointFeatured = await fetchCalendarEvents(
+      "cal-J8paV20F2tKUEXI",
+      {
+        period: "future",
+      },
+    );
+  } catch (error) {
+    console.warn("Failed to fetch featured side events:", error);
+    // Continue with empty array
+  }
+
+  try {
+    sideEventsBreakpointCommunity = await fetchCalendarEvents(
+      "cal-NFEDisEmJoSg0TU",
+      {
+        period: "future",
+      },
+    );
+  } catch (error) {
+    console.warn("Failed to fetch community side events:", error);
+    // Continue with empty array
+  }
 
   return {
     props: {
