@@ -35,7 +35,7 @@ import Bank from "@@/public/src/img/icons/Bank.inline.svg";
 import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
 import { PostItem } from "@/types/media";
 import { fetchLatestPosts } from "@/lib/media/post";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 const TransactionsStat = dynamic(
   () =>
@@ -89,6 +89,24 @@ export default function Home({
   }, [news, newsFallback]);
 
   const newsToDisplay = newsFallback || news;
+
+  // Filter and sort events: remove events older than 1 week ago, sort ascending (oldest first)
+  const filteredAndSortedEvents = useMemo(() => {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    return events
+      .filter((event) => {
+        if (!event.schedule.from) return false;
+        const eventDate = new Date(event.schedule.from);
+        return eventDate >= oneWeekAgo;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.schedule.from).getTime();
+        const dateB = new Date(b.schedule.from).getTime();
+        return dateA - dateB;
+      });
+  }, [events]);
 
   return (
     <Layout className="bg-nd-bg">
@@ -155,7 +173,7 @@ export default function Home({
 
       <Divider />
 
-      {events.length > 0 && (
+      {filteredAndSortedEvents.length > 0 && (
         <>
           <CardCarouselSection
             title={t.rich("index.events.title", {
@@ -167,7 +185,7 @@ export default function Home({
               ),
             })}
             subtitle={t("index.events.subtitle")}
-            totalItems={events.length}
+            totalItems={filteredAndSortedEvents.length}
             desktopLastPageOffset={2}
             tabletLastPageOffset={2}
             desktop2xlLastPageOffset={3}
@@ -176,7 +194,7 @@ export default function Home({
             cta={t("index.events.cta")}
             ctaHref="/events"
           >
-            {events.map((event) => (
+            {filteredAndSortedEvents.map((event) => (
               <PlaceMediaCard
                 key={event.key}
                 imageSrc={event.img.primary || defaultImg.src}

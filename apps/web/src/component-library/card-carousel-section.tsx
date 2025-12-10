@@ -88,7 +88,6 @@ export const CardCarouselSection: React.FC<CardCarouselSectionProps> = ({
                   <a
                     className="text-inherit"
                     href={ctaHref}
-                    target="_blank"
                     rel="noopener noreferrer"
                   >
                     {cta}
