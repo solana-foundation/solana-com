@@ -147,8 +147,8 @@ export default function Home({
       />
 
       <Logos
-        className="h-[73px] xl:h-[123px] gap-twd-6 xl:gap-twd-12 justify-start max-w-screen-2xl w-full mx-twd-auto px-twd-5 md:px-twd-8 xl:px-twd-10 py-twd-6 xl:py-twd-11"
-        itemClassName="h-full m-0"
+        className="h-[73px] xl:h-[123px] gap-twd-4 md:gap-twd-6 xl:gap-twd-8 justify-evenly max-w-screen-2xl w-full mx-twd-auto px-twd-5 md:px-twd-8 xl:px-twd-10 py-twd-6 xl:py-twd-11"
+        itemClassName="h-full m-0 !mr-0 flex-shrink-0"
         logos={LOGOS}
         animation={false}
       />
