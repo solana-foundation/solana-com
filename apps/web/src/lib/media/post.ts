@@ -1,4 +1,3 @@
-import { NEXT_PUBLIC_MAIN_APP_URL } from "@/constants/apps";
 import { PostItem } from "@/types/media";
 
 export interface FetchLatestPostsParams {
@@ -10,13 +9,31 @@ export interface FetchLatestPostsResponse {
 }
 
 /**
+ * Get the base URL for fetching posts
+ * - Client-side: use relative URL that goes through rewrites
+ * - Server-side (getStaticProps): use MEDIA_APP_URL directly since rewrites don't work during build
+ */
+function getBaseUrl(): string {
+  // Check if we're in a server environment (getStaticProps, etc.)
+  if (typeof window === "undefined") {
+    // Server-side: use MEDIA_APP_URL directly
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { MEDIA_APP_URL } = require("../../../apps-urls");
+    return MEDIA_APP_URL;
+  }
+  // Client-side: use relative URL that goes through rewrite
+  return "";
+}
+
+/**
  * Fetch latest posts from the media app API
  */
 export const fetchLatestPosts = async (
   params: FetchLatestPostsParams = {},
 ): Promise<FetchLatestPostsResponse> => {
   try {
-    let url = `${NEXT_PUBLIC_MAIN_APP_URL}/api/posts/latest`;
+    const baseUrl = getBaseUrl();
+    let url = `${baseUrl}/api/posts/latest`;
 
     if (params.limit) {
       url += `?limit=${params.limit}`;
