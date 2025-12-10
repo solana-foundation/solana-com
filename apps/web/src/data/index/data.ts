@@ -124,9 +124,9 @@ export const GET_STARTED_LINKS = {
     { href: "/events" },
   ],
   user: [
-    { href: "#" },
+    { href: "/learn/what-is-solana" },
     { href: "/wallets" },
-    { href: "#" },
+    { href: "/staking" },
     { href: "https://jobs.solana.com/jobs" },
   ],
 };
