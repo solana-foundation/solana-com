@@ -14,7 +14,7 @@ import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { Button } from "@/app/components/ui/button";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
-import useTerminal from "@/lib/terminal";
+import { useTerminal } from "@/lib/terminal";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
