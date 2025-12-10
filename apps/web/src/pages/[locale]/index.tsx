@@ -110,9 +110,9 @@ export default function Home({
         subtitle={t("index.hero.subtitle")}
         bannerEyebrow={t("index.hero.bannerEyebrow")}
         bannerDescription={t("index.hero.bannerDescription")}
-        bannerImgSrc="/src/img/index/hero-banner.webp"
-        // TODO: Add banner href
-        bannerHref="#"
+        bannerImgSrc="/img/breakpoint.jpg"
+        // rm bannerHref and bannerLabel to hide banner
+        bannerHref="/breakpoint"
         bannerLabel={t("index.hero.bannerLabel")}
         cta={t("index.hero.cta")}
         bgJsonFilePath="/src/img/index/hero-bg.json"
