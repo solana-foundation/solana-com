@@ -45,7 +45,8 @@ export const fetchLatestLinks = async (
     const edges = response.data.linkConnection.edges || [];
     const links: LinkItem[] = edges
       .map((edge) => transformLink(edge as any))
-      .filter((link): link is LinkItem => link !== null);
+      .filter((link): link is LinkItem => link !== null)
+      .reverse(); // Reverse to show newest first (descending order)
 
     return {
       links,
@@ -83,7 +84,8 @@ export const fetchFeaturedLinks = async (
     const edges = response.data.linkConnection.edges || [];
     const links: LinkItem[] = edges
       .map((edge) => transformLink(edge as any))
-      .filter((link): link is LinkItem => link !== null);
+      .filter((link): link is LinkItem => link !== null)
+      .reverse(); // Reverse to show newest first (descending order)
 
     return { links };
   } catch (error) {
@@ -121,7 +123,8 @@ export const fetchLinksByTag = async (
     const edges = response.data.linkConnection.edges || [];
     const links: LinkItem[] = edges
       .map((edge) => transformLink(edge as any))
-      .filter((link): link is LinkItem => link !== null);
+      .filter((link): link is LinkItem => link !== null)
+      .reverse(); // Reverse to show newest first (descending order)
 
     return {
       links,
