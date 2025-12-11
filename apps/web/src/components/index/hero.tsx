@@ -75,6 +75,7 @@ export const Hero: React.FC<HeroProps> = ({
       >
         {bgJsonFilePath && (
           <UnicornScene
+            projectId="hero"
             className="!absolute inset-0 z-0"
             jsonFilePath={bgJsonFilePath}
             width="100%"

@@ -269,11 +269,11 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
       >
         {/* Base SVG (overlay) */}
         <svg
-          id="base"
+          id="earthBase"
           viewBox="0 0 1828 790"
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full block mix-blend-overlay"
+          className="absolute inset-0 w-full h-full block"
           style={{
             maskImage:
               "linear-gradient(to bottom, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 1))",
@@ -282,7 +282,7 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
           <g>
             <path
               ref={basePathRef}
-              id="basePath"
+              id="earthBasePath"
               d={BASE_PATH_D}
               stroke="#ffffff"
               strokeOpacity={1}
@@ -298,11 +298,11 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
         {/* Glow SVG (dots only, on top) */}
         <svg
           ref={glowSvgRef}
-          id="glow"
+          id="earthGlow"
           viewBox="0 0 1828 790"
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full block pointer-events-none mix-blend-overlay"
+          className="absolute inset-0 w-full h-full block pointer-events-none"
           style={{
             maskImage:
               "linear-gradient(to bottom, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 1))",

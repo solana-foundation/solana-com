@@ -45,10 +45,11 @@ export const Community: React.FC<CommunityProps> = ({
   links = [],
 }) => {
   return (
-    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0 px-2 transform-gpu">
+    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0 px-2">
       <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative transform-gpu">
         {bgJsonFilePath && (
           <UnicornScene
+            projectId="community"
             className="!absolute inset-0 z-0"
             jsonFilePath={bgJsonFilePath}
             width="100%"
@@ -79,7 +80,7 @@ export const Community: React.FC<CommunityProps> = ({
           />
         )}
         <Container className="pt-10 pb-[120px] flex flex-col justify-between">
-          <EarthAnimation className="absolute bottom-0 left-[-20%] md:left-[-10%] xl:left-0 w-[140%] md:w-[120%] xl:w-full" />
+          <EarthAnimation className="absolute bottom-0 left-[-20%] md:left-[-10%] xl:left-0 w-[140%] md:w-[120%] xl:w-full mix-blend-overlay" />
           <div className="absolute top-0 left-0 right-0 h-[80%] bg-gradient-to-b from-[#0B0A10] via-[#0B0A10] via-19% to-transparent pointer-events-none" />
           <div className="xl:flex xl:justify-between xl:items-center relative">
             {title && <h2 className="nd-heading-l xl:max-w-[50%]">{title}</h2>}
