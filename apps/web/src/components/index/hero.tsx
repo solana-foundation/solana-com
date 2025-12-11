@@ -29,6 +29,7 @@ export type HeroProps = {
   cta?: string;
   // onCtaClick?: () => void;
   bgJsonFilePath?: string;
+  bgImageSrc?: string;
   getStartedTitle?: string;
   getStartedTabs?: {
     id: string;
@@ -58,6 +59,7 @@ export const Hero: React.FC<HeroProps> = ({
   cta,
   // onCtaClick,
   bgJsonFilePath,
+  bgImageSrc,
   getStartedTitle,
   getStartedTabs,
   getStartedLinks,
@@ -83,6 +85,23 @@ export const Hero: React.FC<HeroProps> = ({
             lazyLoad={true}
             production={true}
             onError={(error) => console.error("UnicornScene error:", error)}
+            placeholder={
+              bgImageSrc ? (
+                <Image
+                  className="!absolute inset-0 z-0"
+                  src={bgImageSrc}
+                  alt="Hero background"
+                  fill
+                  sizes="150vw"
+                  priority
+                  style={{
+                    objectFit: "cover",
+                  }}
+                />
+              ) : undefined
+            }
+            showPlaceholderOnError
+            showPlaceholderWhileLoading
           />
         )}
         <div className="flex min-h-[700px]">

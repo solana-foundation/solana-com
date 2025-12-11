@@ -134,6 +134,7 @@ export default function Home({
         bannerLabel={t("index.hero.bannerLabel")}
         cta={t("index.hero.cta")}
         bgJsonFilePath="/src/img/index/hero-bg.json"
+        bgImageSrc="/src/img/index/hero-bg.webp"
         getStartedTitle={t("index.get-started.title")}
         getStartedTabs={[
           {
@@ -251,6 +252,7 @@ export default function Home({
           },
         ]}
         bgJsonFilePath="/src/img/index/performance-bg.json"
+        bgImageSrc="/src/img/index/performance-bg.webp"
       />
 
       <Divider />
@@ -353,6 +355,7 @@ export default function Home({
         })}
         subtitle={t("index.community.subtitle")}
         bgJsonFilePath="/src/img/index/community-bg.json"
+        bgImageSrc="/src/img/index/projects-bg.webp"
         links={LINKS.map((item, index) => ({
           ...item,
           title: t(`index.community.links.${index}.title`),

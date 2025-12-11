@@ -2,6 +2,7 @@ import React from "react";
 import { Container } from "@/component-library/container";
 import { cn } from "@/app/components/utils";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -24,6 +25,7 @@ export type CommunityProps = {
   title?: React.ReactNode;
   subtitle?: string;
   bgJsonFilePath?: string;
+  bgImageSrc?: string;
   links?: {
     title: string;
     description?: string;
@@ -39,6 +41,7 @@ export const Community: React.FC<CommunityProps> = ({
   title,
   subtitle,
   bgJsonFilePath,
+  bgImageSrc,
   links = [],
 }) => {
   return (
@@ -56,6 +59,23 @@ export const Community: React.FC<CommunityProps> = ({
             lazyLoad={true}
             production={true}
             onError={(error) => console.error("UnicornScene error:", error)}
+            placeholder={
+              bgImageSrc ? (
+                <Image
+                  className="!absolute inset-0 z-0"
+                  src={bgImageSrc}
+                  alt="Hero background"
+                  fill
+                  sizes="150vw"
+                  priority
+                  style={{
+                    objectFit: "cover",
+                  }}
+                />
+              ) : undefined
+            }
+            showPlaceholderOnError
+            showPlaceholderWhileLoading
           />
         )}
         <Container className="pt-10 pb-[120px] flex flex-col justify-between">
