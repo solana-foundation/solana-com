@@ -2,6 +2,10 @@ import client from "@/tina/__generated__/client";
 import { LinkItem } from "./link-types";
 import { transformLink } from "./link-utils";
 import { PageInfo } from "@/tina/__generated__/types";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
 
 export interface LatestLinksParams {
   limit?: number;
@@ -21,8 +25,12 @@ export const fetchLatestLinks = async (
   params: LatestLinksParams
 ): Promise<LatestLinksResponse> => {
   try {
+    // Fetch more items than needed to ensure we get the most recent ones after sorting
+    // Multiply by 2 to have a buffer, but cap at 100 to avoid fetching too many
+    const fetchLimit = Math.min((params.limit ?? 10) * 2, 100);
+
     const response = await client.queries.linkConnection({
-      last: params.limit ?? 10,
+      last: fetchLimit,
       sort: "publishedAt",
       before: params.cursor ?? undefined,
       filter: params.category
@@ -43,10 +51,25 @@ export const fetchLatestLinks = async (
     }
 
     const edges = response.data.linkConnection.edges || [];
-    const links: LinkItem[] = edges
+
+    // Sort edges by publishedAt in descending order (most recent first) before transforming
+    const sortedEdges = [...edges].sort((a, b) => {
+      const dateA = a?.node?.publishedAt;
+      const dateB = b?.node?.publishedAt;
+
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1; // Put items without dates at the end
+      if (!dateB) return -1;
+
+      // Compare UTC dates - most recent first (descending)
+      return dayjs.utc(dateB).valueOf() - dayjs.utc(dateA).valueOf();
+    });
+
+    // Transform and limit to requested number
+    const links: LinkItem[] = sortedEdges
       .map((edge) => transformLink(edge as any))
       .filter((link): link is LinkItem => link !== null)
-      .reverse(); // Reverse to show newest first (descending order)
+      .slice(0, params.limit ?? 10);
 
     return {
       links,
@@ -82,10 +105,25 @@ export const fetchFeaturedLinks = async (
     }
 
     const edges = response.data.linkConnection.edges || [];
-    const links: LinkItem[] = edges
+
+    // Sort edges by publishedAt in descending order (most recent first) before transforming
+    const sortedEdges = [...edges].sort((a, b) => {
+      const dateA = a?.node?.publishedAt;
+      const dateB = b?.node?.publishedAt;
+
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1; // Put items without dates at the end
+      if (!dateB) return -1;
+
+      // Compare UTC dates - most recent first (descending)
+      return dayjs.utc(dateB).valueOf() - dayjs.utc(dateA).valueOf();
+    });
+
+    // Transform and limit to requested number
+    const links: LinkItem[] = sortedEdges
       .map((edge) => transformLink(edge as any))
       .filter((link): link is LinkItem => link !== null)
-      .reverse(); // Reverse to show newest first (descending order)
+      .slice(0, limit);
 
     return { links };
   } catch (error) {
@@ -121,10 +159,25 @@ export const fetchLinksByTag = async (
     }
 
     const edges = response.data.linkConnection.edges || [];
-    const links: LinkItem[] = edges
+
+    // Sort edges by publishedAt in descending order (most recent first) before transforming
+    const sortedEdges = [...edges].sort((a, b) => {
+      const dateA = a?.node?.publishedAt;
+      const dateB = b?.node?.publishedAt;
+
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1; // Put items without dates at the end
+      if (!dateB) return -1;
+
+      // Compare UTC dates - most recent first (descending)
+      return dayjs.utc(dateB).valueOf() - dayjs.utc(dateA).valueOf();
+    });
+
+    // Transform and limit to requested number
+    const links: LinkItem[] = sortedEdges
       .map((edge) => transformLink(edge as any))
       .filter((link): link is LinkItem => link !== null)
-      .reverse(); // Reverse to show newest first (descending order)
+      .slice(0, limit);
 
     return {
       links,

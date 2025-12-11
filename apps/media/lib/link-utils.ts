@@ -1,6 +1,9 @@
 import { LinkItem, LinkMetadata, LinkType } from "./link-types";
-import { format } from "date-fns";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { TinaMarkdownContent } from "tinacms/dist/rich-text";
+
+dayjs.extend(utc);
 
 // Type for the TinaCMS link connection edge
 interface LinkConnectionEdge {
@@ -28,9 +31,10 @@ export function transformLink(linkData: LinkConnectionEdge): LinkItem | null {
   const link = linkData?.node;
   if (!link) return null;
 
-  const date = link.publishedAt ? new Date(link.publishedAt) : null;
-  const formattedDate =
-    date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
+  // Format date in UTC to avoid timezone conversion issues
+  const formattedDate = link.publishedAt
+    ? dayjs.utc(link.publishedAt).format("DD MMM YYYY")
+    : "";
 
   return {
     id: link.id,
