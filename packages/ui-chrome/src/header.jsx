@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "./theme-provider";
 import { useRouter } from "@workspace/i18n/use-router";
+import { twMerge } from "tailwind-merge";
 import { Link } from "./link";
 import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
@@ -11,7 +12,7 @@ import { InkeepSearchBar } from "./inkeep-searchbar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
 import { InkeepChatButton } from "./inkeep-chat-button";
-
+import { useMenuPosition } from "./hooks/useMenuPosition";
 import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/moon.inline.svg";
 import Sun from "./assets/sun.inline.svg";
@@ -21,13 +22,22 @@ function Header({ className = "", containerClassName = "" }) {
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
+  const isHomePage = router.asPath === "/";
+  const isAtTop = useMenuPosition({ 
+    threshold: 10,
+    throttleMs: 300 
+  });
 
   return (
     <>
-      <header className={`sticky top-0 z-50 ${className}`}>
+      <header className={twMerge(`top-0 left-0 right-0 z-50 ${className}`, isHomePage ? "fixed" : "sticky")}>
         <nav
           id="navbar"
-          className={`navbar py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)] bg-[rgb(18_18_18/95%)] light:bg-white/95`}
+          className={twMerge(
+            `navbar max-xl:!pt-[15px] max-xl:!pb-[16px] xl:!pt-[13px] xl:!pb-[14px] transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)]`,
+            isHomePage ? "bg-transparent" : "bg-[rgb(18_18_18/95%)] light:bg-white/95",
+            !isAtTop && "bg-[rgb(18_18_18/95%)] light:bg-white/95"
+          )}
         >
           <div
             className={`w-full max-w-[1440px] px-[20px] xl:px-[14px] mx-auto flex items-center justify-between gap-x-5 xl:gap-x-12 ${containerClassName}`}

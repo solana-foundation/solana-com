@@ -1,4 +1,4 @@
-import Layout from "@/components/solutions/layout";
+import Layout from "@/components/layout";
 import { withLocales } from "@workspace/i18n/routing";
 import { Hero } from "@/components/index/hero";
 import { useTranslations } from "next-intl";
