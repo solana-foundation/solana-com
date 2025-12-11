@@ -273,9 +273,8 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
           viewBox="0 0 1828 790"
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full block"
+          className="absolute inset-0 w-full h-full block mix-blend-overlay"
           style={{
-            mixBlendMode: "overlay",
             maskImage:
               "linear-gradient(to bottom, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 1))",
           }}
@@ -303,9 +302,8 @@ export const EarthAnimation: React.FC<EarthAnimationProps> = ({
           viewBox="0 0 1828 790"
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full block pointer-events-none"
+          className="absolute inset-0 w-full h-full block pointer-events-none mix-blend-overlay"
           style={{
-            mixBlendMode: "overlay",
             maskImage:
               "linear-gradient(to bottom, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 1))",
           }}

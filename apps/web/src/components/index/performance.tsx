@@ -16,6 +16,7 @@ export type PerformanceProps = {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   bgJsonFilePath?: string;
+  bgImageSrc?: string;
   stats?: StatsGridItem[];
   counters?: StatsGridItem[];
 };
@@ -24,6 +25,7 @@ export const Performance: React.FC<PerformanceProps> = ({
   title,
   subtitle,
   bgJsonFilePath,
+  bgImageSrc,
   stats,
   counters,
 }) => {
@@ -41,6 +43,23 @@ export const Performance: React.FC<PerformanceProps> = ({
           lazyLoad={true}
           production={true}
           onError={(error) => console.error("UnicornScene error:", error)}
+          placeholder={
+            bgImageSrc ? (
+              <Image
+                className="!absolute inset-0 z-0"
+                src={bgImageSrc}
+                alt="Hero background"
+                fill
+                sizes="150vw"
+                priority
+                style={{
+                  objectFit: "cover",
+                }}
+              />
+            ) : undefined
+          }
+          showPlaceholderOnError
+          showPlaceholderWhileLoading
         />
       )}
       <Container className="py-10 flex flex-col justify-between relative">
