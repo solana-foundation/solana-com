@@ -113,7 +113,7 @@ export default function Home({
       <HTMLHead
         title={t("index.meta.title")}
         description={t("index.meta.description")}
-        socialShare="/src/img/index/og-image.jpeg"
+        socialShare="/src/img/index/og-image.webp"
       />
 
       <Hero

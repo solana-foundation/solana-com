@@ -31,14 +31,14 @@ export const TransactionsStat: React.FC<TransactionsStatProps> = ({
 
   if (variant === "per-sec") {
     return (
-      <span ref={statsRef}>
+      <span className="tabular-nums" ref={statsRef}>
         {availableStats ? <FormattedNumber value={avgTps} /> : <Loader />}
       </span>
     );
   }
 
   return (
-    <span ref={statsRef}>
+    <span className="tabular-nums" ref={statsRef}>
       {availableStats ? (
         <AnimatedTransactionCountup
           info={{ avgTPS: avgTps, totalTransactionCount }}
