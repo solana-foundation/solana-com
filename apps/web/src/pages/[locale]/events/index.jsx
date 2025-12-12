@@ -97,6 +97,14 @@ export async function getStaticProps({ params }) {
     period: "future",
   });
 
+  // Breakpoint 2026 calendar (https://luma.com/bp26)
+  const bp26Events = await fetchCalendarEvents("cal-vSUPHVSJHqgysCR", {
+    period: "future",
+  });
+
+  // Merge Breakpoint 2026 events with main events
+  mainEvents = [...mainEvents, ...bp26Events];
+
   // Solanamerica calendar
   let usEvents = await fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
     period: "future",
