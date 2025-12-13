@@ -4,7 +4,7 @@ import { cn } from "@/app/components/utils";
 import MagicBrush from "@@/public/src/img/icons/MagicBrush.inline.svg";
 import Statistics from "@@/public/src/img/icons/Statistics.inline.svg";
 import Tasks from "@@/public/src/img/icons/Tasks.inline.svg";
-import Todos from "@@/public/src/img/icons/Todos.inline.svg";
+import Bezier from "@@/public/src/img/icons/Bezier.inline.svg";
 import FileText from "@@/public/src/img/icons/FileText.inline.svg";
 import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
 import ChevronLeft from "@@/public/src/img/icons/ChevronLeft.inline.svg";
@@ -66,10 +66,10 @@ export const CATEGORIES: Record<
     color: "text-nd-highlight-orange",
     bg: "#F48252",
   },
-  finance: {
-    id: "finance",
-    name: "Finance",
-    Icon: Todos,
+  ecosystem: {
+    id: "ecosystem",
+    name: "Ecosystem",
+    Icon: Bezier,
     color: "text-nd-highlight-gold",
     bg: "#FFC526",
   },
