@@ -386,7 +386,11 @@ export async function getStaticProps({ params }) {
       const featuredEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
         period: "future",
       });
-      events = [...events, ...featuredEvents];
+      // Breakpoint 2026 calendar (https://luma.com/bp26)
+      const bp26Events = await fetchCalendarEvents("cal-vSUPHVSJHqgysCR", {
+        period: "future",
+      });
+      events = [...events, ...featuredEvents, ...bp26Events];
       // Sort events by date
       events.sort(
         (a, b) =>
