@@ -12,25 +12,17 @@ export default async function CategoryPostsPage({
 }) {
   const { category: categoryParam } = await params;
 
-  let categoryName: string | null = null;
-  let latestPosts: LatestPostsResponse | null = null;
-
-  try {
-    const { category } = await fetchCategoryByPath(categoryParam);
-    categoryName = category?.name || null;
-  } catch (error) {
-    return notFound();
-  }
+  const { category } = await fetchCategoryByPath(categoryParam);
+  const categoryName: string | null = category?.name || null;
 
   if (!categoryName) {
     return notFound();
   }
 
-  try {
-    latestPosts = await fetchLatestPosts({ limit: 13, category: categoryName });
-  } catch (error) {
-    return notFound();
-  }
+  const latestPosts: LatestPostsResponse = await fetchLatestPosts({
+    limit: 13,
+    category: categoryName,
+  });
 
   return (
     <CategoryPostsClientPage

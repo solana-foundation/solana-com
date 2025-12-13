@@ -12,6 +12,13 @@ import LoadMoreStatus from "@/components/ui/load-more-status";
 import uniqBy from "lodash/uniqBy";
 import { fetchLatestPosts } from "@/lib/post-data";
 
+const DEFAULT_PAGE_INFO: PageInfo = {
+  hasPreviousPage: false,
+  hasNextPage: false,
+  startCursor: null,
+  endCursor: null,
+};
+
 interface CategoryPostsClientPageProps {
   category: string;
   latestPosts: PostItem[];
@@ -25,25 +32,20 @@ export default function CategoryPostsClientPage(
   const [posts, setPosts] = useState<(PostItem | null)[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageInfo, setPageInfo] = useState<PageInfo>(
-    props.initialPageInfo ?? {
-      hasPreviousPage: false,
-      hasNextPage: false,
-      startCursor: null,
-      endCursor: null,
-    }
+    props.initialPageInfo ?? DEFAULT_PAGE_INFO
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
   // Load more posts
   const handleLoadMore = useCallback(async () => {
-    if (!pageInfo.hasPreviousPage || isLoadingMore) return;
+    if (!pageInfo?.hasPreviousPage || isLoadingMore) return;
 
     setIsLoadingMore(true);
 
     try {
       const response = await fetchLatestPosts({
         limit: 13,
-        cursor: currentCursor || pageInfo.startCursor || undefined,
+        cursor: currentCursor || pageInfo?.startCursor || undefined,
         category: category,
       });
 
@@ -61,15 +63,15 @@ export default function CategoryPostsClientPage(
       }
 
       // Always update pageInfo to track pagination state
-      setPageInfo(response.pageInfo);
+      setPageInfo(response.pageInfo ?? DEFAULT_PAGE_INFO);
     } catch (error) {
       console.error("Failed to load more posts:", error);
     } finally {
       setIsLoadingMore(false);
     }
   }, [
-    pageInfo.hasPreviousPage,
-    pageInfo.startCursor,
+    pageInfo?.hasPreviousPage,
+    pageInfo?.startCursor,
     isLoadingMore,
     currentCursor,
     category,
@@ -125,7 +127,7 @@ export default function CategoryPostsClientPage(
             {/* Load More */}
             <LoadMoreStatus
               isLoading={isLoadingMore}
-              hasMore={pageInfo.hasPreviousPage}
+              hasMore={pageInfo?.hasPreviousPage}
               onLoadMore={handleLoadMore}
               loadingText="Loading more posts..."
               noMoreText="No more posts to load"

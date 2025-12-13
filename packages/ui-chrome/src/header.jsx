@@ -22,7 +22,7 @@ function Header({ className = "", containerClassName = "" }) {
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
-  const isHomePage = router.asPath === "/";
+  const isHomePage = router.asPath === "/" || router.pathname === "/[locale]";
   const isAtTop = useMenuPosition({ 
     threshold: 10,
     throttleMs: 300 
