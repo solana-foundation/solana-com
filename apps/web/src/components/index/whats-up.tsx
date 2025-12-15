@@ -4,15 +4,18 @@ import { cn } from "@/app/components/utils";
 import MagicBrush from "@@/public/src/img/icons/MagicBrush.inline.svg";
 import Statistics from "@@/public/src/img/icons/Statistics.inline.svg";
 import Tasks from "@@/public/src/img/icons/Tasks.inline.svg";
-import Todos from "@@/public/src/img/icons/Todos.inline.svg";
+import Bezier from "@@/public/src/img/icons/Bezier.inline.svg";
 import FileText from "@@/public/src/img/icons/FileText.inline.svg";
 import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
 import ChevronLeft from "@@/public/src/img/icons/ChevronLeft.inline.svg";
 import ChevronRight from "@@/public/src/img/icons/ChevronRight.inline.svg";
 import SolanaMono from "@@/public/src/img/icons/SolanaMono.inline.svg";
 import { useTranslations } from "next-intl";
-import { format } from "date-fns";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { Button } from "@/app/components/ui/button";
+
+dayjs.extend(utc);
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { useTerminal } from "@/lib/terminal";
 import { motion, AnimatePresence } from "framer-motion";
@@ -63,10 +66,10 @@ export const CATEGORIES: Record<
     color: "text-nd-highlight-orange",
     bg: "#F48252",
   },
-  finance: {
-    id: "finance",
-    name: "Finance",
-    Icon: Todos,
+  ecosystem: {
+    id: "ecosystem",
+    name: "Ecosystem",
+    Icon: Bezier,
     color: "text-nd-highlight-gold",
     bg: "#FFC526",
   },
@@ -143,6 +146,8 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
     if (!items || items.length === 0) {
       prevItemsRef.current = items || [];
       setNewItemIds([]);
+      // Reset to page 1 if no items
+      setPage(1);
       return;
     }
 
@@ -155,7 +160,13 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
     setNewItemIds(newIds);
 
     prevItemsRef.current = items;
-  }, [items]);
+
+    // Reset to page 1 if current page doesn't have enough items
+    // (e.g., if we're on page 2 but only have 5 or fewer items)
+    if (page === 2 && items.length <= 5) {
+      setPage(1);
+    }
+  }, [items, page]);
 
   const isDesktop = useMediaQuery("(min-width: 1280px)");
 
@@ -356,7 +367,9 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                           <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[160px]">
                             <span className="font-brand-mono font-medium text-nd-mid-em-text text-[14px] leading-[1.42] uppercase">
                               {item.date &&
-                                format(new Date(item.date), "MMM d yyyy")}
+                                dayjs
+                                  .utc(item.date, "DD MMM YYYY")
+                                  .format("MMM D YYYY")}
                             </span>
                           </div>
                         </>

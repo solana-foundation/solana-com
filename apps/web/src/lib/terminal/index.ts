@@ -49,8 +49,12 @@ export function useTerminal({
   enabled = true,
   category,
 }: UseTerminalOptions = {}): UseTerminalReturn {
-  const key =
-    enabled && category ? `/api/links/latest?category=${category}` : null;
+  // Request at least 10 items to support mobile pagination (2 pages of 5 items each)
+  const key = enabled
+    ? category && category !== "all"
+      ? `/api/links/latest?category=${category}&limit=10`
+      : `/api/links/latest?limit=10`
+    : null;
 
   const { data, isLoading, isValidating, error } = useSWR<TerminalItem[]>(
     key,

@@ -24,7 +24,7 @@ const CATEGORY_NAME_TO_ID: Record<string, string> = {
   Institutions: "institutions",
   Consumer: "consumer",
   Developers: "developers",
-  Finance: "finance",
+  Ecosystem: "ecosystem",
   Community: "community",
   Upgrades: "upgrades",
 };
