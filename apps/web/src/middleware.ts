@@ -10,7 +10,12 @@ export default async function middleware(req: NextRequest) {
   // These paths are handled by their respective app's middleware
   if (
     req.nextUrl.pathname.startsWith("/breakpoint") ||
+    req.nextUrl.pathname === "/developers" ||
     req.nextUrl.pathname.startsWith("/developers/templates") ||
+    req.nextUrl.pathname.startsWith("/developers/cookbook") ||
+    req.nextUrl.pathname.startsWith("/developers/guides") ||
+    req.nextUrl.pathname.startsWith("/docs") ||
+    req.nextUrl.pathname.startsWith("/learn") ||
     req.nextUrl.pathname.startsWith("/news") ||
     req.nextUrl.pathname.startsWith("/podcasts") ||
     req.nextUrl.pathname.startsWith("/media-assets")
@@ -62,7 +67,7 @@ export const config = {
   // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
-    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|media-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|breakpoint|docs|learn|news|podcasts|media-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };
