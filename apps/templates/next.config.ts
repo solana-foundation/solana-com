@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
     basePath: "/developers/templates",
   }),
 
+  env: {
+    NEXT_PUBLIC_APP_NAME: "templates",
+  },
+
   webpack(config) {
     // Handle inline SVGs
     config.module.rules.push({

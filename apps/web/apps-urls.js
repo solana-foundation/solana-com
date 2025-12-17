@@ -13,16 +13,16 @@ export const MEDIA_APP_URL =
     ? vercelMediaUrl
     : developmentMediaUrl);
 
-// Main app URLs
-const vercelMainUrl = withRelatedProject({
-  projectName: "solana-com",
-  defaultHost: "https://solana.com",
+// Docs app URLs
+const vercelDocsUrl = withRelatedProject({
+  projectName: "solana-com-docs",
+  defaultHost: "https://solana-com-docs.vercel.app",
 });
-const developmentMainUrl = "http://localhost:3000";
+const developmentDocsUrl = "http://localhost:3003";
 
-export const MAIN_APP_URL =
-  process.env.NEXT_PUBLIC_MAIN_SITE_URL ||
-  (process.env.NODE_ENV === "production" ? vercelMainUrl : developmentMainUrl);
+export const DOCS_APP_URL =
+  process.env.NEXT_PUBLIC_DOCS_APP_URL ||
+  (process.env.NODE_ENV === "production" ? vercelDocsUrl : developmentDocsUrl);
 
 console.log("MEDIA_APP_URL", MEDIA_APP_URL);
-console.log("MAIN_APP_URL", MAIN_APP_URL);
+console.log("DOCS_APP_URL", DOCS_APP_URL);

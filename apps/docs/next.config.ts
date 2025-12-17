@@ -35,6 +35,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
+  assetPrefix: "/docs-assets",
+
+  env: {
+    NEXT_PUBLIC_APP_NAME: "docs",
+  },
 
   webpack(config) {
     config.module.rules.push({
@@ -150,6 +155,17 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
     ];
+  },
+
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/docs-assets/_next/:path+",
+          destination: "/_next/:path+",
+        },
+      ],
+    };
   },
 
   experimental: {

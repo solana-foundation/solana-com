@@ -9,7 +9,7 @@ The Solana website uses a **multi-app monorepo architecture**:
 - **apps/web** - Main website (solana.com) deployed to Vercel
 - **apps/media** - Media/news app deployed separately to `solana-com-media.vercel.app`
 
-When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrites proxy the requests to the media app's Vercel deployment.
+When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrites proxy the requests to the media app's Vercel deployment. Users always access the site through `solana.com`.
 
 ## Local Development
 
@@ -22,7 +22,7 @@ When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrite
    pnpm --filter @solana-com/web dev
    ```
 
-2. **Terminal 2 - Media App (Port 3001):**
+2. **Terminal 2 - Media App (Port 3002):**
 
    ```bash
    cd ~/solana-com
@@ -31,8 +31,8 @@ When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrite
 
 3. **Access the apps:**
    - Main site: http://localhost:3000
-   - Media app direct: http://localhost:3001/news or http://localhost:3001/podcasts
-   - Media via web proxy: http://localhost:3000/news or http://localhost:3000/podcasts (proxies to 3001)
+   - Media app direct: http://localhost:3002/news or http://localhost:3002/podcasts
+   - Media via web proxy: http://localhost:3000/news or http://localhost:3000/podcasts (proxies to 3002)
 
 ## Vercel Deployment Setup
 
@@ -73,50 +73,10 @@ When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrite
    # Or use local mode
    TINA_PUBLIC_IS_LOCAL=true
 
-   # Cross-app navigation (REQUIRED for production)
-   NEXT_PUBLIC_MAIN_SITE_URL=https://solana.com
-
    # Vercel (auto-set)
    VERCEL_ENV=production
    VERCEL_URL=solana-com-media.vercel.app
    ```
-
-## Environment Variables
-
-### Required for Production
-
-#### `NEXT_PUBLIC_MAIN_SITE_URL`
-
-**This environment variable is REQUIRED for production deployments.**
-
-This must be set to the main Solana.com site URL to ensure header and footer navigation links correctly route to the main site for non-media routes (like `/developers`, `/docs`, `/learn`, etc.).
-
-**Why it's needed:**
-
-The media app uses the shared `@solana-com/ui-chrome` package for header and footer components. These components include navigation links to various sections of solana.com. When deployed separately, the media app needs to know where to point these links.
-
-Without this variable:
-
-- Links to `/developers`, `/docs`, `/learn`, etc. will try to route within the media app
-- These routes don't exist in the media app, resulting in 404 errors
-
-**Configuration by environment:**
-
-- **Production:** `https://solana.com`
-- **Preview/Staging:** Your main site preview URL (e.g., `https://solana-com-git-preview.vercel.app`)
-- **Local Development:** `http://localhost:3000` (if web app runs on port 3000)
-
-**How it works:**
-
-The `url-config.ts` helper in `@solana-com/ui-chrome` checks this variable:
-
-- If set: All relative links in header/footer are prefixed with this URL (except `/news` and `/podcasts`)
-- If not set: Links use Next.js routing (appropriate for main site deployment)
-
-This allows the same header/footer components to work correctly in both:
-
-1. The main site (where all routes exist)
-2. The media app (where only `/news` and `/podcasts` exist)
 
 ### Deploying Updates
 
@@ -150,7 +110,7 @@ vercel --prod
 ```
 solana.com/news
   ↓ (Next.js rewrite)
-http://localhost:3001/news
+http://localhost:3002/news
 ```
 
 ### Production
@@ -208,6 +168,17 @@ This ensures Vercel:
 2. Installs all dependencies
 3. Builds only the media app using Turbo's filtering
 4. Outputs to the standard Next.js `.next` directory
+
+## Header Navigation
+
+The shared header (`@solana-com/ui-chrome`) uses `NEXT_PUBLIC_APP_NAME` to
+determine link behavior. For the media app:
+
+- Links to `/news/*` and `/podcasts/*` use Next.js Link (client navigation)
+- Links to other routes use `<a>` tags (full page load back through the proxy)
+
+Since all apps are behind `solana.com` via rewrites, links stay as relative
+paths—no URL rewriting needed.
 
 ## Troubleshooting
 
@@ -267,4 +238,5 @@ If you want a custom domain:
 - `apps/web/rewrites-redirects.mjs` - Rewrite configuration
 - `apps/media/vercel.json` - Vercel project configuration
 - `apps/media/package.json` - Build scripts and dependencies
+- `packages/ui-chrome/src/url-config.ts` - Header link routing logic
 - `turbo.json` - Monorepo task configuration

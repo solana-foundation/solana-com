@@ -1,53 +1,69 @@
 /**
- * URL configuration helper for handling links across different deployments.
+ * URL configuration helper for handling links across different apps.
  *
- * When the shared header is used on a subdomain (e.g., templates.solana.com),
- * internal links need to point back to the main site (solana.com).
+ * All apps are served behind solana.com via rewrites (proxy-only mode).
+ * This module decides whether to use Next.js Link (client navigation)
+ * or regular <a> tag (full page load) for cross-app navigation.
  *
- * Usage:
- * - Main site: Don't set NEXT_PUBLIC_MAIN_SITE_URL
- * - Templates subdomain: Set NEXT_PUBLIC_MAIN_SITE_URL=https://solana.com
+ * Configuration: Set NEXT_PUBLIC_APP_NAME in each non-web app's next.config.ts
  */
+
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME;
 
 /**
- * Resolves a href based on the deployment environment.
- * Simple logic: if NEXT_PUBLIC_MAIN_SITE_URL is set and href is relative, prepend it.
- * Otherwise, return href as-is.
+ * Regex patterns for routes internal to each app.
+ * Routes matching these patterns will use Next.js Link for client-side navigation.
+ * Routes not matching will use <a> tags for full page load.
  */
-export function resolveHref(href: string): string {
-  const mainSiteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL;
+const APP_INTERNAL_ROUTES: Record<string, RegExp> = {
+  // docs app handles: /docs/*, /learn/*, /developers, /developers/cookbook/*, /developers/guides/*
+  docs: /^\/(?:docs|learn)(?:\/|$)|^\/developers(?:$|\/(?:cookbook|guides)(?:\/|$))/,
+  media: /^\/(?:news|podcasts)(?:\/|$)/,
+  templates: /^\/[^/]+$/,
+};
 
-  // If no main site URL configured or it's an empty string, return original href
-  if (!mainSiteUrl || mainSiteUrl.trim() === "") {
-    return href;
-  }
+const INTERNAL_PATTERN = APP_NAME ? APP_INTERNAL_ROUTES[APP_NAME] : null;
 
-  // If href is relative (starts with /), prepend main site URL
-  if (href && typeof href === "string" && href.startsWith("/")) {
-    return `${mainSiteUrl.replace(/\/$/, "")}${href}`;
-  }
+/**
+ * Checks if a href is a relative path (starts with / but not //).
+ */
+function isRelativePath(href: string): boolean {
+  return (
+    typeof href === "string" && href.startsWith("/") && !href.startsWith("//")
+  );
+}
 
-  // Otherwise return as-is
-  return href;
+/**
+ * Checks if a route is internal to the current app.
+ */
+function isInternalRoute(href: string): boolean {
+  return INTERNAL_PATTERN ? INTERNAL_PATTERN.test(href) : false;
+}
+
+/**
+ * Checks if a route is handled by any non-web app.
+ */
+function isHandledByOtherApp(href: string): boolean {
+  return Object.values(APP_INTERNAL_ROUTES).some((pattern) =>
+    pattern.test(href),
+  );
 }
 
 /**
  * Checks if a URL should use Next.js Link component or a regular anchor tag.
- * Simple logic: if NEXT_PUBLIC_MAIN_SITE_URL is set, always use <a>, otherwise use Link for relative URLs.
+ * - On web app: use Link for routes NOT handled by other apps
+ * - On other apps: use Link only for internal routes
  */
 export function shouldUseNextLink(href: string): boolean {
-  const mainSiteUrl = process.env.NEXT_PUBLIC_MAIN_SITE_URL;
-
-  // If main site URL is set and not empty, always use <a> tag
-  if (mainSiteUrl && mainSiteUrl.trim() !== "") {
+  if (!isRelativePath(href)) {
     return false;
   }
 
-  // Otherwise, use Link for relative URLs
-  return !!(
-    href &&
-    typeof href === "string" &&
-    href.startsWith("/") &&
-    !href.startsWith("//")
-  );
+  // On web app (no APP_NAME): use Link for routes not handled by other apps
+  if (!APP_NAME) {
+    return !isHandledByOtherApp(href);
+  }
+
+  // On non-web apps: use Link only for internal routes
+  return isInternalRoute(href);
 }
