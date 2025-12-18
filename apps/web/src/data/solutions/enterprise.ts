@@ -12,10 +12,6 @@ export const SOLUTION_LINKS = [
     key: "2",
     href: "/solutions/institutional-payments",
   },
-  {
-    key: "3",
-    href: "/docs/tokens/extensions",
-  },
 ];
 
 // Technical guides for developers
@@ -31,14 +27,6 @@ export const TECHNICAL_GUIDES = [
   {
     key: "exchange",
     href: "/developers/guides/advanced/exchange",
-  },
-  {
-    key: "durable-nonces",
-    href: "/developers/guides/advanced/introduction-to-durable-nonces",
-  },
-  {
-    key: "confirmation",
-    href: "/developers/guides/advanced/confirmation",
   },
 ];
 
@@ -63,14 +51,14 @@ export const FAQ_ITEMS = [
 // Resource links
 export const RESOURCES = [
   {
-    key: "spl",
-    href: "https://www.solana-program.com/docs",
-    external: true,
-  },
-  {
     key: "docs",
     href: "/docs",
     external: false,
+  },
+  {
+    key: "spl",
+    href: "https://www.solana-program.com/docs",
+    external: true,
   },
   {
     key: "token-extensions",
