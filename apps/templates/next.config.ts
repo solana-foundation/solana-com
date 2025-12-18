@@ -1,6 +1,7 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 
+// trigger preview build
 const basePath =
   process.env.NEXT_PUBLIC_USE_BASE_PATH === "true"
     ? "/developers/templates"
