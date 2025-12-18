@@ -95,7 +95,7 @@ export default {
       // everything underneath
       {
         source: "/developers/templates/:path*",
-        destination: `${templatesUrl}/developers/templates/:path*`,
+        destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
         locale: false,
       },
     ],
