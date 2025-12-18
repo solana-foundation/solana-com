@@ -16,7 +16,11 @@ import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/moon.inline.svg";
 import Sun from "./assets/sun.inline.svg";
 
-function Header({ className = "", containerClassName = "" }) {
+function Header({
+  className = "",
+  containerClassName = "",
+  showLanguage = true,
+}) {
   const router = useRouter();
   const { theme, toggleTheme, isThemePage } = useTheme();
   const t = useTranslations();
@@ -57,9 +61,11 @@ function Header({ className = "", containerClassName = "" }) {
               <div className="flex gap-5 items-center">
                 <InkeepSearchBar className="hidden md:block" />
                 <InkeepChatButton variant="inline" className="md:hidden" />
-                <div className="relative items-center hidden xl:flex">
-                  <LanguageSelector />
-                </div>
+                {showLanguage && (
+                  <div className="relative items-center hidden xl:flex">
+                    <LanguageSelector />
+                  </div>
+                )}
               </div>
 
               {/* Mobile Menu */}

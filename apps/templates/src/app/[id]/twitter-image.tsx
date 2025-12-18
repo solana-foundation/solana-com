@@ -3,8 +3,8 @@ import { ImageResponse } from "@vercel/og";
 export const runtime = "edge";
 export const alt = "Solana Template";
 export const size = {
-  width: 1200,
-  height: 630,
+  width: 800,
+  height: 418,
 };
 export const contentType = "image/png";
 
@@ -15,58 +15,47 @@ export default async function Image({
 }) {
   const { id } = await params;
 
-  // Parse the template name to create a display-friendly version
   const formatTemplateName = (name: string) => {
-    // Remove source prefix if it exists
     let cleanName = name;
     if (name.startsWith("solana-")) {
       cleanName = name.replace("solana-", "");
     }
-
-    // Split by hyphen and format each part
     const parts = cleanName.split("-");
-    const formattedParts = parts.map((part) => {
-      // Special cases for common tech terms
-      const techTerms: Record<string, string> = {
-        ui: "UI",
-        api: "API",
-        sdk: "SDK",
-        nft: "NFT",
-        defi: "DeFi",
-        dao: "DAO",
-        cli: "CLI",
-        nextjs: "Next.js",
-        next: "Next.js",
-        tailwind: "Tailwind",
-        typescript: "TypeScript",
-        javascript: "JavaScript",
-        react: "React",
-        vite: "Vite",
-        expo: "Expo",
-        nodejs: "Node.js",
-        node: "Node",
-        express: "Express",
-        web3js: "Web3.js",
-        gill: "Gill",
-        mobile: "Mobile",
-        dapp: "dApp",
-        spl: "SPL",
-      };
-
-      return techTerms[part.toLowerCase()] || part;
-    });
-
+    const techTerms: Record<string, string> = {
+      ui: "UI",
+      api: "API",
+      sdk: "SDK",
+      nft: "NFT",
+      defi: "DeFi",
+      dao: "DAO",
+      cli: "CLI",
+      nextjs: "Next.js",
+      next: "Next.js",
+      tailwind: "Tailwind",
+      typescript: "TypeScript",
+      javascript: "JavaScript",
+      react: "React",
+      vite: "Vite",
+      expo: "Expo",
+      nodejs: "Node.js",
+      node: "Node",
+      express: "Express",
+      web3js: "Web3.js",
+      gill: "Gill",
+      mobile: "Mobile",
+      dapp: "dApp",
+      spl: "SPL",
+    };
+    const formattedParts = parts.map(
+      (part) => techTerms[part.toLowerCase()] || part,
+    );
     return formattedParts.join("-");
   };
 
-  // Generate a description based on the name
   const generateDescription = (name: string) => {
     const parts = name.toLowerCase().split("-");
-
     const tech = [];
     let type = "template";
-
-    // Identify technologies
     if (parts.includes("next") || parts.includes("nextjs"))
       tech.push("Next.js");
     if (parts.includes("react")) tech.push("React");
@@ -79,30 +68,20 @@ export default async function Image({
       tech.push("Node.js");
     if (parts.includes("web3js")) tech.push("Web3.js");
     if (parts.includes("gill")) tech.push("Gill (based on @solana/kit)");
-
-    // Identify template type
     if (parts.includes("mobile")) type = "mobile template";
     if (parts.includes("basic")) type = "starter template";
     if (parts.includes("counter")) type = "counter app template";
     if (parts.includes("wallet")) type = "wallet integration template";
-
-    // Build description
     if (tech.length > 0) {
       return `${tech.join(", ")} ${type} with Wallet UI integration`;
     }
-
     return `Solana development ${type}`;
   };
 
-  // Generate keywords based on the name
   const generateKeywords = (name: string) => {
     const parts = name.toLowerCase().split("-");
     const keywords = new Set<string>();
-
-    // Add base keywords
     keywords.add("solana");
-
-    // Map parts to keywords
     const keywordMap: Record<string, string[]> = {
       next: ["nextjs", "react"],
       nextjs: ["nextjs", "react"],
@@ -122,7 +101,6 @@ export default async function Image({
       basic: ["starter", "template"],
       counter: ["dapp", "example"],
     };
-
     parts.forEach((part) => {
       if (keywordMap[part]) {
         keywordMap[part].forEach((k) => keywords.add(k));
@@ -130,7 +108,6 @@ export default async function Image({
         keywords.add(part);
       }
     });
-
     return Array.from(keywords);
   };
 
@@ -150,10 +127,9 @@ export default async function Image({
           alignItems: "center",
           justifyContent: "center",
           position: "relative",
-          padding: "60px",
+          padding: "40px",
         }}
       >
-        {/* Subtle gradient overlays for depth */}
         <div
           style={{
             position: "absolute",
@@ -163,30 +139,28 @@ export default async function Image({
           }}
         />
 
-        {/* Main content container */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: "40px",
-            maxWidth: "1000px",
+            gap: "24px",
+            maxWidth: "720px",
             width: "100%",
             textAlign: "center",
           }}
         >
-          {/* Template name with gradient */}
           <h1
             style={{
-              fontSize: "72px",
+              fontSize: "56px",
               fontWeight: "700",
               fontFamily:
                 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               letterSpacing: "-0.03em",
               lineHeight: 1,
               margin: 0,
-              padding: "20px 0",
+              padding: "12px 0",
               backgroundImage:
                 "linear-gradient(135deg, #9945FF 0%, #14F195 100%)",
               backgroundClip: "text",
@@ -198,50 +172,39 @@ export default async function Image({
             {displayName}
           </h1>
 
-          {/* Description */}
           <p
             style={{
-              fontSize: "28px",
-              fontWeight: "400",
-              fontFamily:
-                'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              color: "rgba(255, 255, 255, 0.9)",
-              lineHeight: 1.4,
+              fontSize: "22px",
+              color: "#e2e8f0",
               margin: 0,
-              maxWidth: "800px",
-              letterSpacing: "-0.01em",
+              maxWidth: "680px",
+              lineHeight: 1.4,
             }}
           >
             {description}
           </p>
 
-          {/* Keywords */}
           <div
             style={{
               display: "flex",
               flexWrap: "wrap",
-              gap: "8px",
+              gap: "10px",
               justifyContent: "center",
-              marginTop: "20px",
-              fontSize: "20px",
-              fontWeight: "400",
-              fontFamily:
-                'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-              color: "rgba(255, 255, 255, 0.7)",
             }}
           >
-            {keywords.slice(0, 8).map((keyword, i) => (
+            {keywords.slice(0, 6).map((keyword) => (
               <span
-                key={i}
+                key={keyword}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
+                  fontSize: "16px",
+                  color: "#94a3b8",
+                  background: "rgba(255, 255, 255, 0.06)",
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
                 }}
               >
                 {keyword}
-                {i < Math.min(keywords.length - 1, 7) && (
-                  <span style={{ margin: "0 8px", opacity: 0.3 }}>•</span>
-                )}
               </span>
             ))}
           </div>
@@ -250,6 +213,10 @@ export default async function Image({
     ),
     {
       ...size,
+      headers: {
+        "Cache-Control":
+          "public, immutable, no-transform, s-maxage=31536000, max-age=31536000",
+      },
     },
   );
 }
