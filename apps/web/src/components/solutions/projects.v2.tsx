@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { Logos, LogosProps } from "./logos.v2";
+import { Logos, LogosProps } from "@/component-library/logos";
 import { cn } from "@/app/components/utils";
 import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";

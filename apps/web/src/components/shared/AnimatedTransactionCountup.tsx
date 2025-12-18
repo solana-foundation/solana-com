@@ -2,15 +2,21 @@ import { useRef } from "react";
 import { useCountUp } from "react-countup";
 import useIsomorphicLayoutEffect from "../../hooks/useIsomorphicLayoutEffect";
 
+interface AnimatedTransactionCountupProps {
+  info: {
+    totalTransactionCount: number;
+    avgTPS: number;
+  };
+  perfUpdateSec: number;
+}
+
 /**
  * Displays refurbished "continuous" transaction count.
- *
- * @param info
- * @param perfUpdateSec
- * @returns {JSX.Element}
- * @constructor
  */
-const AnimatedTransactionCountup = ({ info, perfUpdateSec }) => {
+const AnimatedTransactionCountup: React.FC<AnimatedTransactionCountupProps> = ({
+  info,
+  perfUpdateSec,
+}) => {
   const countUpRef = useRef(null);
   const { totalTransactionCount, avgTPS } = info;
   const { update } = useCountUp({
@@ -20,7 +26,6 @@ const AnimatedTransactionCountup = ({ info, perfUpdateSec }) => {
     delay: 0,
     duration: perfUpdateSec + 2,
     startOnMount: true,
-    preserveValue: true,
     separator: ",",
   });
 
@@ -28,7 +33,8 @@ const AnimatedTransactionCountup = ({ info, perfUpdateSec }) => {
     if (countUpRef.current) {
       update(totalTransactionCount + avgTPS * perfUpdateSec);
     }
-  }, [countUpRef, totalTransactionCount]);
+  }, [totalTransactionCount, avgTPS, perfUpdateSec, update]);
   return <span ref={countUpRef} />;
 };
+
 export default AnimatedTransactionCountup;

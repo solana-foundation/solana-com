@@ -42,11 +42,21 @@ export default function HTMLHead({
     socialShare || config.siteMetadata.socialShare,
   );
 
+  // Build canonical URL
+  const canonicalUrl = `${config.siteUrl}${localeNoEnDefault}${asPathNoRedirect}`;
+  const fullTitle = title
+    ? `${title} | ${config.siteMetadata.title}`
+    : config.siteMetadata.title;
+
   if (addDefaultMeta) {
     meta.unshift(
       {
         name: `description`,
         content: metaDescription,
+      },
+      {
+        property: `og:title`,
+        content: fullTitle,
       },
       {
         property: `og:description`,
@@ -57,12 +67,40 @@ export default function HTMLHead({
         content: metaSocialShare,
       },
       {
+        property: `og:image:width`,
+        content: String(config.shareImageWidth),
+      },
+      {
+        property: `og:image:height`,
+        content: String(config.shareImageHeight),
+      },
+      {
         property: `og:type`,
         content: `website`,
       },
       {
+        property: `og:url`,
+        content: canonicalUrl,
+      },
+      {
+        property: `og:site_name`,
+        content: config.siteMetadata.title,
+      },
+      {
         name: `twitter:card`,
         content: `summary_large_image`,
+      },
+      {
+        name: `twitter:title`,
+        content: fullTitle,
+      },
+      {
+        name: `twitter:description`,
+        content: metaDescription,
+      },
+      {
+        name: `twitter:image`,
+        content: metaSocialShare,
       },
       {
         name: `twitter:creator`,
@@ -77,6 +115,35 @@ export default function HTMLHead({
     content: locale,
   });
 
+  // Structured data for Organization/WebSite schema
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: config.siteMetadata.title,
+    url: config.siteUrl,
+    description: metaDescription,
+    publisher: {
+      "@type": "Organization",
+      name: config.siteMetadata.title,
+      logo: {
+        "@type": "ImageObject",
+        url: config.siteIcon.startsWith("http")
+          ? config.siteIcon
+          : prependSiteUrl(config.siteIcon),
+        width: 512,
+        height: 512,
+      },
+    },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${config.siteUrl}/search?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <>
       <NextSeo
@@ -88,10 +155,18 @@ export default function HTMLHead({
       {/* @ts-ignore */}
       <Head title={{ ...(addDefaultMeta && { title }) }}>
         {addDefaultMeta && (
-          <MetaLinks
-            localeNoEnDefault={localeNoEnDefault}
-            asPathNoRedirect={asPathNoRedirect}
-          />
+          <>
+            <MetaLinks
+              localeNoEnDefault={localeNoEnDefault}
+              asPathNoRedirect={asPathNoRedirect}
+            />
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify(structuredData, null, 2),
+              }}
+            />
+          </>
         )}
       </Head>
     </>

@@ -1,9 +1,4 @@
-const mediaUrl =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3001"
-    : "https://solana-com-media.vercel.app";
-const templatesUrl =
-  process.env.TEMPLATES_APP_URL || "https://solana-com-templates.vercel.app";
+import { MEDIA_APP_URL, TEMPLATES_APP_URL } from "./apps-urls";
 
 export default {
   rewrites: {
@@ -23,58 +18,78 @@ export default {
       // Media app rewrites - new routes
       {
         source: "/admin",
-        destination: `${mediaUrl}/admin`,
+        destination: `${MEDIA_APP_URL}/admin`,
         locale: false,
       },
       {
         source: "/news",
-        destination: `${mediaUrl}/news`,
+        destination: `${MEDIA_APP_URL}/news`,
         locale: false,
       },
       {
         source: "/news/:path*",
-        destination: `${mediaUrl}/news/:path*`,
+        destination: `${MEDIA_APP_URL}/news/:path*`,
         locale: false,
       },
       {
         source: "/podcasts",
-        destination: `${mediaUrl}/podcasts`,
+        destination: `${MEDIA_APP_URL}/podcasts`,
         locale: false,
       },
       {
         source: "/podcasts/:path*",
-        destination: `${mediaUrl}/podcasts/:path*`,
+        destination: `${MEDIA_APP_URL}/podcasts/:path*`,
         locale: false,
       },
       {
         source: "/:locale/news",
-        destination: `${mediaUrl}/:locale/news`,
+        destination: `${MEDIA_APP_URL}/:locale/news`,
         locale: false,
       },
       {
         source: "/:locale/news/:path*",
-        destination: `${mediaUrl}/:locale/news/:path*`,
+        destination: `${MEDIA_APP_URL}/:locale/news/:path*`,
         locale: false,
       },
       {
         source: "/:locale/podcasts",
-        destination: `${mediaUrl}/:locale/podcasts`,
+        destination: `${MEDIA_APP_URL}/:locale/podcasts`,
         locale: false,
       },
       {
         source: "/:locale/podcasts/:path*",
-        destination: `${mediaUrl}/:locale/podcasts/:path*`,
+        destination: `${MEDIA_APP_URL}/:locale/podcasts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/posts/:path*",
+        destination: `${MEDIA_APP_URL}/api/posts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/links/:path*",
+        destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
       // Media app assets (required for static assets with assetPrefix: "/media-assets")
       {
+        source: "/media-assets/uploads/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/uploads/:path+`,
+        locale: false,
+      },
+      {
         source: "/media-assets/:path+",
-        destination: `${mediaUrl}/media-assets/:path+`,
+        destination: `${MEDIA_APP_URL}/media-assets/:path+`,
+        locale: false,
+      },
+      {
+        source: "/uploads/builder/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/uploads/builder/:path+`,
         locale: false,
       },
       {
         source: "/developers/templates",
-        destination: `${templatesUrl}/developers/templates`,
+        destination: `${TEMPLATES_APP_URL}/developers/templates`,
         locale: false,
       },
       // everything underneath

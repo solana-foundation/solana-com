@@ -1,7 +1,13 @@
 import { useTranslations } from "next-intl";
 import { Link, InlineLink } from "./link";
-import ResourcesSVG from "./assets/nav/network/resources.inline.svg";
-import InspectSVG from "./assets/nav/network/inspect.inline.svg";
+import { HeaderItem } from "./header-item";
+import ApiConnectionIcon from "./assets/nav/network/api-connection.inline.svg";
+import BezierIcon from "./assets/nav/network/bezier.inline.svg";
+import ExplorerIcon from "./assets/nav/network/explorer.inline.svg";
+import PulseIcon from "./assets/nav/network/pulse.inline.svg";
+import SolScanIcon from "./assets/nav/network/sol-scan.inline.svg";
+import SolanaFmIcon from "./assets/nav/network/solana-fm.inline.svg";
+import SwitchIcon from "./assets/nav/network/switch.inline.svg";
 
 const HeaderListNetwork = () => {
   const t = useTranslations();
@@ -9,99 +15,109 @@ const HeaderListNetwork = () => {
   const networkResourcesItems = t.raw("nav.network.resources.items");
 
   return (
-    <div className="xl:flex">
-      <div className="w-full xl:w-max">
-        <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
-          <ResourcesSVG className="me-3" />
+    <div className="xl:w-[800px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-2">
+      <div className="px-3 xl:w-[390px]">
+        <div className="py-2 font-brand-mono font-medium text-[rgba(255,255,255,0.64)] text-[12px] xl:text-[14px] tracking-[1px] uppercase">
           {t("nav.network.resources.title")}
         </div>
-        <div>
+        <div className="divide-y divide-[rgba(238,228,255,0.04)]">
           <Link
             to="/validators"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {networkResourcesItems[0].title}
-            </strong>
-            {networkResourcesItems[0].description}
+            <HeaderItem
+              title={networkResourcesItems[0].title}
+              description={networkResourcesItems[0].description}
+              Icon={BezierIcon}
+              variant="large"
+            />
           </Link>
           <Link
             to="/rpc"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {networkResourcesItems[1].title}
-            </strong>
-            {networkResourcesItems[1].description}
+            <HeaderItem
+              title={networkResourcesItems[1].title}
+              description={networkResourcesItems[1].description}
+              Icon={ApiConnectionIcon}
+              variant="large"
+            />
           </Link>
           <InlineLink
             to="https://status.solana.com/"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+            className="block no-underline text-inherit group/link"
           >
-            <strong className="block !text-white text-sm">
-              {networkResourcesItems[2].title}
-            </strong>
-            {networkResourcesItems[2].description}
+            <HeaderItem
+              title={networkResourcesItems[2].title}
+              description={networkResourcesItems[2].description}
+              Icon={PulseIcon}
+              variant="large"
+            />
           </InlineLink>
           <Link
             to="/solanaramp"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
-            activeClassName="!border-white/10 bg-[#151118]"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
           >
-            <strong className="block !text-white text-sm">
-              {networkResourcesItems[3].title}
-            </strong>
-            {networkResourcesItems[3].description}
+            <HeaderItem
+              title={networkResourcesItems[3].title}
+              description={networkResourcesItems[3].description}
+              Icon={SwitchIcon}
+              variant="large"
+            />
           </Link>
         </div>
       </div>
-
-      <div className="bg-white/10 w-px h-auto my-[-26px] mx-[40px] hidden xl:block"></div>
-
-      <div className="w-full xl:w-max">
-        <div className="uppercase py-2 flex items-center !text-[#848895] text-xs">
-          <InspectSVG className="me-3" />
+      <div className="px-3 grow">
+        <div className="py-2 font-brand-mono font-medium text-[rgba(255,255,255,0.64)] text-[12px] xl:text-[14px] tracking-[1px] uppercase">
           {t("nav.network.inspect.title")}
         </div>
-        <div>
+        <div className="divide-y divide-[rgba(238,228,255,0.04)]">
           <InlineLink
             to="https://solscan.io/"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+            className="block no-underline text-inherit group/link"
           >
-            <strong className="block !text-white text-sm">
-              {networkInspectItems[0].title}
-            </strong>
-            {networkInspectItems[0].description}
+            <HeaderItem
+              title={networkInspectItems[0].title}
+              // description={networkInspectItems[0].description}
+              Icon={SolScanIcon}
+              // variant="large"
+            />
           </InlineLink>
           <InlineLink
             to="https://solana.fm/"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+            className="block no-underline text-inherit group/link"
           >
-            <strong className="block !text-white text-sm">
-              {networkInspectItems[1].title}
-            </strong>
-            {networkInspectItems[1].description}
+            <HeaderItem
+              title={networkInspectItems[1].title}
+              // description={networkInspectItems[1].description}
+              Icon={SolanaFmIcon}
+              // variant="large"
+            />
           </InlineLink>
           <InlineLink
             to="https://explorer.solana.com/"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+            className="block no-underline text-inherit group/link"
           >
-            <strong className="block !text-white text-sm">
-              {networkInspectItems[2].title}
-            </strong>
-            {networkInspectItems[2].description}
+            <HeaderItem
+              title={networkInspectItems[2].title}
+              // description={networkInspectItems[2].description}
+              Icon={ExplorerIcon}
+              // variant="large"
+            />
           </InlineLink>
-          <InlineLink
+          {/* <InlineLink
             to="https://orb.helius.dev/"
-            className="block !border !border-transparent rounded-lg px-2 py-1.5 my-1 -mx-2 hover:!border-white/10 hover:bg-[#151118] !text-[#ababbc] hover:!text-white transition-colors !no-underline text-sm"
+            className="block no-underline text-inherit group/link"
           >
-            <strong className="block !text-white text-sm">
-              {networkInspectItems[3].title}
-            </strong>
-            {networkInspectItems[3].description}
-          </InlineLink>
+            <HeaderItem
+              title={networkInspectItems[3].title}
+              // description={networkInspectItems[3].description}
+              // variant="large"
+            />
+          </InlineLink> */}
         </div>
       </div>
     </div>

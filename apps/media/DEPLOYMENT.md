@@ -164,30 +164,27 @@ https://solana-com-media.vercel.app/news
 The rewrite is configured in `apps/web/rewrites-redirects.mjs`:
 
 ```javascript
-const mediaUrl =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3001"
-    : "https://solana-com-media.vercel.app";
+import { MEDIA_APP_URL } from "./apps-urls";
 
 // Rewrites for new routes
 {
   source: "/news",
-  destination: `${mediaUrl}/news`,
+  destination: `${MEDIA_APP_URL}/news`,
   locale: false,
 },
 {
   source: "/news/:path*",
-  destination: `${mediaUrl}/news/:path*`,
+  destination: `${MEDIA_APP_URL}/news/:path*`,
   locale: false,
 },
 {
   source: "/podcasts",
-  destination: `${mediaUrl}/podcasts`,
+  destination: `${MEDIA_APP_URL}/podcasts`,
   locale: false,
 },
 {
   source: "/podcasts/:path*",
-  destination: `${mediaUrl}/podcasts/:path*`,
+  destination: `${MEDIA_APP_URL}/podcasts/:path*`,
   locale: false,
 }
 ```
@@ -254,13 +251,13 @@ This ensures Vercel:
 If you want a custom domain:
 
 1. Add domain in Vercel dashboard → Settings → Domains
-2. Update the rewrite URL in `apps/web/rewrites-redirects.mjs`:
+2. Set up domain env `NEXT_PUBLIC_MEDIA_APP_URL` for the main app `apps/web` and/or configure the rewrite in `apps/web/apps-urls.js`:
 
    ```javascript
-   const mediaUrl =
-     process.env.NODE_ENV === "development"
-       ? "http://localhost:3001"
-       : "https://media.solana.com"; // your custom domain
+   const vercelMediaUrl = `https://${withRelatedProject({
+     projectName: "prj_123",
+     defaultHost: "solana-com-media.vercel.app", // your custom domain
+   })}`;
    ```
 
    Note: Update all rewrite destinations to use the new domain.
