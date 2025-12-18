@@ -41,7 +41,8 @@ export default async function Image({
       node: "Node",
       express: "Express",
       web3js: "Web3.js",
-      gill: "Gill",
+      kit: "Kit",
+      anchor: "Anchor",
       mobile: "Mobile",
       dapp: "dApp",
       spl: "SPL",
@@ -67,7 +68,8 @@ export default async function Image({
     if (parts.includes("node") || parts.includes("nodejs"))
       tech.push("Node.js");
     if (parts.includes("web3js")) tech.push("Web3.js");
-    if (parts.includes("gill")) tech.push("Gill (based on @solana/kit)");
+    if (parts.includes("kit")) tech.push("@solana/kit");
+    if (parts.includes("anchor")) tech.push("Anchor");
     if (parts.includes("mobile")) type = "mobile template";
     if (parts.includes("basic")) type = "starter template";
     if (parts.includes("counter")) type = "counter app template";
@@ -96,7 +98,8 @@ export default async function Image({
       node: ["nodejs"],
       nodejs: ["nodejs"],
       web3js: ["web3js", "blockchain"],
-      gill: ["gill", "solana-kit"],
+      kit: ["solana-kit"],
+      anchor: ["anchor", "program"],
       wallet: ["wallet", "wallet-ui"],
       basic: ["starter", "template"],
       counter: ["dapp", "example"],
