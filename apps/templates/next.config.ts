@@ -6,12 +6,6 @@ const basePath =
     ? "/developers/templates"
     : "";
 
-console.log(
-  `[templates] basePath=${basePath || "(none)"} useBasePath=${
-    process.env.NEXT_PUBLIC_USE_BASE_PATH
-  } env=${process.env.VERCEL_ENV || "local"}`,
-);
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
