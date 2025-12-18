@@ -1,7 +1,6 @@
 export type Tech = "next" | "vite" | "react" | "node" | "expo" | "other";
 
 export type TemplateTag =
-  | "gill"
   | "nextjs"
   | "react"
   | "solana-kit"
