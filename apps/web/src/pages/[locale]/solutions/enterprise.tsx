@@ -207,7 +207,7 @@ const EnterprisePage = () => {
               {t("partners.contact.text")}
             </span>
             <a
-              href="mailto:product@solana.org"
+              href="mailto:enterprise@solana.org"
               className="tw-inline-flex tw-items-center tw-gap-2 tw-bg-[#14F195] tw-text-black tw-font-semibold tw-px-6 tw-py-3 tw-rounded-full hover:tw-bg-[#14F195]/90 tw-transition-colors"
             >
               <Mail className="tw-w-4 tw-h-4" />
