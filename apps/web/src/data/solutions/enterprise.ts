@@ -24,10 +24,6 @@ export const TECHNICAL_GUIDES = [
     key: "nav-strikes",
     href: "/developers/guides/advanced/nav-strikes",
   },
-  {
-    key: "exchange",
-    href: "/developers/guides/advanced/exchange",
-  },
 ];
 
 // FAQ items
