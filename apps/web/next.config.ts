@@ -1,3 +1,4 @@
+// trigger preview build
 import createNextIntlPlugin from "next-intl/plugin";
 import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
 import type { NextConfig } from "next";

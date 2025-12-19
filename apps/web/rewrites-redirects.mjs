@@ -1,4 +1,4 @@
-import { MEDIA_APP_URL, DOCS_APP_URL } from "./apps-urls";
+import { MEDIA_APP_URL, DOCS_APP_URL, TEMPLATES_APP_URL } from "./apps-urls";
 
 export default {
   rewrites: {
@@ -90,14 +90,12 @@ export default {
       // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",
-        destination:
-          "https://solana-com-templates.vercel.app/developers/templates",
+        destination: `${TEMPLATES_APP_URL}/developers/templates`,
         locale: false,
       },
       {
         source: "/developers/templates/:path*",
-        destination:
-          "https://solana-com-templates.vercel.app/developers/templates/:path*",
+        destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
         locale: false,
       },
       // Docs app assets (required for static assets with assetPrefix: "/docs-assets")
