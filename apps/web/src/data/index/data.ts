@@ -36,26 +36,32 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/western-union.svg",
     key: "western-union",
+    colSpan: 2,
   },
   {
     src: "/src/img/logos-eco/visa.svg",
     key: "visa",
+    colSpan: 1,
   },
   {
     src: "/src/img/logos-eco/paypal.svg",
     key: "paypal",
+    colSpan: 1,
   },
   {
     src: "/src/img/logos-eco/franklin-templeton.webp",
     key: "franklinTempleton",
+    colSpan: 1,
   },
   {
     src: "/src/img/logos-eco/r3.webp",
     key: "r3",
+    colSpan: 1,
   },
   {
     src: "/src/img/logos-eco/bullish.svg",
     key: "bullish",
+    colSpan: 2,
   },
 ];
 

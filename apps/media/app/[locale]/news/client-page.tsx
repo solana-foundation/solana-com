@@ -49,7 +49,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
     try {
       const response = await fetchLatestPosts({
         limit: 13,
-        cursor: currentCursor || pageInfo.startCursor || undefined,
+        cursor: currentCursor || pageInfo?.startCursor || undefined,
       });
 
       const newPosts = response.posts;
@@ -66,15 +66,15 @@ export default function PostsClientPage(props: PostsClientPageProps) {
       }
 
       // Always update pageInfo to track pagination state
-      setPageInfo(response.pageInfo ?? DEFAULT_PAGE_INFO);
+      setPageInfo(response?.pageInfo ?? DEFAULT_PAGE_INFO);
     } catch (error) {
       console.error("Failed to load more posts:", error);
     } finally {
       setIsLoadingMore(false);
     }
   }, [
-    pageInfo.hasPreviousPage,
-    pageInfo.startCursor,
+    pageInfo?.hasPreviousPage,
+    pageInfo?.startCursor,
     isLoadingMore,
     currentCursor,
   ]);
@@ -246,7 +246,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
 
             <LoadMoreStatus
               isLoading={isLoadingMore}
-              hasMore={pageInfo.hasPreviousPage}
+              hasMore={pageInfo?.hasPreviousPage}
               onLoadMore={handleLoadMore}
               loadingText="Loading more posts..."
               noMoreText="No more posts to load"

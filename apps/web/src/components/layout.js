@@ -1,10 +1,10 @@
 import { Header, Footer } from "@solana-com/ui-chrome";
 
-const Layout = ({ children }) => {
+const Layout = ({ children, className }) => {
   return (
     <>
       <Header />
-      <main>{children}</main>
+      <main className={className}>{children}</main>
       <Footer />
     </>
   );

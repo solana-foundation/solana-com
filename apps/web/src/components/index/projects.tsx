@@ -63,17 +63,9 @@ export const Projects: React.FC<ProjectsProps> = ({
           )}
         </div>
         <div className="mt-twd-10 xl:mt-twd-16 rounded-2xl border-nd-border-light border-[1px] bg-nd-inverse overflow-hidden relative">
-          {bgSrc && (
-            <Image
-              className="opacity-30 blur-[40px]"
-              src={bgSrc}
-              alt=""
-              fill
-              loading="lazy"
-            />
-          )}
+          {bgSrc && <Image src={bgSrc} alt="" fill loading="lazy" />}
           <Image
-            className="absolute bottom-[-23px] right-[-900px] mix-blend-overlay opacity-40 max-w-none hidden xl:block"
+            className="absolute bottom-[-23px] right-[-900px] mix-blend-overlay opacity-40 max-w-none hidden xl:block pointer-events-none z-[1]"
             src="/src/img/index/pattern-parallelogram-r.svg"
             alt=""
             width={1411}
@@ -81,14 +73,14 @@ export const Projects: React.FC<ProjectsProps> = ({
             loading="lazy"
           />
           <Image
-            className="absolute bottom-[-100px] right-[-1000px] mix-blend-overlay max-w-none hidden xl:block"
+            className="absolute bottom-[-100px] right-[-1000px] mix-blend-overlay max-w-none hidden xl:block pointer-events-none z-[1]"
             src="/src/img/index/pattern-parallelogram-r.svg"
             alt=""
             width={1411}
             height={283}
             loading="lazy"
           />
-          <div className="relative grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+          <div className="relative grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 bg-nd-on-cta-mid-em-text backdrop-blur-[20px]">
             {projects.map((item, index) => {
               colCounter += item.colSpan || 1;
               return (
