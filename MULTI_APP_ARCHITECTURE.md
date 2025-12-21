@@ -72,16 +72,6 @@ const nextConfig: NextConfig = {
 };
 ```
 
-### `NEXT_PUBLIC_USE_BASE_PATH` (Templates only)
-
-Controls whether the templates app uses a basePath. This enables dual deployment
-modes:
-
-| Value         | Behavior                                                |
-| ------------- | ------------------------------------------------------- |
-| `"true"`      | Uses basePath `/developers/templates` (proxy mode)      |
-| Not set/other | No basePath, serves at root (standalone subdomain mode) |
-
 ## How Rewrites Work
 
 The web app proxies requests to other apps using Next.js rewrites configured in
@@ -209,29 +199,18 @@ const nextConfig: NextConfig = {
 };
 ```
 
-**Templates app** uses a conditional `basePath` to support two deployment modes:
+**Templates app** (`apps/templates/next.config.ts`):
 
 ```typescript
-// apps/templates/next.config.ts
-const basePath =
-  process.env.NEXT_PUBLIC_USE_BASE_PATH === "true"
-    ? "/developers/templates"
-    : "";
-
 const nextConfig: NextConfig = {
-  // Use basePath only when env var is set (for proxy integration)
-  // Without env var, templates serves at root for standalone subdomain
-  ...(basePath && { basePath }),
+  assetPrefix: "/templates-assets",
   // ...
 };
 ```
 
-This allows the templates app to work in two modes:
-
-- **Proxy mode**: When `NEXT_PUBLIC_USE_BASE_PATH=true`, uses basePath
-  `/developers/templates` and is accessed via `solana.com/developers/templates`
-- **Standalone mode**: Without the env var, serves at root and can be deployed
-  to its own subdomain (e.g., `templates.solana.com`)
+The templates app has its pages in `src/app/developers/templates/` to match the
+URL structure, consistent with how docs has `[locale]/docs/` and media has
+`[locale]/news/`.
 
 ### Asset Rewrites
 
@@ -262,6 +241,10 @@ And the web app needs rewrites to proxy these asset requests:
 {
   source: "/media-assets/:path+",
   destination: `${MEDIA_APP_URL}/media-assets/:path+`,
+},
+{
+  source: "/templates-assets/:path+",
+  destination: `${TEMPLATES_APP_URL}/templates-assets/:path+`,
 },
 ```
 
@@ -329,19 +312,13 @@ Access via the web app to test rewrites work:
 
 - http://localhost:3000/docs → proxied to docs app
 - http://localhost:3000/news → proxied to media app
+- http://localhost:3000/developers/templates → proxied to templates app
 
 Or access apps directly:
 
-- http://localhost:3001 → templates app directly (serves at root without
-  basePath)
+- http://localhost:3001/developers/templates → templates app directly
 - http://localhost:3002/news → media app directly
 - http://localhost:3003/docs → docs app directly
-
-> **Note:** The templates app serves at root (`/`) during local development by
-> default. To test proxy integration locally, set
-> `NEXT_PUBLIC_USE_BASE_PATH=true` which enables the `/developers/templates`
-> basePath. The web app's rewrite for templates points to the Vercel deployment
-> URL by default, not localhost.
 
 ### Environment Setup for Local Dev
 
@@ -536,8 +513,8 @@ Add any new environment variables to `globalEnv`:
 }
 ```
 
-> **Tip:** If your app needs to support standalone deployment (like templates),
-> add a `NEXT_PUBLIC_USE_BASE_PATH` check to conditionally enable basePath.
+> **Tip:** Structure your app's pages directory to match the URL path (e.g.,
+> `src/app/newroute/` for routes at `/newroute/*`).
 
 ### 7. Deploy to Vercel
 
@@ -547,14 +524,13 @@ Add any new environment variables to `globalEnv`:
 
 ## Related Files
 
-| File                                   | Purpose                           |
-| -------------------------------------- | --------------------------------- |
-| `apps/web/apps-urls.js`                | App URL configuration             |
-| `apps/web/rewrites-redirects.mjs`      | Rewrite rules                     |
-| `apps/web/next-sitemap.config.js`      | Sitemap generation                |
-| `packages/ui-chrome/src/url-config.ts` | Header link routing logic         |
-| `packages/ui-chrome/src/link.tsx`      | Shared Link component             |
-| `packages/i18n/`                       | Shared i18n utilities             |
-| `apps/web/public/locales/`             | Primary translation files         |
-| `turbo.json`                           | Environment variable passthrough  |
-| `apps/templates/next.config.ts`        | Templates dual-mode configuration |
+| File                                   | Purpose                          |
+| -------------------------------------- | -------------------------------- |
+| `apps/web/apps-urls.js`                | App URL configuration            |
+| `apps/web/rewrites-redirects.mjs`      | Rewrite rules                    |
+| `apps/web/next-sitemap.config.js`      | Sitemap generation               |
+| `packages/ui-chrome/src/url-config.ts` | Header link routing logic        |
+| `packages/ui-chrome/src/link.tsx`      | Shared Link component            |
+| `packages/i18n/`                       | Shared i18n utilities            |
+| `apps/web/public/locales/`             | Primary translation files        |
+| `turbo.json`                           | Environment variable passthrough |

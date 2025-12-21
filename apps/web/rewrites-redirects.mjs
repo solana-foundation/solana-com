@@ -87,6 +87,12 @@ export default {
         destination: `${MEDIA_APP_URL}/media-assets/uploads/builder/:path+`,
         locale: false,
       },
+      // Templates app assets (required for static assets with assetPrefix: "/templates-assets")
+      {
+        source: "/templates-assets/:path+",
+        destination: `${TEMPLATES_APP_URL}/templates-assets/:path+`,
+        locale: false,
+      },
       // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",

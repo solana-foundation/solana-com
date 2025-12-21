@@ -19,7 +19,8 @@ const APP_INTERNAL_ROUTES: Record<string, RegExp> = {
   // docs app handles: /docs/*, /learn/*, /developers, /developers/cookbook/*, /developers/guides/*
   docs: /^\/(?:docs|learn)(?:\/|$)|^\/developers(?:$|\/(?:cookbook|guides)(?:\/|$))/,
   media: /^\/(?:news|podcasts)(?:\/|$)/,
-  templates: /^\/[^/]+$/,
+  // templates app handles: /developers/templates/*
+  templates: /^\/developers\/templates(?:\/|$)/,
 };
 
 const INTERNAL_PATTERN = APP_NAME ? APP_INTERNAL_ROUTES[APP_NAME] : null;

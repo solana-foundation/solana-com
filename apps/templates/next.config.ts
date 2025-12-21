@@ -1,18 +1,10 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 
-// trigger preview build
-const basePath =
-  process.env.NEXT_PUBLIC_USE_BASE_PATH === "true"
-    ? "/developers/templates"
-    : "";
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
-  // Use basePath only when env var is set (for proxy integration)
-  // Without env var, templates serves at root for standalone subdomain
-  ...(basePath && { basePath }),
+  assetPrefix: "/templates-assets",
 
   env: {
     NEXT_PUBLIC_APP_NAME: "templates",
@@ -73,6 +65,17 @@ const nextConfig: NextConfig = {
 
   compiler: {
     styledComponents: true,
+  },
+
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/templates-assets/_next/:path+",
+          destination: "/_next/:path+",
+        },
+      ],
+    };
   },
 };
 
