@@ -32,6 +32,6 @@ export const TOOLS = [
   },
   {
     key: "3",
-    href: "https://templates.solana.com/x402-solana-protocol",
+    href: "https://solana.com/developers/templates/gill-node-solanax402",
   },
 ];
