@@ -3,7 +3,7 @@ import { Link } from "./link";
 import { HeaderItem } from "./header-item";
 import NewspaperIcon from "./assets/nav/build/newspaper.inline.svg";
 import ApiConnectionIcon from "./assets/nav/build/api-connection.inline.svg";
-import CodeIcon from "./assets/nav/build/code.inline.svg";
+import TemplatesIcon from "./assets/nav/build/templates.inline.svg";
 import EthereumIcon from "./assets/nav/build/ethereum.inline.svg";
 import SchoolIcon from "./assets/nav/build/school.inline.svg";
 import HandIcon from "./assets/nav/build/hand.inline.svg";
@@ -44,14 +44,14 @@ const HeaderListBuild = () => {
             />
           </Link>
           <Link
-            to="/developers/cookbook"
+            to="/developers/templates"
             className="block no-underline text-inherit group/link"
             activeClassName="active"
           >
             <HeaderItem
-              title={t("nav.developers.items.cookbook.title")}
-              description={t("nav.developers.items.cookbook.description")}
-              Icon={CodeIcon}
+              title={t("nav.developers.items.templates.title")}
+              description={t("nav.developers.items.templates.description")}
+              Icon={TemplatesIcon}
               variant="large"
             />
           </Link>
