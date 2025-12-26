@@ -117,13 +117,6 @@ function useAppRouterNavigation(page) {
   // As a workaround, this function checks if we should navigate to the app router page instead of being here
   const pathname = usePathname();
   if (page) return false;
-  const regexes = [
-    new RegExp(`^/(?:[^/]{2}/)?docs(/.*)?$`),
-    new RegExp(`^/(?:[^/]{2}/)?developers(/)?$`),
-    new RegExp(`^/(?:[^/]{2}/)?developers/cookbook(/.*)?$`),
-    new RegExp(`^/(?:[^/]{2}/)?developers/guides(/.*)?$`),
-    new RegExp(`^/(?:[^/]{2}/)?learn(/.*)?$`),
-    new RegExp(`^/(?:[^/]{2}/)?universities(/.*)?$`),
-  ];
+  const regexes = [new RegExp(`^/(?:[^/]{2}/)?universities(/.*)?$`)];
   return regexes.some((regex) => regex.test(pathname));
 }

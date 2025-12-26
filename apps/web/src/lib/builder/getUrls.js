@@ -45,7 +45,7 @@ const MODELS = [
   },
 ];
 
-const CONTENT_ROOT = path.join(__dirname, "../../../content");
+const CONTENT_ROOT = path.join(__dirname, "../../../../docs/content");
 const currentDate = new Date().toISOString();
 
 function isTranslationDir(dirPath) {

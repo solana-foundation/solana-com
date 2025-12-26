@@ -5,7 +5,6 @@ import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { builder } from "@builder.io/sdk";
-import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders: Array<{ key: string; value: string }> = [
@@ -136,12 +135,6 @@ const nextConfig: NextConfig = {
   },
 
   webpack(config) {
-    config.module.rules.push({
-      test: /\.tsx?$/,
-      use: "ts-loader",
-      exclude: /node_modules/,
-    });
-
     config.module.rules.push({
       test: /\.inline\.svg$/,
       use: {
@@ -282,7 +275,6 @@ const nextConfig: NextConfig = {
 const moduleExports = (): NextConfig => {
   const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
   const plugins = [
-    createMDX(),
     withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" }),
     withNextIntl,
   ];

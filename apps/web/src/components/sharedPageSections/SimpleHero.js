@@ -1,5 +1,4 @@
 import styled from "styled-components";
-import { PageBreadcrumbs } from "@/components/developers/DevelopersContentPage/PageBreadcrumbs";
 import { memo } from "react";
 
 const StyledSimpleHero = styled.section`
@@ -17,14 +16,10 @@ const StyledSimpleHero = styled.section`
  * @param {Object}  frontmatter  Hero information, including title, topic (learn)
  * @returns {JSX.Element}
  */
-const SimpleHero = memo(({ frontmatter, breadcrumbs }) => {
+const SimpleHero = memo(({ frontmatter }) => {
   return (
     <StyledSimpleHero className="py-6" id="hero">
       <div className="container my-8">
-        {!!breadcrumbs && (
-          <PageBreadcrumbs className="d-none" breadcrumbs={breadcrumbs} />
-        )}
-
         <div className="row">
           <div className="col-lg-10">
             <h1 className="m-0">

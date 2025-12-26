@@ -1,5 +1,4 @@
 import { config } from "@@/src/config";
-import { getUrlWithoutLocale } from "@@/src/app/sources/utils";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 
@@ -57,28 +56,5 @@ export async function getIndexMetadata({
     title: t(titleKey),
     description: t(descriptionKey),
     alternates: getAlternates(path, locale),
-  };
-}
-
-export function getMdxMetadata(page) {
-  const url = getUrlWithoutLocale(page);
-  const title = page.data.seoTitle || page.data.h1 || page.data.title;
-  const description = page.data.description;
-  const { openGraph } = getBaseMetadata(page.locale);
-
-  const imagePrefix = url?.startsWith("/docs")
-    ? "/opengraph/developers"
-    : "/opengraph";
-
-  return {
-    title,
-    description,
-    alternates: getAlternates(url, page.locale),
-    openGraph: {
-      ...openGraph,
-      images: [imagePrefix + url],
-      title,
-      description,
-    },
   };
 }

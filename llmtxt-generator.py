@@ -10,7 +10,7 @@ from collections import defaultdict
 
 # Base directory to scan
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.join(REPO_ROOT, 'apps', 'web', 'content')
+BASE_DIR = os.path.join(REPO_ROOT, 'apps', 'docs', 'content')
 # Output file path
 OUTPUT_FILE = os.path.join(REPO_ROOT, 'apps', 'web', 'public', 'llms.txt')
 
