@@ -11,9 +11,9 @@ export const runtime = "nodejs";
 export const revalidate = 3600; // 1 hour
 // export const dynamic = "force-static";
 
-type Params = { params: Promise<{ slug: string[] }> };
+type Params = { params: Promise<{ slug?: string[] }> };
 export async function GET(_request: Request, { params }: Params) {
-  const { slug } = await params;
+  const { slug = [] } = await params;
   const props = getImageProps(slug);
   if (!props) {
     notFound();
@@ -33,6 +33,9 @@ const collections = {
   docs,
 };
 function getImageProps(slugItems: Array<string>) {
+  if (slugItems.length === 0) {
+    return { title: "Solana Developers", heading: "Solana Developers" };
+  }
   const [first, ...rest] = slugItems;
   const name = first.toLowerCase();
   let title: string | null = null;
@@ -42,6 +45,7 @@ function getImageProps(slugItems: Array<string>) {
       return null;
     }
   }
+
   switch (name) {
     case "resources":
       return { title: "Developer Resources", heading: "Developer Resources" };

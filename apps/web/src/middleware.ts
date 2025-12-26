@@ -18,7 +18,8 @@ export default async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith("/learn") ||
     req.nextUrl.pathname.startsWith("/news") ||
     req.nextUrl.pathname.startsWith("/podcasts") ||
-    req.nextUrl.pathname.startsWith("/media-assets")
+    req.nextUrl.pathname.startsWith("/media-assets") ||
+    req.nextUrl.pathname.startsWith("/opengraph")
   ) {
     return NextResponse.next();
   }

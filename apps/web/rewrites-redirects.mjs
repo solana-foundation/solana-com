@@ -112,6 +112,11 @@ export default {
       },
       // Docs app rewrites
       {
+        source: "/opengraph/:path+",
+        destination: `${DOCS_APP_URL}/opengraph/:path+`,
+        locale: false,
+      },
+      {
         source: "/docs",
         destination: `${DOCS_APP_URL}/docs`,
         locale: false,

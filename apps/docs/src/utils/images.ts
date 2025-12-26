@@ -1,4 +1,5 @@
-import { config } from "@@/src/config";
+import { readFile } from "fs/promises";
+import { join } from "path";
 import { ServerRuntime } from "next";
 import { ImageResponseOptions } from "next/server";
 
@@ -6,19 +7,14 @@ import { ImageResponseOptions } from "next/server";
  * Helper function for loading the brand fonts for images
  */
 export async function getBrandFonts(): Promise<ImageResponseOptions["fonts"]> {
+  const fontsDir = join(process.cwd(), "src/fonts/diatype");
   const [
     // comment for better diffs
     brandBold,
     brandMedium,
   ] = await Promise.all([
-    fetch(
-      config.siteUrl +
-        new URL("../fonts/diatype/ABCDiatype-Bold.woff", import.meta.url),
-    ).then((res) => res.arrayBuffer()),
-    fetch(
-      config.siteUrl +
-        new URL("../fonts/diatype/ABCDiatype-Medium.woff", import.meta.url),
-    ).then((res) => res.arrayBuffer()),
+    readFile(join(fontsDir, "ABCDiatype-Bold.woff")),
+    readFile(join(fontsDir, "ABCDiatype-Medium.woff")),
   ]);
 
   return [
