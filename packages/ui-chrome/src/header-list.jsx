@@ -12,7 +12,7 @@ import {
 import HeaderListBuild from "./header-list.build";
 import HeaderListSolutions from "./header-list.solutions";
 import HeaderListNetwork from "./header-list.network";
-import HeaderListCommunity from "./header-list.community";
+import { HeaderListCommunity } from "./header-list.community";
 import HeaderListLearn from "./header-list.learn";
 
 const HeaderList = () => {
@@ -37,21 +37,21 @@ const HeaderList = () => {
     asPath === "/community" ||
     asPath.includes("/events") ||
     asPath === "/breakpoint" ||
-    asPath === "/news";
+    asPath === "/news" ||
+    asPath.includes("/podcasts");
 
   return (
     <NavigationMenu viewport={false} className="flex-1">
-      <NavigationMenuList className="flex-wrap gap-0 xl:items-center !pl-0">
+      <NavigationMenuList className="flex-wrap gap-2 xl:items-center pl-0">
         {/* Learn */}
         <NavigationMenuItem
           className="border-b xl:border-b-0 border-white/10 w-full xl:w-auto"
-          activeColor="#19fb9b"
           value="learn"
         >
           <NavigationMenuTrigger isActive={isLearnActive}>
             {t("nav.learn.title")}
           </NavigationMenuTrigger>
-          <NavigationMenuContent>
+          <NavigationMenuContent align="left">
             <HeaderListLearn />
           </NavigationMenuContent>
         </NavigationMenuItem>
@@ -59,13 +59,12 @@ const HeaderList = () => {
         {/* Developers */}
         <NavigationMenuItem
           className="border-b xl:border-b-0 border-white/10 w-full xl:w-auto"
-          activeColor="#fed612"
           value="developers"
         >
           <NavigationMenuTrigger isActive={isBuildActive}>
             {t("nav.developers.title")}
           </NavigationMenuTrigger>
-          <NavigationMenuContent>
+          <NavigationMenuContent align="left">
             <HeaderListBuild />
           </NavigationMenuContent>
         </NavigationMenuItem>
@@ -73,13 +72,15 @@ const HeaderList = () => {
         {/* Solutions */}
         <NavigationMenuItem
           className="border-b xl:border-b-0 border-white/10 w-full xl:w-auto"
-          activeColor="#FF5722"
           value="solutions"
         >
           <NavigationMenuTrigger isActive={isSolutionsActive}>
             {t("nav.solutions.title")}
           </NavigationMenuTrigger>
-          <NavigationMenuContent className="xl:overflow-y-auto xl:max-h-[90vh]">
+          <NavigationMenuContent
+            className="xl:overflow-y-auto xl:max-h-[90vh]"
+            align="left"
+          >
             <HeaderListSolutions />
           </NavigationMenuContent>
         </NavigationMenuItem>
@@ -87,27 +88,22 @@ const HeaderList = () => {
         {/* Network */}
         <NavigationMenuItem
           className="border-b xl:border-b-0 border-white/10 w-full xl:w-auto"
-          activeColor="#9945ff"
           value="network"
         >
           <NavigationMenuTrigger isActive={isNetworkActive}>
             {t("nav.network.title")}
           </NavigationMenuTrigger>
-          <NavigationMenuContent className="xl:-ml-[120px]">
+          <NavigationMenuContent align="left">
             <HeaderListNetwork />
           </NavigationMenuContent>
         </NavigationMenuItem>
 
         {/* Community */}
-        <NavigationMenuItem
-          className="w-full xl:w-auto"
-          activeColor="#f087ff"
-          value="community"
-        >
+        <NavigationMenuItem className="w-full xl:w-auto" value="community">
           <NavigationMenuTrigger isActive={isCommunityActive}>
             {t("nav.community.title")}
           </NavigationMenuTrigger>
-          <NavigationMenuContent align="right">
+          <NavigationMenuContent align="center">
             <HeaderListCommunity />
           </NavigationMenuContent>
         </NavigationMenuItem>

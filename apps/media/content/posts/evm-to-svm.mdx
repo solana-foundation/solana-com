@@ -1,0 +1,207 @@
+---
+title: Moving from Ethereum Development to Solana
+description: |
+  Everything developers need to know to start their Solana journey
+slug: evm-to-svm
+date: "2024-04-16"
+categories:
+  - category: content/categories/finance.mdx
+  - category: content/categories/developers.mdx
+heroImage: /uploads/builder/evm-to-svm/46b339797f274b5ab7afed94f110bb84.jpg
+status: published
+seo:
+  title: Moving from Ethereum Development to Solana
+  description: |
+    Everything developers need to know to start their Solana journey
+  image: /uploads/builder/evm-to-svm/46b339797f274b5ab7afed94f110bb84.jpg
+  noIndex: false
+  noFollow: false
+author: content/authors/solana-foundation.md
+tags:
+  - tag: content/tags/developer.mdx
+---
+
+Making the move from EVM to SVM (Solana) requires understanding several key differences between the virtual machines. This article will walk through several of those differences, including accounts, fees, transactions, smart contracts (programs), and more. It will also explore developer setup including tooling and SDKs.
+
+By the end, developers will have the knowledge needed to start their Solana journey.
+
+## Understanding the Core Differences
+
+To start, let’s look at the most significant difference between EVM and SVM—the account model design.
+
+### Account Model
+
+Unlike Ethereum, Solana was designed to take advantage of multiple cores and support parallel [transactions.](https://solana.com/docs/core/transactions) To achieve this, Solana uses an account model.
+
+An [account](https://solana.com/developers/evm-to-svm/accounts) on Solana is a record in the Solana ledger that either holds data (a data account) or is an executable program (a smart contract or [_program_](https://solana.com/developers/evm-to-svm/smart-contracts) on Solana).
+
+Like Ethereum, each account has an address identifier. However, unlike Ethereum—where each smart contract is an account with the execution logic and storage tied together—Solana’s smart contracts are entirely stateless. State must be passed to accounts for them to execute on.
+
+Let’s look at a code example. In the Solidity code below, state is tied to the smart contract with the line `int private count = 0.`
+
+```solidity
+contract Counter {
+  int private count = 0;
+  function incrementCounter() public
+    { count += 1;
+    }
+  function getCount() public constant returns (int) {
+    return count;
+  }
+}
+```
+
+With Rust (Solana) there is a struct within the smart contract stating initialize_counter. This initial counter creates an account with a count of 0. The account is passed to this counter to increment the count. This keeps state from being kept within the smart contract itself.
+
+```rust
+#[program]
+pub mod counter_anchor {
+  use super::*;
+
+  pub fn initialize_counter(_ctx: Context\u003cInitializeCounter>) -> Result\u003c()> {
+    Ok(())
+  }
+
+  pub fn increment(ctx: Context\u003cIncrement>) -> Result\u003c()> {
+  ctx.accounts.counter.count = ctx.accounts.counter.count.checked_add(1).unwrap();
+    Ok(())
+  }
+}
+
+#[derive(Accounts)]
+pub struct InitializeCounter\u003c'info> {
+  #[account(mut)]
+  pub payer: Signer\u003c'info>,
+  #[account(
+    init,
+    space = 8 + Counter::INIT_SPACE,
+    payer = payer
+    )]
+  pub counter: Account\u003c'info, Counter>,
+  pub system_program: Program\u003c'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Increment\u003c'info> {
+  #[account(mut)]
+  pub counter: Account\u003c'info, Counter>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Counter {
+  count: u64,
+}
+```
+
+With Solana, data is stored in separate accounts outside of the program. To execute the logic in a program, pass the account to be performed on.
+
+In the case of this counter program, pass a counter account to the program when calling the increment function, and the program then increments the value in the counter account.
+
+### Benefits of the Account Model Design
+
+One of the primary benefits of this account model is program reusability.
+
+With the ERC20 interface on Ethereum, every time a developer creates a new token, they must redeploy the ERC20 smart contract to Ethereum with its specified values. This redeployment incurs a high cost.
+
+But with Solana, it’s not necessary to create and deploy a new smart contract in order to create a new token. Instead, create a new account, known as the mint account, using the [Solana Token Program](https://spl.solana.com/token), passing details such as number of tokens, decimal points, who can mint, and more.
+
+And this can be done by simply sending a transaction to the Token Program. Using the Solana Program Library CLI, for example, it’s just a single command:
+
+```rust
+$ spl-token create-token
+```
+
+### Local Fee Markets
+
+Another benefit of the account model is that fee markets are local per account.
+
+On Ethereum, fee markets are global. If an NFT collection goes viral and everyone is minting—fees go up for everyone. But on Solana, since fee markets are local per account, only people minting that NFT collection pay the elevated fees. Users not participating are unaffected.
+
+### Fees
+
+Let’s dive deeper into fees. On Solana, fees are broken into three categories: base fee, priority fee, and rent. Let’s look at each.
+
+- The [base fee](https://solana.com/docs/intro/transaction_fees) is calculated based on the number of signatures in a transaction. Each signature costs 5000 lamports (0.000000001 sol = 1 lamport). If a transaction has 5 signatures, the base fee is 25000 lamports.
+- The [priority fee](https://solana.com/docs/intro/transaction_fees#:~:text=from%20the%20RPC.-,Prioritization,-fee%20%23) is an optional fee that can be added to a transaction to give it priority. This fee is based on the amount of compute units used in the transaction. Similar to Ethereum gas, this fee is a simple measurement of computing resources required for the transaction.
+- The final fee, [rent](https://solana.com/docs/intro/rent), is more like a deposit. When developers create accounts or allocate space on the network, they must deposit SOL for the network to keep their account. Rent is calculated based on the number of bytes stored on the network, and an additional base fee is charged for allocating space.
+
+### Transactions
+
+On Solana, program execution begins with a [transaction](https://solana.com/docs/core/transactions) being submitted to the cluster. Each transaction on Solana consists of four parts:
+
+1.  One or more [instructions](https://solana.com/docs/terminology#instruction). Instructions are the smallest execution logic on Solana. They can be thought of like function calls on an Ethereum smart contract. They invoke programs that make calls to the Solana runtime to update the state (for example, calling the token program to transfer tokens from one account to another).
+2.  An array of accounts to read or write from
+3.  One or more [signatures](https://solana.com/docs/terminology#signature)
+4.  A recent blockhash or nonce. Instead of using an incremental nonce as on Ethereum, on Solana a recent blockhash is pulled from the cluster. With this blockhash, the transaction is only valid for 150 blocks, preventing long-living transaction signatures from being executed at a much later date.
+
+One other significant difference between Ethereum and Solana is that with Solana, transactions can have multiple instructions (function calls on Ethereum). This means it’s not necessary to create custom smart contracts to chain functions in a single transaction. Each instruction can be a separate function call, done in order in the transaction. Transactions are also atomic: if an instruction fails, the entire transaction will fail.
+
+### **Transaction Limitations**
+
+Like with Ethereum gas limitations, there are compute unit limitations on Solana transactions.
+
+|                                | Ethereum       | Solana                  |
+| ------------------------------ | -------------- | ----------------------- |
+| Single Transaction Compute Cap | 30,000,000     | 1,400,000 Compute Units |
+| Block Compute Cap              | 30,000,000 Gas | 48,000,000 Compute Unit |
+
+Other limitations include:
+
+- Each account referenced may be at most 12,000,000 compute units used per block.
+- Instructions can only be called at a depth of 4 before the transaction reverts.
+
+## Mempool
+
+Unlike Ethereum, Solana does not have mempools. Solana validators instead [forward all transactions](https://solana.com/docs/core/transactions/retry#:~:text=The%20Journey%20of%20a%20Transaction%20%23) to up to four leaders on the leader schedule. Not having a mempool forces the transactions to hop from leader to leader until blockhash expiration, but it also reduces the overhead of gossip across the cluster.
+
+## The Solana Developer Environment
+
+Now let’s look at some of the developer tools on Solana.
+
+![](/uploads/builder/evm-to-svm/image-1.jpg)
+
+### Programming Languages
+
+While Ethereum primarily uses Solidity for writing smart contracts, Solana uses [Rust](https://solana.com/docs/programs/lang-rust). If moving from Ethereum, consider the [Anchor framework](https://www.anchor-lang.com/) or [Neon](https://neonevm.org/), both of which can help developers get started faster by allowing them to build in Solana using familiar EVM tools.
+
+Like Ethereum, there are [client-side SDKs available](https://solana.com/docs/clients/rust) for many of the most popular programming languages, including [JavaScript](https://github.com/solana-labs/solana-web3.js), [Python](https://github.com/michaelhly/solana-py), and [Java](https://github.com/skynetcap/solanaj).
+
+### Developer Tooling
+
+Solana does not currently have an equivalent to Foundry, but it does have a wide set of tools equivalent to those used for Solidity.
+
+| Tool                                                        | Solana Equivalent                                                                |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Hardhat                                                     | [Solana Test Validator](https://docs.solana.com/developing/test-validator)       |
+| Brownie                                                     | [Program-test](https://docs.rs/solana-program-test/latest/solana_program_test/), |
+| [BankRun.js](https://kevinheavey.github.io/solana-bankrun/) |
+| Ethers, Wagmi                                               | [@solana/web.js](https://www.npmjs.com/package/@solana/web3.js)                  |
+| Remix                                                       | [Solana Playground](https://beta.solpg.io/)                                      |
+| ABI                                                         | Anchor Framework's IDL                                                           |
+| Etherscan                                                   | [SolanaFM](https://solana.fm/),                                                  |
+| [XRay](https://xray.helius.xyz/)                            |
+| scaffold-eth                                                | [create-solana-dapp](https://github.com/solana-developers/create-solana-dapp)    |
+
+For a deeper dive, here is a [broader list of developer resources](https://solana.com/developers) .
+
+### Creating Smart Contracts
+
+When creating programs on Solana (or when migrating existing Ethereum smart contracts) there are several core differences—too many to cover here. But let’s look at a few of the most common:
+
+- Mapping does not directly exist on Solana. Instead, use [program-derived addresses.](https://solanacookbook.com/core-concepts/pdas.html#facts) Like mapping, program-derived addresses give the ability to create a map from a key or account to a value stored on-chain.
+- On Solana, programs are default upgradable. A smart contract can be upgraded by a simple CLI command `solana program deploy <program_filepath>.`
+- When writing a solidity smart contract, it’s common to check for either `msg.sender` or `tx.origin`. There is no equivalent to this on Solana. Each transaction can have multiple signers, and the person sending the transaction is not necessarily the one who signed the transaction.
+
+For more information on programs and how to deploy, [check out this guide](https://solana.com/developers/evm-to-svm/smart-contracts) .
+
+## Learn More
+
+Those are some of the most critical differences between developing on Ethereum and Solana. There is much more to learn, of course. And the best way to get started is to jump right in! Here are a few resources for next steps:
+
+- [The Solana Playground](https://beta.solpg.io/) where developers can write, build, and deploy Solana programs from the browser
+- [An intro to Solana development](https://solana.com/developers/guides/getstarted/hello-world-in-your-browser) using the Solana Playground
+- A more detailed look at the differences [between developing on Ethereum and Solana](https://solana.com/developers/evm-to-svm/complete-guide)
+- The [Solana Bootcamp](https://www.youtube.com/watch?v=0P8JeL3TURU)
+
+## Learn from Solana Developers

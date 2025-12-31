@@ -16,7 +16,7 @@ export async function MainDocsPage({
   if (!page) notFound();
 
   const { body: MDX, toc } = await page.data.load();
-
+  const markdown = await page.data.getText("raw");
   return (
     <DocsPage
       toc={toc}
@@ -26,6 +26,7 @@ export async function MainDocsPage({
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
+      markdown={markdown}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (

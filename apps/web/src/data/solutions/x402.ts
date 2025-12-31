@@ -20,7 +20,7 @@ export const PRODUCTS = [
 export const TOOLS = [
   {
     key: "0",
-    href: "https://docs.corbits.dev/quickstart",
+    href: "https://docs.corbits.dev/build-with-corbits/ride-or-die",
   },
   {
     key: "1",
@@ -32,6 +32,6 @@ export const TOOLS = [
   },
   {
     key: "3",
-    href: "https://templates.solana.com/x402-solana-protocol",
+    href: "https://solana.com/developers/templates/gill-node-solanax402",
   },
 ];

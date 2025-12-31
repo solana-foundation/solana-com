@@ -1,3 +1,5 @@
+import { MEDIA_APP_URL, TEMPLATES_APP_URL } from "./apps-urls";
+
 export default {
   rewrites: {
     beforeFiles: [
@@ -13,17 +15,87 @@ export default {
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
         locale: false,
       },
+      // Media app rewrites - new routes
+      {
+        source: "/admin",
+        destination: `${MEDIA_APP_URL}/admin`,
+        locale: false,
+      },
+      {
+        source: "/news",
+        destination: `${MEDIA_APP_URL}/news`,
+        locale: false,
+      },
+      {
+        source: "/news/:path*",
+        destination: `${MEDIA_APP_URL}/news/:path*`,
+        locale: false,
+      },
+      {
+        source: "/podcasts",
+        destination: `${MEDIA_APP_URL}/podcasts`,
+        locale: false,
+      },
+      {
+        source: "/podcasts/:path*",
+        destination: `${MEDIA_APP_URL}/podcasts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/news",
+        destination: `${MEDIA_APP_URL}/:locale/news`,
+        locale: false,
+      },
+      {
+        source: "/:locale/news/:path*",
+        destination: `${MEDIA_APP_URL}/:locale/news/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/podcasts",
+        destination: `${MEDIA_APP_URL}/:locale/podcasts`,
+        locale: false,
+      },
+      {
+        source: "/:locale/podcasts/:path*",
+        destination: `${MEDIA_APP_URL}/:locale/podcasts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/posts/:path*",
+        destination: `${MEDIA_APP_URL}/api/posts/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/links/:path*",
+        destination: `${MEDIA_APP_URL}/api/links/:path*`,
+        locale: false,
+      },
+      // Media app assets (required for static assets with assetPrefix: "/media-assets")
+      {
+        source: "/media-assets/uploads/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/uploads/:path+`,
+        locale: false,
+      },
+      {
+        source: "/media-assets/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/:path+`,
+        locale: false,
+      },
+      {
+        source: "/uploads/builder/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/uploads/builder/:path+`,
+        locale: false,
+      },
       {
         source: "/developers/templates",
-        destination:
-          "https://solana-com-templates.vercel.app/developers/templates",
+        destination: `${TEMPLATES_APP_URL}/developers/templates`,
         locale: false,
       },
       // everything underneath
       {
         source: "/developers/templates/:path*",
-        destination:
-          "https://solana-com-templates.vercel.app/developers/templates/:path*",
+        destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
         locale: false,
       },
     ],
@@ -34,6 +106,7 @@ export default {
   redirects: [
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
+    // TODO: set to newws/upgrades when we have articles
     { source: "/upgrade", destination: "/news/solana-network-upgrades" },
     { source: "/upgrades", destination: "/news/solana-network-upgrades" },
 
@@ -57,6 +130,7 @@ export default {
       destination: "https://lu.ma/solana-nyc",
     },
     { source: "/blog", destination: "/news" },
+    { source: "/news/tag/:path*", destination: "/news" },
     {
       source: "/news/solana-scaffold-part-1-wallet-adapter",
       destination:
@@ -95,7 +169,18 @@ export default {
     { source: "/solanapay", destination: "https://solanapay.com/" },
     { source: "/pay", destination: "https://solanapay.com/" },
     { source: "/mobile", destination: "https://solanamobile.com/" },
-    { source: "/podcast", destination: "/validated" },
+    {
+      source: "/podcast",
+      destination: "/podcasts",
+    },
+    {
+      source: "/validated",
+      destination: "/podcasts/validated-with-austin-federa",
+    },
+    {
+      source: "/validated/:path*",
+      destination: "/podcasts/validated-with-austin-federa",
+    },
     { source: "/careers", destination: "https://jobs.solana.com" },
     { source: "/jobs", destination: "https://jobs.solana.com" },
     {
@@ -1067,6 +1152,19 @@ export default {
     {
       source: "/developers/guides/getstarted/full-stack-solana-development",
       destination: "/developers/guides/dapps/journal",
+    },
+    {
+      source: "/developers/guides/getstarted/solana-test-validator",
+      destination: "/docs/intro/installation/surfpool-cli-basics",
+    },
+    {
+      source: "/developers/cookbook/development/start-local-validator",
+      destination: "/docs/intro/installation/surfpool-cli-basics",
+    },
+    {
+      source:
+        "/developers/cookbook/development/using-mainnet-accounts-programs",
+      destination: "/docs/intro/installation/surfpool-cli-basics",
     },
   ],
 };

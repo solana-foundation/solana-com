@@ -1,0 +1,123 @@
+---
+title: Cloudbreak — Solana’s Horizontally Scaled State Architecture
+description: >
+  Understand 1 of 8 key technologies that make Solana the most performant
+  blockchain in the world
+slug: cloudbreak---solana-s-horizontally-scaled-state-architecture
+date: "2019-07-22"
+categories:
+  - category: content/categories/finance.mdx
+  - category: content/categories/developers.mdx
+status: published
+seo:
+  title: Cloudbreak — Solana’s Horizontally Scaled State Architecture
+  description: >
+    Understand 1 of 8 key technologies that make Solana the most performant
+    blockchain in the world
+  noIndex: false
+  noFollow: false
+  openGraph:
+    ogTitle: Cloudbreak — Solana’s Horizontally Scaled State Architecture
+    ogUrl: >-
+      https://www.solana.com/blog/cloudbreak---solana-s-horizontally-scaled-state-architecture
+    ogDescription: >
+      Understand 1 of 8 key technologies that make Solana the most performant
+      blockchain in the world
+    ogImage: null
+    ogType:
+      - article
+  twitter:
+    twitterTitle: Cloudbreak — Solana’s Horizontally Scaled State Architecture
+    twitterImage: null
+    twitterDescription: >
+      Understand 1 of 8 key technologies that make Solana the most performant
+      blockchain in the world
+author: content/authors/solana-foundation.md
+---
+
+### **Understand 1 of 8 key technologies that make** [**Solana**](https://solana.com/?source=post_page---------------------------) **the most performant blockchain in the world**
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-1.jpg)
+
+Solana is the most performant permissionless blockchain in the world. On current iterations of the Solana Testnet, a network of 200 physically distinct nodes supports a sustained throughput of more than 50,000 transactions per second when running with GPUs. Achieving as such requires the implementation of several optimizations and new technologies, and the result is a breakthrough in network capacity that signals a new phase in blockchain development.
+
+### **There are 8 key innovations that make the Solana network possible:**
+
+- [**Proof of History (POH)**](https://solana.ghost.io/solana-labs/proof-of-history-a-clock-for-blockchain-cf47a61a9274) — a clock before consensus;
+- [**Tower BFT**](https://medium.com/solana-labs/tower-bft-solanas-high-performance-implementation-of-pbft-464725911e79) — a PoH-optimized version of PBFT;
+- [**Turbine**](https://solana.ghost.io/solana-labs/turbine-solanas-block-propagation-protocol-solves-the-scalability-trilemma-2ddba46a51db) — a block propagation protocol;
+- [**Gulf Stream**](https://solana.ghost.io/solana-labs/gulf-stream-solanas-mempool-less-transaction-forwarding-protocol-d342e72186ad) — Mempool-less transaction forwarding protocol;
+- [**Sealevel**](https://medium.com/solana-labs/sealevel-parallel-processing-thousands-of-smart-contracts-d814b378192) — Parallel smart contracts run-time;
+- [**Pipelining**](https://solana.com/pipelining-in-solana-the-transaction-processing-unit/) — a Transaction Processing Unit for validation optimization
+- [**Cloudbreak**](https://medium.com/solana-labs/cloudbreak-solanas-horizontally-scaled-state-architecture-9a86679dcbb1) — Horizontally-Scaled Accounts Database; and
+- [**Archivers**](https://solana.com/archivers/) — Distributed ledger store
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-2.jpg)
+
+In this blog post, we’ll go over Cloudbreak, Solana’s horizontally scaled state architecture
+
+## **Overview: RAM, SSDs, and Threads**
+
+When scaling a blockchain without sharding, it is not enough to only scale computation. The memory that is used to keep track of accounts quickly becomes a bottleneck in both size and access speeds. For example: It’s generally understood that LevelDB, the local database engine that many modern chains use, cannot support more than about 5,000 TPS on a single machine. That’s because the virtual machine is unable to exploit concurrent read and write access to the account state through the database abstractions.
+
+A naive solution is to maintain the global state in RAM. However, it’s not reasonable to expect consumer-grade machines to have enough RAM to store the global state. The next option is using SSDs. While SSDs reduce the cost per byte by a factor of 30x or more, they are 1000x slower than RAM. Below is the [datasheet](https://www.samsung.com/semiconductor/global.semi.static/Samsung_NVMe_SSD_970_PRO_Data_Sheet_Rev.1.0.pdf) from the latest Samsung SSD, which is one of the fastest SSDs on the market.
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-3.jpg)
+
+A single-spend transaction needs to read 2 accounts and write to 1. Account keys are cryptographic public keys, and are totally random and have no real data locality. A user’s wallet will have many Account addresses, and the bits of each address are completely unrelated to any other address. Because there is no locality between accounts, it is impossible for us to place them in memory such that they are likely to be close to each other.
+
+With a max of 15,000 unique reads per second, a naive single-threaded implementation of an Accounts database using a single SSD will support up to 7,500 transactions per second. Modern SSDs support 32 concurrent threads, therefore and can, therefore, support 370,000 reads per second, or roughly 185,000 transactions per second.
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-4.jpg)
+
+## **Cloudbreak**
+
+The guiding design principle at Solana is to design software that gets out of the way of the hardware to allow 100% utilization.
+
+Organizing the database of accounts such that concurrent reads and writes are possible between the 32 threads is a challenge. Vanilla open source databases like LevelDB cause bottlenecking because they don’t optimize for this specific challenge in a blockchain setting. Solana does not use a traditional database to solve these problems. Instead, we use several mechanisms utilized by operating systems.
+
+First, we leverage memory-mapped files. A memory-mapped file is a file whose bytes are mapped into the virtual address space of a process. Once a file has been mapped, it behaves like any other memory. The kernel may keep some or none of the memory cached in the RAM, but the amount of physical memory is limited by the size of the disk and not the RAM. Reads and writes are still obviously bound by the performance of the disk.
+
+The second important design consideration is that sequential operations are much faster than random operations. This is true not just for SSDs, but for the entire virtual memory stack. CPUs are great at prefetching memory that is accessed sequentially, and operating systems are great at handling sequential page faults. To exploit this behavior we break up the accounts data structure roughly as follows:
+
+1.  The index of accounts and forks is stored in RAM.
+2.  Accounts are stored in memory-mapped files up to 4MB in size.
+3.  Each memory map only stores accounts from a single proposed fork.
+4.  Maps are randomly distributed across as many SSDs as are available.
+5.  Copy-on-write semantics are used.
+6.  Writes are appended to a random memory map for the same fork.
+7.  The index is updated after each write is completed.
+
+Since account updates are copy-on-write and are appended to a random SSD, Solana receives the benefits of sequential writes and horizontal scaling of the writes across many SSDs for concurrent transactions. Reads are still random access, but since any given forks state updates are spread across many SSDs, the reads end up horizontally scaled as well.
+
+Cloudbreak also performs a form of garbage collection. As forks become finalized beyond rollback and accounts are updated, old invalid accounts are garbage collected, and memory is relinquished.
+
+There’s at least one more great benefit of this architecture: computing the merkle root of the state updates for any given fork can be done with sequential reads that are horizontally scaled across SSDs. The drawback of this approach is the loss of generality to the data. Since this is a custom data structure, with custom layout, we are unable to use general-purpose database abstractions for querying and manipulating the data. We had to build everything from the ground up. Fortunately, that’s done now.
+
+## **Benchmarking Cloudbreak**
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-5.png)
+
+While the Accounts database is in RAM, we see throughput that matches RAM access times, while scaling with the number of available cores. At 10m accounts, the database no longer fits in RAM. However, we still see performance near 1m in reads or writes per second on a single SSD.
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-6.jpg)
+
+Learn more about Tour de SOL — Solana’s incentivized testnet event.
+
+Solana’s utilization of Cloudbreak, alongside innovations like Proof of History, Sealevel, and Tower BFT combine to create the world’s first web scale blockchain. Solana’s testnet is live today. You can see it at [testnet.solana.com](https://testnet.solana.com/). For cost purposes, we are only running a handful of nodes. However, we have spun it up on many instances to over 200 physically distinct nodes (not on shared hardware) across 23 data centers on AWS, GCE, and Azure for benchmarking.
+
+The runtime is functioning today, and developers can deploy code on the testnow now. Developers can build smart contracts in C today, and we are aggressively working on the Rust toolchain. Rust will be the flagship language for Solana smart contract development. The [Rust toolchain is publicly available](https://github.com/solana-labs/solana-web3.js) as part of the Solana Javascript SDK, and we are further iterating on the Software Development Kit.
+
+Solana will soon launch a public beta incentivizing validators to run nodes via [Tour de SOL](https://medium.com/solana-labs/solana-announces-tour-de-sol-an-incentivized-testnet-event-b26372a58a51) — analogous to Cosmos’ Game of Stakes — that challenges the public at large to test the limits of the Solana network while earning tokens for doing so.
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-7.jpg)
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-8.jpg)
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-9.jpg)
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-10.jpg)
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-11.jpg)
+
+![](/uploads/builder/cloudbreak---solana-s-horizontally-scaled-state-architecture/image-12.jpg)

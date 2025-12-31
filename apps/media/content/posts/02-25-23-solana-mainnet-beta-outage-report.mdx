@@ -1,0 +1,108 @@
+---
+title: 02-25-23 Solana Mainnet Beta Outage Report
+description: >-
+  On February 25th 2023 at approximately 05:46:16 UTC, the Solana Mainnet Beta
+  cluster began to experience long block finalization times.
+slug: 02-25-23-solana-mainnet-beta-outage-report
+date: "2023-04-18"
+categories:
+  - category: content/categories/upgrades.mdx
+status: published
+seo:
+  title: 02-25-23 Solana Mainnet Beta Outage Report
+  description: >-
+    On February 25th 2023 at approximately 05:46:16 UTC, the Solana Mainnet Beta
+    cluster began to experience long block finalization times.
+  noIndex: false
+  noFollow: false
+  openGraph:
+    ogDescription: >-
+      On February 25th 2023 at approximately 05:46:16 UTC, the Solana Mainnet
+      Beta cluster began to experience long block finalization times.
+    ogImage: null
+    ogTitle: 02-25-23 Solana Mainnet Beta Outage Report
+    ogType:
+      - article
+    ogUrl: "https://www.solana.com/blog/02-25-23-solana-mainnet-beta-outage-report"
+  twitter:
+    twitterDescription: >-
+      On February 25th 2023 at approximately 05:46:16 UTC, the Solana Mainnet
+      Beta cluster began to experience long block finalization times.
+    twitterImage: null
+    twitterTitle: 02-25-23 Solana Mainnet Beta Outage Report
+author: content/authors/solana-foundation.md
+tags:
+  - tag: content/tags/reports.mdx
+---
+
+tl;dr
+
+- Several services on the network running custom block-forwarding software inadvertently transmitted a huge amount of data, several order of magnitude larger than a normal block
+- The network's deduplication logic was able to cope with this, but this block was re-broadcast to the network by block-forwarding services
+- These re-forwarded blocks overwhelmed the deduplication logic of the forwarding services, overwhelming Turbine and significantly degrading finalization
+
+**Summary:**
+
+On February 25th 2023 at approximately 05:46:16 UTC, the Solana Mainnet Beta cluster began to experience long block finalization times. During the degraded period, block leaders automatically entered into vote-only mode, a safety state in which leaders opt to omit economic transactions and instead include only votes when creating blocks. Core developers investigating the event identified the cause of degradation to be congestion within the primary block-propagation protocol, known as “Turbine.” Abnormal network traffic saturated the capacity of Turbine and forced a majority of block data to be transmitted over the much slower fallback Block Repair protocol.
+
+Validator operators, suspecting a recent upgrade of the validator software to be at fault, attempted a live downgrade of the cluster in hopes of recovering stability to no avail. Eventually, validators concluded that the quickest route to restored cluster performance would be a manual restart with a downgrade to the last known stable validator software version. On February 26th, at approximately 01:28 UTC, block production resumed with normal finalization times and transaction throughput. This restart did not result in any finalized transactions of economic value being rolled back.
+
+Continued investigation revealed the origin of the irregular Turbine traffic to be block forwarding services that malfunctioned upon encountering an unexpectedly large block. This large block overwhelmed validator deduplication filters. As a result, the large block’s data was continuously reforwarded between validators. As new blocks were produced, they exacerbated the issue until the protocol was eventually saturated. On its own, Turbine should be resilient to blocks of this size, as there is filtering in place to discard them. However, the block forwarding services sit in front of this logic, reducing its efficacy.
+
+**Turbine Overview**
+
+A brief overview of Solana’s “Turbine” block propagation protocol is warranted before diving into the root cause analysis.
+
+When emitting a proposed block to the rest of the cluster, the slot leader first breaks the block into chunks called “shreds” through a process called “shredding.” Shredding entails splitting the block data into MTU\[1\]-sized “data shreds” and generating “recovery shreds” for each via the Reed-Solomon erasure coding scheme\[2\]. Recovery shreds are used to reconstruct any data shreds that do not arrive due to missing peers or otherwise faulty links. With shreds in hand, the slot leader then begins broadcasting them to the rest of the cluster.
+
+Topologically, Turbine can be thought of as a tree of star networks called “neighborhoods.” That is, for each peer in a neighborhood at a given depth of the tree, another neighborhood exists at the next lower depth. Neighborhoods are a fixed size and the first node is called the “anchor.” An anchor node is responsible for retransmitting each shred it receives to all of its neighbors (peers in the same neighborhood). Each peer additionally retransmits shreds to all peers assigned the same index within their neighborhood for all neighborhoods in the next lowest layer. This hierarchy ensures an upper bound on the amount of work each node must do per shred; as well as a single loop-free path for each shred from the slot leader to each peer.
+
+To load-balance, mitigate faulty links, and as a security measure, peers’ positions in the network are deterministically shuffled by stake weight for every shred. The slot leader then broadcasts each shred to its corresponding anchor node in the first layer neighborhood.
+
+**Root Cause Analysis:**
+
+The degradation of the network began when a malfunctioning validator broadcast an abnormally large block during its leader slot.
+
+Core developers observing the network identified that Turbine was flooded with data, and the Block Repair protocol saw abnormally high traffic. Upon inspection, it was discovered that the large block had been built off a parent slot far in the past. It is most likely that the block's excessive size was due to padding out proof of history with virtual ticks\[3\], which is required to prove that the leader has observed the interim period of time. This can happen when a validator diverges from consensus due to misconfiguration, or a software bug or hardware fault occurs.
+
+Continued investigation revealed that, during the incident, data shreds from the large block were properly filtered, as they include the requisite metadata to allow filtering on the basis of their parent slot being prior to the last finalized slot. However, recovery shreds do not include this parent slot metadata, and thus were not able to be filtered in this manner. This led to the recovery shreds of the large block overwhelming the deduplication logic, and shred-forwarding services present on the network then propagated these shreds back to nodes in the turbine tree.
+
+This degenerate behavior by the shred-forwarders created loops between nodes in the Turbine tree and the shred-forwarding services themselves. As a result, the deduplication filters present in the retransmission pipeline, as well as in the shred-forwarding services themselves, became saturated. This allowed for false negatives, causing duplicate shreds to not be discarded, and instead retransmitted in a continuous loop.
+
+Looping shreds overwhelmed Turbine, and block propagation fell back to Block Repair, a much slower protocol intended for obtaining shreds that have failed to arrive via Turbine as well as gathering block data during initial validator catch up. These continuously looping shreds degraded block propagation which in turn slowed consensus block finalization.
+
+For a time, optimistic block confirmation was able to continue. However, when a validator observes that its most recently voted upon slot is 400\[4\] or greater slots from the last finalized slot, it enters this safety state where it elects to stop packing user transactions in an effort to allow block finalization to catch up. Eventually the optimistic block height was sufficiently ahead of the finalized block height (colloquially, the Tower Distance), that leaders automatically entered this safety state known as vote-only mode. This keeps the tip of the chain from continuing on indefinitely and providing optimistic confirmation on user transactions that may never make it into finalized blocks. As a result, the event did not result in any finalized transactions of economic value being rolled back.
+
+**Context Surrounding the Event:**
+
+Early speculation by the validator community during the event correlated the issues to the upgrade to v1.14.16 as the event occurred shortly after the upgrade reached a super-majority (66%) of stake. However, as evidenced by extensive Testnet trials on v1.13.6 and v1.14.16, large blocks spamming the network in quick succession, alone, have not been a sufficient condition to induce the problems seen on the network during the event.
+
+There was indeed a change to Turbine in v1.14.16 which increased the maximum allowed number of recovery shreds in a block in order to reduce the delay between retransmission of shreds batches. This increase to the number of allowed recovery shreds ensures shred batches maintain the equivalent transmission reliability as in v1.13.6, while simultaneously reducing the retransmission delay.
+
+However, as mentioned above, Testnet trials spamming the network with large blocks in quick succession have shown shred-forwarding services to be instrumental in inducing the issue. Without these services in place the network is typically resilient to such large blocks. Even blocks exceeding the size of the large block during the event have been unable to instigate replication of the issue when shred-forwarding services are absent.
+
+**Improvements:**
+
+Core engineers have determined that the problem was caused by a failure of deduplication logic in shred-forwarding services, intended to break replicated retransmission of shreds. In addition, the deduplication filter in the retransmission pipeline was not originally designed to prevent loops in the Turbine tree. Enhancements to the deduplication logic are now in place to mitigate saturation of this filter in the Solana Labs validator client v1.13.7 and v1.14.17:
+
+- The deduplication filter has been adjusted to a design that saturates along a logistic curve. This new filter is probabilistic in nature which does not have the same saturation properties as the old filter that employed a deterministic eviction strategy.
+- The deduplication filter capacity has been greatly increased. Allowing for a significantly higher number of unique elements before saturating.
+- The new deduplication filter is parallelizable, allowing efficient eviction of duplicates and is not bottlenecked by ordering constraints on its elements. The old filter had strict ordering guarantees that forced sequential access; this reduced the ability of the protocol to effectively identify duplicates and evict them in an attempt to prevent saturation of the filter.
+
+Core engineers are also working with shred-forwarding service providers to improve the resiliency and compatibility of their designs.
+
+Furthermore, a patch to the Solana Labs validator client has been applied that will cause a block producer that produces a large block to abort, thus signaling to the node operator to inspect their node and bring it back to a healthy state within the cluster.
+
+During investigation, and absent the introducing shred-forwarders on Testnet, core engineers were unable to reproduce the issues seen during the event. As mentioned previously, this included spamming Testnet with blocks in excess of the size seen during the event, and doing so in quick succession. Post reintroduction of shred-forwarding services on Testnet, and with the addition of the improvements in v1.13.7 and v1.14.17 has shown Testnet to be resilient to the network conditions seen during the event.
+
+Longer term, the Solana protocol design is moving to replace all UDP based networking protocols in the validator software with QUIC. QUIC allows for programmatically defined dynamic backpressure and peer filtering which protocols built atop it can use to steer behavior and enforce topology. Implementing QUIC in Turbine will allow the protocol to guarantee that shreds ingested by a node in Turbine followed the protocol defined path, thus enforcing topology constraints within Turbine itself.
+
+<footnotes />
+
+\[1\] [https://en.wikipedia.org/wiki/Maximum_transmission_unit](https://en.wikipedia.org/wiki/Maximum_transmission_unit)
+
+\[2\] [https://en.wikipedia.org/wiki/Reed%E2%80%93Solomon_error_correction](https://en.wikipedia.org/wiki/Reed%E2%80%93Solomon_error_correction)
+
+\[3\] Virtual ticks are PoH entries with no attached transactions. Whenever a block is built off of a parent that is not the immediately preceding slot, the leader generates virtual ticks for each missing slot, and transmits them with its block. This allows the other nodes on the network to confirm that the interceding time was observed.
+
+\[4\] Arbitrary choice equivalent to approximately 160 seconds.

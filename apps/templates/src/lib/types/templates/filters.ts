@@ -76,10 +76,6 @@ export const createFilters = (t: (key: string) => string): TemplateFilter[] => [
         id: "solana-web3js",
         name: t("keywords.solana_web3js"),
       },
-      {
-        id: "gill",
-        name: t("keywords.gill"),
-      },
     ],
     name: t("categories.solana_sdks"),
   },
@@ -134,7 +130,6 @@ export const filters: TemplateFilter[] = [
     keywords: [
       { id: "solana-kit", name: "@solana/kit" },
       { id: "solana-web3js", name: "@solana/web3.js" },
-      { id: "gill", name: "Gill" },
     ],
     name: "Solana SDKs",
   },

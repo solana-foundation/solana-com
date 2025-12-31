@@ -14,6 +14,15 @@ import { Link, InlineLink } from "./link";
 import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
 import SolanaBgSvg from "./assets/solana-bg.svg";
+import dynamic from "next/dynamic";
+
+const FooterMouseEffect = dynamic(
+  () => import("./footer-mouse-effect").then((mod) => mod.FooterMouseEffect),
+  {
+    ssr: false,
+    fallback: <div />,
+  },
+);
 
 const SOCIAL_LINKS = [
   { name: "YouTube", url: "/youtube", Icon: YoutubeIcon, size: 20 },
@@ -78,6 +87,7 @@ export const Footer = ({ className = "" }) => {
                 className="!no-underline !text-white hover:!text-white"
               >
                 <SolanaFoundationLogo
+                  className="max-w-full"
                   width={234}
                   height={40}
                   viewBox="0 0 210 35"
@@ -161,6 +171,7 @@ export const Footer = ({ className = "" }) => {
                 <li>
                   <Link
                     to="/news"
+                    aria-label={t("footer.get-connected.blog")}
                     className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
                   >
                     {t("footer.get-connected.blog")}
@@ -179,6 +190,7 @@ export const Footer = ({ className = "" }) => {
           </div>
         </div>
       </div>
+      <FooterMouseEffect className="absolute bottom-0 left-0 w-full h-[300px] hidden xl:block" />
     </div>
   );
 };

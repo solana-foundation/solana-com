@@ -68,10 +68,11 @@ type CarouselProps = {
   enableSwipe?: boolean;
   swipeThreshold?: number;
   lastPageOffset?: number;
+  startIndex?: number;
 };
 
 const NAV_BUTTON_BASE_CLASS =
-  "rounded-full w-8 h-8 p-1 shadow border-2 border-white/10 transition flex items-center justify-center bg-[#292c35]/90 hover:bg-white/50";
+  "rounded-full w-12 h-12 p-twd-1 border-[1px] border-nd-border-prominent transition flex items-center justify-center not-hover:bg-black hover:bg-nd-border-prominent";
 
 // Reusable CarouselNavButton component
 type CarouselNavButtonProps = {
@@ -126,6 +127,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       enableSwipe = false,
       swipeThreshold = 50,
       lastPageOffset = 1,
+      startIndex,
     },
     ref,
   ) => {
@@ -140,9 +142,11 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [dragOffset, setDragOffset] = useState(0);
+    const [hasSwiped, setHasSwiped] = useState(false);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const trackRef = useRef<HTMLDivElement>(null);
+    const swipeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const handlePrev = useCallback(() => {
       setHasInteracted(true);
@@ -171,6 +175,14 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
     const handleStart = useCallback(
       (clientX: number, clientY: number) => {
         if (!enableSwipe) return;
+
+        // Clear any existing swipe timeout
+        if (swipeTimeoutRef.current) {
+          clearTimeout(swipeTimeoutRef.current);
+          swipeTimeoutRef.current = null;
+        }
+        setHasSwiped(false);
+
         setIsDragging(true);
         setDragStart({ x: clientX, y: clientY });
         setDragOffset(0);
@@ -182,6 +194,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
     const handleMove = useCallback(
       (clientX: number) => {
         if (!isDragging || !enableSwipe) return;
+
         const deltaX = clientX - dragStart.x;
         setDragOffset(deltaX);
       },
@@ -195,6 +208,15 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
       const shouldSwipe = absOffset > swipeThreshold;
 
       if (shouldSwipe) {
+        setHasSwiped(true);
+        // Clear the swipe flag after a short delay to allow click prevention
+        if (swipeTimeoutRef.current) {
+          clearTimeout(swipeTimeoutRef.current);
+        }
+        swipeTimeoutRef.current = setTimeout(() => {
+          setHasSwiped(false);
+        }, 300);
+
         if (dragOffset > 0 && currentPage > 0) {
           // Swipe right - go to previous
           handlePrev();
@@ -202,6 +224,9 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
           // Swipe left - go to next
           handleNext();
         }
+      } else {
+        // If no swipe occurred, clear the flag immediately
+        setHasSwiped(false);
       }
 
       setIsDragging(false);
@@ -257,6 +282,34 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
     const handleMouseUp = useCallback(() => {
       handleEnd();
     }, [handleEnd]);
+
+    const handleMouseClick = useCallback(
+      (e: React.MouseEvent) => {
+        if (!enableSwipe) return;
+
+        if (hasSwiped || isDragging) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      [enableSwipe, hasSwiped, isDragging],
+    );
+
+    // Cleanup swipe timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (swipeTimeoutRef.current) {
+          clearTimeout(swipeTimeoutRef.current);
+        }
+      };
+    }, []);
+
+    // Set the current page to the start index if it is provided
+    useEffect(() => {
+      if (startIndex !== undefined) {
+        setCurrentPage(Math.max(0, Math.min(startIndex, lastPage)));
+      }
+    }, [lastPage, startIndex]);
 
     // Mouse event listeners
     useEffect(() => {
@@ -374,6 +427,7 @@ const Carousel = forwardRef<CarouselHandle, CarouselProps>(
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               onMouseDown={handleMouseDown}
+              onClickCapture={handleMouseClick}
               style={{
                 ...trackStyle,
                 ...customTrackStyle,
