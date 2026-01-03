@@ -29,8 +29,3 @@ export default async function TemplatesPage() {
     </div>
   );
 }
-
-export async function generateStaticParams() {
-  // Generate static page at build time
-  return [];
-}

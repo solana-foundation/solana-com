@@ -24,5 +24,15 @@ export const MAIN_APP_URL =
   process.env.NEXT_PUBLIC_MAIN_SITE_URL ||
   (process.env.NODE_ENV === "production" ? vercelMainUrl : developmentMainUrl);
 
+// Templates app URLs
+const vercelTemplatesUrl = withRelatedProject({
+  projectName: "templates",
+  defaultHost: "https://solana-templates.vercel.app",
+});
+
+export const TEMPLATES_APP_URL =
+  process.env.TEMPLATES_APP_URL || vercelTemplatesUrl;
+
 console.log("MEDIA_APP_URL", MEDIA_APP_URL);
 console.log("MAIN_APP_URL", MAIN_APP_URL);
+console.log("TEMPLATES_APP_URL", TEMPLATES_APP_URL);
