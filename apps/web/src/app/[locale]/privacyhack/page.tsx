@@ -17,7 +17,6 @@ export default async function Page(_props: Props) {
     timelineTitle: t("privacyhack.timeline.title"),
     timelinePhaseHeader: t("privacyhack.timeline.phaseHeader"),
     timelineDateHeader: t("privacyhack.timeline.dateHeader"),
-    timelineDescriptionHeader: undefined,
     timelineEvents: [
       {
         phase: t("privacyhack.timeline.events.registration.phase"),
@@ -37,21 +36,14 @@ export default async function Page(_props: Props) {
       },
     ],
 
-    prerequisitesTitle: t("privacyhack.prerequisites.title"),
-    privacyIntroTitle: t("privacyhack.prerequisites.privacyIntro.title"),
-    privacyIntroDescription: t(
-      "privacyhack.prerequisites.privacyIntro.description",
-    ),
-    privacyIntroCta: t("privacyhack.prerequisites.privacyIntro.cta"),
-    solanaTitle: t("privacyhack.prerequisites.solana.title"),
-    solanaDescription: t("privacyhack.prerequisites.solana.description"),
-    solanaCta: t("privacyhack.prerequisites.solana.cta"),
-    zkTitle: t("privacyhack.prerequisites.zkCompression.title"),
-    zkDescription: t("privacyhack.prerequisites.zkCompression.description"),
-    zkCta: t("privacyhack.prerequisites.zkCompression.cta"),
-
-    problemTitle: t("privacyhack.problem.title"),
-    problemDescription: t("privacyhack.problem.description"),
+    workshopsTitle: t("privacyhack.workshops.title"),
+    workshops: t.raw("privacyhack.workshops.items") as Array<{
+      title: string;
+      date: string;
+      speaker: string;
+      speakerTitle: string;
+      url: string;
+    }>,
 
     requirementsTitle: t("privacyhack.requirements.title"),
     requirementsItems: t.raw("privacyhack.requirements.items") as string[],
@@ -97,30 +89,22 @@ export default async function Page(_props: Props) {
 
     resources: [
       {
-        title: t("privacyhack.resources.items.privacyDocs.title"),
-        description: t("privacyhack.resources.items.privacyDocs.description"),
-        category: t("privacyhack.resources.items.privacyDocs.category"),
-        url: "https://solana.com/developers/guides",
+        title: t("privacyhack.resources.items.docs.title"),
+        description: t("privacyhack.resources.items.docs.description"),
+        category: t("privacyhack.resources.items.docs.category"),
+        url: "https://solana.com/docs",
       },
       {
-        title: t("privacyhack.resources.items.zkCompression.title"),
-        description: t("privacyhack.resources.items.zkCompression.description"),
-        category: t("privacyhack.resources.items.zkCompression.category"),
-        url: "https://www.zkcompression.com/",
+        title: t("privacyhack.resources.items.templates.title"),
+        description: t("privacyhack.resources.items.templates.description"),
+        category: t("privacyhack.resources.items.templates.category"),
+        url: "https://solana.com/templates",
       },
       {
-        title: t("privacyhack.resources.items.lightProtocol.title"),
-        description: t("privacyhack.resources.items.lightProtocol.description"),
-        category: t("privacyhack.resources.items.lightProtocol.category"),
-        url: "https://www.lightprotocol.com/",
-      },
-      {
-        title: t("privacyhack.resources.items.solanaPlayground.title"),
-        description: t(
-          "privacyhack.resources.items.solanaPlayground.description",
-        ),
-        category: t("privacyhack.resources.items.solanaPlayground.category"),
-        url: "https://beta.solpg.io/",
+        title: t("privacyhack.resources.items.privacyRepo.title"),
+        description: t("privacyhack.resources.items.privacyRepo.description"),
+        category: t("privacyhack.resources.items.privacyRepo.category"),
+        url: "https://github.com/catmcgee/privacy-on-solana",
       },
     ],
   };
