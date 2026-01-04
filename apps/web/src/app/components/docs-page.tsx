@@ -1,7 +1,6 @@
 import {
   DocsPage as FumaDocsPage,
   DocsBody,
-  DocsTitle,
   DocsPageProps,
 } from "fumadocs-ui/page";
 import { ReactNode } from "react";
@@ -52,18 +51,20 @@ export function DocsPage(props: {
         component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
       }}
     >
-      <DocsTitle>
-        <Link
-          className="!text-fd-accent-foreground text-4xl md:text-5xl"
-          href={props.href}
-        >
-          {props.title}
-        </Link>
-        <div className="flex flex-row gap-2 items-center border-b py-4">
+      <div>
+        <h1 className="text-3xl font-bold">
+          <Link
+            className="!text-fd-accent-foreground text-4xl md:text-5xl"
+            href={props.href}
+          >
+            {props.title}
+          </Link>
+        </h1>
+        <div className="flex flex-row gap-2 items-center border-b pb-4 pt-2">
           <LLMCopyButton markdown={props.markdown} />
           <ViewOptions markdown={props.markdown} />
         </div>
-      </DocsTitle>
+      </div>
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
       <Rate onRateAction={onRateAction} />
     </FumaDocsPage>

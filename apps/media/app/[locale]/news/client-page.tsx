@@ -14,6 +14,13 @@ import LoadMoreStatus from "@/components/ui/load-more-status";
 import { fetchLatestPosts } from "@/lib/post-data";
 import uniqBy from "lodash/uniqBy";
 
+const DEFAULT_PAGE_INFO: PageInfo = {
+  hasPreviousPage: false,
+  hasNextPage: false,
+  startCursor: null,
+  endCursor: null,
+};
+
 interface PostsClientPageProps {
   featuredPost: PostItem | null;
   latestPosts: PostItem[];
@@ -29,18 +36,13 @@ export default function PostsClientPage(props: PostsClientPageProps) {
   const [posts, setPosts] = useState<(PostItem | null)[]>(latestPosts);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageInfo, setPageInfo] = useState(
-    initialPageInfo ?? {
-      hasPreviousPage: false,
-      hasNextPage: false,
-      startCursor: null,
-      endCursor: null,
-    }
+    initialPageInfo ?? DEFAULT_PAGE_INFO
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
   // Load more posts
   const handleLoadMore = useCallback(async () => {
-    if (!pageInfo.hasPreviousPage || isLoadingMore) return;
+    if (!pageInfo?.hasPreviousPage || isLoadingMore) return;
 
     setIsLoadingMore(true);
 
@@ -64,7 +66,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
       }
 
       // Always update pageInfo to track pagination state
-      setPageInfo(response.pageInfo);
+      setPageInfo(response.pageInfo ?? DEFAULT_PAGE_INFO);
     } catch (error) {
       console.error("Failed to load more posts:", error);
     } finally {

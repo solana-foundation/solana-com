@@ -3,13 +3,12 @@ import { TemplateUrlState } from "./use-template-url-state";
 
 // Default templates to show when no filters are applied
 const DEFAULT_TEMPLATE_NAMES = [
-  "gill-next-tailwind-basic", // Fullstack boilerplate (Next.js)
-  "gill-react-vite-tailwind-basic", // Fullstack boilerplate (Vite)
+  "nextjs", // Kit - Next.js
+  "nextjs-anchor", // Kit - Next.js with Anchor
+  "react-vite", // Kit - React + Vite
+  "react-vite-anchor", // Kit - React + Vite with Anchor
   "web3js-expo", // Mobile
-  "gill-jito-airdrop", // Airdrop
   "x402-template", // X402 Next.js
-  "gill-node-solanax402", // X402 Express Server
-  "gill-node-express", // Backend
   "supabase-auth", // Auth
 ];
 

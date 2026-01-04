@@ -27,7 +27,7 @@ export const config = {
 
   siteUrl:
     process.env.NODE_ENV === `development`
-      ? `http://localhost:3001`
+      ? `http://localhost:3002`
       : (process.env.VERCEL_ENV != "production" && !!process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
           : `https://media.solana.com`) || `https://media.solana.com`,

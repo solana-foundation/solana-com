@@ -66,7 +66,7 @@ const optionVariants = cva(
 );
 
 export function ViewOptions({
-  markdown,
+  markdown: _,
 }: {
   /**
    * The raw Markdown/MDX content of the page
@@ -115,7 +115,7 @@ export function ViewOptions({
         ),
       },
     ];
-  }, [markdown]);
+  }, []);
 
   return (
     <Popover>
