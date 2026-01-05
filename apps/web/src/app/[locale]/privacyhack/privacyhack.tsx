@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ArrowUpRight, ArrowDown, Lock, Check } from "react-feather";
 import { Logos } from "@/components/solutions/logos.v2";
 
@@ -71,12 +71,206 @@ interface PrivacyHackPageProps {
   };
 }
 
+// Typing effect hook for badge
+function useTypingEffect(
+  texts: string[],
+  typingSpeed = 80,
+  deletingSpeed = 40,
+  pauseDuration = 2000,
+) {
+  const [displayText, setDisplayText] = useState("");
+  const [textIndex, setTextIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const currentText = texts[textIndex];
+
+    const timeout = setTimeout(
+      () => {
+        if (!isDeleting) {
+          if (displayText.length < currentText.length) {
+            setDisplayText(currentText.slice(0, displayText.length + 1));
+          } else {
+            setTimeout(() => setIsDeleting(true), pauseDuration);
+          }
+        } else {
+          if (displayText.length > 0) {
+            setDisplayText(displayText.slice(0, -1));
+          } else {
+            setIsDeleting(false);
+            setTextIndex((prev) => (prev + 1) % texts.length);
+          }
+        }
+      },
+      isDeleting ? deletingSpeed : typingSpeed,
+    );
+
+    return () => clearTimeout(timeout);
+  }, [
+    displayText,
+    isDeleting,
+    textIndex,
+    texts,
+    typingSpeed,
+    deletingSpeed,
+    pauseDuration,
+  ]);
+
+  return displayText;
+}
+
+// Scroll-triggered typing effect hook
+function useScrollTypingEffect(text: string, typingSpeed = 50) {
+  const [displayText, setDisplayText] = useState("");
+  const [hasStarted, setHasStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasStarted) {
+          setHasStarted(true);
+        }
+      },
+      { threshold: 0.5 },
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasStarted]);
+
+  useEffect(() => {
+    if (!hasStarted) return;
+
+    if (displayText.length < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayText(text.slice(0, displayText.length + 1));
+      }, typingSpeed);
+      return () => clearTimeout(timeout);
+    }
+  }, [hasStarted, displayText, text, typingSpeed]);
+
+  return { displayText, ref };
+}
+
+// Scroll reveal hook
+function useScrollReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, isVisible };
+}
+
+// Scramble text effect - runs on mount, reveals from scrambled characters
+function useScrambleText(text: string, duration = 750) {
+  const [displayText, setDisplayText] = useState("");
+  const chars = "!@#$%^&*_+-=[]|;:<>?/~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  useEffect(() => {
+    const iterations = 12;
+    const intervalTime = duration / iterations;
+    let currentIteration = 0;
+
+    // Start with scrambled text
+    setDisplayText(
+      text
+        .split("")
+        .map((c) =>
+          c === " " ? " " : chars[Math.floor(Math.random() * chars.length)],
+        )
+        .join(""),
+    );
+
+    const interval = setInterval(() => {
+      currentIteration++;
+      const progress = currentIteration / iterations;
+
+      const newText = text
+        .split("")
+        .map((char, index) => {
+          if (char === " ") return " ";
+          const charProgress = index / text.length;
+          if (progress > charProgress + 0.2) {
+            return char;
+          }
+          return chars[Math.floor(Math.random() * chars.length)];
+        })
+        .join("");
+
+      setDisplayText(newText);
+
+      if (currentIteration >= iterations) {
+        clearInterval(interval);
+        setDisplayText(text);
+      }
+    }, intervalTime);
+
+    return () => clearInterval(interval);
+  }, [text, duration, chars]);
+
+  return displayText;
+}
+
 export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
-  // TODO: Update with actual registration URL
   const REGISTRATION_URL = "https://solanafoundation.typeform.com/privacyhack";
+
+  // Typing effect for badge
+  const badgeText = useTypingEffect(
+    ["PRIVACY_HACKATHON_2026", "STARTING_01/12/2026"],
+    80,
+    40,
+    2500,
+  );
+
+  // Scramble effect for title
+  const titleText = useScrambleText("PRIVACYHACK", 750);
+
+  // Scroll typing effect for welcome text
+  const welcomeTyping = useScrollTypingEffect("welcome cypherpunk_", 60);
+
+  // Scroll reveal for sections
+  const timelineReveal = useScrollReveal();
+  const requirementsReveal = useScrollReveal();
+  const tracksReveal = useScrollReveal();
+  const resourcesReveal = useScrollReveal();
+  const sponsorReveal = useScrollReveal();
 
   return (
     <div className="overflow-hidden bg-black">
+      {/* Animation styles */}
+      <style jsx global>{`
+        @keyframes blink {
+          0%,
+          50% {
+            opacity: 1;
+          }
+          51%,
+          100% {
+            opacity: 0;
+          }
+        }
+      `}</style>
+
       {/* Cypherpunk Hero Section */}
       <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden bg-black">
         {/* Matrix-style background */}
@@ -107,18 +301,22 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         />
 
         <div className="container relative z-10 text-center px-4 py-20">
-          {/* Terminal-style badge */}
+          {/* Terminal-style badge with typing effect */}
           <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-green-500/30 bg-green-500/5">
             <Lock size={14} className="text-green-400" />
             <span className="text-green-400 text-sm font-mono tracking-wider">
-              PRIVACY_HACKATHON_2026
+              {badgeText}
+              <span
+                className="inline-block w-2 h-4 bg-green-400 ml-1 align-middle"
+                style={{ animation: "blink 1s step-end infinite" }}
+              />
             </span>
           </div>
 
-          {/* Main title */}
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 tracking-tight font-mono">
-            <span className="text-white">PRIVACY</span>
-            <span className="text-green-400"> HACK</span>
+          {/* Main title with scramble effect */}
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight font-mono mb-6">
+            <span className="text-white">{titleText.slice(0, 7)}</span>
+            <span className="text-green-400">{titleText.slice(7)}</span>
           </h1>
 
           {/* Subtitle */}
@@ -145,8 +343,8 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
             </a>
           </div>
 
-          {/* Terminal decoration */}
-          <div className="mt-16 max-w-md mx-auto text-left font-mono text-xs text-green-500/60">
+          {/* Terminal decoration with hackathon info */}
+          <div className="mt-16 max-w-lg mx-auto text-left font-mono text-xs text-green-500/60">
             <div className="border border-green-500/20 rounded-lg p-4 bg-black/50">
               <div className="flex items-center gap-2 mb-2 pb-2 border-b border-green-500/20">
                 <div className="w-2 h-2 rounded-full bg-red-500/60" />
@@ -154,17 +352,28 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                 <div className="w-2 h-2 rounded-full bg-green-500/60" />
                 <span className="ml-2 text-green-500/40">terminal</span>
               </div>
-              <div>
-                <span className="text-green-400">$</span> cat manifesto.txt
+              <div className="space-y-1">
+                <div>
+                  <span className="text-green-400">$</span> whoami
+                </div>
+                <div className="text-gray-300">cypherpunk</div>
+                <div className="mt-2">
+                  <span className="text-green-400">$</span> cat /etc/hackathon
+                </div>
+                <div className="text-gray-300">
+                  dates: jan_12-30_2026
+                  <br />
+                  tracks: [private_payments, private_launchpad, privacy_tooling]
+                  <br />
+                  total prizes: $60,000+
+                </div>
+                <div className="mt-2">
+                  <span className="text-green-400">$</span> cat manifesto.txt
+                </div>
+                <div className="text-gray-300">
+                  Privacy is necessary for an open society.
+                </div>
               </div>
-              <div className="text-gray-300 mt-1">
-                Privacy is necessary for an open society.
-              </div>
-              <div className="mt-2">
-                <span className="text-green-400">$</span> echo &quot;let&apos;s
-                build&quot;
-              </div>
-              <div className="text-green-400 mt-1">let&apos;s build</div>
             </div>
           </div>
         </div>
@@ -186,9 +395,15 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </div>
         <div className="container relative z-10">
           <div className="max-w-3xl mx-auto text-center">
-            <span className="inline-block text-sm font-mono uppercase tracking-wider text-green-400 mb-4">
-              {translations.ctaEyebrow}
-            </span>
+            <div ref={welcomeTyping.ref}>
+              <span className="inline-block text-sm font-mono uppercase tracking-wider text-green-400 mb-4">
+                {welcomeTyping.displayText}
+                <span
+                  className="inline-block w-2 h-4 bg-green-400 ml-1 align-middle"
+                  style={{ animation: "blink 1s step-end infinite" }}
+                />
+              </span>
+            </div>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
               {translations.ctaTitle}
             </h2>
@@ -207,7 +422,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </div>
       </section>
 
-      {/* Timeline Section */}
+      {/* Timeline Section with scroll reveal */}
       <section className="relative py-12 md:py-16">
         <div className="absolute inset-0 opacity-10">
           <div
@@ -221,7 +436,14 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
             }}
           />
         </div>
-        <div className="container relative z-10">
+        <div
+          ref={timelineReveal.ref}
+          className={`container relative z-10 transition-all duration-700 ${
+            timelineReveal.isVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-12 text-center">
             {translations.timelineTitle}
           </h2>
@@ -239,6 +461,9 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                 <div
                   key={index}
                   className="grid grid-cols-2 border-b border-green-500/10 last:border-b-0 hover:bg-green-500/5 transition-colors"
+                  style={{
+                    transitionDelay: `${index * 100}ms`,
+                  }}
                 >
                   <div className="py-4 px-6 text-white font-semibold">
                     {event.phase}
@@ -264,9 +489,16 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </a>
       </div>
 
-      {/* Submission Requirements */}
+      {/* Submission Requirements with scroll reveal */}
       <section className="relative py-12 md:py-16">
-        <div className="container relative z-10">
+        <div
+          ref={requirementsReveal.ref}
+          className={`container relative z-10 transition-all duration-700 ${
+            requirementsReveal.isVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
           <div className="max-w-3xl mx-auto">
             <div className="border border-green-500/20 rounded-xl p-8 bg-black/50">
               <h2 className="text-2xl md:text-3xl font-bold text-white mb-6 font-mono">
@@ -275,7 +507,15 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               </h2>
               <ul className="space-y-4">
                 {translations.requirementsItems.map((req, index) => (
-                  <li key={index} className="flex items-start gap-3">
+                  <li
+                    key={index}
+                    className={`flex items-start gap-3 transition-all duration-500 ${
+                      requirementsReveal.isVisible
+                        ? "opacity-100 translate-x-0"
+                        : "opacity-0 translate-x-4"
+                    }`}
+                    style={{ transitionDelay: `${index * 100 + 200}ms` }}
+                  >
                     <div className="flex-shrink-0 mt-1">
                       <div className="w-5 h-5 rounded border border-green-400 flex items-center justify-center">
                         <Check size={12} className="text-green-400" />
@@ -290,7 +530,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </div>
       </section>
 
-      {/* Tracks Section */}
+      {/* Tracks Section with scroll reveal */}
       <section className="relative py-12 md:py-16">
         <div className="absolute inset-0 opacity-10">
           <div
@@ -304,7 +544,14 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
             }}
           />
         </div>
-        <div className="container relative z-10">
+        <div
+          ref={tracksReveal.ref}
+          className={`container relative z-10 transition-all duration-700 ${
+            tracksReveal.isVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
               {translations.tracksTitle}
@@ -317,7 +564,12 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
             {translations.tracks.map((track, index) => (
               <div
                 key={index}
-                className="bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all group cursor-pointer"
+                className={`bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all group cursor-pointer ${
+                  tracksReveal.isVisible
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`}
+                style={{ transitionDelay: `${index * 150 + 200}ms` }}
               >
                 <div className="text-green-400 text-xs font-mono uppercase tracking-wider mb-3">
                   Track {String(index + 1).padStart(2, "0")}
@@ -360,7 +612,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </section>
       )}
 
-      {/* Sponsor Bounties Section */}
+      {/* Sponsor Bounties Section with scroll reveal */}
       {translations.sponsorBounties.length > 0 && (
         <section className="relative py-12 md:py-16">
           <div className="absolute inset-0 opacity-10">
@@ -375,7 +627,14 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               }}
             />
           </div>
-          <div className="container relative z-10">
+          <div
+            ref={sponsorReveal.ref}
+            className={`container relative z-10 transition-all duration-700 ${
+              sponsorReveal.isVisible
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-8"
+            }`}
+          >
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
                 {translations.sponsorBountiesTitle}
@@ -388,7 +647,12 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               {translations.sponsorBounties.map((bounty, index) => (
                 <div
                   key={index}
-                  className="bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all group cursor-pointer"
+                  className={`bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all group cursor-pointer ${
+                    sponsorReveal.isVisible
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-8"
+                  }`}
+                  style={{ transitionDelay: `${index * 150 + 200}ms` }}
                 >
                   <div className="text-green-400 text-xs font-mono uppercase tracking-wider mb-3">
                     {bounty.sponsor}
@@ -412,7 +676,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </section>
       )}
 
-      {/* Resources Section */}
+      {/* Resources Section with scroll reveal */}
       <section id="resources" className="relative py-12 md:py-16">
         <div className="absolute inset-0 opacity-10">
           <div
@@ -426,7 +690,14 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
             }}
           />
         </div>
-        <div className="container relative z-10">
+        <div
+          ref={resourcesReveal.ref}
+          className={`container relative z-10 transition-all duration-700 ${
+            resourcesReveal.isVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
               {translations.resourcesTitle}
@@ -444,7 +715,12 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                   href={resource.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all cursor-pointer"
+                  className={`group bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all cursor-pointer ${
+                    resourcesReveal.isVisible
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-8"
+                  }`}
+                  style={{ transitionDelay: `${index * 100 + 200}ms` }}
                 >
                   <div className="text-green-400 text-xs font-mono uppercase tracking-wider mb-2">
                     {resource.category}
@@ -474,7 +750,12 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               {translations.workshops.map((workshop, index) => (
                 <div
                   key={index}
-                  className="bg-black/50 rounded-xl p-6 border border-green-500/20 hover:border-green-400/50 hover:scale-[1.02] transition-all flex flex-col cursor-pointer"
+                  className={`bg-black/50 rounded-xl p-6 border border-green-500/20 hover:border-green-400/50 hover:scale-[1.02] transition-all flex flex-col cursor-pointer ${
+                    resourcesReveal.isVisible
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-8"
+                  }`}
+                  style={{ transitionDelay: `${index * 100 + 400}ms` }}
                 >
                   <div className="text-green-400 text-sm font-mono mb-2">
                     {workshop.date}
