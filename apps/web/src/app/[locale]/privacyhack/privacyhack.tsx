@@ -52,6 +52,15 @@ interface PrivacyHackPageProps {
       src: string;
       alt: string;
     }>;
+    mentorsTitle: string;
+    mentorsSubtitle: string;
+    mentorsComingSoon: string;
+    mentors: Array<{
+      name: string;
+      role: string;
+      image: string;
+      twitter: string;
+    }>;
     resourcesTitle: string;
     resourcesDescription: string;
     resourcesGettingStarted: string;
@@ -729,15 +738,89 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                   <p className="text-gray-400 text-sm mb-6">
                     {bounty.description}
                   </p>
-                  <div className="pt-4 border-t border-green-500/20">
-                    <span className="text-2xl font-bold text-green-400 font-mono">
-                      {bounty.prizeAmount}
-                    </span>
-                    <span className="text-gray-500 text-sm ml-2">prize</span>
-                  </div>
+                  {bounty.prizeAmount && (
+                    <div className="pt-4 border-t border-green-500/20">
+                      <span className="text-2xl font-bold text-green-400 font-mono">
+                        {bounty.prizeAmount}
+                      </span>
+                      <span className="text-gray-500 text-sm ml-2">prize</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* Mentors Section */}
+      {translations.mentors && translations.mentors.length > 0 && (
+        <section id="mentors" className="relative py-12 md:py-16">
+          <div className="absolute inset-0 opacity-10">
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
+                  linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px)
+                `,
+                backgroundSize: "30px 30px",
+              }}
+            />
+          </div>
+          <div className="container relative z-10">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
+                {translations.mentorsTitle}
+              </h2>
+              <p className="text-gray-400 max-w-2xl mx-auto">
+                {translations.mentorsSubtitle}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+              {translations.mentors.map((mentor, index) => (
+                <div
+                  key={index}
+                  className="group relative bg-black/60 backdrop-blur-sm border border-green-500/20 rounded-lg p-6 hover:border-green-500/50 transition-all duration-300 text-center"
+                >
+                  {/* Avatar */}
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-500/20 to-green-500/5 border border-green-500/30 flex items-center justify-center overflow-hidden">
+                    {mentor.image ? (
+                      <img
+                        src={mentor.image}
+                        alt={mentor.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-2xl font-bold text-green-400 font-mono">
+                        {mentor.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  {/* Name & Role */}
+                  <h3 className="text-lg font-bold text-white mb-1 group-hover:text-green-400 transition-colors">
+                    {mentor.name}
+                  </h3>
+                  <p className="text-gray-400 text-sm mb-3">{mentor.role}</p>
+                  {/* Twitter Link */}
+                  {mentor.twitter && (
+                    <a
+                      href={mentor.twitter}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-green-400 text-sm hover:text-green-300 transition-colors font-mono"
+                    >
+                      @{mentor.twitter.split("/").pop()}
+                      <ArrowUpRight className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Coming Soon Notice */}
+            <p className="text-center text-gray-500 mt-8 font-mono text-sm">
+              {translations.mentorsComingSoon}
+            </p>
           </div>
         </section>
       )}

@@ -75,6 +75,16 @@ export default async function Page(_props: Props) {
       alt: string;
     }>,
 
+    mentorsTitle: t("privacyhack.mentors.title"),
+    mentorsSubtitle: t("privacyhack.mentors.subtitle"),
+    mentorsComingSoon: t("privacyhack.mentors.comingSoon"),
+    mentors: t.raw("privacyhack.mentors.items") as Array<{
+      name: string;
+      role: string;
+      image: string;
+      twitter: string;
+    }>,
+
     resourcesTitle: t("privacyhack.resources.title"),
     resourcesDescription: t("privacyhack.resources.description"),
     resourcesGettingStarted: t("privacyhack.resources.gettingStarted"),
