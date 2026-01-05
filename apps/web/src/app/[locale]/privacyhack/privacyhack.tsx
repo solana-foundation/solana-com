@@ -119,43 +119,6 @@ function useTypingEffect(
   return displayText;
 }
 
-// Scroll-triggered typing effect hook
-function useScrollTypingEffect(text: string, typingSpeed = 50) {
-  const [displayText, setDisplayText] = useState("");
-  const [hasStarted, setHasStarted] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasStarted) {
-          setHasStarted(true);
-        }
-      },
-      { threshold: 0.5 },
-    );
-
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
-
-    return () => observer.disconnect();
-  }, [hasStarted]);
-
-  useEffect(() => {
-    if (!hasStarted) return;
-
-    if (displayText.length < text.length) {
-      const timeout = setTimeout(() => {
-        setDisplayText(text.slice(0, displayText.length + 1));
-      }, typingSpeed);
-      return () => clearTimeout(timeout);
-    }
-  }, [hasStarted, displayText, text, typingSpeed]);
-
-  return { displayText, ref };
-}
-
 // Scroll reveal hook
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -181,12 +144,33 @@ function useScrollReveal() {
   return { ref, isVisible };
 }
 
-// Scramble text effect - runs on mount, reveals from scrambled characters
-function useScrambleText(text: string, duration = 750) {
-  const [displayText, setDisplayText] = useState("");
+// Scroll-triggered scramble text effect
+function useScrollScrambleText(text: string, duration = 750) {
+  const [displayText, setDisplayText] = useState(text);
+  const [hasStarted, setHasStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const chars = "!@#$%^&*_+-=[]|;:<>?/~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
   useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasStarted) {
+          setHasStarted(true);
+        }
+      },
+      { threshold: 0.5 },
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasStarted]);
+
+  useEffect(() => {
+    if (!hasStarted) return;
+
     const iterations = 12;
     const intervalTime = duration / iterations;
     let currentIteration = 0;
@@ -226,9 +210,95 @@ function useScrambleText(text: string, duration = 750) {
     }, intervalTime);
 
     return () => clearInterval(interval);
-  }, [text, duration, chars]);
+  }, [hasStarted, text, duration, chars]);
 
-  return displayText;
+  return { displayText, ref };
+}
+
+// Matrix rain component
+function MatrixRain() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let columns = 0;
+    let drops: number[] = [];
+
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const fontSize = 14;
+      columns = Math.floor(canvas.width / fontSize);
+      // Initialize drops at random positions so rain is already falling
+      drops = Array(columns)
+        .fill(0)
+        .map(() => Math.floor(Math.random() * (canvas.height / fontSize)));
+    };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const chars =
+      "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789";
+    const fontSize = 14;
+
+    const draw = () => {
+      // Fade effect
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.font = `${fontSize}px monospace`;
+
+      for (let i = 0; i < drops.length; i++) {
+        const y = drops[i] * fontSize;
+        // Fade characters based on vertical position (fade to black at bottom)
+        const fadeStart = canvas.height * 0.5;
+        const alpha =
+          y > fadeStart
+            ? Math.max(
+                0,
+                0.35 * (1 - (y - fadeStart) / (canvas.height - fadeStart)),
+              )
+            : 0.35;
+
+        ctx.fillStyle = `rgba(0, 255, 65, ${alpha})`;
+        const char = chars[Math.floor(Math.random() * chars.length)];
+        ctx.fillText(char, i * fontSize, y);
+
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    };
+
+    const interval = setInterval(draw, 50);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("resize", resizeCanvas);
+    };
+  }, []);
+
+  return (
+    <>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 pointer-events-none"
+      />
+      {/* Gradient fade to black at bottom */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-48 pointer-events-none"
+        style={{
+          background: "linear-gradient(to bottom, transparent, black)",
+        }}
+      />
+    </>
+  );
 }
 
 export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
@@ -242,11 +312,8 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
     2500,
   );
 
-  // Scramble effect for title
-  const titleText = useScrambleText("PRIVACYHACK", 750);
-
-  // Scroll typing effect for welcome text
-  const welcomeTyping = useScrollTypingEffect("welcome cypherpunk_", 60);
+  // Scramble effect for "Privacy is normal"
+  const ctaTitleScramble = useScrollScrambleText(translations.ctaTitle, 750);
 
   // Scroll reveal for sections
   const timelineReveal = useScrollReveal();
@@ -273,8 +340,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
 
       {/* Cypherpunk Hero Section */}
       <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden bg-black">
-        {/* Matrix-style background */}
-        <div className="absolute inset-0 opacity-20">
+        {/* Matrix rain background */}
+        <MatrixRain />
+
+        {/* Grid overlay */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div
             className="absolute inset-0"
             style={{
@@ -313,10 +383,10 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
             </span>
           </div>
 
-          {/* Main title with scramble effect */}
+          {/* Main title */}
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight font-mono mb-6">
-            <span className="text-white">{titleText.slice(0, 7)}</span>
-            <span className="text-green-400">{titleText.slice(7)}</span>
+            <span className="text-white">PRIVACY </span>
+            <span className="text-green-400">HACK</span>
           </h1>
 
           {/* Subtitle */}
@@ -356,7 +426,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                 <div>
                   <span className="text-green-400">$</span> whoami
                 </div>
-                <div className="text-gray-300">cypherpunk</div>
+                <div className="text-gray-300">privacy_hackathon_2026</div>
                 <div className="mt-2">
                   <span className="text-green-400">$</span> cat /etc/hackathon
                 </div>
@@ -395,18 +465,14 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </div>
         <div className="container relative z-10">
           <div className="max-w-3xl mx-auto text-center">
-            <div ref={welcomeTyping.ref}>
-              <span className="inline-block text-sm font-mono uppercase tracking-wider text-green-400 mb-4">
-                {welcomeTyping.displayText}
-                <span
-                  className="inline-block w-2 h-4 bg-green-400 ml-1 align-middle"
-                  style={{ animation: "blink 1s step-end infinite" }}
-                />
-              </span>
+            <span className="inline-block text-sm font-mono uppercase tracking-wider text-green-400 mb-4">
+              welcome cypherpunk_
+            </span>
+            <div ref={ctaTitleScramble.ref}>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
+                {ctaTitleScramble.displayText}
+              </h2>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
-              {translations.ctaTitle}
-            </h2>
             <p className="text-lg text-gray-400 mb-8">
               {translations.ctaDescription}
             </p>
