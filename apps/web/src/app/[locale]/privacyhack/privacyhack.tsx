@@ -348,7 +348,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
       `}</style>
 
       {/* Cypherpunk Hero Section */}
-      <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden bg-black">
+      <section className="relative min-h-[60vh] flex items-center justify-center overflow-hidden bg-black">
         {/* Matrix rain background */}
         <MatrixRain />
 
@@ -379,7 +379,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
           }}
         />
 
-        <div className="container relative z-10 text-center px-4 py-20">
+        <div className="container relative z-10 text-center px-4 py-12 md:py-16">
           {/* Terminal-style badge with typing effect */}
           <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-green-500/30 bg-green-500/5">
             <Lock size={14} className="text-green-400" />
@@ -423,7 +423,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
           </div>
 
           {/* Terminal decoration with hackathon info */}
-          <div className="mt-16 max-w-lg mx-auto text-left font-mono text-xs text-green-500/60">
+          <div className="mt-10 max-w-lg mx-auto text-left font-mono text-xs text-green-500/60">
             <div className="border border-green-500/20 rounded-lg p-4 bg-black/50">
               <div className="flex items-center gap-2 mb-2 pb-2 border-b border-green-500/20">
                 <div className="w-2 h-2 rounded-full bg-red-500/60" />
@@ -458,38 +458,24 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="relative py-16 overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `
-                linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px)
-              `,
-              backgroundSize: "30px 30px",
-            }}
-          />
-        </div>
-        <div className="container relative z-10">
-          <div className="max-w-3xl mx-auto text-center">
+      {/* CTA Section - integrated content, not a separate hero */}
+      <section className="py-12 md:py-16">
+        <div className="container">
+          <div className="max-w-3xl mx-auto text-center border border-green-500/20 rounded-xl p-8 md:p-12 bg-black/50">
             <span className="inline-block text-sm font-mono uppercase tracking-wider text-green-400 mb-4">
               welcome cypherpunk_
             </span>
             <div ref={ctaTitleScramble.ref}>
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
                 {ctaTitleScramble.displayText}
               </h2>
             </div>
-            <p className="text-lg text-gray-400 mb-8">
-              {translations.ctaDescription}
-            </p>
+            <p className="text-gray-400 mb-6">{translations.ctaDescription}</p>
             <a
               href={translations.ctaUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-green-400 text-black font-bold rounded-full hover:bg-green-300 transition-all hover:scale-105"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-400 text-black font-bold rounded-full hover:bg-green-300 transition-all hover:scale-105"
             >
               {translations.ctaLabel}
             </a>
