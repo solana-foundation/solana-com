@@ -6,6 +6,17 @@ import { locales } from "@workspace/i18n/config";
 const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {
+  // Redirect templates.solana.com to solana.com/developers/templates
+  const host = req.headers.get("host") || "";
+  if (host === "templates.solana.com" || host === "www.templates.solana.com") {
+    const path = req.nextUrl.pathname;
+    const search = req.nextUrl.search;
+    return NextResponse.redirect(
+      `https://solana.com/developers/templates${path === "/" ? "" : path}${search}`,
+      { status: 301 },
+    );
+  }
+
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (
