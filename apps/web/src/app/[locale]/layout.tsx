@@ -1,5 +1,6 @@
 import "@/scss/index.scss";
 import "@/app/globals.css";
+import "react-tweet/theme.css";
 
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
