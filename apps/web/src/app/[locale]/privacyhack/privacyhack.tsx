@@ -443,9 +443,9 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                 <div className="text-gray-300">
                   dates: jan_12-30_2026
                   <br />
-                  tracks: [private_payments, private_launchpad, privacy_tooling]
+                  tracks: [private_payments, privacy_tooling, open_track]
                   <br />
-                  total prizes: $60,000+
+                  total prizes: $100,000+
                 </div>
                 <div className="mt-2">
                   <span className="text-green-400">$</span> cat manifesto.txt
