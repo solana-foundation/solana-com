@@ -46,6 +46,7 @@ interface PrivacyHackPageProps {
       title: string;
       description: string;
       prizeAmount: string;
+      url?: string;
     }>;
     sponsorBannerTitle: string;
     sponsorBannerLogos: Array<{
@@ -461,7 +462,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
       {/* CTA Section - integrated content, not a separate hero */}
       <section className="py-12 md:py-16">
         <div className="container">
-          <div className="max-w-3xl mx-auto text-center border border-green-500/20 rounded-xl p-8 md:p-12 bg-black/50">
+          <div className="max-w-3xl mx-auto text-center">
             <span className="inline-block text-sm font-mono uppercase tracking-wider text-green-400 mb-4">
               welcome cypherpunk_
             </span>
@@ -470,15 +471,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                 {ctaTitleScramble.displayText}
               </h2>
             </div>
-            <p className="text-gray-400 mb-6">{translations.ctaDescription}</p>
-            <a
-              href={translations.ctaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-green-400 text-black font-bold rounded-full hover:bg-green-300 transition-all hover:scale-105"
-            >
-              {translations.ctaLabel}
-            </a>
+            <p className="text-gray-400">{translations.ctaDescription}</p>
           </div>
         </div>
       </section>
@@ -550,47 +543,6 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         </a>
       </div>
 
-      {/* Submission Requirements with scroll reveal */}
-      <section className="relative py-12 md:py-16">
-        <div
-          ref={requirementsReveal.ref}
-          className={`container relative z-10 transition-all duration-700 ${
-            requirementsReveal.isVisible
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-          }`}
-        >
-          <div className="max-w-3xl mx-auto">
-            <div className="border border-green-500/20 rounded-xl p-8 bg-black/50">
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-6 font-mono">
-                <span className="text-green-400">&gt;</span>{" "}
-                {translations.requirementsTitle}
-              </h2>
-              <ul className="space-y-4">
-                {translations.requirementsItems.map((req, index) => (
-                  <li
-                    key={index}
-                    className={`flex items-start gap-3 transition-all duration-500 ${
-                      requirementsReveal.isVisible
-                        ? "opacity-100 translate-x-0"
-                        : "opacity-0 translate-x-4"
-                    }`}
-                    style={{ transitionDelay: `${index * 100 + 200}ms` }}
-                  >
-                    <div className="flex-shrink-0 mt-1">
-                      <div className="w-5 h-5 rounded border border-green-400 flex items-center justify-center">
-                        <Check size={12} className="text-green-400" />
-                      </div>
-                    </div>
-                    <span className="text-gray-300">{req}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Tracks Section with scroll reveal */}
       <section className="relative py-12 md:py-16">
         <div className="absolute inset-0 opacity-10">
@@ -625,7 +577,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
             {translations.tracks.map((track, index) => (
               <div
                 key={index}
-                className={`bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all group cursor-pointer ${
+                className={`bg-black/50 border border-green-500/20 rounded-xl p-6 flex flex-col ${
                   tracksReveal.isVisible
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-8"
@@ -635,13 +587,28 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                 <div className="text-green-400 text-xs font-mono uppercase tracking-wider mb-3">
                   Track {String(index + 1).padStart(2, "0")}
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3 group-hover:text-green-400 transition-colors">
+                <h3 className="text-xl font-bold text-white mb-3">
                   {track.title}
                 </h3>
-                <p className="text-gray-400 text-sm mb-6">
-                  {track.description}
+                <p className="text-gray-400 text-sm mb-6 flex-grow">
+                  {track.description.includes("Light Protocol") ? (
+                    <>
+                      {track.description.split("Light Protocol")[0]}
+                      <a
+                        href="https://lightprotocol.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-green-400 hover:text-green-300 transition-colors"
+                      >
+                        Light Protocol
+                      </a>
+                      {track.description.split("Light Protocol")[1]}
+                    </>
+                  ) : (
+                    track.description
+                  )}
                 </p>
-                <div className="pt-4 border-t border-green-500/20">
+                <div className="pt-4 border-t border-green-500/20 mt-auto">
                   <span className="text-2xl font-bold text-green-400 font-mono">
                     {track.prizeAmount || translations.tracksPrizeAmount}
                   </span>
@@ -708,7 +675,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               {translations.sponsorBounties.map((bounty, index) => (
                 <div
                   key={index}
-                  className={`bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all group cursor-pointer ${
+                  className={`bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all group cursor-pointer flex flex-col ${
                     sponsorReveal.isVisible
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-8"
@@ -721,16 +688,27 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                   <h3 className="text-xl font-bold text-white mb-3 group-hover:text-green-400 transition-colors">
                     {bounty.title}
                   </h3>
-                  <p className="text-gray-400 text-sm mb-6">
+                  <p className="text-gray-400 text-sm mb-6 whitespace-pre-line">
                     {bounty.description}
                   </p>
                   {bounty.prizeAmount && (
-                    <div className="pt-4 border-t border-green-500/20">
+                    <div className="pt-4 border-t border-green-500/20 mb-4">
                       <span className="text-2xl font-bold text-green-400 font-mono">
                         {bounty.prizeAmount}
                       </span>
                       <span className="text-gray-500 text-sm ml-2">prize</span>
                     </div>
+                  )}
+                  {bounty.url && (
+                    <a
+                      href={bounty.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-auto inline-flex items-center text-green-400 text-sm font-semibold hover:text-green-300 transition-colors"
+                    >
+                      Learn more about {bounty.sponsor}
+                      <ArrowUpRight size={14} className="ml-1" />
+                    </a>
                   )}
                 </div>
               ))}
@@ -763,11 +741,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                 {translations.mentorsSubtitle}
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-6 max-w-5xl mx-auto">
               {translations.mentors.map((mentor, index) => (
                 <div
                   key={index}
-                  className="group relative bg-black/60 backdrop-blur-sm border border-green-500/20 rounded-lg p-6 hover:border-green-500/50 transition-all duration-300 text-center"
+                  className="group relative bg-black/60 backdrop-blur-sm border border-green-500/20 rounded-lg p-6 hover:border-green-500/50 transition-all duration-300 text-center w-full sm:w-[calc(50%-12px)] lg:w-[calc(25%-18px)]"
                 >
                   {/* Avatar */}
                   <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-500/20 to-green-500/5 border border-green-500/30 flex items-center justify-center overflow-hidden">
@@ -919,6 +897,61 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Submission Requirements with scroll reveal */}
+      <section className="relative py-12 md:py-16">
+        <div
+          ref={requirementsReveal.ref}
+          className={`container relative z-10 transition-all duration-700 ${
+            requirementsReveal.isVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
+          <div className="max-w-3xl mx-auto">
+            <div className="border border-green-500/20 rounded-xl p-8 bg-black/50">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-6 font-mono">
+                <span className="text-green-400">&gt;</span>{" "}
+                {translations.requirementsTitle}
+              </h2>
+              <ul className="space-y-4">
+                {translations.requirementsItems.map((req, index) => (
+                  <li
+                    key={index}
+                    className={`flex items-start gap-3 transition-all duration-500 ${
+                      requirementsReveal.isVisible
+                        ? "opacity-100 translate-x-0"
+                        : "opacity-0 translate-x-4"
+                    }`}
+                    style={{ transitionDelay: `${index * 100 + 200}ms` }}
+                  >
+                    <div className="flex-shrink-0 mt-1">
+                      <div className="w-5 h-5 rounded border border-green-400 flex items-center justify-center">
+                        <Check size={12} className="text-green-400" />
+                      </div>
+                    </div>
+                    <span className="text-gray-300">{req}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Bottom Sign Up Section */}
+      <section className="py-16 md:py-24">
+        <div className="container text-center">
+          <a
+            href={REGISTRATION_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-green-400 text-black font-bold rounded-full hover:bg-green-300 transition-all hover:scale-105"
+          >
+            {translations.heroRegisterButton}
+          </a>
         </div>
       </section>
     </div>
