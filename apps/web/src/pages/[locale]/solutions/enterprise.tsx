@@ -128,20 +128,20 @@ const EnterprisePage = () => {
             <p className="tw-text-gray-400 tw-mb-12 tw-max-w-2xl">
               {t("partners.faq.description")}
             </p>
-            <div className="tw-space-y-6">
+            <div className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-6">
               {FAQ_ITEMS.map((faq) => (
                 <div
                   key={faq.key}
-                  className="tw-bg-gray-900 tw-border tw-border-gray-800 tw-rounded-xl tw-p-6"
+                  className="tw-bg-gray-900 tw-border tw-border-gray-800 tw-rounded-xl tw-p-6 tw-flex tw-flex-col"
                 >
-                  <h3 className="tw-text-lg tw-font-semibold tw-text-white tw-mb-3">
+                  <h3 className="tw-text-lg tw-font-semibold tw-text-white tw-mb-4">
                     {t(`partners.faq.items.${faq.key}.question`)}
                   </h3>
-                  <p className="tw-text-gray-400">
+                  <p className="tw-text-gray-400 tw-leading-relaxed tw-flex-1">
                     {t(`partners.faq.items.${faq.key}.answer`)}
                   </p>
                   {(faq.link || faq.secondaryLink) && (
-                    <div className="tw-flex tw-gap-4 tw-mt-4">
+                    <div className="tw-flex tw-flex-wrap tw-gap-4 tw-mt-5 tw-pt-4 tw-border-t tw-border-gray-800">
                       {faq.link && (
                         <a
                           href={faq.link}
