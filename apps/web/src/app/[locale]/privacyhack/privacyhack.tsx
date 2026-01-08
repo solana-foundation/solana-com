@@ -688,11 +688,26 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                   <h3 className="text-xl font-bold text-white mb-3 group-hover:text-green-400 transition-colors">
                     {bounty.title}
                   </h3>
-                  <p className="text-gray-400 text-sm mb-6 whitespace-pre-line">
-                    {bounty.description}
+                  <p className="text-gray-400 text-sm mb-6 whitespace-pre-line flex-grow">
+                    {bounty.description.includes("View full details") ? (
+                      <>
+                        {bounty.description.split("View full details")[0]}
+                        <a
+                          href="https://bananahq.notion.site/Hackathon-Sponsor-Tracks-2e2283a1bc748055b28cdc838a4d98be"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-400 hover:text-green-300 transition-colors"
+                        >
+                          View full details
+                        </a>
+                        {bounty.description.split("View full details")[1]}
+                      </>
+                    ) : (
+                      bounty.description
+                    )}
                   </p>
                   {bounty.prizeAmount && (
-                    <div className="pt-4 border-t border-green-500/20 mb-4">
+                    <div className="pt-4 border-t border-green-500/20 mb-4 mt-auto">
                       <span className="text-2xl font-bold text-green-400 font-mono">
                         {bounty.prizeAmount}
                       </span>
@@ -890,7 +905,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                     rel="noopener noreferrer"
                     className="mt-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-green-400 text-green-400 hover:bg-green-400 hover:text-black transition-all font-semibold text-sm"
                   >
-                    Watch on YouTube
+                    Watch on 𝕏
                     <ArrowUpRight size={14} />
                   </a>
                 </div>
