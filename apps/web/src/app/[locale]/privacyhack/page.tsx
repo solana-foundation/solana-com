@@ -19,6 +19,10 @@ export default async function Page(_props: Props) {
     timelineDateHeader: t("privacyhack.timeline.dateHeader"),
     timelineEvents: [
       {
+        phase: t("privacyhack.timeline.events.opening.phase"),
+        date: t("privacyhack.timeline.events.opening.date"),
+      },
+      {
         phase: t("privacyhack.timeline.events.registration.phase"),
         date: t("privacyhack.timeline.events.registration.date"),
       },
