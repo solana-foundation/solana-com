@@ -1,0 +1,284 @@
+---
+title: Batch Payments
+description: Learn how to batch multiple payments in a single transaction.
+---
+
+## Demo
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  KeyPairSigner
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getTransferInstruction
+} from "@solana-program/token";
+
+// Generate keypairs for sender and recipient
+const sender = await generateKeyPairSigner();
+const recipient1 = await generateKeyPairSigner();
+const recipient2 = await generateKeyPairSigner();
+
+console.log("Sender Address:", sender.address.toString());
+console.log("Recipient 1 Address:", recipient1.address.toString());
+console.log("Recipient 2 Address:", recipient2.address.toString());
+
+// Demo Setup: Create RPC connection, mint account, token accounts, and fund with initial tokens
+const { rpc, rpcSubscriptions, mint } = await demoSetup(
+  sender,
+  recipient1,
+  recipient2
+);
+
+console.log("\nMint Address:", mint.address.toString());
+
+// Derive the Associated Token Accounts (ATAs) for sender and recipient
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+console.log("Sender Token Account:", senderAta.toString());
+console.log("Recipient 1 Token Account:", recipient1Ata.toString());
+console.log("Recipient 2 Token Account:", recipient2Ata.toString());
+
+// =============================================================================
+// Batch Token Payment Demo
+// =============================================================================
+
+// Get a fresh blockhash for the transaction
+const { value: transferBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Create instruction to transfer tokens from sender to recipient 1
+// !mark(1:6)
+const firstTransferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 25n // 0.25 tokens
+});
+
+// Create instruction to transfer tokens from sender to recipient 2
+// !mark(1:6)
+const secondTransferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 25n // 0.25 tokens
+});
+
+// Create transaction message for token transfer
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(transferBlockhash, tx),
+  (tx) =>
+    appendTransactionMessageInstructions(
+      // !mark
+      [firstTransferInstruction, secondTransferInstruction],
+      tx
+    )
+);
+
+// Sign the transaction with the sender's keypair
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm the transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+// Get the transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("\n=== Token Payment Complete ===");
+console.log("Transaction Signature:", transactionSignature);
+
+// Fetch final token account balances
+const senderBalance = await rpc.getTokenAccountBalance(senderAta).send();
+const recipient1Balance = await rpc
+  .getTokenAccountBalance(recipient1Ata)
+  .send();
+const recipient2Balance = await rpc
+  .getTokenAccountBalance(recipient2Ata)
+  .send();
+
+console.log("\nSender Token Account Balance:", senderBalance.value);
+console.log("Recipient 1 Token Account Balance:", recipient1Balance.value);
+console.log("Recipient 2 Token Account Balance:", recipient2Balance.value);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+/**
+ * Sets up for a token transfer demo:
+ * - Creates RPC connections
+ * - Airdrops SOL to sender for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token accounts for sender and recipient
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param recipient1 - The first recipient's keypair
+ * @param recipient2 - The second recipient's keypair
+ * @returns Return RPC connection and mint address
+ */
+// !collapse(1:1000) collapsed
+async function demoSetup(
+  sender: KeyPairSigner,
+  recipient1: KeyPairSigner,
+  recipient2: KeyPairSigner
+) {
+  // Create Connection to local validator
+  const rpc = createSolanaRpc("http://localhost:8899");
+  const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+  // Fund sender with SOL for transaction fees
+  await airdropFactory({ rpc, rpcSubscriptions })({
+    recipientAddress: sender.address,
+    lamports: lamports(1_000_000_000n),
+    commitment: "confirmed"
+  });
+
+  // Generate keypair to use as address of mint
+  const mint = await generateKeyPairSigner();
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+  // Get latest blockhash to include in transaction
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 2,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction for recipient 1's ATA
+  const createRecipient1AtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient1.address
+    });
+
+  // Create instruction for recipient 2's ATA
+  const createRecipient2AtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient2.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 100n // Mint 1.00 tokens (100 base units with 2 decimals)
+  });
+
+  // Combine all instructions in order
+  const instructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    createRecipient1AtaInstruction, // Create recipient 1's ATA
+    createRecipient2AtaInstruction, // Create recipient 2's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Create transaction message
+  const transactionMessage = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions(instructions, tx)
+  );
+
+  // Sign transaction message with all required signers
+  const signedTransaction =
+    await signTransactionMessageWithSigners(transactionMessage);
+
+  // Send and confirm transaction
+  await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+    signedTransaction,
+    { commitment: "confirmed" }
+  );
+
+  return {
+    rpc,
+    rpcSubscriptions,
+    mint
+  };
+}
+```
+
+</CodeTabs>
