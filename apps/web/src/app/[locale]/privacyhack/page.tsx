@@ -112,13 +112,19 @@ export default async function Page(_props: Props) {
         title: t("privacyhack.resources.items.templates.title"),
         description: t("privacyhack.resources.items.templates.description"),
         category: t("privacyhack.resources.items.templates.category"),
-        url: "https://solana.com/templates",
+        url: "https://solana.com/developers/templates",
       },
       {
         title: t("privacyhack.resources.items.privacyRepo.title"),
         description: t("privacyhack.resources.items.privacyRepo.description"),
         category: t("privacyhack.resources.items.privacyRepo.category"),
         url: "https://github.com/catmcgee/privacy-on-solana",
+      },
+      {
+        title: t("privacyhack.resources.items.triton.title"),
+        description: t("privacyhack.resources.items.triton.description"),
+        category: t("privacyhack.resources.items.triton.category"),
+        url: "https://triton.one/solana",
       },
     ],
   };
