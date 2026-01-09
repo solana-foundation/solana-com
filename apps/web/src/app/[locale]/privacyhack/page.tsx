@@ -120,6 +120,12 @@ export default async function Page(_props: Props) {
         category: t("privacyhack.resources.items.privacyRepo.category"),
         url: "https://github.com/catmcgee/privacy-on-solana",
       },
+      {
+        title: t("privacyhack.resources.items.triton.title"),
+        description: t("privacyhack.resources.items.triton.description"),
+        category: t("privacyhack.resources.items.triton.category"),
+        url: "https://triton.one/solana",
+      },
     ],
   };
 

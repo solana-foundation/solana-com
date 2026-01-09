@@ -836,14 +836,14 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
           </div>
 
           <div className="mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex flex-wrap justify-center gap-6">
               {translations.resources.map((resource, index) => (
                 <a
                   key={index}
                   href={resource.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`group bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all cursor-pointer ${
+                  className={`group bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all cursor-pointer w-full md:w-[calc(33.333%-1rem)] ${
                     resourcesReveal.isVisible
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-8"
