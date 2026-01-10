@@ -5,8 +5,8 @@ import { Check } from "react-feather";
 
 interface HackathonRequirementsProps {
   title: string;
-  problemTitle: string;
-  problemDescription: string;
+  problemTitle?: string;
+  problemDescription?: string;
   requirementsItems: string[];
 }
 
@@ -20,14 +20,20 @@ export default function HackathonRequirements({
     <section className="py-8 md:py-12">
       <div className="container">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-              {problemTitle}
-            </h2>
-            <p className="text-lg text-gray-300 leading-relaxed">
-              {problemDescription}
-            </p>
-          </div>
+          {(problemTitle || problemDescription) && (
+            <div className="mb-12">
+              {problemTitle && (
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+                  {problemTitle}
+                </h2>
+              )}
+              {problemDescription && (
+                <p className="text-lg text-gray-300 leading-relaxed">
+                  {problemDescription}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="bg-gray-900/50 rounded-2xl p-8 md:p-10 border border-gray-800">
             <h3 className="text-2xl font-bold text-white mb-6">{title}</h3>

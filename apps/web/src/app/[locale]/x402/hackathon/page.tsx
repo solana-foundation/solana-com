@@ -108,7 +108,7 @@ export default async function Page(_props: Props) {
         title: t("x402.hackathon.resources.items.x402SDK.title"),
         description: t("x402.hackathon.resources.items.x402SDK.description"),
         category: t("x402.hackathon.resources.items.x402SDK.category"),
-        url: "https://docs.corbits.dev/quickstart",
+        url: "https://docs.corbits.dev/build-with-corbits/ride-or-die",
       },
       {
         title: t("x402.hackathon.resources.items.facilitatorDocs.title"),
