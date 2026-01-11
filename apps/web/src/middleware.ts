@@ -5,19 +5,8 @@ import { locales } from "@workspace/i18n/config";
 
 const handleI18nRouting = createMiddleware(routing);
 
-function log(...args: unknown[]) {
-  console.log("[web-middleware]", ...args);
-}
-
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-
-  log("=== MIDDLEWARE START ===");
-  log("pathname:", pathname);
-  log("full url:", req.nextUrl.toString());
-  log("method:", req.method);
-  log("headers.host:", req.headers.get("host"));
-  log("x-forwarded-host:", req.headers.get("x-forwarded-host"));
 
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
@@ -34,14 +23,10 @@ export default async function middleware(req: NextRequest) {
     pathname.startsWith("/media-assets") ||
     pathname.startsWith("/opengraph")
   ) {
-    log("-> Returning NextResponse.next() for proxy path");
-    log("=== MIDDLEWARE END ===");
     return NextResponse.next();
   }
 
   if (pathname !== pathname.toLowerCase()) {
-    log("-> Redirecting to lowercase:", pathname.toLowerCase());
-    log("=== MIDDLEWARE END ===");
     return NextResponse.redirect(
       `${req.nextUrl.origin + pathname.toLowerCase()}`,
     );
@@ -63,8 +48,6 @@ export default async function middleware(req: NextRequest) {
     );
 
     const cleanedPath = `/${cleanedSegments.join("/")}`;
-    log("-> Redirecting to remove duplicate locales:", cleanedPath);
-    log("=== MIDDLEWARE END ===");
     return NextResponse.redirect(
       `${req.nextUrl.origin}${cleanedPath}${req.nextUrl.search}`,
     );
@@ -72,7 +55,6 @@ export default async function middleware(req: NextRequest) {
 
   const localeParam = req.nextUrl?.searchParams?.get("locale");
   if (localeParam && !locales.includes(localeParam)) {
-    log("-> Removing invalid locale param:", localeParam);
     // An invalid locale search param means that the pages router was trying
     // to do a soft navigation and matched the route pages/[locale]/[...slug]
     // the right route will be resolved after the middleware adds the right locale prefix
@@ -81,24 +63,7 @@ export default async function middleware(req: NextRequest) {
     req.nextUrl.searchParams.delete("slug");
   }
 
-  log("-> Calling handleI18nRouting");
-  const response = handleI18nRouting(req);
-
-  // Log what handleI18nRouting returned
-  if (response instanceof Response) {
-    log("handleI18nRouting returned Response");
-    log("  status:", response.status);
-    log("  headers.location:", response.headers.get("location"));
-    log(
-      "  headers.x-middleware-rewrite:",
-      response.headers.get("x-middleware-rewrite"),
-    );
-  } else {
-    log("handleI18nRouting returned Promise");
-  }
-
-  log("=== MIDDLEWARE END ===");
-  return response;
+  return handleI18nRouting(req);
 }
 
 export const config = {
