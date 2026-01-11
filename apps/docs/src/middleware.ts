@@ -73,6 +73,38 @@ export default async function middleware(req: NextRequest) {
       "  headers.x-middleware-rewrite:",
       response.headers.get("x-middleware-rewrite"),
     );
+
+    // Fix redirect URLs when request came through a proxy (web app).
+    // When a user visits solana.com/docs/rpc with locale cookie "es":
+    // 1. Web app rewrites to docs app: solana-com-docs.vercel.app/docs/rpc
+    // 2. Docs middleware detects locale cookie and redirects to /es/docs/rpc
+    // 3. BUT the redirect URL uses the docs app host: solana-com-docs.vercel.app/es/docs/rpc
+    // 4. Browser follows redirect and ends up on the docs app domain directly!
+    // Fix: Replace the docs app host with the original host (from x-forwarded-host)
+    // so the redirect goes to solana.com/es/docs/rpc instead.
+    const forwardedHost = req.headers.get("x-forwarded-host");
+    const currentHost = req.headers.get("host");
+    const location = response.headers.get("location");
+
+    if (
+      forwardedHost &&
+      currentHost &&
+      forwardedHost !== currentHost &&
+      location
+    ) {
+      const fixedLocation = location.replace(currentHost, forwardedHost);
+      log("  -> Fixing redirect to use forwarded host:", fixedLocation);
+
+      const fixedResponse = new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: new Headers(response.headers),
+      });
+      fixedResponse.headers.set("location", fixedLocation);
+
+      log("=== MIDDLEWARE END ===");
+      return fixedResponse;
+    }
   } else {
     log("handleI18nRouting returned Promise");
   }
