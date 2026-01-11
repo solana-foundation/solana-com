@@ -20,6 +20,7 @@ function Header({
   className = "",
   containerClassName = "",
   showLanguage = true,
+  showDevelopersNav = true,
 }) {
   const router = useRouter();
   const { theme, toggleTheme, isThemePage } = useTheme();
@@ -87,10 +88,11 @@ function Header({
         </nav>
       </header>
       {/* Secondary nav for /developers/* and /docs/* */}
-      {(router.asPath.includes("/developers") ||
-        router.asPath.includes("/docs")) && (
-        <DevelopersNav containerClassName={containerClassName} />
-      )}
+      {showDevelopersNav &&
+        (router.asPath.includes("/developers") ||
+          router.asPath.includes("/docs")) && (
+          <DevelopersNav containerClassName={containerClassName} />
+        )}
     </>
   );
 }
