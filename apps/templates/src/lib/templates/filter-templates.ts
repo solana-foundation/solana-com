@@ -10,6 +10,9 @@ const DEFAULT_TEMPLATE_NAMES = [
   "web3js-expo", // Mobile
   "x402-template", // X402 Next.js
   "supabase-auth", // Auth
+  "phantom-embedded-react", // Phantom Embedded Wallet (Next.js)
+  "phantom-embedded-react-native-starter", // Phantom Embedded (React Native)
+  "phantom-embedded-js", // Phantom Embedded (Vite + JS)
 ];
 
 export function filterTemplates({
