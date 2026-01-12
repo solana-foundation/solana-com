@@ -14,6 +14,8 @@ import { GTMTrackingSnippet } from "@/components/GTMTrackingSnippet";
 import { CookieConsent } from "@/components/CookieConsent/CookieConsent";
 import { config } from "@/lib/config";
 import { loadMessages } from "@workspace/i18n/load-messages";
+import { DraftModeIndicator } from "@/components/DraftModeIndicator";
+import { isDraftMode } from "@/lib/draft-mode";
 
 import "@/styles.css";
 import { TailwindIndicator } from "@/components/ui/breakpoint-indicator";
@@ -194,6 +196,9 @@ export default async function LocaleLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
   const direction = getLangDir(locale);
 
+  // Check if draft mode is enabled
+  const draftModeEnabled = await isDraftMode();
+
   // Load the requested locale with automatic fallback to English if it doesn't exist
   const messages = await loadMessages(
     (loc) => import(`../../public/locales/${loc}/common.json`),
@@ -252,6 +257,7 @@ export default async function LocaleLayout({ children, params }: Props) {
           </ThemeProvider>
         </NextIntlClientProvider>
         <TailwindIndicator />
+        <DraftModeIndicator isEnabled={draftModeEnabled} />
       </body>
     </html>
   );

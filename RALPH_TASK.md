@@ -102,9 +102,9 @@ layer.
 
 ### Phase 4: Preview & Draft Mode
 
-18. [ ] Implement `/api/draft` and `/api/draft/disable` routes
-19. [ ] Update page components to support `draftMode().isEnabled`
-20. [ ] Add "Preview" button to Tina Admin edit interface
+18. [x] Implement `/api/draft` and `/api/draft/disable` routes
+19. [x] Update page components to support `draftMode().isEnabled`
+20. [x] Add "Preview" button to Tina Admin edit interface
 
 ### Phase 5: Build & Operations
 

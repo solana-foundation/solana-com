@@ -120,6 +120,43 @@ const config = defineConfig({
   cmsCallback: (cms) => {
     // Enable branch switcher in the admin UI
     cms.flags.set("branch-switcher", true);
+
+    // Add preview toolbar plugin
+    if (typeof window !== "undefined") {
+      import("./preview-plugin").then(({ openPreview }) => {
+        // Listen for document selection changes to enable preview
+        cms.events.subscribe(
+          "document:selected",
+          (event: { collection: string; relativePath: string }) => {
+            // Store current document info for preview button
+            (
+              window as typeof window & {
+                __tinaPreview?: { collection: string; relativePath: string };
+              }
+            ).__tinaPreview = {
+              collection: event.collection,
+              relativePath: event.relativePath,
+            };
+          }
+        );
+
+        // Add keyboard shortcut for preview (Ctrl/Cmd + Shift + P)
+        document.addEventListener("keydown", (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "P") {
+            e.preventDefault();
+            const previewData = (
+              window as typeof window & {
+                __tinaPreview?: { collection: string; relativePath: string };
+              }
+            ).__tinaPreview;
+            if (previewData) {
+              openPreview(previewData.collection, previewData.relativePath);
+            }
+          }
+        });
+      });
+    }
+
     return cms;
   },
 });

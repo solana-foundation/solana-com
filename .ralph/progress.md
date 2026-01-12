@@ -5,8 +5,8 @@
 ## Summary
 
 - Iterations completed: 1
-- Current status: Phase 3 Complete, starting Phase 4
-- Criteria completed: 17 of 23
+- Current status: Phase 4 Complete, starting Phase 5
+- Criteria completed: 20 of 23
 
 ## How This Works
 
@@ -62,4 +62,12 @@ Completed criteria:
 16. [x] Created /api/tina/webhook for GitHub re-indexing
 17. [x] Implemented custom media handler for file uploads
 
-**Next:** Phase 4 - Preview & Draft Mode (criteria 18-20)
+**Phase 4: Preview & Draft Mode - COMPLETE**
+
+Completed criteria:
+
+18. [x] Implemented /api/draft and /api/draft/disable routes with signed tokens
+19. [x] Added DraftModeIndicator component to layout
+20. [x] Added preview plugin with keyboard shortcut (Ctrl+Shift+P)
+
+**Next:** Phase 5 - Build & Operations (criteria 21-23)
