@@ -80,10 +80,10 @@ layer.
 
 ### Phase 1: Authentication & Security
 
-5. [ ] Create `apps/media/auth.ts` with Google OAuth and @solana.org restriction
-6. [ ] Implement `api/auth/[...nextauth]` routes
-7. [ ] Protect `/admin` and `/api/tina` in `middleware.ts`
-8. [ ] Create login UI at `app/admin/login/page.tsx`
+5. [x] Create `apps/media/auth.ts` with Google OAuth and @solana.org restriction
+6. [x] Implement `api/auth/[...nextauth]` routes
+7. [x] Protect `/admin` and `/api/tina` in `middleware.ts`
+8. [x] Create login UI at `app/admin/login/page.tsx`
 
 ### Phase 2: Tina Data Layer
 
