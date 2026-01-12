@@ -1,0 +1,443 @@
+---
+title: Next.js + Solana React Hooks
+seoTitle: Next.js ve @solana/react-hooks ile Solana cüzdan entegrasyonu
+description:
+  SOL transferleri göndermek için @solana/client ve @solana/react-hooks
+  kullanarak Next.js'te Solana cüzdan entegrasyonunu kurun.
+---
+
+Next.js'te (App Router) `@solana/client` ve `@solana/react-hooks` ile minimal
+bir Solana cüzdan entegrasyonu kurun. Bir cüzdan bağlantı açılır menüsü ve bir
+SOL transfer bileşeni oluşturacaksınız.
+
+![Next.js Hooks Uygulaması](/assets/docs/frontend/01-hero-wallet.webp)
+
+## Kaynaklar
+
+- [Framework Kit Deposu](https://github.com/solana-foundation/framework-kit)
+- [Solana JSON RPC](https://docs.solana.com/cluster/rpc-endpoints)
+
+## Ön koşullar
+
+- Node 20+
+- npm
+
+## Next.js projesi oluşturma
+
+```terminal
+$ npx create-next-app@latest my-app
+$ cd my-app
+```
+
+İstendiğinde, tüm varsayılanları kabul edin (başlangıç paketi, bu eğitimin basit
+yardımcı stiller için kullandığı Tailwind'i içerir).
+
+### Solana bağımlılıklarını yükleme
+
+```terminal
+$ npm install @solana/client@latest @solana/react-hooks@latest @solana/kit@latest
+```
+
+Güncel kalmak için `@latest` kullanın. Paket yöneticiniz eş uyarıları
+gösterirse, mevcut test edilmiş sete
+(`@solana/client@1.1.0 @solana/react-hooks@1.1.0 @solana/kit@5.0.0`)
+sabitleyebilir ve yeni sürümler yayınlandığında yükseltebilirsiniz.
+
+<ScrollyCoding>
+
+## !!steps 1. Solana sağlayıcısı oluşturma
+
+`app/providers.tsx`, basitleştirilmiş `SolanaProvider` özelliklerini kullanır.
+Kümeyi ayarlayın (varsayılan olarak Devnet).
+
+```tsx !! title="app/providers.tsx"
+"use client";
+
+import type { SolanaClientConfig } from "@solana/client";
+import { SolanaProvider } from "@solana/react-hooks";
+
+const defaultConfig: SolanaClientConfig = {
+  cluster: "devnet",
+  rpc: "https://api.devnet.solana.com",
+  websocket: "wss://api.devnet.solana.com"
+};
+
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return <SolanaProvider config={defaultConfig}>{children}</SolanaProvider>;
+}
+```
+
+## !!steps 2. Düzeni güncelleme
+
+Uygulamanızı `Providers` bileşeni ile sarın. `app/layout.tsx` dosyasını içe
+aktarıp kullanmak için güncelleyin:
+
+```tsx !! title="app/layout.tsx"
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import Providers from "./providers";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"]
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"]
+});
+
+export const metadata: Metadata = {
+  title: "Solana App",
+  description: "Solana wallet integration with Next.js"
+};
+
+export default function RootLayout({
+  children
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white`}
+      >
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+Bu, tüm uygulamayı Solana bağlamıyla sarar, böylece tüm alt bileşenler cüzdan
+durumuna ve hook'lara erişebilir.
+
+## !!steps 3. Cüzdan bağlantı düğmesi
+
+`useConnectWallet` / `useDisconnectWallet` aracılığıyla Wallet Standard
+cüzdanlarını bağlamak/bağlantıyı kesmek için açılır menü.
+
+```tsx !! title="app/components/wallet-connect-button.tsx"
+"use client";
+
+import { useState } from "react";
+import {
+  useConnectWallet,
+  useDisconnectWallet,
+  useWallet
+} from "@solana/react-hooks";
+
+const CONNECTORS = [
+  { id: "wallet-standard:phantom", label: "Phantom" },
+  { id: "wallet-standard:solflare", label: "Solflare" },
+  { id: "wallet-standard:backpack", label: "Backpack" }
+];
+
+function truncate(address: string) {
+  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+}
+
+export function WalletConnectButton() {
+  const wallet = useWallet();
+  const connectWallet = useConnectWallet();
+  const disconnectWallet = useDisconnectWallet();
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const isConnected = wallet.status === "connected";
+  const address = isConnected
+    ? wallet.session.account.address.toString()
+    : null;
+
+  async function handleConnect(connectorId: string) {
+    setError(null);
+    try {
+      await connectWallet(connectorId, { autoConnect: true });
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to connect");
+    }
+  }
+
+  async function handleDisconnect() {
+    setError(null);
+    try {
+      await disconnectWallet();
+      setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to disconnect");
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition"
+      >
+        {address ? (
+          <span className="font-mono">{truncate(address)}</span>
+        ) : (
+          <span>Connect wallet</span>
+        )}
+        <span className="text-xs text-slate-500">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open ? (
+        <div className="absolute z-10 mt-2 w-full min-w-[240px] rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+          {isConnected ? (
+            <div className="space-y-3">
+              <div className="rounded border border-slate-100 bg-slate-50 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Connected
+                </p>
+                <p
+                  className="font-mono text-sm text-slate-900"
+                  title={address ?? ""}
+                >
+                  {address ? truncate(address) : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleDisconnect()}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Wallet Standard
+              </p>
+              <div className="space-y-1.5">
+                {CONNECTORS.map((connector) => (
+                  <button
+                    key={connector.id}
+                    type="button"
+                    onClick={() => void handleConnect(connector.id)}
+                    className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <span>{connector.label}</span>
+                    <span className="text-xs text-slate-500">Connect</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {error ? (
+            <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+```
+
+![Cüzdan açılır menü seçenekleri](/assets/docs/frontend/02-wallet-dropdown-options.webp)
+
+![Cüzdan açılır menü bağlı](/assets/docs/frontend/03-wallet-dropdown-connected.webp)
+
+## !!steps 4. SOL transferi
+
+Herhangi bir adrese SOL transferi (lamport) göndermek için `useSolTransfer`
+kullanın.
+
+```tsx !! title="app/components/sol-transfer-card.tsx"
+"use client";
+
+import { address } from "@solana/kit";
+import { useState } from "react";
+import { useSolTransfer, useWallet } from "@solana/react-hooks";
+
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+
+function parseLamports(input: string) {
+  const value = Number(input);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const lamports = BigInt(Math.floor(value * Number(LAMPORTS_PER_SOL)));
+  return lamports > 0 ? lamports : null;
+}
+
+export function SolTransferCard() {
+  const wallet = useWallet();
+  const { send, isSending, signature } = useSolTransfer();
+  const [destination, setDestination] = useState("");
+  const [amount, setAmount] = useState("0.001");
+  const [error, setError] = useState<string | null>(null);
+
+  const statusText =
+    wallet.status === "connected" ? "Wallet connected" : "Wallet disconnected";
+
+  async function sendSol() {
+    if (wallet.status !== "connected") {
+      setError("Connect a wallet first.");
+      return;
+    }
+    const lamports = parseLamports(amount);
+    if (!lamports) {
+      setError("Enter an amount greater than 0.");
+      return;
+    }
+    const dest = destination.trim();
+    if (!dest) {
+      setError("Enter a destination address.");
+      return;
+    }
+    setError(null);
+    try {
+      await send({
+        destination: address(dest),
+        amount: lamports
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send SOL");
+      return;
+    }
+    setAmount("0.001");
+  }
+
+  return (
+    <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+          SOL Transfer
+        </p>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Send SOL with the connected wallet
+        </h2>
+        <p className="text-sm text-slate-600">
+          Uses the connected signer as the fee payer and authorizes the
+          transfer.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <label
+          className="text-sm font-semibold text-slate-800"
+          htmlFor="destination"
+        >
+          Destination address
+        </label>
+        <input
+          id="destination"
+          value={destination}
+          onChange={(event) => setDestination(event.target.value)}
+          placeholder="Destination wallet address"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+        />
+      </div>
+      <div className="space-y-2">
+        <label
+          className="text-sm font-semibold text-slate-800"
+          htmlFor="amount"
+        >
+          Amount (SOL)
+        </label>
+        <input
+          id="amount"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          type="number"
+          min="0"
+          step="0.001"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+        />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-600">Status: {statusText}</p>
+        <button
+          type="button"
+          onClick={() => void sendSol()}
+          disabled={wallet.status !== "connected" || isSending}
+          className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isSending ? "Sending…" : "Send SOL"}
+        </button>
+      </div>
+      {signature ? (
+        <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          <p className="font-semibold">Transfer sent</p>
+          <a
+            className="text-sky-700 underline"
+            href={`https://explorer.solana.com/tx/${signature}?cluster=devnet`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View on Solana Explorer →
+          </a>
+        </div>
+      ) : null}
+      {error ? (
+        <p className="text-sm font-semibold text-red-600">{error}</p>
+      ) : null}
+    </section>
+  );
+}
+```
+
+![SOL transfer formu doldurulmuş](/assets/docs/frontend/04-sol-transfer-filled.webp)
+
+![SOL transfer başarılı](/assets/docs/frontend/05-sol-transfer-success.webp)
+
+Bağlayıcılar aynı Wallet Standard setidir (Phantom/Solflare/Backpack/otomatik
+keşif); bağlandıktan sonra SOL transferleri bağlı imzalayıcıyı kullanır.
+
+## !!steps 5. Sayfa
+
+`app/page.tsx` cüzdan bağlantısı ve SOL transfer bileşenlerini render eder
+(Suspense gerekmez):
+
+```tsx !! title="app/page.tsx"
+import { SolTransferCard } from "./components/sol-transfer-card";
+import { WalletConnectButton } from "./components/wallet-connect-button";
+
+export default function HomePage() {
+  return (
+    <main className="mx-auto flex max-w-5xl flex-col gap-6 px-5 py-10">
+      <header className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+          @solana/react-hooks + Next.js
+        </p>
+        <h1 className="text-3xl font-bold text-slate-900">
+          Solana wallet + SOL transfer
+        </h1>
+        <p className="max-w-3xl text-base text-slate-700">
+          Connect a Wallet Standard wallet and send a SOL transfer using the
+          connected signer.
+        </p>
+      </header>
+      <section className="space-y-3 rounded border border-slate-200 bg-white p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Wallet
+            </p>
+            <p className="text-sm text-slate-700">
+              Pick a Wallet Standard connector.
+            </p>
+          </div>
+          <div className="sm:min-w-[240px]">
+            <WalletConnectButton />
+          </div>
+        </div>
+      </section>
+      <SolTransferCard />
+    </main>
+  );
+}
+```
+
+## !!steps 6. Uygulamayı çalıştırın
+
+```terminal
+$ npm run dev
+```
+
+http://localhost:3000 adresini açın, bir Devnet cüzdanı bağlayın ve SOL
+transferi gönderin.
+
+</ScrollyCoding>
