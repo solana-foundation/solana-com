@@ -94,11 +94,11 @@ layer.
 
 ### Phase 3: API & GraphQL
 
-13. [ ] Create `/api/tina/gql` route for handling CMS queries/mutations
-14. [ ] Implement `/api/tina/[...paths]` for media and schema handling
-15. [ ] Implement mutation-level authentication
-16. [ ] Create `/api/tina/webhook` for GitHub re-indexing
-17. [ ] Implement custom media handler for Git-backed uploads
+13. [x] Create `/api/tina/gql` route for handling CMS queries/mutations
+14. [x] Implement `/api/tina/[...paths]` for media and schema handling
+15. [x] Implement mutation-level authentication
+16. [x] Create `/api/tina/webhook` for GitHub re-indexing
+17. [x] Implement custom media handler for Git-backed uploads
 
 ### Phase 4: Preview & Draft Mode
 

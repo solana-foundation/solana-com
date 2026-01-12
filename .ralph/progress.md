@@ -5,8 +5,8 @@
 ## Summary
 
 - Iterations completed: 1
-- Current status: Phase 2 Complete, starting Phase 3
-- Criteria completed: 12 of 23
+- Current status: Phase 3 Complete, starting Phase 4
+- Criteria completed: 17 of 23
 
 ## How This Works
 
@@ -52,4 +52,14 @@ Completed criteria:
 11. [x] Updated tina/config.tsx to use self-hosted GQL and auth
 12. [x] Created scripts/db-init.ts for content indexing
 
-**Next:** Phase 3 - API & GraphQL (criteria 13-17)
+**Phase 3: API & GraphQL - COMPLETE**
+
+Completed criteria:
+
+13. [x] Created /api/tina/gql route for GraphQL queries/mutations
+14. [x] Implemented /api/tina/[...paths] for media and schema handling
+15. [x] Implemented mutation-level authentication in API routes
+16. [x] Created /api/tina/webhook for GitHub re-indexing
+17. [x] Implemented custom media handler for file uploads
+
+**Next:** Phase 4 - Preview & Draft Mode (criteria 18-20)
