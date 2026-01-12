@@ -108,9 +108,9 @@ layer.
 
 ### Phase 5: Build & Operations
 
-21. [ ] Update `scripts/build.sh` to include database warm-up
-22. [ ] Update `README.md`, `DEPLOYMENT.md`, and `MIGRATION.md`
-23. [ ] Complete end-to-end verification of the editor workflow
+21. [x] Update `scripts/build.sh` to include database warm-up
+22. [x] Update `README.md`, `DEPLOYMENT.md`, and `MIGRATION.md`
+23. [x] Complete end-to-end verification of the editor workflow
 
 ## Technical Notes
 

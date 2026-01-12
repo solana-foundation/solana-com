@@ -1,14 +1,50 @@
 # Solana Media
 
-Solana Media is a Next.js application for publishing news articles and podcasts about Solana. It uses TinaCMS for content management and is part of the Solana.com monorepo.
+Solana Media is a Next.js application for publishing news articles and podcasts about Solana. It uses **self-hosted TinaCMS** for content management and is part of the Solana.com monorepo.
 
 ## Features
 
 - **News Articles**: Read the latest Solana news and updates at `/news`
 - **Podcasts**: Listen to Solana podcasts at `/podcasts`
 - **Multi-language Support**: Full i18n support via `@workspace/i18n`
-- **Content Management**: TinaCMS-powered content editing at `/admin`
+- **Content Management**: Self-hosted TinaCMS with Google OAuth at `/admin`
 - **Shared UI**: Uses `@solana-com/ui-chrome` for consistent header/footer
+
+## Self-Hosted TinaCMS
+
+This app uses a **self-hosted TinaCMS backend** instead of TinaCMS Cloud. This provides:
+
+- **Google OAuth authentication** restricted to @solana.org emails
+- **GitHub API** for content persistence (commits directly to the `staging` branch)
+- **Upstash Redis** for content indexing and fast GraphQL queries
+- **Full control** over the CMS infrastructure
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           apps/media                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐            │
+│  │   /admin     │────▶│  Auth.js v4  │────▶│ Google OAuth │            │
+│  │   (TinaCMS)  │     │  (auth.ts)   │     │ (@solana.org)│            │
+│  └──────────────┘     └──────────────┘     └──────────────┘            │
+│         │                                                                │
+│         ▼                                                                │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐            │
+│  │ /api/tina/gql│────▶│ Tina Database│────▶│ Upstash Redis│            │
+│  │  (GraphQL)   │     │ (database.ts)│     │ (indexing)   │            │
+│  └──────────────┘     └──────────────┘     └──────────────┘            │
+│         │                                                                │
+│         ▼                                                                │
+│  ┌──────────────┐     ┌──────────────┐                                  │
+│  │ GitHubProvider────▶│ GitHub API   │──▶ staging branch               │
+│  │ (mutations)  │     │ (@octokit)   │                                  │
+│  └──────────────┘     └──────────────┘                                  │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Development
 
@@ -22,31 +58,44 @@ Solana Media is a Next.js application for publishing news articles and podcasts 
 Create a `.env` file in the root of the media app (see `.env.example` for reference):
 
 ```bash
-# TinaCMS Cloud (optional - use local mode if not set)
-NEXT_PUBLIC_TINA_CLIENT_ID=your_client_id
-TINA_TOKEN=your_token
-NEXT_PUBLIC_TINA_BRANCH=staging
-TINA_SEARCH_INDEXER_TOKEN=your_indexer_token
+# =============================================
+# Authentication (Google OAuth via NextAuth)
+# =============================================
+AUTH_SECRET=           # Generate with: openssl rand -base64 32
+AUTH_GOOGLE_ID=        # Google Cloud Console Client ID
+AUTH_GOOGLE_SECRET=    # Google Cloud Console Client Secret
+AUTH_WHITELIST=        # Comma-separated emails beyond @solana.org
 
-# Or use local mode (no cloud)
+# =============================================
+# Upstash Redis (Content Indexing)
+# =============================================
+KV_REST_API_URL=       # From Upstash Console
+KV_REST_API_TOKEN=     # From Upstash Console
+
+# =============================================
+# GitHub API (Content Persistence)
+# =============================================
+GITHUB_PERSONAL_ACCESS_TOKEN=  # PAT with repo scope
+GITHUB_REPO_OWNER=solana-foundation
+GITHUB_REPO_NAME=solana-com
+GITHUB_BRANCH=staging
+
+# =============================================
+# Preview Mode
+# =============================================
+PREVIEW_SECRET=        # Generate with: openssl rand -base64 32
+
+# =============================================
+# Local Development Mode
+# =============================================
+# Set to true to skip authentication and use filesystem
 TINA_PUBLIC_IS_LOCAL=true
 
-# Cross-app navigation (IMPORTANT for production deployments)
-# Set this to the main site URL so header/footer links navigate correctly
-# Production: https://solana.com
-# Preview: https://solana-com-git-[branch].vercel.app
-# Local dev: http://localhost:3000 (leave unset if web app runs on port 3000)
+# =============================================
+# Cross-app Navigation
+# =============================================
 NEXT_PUBLIC_MAIN_SITE_URL=https://solana.com
 ```
-
-#### `NEXT_PUBLIC_MAIN_SITE_URL` (Required for Separate Deployments)
-
-When the media app is deployed separately from the main site (e.g., on its own Vercel project), this environment variable **must** be set to ensure header and footer navigation links correctly route to the main site for non-media routes (like `/developers`, `/docs`, `/learn`, etc.).
-
-- **Why it's needed**: The shared `@solana-com/ui-chrome` header/footer components include links to various sections of solana.com. Without this variable, those links will try to route within the media app where those pages don't exist.
-- **Local development**: If you're running the web app on port 3000 and media app on port 3001, set this to `http://localhost:3000`
-- **Production**: Set to `https://solana.com`
-- **Preview deployments**: Set to your preview deployment URL
 
 ### Running Locally
 
@@ -56,7 +105,10 @@ From the root of the monorepo:
 # Install dependencies
 pnpm install
 
-# Run media app in development mode
+# Initialize the database (indexes content)
+pnpm --filter @solana-com-media db:init
+
+# Run media app in development mode (local mode - no auth)
 pnpm --filter @solana-com-media dev
 ```
 
@@ -68,16 +120,16 @@ pnpm dev
 
 The app will be available at:
 
-- Frontend: http://localhost:3000
-- TinaCMS Admin: http://localhost:3000/admin
+- Frontend: http://localhost:3002
+- TinaCMS Admin: http://localhost:3002/admin
 
 ### Building
 
 ```bash
-# Build for production
+# Build for production (includes database warm-up)
 pnpm build
 
-# Build in local mode (no TinaCMS cloud)
+# Build in local mode (no cloud dependencies)
 pnpm build-local
 
 # Build for public deployment (local mode)
@@ -107,12 +159,26 @@ All routes are prefixed with locale:
 - `/<locale>/podcasts/:podcast` - Podcast show page
 - `/<locale>/podcasts/:podcast/episodes/:id` - Individual episode
 - `/admin` - TinaCMS admin panel (no locale prefix)
+- `/admin/login` - Login page for CMS access
+
+## API Routes
+
+Self-hosted Tina CMS provides these API endpoints:
+
+- `/api/auth/*` - NextAuth authentication endpoints
+- `/api/tina/gql` - GraphQL endpoint for CMS queries/mutations
+- `/api/tina/webhook` - GitHub webhook for re-indexing
+- `/api/draft` - Enable preview/draft mode
+- `/api/draft/disable` - Exit preview mode
 
 ## Architecture
 
 - **Framework**: Next.js 15 with App Router
 - **Styling**: Tailwind CSS v4
-- **Content**: TinaCMS + MDX
+- **Content**: Self-hosted TinaCMS + MDX
+- **Authentication**: NextAuth v4 with Google OAuth
+- **Database**: Upstash Redis (via upstash-redis-level)
+- **Persistence**: GitHub API (@octokit/rest)
 - **i18n**: next-intl via `@workspace/i18n`
 - **UI Components**: Radix UI + `@solana-com/ui-chrome`
 - **Fonts**: ABC Diatype (custom web fonts)
@@ -120,9 +186,27 @@ All routes are prefixed with locale:
 ## Scripts
 
 - `pnpm dev` - Start development server with TinaCMS
-- `pnpm build` - Build for production
+- `pnpm dev:self-hosted` - Start without TinaCMS CLI (for production testing)
+- `pnpm build` - Build for production (includes database warm-up)
+- `pnpm db:init` - Index content to database
 - `pnpm start` - Start production server
 - `pnpm lint` - Run ESLint
 - `pnpm lint:fix` - Fix ESLint errors
 - `pnpm format` - Format code with Prettier
 - `pnpm clean` - Clean node_modules and generated files
+
+## Preview Mode
+
+Editors can preview unpublished content using draft mode:
+
+1. **From the Admin**: Use `Ctrl+Shift+P` to open preview in a new tab
+2. **Via URL**: `/api/draft?slug=/en/news/my-post`
+3. **Exit Preview**: Click "Exit Preview" button or visit `/api/draft/disable`
+
+## Security
+
+- All CMS routes (`/admin`, `/api/tina`) require authentication
+- Only `@solana.org` email addresses can access the CMS
+- Additional emails can be whitelisted via `AUTH_WHITELIST`
+- Draft mode uses signed tokens with 1-hour expiration
+- GitHub webhook supports signature verification

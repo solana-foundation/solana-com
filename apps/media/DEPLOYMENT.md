@@ -1,270 +1,221 @@
 # Media App Deployment Guide
 
-This guide explains how to deploy the `@solana-com-media` app to Vercel as a separate deployment from the main `@solana-com/web` app.
+This guide explains how to deploy the `@solana-com-media` app with self-hosted TinaCMS to Vercel.
 
 ## Architecture
 
 The Solana website uses a **multi-app monorepo architecture**:
 
 - **apps/web** - Main website (solana.com) deployed to Vercel
-- **apps/media** - Media/news app deployed separately to `solana-com-media.vercel.app`
+- **apps/media** - Media/news app with self-hosted TinaCMS
 
-When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrites proxy the requests to the media app's Vercel deployment.
+### Self-Hosted TinaCMS Components
 
-## Local Development
+1. **Authentication**: NextAuth with Google OAuth (restricted to @solana.org)
+2. **Database**: Upstash Redis for content indexing
+3. **Persistence**: GitHub API for committing content changes
+4. **Preview**: Next.js Draft Mode for content previews
 
-### Running Both Apps
+## Prerequisites
 
-1. **Terminal 1 - Main Web App (Port 3000):**
+Before deploying, you need:
 
-   ```bash
-   cd ~/solana-com
-   pnpm --filter @solana-com/web dev
-   ```
+1. **Google OAuth Credentials**
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Create OAuth 2.0 credentials
+   - Add authorized redirect URIs:
+     - `https://your-domain.vercel.app/api/auth/callback/google`
+     - `http://localhost:3002/api/auth/callback/google` (for development)
 
-2. **Terminal 2 - Media App (Port 3001):**
+2. **Upstash Redis Database**
+   - Create a database at [Upstash Console](https://console.upstash.com)
+   - Copy the REST API URL and Token
 
-   ```bash
-   cd ~/solana-com
-   pnpm --filter @solana-com-media dev
-   ```
-
-3. **Access the apps:**
-   - Main site: http://localhost:3000
-   - Media app direct: http://localhost:3001/news or http://localhost:3001/podcasts
-   - Media via web proxy: http://localhost:3000/news or http://localhost:3000/podcasts (proxies to 3001)
-
-## Vercel Deployment Setup
-
-### Initial Setup (One-Time)
-
-1. **Link the Media App to Vercel:**
-
-   ```bash
-   cd apps/media
-   vercel link
-   ```
-
-   Select:
-   - Scope: `solana-foundation`
-   - Link to existing project: `media`
-   - Or create a new project if needed
-
-2. **Configure Vercel Project Settings:**
-
-   In the Vercel dashboard (https://vercel.com/solana-foundation/media):
-   - **Framework Preset:** Next.js
-   - **Root Directory:** `apps/media`
-   - **Build Command:** `cd ../.. && pnpm install && pnpm --filter @solana-com-media build`
-   - **Output Directory:** `.next`
-   - **Install Command:** `pnpm install`
-
-3. **Set Environment Variables:**
-
-   Add these in Vercel dashboard → Settings → Environment Variables:
-
-   ```bash
-   # TinaCMS Configuration
-   NEXT_PUBLIC_TINA_CLIENT_ID=your_client_id
-   TINA_TOKEN=your_token
-   NEXT_PUBLIC_TINA_BRANCH=staging
-   TINA_SEARCH_INDEXER_TOKEN=your_indexer_token
-
-   # Or use local mode
-   TINA_PUBLIC_IS_LOCAL=true
-
-   # Cross-app navigation (REQUIRED for production)
-   NEXT_PUBLIC_MAIN_SITE_URL=https://solana.com
-
-   # Vercel (auto-set)
-   VERCEL_ENV=production
-   VERCEL_URL=solana-com-media.vercel.app
-   ```
+3. **GitHub Personal Access Token**
+   - Create a PAT with `repo` scope at [GitHub Settings](https://github.com/settings/tokens)
+   - This allows the CMS to commit content changes
 
 ## Environment Variables
 
 ### Required for Production
 
-#### `NEXT_PUBLIC_MAIN_SITE_URL`
-
-**This environment variable is REQUIRED for production deployments.**
-
-This must be set to the main Solana.com site URL to ensure header and footer navigation links correctly route to the main site for non-media routes (like `/developers`, `/docs`, `/learn`, etc.).
-
-**Why it's needed:**
-
-The media app uses the shared `@solana-com/ui-chrome` package for header and footer components. These components include navigation links to various sections of solana.com. When deployed separately, the media app needs to know where to point these links.
-
-Without this variable:
-
-- Links to `/developers`, `/docs`, `/learn`, etc. will try to route within the media app
-- These routes don't exist in the media app, resulting in 404 errors
-
-**Configuration by environment:**
-
-- **Production:** `https://solana.com`
-- **Preview/Staging:** Your main site preview URL (e.g., `https://solana-com-git-preview.vercel.app`)
-- **Local Development:** `http://localhost:3000` (if web app runs on port 3000)
-
-**How it works:**
-
-The `url-config.ts` helper in `@solana-com/ui-chrome` checks this variable:
-
-- If set: All relative links in header/footer are prefixed with this URL (except `/news` and `/podcasts`)
-- If not set: Links use Next.js routing (appropriate for main site deployment)
-
-This allows the same header/footer components to work correctly in both:
-
-1. The main site (where all routes exist)
-2. The media app (where only `/news` and `/podcasts` exist)
-
-### Deploying Updates
-
-Once linked, deployments happen automatically:
-
 ```bash
-# From monorepo root or apps/media directory
-git add .
-git commit -m "Update media content"
-git push origin main
+# Authentication
+AUTH_SECRET=                    # openssl rand -base64 32
+AUTH_GOOGLE_ID=                 # Google OAuth Client ID
+AUTH_GOOGLE_SECRET=             # Google OAuth Client Secret
+AUTH_WHITELIST=                 # Optional: extra allowed emails
+
+# Upstash Redis
+KV_REST_API_URL=                # Upstash REST URL
+KV_REST_API_TOKEN=              # Upstash REST Token
+
+# GitHub API
+GITHUB_PERSONAL_ACCESS_TOKEN=   # PAT with repo scope
+GITHUB_REPO_OWNER=solana-foundation
+GITHUB_REPO_NAME=solana-com
+GITHUB_BRANCH=staging
+
+# Preview
+PREVIEW_SECRET=                 # openssl rand -base64 32
+
+# Cross-app Navigation
+NEXT_PUBLIC_MAIN_SITE_URL=https://solana.com
+
+# Mode (set to false for production)
+TINA_PUBLIC_IS_LOCAL=false
 ```
 
-Vercel will automatically:
+### Optional
 
-1. Detect changes to `apps/media/`
-2. Build the media app using the monorepo setup
-3. Deploy to `solana-com-media.vercel.app`
-4. The main web app will proxy `/news/*` and `/podcasts/*` requests to this deployment
+```bash
+# GitHub Webhook (for automatic re-indexing)
+GITHUB_WEBHOOK_SECRET=          # For webhook signature verification
+```
 
-### Manual Deploy (if needed)
+## Vercel Deployment Setup
+
+### 1. Link to Vercel
 
 ```bash
 cd apps/media
+vercel link
+```
+
+Select:
+
+- Scope: `solana-foundation`
+- Link to existing project: `media` (or create new)
+
+### 2. Configure Project Settings
+
+In Vercel Dashboard → Settings:
+
+- **Framework Preset:** Next.js
+- **Root Directory:** `apps/media`
+- **Build Command:** `cd ../.. && pnpm install && pnpm --filter @solana-com-media build`
+- **Output Directory:** `.next`
+- **Install Command:** `pnpm install`
+
+### 3. Set Environment Variables
+
+Add all required variables in Vercel Dashboard → Settings → Environment Variables.
+
+### 4. Deploy
+
+```bash
+# From apps/media directory
 vercel --prod
 ```
 
-## How the Proxy Works
+Or push to your repository - Vercel will auto-deploy.
 
-### Development (NODE_ENV=development)
+## GitHub Webhook Setup (Optional)
 
-```
-solana.com/news
-  ↓ (Next.js rewrite)
-http://localhost:3001/news
-```
+For automatic content re-indexing when changes are pushed:
 
-### Production
+1. Go to your GitHub repository Settings → Webhooks
+2. Add webhook:
+   - **Payload URL:** `https://your-domain.vercel.app/api/tina/webhook`
+   - **Content type:** `application/json`
+   - **Secret:** Same as `GITHUB_WEBHOOK_SECRET`
+   - **Events:** Just the `push` event
 
-```
-solana.com/news
-  ↓ (Next.js rewrite)
-https://solana-com-media.vercel.app/news
-```
+## Build Process
 
-The rewrite is configured in `apps/web/rewrites-redirects.mjs`:
+The build script (`scripts/build.sh`) performs:
 
-```javascript
-import { MEDIA_APP_URL } from "./apps-urls";
+1. **Tina Build**: Generates admin UI and GraphQL types
+2. **Database Warm-up**: Indexes content to Redis (production only)
+3. **Next.js Build**: Builds the application
 
-// Rewrites for new routes
-{
-  source: "/news",
-  destination: `${MEDIA_APP_URL}/news`,
-  locale: false,
-},
-{
-  source: "/news/:path*",
-  destination: `${MEDIA_APP_URL}/news/:path*`,
-  locale: false,
-},
-{
-  source: "/podcasts",
-  destination: `${MEDIA_APP_URL}/podcasts`,
-  locale: false,
-},
-{
-  source: "/podcasts/:path*",
-  destination: `${MEDIA_APP_URL}/podcasts/:path*`,
-  locale: false,
-}
+```bash
+# Full production build
+pnpm build
+
+# Local build (skip Redis indexing)
+TINA_PUBLIC_IS_LOCAL=true pnpm build
 ```
 
-## Vercel Project Configuration
+## Post-Deployment Checklist
 
-The `vercel.json` in this directory configures:
-
-```json
-{
-  "buildCommand": "cd ../.. && pnpm install && pnpm --filter @solana-com-media build",
-  "framework": "nextjs",
-  "installCommand": "pnpm install",
-  "outputDirectory": ".next"
-}
-```
-
-This ensures Vercel:
-
-1. Navigates to the monorepo root
-2. Installs all dependencies
-3. Builds only the media app using Turbo's filtering
-4. Outputs to the standard Next.js `.next` directory
+- [ ] Verify `/admin` redirects to `/admin/login`
+- [ ] Confirm Google OAuth login works for @solana.org users
+- [ ] Test content editing and saving
+- [ ] Verify preview mode works (Ctrl+Shift+P in admin)
+- [ ] Check that content changes appear on the frontend
 
 ## Troubleshooting
 
-### Issue: 404 on solana.com/news or solana.com/podcasts
+### Issue: Authentication fails
 
-**Solution:** Check that:
+**Solutions:**
 
-1. Media app is deployed successfully to `solana-com-media.vercel.app`
-2. The rewrite URL in `apps/web/rewrites-redirects.mjs` matches the actual deployment URL
-3. The media app is accessible directly at `https://solana-com-media.vercel.app/news` or `https://solana-com-media.vercel.app/podcasts`
+1. Verify `AUTH_SECRET` is set and matches between deployments
+2. Check Google OAuth redirect URIs include your deployment URL
+3. Ensure `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are correct
 
-### Issue: Changes not deploying
+### Issue: Content not saving
 
-**Solution:**
+**Solutions:**
 
-1. Check Vercel dashboard for build logs
-2. Ensure the root directory is set to `apps/media`
-3. Verify environment variables are set correctly
-4. Try manual deploy: `cd apps/media && vercel --prod`
+1. Verify `GITHUB_PERSONAL_ACCESS_TOKEN` has `repo` scope
+2. Check `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`, `GITHUB_BRANCH` are correct
+3. Ensure the PAT has access to the repository
 
-### Issue: Build fails on Vercel
+### Issue: GraphQL queries fail
 
-**Solution:**
+**Solutions:**
 
-1. Check that `pnpm` is available (Vercel auto-detects from `pnpm-lock.yaml`)
-2. Verify workspace packages are building correctly
-3. Check Turbo cache isn't causing issues
-4. Review build logs for specific errors
+1. Verify Redis credentials (`KV_REST_API_URL`, `KV_REST_API_TOKEN`)
+2. Run `pnpm db:init` to re-index content
+3. Check Redis dashboard for connection issues
 
-### Issue: Media app works locally but not in production
+### Issue: Preview not working
 
-**Solution:**
+**Solutions:**
 
-1. Check that environment variables are set in Vercel
-2. Verify the build command includes the monorepo setup
-3. Ensure all workspace dependencies are properly installed
-4. Check that the `vercel.json` build command is correct
+1. Verify `PREVIEW_SECRET` is set
+2. Check that draft mode cookies are being set
+3. Ensure the preview URL includes a valid signed token
 
-## Domain Configuration (Optional)
+### Issue: 403 on CMS routes
 
-If you want a custom domain:
+**Solutions:**
 
-1. Add domain in Vercel dashboard → Settings → Domains
-2. Set up domain env `NEXT_PUBLIC_MEDIA_APP_URL` for the main app `apps/web` and/or configure the rewrite in `apps/web/apps-urls.js`:
+1. Ensure you're logged in with a @solana.org email
+2. Check `AUTH_WHITELIST` if using non-@solana.org email
+3. Verify middleware is not blocking the request
 
-   ```javascript
-   const vercelMediaUrl = `https://${withRelatedProject({
-     projectName: "prj_123",
-     defaultHost: "solana-com-media.vercel.app", // your custom domain
-   })}`;
-   ```
+## Local Development with Production Config
 
-   Note: Update all rewrite destinations to use the new domain.
+To test the full self-hosted setup locally:
+
+```bash
+# Copy production env vars (sanitize secrets!)
+cp .env.production .env.local
+
+# Set local mode to false
+# TINA_PUBLIC_IS_LOCAL=false
+
+# Run the app
+pnpm dev:self-hosted
+```
+
+## Security Considerations
+
+1. **Never commit secrets** - Use environment variables
+2. **Rotate tokens regularly** - Especially `GITHUB_PERSONAL_ACCESS_TOKEN`
+3. **Limit OAuth scopes** - Google OAuth should only request email/profile
+4. **Use webhook secrets** - Verify GitHub webhook signatures
+5. **Monitor access logs** - Watch for unauthorized access attempts
 
 ## Related Files
 
-- `apps/web/rewrites-redirects.mjs` - Rewrite configuration
-- `apps/media/vercel.json` - Vercel project configuration
-- `apps/media/package.json` - Build scripts and dependencies
-- `turbo.json` - Monorepo task configuration
+- `auth.ts` - NextAuth configuration
+- `middleware.ts` - Route protection
+- `tina/database.ts` - Database configuration
+- `tina/github-provider.ts` - GitHub API integration
+- `tina/config.tsx` - TinaCMS configuration
+- `scripts/build.sh` - Build script
+- `scripts/db-init.ts` - Database indexing
