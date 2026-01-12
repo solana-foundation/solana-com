@@ -87,10 +87,10 @@ layer.
 
 ### Phase 2: Tina Data Layer
 
-9. [ ] Implement `tina/database.ts` (TinaLevelClient + Redis/Filesystem)
-10. [ ] Implement `tina/github-provider.ts` for GitHub API persistence
-11. [ ] Update `tina/config.tsx` to use self-hosted GQL and Auth provider
-12. [ ] Create `db:init` script for content indexing
+9. [x] Implement `tina/database.ts` (TinaLevelClient + Redis/Filesystem)
+10. [x] Implement `tina/github-provider.ts` for GitHub API persistence
+11. [x] Update `tina/config.tsx` to use self-hosted GQL and Auth provider
+12. [x] Create `db:init` script for content indexing
 
 ### Phase 3: API & GraphQL
 
