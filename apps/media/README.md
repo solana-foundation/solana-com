@@ -25,7 +25,7 @@ Create a `.env` file in the root of the media app (see `.env.example` for refere
 # TinaCMS Cloud (optional - use local mode if not set)
 NEXT_PUBLIC_TINA_CLIENT_ID=your_client_id
 TINA_TOKEN=your_token
-NEXT_PUBLIC_TINA_BRANCH=main
+NEXT_PUBLIC_TINA_BRANCH=staging
 TINA_SEARCH_INDEXER_TOKEN=your_indexer_token
 
 # Or use local mode (no cloud)
