@@ -11,7 +11,17 @@ Este guia pressupõe conhecimento dos seguintes tópicos:
 - [Programas Solana em geral](/docs/core/programs)
 - [Desenvolvendo programas Solana personalizados](/docs/programs/rust/)
 
-## Loader-v3 e Loader-v4
+| Tarefa                               | Comando                                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Compilar programa                    | `cargo build-sbf`                                                                             |
+| Implantar novo programa              | `solana program deploy <path_to_program.so>`                                                  |
+| Atualizar programa existente         | `solana program deploy <path_to_program.so>` (igual a implantar)                              |
+| Mostrar informações do programa      | `solana program show <program-id>`                                                            |
+| Transferir autoridade do programa    | `solana program set-upgrade-authority <program-id> --new-upgrade-authority <path_to_keypair>` |
+| Tornar programa imutável             | `solana program set-upgrade-authority <program-id> --final`                                   |
+| Fechar programa                      | `solana program close <program-id> --bypass-warning`                                          |
+| Verificar saldo da carteira          | `solana balance`                                                                              |
+| Solicitar airdrop (devnet/localhost) | `solana airdrop 2`                                                                            |
 
 Atualmente está ocorrendo uma transição do loader-v3 (subcomando program) para
 loader-v4 (subcomando program **-v4**), pois o loader-v3 está sendo
@@ -52,11 +62,11 @@ programa:
 solana-keygen new -o ./target/deploy/your_program-keypair.json
 ```
 
-Isso deve ser realizado apenas uma vez por programa e será reutilizado para
-reimplantações do mesmo programa posteriormente.
+```terminal
+$ solana-keygen new
+```
 
-A cadeia de ferramentas continha um atalho, no entanto, ele está sendo eliminado
-/ descontinuado:
+Isto cria um keypair em `~/.config/solana/id.json` por padrão.
 
 ```shell
 cargo-build-sbf
@@ -66,16 +76,29 @@ cargo-build-sbf
 
 Agora o executável pode ser enviado para a conta do programa:
 
-### Loader-v3
+Escolha em qual cluster Solana implantar. Use o comando `solana config get` para
+verificar a sua configuração atual:
 
-O parâmetro é chamado `program-id` mesmo que espere o caminho do arquivo de um
-keypair:
+```terminal
+$ solana config get
+Config File: ~/.config/solana/cli/config.yml
+RPC URL: http://localhost:8899
+WebSocket URL: ws://localhost:8900/ (computed)
+Keypair Path: ~/.config/solana/id.json
+Commitment: confirmed
+```
 
 ```shell
 solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
 ```
 
-### Loader-v4
+```terminal
+$ solana config set --url mainnet-beta
+$ solana config set --url devnet
+$ solana config set --url localhost
+$ solana config set --url testnet
+$ solana config set --url "https://your-rpc-url.com"
+```
 
 ```shell
 solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
@@ -90,17 +113,22 @@ porque o assinante é o keypair da autoridade de atualização.
 
 ### Loader-v3
 
-Isso é exatamente igual à implantação inicial:
+Para devnet ou localhost, financie a sua carteira usando o comando
+`solana airdrop`:
 
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```terminal
+$ solana airdrop 2
+Requesting airdrop of 2 SOL
+Signature: 5zQKxvRdgJDA8fRGPdKfGxRLnLpwmNnMXGYxfBqFSUPqc5BTmFPrTG8vnC4HvKDVY8zQ8aQxZxcEE7WFpGhZGVAA
+2 SOL
 ```
 
 Se o executável antigo for menor que o novo, pode ser necessário aumentar a
 conta programdata primeiro:
 
-```shell
-solana program extend ./target/deploy/your_program.so <ADDITIONAL_BYTES>
+```terminal
+$ solana balance
+2 SOL
 ```
 
 ### Loader-v4
@@ -114,29 +142,11 @@ solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/d
 
 ## Priorizando um upload
 
-Durante períodos de congestionamento, existem algumas flags adicionais que você
-pode usar para ajudar com a implantação do programa:
+Para compilar um programa, use o comando `cargo build-sbf`:
 
-- `--with-compute-unit-price`: Define o preço da unidade de computação para a
-  transação, em incrementos de 0,000001 lamports (micro-lamports) por unidade de
-  computação. Use a
-  [API de Taxa de Prioridade da Helius](https://docs.helius.dev/guides/priority-fee-api)
-  para obter uma estimativa da taxa de prioridade a ser definida.
-- `--use-rpc`: Envia transações de escrita para o RPC configurado em vez de TPUs
-  do validador. Esta flag requer uma conexão RPC
-  [ponderada por stake](/developers/guides/advanced/stake-weighted-qos) como
-  [Helius](https://www.helius.dev/) ou [Triton](https://triton.one/). Esta flag
-  também pode ser configurada como padrão usando:
-  `solana config set --url <RPC_URL>`.
-- `--max-sign-attempts`: Número máximo de tentativas para assinar ou reassinar
-  transações após a expiração do blockhash. Se alguma transação enviada durante
-  a implantação do programa ainda não estiver confirmada após a expiração do
-  blockhash recente inicialmente escolhido, essas transações serão reassinadas
-  com um novo blockhash recente e reenviadas. Use esta configuração para ajustar
-  o número máximo de iterações de assinatura de transação. Cada blockhash é
-  válido por cerca de 60 segundos, o que significa que usar o valor padrão de 5
-  levará ao envio de transações por pelo menos 5 minutos ou até que todas as
-  transações sejam confirmadas, o que ocorrer primeiro.
+```terminal
+$ cargo build-sbf
+```
 
 ## Retomando um upload
 
@@ -149,40 +159,62 @@ pendente que contém um saldo diferente de zero. Para recuperar esse saldo, voc�
 pode retomar uma implantação que falhou fornecendo o mesmo buffer intermediário
 para uma nova chamada a `deploy`.
 
-Falhas na implantação exibirão uma mensagem de erro especificando a frase seed
-necessária para recuperar o keypair do buffer intermediário gerado:
+```rs !! title="src/lib.rs"
+use solana_program::{
+    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
+};
 
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
+    _instruction_data: &[u8],
+) -> ProgramResult {
+    msg!("Hello, Solana!");
+    Ok(())
+}
 ```
-==================================================================================
-Recover the intermediate account's ephemeral keypair file with
-`solana-keygen recover` and the following 12-word seed phrase:
-==================================================================================
-valley flat great hockey share token excess clever benefit traffic avocado athlete
-==================================================================================
-To resume a deploy, pass the recovered keypair as
-the [BUFFER_SIGNER] to `solana program deploy` or `solana program write-buffer'.
-Or to recover the account's lamports, pass it as the
-[BUFFER_ACCOUNT_ADDRESS] argument to `solana program drain`.
-==================================================================================
+
+```toml !! title="Cargo.toml"
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "2.2.0"
 ```
 
 Para recuperar o keypair:
 
-```shell
-solana-keygen recover -o ./target/deploy/buffer-keypair.json
+Compile o seu programa usando o comando `cargo build-sbf`:
+
+```terminal
+$ cargo build-sbf
 ```
 
-Quando solicitado, insira a frase seed de 12 palavras.
+Isto cria dois ficheiros importantes em `target/deploy/`:
 
-Em seguida, emita um novo comando `deploy` e especifique o buffer:
+1. `hello_world-keypair.json`: Um ficheiro de keypair cuja chave pública será
+   usada como o seu Program ID
+2. `hello_world.so`: O executável do programa compilado
 
-```shell
-solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --buffer ./target/deploy/buffer-keypair.json
+```json !! title="target/deploy/hello_world-keypair.json"
+[
+  203, 253, 43, 62, 165, 111, 94, 222, 105, 225, 218, 85, 143, 9, 114, 96, 243,
+  181, 114, 89, 72, 230, 124, 85, 59, 165, 198, 23, 240, 212, 23, 154, 229, 241,
+  153, 61, 153, 105, 79, 204, 193, 163, 33, 65, 82, 183, 49, 240, 224, 137, 248,
+  24, 128, 25, 192, 197, 118, 235, 239, 67, 85, 156, 219, 231
+]
 ```
 
-### Loader-v4
-
-É possível retomar um upload a partir de um deslocamento de bytes específico:
+```txt !! title="target/deploy/hello_world.so"
+[binary executable file]
+```
 
 ```shell
 solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
@@ -194,13 +226,19 @@ Esta é uma ação **irreversível**.
 
 Um programa pode se tornar imutável removendo sua autoridade de atualização.
 
-### Loader-v3
+```terminal
+$ wc -c < ./target/deploy/hello_world.so
+18504
+```
 
 ```shell
 solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
 ```
 
-### Loader-v4
+```terminal
+$ solana rent 18504
+Rent-exempt minimum: 0.12967872 SOL
+```
 
 ```shell
 solana program finalize --program-id ./target/deploy/your_program-keypair.json
@@ -210,11 +248,13 @@ Em vez de sobrescrever programas, também é possível oferecer aos usuários a
 escolha de qual versão de um programa eles desejam usar, construindo uma lista
 encadeada de programas finalizados:
 
-```shell
-solana program finalize --program-id ./target/deploy/your_program-keypair.json --next-version ../your_newer_program/target/deploy/your_newer_program-keypair.json
-```
+Use o comando `solana program deploy` para implantar o seu programa:
 
-## Fechamento
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 2BYwsqRP7ZwBNQvJp3S8bphTJ4zKW5JBPVMqCTE5KyLkP8xHzAyUEeC4LdTgjJdGBKHWNCkRF8Mf1T1WkLFyEu8W
+```
 
 Para programas implantados sob o loader-v3, apenas sua conta programdata, as
 contas de buffer e os fundos bloqueados nelas podem ser recuperados. A conta do
@@ -227,14 +267,15 @@ disponíveis para outros usos novamente.
 
 ### Loader-v3
 
-Esta é uma ação **irreversível** para programas implantados usando o loader-v3.
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so --program-id ./custom-keypair.json
+```
 
-Observe que uma vez que um programa é fechado, seu ID de programa não pode ser
-reutilizado. Tentar implantar um programa com um ID de programa previamente
-fechado resultará em um erro. Se você precisar reimplantar um programa após
-fechá-lo, você deve gerar um novo arquivo de keypair do programa.
+Pode gerar novos keypairs usando o comando `solana-keygen`:
 
-Para fechar uma única conta programdata:
+```terminal
+$ solana-keygen new -o ./custom-keypair.json
+```
 
 ```shell
 solana program close ./target/deploy/your_program-keypair.json
@@ -242,14 +283,16 @@ solana program close ./target/deploy/your_program-keypair.json
 
 Para fechar todas as contas de buffer associadas à autoridade atual:
 
-```shell
-solana program close --buffers
-```
+Atualize seu programa usando o mesmo comando `solana program deploy`:
 
-### Loader-v4
+1. Faça alterações no código do seu programa
+2. Recompile seu programa: `cargo build-sbf`
+3. Implante a atualização:
 
-```shell
-solana program-v4 close --program-id ./target/deploy/your_program-keypair.json
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 3zKnXDfEm1R8hVcEmTnNFYUaFjVVbLJrKdFj5hBMXoBRfz8xGyDhCYgKr9YY5KxKYPEUQQVfwEPNz9hQGvYhLNBJ
 ```
 
 ## Inspecionando Metadados
@@ -258,13 +301,9 @@ O subcomando `show` lista os metadados de um programa.
 
 Um exemplo de saída se parece com:
 
-```shell
-Program Id: 3KS2k14CmtnuVv2fvYcvdrNgC94Y11WETBpMUGgXyWZL
-Owner: BPFLoaderUpgradeab1e11111111111111111111111
-ProgramData Address: EHsACWBhgmw8iq5dmUZzTA1esRqcTognhKNHUkPi4q4g
-Authority: FwoGJNUaJN2zfVEex9BB11Dqb3NJKy3e9oY3KTh9XzCU
-Last Deployed In Slot: 63890568
-Data Length: 5216 (0x1460) bytes
+```terminal
+$ solana program extend 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE 1000
+Extended Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE by 1000 bytes
 ```
 
 - `Program Id` é o endereço que pode ser referenciado no campo `program_id` de
@@ -287,10 +326,11 @@ Para visualizar um programa específico:
 solana program show ./target/deploy/your_program-keypair.json
 ```
 
-Para visualizar a lista de programas implantados com a autoridade padrão:
+Para verificar os metadados do seu programa, use o comando
+`solana program show`:
 
-```shell
-solana program show --programs
+```terminal
+$ solana program show 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
 ```
 
 Para mostrar todas as contas de buffer independentemente da autoridade:
@@ -299,7 +339,23 @@ Para mostrar todas as contas de buffer independentemente da autoridade:
 solana program show --buffers --all
 ```
 
-Para especificar uma autoridade diferente:
+```txt
+$ solana program show 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Program Id/] program-id
+Program Id: 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Owner/] owner
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+# !tooltip[/ProgramData Address/] program-data-address
+ProgramData Address: Gqn7YQVCP8NtYV1qkEqR4Udhj8EJ3fkikvS7HskCNQ7c
+# !tooltip[/Authority/] authority
+Authority: 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1
+# !tooltip[/Last Deployed In Slot/] last-deployed-in-slot
+Last Deployed In Slot: 6573
+# !tooltip[/Data Length/] data-length
+Data Length: 18504 (0x4848) bytes
+# !tooltip[/Balance/] balance
+Balance: 0.12999192 SOL
+```
 
 ```shell
 solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
@@ -351,13 +407,12 @@ autoridade pode ser transferida para outro keypair sem alterar o keypair do
 programa, para que o ID do programa permaneça o mesmo. Além disso, uma única
 autoridade pode controlar vários program accounts.
 
-Se não for explicitamente especificado durante a implantação inicial, então o
-keypair padrão é usado como autoridade. É por isso que reimplantar um programa
-nos passos acima não exigiu que uma autoridade fosse explicitamente
-especificada.
+Para transferir a autoridade do programa para uma conta diferente, use o comando
+`solana program set-upgrade-authority`:
 
-Uma autoridade explícita é útil para assinatura offline e programas governados
-por múltiplas entidades.
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --new-upgrade-authority ./new-authority-keypair.json
+```
 
 Primeiro, um keypair para a autoridade deve ser gerado:
 
@@ -365,9 +420,15 @@ Primeiro, um keypair para a autoridade deve ser gerado:
 solana-keygen new -o ~/.config/solana/authority-keypair.json
 ```
 
-### Loader-v3
+Para tornar seu programa imutável, use o comando
+`solana program set-upgrade-authority` com a flag `--final` para remover a
+autoridade do programa:
 
-A autoridade pode ser especificada durante a implantação:
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --final
+Account Type: Program
+Authority: none
+```
 
 ```shell
 solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
@@ -375,11 +436,13 @@ solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.con
 
 Ou após a implantação e usando o keypair padrão como a autoridade atual:
 
-```shell
-solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --new-upgrade-authority ~/.config/solana/authority-keypair.json
-```
+Para fechar seu programa e recuperar o SOL alocado para a conta do programa, use
+o comando `solana program close`:
 
-Ou após a implantação e especificando a autoridade atual:
+```terminal
+$ solana program close 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --bypass-warning
+Closed Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE, 0.12999192 SOL reclaimed
+```
 
 ```shell
 solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
@@ -393,26 +456,31 @@ A autoridade pode ser especificada durante a implantação:
 solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
 ```
 
-Ou após a implantação e usando o keypair padrão como a autoridade atual:
+```terminal
+$ solana program show --programs
+```
 
 ```shell
 solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
 ```
 
-Ou após a implantação e especificando a autoridade atual:
+```txt
+Program Id                                       | Slot       | Authority                                      | Balance
+-------------------------------------------------|------------|------------------------------------------------|-------------
+7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE     | 249885434  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.12999192
+3KSGCk4m5hqJkTjPHBXUCPcqMwJnK3VmkqEsFUKKGJPK     | 249883212  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.28654328
+```
 
 ```shell
 solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
 ```
 
-## Avançado: Reimplantação em duas etapas usando um Buffer
+Para baixar um programa implantado, use o comando `solana program dump`:
 
-Em vez de fazer o upload diretamente para o program account, o executável pode
-ser carregado primeiro em uma conta de buffer intermediária e depois transferido
-para o program account em uma segunda etapa (a reimplantação/implantação real).
-Isso é útil para assinatura offline e programas governados por múltiplas
-entidades, como uma votação de DAO para escolher ou rejeitar um executável
-carregado antes da reimplantação real.
+```terminal
+$ solana program dump 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE ./downloaded_program.so
+Wrote program to ./downloaded_program.so
+```
 
 Lembre-se que usar contas de buffer praticamente dobra os fundos necessários
 durante o processo de upload, pois duas contas estão mantendo um executável
@@ -427,11 +495,27 @@ solana-keygen new -o ~/.config/solana/buffer-keypair.json
 A conta de buffer pode ser reutilizada para diferentes uploads e não está
 vinculada a nenhum program account específico.
 
-### Loader-v3
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so \
+    --with-compute-unit-price 10000 \
+    --max-sign-attempts 10 \
+    --use-rpc
+```
 
 ```shell
 solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
 solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
 ```
 
-### Loader-v4
+- **`--with-compute-unit-price`**: Define a taxa de prioridade em micro-lamports
+  (0,000001 SOL) por unidade de computação. Consulte a
+  [API de Taxa de Prioridade da Helius](https://docs.helius.dev/guides/priority-fee-api)
+  para taxas atuais. Uma taxa de prioridade é uma taxa adicional paga ao líder
+  atual para priorizar sua transação.
+- **`--max-sign-attempts`**: Número de vezes para tentar novamente com um novo
+  blockhash se as transações expirarem. (Padrão: 5)
+- **`--use-rpc`**: Envia transações para o RPC configurado. Esta flag requer uma
+  conexão RPC
+  [ponderada por stake](/developers/guides/advanced/stake-weighted-qos) de
+  provedores como [Triton](https://triton.one/) ou
+  [Helius](https://www.helius.dev/).

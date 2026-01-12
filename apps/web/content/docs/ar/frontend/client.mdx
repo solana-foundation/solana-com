@@ -1,0 +1,116 @@
+---
+title: "@solana/client"
+description:
+  قم ببناء واجهات سولانا خفيفة باستخدام بيئة تشغيل عميل سولانا بدون واجهة.
+---
+
+`@solana/client` يحافظ على سطح بيئة التشغيل خفيفاً. مخزن واحد، ومجموعة RPC
+واحدة، وسجل محفظة واحد يشغّلون المساعدات المختلفة بحيث يمكن للنسخة نفسها دعم
+واجهات سطر الأوامر أو البرامج النصية أو واجهات المستخدم الكاملة. تتشارك
+الإجراءات والمراقبات والمساعدات جميعها في ذاكرة التخزين المؤقت والاشتراكات
+وجلسات المحفظة من خلال هذا العميل الواحد.
+
+<Callout type="info">
+  عندما تقوم ببناء تجربة React بحتة، عادةً ما يكون من الأسرع البدء بـ
+  [`@solana/react-hooks`](/docs/frontend/react-hooks). حزمة الخطافات تغلف بيئة
+  تشغيل العميل نفسها وتعرض خطافات جاهزة بحيث تنتقل فقط إلى العميل بدون واجهة
+  عندما تحتاج إلى تحكم إضافي.
+</Callout>
+
+## التثبيت
+
+```terminal
+$ npm install @solana/client
+```
+
+استخدم أي مدير حزم؛ يعمل العميل في المتصفحات أو العمال أو React أو Svelte أو
+بيئات التشغيل من جانب الخادم.
+
+## إنشاء عميل مرة واحدة
+
+اختر موصلات Wallet Standard (الاكتشاف التلقائي هو أسرع طريقة للبدء)، ثم قم
+بإنشاء العميل. يعرض هذا الكائن الواحد المخزن والإجراءات والمراقبات والمساعدات.
+
+```ts
+import { autoDiscover, createClient } from "@solana/client";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+await client.actions.connectWallet("wallet-standard:phantom");
+const balance = await client.actions.fetchBalance("Fke...address");
+console.log(balance.lamports?.toString());
+```
+
+يتتبع مخزن العميل إعدادات الكتلة والاشتراكات والمعاملات المعلقة وجلسات المحفظة.
+يمكنك توفير مخزن Zustand الخاص بك إذا كنت بحاجة إلى الاستمرارية أو التنسيق متعدد
+علامات التبويب.
+
+## تنسيق المحفظة
+
+تغلف الموصلات بيانات Wallet Standard الوصفية بالإضافة إلى منطق الاتصال/قطع
+الاتصال. سجّل المساعدات المدمجة `phantom()`، `solflare()`، `backpack()`، أو
+`autoDiscover()`، أو قم بتغليف مزودين مخصصين باستخدام
+`createWalletStandardConnector`. تتدفق جميع إجراءات المحفظة (الاتصال، قطع
+الاتصال، التوقيع، الإرسال) عبر سجل العميل بحيث يبقى كل مستهلك متزامناً.
+
+## الإجراءات والمراقبات والمساعدات
+
+- **الإجراءات** تغلف عمليات القراءة والكتابة الشائعة لـ RPC أثناء تحديث المخزن
+  (مثل `fetchAccount`، `requestAirdrop`، `setCluster`).
+- **المراقبات** تقوم بتعدد إرسال اشتراكات websocket، وبث التحديثات إلى المخزن،
+  وتمنحك مقابض إيقاف للتنظيف.
+- **المساعدات** تعرض تدفقات عالية المستوى مثل تحويلات SOL، ومساعدات رموز SPL،
+  واستطلاع التوقيعات، ومجموعات المعاملات.
+
+```ts
+const abortWatcher = client.watchers.watchBalance(
+  { address: "Fke...address" },
+  (lamports) => {
+    console.log("live balance", lamports.toString());
+  }
+);
+
+// Later when the component unmounts or the flow ends
+abortWatcher.abort();
+```
+
+## نمط مساعد المعاملات
+
+يمتلك مساعد المعاملات تحديث blockhash، وتحديد دافع الرسوم، والتوقيع. يمكنك
+الإعداد والفحص والإرسال بأي تجربة مستخدم تفضلها.
+
+```ts
+const prepared = await client.helpers.transaction.prepare({
+  authority: client.store.getState().wallet.session!,
+  instructions: [instructionA, instructionB]
+});
+
+await client.helpers.transaction.simulate(prepared, {
+  commitment: "processed"
+});
+const signature = await client.helpers.transaction.send(prepared);
+console.log("submitted", signature.toString());
+```
+
+استخدم `prepareAndSend` للحصول على تدفق جاهز (محاكاة بالإضافة إلى التسجيل) أو
+استدعِ `sign` / `toWire` لجمع التوقيعات يدويًا قبل نقل التنسيق السلكي بنفسك.
+
+## الأنماط الشائعة لمطوري سولانا
+
+- **آلات الحالة بدون واجهة**: قم بتشغيل العميل داخل مسارات API أو البرامج النصية
+  أو العمال لإعادة استخدام نفس منطق تنسيق المحفظة + RPC الذي يشغل واجهة المستخدم
+  الخاصة بك.
+- **لوحات المعلومات في الوقت الفعلي**: ادمج المراقبين (الأرصدة والحسابات
+  والتوقيعات) مع مكتبة واجهة المستخدم المفضلة لديك؛ يتعامل العميل مع توزيع
+  websocket وإبطال ذاكرة التخزين المؤقت.
+- **مخازن مخصصة**: قم بحقن مخزن Zustand الخاص بك للترطيب من
+  IndexedDB/localStorage، أو عكس الحالة إلى جلسات الخادم، أو التنسيق بين علامات
+  تبويب المتصفح.
+- **الجسر إلى خطافات React**: مرر نسخة عميل مكونة إلى `@solana/react-hooks`
+  عندما تريد خطافات مريحة فوق نفس وقت التشغيل.
+- **قابلية الاختبار**: يمكن محاكاة واجهة العميل الواحدة في اختبارات الوحدة، مما
+  يسهل محاكاة استجابات RPC أو جلسات المحفظة دون وجود محفظة متصفح.
