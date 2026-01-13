@@ -1,0 +1,124 @@
+---
+title: "@solana/client"
+description:
+  Rakenna kevyitä Solana-käyttöliittymiä headless Solana client
+  -ajonaikaisympäristöllä.
+---
+
+`@solana/client` pitää ajonaikaisympäristön kevyenä. Yksi store, yksi RPC-pino
+ja wallet-rekisteri ohjaavat eri apuvälineitä, joten sama instanssi voi tukea
+CLI-työkaluja, skriptejä tai täysiä käyttöliittymiä. Actionit, watcherit ja
+helperit jakavat välimuistin, tilaukset ja wallet-istunnot tämän yhden clientin
+kautta.
+
+<Callout type="info">
+  Kun rakennat puhtaasti React-pohjaista käyttökokemusta, on yleensä nopeampaa
+  aloittaa [`@solana/react-hooks`](/docs/frontend/react-hooks) -paketilla.
+  Hooks-paketti käärii saman client-ajonaikaisympäristön ja tarjoaa valmiit
+  hookit, joten käytät headless clientia vain silloin, kun tarvitset
+  lisäkontrollia.
+</Callout>
+
+## Asennus
+
+```terminal
+$ npm install @solana/client
+```
+
+Käytä mitä tahansa paketinhallintaa; client toimii selaimissa, workereissa,
+Reactissa, Sveltessä tai palvelinpuolen ajonaikaisympäristöissä.
+
+## Luo client kerran
+
+Valitse Wallet Standard -liittimet (automaattinen löytäminen on nopein tapa
+aloittaa), ja luo sitten client. Tämä yksittäinen objekti tarjoaa storen,
+actionit, watcherit ja helperit.
+
+```ts
+import { autoDiscover, createClient } from "@solana/client";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+await client.actions.connectWallet("wallet-standard:phantom");
+const balance = await client.actions.fetchBalance("Fke...address");
+console.log(balance.lamports?.toString());
+```
+
+Client store seuraa klusterin konfiguraatiota, tilauksia, odottavia
+transaktioita ja wallet-istuntoja. Voit tarjota oman Zustand-storen, jos
+tarvitset pysyvyyttä tai usean välilehden koordinointia.
+
+## Wallet-orkestrointi
+
+Liittimet kapseloivat Wallet Standard -metadatan sekä yhdistämis- ja
+katkaisulogiikan. Rekisteröi sisäänrakennetut `phantom()`, `solflare()`,
+`backpack()` tai `autoDiscover()` -helperit, tai kääri mukautetut providerit
+`createWalletStandardConnector` -toiminnolla. Kaikki wallet-actionit (yhdistä,
+katkaise, allekirjoita, lähetä) kulkevat client-rekisterin kautta, joten
+jokainen kuluttaja pysyy synkronoituna.
+
+## Actionit, watcherit ja helperit
+
+- **Actionit** käärivät yleiset RPC-luku- ja kirjoitusoperaatiot samalla
+  päivittäen storea (esim. `fetchAccount`, `requestAirdrop`, `setCluster`).
+- **Watcherit** multipleksoivat websocket-tilaukset, suoratoistavat päivitykset
+  storeen ja antavat sinulle abort-kahvat siivousta varten.
+- **Helperit** tarjoavat korkeamman tason toimintoja, kuten SOL-siirrot, SPL
+  token -helperit, allekirjoitusten pollauksen ja transaktiopoolit.
+
+```ts
+const abortWatcher = client.watchers.watchBalance(
+  { address: "Fke...address" },
+  (lamports) => {
+    console.log("live balance", lamports.toString());
+  }
+);
+
+// Later when the component unmounts or the flow ends
+abortWatcher.abort();
+```
+
+## Transaktioavustajan malli
+
+Transaktioavustaja hallinnoi blockhash-päivitystä, maksajan määritystä ja
+allekirjoitusta. Voit valmistella, tarkastaa ja lähettää haluamallasi
+käyttöliittymällä.
+
+```ts
+const prepared = await client.helpers.transaction.prepare({
+  authority: client.store.getState().wallet.session!,
+  instructions: [instructionA, instructionB]
+});
+
+await client.helpers.transaction.simulate(prepared, {
+  commitment: "processed"
+});
+const signature = await client.helpers.transaction.send(prepared);
+console.log("submitted", signature.toString());
+```
+
+Käytä `prepareAndSend` valmiiseen prosessiin (simulaatio ja lokitus) tai kutsu
+`sign` / `toWire` kerätäksesi allekirjoitukset manuaalisesti ennen wire-muodon
+välittämistä itse.
+
+## Yleisiä malleja Solana-kehittäjille
+
+- **Headless-tilakoneet**: Suorita asiakasohjelma API-reittien, skriptien tai
+  workereiden sisällä käyttääksesi uudelleen samaa lompakko- ja
+  RPC-orkestrointilogiikkaa, joka käyttää käyttöliittymääsi.
+- **Reaaliaikaiset kojelaudat**: Yhdistä tarkkailijat (saldot, tilit,
+  allekirjoitukset) haluamaasi käyttöliittymäkirjastoon; asiakasohjelma
+  käsittelee websocket-jakelun ja välimuistin mitätöinnin.
+- **Mukautetut storet**: Injektoi oma Zustand-storesi hydratoidaksesi
+  IndexedDB:stä/localStoragesta, peilaa tila palvelinsessioihin tai koordinoi
+  selainvälilehtien välillä.
+- **Silta React-hookkeihin**: Välitä konfiguroitu asiakasinstanssi
+  `@solana/react-hooks` kun haluat ergonomisia hookkeja saman ajonaikaisen
+  päälle.
+- **Testattavuus**: Yksittäinen asiakasrajapinta voidaan mockkata
+  yksikkötesteissä, mikä helpottaa RPC-vastausten tai lompakkosessioiden
+  simulointia ilman selaimen lompakkoa.

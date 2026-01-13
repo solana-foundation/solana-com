@@ -126,6 +126,18 @@ export default async function Page(_props: Props) {
         category: t("privacyhack.resources.items.triton.category"),
         url: "https://triton.one/solana",
       },
+      {
+        title: t("privacyhack.resources.items.quicknode.title"),
+        description: t("privacyhack.resources.items.quicknode.description"),
+        category: t("privacyhack.resources.items.quicknode.category"),
+        url: "https://quicknode.com",
+      },
+      {
+        title: t("privacyhack.resources.items.extractor.title"),
+        description: t("privacyhack.resources.items.extractor.description"),
+        category: t("privacyhack.resources.items.extractor.category"),
+        url: "https://www.extractor.live/",
+      },
     ],
   };
 
