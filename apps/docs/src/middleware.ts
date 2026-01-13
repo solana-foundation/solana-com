@@ -84,7 +84,7 @@ export const config = {
   // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
-    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|media-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|docs-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

@@ -31,11 +31,12 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
   });
 }
 
+const prefix = "/docs-assets";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
-  assetPrefix: "/docs-assets",
+  assetPrefix: prefix,
 
   env: {
     NEXT_PUBLIC_APP_NAME: "docs",
@@ -74,6 +75,7 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    path: `${prefix}/_next/image`,
     remotePatterns: [
       {
         protocol: "https",
