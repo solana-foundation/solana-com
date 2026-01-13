@@ -40,6 +40,7 @@ interface PrivacyHackPageProps {
     }>;
     sponsorBountiesTitle: string;
     sponsorBountiesSubtitle: string;
+    sponsorBountiesDisclaimer: string;
     sponsorBounties: Array<{
       sponsor: string;
       logo: string;
@@ -669,6 +670,9 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               </h2>
               <p className="text-lg text-gray-400">
                 {translations.sponsorBountiesSubtitle}
+              </p>
+              <p className="text-sm text-gray-500 mt-3 italic">
+                {translations.sponsorBountiesDisclaimer}
               </p>
             </div>
             {/* Featured Sponsors - First 2 (Privacy Cash & Radr Labs) */}

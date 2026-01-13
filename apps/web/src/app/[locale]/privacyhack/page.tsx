@@ -65,6 +65,7 @@ export default async function Page(_props: Props) {
 
     sponsorBountiesTitle: t("privacyhack.sponsorBounties.title"),
     sponsorBountiesSubtitle: t("privacyhack.sponsorBounties.subtitle"),
+    sponsorBountiesDisclaimer: t("privacyhack.sponsorBounties.disclaimer"),
     sponsorBounties: t.raw("privacyhack.sponsorBounties.items") as Array<{
       sponsor: string;
       logo: string;
