@@ -72,7 +72,7 @@ export function DocsPage(props: {
 }
 
 function getEditUrl(path: string) {
-  return `https://github.com/solana-foundation/solana-com/blob/main/apps/web/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
+  return `https://github.com/solana-foundation/solana-com/blob/main/apps/docs/content/docs/${path.startsWith("/") ? path.slice(1) : path}`;
 }
 
 function Footer({ pageUrl, pageTree }: { pageUrl: string; pageTree: any }) {

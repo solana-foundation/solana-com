@@ -14,7 +14,7 @@ export default async function Layout({
   const tree = docsSource.pageTree[locale];
   const pageTree = {
     ...tree,
-    children: tree.children.filter(
+    children: tree.children?.filter(
       (child) =>
         typeof child.name !== "string" ||
         !child.name.startsWith("Solana RPC Methods"),

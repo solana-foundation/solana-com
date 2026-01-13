@@ -38,7 +38,7 @@ export function BlogPage(props: {
     ?.replace(/^\/developers/, "")
     .replace(/^\//, "");
   const filePath = props.filePath?.replace(/^\//, "");
-  const href = `https://github.com/solana-foundation/solana-com/blob/main/apps/web/content/${baseHref}/${filePath}`;
+  const href = `https://github.com/solana-foundation/solana-com/blob/main/apps/docs/content/${baseHref}/${filePath}`;
   return (
     <div className="container">
       <div className="my-6">
