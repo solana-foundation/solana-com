@@ -1,0 +1,206 @@
+---
+title: "@solana/react-hooks"
+description:
+  Bagikan state @solana/client di seluruh aplikasi React Anda dengan hooks yang
+  siap pakai.
+---
+
+`@solana/react-hooks` melapisi provider React, hooks, dan helper query yang
+kompatibel dengan suspense di atas `@solana/client`. Anda tetap mengonfigurasi
+satu client, tetapi hooks mengekspos state wallet, saldo, transaksi, dan query
+program tanpa perlu menyambungkan store atau subscription secara manual.
+
+## Instalasi
+
+```terminal
+$ npm install @solana/client @solana/react-hooks
+```
+
+Kedua package diperlukan karena hooks menggunakan kembali runtime client untuk
+mengelola wallet, RPC, dan cache.
+
+## Bungkus tree Anda sekali
+
+Buat client, pilih konektor wallet secara opsional, lalu bungkus tree React Anda
+dengan `SolanaProvider`. Setiap hook membaca dari instance client yang
+dibagikan.
+
+```tsx
+"use client";
+
+import { autoDiscover, createClient } from "@solana/client";
+import { SolanaProvider } from "@solana/react-hooks";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <SolanaProvider client={client}>{children}</SolanaProvider>;
+}
+```
+
+## Hooks mencerminkan runtime client
+
+- **Wallet + konektor**: `useWallet`, `useWalletConnection`, `useConnectWallet`,
+  dan `useDisconnectWallet` mengekspos registry yang sama yang menggerakkan
+  client.
+- **Watcher saldo + akun**: `useBalance`, `useAccount`, `useSolBalance`, dan
+  `useProgramAccounts` mengalirkan update dari watcher yang mendasarinya dan
+  berbagi cache dengan action.
+- **Helper transaksi + SPL**: `useSolTransfer`, `useSplToken`,
+  `useTransactionPool`, dan `useSendTransaction` mengandalkan suite helper
+  client sehingga hooks mewarisi refresh blockhash, resolusi fee payer, dan
+  logging.
+
+```tsx
+function WalletPanel() {
+  const { connectors, connect, disconnect, wallet, status } =
+    useWalletConnection();
+  const balance = useBalance(wallet?.account.address);
+
+  if (status === "connected") {
+    return (
+      <div>
+        <p>{wallet?.account.address.toString()}</p>
+        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
+        <button onClick={disconnect}>Disconnect</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {connectors.map((connector) => (
+        <button key={connector.id} onClick={() => connect(connector.id)}>
+          Connect {connector.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+## Pola query + caching
+
+`SolanaQueryProvider` melapisi primitif yang kompatibel dengan React Query di
+atas store client sehingga query khusus Solana dapat suspend, refetch, dan
+sinkron dengan subscription program.
+
+```tsx
+import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
+
+function ProgramAccounts({ program }: { program: string }) {
+  const query = useProgramAccounts(program);
+
+  if (query.isLoading) return <p>Loading…</p>;
+  if (query.isError) return <p role="alert">RPC error</p>;
+
+  return (
+    <div>
+      <button onClick={() => query.refresh()}>Refresh</button>
+      <ul>
+        {query.accounts.map(({ pubkey }) => (
+          <li key={pubkey.toString()}>{pubkey.toString()}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ProgramAccountsSection({ program }: { program: string }) {
+  return (
+    <SolanaQueryProvider>
+      <ProgramAccounts program={program} />
+    </SolanaQueryProvider>
+  );
+}
+```
+
+## Alur transaksi dibuat deklaratif
+
+Hooks mengekspos helper transaksi yang sama seperti client tetapi mengelola
+loading dan state error untuk Anda. Gunakan untuk transfer SOL, alur token SPL,
+atau batch instruction arbitrer.
+
+```tsx
+import { useSolTransfer } from "@solana/react-hooks";
+
+function SolTransferForm({ destination }: { destination: string }) {
+  const transfer = useSolTransfer();
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void transfer.send({ destination, lamports: 100_000_000n });
+      }}
+    >
+      <button type="submit" disabled={transfer.isSending}>
+        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
+      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
+    </form>
+  );
+}
+```
+
+Butuh instruksi mentah? `useSendTransaction` menerima `instructions` dan
+`prepare` opsional yang dapat diganti, memberikan Anda pelacakan tanda tangan
+dan status ketika permintaan selesai.
+
+```tsx
+import { useSendTransaction, useWallet } from "@solana/react-hooks";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
+
+function CustomTransactionForm({ destination }: { destination: string }) {
+  const wallet = useWallet();
+  const { send, isSending, signature, error } = useSendTransaction();
+
+  async function handleSend() {
+    if (wallet.status !== "connected") return;
+
+    const instruction = getTransferSolInstruction({
+      source: wallet.session.account,
+      destination: address(destination),
+      amount: lamports(100_000_000n)
+    });
+
+    await send({ instructions: [instruction] });
+  }
+
+  return (
+    <div>
+      <button onClick={handleSend} disabled={isSending}>
+        {isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {signature ? <p>Signature: {signature}</p> : null}
+      {error ? <p role="alert">{String(error)}</p> : null}
+    </div>
+  );
+}
+```
+
+## Pola umum untuk developer Solana
+
+- **Runtime bersama, banyak aplikasi**: Konfigurasi client sekali (mungkin dalam
+  paket inti) dan gunakan di web, mobile web, atau React islands yang tertanam.
+- **Pengembangan UI first**: Hook mencerminkan alur Solana yang paling umum
+  (menghubungkan wallet, mengambil saldo, mengirim SOL, membaca saldo SPL)
+  sehingga Anda dapat fokus pada UX daripada plumbing RPC.
+- **Progressive enhancement**: Mulai headless dengan `@solana/client`, lalu
+  tambahkan hook di area di mana Anda menginginkan state React dan pengambilan
+  data yang ramah suspense.
+- **Testing**: Mock nilai return hook atau berikan client yang di-mock ke
+  `SolanaProvider` untuk mensimulasikan wallet, keberhasilan RPC, atau kegagalan
+  dalam unit test.
+- **Server components aware**: Hanya tandai komponen leaf yang memanggil hook
+  dengan `"use client"`; yang lainnya dapat tetap di server dan menerima props
+  yang terhidrasi dari children yang didukung hook.
+
+Padukan panduan ini dengan [ikhtisar @solana/client](/docs/frontend/client)
+untuk memahami runtime yang menjadi dasar setiap hook.

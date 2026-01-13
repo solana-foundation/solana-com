@@ -25,7 +25,17 @@ sequenceDiagram
     deactivate Token22
 ```
 
-### Состояние минта Confidential Transfer
+```mermaid title="Create Mint with Confidential Transfer Extension"
+sequenceDiagram
+    participant Payer as Wallet
+    participant Token22 as Token Extensions Program
+    participant Mint as Mint Account
+
+    Payer->>Token22: create_mint <br>(with Confidential Transfer Extension)
+    activate Token22
+    Token22-->>Mint: Initialize mint with extension data
+    deactivate Token22
+```
 
 Расширение добавляет состояние
 [ConfidentialTransferMint](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/mod.rs#L48-L69)
@@ -55,11 +65,31 @@ pub struct ConfidentialTransferMint {
 }
 ```
 
-_rs`ConfidentialTransferMint`_ содержит три поля конфигурации:
+```rust title="Confidential Mint State"
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Pod, Zeroable)]
+pub struct ConfidentialTransferMint {
+    /// Authority to modify the `ConfidentialTransferMint` configuration and to
+    /// approve new accounts (if `auto_approve_new_accounts` is true)
+    ///
+    /// The legacy Token Multisig account is not supported as the authority
+    pub authority: OptionalNonZeroPubkey,
 
-- **authority (авторитет)**: Аккаунт, который имеет право изменять настройки
-  конфиденциального перевода для минта и одобрять новые конфиденциальные
-  аккаунты, если автоодобрение отключено.
+    /// Indicate if newly configured accounts must be approved by the
+    /// `authority` before they may be used by the user.
+    ///
+    /// * If `true`, no approval is required and new accounts may be used
+    ///   immediately
+    /// * If `false`, the authority must approve newly configured accounts (see
+    ///   `ConfidentialTransferInstruction::ConfigureAccount`)
+    pub auto_approve_new_accounts: PodBool,
+
+    /// Authority to decode any transfer amount in a confidential transfer.
+    pub auditor_elgamal_pubkey: OptionalNonZeroElGamalPubkey,
+}
+```
+
+_rs`ConfidentialTransferMint`_ содержит три поля конфигурации:
 
 - **auto_approve_new_accounts (автоодобрение новых аккаунтов)**: Если
   установлено значение true, пользователи могут создавать токеновые аккаунты с
@@ -80,20 +110,21 @@ _rs`ConfidentialTransferMint`_ содержит три поля конфигур
 1. **Создать аккаунт минта**: Вызовите инструкцию _rs`CreateAccount`_ из System
    Program для создания аккаунта минта.
 
-2. **Инициализировать расширение Confidential Transfer**: Вызовите инструкцию
+1. **Создайте аккаунт минта**: Вызовите инструкцию System Program
+   _rs`CreateAccount`_ для создания аккаунта минта.
+
+1. **Инициализируйте расширение Confidential Transfer**: Вызовите инструкцию
    [ConfidentialTransferInstruction::InitializeMint](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/processor.rs#L48)
-   из Token Extension Program для настройки состояния
+   программы Token Extension для настройки состояния
    _rs`ConfidentialTransferMint`_ для минта.
 
-3. **Инициализировать минт**: Вызовите инструкцию
-   _rs`Instruction::InitializeMint`_ из Token Extension Program для
-   инициализации стандартного состояния минта.
+1. **Инициализируйте минт**: Вызовите инструкцию программы Token Extension
+   _rs`Instruction::InitializeMint`_ для инициализации стандартного состояния
+   минта.
 
 Хотя вы можете написать эти инструкции вручную, crate `spl_token_client`
-предоставляет метод `create_mint`, который создаёт и отправляет транзакцию со
-всеми тремя инструкциями в одном вызове функции, как показано в примере ниже.
-
-### Пример кода
+предоставляет метод `create_mint`, который формирует и отправляет транзакцию со
+всеми тремя инструкциями одним вызовом функции, как показано в примере ниже.
 
 Следующий код демонстрирует, как создать mint с расширением Confidential
 Transfer.
@@ -106,13 +137,108 @@ Extension, клонированной из mainnet, используя след�
 $ solana-test-validator --clone-upgradeable-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --url https://api.mainnet-beta.solana.com -r
 ```
 
-<Callout type="info">
-  На момент написания Confidential Transfers не включены в стандартный локальный
-  валидатор. Чтобы запустить пример кода, необходимо клонировать программу Token
-  Extension из mainnet.
-</Callout>
+```terminal
+$ solana-test-validator --clone-upgradeable-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --url https://api.mainnet.solana.com -r
+```
 
 <CodeTabs flags="r">
+
+```rust !! title="main.rs"
+use anyhow::{Context, Result};
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    signature::{Keypair, Signer},
+};
+use spl_token_client::{
+    client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
+    spl_token_2022::id as token_2022_program_id,
+    token::{ExtensionInitializationParams, Token},
+};
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local test validator
+    let rpc_client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Load the default Solana CLI keypair to use as the fee payer
+    // This will be the wallet paying for the transaction fees
+    // Use Arc to prevent multiple clones of the keypair
+    let payer = Arc::new(load_keypair()?);
+    println!("Using payer: {}", payer.pubkey());
+
+    // Generate a new keypair to use as the address of the token mint
+    let mint = Keypair::new();
+    println!("Mint keypair generated: {}", mint.pubkey());
+
+    // Set up program client for Token client
+    let program_client =
+        ProgramRpcClient::new(Arc::new(rpc_client), ProgramRpcClientSendTransaction);
+
+    // Number of decimals for the mint
+    let decimals = 9;
+
+    // Create a token client for the Token-2022 program
+    // This provides high-level methods for token operations
+    let token = Token::new(
+        Arc::new(program_client),
+        &token_2022_program_id(), // Use the Token-2022 program (newer version with extensions)
+        &mint.pubkey(),           // Address of the new token mint
+        Some(decimals),           // Number of decimal places
+        payer.clone(),            // Fee payer for transactions (cloning Arc, not keypair)
+    );
+
+    // Create extension initialization parameters
+    // The ConfidentialTransferMint extension enables confidential (private) transfers of tokens
+    let extension_initialization_params =
+        vec![ExtensionInitializationParams::ConfidentialTransferMint {
+            authority: Some(payer.pubkey()), // Authority that can modify confidential transfer settings
+            auto_approve_new_accounts: true, // Automatically approve new confidential accounts
+            auditor_elgamal_pubkey: None,    // Optional auditor ElGamal public key
+        }];
+
+    // Create and initialize the mint with the ConfidentialTransferMint extension
+    // This sends a transaction to create the new token mint
+    let transaction_signature = token
+        .create_mint(
+            &payer.pubkey(),                 // Mint authority - can mint new tokens
+            Some(&payer.pubkey()),           // Freeze authority - can freeze token accounts
+            extension_initialization_params, // Add the ConfidentialTransferMint extension
+            &[&mint],                        // Mint keypair needed as signer
+        )
+        .await?;
+
+    // Print results for user verification
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+
+// Load the keypair from the default Solana CLI keypair path (~/.config/solana/id.json)
+// This enables using the same wallet as the Solana CLI tools
+fn load_keypair() -> Result<Keypair> {
+    // Get the default keypair path
+    let keypair_path = dirs::home_dir()
+        .context("Could not find home directory")?
+        .join(".config/solana/id.json");
+
+    // Read the keypair file directly into bytes using serde_json
+    // The keypair file is a JSON array of bytes
+    let file = std::fs::File::open(&keypair_path)?;
+    let keypair_bytes: Vec<u8> = serde_json::from_reader(file)?;
+
+    // Create keypair from the loaded bytes
+    // This converts the byte array into a keypair
+    let keypair = Keypair::from_bytes(&keypair_bytes)?;
+
+    Ok(keypair)
+}
+```
 
 ```rust !! title="main.rs"
 use anyhow::{Context, Result};
@@ -236,8 +362,6 @@ dirs = "6.0.0"
 serde_json = "1.0.135"
 tokio = { version = "1.44.2", features = ["full"] }
 ```
-
-</CodeTabs>
 
 ```rust !! title="main.rs"
 use anyhow::{Context, Result};
