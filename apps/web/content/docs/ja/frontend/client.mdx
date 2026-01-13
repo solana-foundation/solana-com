@@ -1,0 +1,93 @@
+---
+title: "@solana/client"
+description: ヘッドレスSolanaクライアントランタイムで軽量なSolanaフロントエンドを構築します。
+---
+
+`@solana/client`はランタイムの表面を軽量に保ちます。1つのストア、1つのRPCスタック、およびウォレットレジストリが、さまざまなヘルパーを支えるため、同じインスタンスがCLI、スクリプト、または完全なUIをサポートできます。アクション、ウォッチャー、およびヘルパーはすべて、その単一のクライアントを通じてキャッシュ、サブスクリプション、およびウォレットセッションを共有します。
+
+<Callout type="info">
+  純粋なReact体験を構築する場合、通常は[`@solana/react-hooks`](/docs/frontend/react-hooks)から始める方が高速です。hooksパッケージは、この同じクライアントランタイムをラップし、すぐに使えるフックを公開するため、追加の制御が必要な場合にのみヘッドレスクライアントに移行します。
+</Callout>
+
+## インストール
+
+```terminal
+$ npm install @solana/client
+```
+
+任意のパッケージマネージャーを使用できます。クライアントはブラウザ、ワーカー、React、Svelte、またはサーバーサイドランタイムで動作します。
+
+## クライアントを一度作成
+
+Wallet
+Standard コネクタを選択し(自動検出が最も高速な開始方法です)、クライアントを作成します。この単一のオブジェクトは、ストア、アクション、ウォッチャー、およびヘルパーを公開します。
+
+```ts
+import { autoDiscover, createClient } from "@solana/client";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+await client.actions.connectWallet("wallet-standard:phantom");
+const balance = await client.actions.fetchBalance("Fke...address");
+console.log(balance.lamports?.toString());
+```
+
+クライアントストアは、クラスタ設定、サブスクリプション、保留中のトランザクション、およびウォレットセッションを追跡します。永続化やマルチタブ調整が必要な場合は、独自のZustandストアを提供できます。
+
+## ウォレットオーケストレーション
+
+コネクタは、Wallet
+Standardメタデータと接続/切断ロジックをカプセル化します。組み込みの`phantom()`、`solflare()`、`backpack()`、または`autoDiscover()`ヘルパーを登録するか、`createWalletStandardConnector`でカスタムプロバイダーをラップします。すべてのウォレットアクション(接続、切断、署名、送信)はクライアントレジストリを通過するため、すべてのコンシューマーが同期を保ちます。
+
+## アクション、ウォッチャー、およびヘルパー
+
+- **アクション**は、ストアを更新しながら一般的なRPC読み取りと書き込みをラップします(例:`fetchAccount`、`requestAirdrop`、`setCluster`)。
+- **ウォッチャー**は、WebSocketサブスクリプションを多重化し、更新をストアにストリーミングし、クリーンアップ用の中止ハンドルを提供します。
+- **ヘルパー**は、SOL転送、SPLトークンヘルパー、署名ポーリング、トランザクションプールなどの高レベルフローを公開します。
+
+```ts
+const abortWatcher = client.watchers.watchBalance(
+  { address: "Fke...address" },
+  (lamports) => {
+    console.log("live balance", lamports.toString());
+  }
+);
+
+// Later when the component unmounts or the flow ends
+abortWatcher.abort();
+```
+
+## トランザクションヘルパーパターン
+
+トランザクションヘルパーは、ブロックハッシュの更新、手数料支払者の解決、署名を管理します。お好みのUXで準備、検査、送信が可能です。
+
+```ts
+const prepared = await client.helpers.transaction.prepare({
+  authority: client.store.getState().wallet.session!,
+  instructions: [instructionA, instructionB]
+});
+
+await client.helpers.transaction.simulate(prepared, {
+  commitment: "processed"
+});
+const signature = await client.helpers.transaction.send(prepared);
+console.log("submitted", signature.toString());
+```
+
+`prepareAndSend`を使用すると、事前構築されたフロー（シミュレーションとログ記録）を利用できます。または、`sign`
+/
+`toWire`を呼び出して、ワイヤーフォーマットを自分で中継する前に手動で署名を収集することもできます。
+
+## Solana開発者向けの一般的なパターン
+
+- **ヘッドレスステートマシン**:
+  APIルート、スクリプト、ワーカー内でクライアントを実行し、UIを動かすのと同じウォレット +
+  RPCオーケストレーションロジックを再利用します。
+- **リアルタイムダッシュボード**: ウォッチャー（残高、アカウント、署名）をお好みのUIライブラリと組み合わせます。クライアントがWebSocketのファンアウトとキャッシュの無効化を処理します。
+- **カスタムストア**: 独自のZustandストアを注入して、IndexedDB/localStorageからハイドレートしたり、状態をサーバーセッションにミラーリングしたり、ブラウザタブ間で調整したりできます。
+- **Reactフックへのブリッジ**: 同じランタイム上でエルゴノミックなフックが必要な場合は、設定済みのクライアントインスタンスを`@solana/react-hooks`に渡します。
+- **テスト可能性**: 単一のクライアントインターフェースはユニットテストでモック化できるため、ブラウザウォレットがなくてもRPCレスポンスやウォレットセッションを簡単にシミュレートできます。

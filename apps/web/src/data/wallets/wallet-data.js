@@ -38,6 +38,8 @@ import walletConnectIcon from "../../../assets/wallets/icons/walletconnect.png";
 import web3authIcon from "../../../assets/wallets/icons/web3auth.png";
 import atomicwalletIcon from "../../../assets/wallets/icons/atomicwallet.png";
 import jupiterIcon from "../../../assets/wallets/icons/jupiter.png";
+import openfortIcon from "../../../assets/wallets/icons/openfort.png";
+import opensignerIcon from "../../../assets/wallets/icons/opensigner.png";
 
 export const walletData = [
   {
@@ -63,6 +65,54 @@ export const walletData = [
     open_source: false,
     hardware: false,
     private_key_infrastructure: false,
+  },
+  {
+    name: "Openfort",
+    body: "Complete non-custodial wallet infrastructure solution with social onboarding and gas abstraction.",
+    website: "https://openfort.io/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Buy Crypto • Sell Crypto • Hold NFTs • Gas Abstraction • Social Recovery • Open Source",
+    icon: openfortIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: true,
+    social_recovery: true,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
+    hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "OpenSigner",
+    body: "Open-source and self-hostable key management solution",
+    website: "https://opensigner.dev/",
+    additionalInfo:
+      "Custodial • Non-Custodial/Self Custodial • Open Source • Private Key Infrastructure",
+    icon: opensignerIcon,
+    custodial: true,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: false,
+    sell_crypto: false,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: false,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
+    hardware: false,
+    private_key_infrastructure: true,
   },
   {
     name: "Backpack",
