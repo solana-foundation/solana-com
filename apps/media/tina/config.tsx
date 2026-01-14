@@ -52,6 +52,20 @@ const config: any = defineConfig({
     indexBatchSize: 100,
     maxSearchIndexFieldLength: 100,
   },
+  ui: {
+    previewUrl: (context) => {
+      // Vercel preview URL format: https://<project-name>-git-<branch-slug>-<team>.vercel.app
+      // Branch names with slashes: first slash becomes hyphen, remaining slashes are removed
+      // Example: tina/posts/test-n23kk23 -> tina-poststest-n23kk23
+      const projectName = "solana-com-media";
+      const team = "solana-foundation";
+      // Replace first slash with hyphen, then remove all remaining slashes
+      const branchSlug = context.branch.replace(/\//, "-").replace(/\//g, "");
+      return {
+        url: `https://${projectName}-git-${branchSlug}-${team}.vercel.app`,
+      };
+    },
+  },
   cmsCallback: (cms) => {
     cms.flags.set("branch-switcher", true);
     return cms;
