@@ -1,4 +1,4 @@
 ---
 name: Pedro Miranda
-avatar: /uploads/authors/default-avatar.png
+avatar: /uploads/authors/pedro-miranda.jpg
 ---
