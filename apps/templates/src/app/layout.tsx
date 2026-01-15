@@ -43,7 +43,7 @@ export default async function RootLayout({ children }: Props) {
       <body suppressHydrationWarning>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
-            <Header showLanguage={false} />
+            <Header showLanguage={false} showDevelopersNav={false} />
             <main className="min-h-screen">{children}</main>
             <Footer />
           </ThemeProvider>

@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   assetPrefix: "/media-assets",
 
+  env: {
+    NEXT_PUBLIC_APP_NAME: "media",
+  },
+
   images: {
     localPatterns: [
       {

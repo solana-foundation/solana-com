@@ -6,26 +6,34 @@ import { locales } from "@workspace/i18n/config";
 const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (
-    req.nextUrl.pathname.startsWith("/breakpoint") ||
-    req.nextUrl.pathname.startsWith("/developers/templates") ||
-    req.nextUrl.pathname.startsWith("/news") ||
-    req.nextUrl.pathname.startsWith("/podcasts") ||
-    req.nextUrl.pathname.startsWith("/media-assets")
+    pathname.startsWith("/breakpoint") ||
+    pathname === "/developers" ||
+    pathname.startsWith("/developers/templates") ||
+    pathname.startsWith("/developers/cookbook") ||
+    pathname.startsWith("/developers/guides") ||
+    pathname.startsWith("/docs") ||
+    pathname.startsWith("/learn") ||
+    pathname.startsWith("/news") ||
+    pathname.startsWith("/podcasts") ||
+    pathname.startsWith("/media-assets") ||
+    pathname.startsWith("/opengraph")
   ) {
     return NextResponse.next();
   }
 
-  if (req.nextUrl.pathname !== req.nextUrl.pathname.toLowerCase()) {
+  if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
-      `${req.nextUrl.origin + req.nextUrl.pathname.toLowerCase()}`,
+      `${req.nextUrl.origin + pathname.toLowerCase()}`,
     );
   }
 
   // Remove duplicate locale segments from path
-  const pathSegments = req.nextUrl.pathname.split("/").filter(Boolean);
+  const pathSegments = pathname.split("/").filter(Boolean);
   const localeSegments = pathSegments.filter((segment) =>
     locales.includes(segment),
   );
@@ -62,7 +70,7 @@ export const config = {
   // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
-    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|media-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|breakpoint|docs|learn|news|podcasts|media-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };
