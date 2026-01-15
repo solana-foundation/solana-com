@@ -88,8 +88,12 @@ export default async function LearnContentPage(props: Props) {
                 translations={{
                   currentChapter: t("learn.navigation.currentChapter"),
                   chapter: t("learn.navigation.chapter"),
-                  chapterCategory: t("learn.navigation.chapterCategory"),
-                  goToNextChapter: t("learn.navigation.goToNextChapter"),
+                  chapterCategory: t.raw(
+                    "learn.navigation.chapterCategory",
+                  ) as string,
+                  goToNextChapter: t.raw(
+                    "learn.navigation.goToNextChapter",
+                  ) as string,
                   next: t("learn.navigation.next"),
                 }}
                 category={t(`learn.tutorials.items.${currentSlug}.category`)}
@@ -106,7 +110,9 @@ export default async function LearnContentPage(props: Props) {
                   chapterNavigationAriaLabel: t(
                     "learn.navigation.chapterNavigationAriaLabel",
                   ),
-                  chapterNumber: t("learn.navigation.chapterNumber"),
+                  chapterNumber: t.raw(
+                    "learn.navigation.chapterNumber",
+                  ) as string,
                 }}
               />
 
@@ -135,12 +141,12 @@ export default async function LearnContentPage(props: Props) {
                   tutorialNavigationAriaLabel: t(
                     "learn.navigation.tutorialNavigationAriaLabel",
                   ),
-                  previousChapterAriaLabel: t(
+                  previousChapterAriaLabel: t.raw(
                     "learn.navigation.previousChapterAriaLabel",
-                  ),
-                  nextChapterAriaLabel: t(
+                  ) as string,
+                  nextChapterAriaLabel: t.raw(
                     "learn.navigation.nextChapterAriaLabel",
-                  ),
+                  ) as string,
                   previous: t("learn.navigation.previous"),
                   next: t("learn.navigation.next"),
                 }}
@@ -156,7 +162,7 @@ export default async function LearnContentPage(props: Props) {
               chapterNavigationAriaLabel: t(
                 "learn.navigation.chapterNavigationAriaLabel",
               ),
-              chapterNumber: t("learn.navigation.chapterNumber"),
+              chapterNumber: t.raw("learn.navigation.chapterNumber") as string,
             }}
           />
         </div>
