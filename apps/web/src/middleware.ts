@@ -1,8 +1,9 @@
-import createMiddleware from "next-intl/middleware";
-import { routing } from "@workspace/i18n/routing";
+import { createMiddleware, routing } from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 
+// The main web app uses routing with locale detection enabled
+// and doesn't need preserveProxiedLocaleCookie since it's the source of truth
 const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {

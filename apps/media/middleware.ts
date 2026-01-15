@@ -1,13 +1,17 @@
-import createMiddleware from "next-intl/middleware";
-import { routing } from "@workspace/i18n/routing";
+import {
+  createMiddleware,
+  routingWithoutDetection,
+} from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 
-// localeDetection: false prevents redirects that leak the Vercel URL
+// routingWithoutDetection prevents redirects that leak the Vercel URL
 // When accessed via rewrite from solana.com, next-intl would redirect to
 // solana-com-media.vercel.app/ru/... because req.url is the rewrite destination
-const handleI18nRouting = createMiddleware({
-  ...routing,
-  localeDetection: false,
+//
+// preserveProxiedLocaleCookie: true prevents overwriting the main app's NEXT_LOCALE cookie
+// when requests come through the web app's rewrite (fixes "random language" bug)
+const handleI18nRouting = createMiddleware(routingWithoutDetection, {
+  preserveProxiedLocaleCookie: true,
 });
 
 export default async function middleware(req: NextRequest) {
