@@ -15,6 +15,7 @@ import { useMemo } from "react";
 import { Fragment } from "react/jsx-runtime";
 import SolanaBgSvg from "./assets/solana-bg.svg";
 import dynamic from "next/dynamic";
+import { NewsletterModal } from "./newsletter-modal";
 
 const FooterMouseEffect = dynamic(
   () => import("./footer-mouse-effect").then((mod) => mod.FooterMouseEffect),
@@ -178,12 +179,14 @@ export const Footer = ({ className = "" }) => {
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    to="/newsletter"
-                    className="!no-underline !text-[#ababbc] hover:!text-white transition-colors"
-                  >
-                    {t("footer.get-connected.newsletter")}
-                  </Link>
+                  <NewsletterModal formId="fdd4a0db-f4af-4b29-90f9-98b0556d4c89">
+                    <button
+                      type="button"
+                      className="!no-underline !text-[#ababbc] hover:!text-white transition-colors text-sm md:text-base font-normal leading-[1.42] md:leading-[1.5] cursor-pointer bg-transparent border-none p-0"
+                    >
+                      {t("footer.get-connected.newsletter")}
+                    </button>
+                  </NewsletterModal>
                 </li>
               </ul>
             </div>
