@@ -70,7 +70,7 @@ export const Hero: React.FC<HeroProps> = ({
     <>
       <section
         id="hero"
-        className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left border-b border-nd-border-light m-twd-0"
+        className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left border-b border-nd-border-light m-twd-0 bg-blend-screen"
         aria-labelledby="hero-title"
       >
         {bgJsonFilePath && (
@@ -104,6 +104,7 @@ export const Hero: React.FC<HeroProps> = ({
             showPlaceholderWhileLoading
           />
         )}
+        <div className="h-[72px]"></div>
         <div className="flex min-h-[700px]">
           <Container className="flex flex-col justify-between relative pt-twd-12 xl:pt-[165px] md:pb-twd-8 xl:pb-twd-10 min-h-[calc(100vh-70px)]">
             <div className="max-w-5xl">

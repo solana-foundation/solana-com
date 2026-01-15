@@ -1,4 +1,4 @@
-import Layout from "@/components/solutions/layout";
+import Layout from "@/components/layout";
 import { withLocales } from "@workspace/i18n/routing";
 import { Hero } from "@/components/index/hero";
 import { useTranslations } from "next-intl";
@@ -113,7 +113,7 @@ export default function Home({
       <HTMLHead
         title={t("index.meta.title")}
         description={t("index.meta.description")}
-        socialShare="/src/img/index/og-image.jpeg"
+        socialShare="/src/img/index/og-image.webp"
       />
 
       <Hero
