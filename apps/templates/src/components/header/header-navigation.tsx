@@ -1,9 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import {
-  resolveHref,
-  shouldUseNextLink,
-} from "@solana-com/ui-chrome/url-config";
+import { shouldUseNextLink } from "@solana-com/ui-chrome/url-config";
 
 export interface HeaderNavigationLink {
   href: string;
@@ -27,29 +24,16 @@ export const HeaderNavigation = React.memo<HeaderNavigationProps>(
     return (
       <div className={className}>
         {links.map((link) => {
-          const resolvedHref = resolveHref(link.href);
-          const useNextLink = shouldUseNextLink(link.href);
-
-          if (useNextLink) {
+          if (shouldUseNextLink(link.href)) {
             return (
-              <Link
-                href={resolvedHref}
-                key={link.label}
-                className={linkClassName}
-              >
+              <Link href={link.href} key={link.label} className={linkClassName}>
                 {link.label}
               </Link>
             );
           }
 
           return (
-            <a
-              href={resolvedHref}
-              key={link.label}
-              className={linkClassName}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href={link.href} key={link.label} className={linkClassName}>
               {link.label}
             </a>
           );

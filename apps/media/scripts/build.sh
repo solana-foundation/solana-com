@@ -12,10 +12,16 @@ else
   BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
 fi
 
-# Export the branch for the build process
-export NEXT_PUBLIC_TINA_BRANCH="$BRANCH"
+# Pin Tina to main for PR preview builds
+TINA_BRANCH="$BRANCH"
+if [ "${VERCEL_ENV:-}" = "preview" ] && [ -n "${VERCEL_GIT_PULL_REQUEST_ID:-}" ]; then
+  TINA_BRANCH="main"
+fi
 
-echo "Building with NEXT_PUBLIC_TINA_BRANCH=$BRANCH"
+# Export the branch for the build process
+export NEXT_PUBLIC_TINA_BRANCH="$TINA_BRANCH"
+
+echo "Building with NEXT_PUBLIC_TINA_BRANCH=$TINA_BRANCH"
 
 # For non-main branches, skip cloud checks to allow building with schema changes
 # that haven't been synced to the remote yet

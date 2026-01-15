@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link as I18nLink } from "@workspace/i18n/routing";
 import { useRouter, usePathname } from "@workspace/i18n/use-router";
 import classNames from "classnames";
-import { resolveHref, shouldUseNextLink } from "./url-config";
+import { shouldUseNextLink } from "./url-config";
 
 interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   children: React.ReactNode;
@@ -27,7 +27,6 @@ const Link = ({
   ...other
 }: LinkProps) => {
   const linkTo = to ?? href ?? "";
-  const resolvedHref = resolveHref(linkTo);
   const useNextLink = shouldUseNextLink(linkTo);
 
   const { isReady } = useRouter();
@@ -47,7 +46,7 @@ const Link = ({
     const { scroll, prefetch, ...aProps } = other;
     return (
       <I18nLink
-        href={resolvedHref}
+        href={linkTo}
         scroll={scroll}
         prefetch={prefetch}
         {...aProps}
@@ -60,7 +59,7 @@ const Link = ({
     );
   }
   return (
-    <a href={resolvedHref} {...other} className={className}>
+    <a href={linkTo} {...other} className={className}>
       {children}
     </a>
   );
@@ -78,9 +77,8 @@ const InlineLink = ({
   target = "_blank",
   ...props
 }: InlineLinkProps) => {
-  const resolvedHref = resolveHref(to);
   return (
-    <a href={resolvedHref} {...props} target={target} rel="noopener noreferrer">
+    <a href={to} {...props} target={target} rel="noopener noreferrer">
       {children}
     </a>
   );

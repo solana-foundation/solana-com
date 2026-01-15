@@ -1,4 +1,4 @@
-import { MEDIA_APP_URL, TEMPLATES_APP_URL } from "./apps-urls";
+import { MEDIA_APP_URL, DOCS_APP_URL, TEMPLATES_APP_URL } from "./apps-urls";
 
 export default {
   rewrites: {
@@ -87,15 +87,124 @@ export default {
         destination: `${MEDIA_APP_URL}/media-assets/uploads/builder/:path+`,
         locale: false,
       },
+      // Templates app assets (required for static assets with assetPrefix: "/templates-assets")
+      {
+        source: "/templates-assets/:path+",
+        destination: `${TEMPLATES_APP_URL}/templates-assets/:path+`,
+        locale: false,
+      },
+      // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",
         destination: `${TEMPLATES_APP_URL}/developers/templates`,
         locale: false,
       },
-      // everything underneath
       {
         source: "/developers/templates/:path*",
         destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
+        locale: false,
+      },
+      // Docs app assets (required for static assets with assetPrefix: "/docs-assets")
+      {
+        source: "/docs-assets/:path+",
+        destination: `${DOCS_APP_URL}/docs-assets/:path+`,
+        locale: false,
+      },
+      // Docs app rewrites
+      {
+        source: "/opengraph/:path+",
+        destination: `${DOCS_APP_URL}/opengraph/:path+`,
+        locale: false,
+      },
+      {
+        source: "/docs",
+        destination: `${DOCS_APP_URL}/docs`,
+        locale: false,
+      },
+      {
+        source: "/docs/:path*",
+        destination: `${DOCS_APP_URL}/docs/:path*`,
+        locale: false,
+      },
+      {
+        source: "/learn",
+        destination: `${DOCS_APP_URL}/learn`,
+        locale: false,
+      },
+      {
+        source: "/learn/:path*",
+        destination: `${DOCS_APP_URL}/learn/:path*`,
+        locale: false,
+      },
+      {
+        source: "/developers",
+        destination: `${DOCS_APP_URL}/developers`,
+        locale: false,
+      },
+      {
+        source: "/developers/cookbook",
+        destination: `${DOCS_APP_URL}/developers/cookbook`,
+        locale: false,
+      },
+      {
+        source: "/developers/cookbook/:path*",
+        destination: `${DOCS_APP_URL}/developers/cookbook/:path*`,
+        locale: false,
+      },
+      {
+        source: "/developers/guides",
+        destination: `${DOCS_APP_URL}/developers/guides`,
+        locale: false,
+      },
+      {
+        source: "/developers/guides/:path*",
+        destination: `${DOCS_APP_URL}/developers/guides/:path*`,
+        locale: false,
+      },
+      // Docs app with locale
+      {
+        source: "/:locale/docs",
+        destination: `${DOCS_APP_URL}/:locale/docs`,
+        locale: false,
+      },
+      {
+        source: "/:locale/docs/:path*",
+        destination: `${DOCS_APP_URL}/:locale/docs/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/learn",
+        destination: `${DOCS_APP_URL}/:locale/learn`,
+        locale: false,
+      },
+      {
+        source: "/:locale/learn/:path*",
+        destination: `${DOCS_APP_URL}/:locale/learn/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers",
+        destination: `${DOCS_APP_URL}/:locale/developers`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/cookbook",
+        destination: `${DOCS_APP_URL}/:locale/developers/cookbook`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/cookbook/:path*",
+        destination: `${DOCS_APP_URL}/:locale/developers/cookbook/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/guides",
+        destination: `${DOCS_APP_URL}/:locale/developers/guides`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/guides/:path*",
+        destination: `${DOCS_APP_URL}/:locale/developers/guides/:path*`,
         locale: false,
       },
     ],
