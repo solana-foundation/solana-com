@@ -1,5 +1,5 @@
 import { defineConfig } from "tinacms";
-import nextConfig from "../next.config";
+import { createWorkflowPlugin } from "./plugins/workflow";
 
 import Post from "./collection/post";
 import Global from "./collection/global";
@@ -11,14 +11,16 @@ import Switchback from "./collection/switchback";
 import Podcast from "./collection/podcast";
 import Link from "./collection/link";
 
-// Check if we're using local mode (no authentication)
-const isLocalMode = process.env.TINA_PUBLIC_IS_LOCAL === "true";
+// Determine the branch to use for preview URLs and content
+const branch =
+  process.env.GITHUB_BRANCH ||
+  process.env.VERCEL_GIT_COMMIT_REF ||
+  "main";
 
 const config: any = defineConfig({
-  // Only require clientId and token if not in local mode
-  clientId: isLocalMode ? undefined : process.env.NEXT_PUBLIC_TINA_CLIENT_ID,
-  branch: process.env.NEXT_PUBLIC_TINA_BRANCH!,
-  token: isLocalMode ? undefined : process.env.TINA_TOKEN,
+  // Self-hosted: point to our own API route instead of Tina Cloud
+  contentApiUrlOverride: "/api/tina/gql",
+  branch,
 
   media: {
     tina: {
@@ -44,14 +46,6 @@ const config: any = defineConfig({
       Tag,
     ],
   },
-  search: {
-    tina: {
-      indexerToken: process.env.TINA_SEARCH_INDEXER_TOKEN!,
-      stopwordLanguages: ["eng"],
-    },
-    indexBatchSize: 100,
-    maxSearchIndexFieldLength: 100,
-  },
   ui: {
     previewUrl: (context) => {
       // Vercel preview URL format: https://<project-name>-git-<branch-slug>-<team>.vercel.app
@@ -68,6 +62,8 @@ const config: any = defineConfig({
   },
   cmsCallback: (cms) => {
     cms.flags.set("branch-switcher", true);
+    // Register workflow plugin for draft management
+    cms.plugins.add(createWorkflowPlugin());
     return cms;
   },
 });
