@@ -2,7 +2,13 @@
 
 ## Context
 
-TinaCMS supports two modes: cloud-based (with Tina Cloud) and self-hosted (local mode). The current setup is hybrid, capable of both. This design establishes a fully self-hosted approach using Git branches for content workflow, eliminating cloud dependencies while maintaining the editing experience.
+TinaCMS supports two modes: cloud-based (with Tina Cloud) and self-hosted. The current setup uses Tina Cloud for production with local mode enabled for development. This design establishes a fully self-hosted approach using Git branches for content workflow, eliminating cloud dependencies while maintaining the editing experience.
+
+**Self-Hosted Infrastructure Components (per Tina docs):**
+
+1. **Git Provider** - GitHub via `tinacms-gitprovider-github` (handles content storage and version control)
+2. **Database Adapter** - Vercel KV (powered by Upstash Redis) (indexes content for GraphQL queries)
+3. **Auth Provider** - Custom magic link (integrates with TinaNodeBackend)
 
 **Stakeholders:**
 
@@ -166,21 +172,94 @@ export async function publishDraft(branch: string): Promise<void>;
 - Octokit SDK - Heavy dependency for simple operations
 - Simple-git - Similar to CLI approach
 
-### 4. TinaCMS Configuration: Local Mode Only
+### 4. TinaCMS Backend Infrastructure
 
-**Decision:** Remove cloud configuration, enforce local mode.
+**Decision:** Implement required self-hosted backend with database adapter and API routes.
+
+Per the [Tina self-hosted manual setup docs](https://tina.io/docs/self-hosted/manual-setup), self-hosting requires:
+
+#### 4.1 Database Adapter: Vercel KV
+
+**Rationale:** Required for production - indexes content for GraphQL queries. Local filesystem only works in development. Vercel KV is powered by Upstash Redis and integrates seamlessly with Vercel deployments.
+
+**New file: `tina/database.ts`**
+
+```typescript
+import { createDatabase, GitHubProvider } from "@tinacms/datalayer";
+import { createClient } from "@vercel/kv";
+import { RedisLevel } from "upstash-redis-level";
+
+const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
+
+const branch =
+  process.env.GITHUB_BRANCH ||
+  process.env.VERCEL_GIT_COMMIT_REF ||
+  "main";
+
+// Vercel KV client (uses Upstash Redis under the hood)
+const kvClient = createClient({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
+});
+
+export default isLocal
+  ? createDatabase({ gitProvider: new GitHubProvider({...}), databaseAdapter: new LocalDatabase() })
+  : createDatabase({
+      gitProvider: new GitHubProvider({
+        repo: process.env.GITHUB_REPO!,
+        owner: process.env.GITHUB_OWNER!,
+        token: process.env.GITHUB_PERSONAL_ACCESS_TOKEN!,
+        branch,
+      }),
+      databaseAdapter: new RedisLevel({ redis: kvClient }),
+    });
+```
+
+#### 4.2 Backend API Route
+
+**New file: `app/api/tina/[...routes]/route.ts`**
+
+```typescript
+import { TinaNodeBackend } from "@tinacms/datalayer";
+import databaseClient from "../../../../tina/__generated__/databaseClient";
+
+const backend = TinaNodeBackend({
+  authentication: customMagicLinkAuth(), // Integrate with our auth
+  databaseClient,
+});
+
+export const POST = backend;
+export const GET = backend;
+```
+
+#### 4.3 Config Update: contentApiUrlOverride
 
 **Changes to `tina/config.tsx`:**
 
-- Remove `clientId`, `token`, `branch` from cloud config
-- Keep `isLocalClient: true` always
+```typescript
+export default defineConfig({
+  contentApiUrlOverride: "/api/tina/gql", // REQUIRED for self-hosted
+  // ... rest of config
+});
+```
+
+- Remove `clientId`, `token` from cloud config
 - Remove search indexer (cloud feature)
-- Admin panel continues to work via local GraphQL
+- Add `contentApiUrlOverride` pointing to self-hosted API
 
 **Data flow:**
 
 ```
-Admin UI → TinaCMS Local GraphQL → File System → Git (via GitHub API)
+Admin UI → /api/tina/gql → TinaNodeBackend → Database Adapter → GitHub API
+```
+
+#### 4.4 Content Querying: databaseClient
+
+For server-side content queries (getStaticProps, RSC), use generated `databaseClient`:
+
+```typescript
+import { databaseClient } from "../tina/__generated__/databaseClient";
+const results = await databaseClient.queries.postConnection();
 ```
 
 ### 5. Admin UI Extensions
@@ -283,22 +362,30 @@ Admin UI → TinaCMS Local GraphQL → File System → Git (via GitHub API)
 ## Environment Variables
 
 ```bash
-# Admin authentication
+# === Development Mode ===
+TINA_PUBLIC_IS_LOCAL=true  # Set to 'true' for local dev only, omit in production
+
+# === Admin Authentication ===
 ADMIN_WHITELIST=editor@solana.com,admin@solana.com
 JWT_SECRET=random-32-char-secret-here
 NEXT_PUBLIC_APP_URL=https://solana-com-media.vercel.app
 
-# SendGrid
+# === SendGrid (Magic Links) ===
 SENDGRID_API_KEY=SG.xxxxxxxxxxxx
 SENDGRID_FROM_EMAIL=noreply@solana.com
 
-# GitHub integration
-GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+# === GitHub Integration (Git Provider) ===
+GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxxxxxxxxxxx  # Note: Tina uses this name
 GITHUB_OWNER=solana-foundation
 GITHUB_REPO=solana-com
-GITHUB_BASE_BRANCH=main
+GITHUB_BRANCH=main  # Or use VERCEL_GIT_COMMIT_REF
 
-# Remove these (Tina Cloud)
+# === Vercel KV (Database Adapter) ===
+# Auto-populated when you link a Vercel KV store to your project
+KV_REST_API_URL=https://xxxx.kv.vercel-storage.com
+KV_REST_API_TOKEN=xxxxxxxxxxxx
+
+# === Remove these (Tina Cloud) ===
 # NEXT_PUBLIC_TINA_CLIENT_ID
 # TINA_TOKEN
 # NEXT_PUBLIC_TINA_BRANCH

@@ -1,5 +1,17 @@
 # Tasks: Self-Hosted TinaCMS Admin with GitHub Workflow
 
+## 0. Tina Self-Hosted Infrastructure (Required)
+
+- [ ] 0.1 Install required packages: `@tinacms/datalayer`, `tinacms-gitprovider-github`, `@vercel/kv`, `upstash-redis-level`
+- [ ] 0.2 Create Vercel KV store in Vercel dashboard and link to project
+- [ ] 0.3 Add Vercel KV env vars (`KV_REST_API_URL`, `KV_REST_API_TOKEN`) - auto-populated when linked
+- [ ] 0.4 Add GitHub env vars (`GITHUB_PERSONAL_ACCESS_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_BRANCH`)
+- [ ] 0.5 Create `tina/database.ts` with Vercel KV adapter and GitHub provider
+- [ ] 0.6 Create `app/api/tina/[...routes]/route.ts` with TinaNodeBackend
+- [ ] 0.7 Update `tina/config.tsx` to add `contentApiUrlOverride: '/api/tina/gql'`
+- [ ] 0.8 Add `TINA_PUBLIC_IS_LOCAL=true` to `.env.local` for development
+- [ ] 0.9 Update content queries to use `databaseClient` for server-side rendering
+
 ## 1. Magic Link Authentication
 
 - [ ] 1.1 Add environment variables (`ADMIN_WHITELIST`, `JWT_SECRET`, `NEXT_PUBLIC_APP_URL`)
@@ -12,12 +24,13 @@
 - [ ] 1.8 Create `/admin/auth/callback/route.ts` to validate token and set JWT cookie
 - [ ] 1.9 Create `/admin/logout/route.ts` to clear JWT cookie
 - [ ] 1.10 Update `middleware.ts` to validate JWT cookie for `/admin/*` routes
-- [ ] 1.11 Add logout button to admin UI
-- [ ] 1.12 Test magic link flow end-to-end
+- [ ] 1.11 Create custom auth adapter for TinaNodeBackend integration (bridge magic link JWT to Tina auth)
+- [ ] 1.12 Add logout button to admin UI
+- [ ] 1.13 Test magic link flow end-to-end
 
 ## 2. GitHub Integration
 
-- [ ] 2.1 Add GitHub environment variables (`GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`)
+- [ ] 2.1 Verify GitHub environment variables are set (covered in section 0)
 - [ ] 2.2 Create `lib/github.ts` with GitHub API client functions
 - [ ] 2.3 Implement `createDraftBranch(collection, slug)` function
 - [ ] 2.4 Implement `commitContent(branch, filePath, content)` function

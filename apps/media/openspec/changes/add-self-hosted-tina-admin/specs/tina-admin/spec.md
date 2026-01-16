@@ -4,6 +4,46 @@ Self-hosted content management with Git-based draft/publish workflow.
 
 ## ADDED Requirements
 
+### Requirement: Self-Hosted Backend Infrastructure
+
+The system SHALL implement the required TinaCMS self-hosted backend components per [Tina manual setup docs](https://tina.io/docs/self-hosted/manual-setup).
+
+#### Scenario: Database adapter configuration
+
+- **WHEN** the application starts in production
+- **THEN** it SHALL connect to Vercel KV using `KV_REST_API_URL` and `KV_REST_API_TOKEN`
+- **AND** use the Redis adapter for content indexing
+
+#### Scenario: Local development mode
+
+- **WHEN** `TINA_PUBLIC_IS_LOCAL` is set to `"true"`
+- **THEN** the system SHALL use local filesystem storage instead of Vercel KV
+- **AND** TinaCMS operates in local mode without external dependencies
+
+#### Scenario: Backend API route
+
+- **WHEN** the TinaCMS admin makes GraphQL requests
+- **THEN** they SHALL be handled by `/api/tina/gql` endpoint
+- **AND** the endpoint uses `TinaNodeBackend` from `@tinacms/datalayer`
+
+#### Scenario: Content API URL override
+
+- **WHEN** TinaCMS config is loaded
+- **THEN** `contentApiUrlOverride` SHALL be set to `/api/tina/gql`
+- **AND** the admin UI connects to the self-hosted backend instead of Tina Cloud
+
+#### Scenario: Git provider configuration
+
+- **WHEN** content is saved in production
+- **THEN** it SHALL be committed to GitHub via `tinacms-gitprovider-github`
+- **AND** use `GITHUB_PERSONAL_ACCESS_TOKEN` for authentication
+
+#### Scenario: Server-side content queries
+
+- **WHEN** content is queried during SSR/SSG
+- **THEN** it SHALL use the generated `databaseClient` for direct database access
+- **AND** not require API requests to Tina Cloud
+
 ### Requirement: Magic Link Authentication
 
 The admin panel SHALL use email-based magic link authentication with JWT session tokens.
@@ -54,6 +94,13 @@ The admin panel SHALL use email-based magic link authentication with JWT session
 - **WHEN** a user clicks "Logout" in the admin
 - **THEN** the JWT cookie is cleared
 - **AND** they are redirected to `/admin/login`
+
+#### Scenario: TinaNodeBackend auth integration
+
+- **WHEN** the TinaCMS admin makes authenticated API requests
+- **THEN** the custom auth adapter SHALL validate the JWT session cookie
+- **AND** authorize the request if the session is valid
+- **AND** reject the request with 401 if the session is invalid or missing
 
 ### Requirement: Whitelist Configuration
 
