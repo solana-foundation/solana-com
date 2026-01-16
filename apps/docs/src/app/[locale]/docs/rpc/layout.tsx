@@ -13,7 +13,8 @@ export default async function Layout({
   const { locale } = await params;
   const tree = docsSource.pageTree[locale];
   const rpcFolder = tree.children.find(
-    (child) => child.type === "folder" && child.index?.url === "/docs/rpc",
+    (child) =>
+      child.type === "folder" && child.index?.url?.includes("/docs/rpc"),
   );
   const pageTree = { ...tree, children: [rpcFolder] };
   return (

@@ -17,8 +17,8 @@ export default async function Layout({
     children: tree.children?.filter(
       (child) =>
         child.type !== "folder" ||
-        (child.index?.url !== "/docs/rpc" &&
-          child.index?.url !== "/docs/payments"),
+        (!child.index?.url?.includes("/docs/rpc") &&
+          !child.index?.url?.includes("/docs/payments")),
     ),
   };
   return (
