@@ -1,0 +1,488 @@
+---
+title: 일괄 결제
+description: 단일 트랜잭션으로 여러 수신자에게 결제하는 방법을 알아보세요.
+---
+
+Solana 트랜잭션은 하나 이상의 명령어를 담는 컨테이너입니다. 각 명령어는 토큰
+전송, 계정 생성, 프로그램 호출과 같은 작업입니다. 네트워크는 트랜잭션 내의 모든
+명령어를 순차적이고 원자적으로 실행합니다. 즉, 모든 명령어가 성공하거나 전체
+트랜잭션이 실패하고 롤백됩니다.
+
+이는 여러 전송을 단일 트랜잭션에 묶을 수 있다는 의미입니다. 세 명의 수신자에게
+결제하기 위해 세 개의 개별 트랜잭션을 보내는 대신, 세 개의 전송 명령어가 포함된
+하나의 트랜잭션을 보냅니다. 이는 더 빠르고(세 번이 아닌 한 번의 확인) 더
+저렴합니다(세 개가 아닌 하나의 기본 수수료). 다음은 결제(이 이미지에서는
+"drops"라고 함)가 단일 트랜잭션으로 일괄 처리되고 더 큰 배치를 처리하기 위해
+여러 트랜잭션이 전송되는 방식을 보여주는 예시입니다.
+
+![일괄 결제 다이어그램](/assets/docs/payments/qn-bulk-send.png)
+
+_출처:
+[QuickNode - How to Send Bulk Transactions on Solana](https://www.quicknode.com/guides/solana-development/transactions/how-to-send-bulk-transactions-on-solana)_
+
+트랜잭션과 명령어에 대한 자세한 내용은 [트랜잭션](/docs/core/transactions) 및
+[명령어](/docs/core/instructions) 가이드를 참조하세요.
+
+아래 안내는 일괄 결제를 위해 여러 전송 명령어를 단일 트랜잭션에 로드하는 방법을
+보여줍니다.
+
+## 명령어를 단일 트랜잭션으로 일괄 처리하기
+
+Solana 트랜잭션은 서로 다른 수신자에게 여러 전송을 포함할 수 있습니다. 한 번
+서명하고, 하나의 트랜잭션 수수료를 지불하면, 모든 전송이 함께 정산됩니다. 어떤
+전송이라도 실패하면 전체 트랜잭션이 거부됩니다.
+
+<Callout>
+  핵심 결제 개념은 [Solana에서 결제가 작동하는
+  방식](/docs/payments/how-payments-work)을 참조하세요.
+</Callout>
+
+여러 전송을 일괄 처리하려면 각 명령어를 개별적으로 구성한 다음 단일 트랜잭션으로
+결합해야 합니다.
+
+아래 단계는 핵심 흐름을 보여줍니다. 완전히 실행 가능한 코드는 [데모](#demo)를
+참조하세요.
+
+<ScrollyCoding>
+
+## !!steps 토큰 계정 파생
+
+먼저 발신자와 각 수신자에 대한 연결 토큰 계정(ATA) 주소를 파생합니다. ATA는
+지갑과 민트를 기반으로 한 결정론적 주소입니다.
+
+<CodePlaceholder title="일괄 결제" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## !!steps 전송 명령어 생성
+
+각 수신자에 대해 별도의 전송 명령어를 생성합니다. 각 명령어는 다음을 지정합니다:
+
+- 소스 토큰 계정 주소
+- 대상 토큰 계정 주소
+- 권한(소스 토큰 계정 소유자 주소)
+- 기본 단위의 금액(민트의 소수점에 맞게 조정됨)
+
+<CodePlaceholder title="일괄 결제" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !focus(1:12)
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+```
+
+## !!steps 단일 트랜잭션으로 전송
+
+모든 전송 명령어를 단일 트랜잭션에 추가합니다. 이렇게 하면 모든 전송이
+원자적으로 실행되어 모든 전송이 성공하거나 전체 트랜잭션이 실패합니다.
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+// !focus(1:5)
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  // !mark
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+```
+
+## !!steps 잔액 확인
+
+일괄 전송 후 `splToken` 헬퍼를 사용하여 모든 당사자의 토큰 잔액을 확인합니다.
+
+<CodePlaceholder title="일괄 결제" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+
+// !focus(1:8)
+const splToken = client.splToken({
+  mint: mint.address,
+  tokenProgram: "auto"
+});
+
+const senderBalance = await splToken.fetchBalance(sender.address);
+const recipient1Balance = await splToken.fetchBalance(recipient1.address);
+const recipient2Balance = await splToken.fetchBalance(recipient2.address);
+```
+
+</ScrollyCoding>
+
+### 데모
+
+<CodeTabs flags="r">
+
+```ts !! title="Demo"
+// !collapse(1:14) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getTransferInstruction
+} from "@solana-program/token-2022";
+
+// Generate keypairs for sender and two recipients
+const sender = (await generateKeypair()).signer;
+const recipient1 = (await generateKeypair()).signer;
+const recipient2 = (await generateKeypair()).signer;
+
+console.log("Sender Address:", sender.address);
+console.log("Recipient 1 Address:", recipient1.address);
+console.log("Recipient 2 Address:", recipient2.address);
+
+// Demo Setup: Create client, mint account, token accounts, and fund with initial tokens
+const { client, mint } = await demoSetup(sender, recipient1, recipient2);
+
+console.log("\nMint Address:", mint.address);
+
+// Derive the Associated Token Accounts addresses (ATAs) for sender and recipients
+// !mark(1:5)
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !mark(1:5)
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !mark(1:5)
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+console.log("Sender Token Account:", senderAta.toString());
+console.log("Recipient 1 Token Account:", recipient1Ata.toString());
+console.log("Recipient 2 Token Account:", recipient2Ata.toString());
+
+// =============================================================================
+// Batch Token Payment Demo
+// =============================================================================
+
+// Create instructions to transfer tokens from sender to both recipients
+// Transferring 250,000 base units = 0.25 tokens (with 6 decimals) to each
+// !mark(1:6)
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n // 0.25 tokens
+});
+
+// !mark(1:6)
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n // 0.25 tokens
+});
+
+// Prepare and send both transfers in a single transaction using @solana/client
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  // !mark
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+
+console.log("\n=== Batch Token Payment Complete ===");
+console.log("Transaction Signature:", signature.toString());
+
+// Fetch final token account balances using @solana/client SPL token helper
+const splToken = client.splToken({
+  mint: mint.address,
+  tokenProgram: "auto"
+});
+
+const senderBalance = await splToken.fetchBalance(sender.address);
+const recipient1Balance = await splToken.fetchBalance(recipient1.address);
+const recipient2Balance = await splToken.fetchBalance(recipient2.address);
+
+console.log("\nSender Token Account Balance:", senderBalance);
+console.log("Recipient 1 Token Account Balance:", recipient1Balance);
+console.log("Recipient 2 Token Account Balance:", recipient2Balance);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a batch token transfer demo:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to sender for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token accounts for sender and both recipients
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param recipient1 - The first recipient's keypair
+ * @param recipient2 - The second recipient's keypair
+ * @returns Returns client instance and mint address
+ */
+async function demoSetup(
+  sender: ServerKeypair["signer"],
+  recipient1: ServerKeypair["signer"],
+  recipient2: ServerKeypair["signer"]
+) {
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund sender with SOL for transaction fees using @solana/client actions
+  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token 2022 program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction for recipient 1's ATA
+  const createRecipient1AtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient1.address
+    });
+
+  // Create instruction for recipient 2's ATA
+  const createRecipient2AtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient2.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
+  });
+
+  // Combine all instructions and send using @solana/client transaction helper
+  const setupInstructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    createRecipient1AtaInstruction, // Create recipient 1's ATA
+    createRecipient2AtaInstruction, // Create recipient 2's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Prepare and send transaction using @solana/client
+  await client.transaction.prepareAndSend({
+    authority: sender,
+    instructions: setupInstructions,
+    version: 0
+  });
+
+  return {
+    client,
+    mint
+  };
+}
+```
+
+</CodeTabs>
+
+## 트랜잭션 계획을 통한 확장
+
+단일 트랜잭션에는 크기 제한이 있습니다—약 1232바이트입니다. 대규모 일괄
+작업(수백 명의 직원에 대한 급여 지급, 대량 에어드롭)의 경우 이 제한을 초과하게
+되며 여러 트랜잭션에 걸쳐 작업을 분할해야 합니다.
+
+자체 트랜잭션 분배 로직을 생성할 수도 있지만,
+[`@solana/instruction-plans`](https://www.solanakit.com/docs/concepts/instruction-plans)
+패키지(Solana Kit의 일부)는 이를 두 가지 수준에서 처리합니다:
+
+**명령 계획**은 작업과 순서 제약 조건을 정의합니다:
+
+- **순차** — 순서대로 실행되어야 하는 명령
+- **병렬** — 임의의 순서로 실행될 수 있는 명령
+- **분할 불가** — 동일한 트랜잭션 내에서 함께 유지되어야 하는 명령
+
+**트랜잭션 계획**은 명령 계획에서 생성됩니다. 플래너는 순서 제약 조건을
+준수하면서 명령을 최적 크기의 트랜잭션으로 지능적으로 패킹합니다. 결과 트랜잭션
+계획은 다음과 같이 처리될 수 있습니다:
+
+- **실행** — 서명되어 네트워크로 전송되며, 병렬 트랜잭션은 동시에 전송됨
+- **시뮬레이션** — 전송 전 검증을 위해 네트워크에 대해 드라이런 수행
+- **직렬화** — 외부 서명 서비스 또는 다자간 워크플로를 위해 base64로 컴파일
+
+이 2단계 접근 방식을 통해 작업 측면에서 생각할 수 있으며("Alice에게 전송한 다음
+Bob에게 전송"), 라이브러리는 트랜잭션 크기 조정, 패킹 및 병렬 실행의 메커니즘을
+처리합니다.

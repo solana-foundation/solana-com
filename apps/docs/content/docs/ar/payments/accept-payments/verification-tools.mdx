@@ -1,0 +1,229 @@
+---
+title: أدوات التحقق
+description: تحقق من مدفوعات العملات المستقرة الواردة وطابقها مع طلباتك.
+---
+
+تصل الرموز إلى محفظتك في اللحظة التي يتم فيها تأكيد المعاملة. لا يوجد إجراء
+مطلوب من المستلم. تقوم سولانا بزيادة رصيد حساب الرموز الخاص بالمستلم بشكل ذري
+وتخفيض رصيد المرسل. في هذا الدليل، نغطي بعض الأدوات المفيدة لفهم رصيد حساب
+الرموز الخاص بك ومراقبة المدفوعات الواردة.
+
+## الاستعلام عن رصيد الرموز
+
+تحقق من رصيد عملتك المستقرة باستخدام طريقة RPC
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance):
+
+```typescript
+import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function getBalance(walletAddress: Address) {
+  // Derive the token account address
+  const [ata] = await findAssociatedTokenPda({
+    mint: USDC_MINT,
+    owner: walletAddress,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Query balance via RPC
+  const { value } = await rpc.getTokenAccountBalance(ata).send();
+
+  return {
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
+  };
+}
+```
+
+## مراقبة التحويلات الواردة
+
+اشترك في حساب الرموز الخاص بك للحصول على إشعارات الدفع في الوقت الفعلي باستخدام
+طريقة RPC `accountNotifications`:
+
+```typescript
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
+  const abortController = new AbortController();
+
+  const subscription = await rpcSubscriptions
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
+    .subscribe({ abortSignal: abortController.signal });
+
+  let previousBalance = 0n;
+
+  for await (const notification of subscription) {
+    const [data] = notification.value.data;
+    const dataBytes = getBase64Codec().encode(data);
+    const token = getTokenCodec().decode(dataBytes);
+    if (token.amount > previousBalance) {
+      const received = token.amount - previousBalance;
+      onPayment(received);
+    }
+    previousBalance = token.amount;
+  }
+  abortController.abort();
+}
+```
+
+لاحظ هنا أننا نستخدم اشتراكات RPC واتصال websocket بشبكة سولانا.
+
+يحتوي كل إشعار على سلسلة مشفرة بتنسيق base64 لبيانات حساب الرموز. نظرًا لأننا
+نعلم أن الحساب الذي ننظر إليه هو حساب رموز، يمكننا فك تشفير البيانات باستخدام
+طريقة `getTokenCodec` من حزمة `@solana-program/token`.
+
+لاحظ أنه بالنسبة لتطبيقات الإنتاج، يجب أن تفكر في حل بث أكثر قوة. تتضمن بعض
+الخيارات:
+
+- [Alchemy](https://docs.alchemy.com/reference/subscription-api)
+- [Triton](https://docs.triton.one/chains/solana/streaming)
+- [Helius](https://www.helius.dev/docs/data-streaming)
+- [QuickNode](https://www.quicknode.com/docs/solana/subscriptions)
+
+## تحليل سجل المعاملات
+
+لدى سولانا طرق RPC تسمح لك بجلب سجل معاملات الحساب
+([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) والحصول
+على تفاصيل المعاملة ([`getTransaction`](/docs/rpc/http/gettransaction)). لتحليل
+سجل المعاملات، نقوم بجلب التوقيعات الأخيرة لحساب الرموز الخاص بنا، ثم نسترجع
+أرصدة الرموز قبل وبعد كل معاملة. من خلال مقارنة رصيد ATA الخاص بنا قبل وبعد كل
+معاملة، يمكننا تحديد مبلغ الدفع والاتجاه (وارد مقابل صادر).
+
+```typescript
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
+  const payments: ParsedPayment[] = [];
+
+  for (const sig of signatures) {
+    const tx = await rpc
+      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+      .send();
+
+    if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
+
+    // Find our ATA's index in the transaction
+    const accountKeys = tx.transaction.message.accountKeys;
+    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    if (ataIndex === -1) continue;
+
+    // Compare pre/post balances for our ATA
+    const pre = tx.meta.preTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+    const post = tx.meta.postTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+
+    const preAmount = BigInt(pre?.uiTokenAmount.amount ?? "0");
+    const postAmount = BigInt(post?.uiTokenAmount.amount ?? "0");
+    const diff = postAmount - preAmount;
+
+    if (diff !== 0n) {
+      payments.push({
+        signature: sig.signature,
+        timestamp: tx.blockTime,
+        amount: diff > 0n ? diff : -diff,
+        type: diff > 0n ? "incoming" : "outgoing"
+      });
+    }
+  }
+
+  return payments;
+}
+```
+
+لتحديد الطرف المقابل، يمكنك فحص أرصدة الرموز في المعاملة للبحث عن حساب آخر تغير
+رصيده في الاتجاه المعاكس—إذا استلمت أموالاً، ابحث عن حساب انخفض رصيده بنفس
+المبلغ.
+
+نظراً لأن تحويلات رموز SPL يمكن أن تتجاوز مجرد المدفوعات بين المستخدمين، فقد
+ينتج عن هذا النهج بعض المعاملات التي ليست مدفوعات. البديل الجيد هنا هو استخدام
+المذكرات.
+
+### قيود تحليل الأرصدة قبل/بعد
+
+يعمل النهج أعلاه بشكل جيد لتدفقات الدفع البسيطة. ومع ذلك، غالباً ما تحتاج
+الشركات التي تعالج المدفوعات على نطاق واسع إلى بيانات أكثر تفصيلاً وفي الوقت
+الفعلي:
+
+- **التفصيل حسب التعليمة:** يمكن أن تحتوي معاملة واحدة على تحويلات متعددة. تُظهر
+  الأرصدة قبل/بعد التغيير الصافي فقط، وليس التحويلات الفردية.
+- **المعاملات متعددة الأطراف:** تتضمن المعاملات المعقدة (المبادلات، الدفعات
+  الجماعية) حسابات متعددة. لا تكشف فروقات الأرصدة عن التدفق الكامل للأموال.
+- **متطلبات التدقيق:** غالباً ما يتطلب الامتثال المالي إعادة بناء تسلسلات
+  التحويل الدقيقة، وليس فقط الأرصدة النهائية.
+
+بالنسبة لأنظمة الإنتاج التي تتعامل مع أحجام كبيرة، ضع في اعتبارك
+[حلول الفهرسة](/docs/payments/accept-payments/indexing) المخصصة التي تحلل
+تعليمات التحويل الفردية وتوفر تفاصيل على مستوى المعاملة.
+
+## تسوية المدفوعات باستخدام المذكرات
+
+عندما يُضمّن المرسلون مذكرات (معرفات الفواتير، أرقام الطلبات)، يمكنك استخراجها
+من رسالة المعاملة باستخدام طريقة RPC `getTransaction` وترميز `jsonParsed`:
+
+```typescript
+function extractMemos(transaction): string | null {
+  const { instructions } = transaction.transaction.message;
+  let memos = "";
+  for (const instruction of instructions) {
+    if (instruction.program !== "spl-memo") continue;
+    memos += instruction.parsed + "; ";
+  }
+  return memos;
+}
+
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
+  const tx = await rpc
+    .getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      encoding: "jsonParsed"
+    })
+    .send();
+  if (!tx) return null;
+  return extractMemos(tx);
+}
+```
+
+## الحماية
+
+بعض أوضاع الفشل التي يجب تجنبها:
+
+- **الثقة في الواجهة الأمامية.** تقول صفحة الدفع "اكتمل الدفع"—ولكن هل تمت
+  المعاملة فعلياً؟ تحقق دائماً من جانب الخادم عن طريق الاستعلام من RPC. يمكن
+  تزوير تأكيدات الواجهة الأمامية.
+
+- **التصرف بناءً على حالة "معالجة".** تمر معاملات سولانا بثلاث مراحل: معالجة ←
+  مؤكدة ← نهائية. يمكن أن تُسقط معاملة "معالجة" أثناء التفرعات. انتظر حالة
+  "مؤكدة" (1-2 ثانية) قبل شحن الطلبات، أو "نهائية" (~13 ثانية) للمعاملات عالية
+  القيمة.
+
+- **تجاهل عنوان السك.** يمكن لأي شخص إنشاء رمز مميز يُسمى "USDC". تحقق من أن
+  عنوان السك الخاص بحساب الرمز المميز يطابق عنوان السك الحقيقي للعملة المستقرة
+  وبرنامج الرمز المميز، وليس فقط اسم الرمز المميز.
+
+- **التنفيذ المزدوج.** يتم تشغيل webhook الخاص بك، فتقوم بشحن الطلب. يحدث انقطاع
+  في الشبكة، فيتم تشغيل webhook مرة أخرى. الآن قمت بالشحن مرتين. قم بتخزين
+  توقيعات المعاملات المعالجة والتحقق منها قبل التنفيذ.

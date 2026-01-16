@@ -1,0 +1,246 @@
+---
+title: الفهرسة
+description: مراقبة المعاملات على مستوى الإنتاج لأنظمة الدفع عالية الحجم
+---
+
+طرق RPC مثل `getSignaturesForAddress` و `getTransaction` تعمل للتحقق منخفض
+الحجم، لكن أنظمة الدفع في الإنتاج تحتاج إلى بنية تحتية أكثر قوة. يغطي هذا الدليل
+الأدوات والأنماط الأساسية لبث المعاملات في الوقت الفعلي، والوصول إلى البيانات
+التاريخية، وتحليل التعليمات على مستوى التفاصيل.
+
+## لماذا تهم الفهرسة
+
+لدى RPC القياسي قيود لمعالجة الدفع على نطاق واسع:
+
+- **حدود المعدل:** نقاط نهاية RPC العامة وحتى المدفوعة لديها حدود للاستعلام
+- **عدم الاستمرارية:** يمنحك RPC فقط الحالة الحالية، وليس التحليلات التاريخية
+- **عبء الاستقصاء:** الاتصال المتكرر بـ `getSignaturesForAddress` غير فعال
+- **دقة خشنة:** الأرصدة قبل/بعد لا تكشف عن التحويلات الفردية ضمن المعاملات
+  المعقدة
+
+تحل حلول الفهرسة هذه المشكلات من خلال استيعاب بيانات البلوكشين من المصدر وعرضها
+من خلال واجهات برمجة تطبيقات مصممة لهذا الغرض.
+
+## بيانات المعاملات الخام مقابل المحللة
+
+قبل اختيار نهج الفهرسة، افهم ما تحتويه معاملات سولانا. تستخدم بيانات المعاملات
+الخام ترميزًا ثنائيًا مضغوطًا—يتم الإشارة إلى الحسابات بواسطة الفهارس، وتظهر
+بيانات التعليمات كبايتات مشفرة بـ Base58 غير شفافة:
+
+```typescript
+// Raw: Requires manual decoding
+{ "programIdIndex": 6, "accounts": [2, 3, 4], "data": "3DfbZhE3qCnV" }
+
+// Parsed: Ready for business logic
+{
+  "type": "TRANSFER",
+  "tokenTransfers": [{
+    "fromUserAccount": "8PLd...9Nt8w3",
+    "toUserAccount": "7GLg...k487Ma",
+    "tokenAmount": 100.50,
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  // USDC
+  }]
+}
+```
+
+**التحليل ضروري** لأنظمة الدفع—تحتاج إلى مبالغ معدلة عشريًا، وعناوين محافظ
+محللة، وحقول مذكرات مستخرجة.
+
+## Yellowstone gRPC
+
+Geyser هي واجهة الإضافات في سولانا لبث بيانات الحسابات والمعاملات في الوقت
+الفعلي مباشرة من المدققين. بدلاً من استقصاء RPC، تشترك في تدفق يدفع التحديثات
+أثناء معالجتها—مما يوفر **زمن انتقال أقل من 100 مللي ثانية** مقارنة بـ ~200-400
+مللي ثانية لاشتراكات WebSocket.
+[Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc) هو أحد أكثر
+التطبيقات استخدامًا لواجهة إضافات Geyser. Yellowstone هو حل بث في الوقت الفعلي
+لـ:
+
+- تحديثات الحسابات
+- المعاملات
+- الإدخالات
+- إشعارات الكتل
+- إشعارات الفترات الزمنية
+
+لاستخدام Yellowstone، ستحتاج إلى نقطة نهاية gRPC من مزود خدمة RPC. تتضمن بعض
+الخيارات:
+
+- [Triton](https://docs.triton.one/project-yellowstone/dragons-mouth-grpc-subscriptions)
+- [Helius](https://www.helius.dev/docs/grpc)
+- [QuickNode](https://marketplace.quicknode.com/add-on/yellowstone-grpc-geyser-plugin)
+- [Alchemy](https://www.alchemy.com/docs/reference/yellowstone-grpc-overview)
+
+<CodeTabs>
+
+```rust !! title="Rust"
+use yellowstone_grpc_client::GeyserGrpcClient;
+use yellowstone_grpc_proto::prelude::*;
+
+let mut client = GeyserGrpcClient::build_from_shared("https://grpc-endpoint:10000")?
+    .x_token(Some("YOUR_TOKEN".to_string()))?
+    .connect()
+    .await?;
+
+let (mut tx, mut rx) = client.subscribe().await?;
+
+let mut filter = HashMap::new();
+filter.insert("payments".to_string(), SubscribeRequestFilterTransactions {
+    account_include: vec!["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string()],
+    vote: Some(false),
+    failed: Some(false),
+    ..Default::default()
+});
+
+tx.send(SubscribeRequest {
+    transactions: filter,
+    commitment: Some(CommitmentLevel::Confirmed as i32),
+    ..Default::default()
+}).await?;
+
+while let Some(msg) = rx.next().await {
+    if let Some(UpdateOneof::Transaction(tx)) = msg?.update_oneof {
+        // Raw protobuf data - requires parsing
+        println!("Transaction: {:?}", tx.transaction);
+    }
+}
+```
+
+```typescript !! title="TypeScript"
+import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
+
+const client = new Client("https://grpc-endpoint:10000", "YOUR_TOKEN");
+const stream = await client.subscribe();
+
+stream.write({
+  transactions: {
+    payments: {
+      accountInclude: ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"],
+      vote: false,
+      failed: false
+    }
+  },
+  commitment: CommitmentLevel.CONFIRMED
+});
+
+stream.on("data", (update) => {
+  if (update.transaction) {
+    // Raw protobuf data - requires parsing
+    console.log("Transaction:", update.transaction.transaction.signature);
+  }
+});
+```
+
+</CodeTabs>
+
+<Callout>
+  يُرجع Yellowstone بيانات Protocol Buffer الأولية، وليس JSON. ستحتاج إلى فك
+  تشفير بيانات التعليمات الثنائية باستخدام IDLs الخاصة بالبرنامج أو مكتبات
+  التحليل. دعنا نستكشف بعض الخيارات لتحليل بيانات Yellowstone.
+</Callout>
+
+**الموارد:**
+
+- [مستودع Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc)
+- [وثائق البث المباشر لـ Triton](https://docs.triton.one/chains/solana/streaming)
+
+### Carbon
+
+[Carbon](https://github.com/sevenlabs-hq/carbon) هو إطار عمل Rust لبناء مفهرسات
+إنتاجية مبنية على Yellowstone gRPC. تربط بنية خط الأنابات الخاصة به مصادر
+البيانات بأدوات فك التشفير بالمعالجات المخصصة:
+
+```rust
+use carbon_core::pipeline::Pipeline;
+
+Pipeline::builder()
+    .datasource(yellowstone_grpc_source)
+    .instruction(TokenProgramDecoder, PaymentProcessor)
+    .metrics(Arc::new(PrometheusMetrics::new()))
+    .build()?
+    .run()
+    .await?;
+```
+
+يتضمن Carbon **أكثر من 40 أداة فك تشفير مُعدة مسبقًا** للبرامج الشائعة. بالنسبة
+لأنظمة الدفع، تتعامل أداة فك تشفير Token Program مع جميع أشكال التحويل بينما
+يقوم المعالج الخاص بك بتنفيذ منطق الأعمال:
+
+```rust
+#[async_trait]
+impl Processor for PaymentProcessor {
+    type InputType = (InstructionMetadata, DecodedInstruction<TokenInstruction>);
+
+    async fn process(
+        &mut self,
+        (meta, ix): Self::InputType,
+        _metrics: Arc<MetricsCollection>,
+    ) -> CarbonResult<()> {
+        if let TokenInstruction::Transfer { amount } = ix.data {
+            let accounts = Transfer::arrange_accounts(&ix.accounts)?;
+            if self.watched_wallets.contains(&accounts.destination) {
+                notify_payment(meta.signature, accounts.destination, amount).await;
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+**الموارد:**
+
+- [Carbon على GitHub](https://github.com/sevenlabs-hq/carbon)
+- [Yellowstone وCarbon: تحليل بيانات برنامج سولانا في الوقت الفعلي](https://www.quicknode.com/guides/solana-development/tooling/geyser/yellowstone-carbon)
+
+### Vixen
+
+[Yellowstone Vixen](https://github.com/rpcpool/yellowstone-vixen) هو إطار عمل
+Rust مفتوح المصدر لتحويل أحداث Yellowstone الأولية إلى بيانات منظمة ومكتوبة.
+يستخدم بنية **محلل + معالج**:
+
+- **المحللات** تقوم بإلغاء تسلسل أحداث سولانا الأولية إلى هياكل مكتوبة
+- **المعالجات** تنفذ منطق الأعمال الخاص بك على البيانات المحللة
+- **خطوط الأنابات** تربط المحللات بالمعالجات في تدفقات قابلة للتكوين
+
+```rust
+use yellowstone_vixen::Runtime;
+use yellowstone_vixen_parser::token_program::{TokenProgramParser, TokenProgramState};
+
+// Build a pipeline that parses Token Program events
+Runtime::<YellowstoneGrpcSource>::builder()
+    .account(Pipeline::new(TokenProgramParser, [PaymentHandler]))
+    .build(config)?
+    .run()
+    .await;
+```
+
+يتضمن Vixen محللات مدمجة لـ **SPL Token** و**Token-2022**، مع دعم إنشاء محللات
+من أي IDL خاص بسولانا. لمراقبة المدفوعات، يمنحك محلل الرموز وصولاً مكتوبًا إلى
+التحويلات والسك وحالات الحسابات:
+
+```rust
+impl Handler<TokenProgramState> for PaymentHandler {
+    async fn handle(&self, state: &TokenProgramState) -> Result<()> {
+        match state {
+            TokenProgramState::TokenAccount(account) => {
+                if self.watched_wallets.contains(&account.owner) {
+                    process_balance_change(account).await;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+```
+
+**الموارد:**
+
+- [Yellowstone Vixen على GitHub](https://github.com/rpcpool/yellowstone-vixen)
+- [Vixen Streams](https://blog.triton.one/introducing-vixen-streams-real-time-parsed-solana-program-streaming/) -
+  خدمة Triton المستضافة المبنية على Vixen
+
+## البدء
+
+يقدم العديد من مزودي RPC بنية تحتية مستضافة للفهرسة. تحقق من
+[solana.com/rpc](https://solana.com/rpc) للحصول على قائمة حالية بالمزودين الذين
+يقدمون webhooks وواجهات برمجة تطبيقات محسّنة وبث gRPC.

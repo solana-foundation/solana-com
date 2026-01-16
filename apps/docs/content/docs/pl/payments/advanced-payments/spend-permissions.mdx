@@ -1,0 +1,191 @@
+---
+title: Uprawnienia do wydawania środków
+description:
+  Deleguj wydawanie tokenów stronom trzecim na potrzeby automatycznych i
+  depozytowych płatności
+---
+
+Programy Tokenów Solana obsługują **delegowanie** — czyli przyznawanie innemu
+kontu uprawnienia do transferu tokenów z Twojego token account do określonego
+limitu. Pozwala to na realizację takich scenariuszy jak automatyczne płatności,
+usługi escrow czy przetwarzanie płatności przez strony trzecie, bez utraty
+kontroli nad własnymi środkami.
+
+## Jak działa delegowanie
+
+Gdy zatwierdzasz delegata, upoważniasz konkretne konto do transferowania tokenów
+w Twoim imieniu:
+
+- **Właściciel zachowuje kontrolę**: Nadal jesteś właścicielem tokenów i możesz
+  w każdej chwili dokonać transferu lub odwołać uprawnienia
+- **Limit wydatków**: Delegat może przelać tylko zatwierdzoną kwotę
+- **Jeden delegat na konto**: Każdy token account może mieć tylko jednego
+  aktywnego delegata
+- **Nowe zatwierdzenie zastępuje stare**: Zatwierdzenie nowego delegata
+  automatycznie cofa poprzednie uprawnienie
+
+<Callout type="info">
+  Delegowanie jest niepowiernicze. Delegat może wydawać tokeny tylko do
+  ustalonego limitu, ale nie ma dostępu do środków poza zatwierdzoną kwotą.
+  Właściciel może w każdej chwili cofnąć uprawnienia.
+</Callout>
+
+## Przykłady zastosowań biznesowych
+
+| Zastosowanie                    | Jak pomaga delegowanie                                                 |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| **Procesory płatności**         | Sprzedawca przyznaje procesorowi uprawnienia do rozliczania transakcji |
+| **Automatyczna wypłata pensji** | Skarbnik zatwierdza usługę kadrową do wypłaty wynagrodzeń              |
+| **Usługi escrow**               | Kupujący deleguje agentowi escrow warunkowe zwolnienie środków         |
+| **Platformy tradingowe**        | Użytkownik zatwierdza giełdę do realizacji transakcji w jego imieniu   |
+| **Wydawanie kart**              | Użytkownik zatwierdza wystawcę karty do obciążania jego token account  |
+
+## Zatwierdzanie delegata
+
+Przyznaj innemu kontu uprawnienia do wydawania tokenów z Twojego konta:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getApproveCheckedInstruction } from "@solana-program/token";
+
+// Approve delegate to spend up to 1,000 USDC (6 decimals)
+const approveInstruction = getApproveCheckedInstruction({
+  source: tokenAccountAddress, // Your token account
+  mint: usdcMintAddress, // USDC mint
+  delegate: delegateAddress, // Account receiving permission
+  owner: ownerKeypair, // You (must sign)
+  amount: 1_000_000_000n, // 1,000 USDC in base units
+  decimals: 6
+});
+```
+
+```bash !! title="CLI"
+spl-token approve <TOKEN_ACCOUNT> <AMOUNT> <DELEGATE_ADDRESS>
+# Example: Approve 1000 USDC to a delegate
+spl-token approve 7v45Foih... 1000 DeLe9ate...
+```
+
+</CodeTabs>
+
+**Parametry:**
+
+- `source`: token account przyznający uprawnienia
+- `delegate`: konto, które otrzyma uprawnienia do wydawania
+- `owner`: obecny właściciel token account (musi podpisać transakcję)
+- `amount`: maksymalna liczba tokenów, jaką delegat może przelać
+- `decimals`: liczba miejsc po przecinku tokena do walidacji (zapobiega błędom
+  dziesiętnym)
+
+## Cofnięcie uprawnień delegata
+
+Usuń wszystkie uprawnienia do wydawania od obecnego delegata:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getRevokeInstruction } from "@solana-program/token";
+
+const revokeInstruction = getRevokeInstruction({
+  source: tokenAccountAddress, // Your token account
+  owner: ownerKeypair // You (must sign)
+});
+```
+
+```bash !! title="CLI"
+spl-token revoke <TOKEN_ACCOUNT>
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  Cofnięcie usuwa **wszystkie** uprawnienia delegata — nie ma częściowego
+  cofnięcia. Jeśli chcesz zmniejszyć limit, zatwierdź tego samego delegata z
+  niższą kwotą.
+</Callout>
+
+## Sprawdzanie statusu delegacji
+
+Sprawdź token account, aby zobaczyć obecnego delegata i pozostały limit:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { fetchToken } from "@solana-program/token";
+
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress);
+
+if (tokenAccount.data.delegate) {
+  console.log("Delegate:", tokenAccount.data.delegate);
+  console.log("Remaining allowance:", tokenAccount.data.delegatedAmount);
+} else {
+  console.log("No delegate set");
+}
+```
+
+```bash !! title="CLI"
+spl-token display <TOKEN_ACCOUNT>
+# Look for "Delegate" and "Delegated Amount" fields
+```
+
+</CodeTabs>
+
+## Przelew jako delegat
+
+Działając jako delegat, użyj standardowego transferu, ale podpisz go keypair
+delegata zamiast właściciela:
+
+```ts title="Transfer as Delegate"
+import { getTransferCheckedInstruction } from "@solana-program/token";
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: ownerTokenAccount, // The account you have permission to spend from
+  mint: usdcMintAddress,
+  destination: recipientTokenAccount,
+  authority: delegateKeypair, // You (the delegate) sign, not the owner
+  amount: 100_000_000n, // 100 USDC
+  decimals: 6
+});
+```
+
+Przelew powiedzie się, jeśli:
+
+- Konto źródłowe ma wystarczające saldo
+- Delegat podpisze transakcję
+
+Każdy transfer zmniejsza pozostały limit. Gdy limit osiągnie zero, delegat nie
+może już wykonywać transferów tokenów.
+
+## Względy bezpieczeństwa
+
+**Dla właścicieli kont:**
+
+- Zatwierdzaj tylko zaufanych delegatów
+- Ustaw minimalnie niezbędny limit wydatków
+- Cofnij delegacje, gdy nie są już potrzebne
+- Monitoruj swoje konta pod kątem nieoczekiwanych transferów
+
+**Dla dostawców usług (delegatów):**
+
+- Jasno komunikuj użytkownikom żądany limit wydatków
+- Wdrażaj odpowiednie zarządzanie kluczami dla swojego konta delegata
+- Monitoruj wykorzystanie limitu, aby poprosić o ponowną akceptację zanim limit
+  się wyczerpie
+
+## Delegowanie vs. powiernictwo
+
+| Aspekt               | Delegowanie                        | Pełne powiernictwo                   |
+| -------------------- | ---------------------------------- | ------------------------------------ |
+| Własność tokenów     | Użytkownik zachowuje               | Użytkownik przekazuje powiernikowi   |
+| Kontrola wydatków    | Ograniczona do zatwierdzonej kwoty | Pełny dostęp do przekazanych środków |
+| Odwołanie            | Natychmiastowe, przez właściciela  | Wymaga współpracy powiernika         |
+| Ekspozycja na ryzyko | Ograniczona do zatwierdzonej kwoty | Cały stan konta                      |
+| Wymagane zaufanie    | Ograniczone                        | Wysokie                              |
+
+Delegowanie stanowi kompromis—umożliwia automatyczne płatności przy jednoczesnym
+ograniczeniu ekspozycji na ryzyko do zatwierdzonej kwoty.
+
+## Powiązane zasoby
+
+- [Zatwierdź delegata](/docs/tokens/basics/approve-delegate) — Szczegóły
+  techniczne dotyczące instrukcji approve

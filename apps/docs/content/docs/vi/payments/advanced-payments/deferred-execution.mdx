@@ -1,0 +1,258 @@
+---
+title: Thực thi trì hoãn
+description:
+  Ký giao dịch ngay, thực thi sau—cho phép quy trình phê duyệt, vận hành kho bạc
+  và ký an toàn
+---
+
+Mỗi giao dịch Solana bao gồm một blockhash gần đây—một tham chiếu đến trạng thái
+mạng gần đây chứng minh giao dịch được tạo "bây giờ". Mạng từ chối bất kỳ giao
+dịch nào có blockhash cũ hơn ~150 khối (~60-90 giây), ngăn chặn các cuộc tấn
+công phát lại và gửi lỗi thời. Điều này hoạt động hoàn hảo cho thanh toán thời
+gian thực. Nhưng nó phá vỡ các quy trình cần khoảng cách giữa ký và gửi, chẳng
+hạn như:
+
+| Tình huống               | Tại sao giao dịch tiêu chuẩn thất bại                                   |
+| ------------------------ | ----------------------------------------------------------------------- |
+| **Vận hành kho bạc**     | CFO ở Tokyo ký, Controller ở NYC phê duyệt—90 giây là không đủ          |
+| **Quy trình tuân thủ**   | Giao dịch cần xem xét pháp lý/tuân thủ trước khi thực thi               |
+| **Ký lưu trữ lạnh**      | Máy cách ly không khí yêu cầu chuyển giao thủ công các giao dịch đã ký  |
+| **Chuẩn bị hàng loạt**   | Chuẩn bị bảng lương hoặc giải ngân trong giờ làm việc, thực thi qua đêm |
+| **Phối hợp đa chữ ký**   | Nhiều người phê duyệt trên các múi giờ khác nhau                        |
+| **Thanh toán theo lịch** | Lên lịch thanh toán để thực thi vào ngày tương lai                      |
+
+Trong tài chính truyền thống, một tấm séc đã ký không hết hạn trong 90 giây. Một
+số hoạt động blockchain cũng không nên như vậy. **Durable nonces** giải quyết
+vấn đề này bằng cách thay thế blockhash gần đây bằng một giá trị được lưu trữ,
+bền vững chỉ tiến lên khi bạn sử dụng nó—mang lại cho bạn các giao dịch vẫn hợp
+lệ cho đến khi bạn sẵn sàng gửi.
+
+## Cách hoạt động
+
+Thay vì blockhash gần đây (hợp lệ ~150 khối), bạn sử dụng **tài khoản nonce**,
+một tài khoản đặc biệt lưu trữ một giá trị _duy nhất_. Mỗi giao dịch sử dụng
+nonce này phải "tiến" nó như là chỉ thị đầu tiên, ngăn chặn các cuộc tấn công
+phát lại.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  Tài khoản nonce tốn khoảng ~0.0015 SOL để miễn phí rent. Một tài khoản nonce =
+  một giao dịch đang chờ xử lý tại một thời điểm. Đối với quy trình song song,
+  hãy tạo nhiều tài khoản nonce.
+</Callout>
+
+## Thiết lập: Tạo tài khoản nonce
+
+Việc tạo tài khoản nonce yêu cầu hai lệnh trong một giao dịch duy nhất:
+
+1. **Tạo tài khoản** bằng cách sử dụng `getCreateAccountInstruction` từ System
+   Program
+2. **Khởi tạo nó như một nonce** bằng cách sử dụng
+   `getInitializeNonceAccountInstruction`
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## Xây dựng giao dịch hoãn lại
+
+Hai điểm khác biệt chính so với giao dịch tiêu chuẩn:
+
+1. Sử dụng giá trị nonce làm blockhash
+2. Thêm `advanceNonceAccount` làm lệnh **đầu tiên**
+
+### Lấy giá trị nonce
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### Đặt thời gian tồn tại của giao dịch bằng nonce
+
+Thay vì sử dụng blockhash gần đây sẽ hết hạn, hãy sử dụng giá trị nonce:
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### Nâng cấp nonce (lệnh đầu tiên bắt buộc)
+
+Mọi giao dịch durable nonce **phải** bao gồm `advanceNonceAccount` làm lệnh đầu
+tiên của nó. Điều này ngăn chặn các cuộc tấn công replay bằng cách vô hiệu hóa
+giá trị nonce sau khi sử dụng và cập nhật giá trị nonce.
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## Ký và lưu trữ
+
+Sau khi xây dựng, hãy ký giao dịch và tuần tự hóa nó để lưu trữ:
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Lưu trữ chuỗi đã tuần tự hóa trong cơ sở dữ liệu của bạn—nó vẫn hợp lệ cho đến
+khi nonce được nâng cấp.
+
+## Quy trình phê duyệt đa bên
+
+Giải tuần tự hóa giao dịch để thêm chữ ký bổ sung, sau đó tuần tự hóa lại để lưu
+trữ hoặc gửi:
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Giao dịch có thể được tuần tự hóa, lưu trữ và chuyển giữa những người phê duyệt.
+Sau khi tất cả các chữ ký cần thiết được thu thập, hãy gửi lên mạng.
+
+## Thực thi khi sẵn sàng
+
+Khi quá trình phê duyệt hoàn tất, gửi giao dịch đã được tuần tự hóa đến mạng
+lưới:
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  Mỗi nonce chỉ có thể được sử dụng một lần. Nếu giao dịch thất bại hoặc bạn
+  quyết định không gửi nó, bạn phải tăng nonce trước khi chuẩn bị giao dịch khác
+  với cùng tài khoản nonce.
+</Callout>
+
+## Tăng nonce đã sử dụng hoặc bị bỏ
+
+Để vô hiệu hóa giao dịch đang chờ xử lý hoặc chuẩn bị nonce để sử dụng lại, hãy
+tăng nó thủ công:
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+Điều này tạo ra một giá trị nonce mới, khiến bất kỳ giao dịch nào được ký với
+giá trị cũ trở nên vô hiệu vĩnh viễn.
+
+## Các cân nhắc khi triển khai
+
+**Quản lý tài khoản nonce:**
+
+- Tạo một nhóm tài khoản nonce để chuẩn bị giao dịch song song
+- Theo dõi nonce nào "đang được sử dụng" (có giao dịch đã ký đang chờ xử lý)
+- Triển khai tái chế nonce sau khi giao dịch được gửi hoặc bị bỏ
+
+**Bảo mật:**
+
+- Quyền hạn nonce kiểm soát việc giao dịch có thể bị vô hiệu hóa hay không. Hãy
+  cân nhắc tách quyền hạn nonce khỏi người ký giao dịch để có thêm quyền kiểm
+  soát và phân tách nhiệm vụ
+- _Bất kỳ ai_ có byte giao dịch đã được tuần tự hóa đều có thể gửi nó đến mạng
+  lưới
+
+## Tài nguyên liên quan
+
+- [Giới thiệu về Durable Nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

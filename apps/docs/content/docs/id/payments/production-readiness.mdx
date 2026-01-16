@@ -1,0 +1,533 @@
+---
+title: Kesiapan produksi
+description: Berpindah dari pengujian devnet ke deployment mainnet
+---
+
+Membangun secara lokal dan menguji di devnet adalah cara yang bagus untuk
+memulai dengan pembayaran Solana. Namun, ketika Anda siap untuk deploy ke
+Mainnet, Anda perlu memahami nuansa mainnet. Devnet memaafkan kesalahan. Mainnet
+tidak. Panduan ini mencakup perbedaan yang penting untuk memastikan pengguna
+Anda memiliki pengalaman yang lancar.
+
+| Devnet                            | Mainnet                                                                                   |
+| --------------------------------- | ----------------------------------------------------------------------------------------- |
+| SOL gratis dari faucet            | [Dapatkan SOL asli](https://solana.com/ecosystem/explore?categories=exchange) untuk biaya |
+| Kompetisi rendah untuk ruang blok | Biaya prioritas penting                                                                   |
+| Transaksi berhasil dengan mudah   | Konfigurasi transaksi sangat penting                                                      |
+| RPC publik sudah cukup            | RPC produksi diperlukan                                                                   |
+| Keypair dan mint devnet           | Kunci dan token mint berbeda—perbarui konfigurasi Anda                                    |
+
+## Infrastruktur RPC
+
+[Endpoint publik](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet-beta.solana.com`) dibatasi rate dengan tanpa SLA. Mereka baik
+untuk pengembangan tetapi akan gagal dalam alur pembayaran produksi—seperti
+mencoba menjalankan prosesor pembayaran melalui API bersama tanpa jaminan
+uptime.
+
+<Callout type="caution" title="Jangan pernah gunakan RPC publik untuk produksi">
+  Gunakan [penyedia RPC privat](https://solana.com/rpc) untuk akses yang andal
+  dan latensi rendah.
+</Callout>
+
+Saat memilih penyedia RPC, perhatikan:
+
+- **Keandalan**: SLA dengan jaminan uptime (99,9%+)
+- **Latensi**: Kedekatan geografis dengan pengguna Anda
+- **Fitur**: Fitur transaction landing, indexing, API biaya prioritas
+
+Untuk daftar lengkap penyedia RPC, lihat panduan
+[Penyedia Infrastruktur RPC](https://solana.com/rpc).
+
+### Konfigurasi RPC redundan
+
+Seperti penyedia layanan jaringan lainnya, penyedia RPC dapat mengalami downtime
+atau periode performa yang menurun. Untuk memastikan aplikasi Anda tangguh, Anda
+harus mengonfigurasi aplikasi Anda untuk menggunakan beberapa penyedia RPC.
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+menyediakan library untuk menyesuaikan transport RPC yang memungkinkan Anda
+membangun klien RPC redundan Anda sendiri. Berikut adalah contoh bagaimana Anda
+dapat menggunakannya untuk membangun klien RPC redundan:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Jika Anda lebih memilih untuk tidak membangun alat routing Anda sendiri, Anda
+dapat memanfaatkan layanan pihak ketiga seperti
+[Iron Forge](https://www.ironforge.sanctum.so/) untuk menangani routing untuk
+Anda.
+
+## Transaction landing
+
+Di Devnet, transaksi berhasil dengan cukup mudah. Di Mainnet, Anda bersaing
+untuk ruang blok. Untuk meningkatkan peluang transaksi Anda dimasukkan ke dalam
+blok, Anda harus memastikan telah merakit transaksi Anda dengan benar. Ini
+berarti:
+
+- menyertakan blockhash yang segar sebelum mengirim transaksi
+- menyertakan instruksi priority fee dalam transaksi dengan priority fee yang
+  kompetitif
+- menyertakan instruksi compute unit limit dalam transaksi dengan compute unit
+  limit berdasarkan estimasi compute unit yang diperlukan untuk transaksi
+
+Selain itu, Anda harus mempertimbangkan alat lain seperti Jito Bundles untuk
+meningkatkan peluang transaksi Anda dimasukkan ke dalam blok. Mari kita jelajahi
+alat-alat ini lebih detail.
+
+### Konfigurasi pengiriman transaksi
+
+Saat mengirim transaksi di Mainnet, konfigurasikan parameter berikut untuk
+tingkat landing yang optimal:
+
+**Manajemen blockhash:**
+
+- Ambil dengan komitmen `confirmed`
+- Simpan `lastValidBlockHeight` yang dikembalikan oleh `getLatestBlockhash`—ini
+  memberi tahu Anda kapan transaksi Anda kedaluwarsa
+- Blockhash kedaluwarsa setelah ~150 blok (~60-90 detik)
+
+**Opsi pengiriman:**
+
+- `maxRetries: 0` — Nonaktifkan retry RPC otomatis. Tangani retry sendiri
+  sehingga Anda dapat memperbarui blockhash saat diperlukan.
+- `skipPreflight: true` — Lewati simulasi sebelum mengirim. Gunakan ini ketika
+  Anda sudah memvalidasi transaksi dan menginginkan latensi terendah. Tetap
+  gunakan `false` selama pengembangan untuk menangkap error lebih awal.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Gunakan biaya prioritas
+
+Setiap transaksi Solana memerlukan biaya transaksi, yang dibayar dalam SOL.
+Biaya transaksi dibagi menjadi dua bagian: biaya dasar dan biaya prioritas.
+Biaya dasar mengompensasi validator untuk memproses transaksi. Biaya prioritas
+adalah biaya opsional, untuk meningkatkan peluang agar leader saat ini akan
+memproses transaksi Anda. Anggap saja seperti pengiriman ekspres: Anda membayar
+lebih untuk pengiriman yang lebih cepat dan lebih andal.
+
+**Cara kerja biaya:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**Biaya di dunia nyata:**
+
+- Transfer USDC sederhana: ~$0.001-0.005 selama kondisi normal
+- Selama kemacetan: ~$0.01-0.05
+- Kemacetan puncak: Dapat melonjak lebih tinggi
+
+**Contoh implementasi:**
+
+Paket
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+menyediakan fungsi helper untuk dengan mudah memperbarui atau menambahkan
+instruksi harga unit komputasi (dalam micro-lamport) ke transaksi.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Mendapatkan estimasi biaya:** Sebagian besar penyedia RPC menawarkan API biaya
+prioritas:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Untuk mekanisme biaya lengkap, lihat [biaya transaksi](/docs/core/fees) dan
+panduan kami:
+[cara menambahkan biaya prioritas ke transaksi](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Optimalkan unit komputasi
+
+Komputasi di Solana secara efektif adalah ukuran jumlah pekerjaan yang dilakukan
+program. Ada batasan jumlah komputasi yang dapat digunakan dalam transaksi (saat
+ini 1,4 juta unit komputasi), dan batasan jumlah komputasi yang dapat digunakan
+per akun per blok (saat ini 100 juta unit komputasi).
+
+Ketika Anda mengirimkan transaksi, Anda perlu memperkirakan jumlah komputasi
+yang akan digunakan, dan menetapkan batas unit komputasi yang sesuai - ini
+secara efektif adalah permintaan untuk berapa banyak dari total kapasitas yang
+harus dicadangkan untuk transaksi Anda. Dalam praktiknya, ini berarti
+memperkirakan unit komputasi yang diperlukan untuk transaksi Anda dengan benar
+sangat penting agar transaksi Anda dimasukkan dalam blok (dan penting untuk
+mengelola biaya prioritas Anda).
+
+Solana JSON RPC API memiliki metode
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction) yang dapat digunakan
+untuk memperkirakan unit komputasi yang diperlukan untuk sebuah transaksi, yang
+mencakup estimasi unit komputasi yang akan digunakan. Package
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+menyediakan fungsi helper untuk dengan mudah memperkirakan unit komputasi yang
+diperlukan untuk sebuah transaksi (yang menggunakan metode `simulatetransaction`
+di balik layar).
+
+```ts
+import {
+  estimateComputeUnitLimitFactory,
+  updateOrAppendSetComputeUnitLimitInstruction
+} from "@solana-program/compute-budget";
+
+const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
+const computeUnitLimit = await estimateComputeUnitLimit(tx);
+const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
+  computeUnitLimit,
+  tx
+);
+```
+
+Dalam produksi, jika Anda mengulangi jenis transaksi yang sama beberapa kali,
+Anda sebaiknya mempertimbangkan untuk meng-cache estimasi komputasi untuk jenis
+transaksi tersebut guna menghindari overhead estimasi unit komputasi setiap
+kali.
+
+### Jito bundles
+
+Jito bundles adalah alat untuk mengelola eksekusi atomik dari beberapa
+transaksi. Hal ini dicapai dengan mengirimkan beberapa transaksi ke jaringan
+Jito dengan tip. Tip dapat digunakan untuk memberi insentif kepada jaringan Jito
+agar menyertakan transaksi Anda dalam sebuah blok.
+
+**Sumber daya:**
+
+- [Dokumentasi Jito](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Video: Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [Panduan QuickNode tentang Jito bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Strategi retry
+
+Transaksi dapat gagal karena berbagai alasan. Tidak seperti API pembayaran
+tradisional yang mengembalikan sukses/gagal secara langsung, transaksi
+blockchain memerlukan pelacakan konfirmasi.
+
+**Konsep kunci:**
+
+- **Kedaluwarsa blockhash**: Transaksi berlaku selama ~150 blok (~60-90 detik)
+- **Idempotency**: Transaksi yang ditandatangani sama selalu menghasilkan
+  signature yang sama—mengirim ulang aman dilakukan
+- **Exponential backoff**: Hindari membebani jaringan dengan retry yang cepat
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`sendAndConfirmTransactionFactory` dari `@solana/kit` menangani polling
+konfirmasi dan pelacakan block height secara otomatis. Ini melempar
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` ketika blockhash transaksi kedaluwarsa,
+menandakan bahwa Anda perlu membangun ulang transaksi dengan blockhash yang
+baru.
+
+### Sumber daya tambahan
+
+- [Panduan: Konfirmasi & Kedaluwarsa Transaksi](https://solana.com/developers/guides/advanced/confirmation)
+- [Helius: Cara Mengirim Transaksi di Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Strategi untuk Mengoptimalkan Transaksi Solana](https://www.quicknode.com/docs/solana/transactions)
+
+## Memahami tingkat konfirmasi
+
+Solana menawarkan tiga tingkat konfirmasi. Dalam istilah keuangan tradisional:
+
+| Tingkat     | Definisi Solana             | Ekuivalen Tradisional | Kasus penggunaan              |
+| ----------- | --------------------------- | --------------------- | ----------------------------- |
+| `processed` | Dalam blok, belum divoting  | Otorisasi tertunda    | Pembaruan UI real-time        |
+| `confirmed` | Divoting supermayoritas     | Dana tersedia         | **Sebagian besar pembayaran** |
+| `finalized` | Berakar, tidak dapat diubah | Dana diselesaikan     | Nilai tinggi, kepatuhan       |
+
+**Kapan menggunakan masing-masing:**
+
+- **Pembaruan UI**: Tampilkan `processed` untuk umpan balik langsung
+  ("Pembayaran dikirim")
+- **Kredit akun pengguna**: Tunggu `confirmed` (aman untuk sebagian besar
+  transaksi)
+- **Kirim barang fisik**: Tunggu `finalized`
+- **Penarikan besar**: Tunggu `finalized`
+- **Kepatuhan/audit**: Selalu catat status `finalized`
+
+Untuk informasi lebih lanjut tentang memeriksa status transaksi, lihat
+[Berinteraksi dengan Solana](/docs/payments/interacting-with-solana).
+
+## Penanganan error
+
+Solana Kit menyediakan error bertipe melalui `isSolanaError()`. Gunakan kode
+error spesifik alih-alih pencocokan string:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Kode error umum:**
+
+| Kode error                   | Penyebab                  | Pemulihan                                                                                                            |
+| ---------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash kedaluwarsa     | Bangun ulang dengan blockhash baru                                                                                   |
+| `BLOCKHASH_NOT_FOUND`        | Blockhash tidak ditemukan | Bangun ulang dengan blockhash baru                                                                                   |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOL tidak cukup           | Danai pembayar biaya atau gunakan [abstraksi biaya](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Token tidak cukup         | Pengguna memerlukan saldo lebih banyak                                                                               |
+| `ACCOUNT_NOT_FOUND`          | Token account tidak ada   | Buat ATA dalam transaksi                                                                                             |
+
+## Transaksi tanpa gas
+
+Pengguna mengharapkan untuk membayar dalam stablecoin, bukan memperoleh SOL
+untuk biaya jaringan. Transaksi tanpa gas menyelesaikan masalah ini—mirip dengan
+bagaimana pengguna Venmo tidak memikirkan biaya ACH. Lihat
+[Abstraksi biaya](/docs/payments/send-payments/payment-processing/fee-abstraction)
+untuk implementasi lengkap.
+
+## Keamanan
+
+### Manajemen kunci
+
+- **Jangan pernah mengekspos kunci privat dalam kode frontend.** Gunakan
+  penandatanganan backend, dompet perangkat keras, dompet multisignature, atau
+  layanan manajemen kunci.
+- **Pisahkan dompet panas dan dingin.** Dompet panas untuk operasi, dingin untuk
+  perbendaharaan.
+- **Cadangkan semua kunci produksi.** Simpan cadangan terenkripsi di beberapa
+  lokasi aman. Kehilangan kunci berarti kehilangan akses secara permanen.
+- **Gunakan kunci berbeda untuk devnet dan mainnet.** Kunci devnet Anda
+  seharusnya tidak sama dengan kunci mainnet Anda. Gunakan konfigurasi berbasis
+  environment untuk memastikan kunci yang tepat dimuat untuk setiap jaringan.
+
+### Keamanan RPC
+
+Perlakukan endpoint RPC seperti kunci API—jangan mengeksposnya dalam kode
+frontend di mana mereka dapat diekstrak dan disalahgunakan. Gunakan proxy
+backend atau variabel environment yang tidak dibundel ke dalam kode klien.
+
+- [QuickNode: praktik terbaik keamanan endpoint](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius: lindungi kunci API Solana Anda: praktik terbaik keamanan](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### Pemantauan
+
+Lacak metrik berikut dalam produksi:
+
+| Metrik                         | Alasan                     |
+| ------------------------------ | -------------------------- |
+| Tingkat keberhasilan transaksi | Deteksi masalah lebih awal |
+| Latensi konfirmasi             | Pantau kesehatan jaringan  |
+| Pengeluaran biaya prioritas    | Manajemen biaya            |
+| Tingkat error RPC              | Kesehatan penyedia         |
+
+Siapkan peringatan untuk:
+
+- Transfer di atas ambang batas dari perbendaharaan
+- Lonjakan tingkat transaksi gagal
+- Pola penerima yang tidak biasa
+- Peningkatan tingkat error RPC
+
+Untuk pemantauan transaksi real-time dalam skala besar, lihat
+[panduan pengindeksan](/docs/payments/accept-payments/indexing) kami.
+
+### Verifikasi alamat
+
+Setiap token dan program memiliki tepat satu alamat yang benar di mainnet. Token
+palsu yang meniru USDC atau stablecoin lainnya sangat umum—mereka akan memiliki
+nama dan simbol yang sama tetapi mint yang berbeda. Aplikasi Anda harus
+melakukan hardcode atau allowlist terhadap alamat mint (berdasarkan kebutuhan
+Anda), jangan pernah menerimanya secara dinamis dari sumber yang tidak
+tepercaya.
+
+**Konfigurasi berbasis environment:** Devnet dan Mainnet sering menggunakan mint
+token yang sama sekali berbeda. Siapkan konfigurasi aplikasi Anda untuk memuat
+alamat yang benar per environment—jangan melakukan hardcode alamat mainnet dan
+lupa menggantinya saat pengujian, atau lebih buruk lagi, mengirim alamat devnet
+ke production.
+
+Beberapa mint stablecoin yang umum adalah:
+
+| Token | Penerbit | Alamat Mint                                    |
+| ----- | -------- | ---------------------------------------------- |
+| USDC  | Circle   | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether   | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal   | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos    | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+Alamat program juga penting. Mengirim instruksi ke program yang salah akan
+gagal—atau lebih buruk lagi, mengakibatkan kehilangan dana yang tidak dapat
+dikembalikan. Alamat Token Program adalah:
+
+| Program            | Alamat                                        |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+## Checklist pra-peluncuran
+
+- [ ] SOL mainnet diperoleh untuk biaya dan rent
+- [ ] RPC production dikonfigurasi (bukan endpoint publik)
+- [ ] Endpoint RPC fallback dikonfigurasi
+- [ ] Priority fees diimplementasikan dengan penetapan harga dinamis
+- [ ] Logika retry menangani kedaluwarsa blockhash
+- [ ] Tingkat konfirmasi sesuai untuk kasus penggunaan
+- [ ] Semua error umum ditangani dengan baik
+- [ ] Gasless dikonfigurasi (jika berlaku)
+- [ ] Alamat token mainnet diverifikasi (bukan mint devnet)
+- [ ] Semua kunci dicadangkan dengan aman
+- [ ] Manajemen kunci ditinjau (tidak ada kunci di frontend)
+- [ ] Pemantauan dan peringatan transaksi aktif
+- [ ] Load testing dilakukan pada volume yang diharapkan
+
+## Melakukan deployment program
+
+Jika Anda melakukan deployment program Solana kustom sebagai bagian dari
+infrastruktur pembayaran Anda, ada pertimbangan tambahan yang perlu
+diperhatikan.
+
+### Sebelum deployment
+
+- **Versi Solana CLI:** Pastikan Anda menggunakan versi terbaru dari
+  [Solana CLI](https://solana.com/docs/intro/installation).
+- **Keypair program:** Program Anda akan memiliki alamat yang berbeda di mainnet
+  dibandingkan devnet (kecuali Anda menggunakan kembali keypair yang sama).
+  Perbarui semua referensi dalam konfigurasi aplikasi Anda. Simpan keypair
+  program Anda di lokasi yang aman (perhatikan bahwa menjalankan `cargo clean`
+  kemungkinan akan menghapus keypair program Anda).
+- **Inisialisasi akun:** Jika program Anda memerlukan akun admin, PDA, atau akun
+  state lainnya, pastikan akun-akun tersebut dibuat di mainnet sebelum pengguna
+  berinteraksi dengan aplikasi Anda. Hal yang sama berlaku untuk Associated
+  Token Accounts (ATA) yang dibutuhkan program Anda.
+
+### Proses deployment
+
+- **Akun buffer:** Program berukuran besar melakukan deployment melalui akun
+  buffer. Perintah `solana program deploy` menangani ini secara otomatis, tetapi
+  pahami bahwa deployment tidak bersifat atomik—jika terganggu, Anda mungkin
+  perlu memulihkan atau menutup akun buffer. Lihat
+  [Deploying Programs](https://solana.com/docs/programs/deploying).
+- **Upgrade authority:** Tentukan apakah program Anda harus dapat diupgrade
+  setelah diluncurkan. Untuk immutability, cabut upgrade authority setelah
+  deployment. Untuk fleksibilitas, amankan kunci upgrade authority dengan tepat.
+- **Rent:** Pastikan wallet deployment Anda memiliki SOL yang cukup untuk
+  menutupi minimum rent-exempt untuk semua akun program.
+- **Verifikasi:** [Verifikasi](https://solana.com/docs/programs/verified-builds)
+  program Anda untuk memastikan bahwa program yang dapat dieksekusi yang Anda
+  deploy ke jaringan Solana sesuai dengan kode sumber di repositori Anda
+
+Untuk panduan lengkap deployment program, lihat
+[Deploying Programs](https://solana.com/docs/programs/deploying).

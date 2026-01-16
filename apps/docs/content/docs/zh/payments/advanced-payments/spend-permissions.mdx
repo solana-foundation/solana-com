@@ -1,0 +1,174 @@
+---
+title: 支出权限
+description: 将 token 支出权限委托给第三方，实现自动化和托管支付
+---
+
+Solana 的 Token
+Programs 支持**委托**功能——允许你授权其他账户在指定额度内，从你的 token
+account 转移 token。这使得自动化支付、托管服务和第三方支付处理等场景成为可能，同时无需放弃对资金的控制权。
+
+## 委托的工作原理
+
+当你批准一个代理人（delegate）时，就是授权某个特定账户可以代表你转移 token：
+
+- **所有权不变**：你仍然拥有这些 token，并可随时转移或撤销权限
+- **支出额度受限**：代理人只能在批准的额度内转移 token
+- **每个账户仅限一个代理**：每个 token account 只能有一个活跃代理
+- **新授权覆盖旧授权**：批准新代理会自动撤销之前的代理权限
+
+<Callout type="info">
+  委托是非托管的。代理人只能在额度范围内支出
+  token，无法访问或转移超出批准额度的资金。账户所有者可随时撤销权限。
+</Callout>
+
+## 商业应用场景
+
+| 应用场景           | 委托如何发挥作用                           |
+| ------------------ | ------------------------------------------ |
+| **支付处理商**     | 商户授权处理商结算交易                     |
+| **自动化工资发放** | 财务部门批准工资服务商发放薪资             |
+| **托管服务**       | 买方将权限委托给托管代理人以实现有条件释放 |
+| **交易平台**       | 用户授权交易所代表其执行交易               |
+| **卡片发行**       | 用户授权发卡机构将消费记入其 token account |
+
+## 授权代理人
+
+授权其他账户从你的账户中支出代币：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getApproveCheckedInstruction } from "@solana-program/token";
+
+// Approve delegate to spend up to 1,000 USDC (6 decimals)
+const approveInstruction = getApproveCheckedInstruction({
+  source: tokenAccountAddress, // Your token account
+  mint: usdcMintAddress, // USDC mint
+  delegate: delegateAddress, // Account receiving permission
+  owner: ownerKeypair, // You (must sign)
+  amount: 1_000_000_000n, // 1,000 USDC in base units
+  decimals: 6
+});
+```
+
+```bash !! title="CLI"
+spl-token approve <TOKEN_ACCOUNT> <AMOUNT> <DELEGATE_ADDRESS>
+# Example: Approve 1000 USDC to a delegate
+spl-token approve 7v45Foih... 1000 DeLe9ate...
+```
+
+</CodeTabs>
+
+**参数：**
+
+- `source`：授予权限的 token account
+- `delegate`：将获得支出权限的账户
+- `owner`：token account 当前所有者（必须签署交易）
+- `amount`：代理可转移的最大代币数量
+- `decimals`：用于校验的代币小数位数（防止小数错误）
+
+## 撤销代理权限
+
+移除当前代理的所有支出权限：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getRevokeInstruction } from "@solana-program/token";
+
+const revokeInstruction = getRevokeInstruction({
+  source: tokenAccountAddress, // Your token account
+  owner: ownerKeypair // You (must sign)
+});
+```
+
+```bash !! title="CLI"
+spl-token revoke <TOKEN_ACCOUNT>
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  撤销操作会移除**所有**代理权限——不支持部分撤销。如果你需要降低额度，请以更低的额度重新授权同一代理。
+</Callout>
+
+## 检查代理状态
+
+查询 token account 以查看其当前代理及剩余额度：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { fetchToken } from "@solana-program/token";
+
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress);
+
+if (tokenAccount.data.delegate) {
+  console.log("Delegate:", tokenAccount.data.delegate);
+  console.log("Remaining allowance:", tokenAccount.data.delegatedAmount);
+} else {
+  console.log("No delegate set");
+}
+```
+
+```bash !! title="CLI"
+spl-token display <TOKEN_ACCOUNT>
+# Look for "Delegate" and "Delegated Amount" fields
+```
+
+</CodeTabs>
+
+## 作为代理进行转账
+
+作为代理操作时，使用标准转账，但需用代理的 keypair 签名，而不是所有者：
+
+```ts title="Transfer as Delegate"
+import { getTransferCheckedInstruction } from "@solana-program/token";
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: ownerTokenAccount, // The account you have permission to spend from
+  mint: usdcMintAddress,
+  destination: recipientTokenAccount,
+  authority: delegateKeypair, // You (the delegate) sign, not the owner
+  amount: 100_000_000n, // 100 USDC
+  decimals: 6
+});
+```
+
+转账成功的条件：
+
+- 源账户余额充足
+- 代理签署了该交易
+
+每次转账都会减少剩余授权额度。当额度降至零时，代理人将无法再转移代币。
+
+## 安全注意事项
+
+**账户所有者须知：**
+
+- 仅授权可信的代理人
+- 设置最低必要的支出限额
+- 不再需要时及时撤销授权
+- 监控账户，防止异常转账
+
+**服务提供方（代理人）须知：**
+
+- 向用户明确告知所请求的支出限额
+- 对代理账户进行妥善的密钥管理
+- 跟踪额度消耗情况，额度用尽前及时申请重新授权
+
+## 委托与托管的区别
+
+| 方面       | 委托                 | 完全托管             |
+| ---------- | -------------------- | -------------------- |
+| 代币所有权 | 用户保留             | 用户转移给托管方     |
+| 支出控制   | 限于批准额度         | 可完全支配已转移资金 |
+| 撤销       | 账户所有者可即时撤销 | 需托管方配合         |
+| 风险暴露   | 限于批准额度         | 全部余额             |
+| 信任要求   | 有限                 | 很高                 |
+
+委托为自动化支付提供了折中方案——既能实现自动支付，又能将风险暴露限制在批准额度内。
+
+## 相关资源
+
+- [授权代理](/docs/tokens/basics/approve-delegate) — 有关授权指令的技术细节

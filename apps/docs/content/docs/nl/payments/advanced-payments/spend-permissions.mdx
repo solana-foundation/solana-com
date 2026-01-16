@@ -1,0 +1,192 @@
+---
+title: Bestedingsmachtigingen
+description:
+  Delegeer tokenuitgaven aan derden voor geautomatiseerde en geborgde betalingen
+---
+
+Solana's Token Programs ondersteunen **delegatie**—het verlenen van toestemming
+aan een ander account om tokens over te maken vanaf jouw token account tot een
+gespecificeerd limiet. Dit maakt gebruikssituaties mogelijk zoals
+geautomatiseerde betalingen, escrowdiensten en betalingsverwerking door derden
+zonder dat je de controle over je middelen opgeeft.
+
+## Hoe delegatie werkt
+
+Wanneer je een gemachtigde goedkeurt, autoriseer je een specifiek account om
+tokens namens jou over te maken:
+
+- **Eigenaar behoudt controle**: Je bent nog steeds eigenaar van de tokens en
+  kunt deze op elk moment overmaken of intrekken
+- **Beperkte uitgaven**: De gemachtigde kan alleen tot het goedgekeurde bedrag
+  overmaken
+- **Eén gemachtigde per account**: Elk token account kan slechts één actieve
+  gemachtigde hebben
+- **Nieuwe goedkeuring vervangt oude**: Het goedkeuren van een nieuwe
+  gemachtigde trekt automatisch de vorige in
+
+<Callout type="info">
+  Delegatie is niet-custodiaal. De gemachtigde kan tokens uitgeven tot het
+  limiet, maar kan het account niet toegang krijgen of leeghalen boven het
+  goedgekeurde bedrag. De eigenaar kan op elk moment intrekken.
+</Callout>
+
+## Zakelijke gebruikssituaties
+
+| Gebruikssituatie                          | Hoe delegatie helpt                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Betalingsverwerkers**                   | Handelaar verleent verwerker toestemming om transacties af te wikkelen               |
+| **Geautomatiseerde salarisadministratie** | Schatkist keurt salarisadministratiedienst goed om salarissen uit te betalen         |
+| **Escrowdiensten**                        | Koper delegeert aan escrowagent voor voorwaardelijke vrijgave                        |
+| **Handelsplatforms**                      | Gebruiker keurt exchange goed om namens hen te handelen                              |
+| **Kaartuitgifte**                         | Gebruiker keurt kaartuitgever goed om aankopen af te schrijven van hun token account |
+
+## Een gemachtigde goedkeuren
+
+Geef een ander account toestemming om tokens van je account uit te geven:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getApproveCheckedInstruction } from "@solana-program/token";
+
+// Approve delegate to spend up to 1,000 USDC (6 decimals)
+const approveInstruction = getApproveCheckedInstruction({
+  source: tokenAccountAddress, // Your token account
+  mint: usdcMintAddress, // USDC mint
+  delegate: delegateAddress, // Account receiving permission
+  owner: ownerKeypair, // You (must sign)
+  amount: 1_000_000_000n, // 1,000 USDC in base units
+  decimals: 6
+});
+```
+
+```bash !! title="CLI"
+spl-token approve <TOKEN_ACCOUNT> <AMOUNT> <DELEGATE_ADDRESS>
+# Example: Approve 1000 USDC to a delegate
+spl-token approve 7v45Foih... 1000 DeLe9ate...
+```
+
+</CodeTabs>
+
+**Parameters:**
+
+- `source`: Het token account dat toestemming verleent
+- `delegate`: Het account dat bestedingsrechten krijgt
+- `owner`: Huidige eigenaar van het token account (moet de transactie
+  ondertekenen)
+- `amount`: Maximum aantal tokens dat de gemachtigde kan overmaken
+- `decimals`: Token decimalen voor validatie (voorkomt decimaalfouten)
+
+## Een gemachtigde intrekken
+
+Verwijder alle bestedingsrechten van de huidige gemachtigde:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getRevokeInstruction } from "@solana-program/token";
+
+const revokeInstruction = getRevokeInstruction({
+  source: tokenAccountAddress, // Your token account
+  owner: ownerKeypair // You (must sign)
+});
+```
+
+```bash !! title="CLI"
+spl-token revoke <TOKEN_ACCOUNT>
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  Intrekken verwijdert **alle** rechten van de gemachtigde—er is geen
+  gedeeltelijke intrekking. Als je de limiet wilt verlagen, keur dan dezelfde
+  gemachtigde opnieuw goed met een lager bedrag.
+</Callout>
+
+## Machtigingsstatus controleren
+
+Vraag een token account op om de huidige gemachtigde en resterende toestemming
+te zien:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { fetchToken } from "@solana-program/token";
+
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress);
+
+if (tokenAccount.data.delegate) {
+  console.log("Delegate:", tokenAccount.data.delegate);
+  console.log("Remaining allowance:", tokenAccount.data.delegatedAmount);
+} else {
+  console.log("No delegate set");
+}
+```
+
+```bash !! title="CLI"
+spl-token display <TOKEN_ACCOUNT>
+# Look for "Delegate" and "Delegated Amount" fields
+```
+
+</CodeTabs>
+
+## Overmaken als gemachtigde
+
+Wanneer je als gemachtigde handelt, gebruik je een standaard transfer maar
+onderteken je met het keypair van de gemachtigde in plaats van de eigenaar:
+
+```ts title="Transfer as Delegate"
+import { getTransferCheckedInstruction } from "@solana-program/token";
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: ownerTokenAccount, // The account you have permission to spend from
+  mint: usdcMintAddress,
+  destination: recipientTokenAccount,
+  authority: delegateKeypair, // You (the delegate) sign, not the owner
+  amount: 100_000_000n, // 100 USDC
+  decimals: 6
+});
+```
+
+De transfer slaagt als:
+
+- Het bronaccount voldoende saldo heeft
+- De gemachtigde de transactie ondertekent
+
+Elke overdracht vermindert de resterende toestemming. Wanneer de toestemming nul
+bereikt, kan de gemachtigde geen tokens meer overdragen.
+
+## Beveiligingsoverwegingen
+
+**Voor accounteigenaren:**
+
+- Keur alleen vertrouwde gemachtigden goed
+- Stel de minimaal noodzakelijke bestedingslimiet in
+- Herroep machtigingen wanneer ze niet langer nodig zijn
+- Controleer je accounts op onverwachte overdrachten
+
+**Voor dienstverleners (gemachtigden):**
+
+- Communiceer de gevraagde bestedingslimiet duidelijk naar gebruikers
+- Implementeer correct sleutelbeheer voor je gemachtigde account
+- Volg het verbruik van de toestemming om hernieuwde goedkeuring aan te vragen
+  voordat limieten zijn uitgeput
+
+## Machtiging vs. bewaring
+
+| Aspect              | Machtiging                     | Volledige bewaring                          |
+| ------------------- | ------------------------------ | ------------------------------------------- |
+| Token-eigendom      | Gebruiker behoudt              | Gebruiker draagt over aan bewaarder         |
+| Bestedingscontrole  | Beperkt tot goedgekeurd bedrag | Volledige toegang tot overgedragen middelen |
+| Herroeping          | Direct, door eigenaar          | Vereist medewerking bewaarder               |
+| Risicoblootstelling | Beperkt tot goedgekeurd bedrag | Volledig saldo                              |
+| Vereist vertrouwen  | Beperkt                        | Hoog                                        |
+
+Machtiging biedt een middenweg—het maakt geautomatiseerde betalingen mogelijk
+terwijl de risicoblootstelling beperkt blijft tot het goedgekeurde bedrag.
+
+## Gerelateerde bronnen
+
+- [Approve Delegate](/docs/tokens/basics/approve-delegate) — Technische details
+  over de approve-instructie

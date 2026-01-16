@@ -1,0 +1,309 @@
+---
+title: Jak działają płatności w Solanie
+description:
+  Podstawowe pojęcia dotyczące wysyłania i odbierania płatności w Solanie
+---
+
+Zanim zaczniesz budować procesy płatności na Solanie, musisz poznać pięć
+kluczowych pojęć: portfele, stablecoiny, token account, opłaty i transakcje.
+Płatności w Solanie odpowiadają modelowi płatności wielowalutowych:
+
+| Tradycyjny model płatności | Solana                  | Opis                                     |
+| -------------------------- | ----------------------- | ---------------------------------------- |
+| ID klienta / numer konta   | Adres portfela          | Unikalny identyfikator właściciela konta |
+| Waluta (USD, EUR)          | Token Mint (USDG, USDC) | Typ aktywa, które jest transferowane     |
+| Saldo według waluty        | Token Account (ATA)     | Przechowuje saldo danej waluty/minta     |
+
+Podobnie jak klient banku ma jedną tożsamość, ale oddzielne salda dla każdej
+waluty, portfel Solany ma jeden adres, ale osobny token account dla każdego
+posiadanego aktywa. Przyjrzyjmy się każdemu z tych elementów.
+
+## Portfele: nadawcy i odbiorcy
+
+Każda płatność obejmuje dwie strony, z których każda jest identyfikowana przez
+**adres portfela** — unikalny 32-bajtowy klucz publiczny (np. `7EcDhS...`).
+
+- **Nadawca**: Portfel inicjujący płatność. Musi posiadać wystarczające saldo
+  stablecoin na koncie oraz podpisać transakcję.
+- **Odbiorca**: Portfel docelowy. Nie musi podpisywać ani posiadać istniejącego
+  salda.
+- **Płatnik opłaty**: Opcjonalny portfel płacący opłatę. Może służyć do
+  subsydiowania lub umożliwienia transakcji wyłącznie stablecoinowych między
+  użytkownikami.
+
+Adresy portfeli można porównać do numerów kont bankowych: są publiczne,
+bezpieczne do udostępniania i niezbędne do wysyłania lub odbierania środków.
+
+## Stablecoiny
+
+Stablecoiny na Solanie nazywane są „tokenami”. Tokeny reprezentują typ aktywa w
+sieci. Każdy token ma unikalny identyfikator zwany „mint address”. Tworząc
+systemy płatności, będziesz odwoływać się do tych adresów mint, aby określić, z
+jakim aktywem pracujesz. Oto przykładowe minty stablecoinów na mainnecie:
+
+| Token | Emitent | Adres mintu                                    |
+| ----- | ------- | ---------------------------------------------- |
+| USDC  | Circle  | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether  | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal  | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos   | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+Więcej informacji o stablecoinach na Solanie znajdziesz na stronie rozwiązania
+[Stablecoins](https://solana.com/solutions/stablecoins).
+
+<Callout>
+  Przy akceptowaniu płatności zawsze weryfikuj adres mintu oraz Token Program.
+  Tokeny mogą mieć te same nazwy, ale różnych emitentów i inne aktywa bazowe.
+</Callout>
+
+## Konta tokenów
+
+Portfele nie przechowują tokenów bezpośrednio. Zamiast tego każdy portfel ma
+uprawnienia do **token account** dla każdego typu tokena, który posiada.
+Płatności realizowane są poprzez transfer tokenów z token account nadawcy do
+token account odbiorcy tego samego mintu:
+
+![Konta tokenów](/assets/docs/payments/payment-flow.png)
+
+**Associated Token Account** to deterministyczny token account powiązany z
+konkretnym portfelem i mintem. Dla danego adresu portfela i mintu adres ATA jest
+zawsze taki sam.
+
+1. **Jedno ATA na mint**. Portfel ma dokładnie jedno ATA dla USDC, jedno dla
+   USDT itd.
+2. **Musi istnieć przed otrzymaniem**. Nie można wysłać tokenów na ATA, które
+   nie istnieje.
+3. **Zazwyczaj tworzy nadawca**. Jeśli ATA odbiorcy nie istnieje, nadawca może
+   je utworzyć w ramach transakcji płatniczej.
+
+```typescript
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const [receiverATA] = await findAssociatedTokenPda({
+  mint: USDG_MINT_ADDRESS,
+  owner: receiverWallet.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+```
+
+## Token Programy
+
+Na Solanie programy to wykonywalna logika zarządzająca stanem kont. Konta
+tokenów są zarządzane przez **Token Program**—kod on-chain, który weryfikuje
+transfery i atomowo aktualizuje salda.
+
+Solana posiada dwa Token Programy:
+
+| Program           | Adres                                         | Przykładowe tokeny, które <br/> używają tego programu |
+| ----------------- | --------------------------------------------- | ----------------------------------------------------- |
+| **Token Program** | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` | USDC, USDT                                            |
+| **Token-2022**    | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` | PYUSD, USDG                                           |
+
+Token-2022 (nazywany także "Token Extensions") dodaje funkcje takie jak hooki
+transferowe, opłaty za transfery oraz poufne transfery. Oba programy działają
+podobnie dla podstawowych transferów, ale musisz użyć właściwego programu
+podczas wyznaczania ATA.
+
+### Dlaczego to jest ważne
+
+Token Program, za pomocą którego utworzono token, zarządza instrukcjami i stanem
+konta dla tego tokena. Jeśli użyjesz niewłaściwego programu, nie będziesz mógł
+przesłać tokena.
+
+ATA są wyznaczane na podstawie trzech parametrów:
+`wallet + mint + token_program`. Użycie niewłaściwego programu skutkuje
+**zupełnie innym adresem**:
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+// USDC uses Token Program
+const [usdcAta] = await findAssociatedTokenPda({
+  mint: USDC_MINT,
+  owner: walletAddress,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS // ✓ Correct
+});
+
+// ❌ This will produce a different address because it uses the wrong program
+const [wrongUsdcAta] = await findAssociatedTokenPda({
+  mint: USDC_MINT,
+  owner: walletAddress,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS // ❌ Wrong program
+});
+
+// PYUSD uses Token-2022
+const [pyusdAta] = await findAssociatedTokenPda({
+  mint: PYUSD_MINT,
+  owner: walletAddress,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS // ✓ Correct
+});
+```
+
+<Callout type="caution">
+  Wyznaczenie ATA przy użyciu niewłaściwego programu wygeneruje nieprawidłowy
+  adres. Zawsze dopasuj program do mintu tokena.
+</Callout>
+
+Ta sama zasada dotyczy instrukcji transferu. Każdy token program ma własną
+instrukcję transferu i musisz wywołać właściwą:
+
+```typescript
+import { getTransferInstruction } from "@solana-program/token";
+import { getTransferInstruction as getTransferInstruction22 } from "@solana-program/token-2022";
+
+// For USDC (Token Program)
+const usdcTransferIx = getTransferInstruction({
+  source: senderUsdcAta,
+  destination: receiverUsdcAta,
+  authority: senderWallet,
+  amount: 1_000_000n // 1 USDC (6 decimals)
+});
+
+// For PYUSD (Token-2022)
+const pyusdTransferIx = getTransferInstruction22({
+  source: senderPyusdAta,
+  destination: receiverPyusdAta,
+  authority: senderWallet,
+  amount: 1_000_000n // 1 PYUSD (6 decimals)
+});
+
+// *Note*: Most token program JS Client functions include the ability
+// to specify the token program address. Generally, defining it is a
+// good practice to ensure you are fully aware of the program you are using
+const usdcTransferIx2 = getTransferInstruction(
+  {
+    source: senderUsdcAta,
+    destination: receiverUsdcAta,
+    authority: senderWallet,
+    amount: 1_000_000n // 1 USDC (6 decimals)
+  },
+  { tokenProgram: TOKEN_PROGRAM_ADDRESS }
+);
+```
+
+Wysłanie instrukcji transferu do niewłaściwego programu zakończy się
+niepowodzeniem. Program sprawdza, czy jest właścicielem zaangażowanych kont
+tokenów—konta utworzone przez Token Program nie mogą być transferowane przez
+Token-2022 i odwrotnie.
+
+Aby sprawdzić, którego programu używa token lub token account, pobierz mint lub
+token account i sprawdź jego pole `owner`:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const accountInfo = await rpc.getAccountInfo(address(mintAddress)).send();
+
+// The owner field tells you which program manages this token
+const tokenProgram = accountInfo.value?.owner;
+// Returns: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA (Token Program)
+//      or: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb (Token-2022)
+```
+
+W aplikacjach płatniczych przechowuj właściwy adres programu razem z każdym
+obsługiwanym tokenem:
+
+```typescript
+const SUPPORTED_TOKENS = {
+  USDC: {
+    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    program: TOKEN_PROGRAM_ADDRESS,
+    decimals: 6
+  },
+  PYUSD: {
+    mint: "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+    program: TOKEN_2022_PROGRAM_ADDRESS,
+    decimals: 6
+  }
+};
+```
+
+### Token Extensions
+
+Token Extensions Program (Token 2022) oferuje więcej funkcji dzięki dodatkowym
+instrukcjom, zwanym rozszerzeniami. Rozszerzenia to opcjonalne funkcje, które
+możesz dodać do token mint lub token account.
+
+Więcej informacji o Token Extensions znajdziesz w dokumentacji
+[Token Extensions](/docs/tokens/extensions).
+
+## Opłaty
+
+Płatności w Solanie obejmują do trzech składników kosztowych:
+
+| Rodzaj opłaty                      | SOL                          | USD (szac.) | Kiedy                                                                         |
+| ---------------------------------- | ---------------------------- | ----------- | ----------------------------------------------------------------------------- |
+| **Podstawowa opłata transakcyjna** | 5 000 lamportów<sup>\*</sup> | ~$0,0007    | Każda transakcja (można łączyć wiele płatności, by obniżyć koszt jednostkowy) |
+| **Opłata priorytetowa**            | Zmienna                      | Zmienna     | Opcjonalna; szybsze uwzględnienie przy przeciążeniu sieci                     |
+| **Utworzenie konta (rent)**        | ~0,0029 SOL                  | ~$0,40      | Tylko przy tworzeniu nowego token account                                     |
+
+**Całkowity koszt pojedynczej płatności**: Dla większości transferów poniżej
+0,001 USD. Jeśli tworzysz nowe token account, łączny koszt to ok. 0,40 USD.
+
+<Callout type="info">
+  Solana korzysta z [lokalnych rynków
+  opłat](https://github.com/solana-foundation/solana-improvement-documents/pull/436)—transakcje
+  każdego programu konkurują tylko z innymi transakcjami skierowanymi do tego
+  samego stanu. Oznacza to, że opłaty za płatności pozostają niskie i
+  przewidywalne nawet podczas wzmożonej aktywności sieci w innych miejscach.
+  Koszty rent również mają [wkrótce spaść o
+  50%](https://github.com/solana-foundation/solana-improvement-documents/pull/436).
+</Callout>
+
+<Callout>
+  Możesz całkowicie ukryć opłaty, aby użytkownicy nie musieli mieć kontaktu z
+  SOL. Zobacz [Fee
+  Abstraction](/docs/payments/send-payments/payment-processing/fee-abstraction)
+  po wzorce implementacji.
+</Callout>
+
+## Transakcje i instrukcje
+
+Transakcja to atomowa jednostka wykonania w Solanie — albo wszystkie operacje
+się powiodą, albo żadna. Każda transakcja zawiera jedną lub więcej instrukcji,
+czyli pojedynczych poleceń (np. „przelej 10 USDC”, „utwórz token account”).
+
+Typowa transakcja płatnicza może zawierać dwie instrukcje: utworzenie token
+account odbiorcy (jeśli to konieczne), a następnie transfer tokenów. Obie są
+wykonywane atomowo — nie ma stanów pośrednich. Jak zobaczysz w
+[Payment Processing](/docs/payments/send-payments/payment-processing), możesz
+połączyć wiele płatności w jednej transakcji, by obniżyć koszty i zwiększyć
+przepustowość.
+
+## Podsumowanie
+
+Typowy przebieg płatności:
+
+1. **Zbierz dane wejściowe**. Uzyskaj adresy portfeli nadawcy i odbiorcy oraz
+   adres mint tokena, który ma zostać przelany.
+2. **Wyznacz ATAs**. Określ konta tokenów dla obu stron.
+3. **Zbuduj i podpisz**. Skonstruuj transakcję z odpowiednimi instrukcjami
+   transferu i podpisz ją kluczem nadawcy.
+4. **Wyślij i potwierdź**. Transakcja zostaje rozliczona w mniej niż sekundę.
+
+## Kolejne kroki
+
+<Cards>
+  <Card
+    title="Interakcja z Solaną"
+    href="/docs/payments/interacting-with-solana"
+  >
+    Połącz się z siecią i poznaj dane płatności Solana.
+  </Card>
+  <Card
+    title="Wyślij swoją pierwszą płatność"
+    href="/docs/payments/send-payments"
+  >
+    Zbuduj i wyślij transfer stablecoina.
+  </Card>
+</Cards>
+
+<br />
+<small>
+  <sup>\*</sup> lamport to najmniejsza jednostka SOL, równa 0,000000001 SOL
+</small>

@@ -1,0 +1,259 @@
+---
+title: Отложенное выполнение
+description:
+  Подписывайте транзакции сейчас, выполняйте позже — для согласования,
+  казначейских операций и безопасного подписания
+---
+
+Каждая транзакция в Solana содержит недавний blockhash — ссылку на актуальное
+состояние сети, подтверждающую, что транзакция создана «сейчас». Сеть отклоняет
+любую транзакцию с blockhash старше примерно 150 блоков (60–90 секунд),
+предотвращая повторные атаки и устаревшие отправки. Это отлично работает для
+платежей в реальном времени. Но такой подход не подходит для сценариев, где
+между подписанием и отправкой требуется пауза, например:
+
+| Сценарий                         | Почему стандартные транзакции не подходят                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| **Казначейские операции**        | CFO в Токио подписывает, контролёр в Нью-Йорке утверждает — 90 секунд недостаточно |
+| **Комплаенс-процедуры**          | Транзакции требуют юридической/комплаенс-проверки перед выполнением                |
+| **Подпись в холодном хранилище** | Air-gapped устройства требуют ручной передачи подписанных транзакций               |
+| **Подготовка пакетов**           | Подготовка зарплаты или выплат в рабочее время, выполнение ночью                   |
+| **Координация мультиподписи**    | Несколько утверждающих в разных часовых поясах                                     |
+| **Запланированные платежи**      | Платежи, которые должны быть выполнены в будущем                                   |
+
+В традиционных финансах подписанный чек не теряет силу через 90 секунд.
+Некоторые операции в блокчейне тоже не должны. **Долговечные nonces** решают эту
+задачу, заменяя недавний blockhash на сохранённое, постоянное значение, которое
+обновляется только при использовании — так транзакции остаются действительными
+до момента отправки.
+
+## Как это работает
+
+Вместо недавнего blockhash (действителен ~150 блоков) используется
+**nonce-аккаунт** — специальный аккаунт, в котором хранится _уникальное_
+значение. Каждая транзакция с этим nonce должна «продвигать» его первой
+инструкцией, предотвращая повторные атаки.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  Для освобождения от rent nonce-аккаунта требуется примерно 0,0015 SOL. Один
+  nonce-аккаунт = одна ожидающая транзакция одновременно. Для параллельных
+  процессов создайте несколько nonce-аккаунтов.
+</Callout>
+
+## Настройка: создание nonce-аккаунта
+
+Создание nonce-аккаунта требует двух инструкций в одной транзакции:
+
+1. **Создайте аккаунт** с помощью `getCreateAccountInstruction` из System
+   Program
+2. **Инициализируйте его как nonce** с помощью
+   `getInitializeNonceAccountInstruction`
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## Создание отложенной транзакции
+
+Два ключевых отличия от стандартных транзакций:
+
+1. Используйте значение nonce как blockhash
+2. Добавьте `advanceNonceAccount` как **первую** инструкцию
+
+### Получение значения nonce
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### Установка времени жизни транзакции с помощью nonce
+
+Вместо использования недавнего blockhash, который истекает, используйте значение
+nonce:
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### Продвижение nonce (обязательная первая инструкция)
+
+Каждая транзакция с долговечным nonce **обязательно** должна включать
+`advanceNonceAccount` в качестве первой инструкции. Это предотвращает повторные
+атаки, делая значение nonce недействительным после использования и обновляя его.
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## Подпись и сохранение
+
+После создания подпишите транзакцию и сериализуйте её для хранения:
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Сохраните сериализованную строку в вашей базе данных — она будет действительна,
+пока nonce не будет продвинут.
+
+## Многосторонний процесс согласования
+
+Десериализуйте транзакцию, чтобы добавить дополнительные подписи, затем снова
+сериализуйте для хранения или отправки:
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Транзакцию можно сериализовать, хранить и передавать между согласующими. После
+сбора всех необходимых подписей отправьте её в сеть.
+
+## Выполнить, когда будете готовы
+
+Когда все одобрения получены, отправьте сериализованную транзакцию в сеть:
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  Каждый nonce можно использовать только один раз. Если транзакция не удалась
+  или вы решили её не отправлять, необходимо продвинуть nonce, прежде чем
+  готовить новую транзакцию с тем же аккаунтом nonce.
+</Callout>
+
+## Продвижение использованного или заброшенного nonce
+
+Чтобы аннулировать ожидающую транзакцию или подготовить nonce к повторному
+использованию, продвиньте его вручную:
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+Это сгенерирует новое значение nonce, делая любую транзакцию, подписанную старым
+значением, навсегда недействительной.
+
+## Особенности использования в продакшене
+
+**Управление аккаунтами nonce:**
+
+- Создайте пул аккаунтов nonce для параллельной подготовки транзакций
+- Отслеживайте, какие nonce "используются" (имеют ожидающие подписанные
+  транзакции)
+- Реализуйте повторное использование nonce после отправки или отмены транзакций
+
+**Безопасность:**
+
+- Владелец nonce управляет возможностью аннулирования транзакций. Для
+  дополнительного контроля и разделения обязанностей рассмотрите возможность
+  отделения владельца nonce от подписантов транзакций
+- _Любой_, у кого есть сериализованные байты транзакции, может отправить её в
+  сеть
+
+## Связанные ресурсы
+
+- [Введение в Durable Nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

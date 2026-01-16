@@ -1,0 +1,232 @@
+---
+title: 索引
+description: 面向高并发支付系统的生产级交易监控
+---
+
+像 `getSignaturesForAddress` 和 `getTransaction`
+这样的 RPC 方法适用于低频验证，但生产级支付系统需要更强大的基础设施。本指南将介绍实时交易流、历史数据访问和指令级解析的核心工具与模式。
+
+## 为什么索引很重要
+
+标准 RPC 在大规模支付处理上存在局限性：
+
+- **速率限制：** 公共甚至付费 RPC 端点都有查询上限
+- **无持久化：** RPC 只能获取当前状态，无法进行历史分析
+- **轮询开销：** 反复调用 `getSignaturesForAddress` 效率低下
+- **粒度粗糙：** 复杂交易中的单笔转账无法通过前后余额体现
+
+索引解决方案通过在源头摄取区块链数据，并通过专用 API 对外提供，解决了上述问题。
+
+## 原始交易数据 vs 解析后交易数据
+
+在选择索引方式前，需要了解 Solana 交易的内容。原始交易数据采用紧凑的二进制编码——账户通过索引引用，instruction
+data 以不透明的 Base58 字节形式出现：
+
+```typescript
+// Raw: Requires manual decoding
+{ "programIdIndex": 6, "accounts": [2, 3, 4], "data": "3DfbZhE3qCnV" }
+
+// Parsed: Ready for business logic
+{
+  "type": "TRANSFER",
+  "tokenTransfers": [{
+    "fromUserAccount": "8PLd...9Nt8w3",
+    "toUserAccount": "7GLg...k487Ma",
+    "tokenAmount": 100.50,
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  // USDC
+  }]
+}
+```
+
+**解析至关重要**，尤其是支付系统——你需要十进制调整后的金额、解析后的钱包地址，以及提取的 memo 字段。
+
+## Yellowstone gRPC
+
+Geyser 是 Solana 用于从验证节点实时流式传输账户和交易数据的插件接口。与轮询 RPC 不同，你可以订阅数据流，处理时实时推送更新——延迟低于 100ms，而 WebSocket 订阅约为 200-400ms。[Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc)
+是 Geyser 插件接口最广泛使用的实现之一。Yellowstone 是一套实时流式解决方案，支持：
+
+- 账户更新
+- 交易
+- 区块条目
+- 区块通知
+- slot 通知
+
+要使用 Yellowstone，您需要从 RPC 服务提供商获取一个 gRPC 端点。可选服务包括：
+
+- [Triton](https://docs.triton.one/project-yellowstone/dragons-mouth-grpc-subscriptions)
+- [Helius](https://www.helius.dev/docs/grpc)
+- [QuickNode](https://marketplace.quicknode.com/add-on/yellowstone-grpc-geyser-plugin)
+- [Alchemy](https://www.alchemy.com/docs/reference/yellowstone-grpc-overview)
+
+<CodeTabs>
+
+```rust !! title="Rust"
+use yellowstone_grpc_client::GeyserGrpcClient;
+use yellowstone_grpc_proto::prelude::*;
+
+let mut client = GeyserGrpcClient::build_from_shared("https://grpc-endpoint:10000")?
+    .x_token(Some("YOUR_TOKEN".to_string()))?
+    .connect()
+    .await?;
+
+let (mut tx, mut rx) = client.subscribe().await?;
+
+let mut filter = HashMap::new();
+filter.insert("payments".to_string(), SubscribeRequestFilterTransactions {
+    account_include: vec!["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string()],
+    vote: Some(false),
+    failed: Some(false),
+    ..Default::default()
+});
+
+tx.send(SubscribeRequest {
+    transactions: filter,
+    commitment: Some(CommitmentLevel::Confirmed as i32),
+    ..Default::default()
+}).await?;
+
+while let Some(msg) = rx.next().await {
+    if let Some(UpdateOneof::Transaction(tx)) = msg?.update_oneof {
+        // Raw protobuf data - requires parsing
+        println!("Transaction: {:?}", tx.transaction);
+    }
+}
+```
+
+```typescript !! title="TypeScript"
+import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
+
+const client = new Client("https://grpc-endpoint:10000", "YOUR_TOKEN");
+const stream = await client.subscribe();
+
+stream.write({
+  transactions: {
+    payments: {
+      accountInclude: ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"],
+      vote: false,
+      failed: false
+    }
+  },
+  commitment: CommitmentLevel.CONFIRMED
+});
+
+stream.on("data", (update) => {
+  if (update.transaction) {
+    // Raw protobuf data - requires parsing
+    console.log("Transaction:", update.transaction.transaction.signature);
+  }
+});
+```
+
+</CodeTabs>
+
+<Callout>
+  Yellowstone 返回原始 Protocol Buffer 数据，而不是 JSON。您需要使用程序 IDL
+  或解析库来解码二进制 instruction data。下面介绍几种解析 Yellowstone
+  数据的方案。
+</Callout>
+
+**资源：**
+
+- [Yellowstone gRPC 仓库](https://github.com/rpcpool/yellowstone-grpc)
+- [Triton 流式文档](https://docs.triton.one/chains/solana/streaming)
+
+### Carbon
+
+[Carbon](https://github.com/sevenlabs-hq/carbon)
+是一个 Rust 框架，用于基于 Yellowstone
+gRPC 构建生产级索引器。其流水线架构将数据源、解码器和自定义处理器连接起来：
+
+```rust
+use carbon_core::pipeline::Pipeline;
+
+Pipeline::builder()
+    .datasource(yellowstone_grpc_source)
+    .instruction(TokenProgramDecoder, PaymentProcessor)
+    .metrics(Arc::new(PrometheusMetrics::new()))
+    .build()?
+    .run()
+    .await?;
+```
+
+Carbon 内置了 **40+ 个主流程序的解码器**。对于支付系统，Token
+Program 解码器可以处理所有转账类型，您的处理器则实现业务逻辑：
+
+```rust
+#[async_trait]
+impl Processor for PaymentProcessor {
+    type InputType = (InstructionMetadata, DecodedInstruction<TokenInstruction>);
+
+    async fn process(
+        &mut self,
+        (meta, ix): Self::InputType,
+        _metrics: Arc<MetricsCollection>,
+    ) -> CarbonResult<()> {
+        if let TokenInstruction::Transfer { amount } = ix.data {
+            let accounts = Transfer::arrange_accounts(&ix.accounts)?;
+            if self.watched_wallets.contains(&accounts.destination) {
+                notify_payment(meta.signature, accounts.destination, amount).await;
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+**资源：**
+
+- [Carbon GitHub](https://github.com/sevenlabs-hq/carbon)
+- [Yellowstone 和 Carbon：解析实时 Solana Program 数据](https://www.quicknode.com/guides/solana-development/tooling/geyser/yellowstone-carbon)
+
+### Vixen
+
+[Yellowstone Vixen](https://github.com/rpcpool/yellowstone-vixen)
+是一个开源 Rust 框架，用于将原始 Yellowstone 事件转换为结构化、类型化数据。它采用
+**Parser + Handler** 架构：
+
+- **Parsers** 将原始 Solana 事件反序列化为类型化结构
+- **Handlers** 在解析后的数据上执行您的业务逻辑
+- **Pipelines** 以可配置流程将解析器与处理器连接
+
+```rust
+use yellowstone_vixen::Runtime;
+use yellowstone_vixen_parser::token_program::{TokenProgramParser, TokenProgramState};
+
+// Build a pipeline that parses Token Program events
+Runtime::<YellowstoneGrpcSource>::builder()
+    .account(Pipeline::new(TokenProgramParser, [PaymentHandler]))
+    .build(config)?
+    .run()
+    .await;
+```
+
+Vixen 内置了解析 **SPL Token** 和 **Token-2022** 的解析器，并支持从任意 Solana
+IDL 生成解析器。对于支付监控，token 解析器可为您提供转账、铸造和账户状态的类型化访问：
+
+```rust
+impl Handler<TokenProgramState> for PaymentHandler {
+    async fn handle(&self, state: &TokenProgramState) -> Result<()> {
+        match state {
+            TokenProgramState::TokenAccount(account) => {
+                if self.watched_wallets.contains(&account.owner) {
+                    process_balance_change(account).await;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+```
+
+**资源：**
+
+- [Yellowstone Vixen GitHub](https://github.com/rpcpool/yellowstone-vixen)
+- [Vixen Streams](https://blog.triton.one/introducing-vixen-streams-real-time-parsed-solana-program-streaming/) -
+  Triton 基于 Vixen 构建的托管服务
+
+## 入门指南
+
+有多家 RPC 服务商提供托管的索引基础设施。请访问
+[solana.com/rpc](https://solana.com/rpc)
+查看当前支持 webhook、增强型 API 和 gRPC 流式传输的服务商列表。

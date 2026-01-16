@@ -1,0 +1,246 @@
+---
+title: Verifizierungstools
+description:
+  Verifizieren Sie eingehende Stablecoin-Zahlungen und gleichen Sie diese mit
+  Ihren Bestellungen ab.
+---
+
+Token landen in Ihrer Wallet in dem Moment, in dem eine Transaktion bestätigt
+wird. Es ist keine Aktion vom Empfänger erforderlich. Solana erhöht atomar den
+Token-Kontostand des Empfängers und verringert den Kontostand des Absenders. In
+diesem Leitfaden behandeln wir einige hilfreiche Tools zum Verständnis Ihres
+Token-Kontostands und zur Überwachung eingehender Zahlungen.
+
+## Token-Kontostand abfragen
+
+Überprüfen Sie Ihren Stablecoin-Kontostand mit der
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) RPC-Methode:
+
+```typescript
+import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function getBalance(walletAddress: Address) {
+  // Derive the token account address
+  const [ata] = await findAssociatedTokenPda({
+    mint: USDC_MINT,
+    owner: walletAddress,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Query balance via RPC
+  const { value } = await rpc.getTokenAccountBalance(ata).send();
+
+  return {
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
+  };
+}
+```
+
+## Eingehende Überweisungen überwachen
+
+Abonnieren Sie Ihr Token-Konto für Echtzeit-Zahlungsbenachrichtigungen mit der
+`accountNotifications` RPC-Methode:
+
+```typescript
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
+  const abortController = new AbortController();
+
+  const subscription = await rpcSubscriptions
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
+    .subscribe({ abortSignal: abortController.signal });
+
+  let previousBalance = 0n;
+
+  for await (const notification of subscription) {
+    const [data] = notification.value.data;
+    const dataBytes = getBase64Codec().encode(data);
+    const token = getTokenCodec().decode(dataBytes);
+    if (token.amount > previousBalance) {
+      const received = token.amount - previousBalance;
+      onPayment(received);
+    }
+    previousBalance = token.amount;
+  }
+  abortController.abort();
+}
+```
+
+Beachten Sie hier, dass wir RPC-Subscriptions und eine Websocket-Verbindung zum
+Solana-Netzwerk verwenden.
+
+Jede Benachrichtigung enthält eine base64-kodierte Zeichenkette der
+Token-Kontodaten. Da wir wissen, dass das Konto, das wir betrachten, ein
+Token-Konto ist, können wir die Daten mit der `getTokenCodec` Methode aus dem
+`@solana-program/token` Paket dekodieren.
+
+Beachten Sie, dass Sie für Produktionsanwendungen eine robustere
+Streaming-Lösung in Betracht ziehen sollten. Einige Optionen umfassen:
+
+- [Alchemy](https://docs.alchemy.com/reference/subscription-api)
+- [Triton](https://docs.triton.one/chains/solana/streaming)
+- [Helius](https://www.helius.dev/docs/data-streaming)
+- [QuickNode](https://www.quicknode.com/docs/solana/subscriptions)
+
+## Transaktionsverlauf analysieren
+
+Solana verfügt über RPC-Methoden, mit denen Sie den Transaktionsverlauf eines
+Kontos abrufen können
+([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) und die
+Details einer Transaktion erhalten
+([`getTransaction`](/docs/rpc/http/gettransaction)). Um den Transaktionsverlauf
+zu analysieren, rufen wir die letzten Signaturen für unser Token-Konto ab und
+rufen dann die Token-Kontostände vor und nach jeder Transaktion ab. Durch den
+Vergleich des Kontostands unseres ATA vor und nach jeder Transaktion können wir
+den Zahlungsbetrag und die Richtung (eingehend vs. ausgehend) bestimmen.
+
+```typescript
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
+  const payments: ParsedPayment[] = [];
+
+  for (const sig of signatures) {
+    const tx = await rpc
+      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+      .send();
+
+    if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
+
+    // Find our ATA's index in the transaction
+    const accountKeys = tx.transaction.message.accountKeys;
+    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    if (ataIndex === -1) continue;
+
+    // Compare pre/post balances for our ATA
+    const pre = tx.meta.preTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+    const post = tx.meta.postTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+
+    const preAmount = BigInt(pre?.uiTokenAmount.amount ?? "0");
+    const postAmount = BigInt(post?.uiTokenAmount.amount ?? "0");
+    const diff = postAmount - preAmount;
+
+    if (diff !== 0n) {
+      payments.push({
+        signature: sig.signature,
+        timestamp: tx.blockTime,
+        amount: diff > 0n ? diff : -diff,
+        type: diff > 0n ? "incoming" : "outgoing"
+      });
+    }
+  }
+
+  return payments;
+}
+```
+
+Um die Gegenpartei zu identifizieren, können Sie die Token-Salden der
+Transaktion nach einem anderen Konto durchsuchen, dessen Saldo sich in die
+entgegengesetzte Richtung geändert hat – wenn Sie Guthaben erhalten haben,
+suchen Sie nach einem Konto, dessen Saldo um denselben Betrag gesunken ist.
+
+Da SPL-Token-Transfers über reine Zahlungen zwischen Benutzern hinausgehen
+können, kann dieser Ansatz einige Transaktionen liefern, die keine Zahlungen
+sind. Eine gute Alternative ist hier die Verwendung von Memos.
+
+### Einschränkungen der Vorher/Nachher-Saldo-Analyse
+
+Der obige Ansatz funktioniert gut für einfache Zahlungsabläufe. Unternehmen, die
+Zahlungen in großem Umfang verarbeiten, benötigen jedoch oft granularere und
+Echtzeit-Daten:
+
+- **Aufschlüsselung pro Anweisung:** Eine einzelne Transaktion kann mehrere
+  Transfers enthalten. Vorher/Nachher-Salden zeigen nur die Nettoveränderung,
+  nicht die einzelnen Transfers.
+- **Mehrseitige Transaktionen:** Komplexe Transaktionen (Swaps, Batch-Zahlungen)
+  betreffen mehrere Konten. Saldo-Differenzen zeigen nicht den vollständigen
+  Geldfluss.
+- **Audit-Anforderungen:** Finanzielle Compliance erfordert oft die
+  Rekonstruktion exakter Transfer-Sequenzen, nicht nur Endsalden.
+
+Für Produktionssysteme mit hohem Volumen sollten Sie dedizierte
+[Indexierungslösungen](/docs/payments/accept-payments/indexing) in Betracht
+ziehen, die einzelne Transfer-Anweisungen analysieren und Details auf
+Transaktionsebene bereitstellen.
+
+## Zahlungen mit Memos abgleichen
+
+Wenn Absender Memos (Rechnungs-IDs, Bestellnummern) einschließen, können Sie
+diese aus der Nachricht der Transaktion mit der `getTransaction` RPC-Methode und
+der `jsonParsed` Kodierung extrahieren:
+
+```typescript
+function extractMemos(transaction): string | null {
+  const { instructions } = transaction.transaction.message;
+  let memos = "";
+  for (const instruction of instructions) {
+    if (instruction.program !== "spl-memo") continue;
+    memos += instruction.parsed + "; ";
+  }
+  return memos;
+}
+
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
+  const tx = await rpc
+    .getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      encoding: "jsonParsed"
+    })
+    .send();
+  if (!tx) return null;
+  return extractMemos(tx);
+}
+```
+
+## Schutzmaßnahmen
+
+Einige Fehlermodi, die vermieden werden sollten:
+
+- **Dem Frontend vertrauen.** Eine Checkout-Seite sagt "Zahlung abgeschlossen" –
+  aber ist die Transaktion tatsächlich angekommen? Überprüfen Sie immer
+  serverseitig durch Abfrage des RPC. Frontend-Bestätigungen können gefälscht
+  werden.
+
+- **Auf "processed"-Status reagieren.** Solana-Transaktionen durchlaufen drei
+  Phasen: processed → confirmed → finalized. Eine "processed"-Transaktion kann
+  während Forks noch verworfen werden. Warten Sie auf "confirmed" (1-2
+  Sekunden), bevor Sie Bestellungen versenden, oder "finalized" (~13 Sekunden)
+  für hochwertige Transaktionen.
+
+- **Die Mint ignorieren.** Jeder kann einen Token namens „USDC" erstellen.
+  Validieren Sie, dass die Mint des Token-Kontos mit der echten
+  Stablecoin-Mint-Adresse und dem Token- Programm übereinstimmt, nicht nur mit
+  dem Token-Namen.
+
+- **Doppelte Ausführung.** Ihr Webhook wird ausgelöst, Sie versenden die
+  Bestellung. Netzwerk- Unterbrechung, Webhook wird erneut ausgelöst. Jetzt
+  haben Sie zweimal versendet. Speichern Sie verarbeitete Transaktionssignaturen
+  und prüfen Sie diese vor der Ausführung.

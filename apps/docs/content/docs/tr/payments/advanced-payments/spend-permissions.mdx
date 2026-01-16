@@ -1,0 +1,190 @@
+---
+title: Harcama izinleri
+description:
+  Otomatik ve emanetli ödemeler için token harcama yetkisini üçüncü taraflara
+  devredin
+---
+
+Solana'nın Token Programları **delegasyonu** destekler—başka bir hesaba, token
+hesabınızdan belirli bir limite kadar token transfer etme izni vermek. Bu,
+fonlarınızın kontrolünden vazgeçmeden otomatik ödemeler, emanet hizmetleri ve
+üçüncü taraf ödeme işleme gibi kullanım senaryolarını mümkün kılar.
+
+## Delegasyon nasıl çalışır
+
+Bir delegeyi onayladığınızda, belirli bir hesaba sizin adınıza token transfer
+etme yetkisi veriyorsunuz:
+
+- **Sahip kontrolü elinde tutar**: Tokenlar hala size aittir ve istediğiniz
+  zaman transfer edebilir veya iptal edebilirsiniz
+- **Sınırlı harcama**: Delege yalnızca onaylanan miktara kadar transfer
+  yapabilir
+- **Hesap başına tek delege**: Her token hesabının yalnızca bir aktif delegesi
+  olabilir
+- **Yeni onay eskisinin yerini alır**: Yeni bir delegeyi onaylamak, öncekini
+  otomatik olarak iptal eder
+
+<Callout type="info">
+  Delegasyon emanetsizdir. Delege, limite kadar token harcayabilir, ancak
+  onaylanan miktarın ötesinde hesaba erişemez veya hesabı boşaltamaz. Sahip
+  istediği zaman iptal edebilir.
+</Callout>
+
+## İş kullanım senaryoları
+
+| Kullanım senaryosu       | Delegasyon nasıl yardımcı olur                                                 |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| **Ödeme işlemcileri**    | Satıcı, işlemciye işlemleri sonuçlandırma izni verir                           |
+| **Otomatik bordro**      | Hazine, bordro hizmetine maaşları dağıtma yetkisi verir                        |
+| **Emanet hizmetleri**    | Alıcı, koşullu serbest bırakma için emanet acentesine delege eder              |
+| **Ticaret platformları** | Kullanıcı, borsaya kendi adına işlem yapma yetkisi verir                       |
+| **Kart ihracı**          | Kullanıcı, kart düzenleyicisine token hesabından alışveriş yapma yetkisi verir |
+
+## Bir delegeyi onaylama
+
+Başka bir hesaba, hesabınızdan token harcama izni verin:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getApproveCheckedInstruction } from "@solana-program/token";
+
+// Approve delegate to spend up to 1,000 USDC (6 decimals)
+const approveInstruction = getApproveCheckedInstruction({
+  source: tokenAccountAddress, // Your token account
+  mint: usdcMintAddress, // USDC mint
+  delegate: delegateAddress, // Account receiving permission
+  owner: ownerKeypair, // You (must sign)
+  amount: 1_000_000_000n, // 1,000 USDC in base units
+  decimals: 6
+});
+```
+
+```bash !! title="CLI"
+spl-token approve <TOKEN_ACCOUNT> <AMOUNT> <DELEGATE_ADDRESS>
+# Example: Approve 1000 USDC to a delegate
+spl-token approve 7v45Foih... 1000 DeLe9ate...
+```
+
+</CodeTabs>
+
+**Parametreler:**
+
+- `source`: İzin veren token hesabı
+- `delegate`: Harcama iznine sahip olacak hesap
+- `owner`: Token hesabının mevcut sahibi (işlemi imzalamalıdır)
+- `amount`: Temsilcinin transfer edebileceği maksimum token miktarı
+- `decimals`: Doğrulama için token ondalık basamak sayısı (ondalık hataları
+  önler)
+
+## Temsilci yetkisini iptal etme
+
+Mevcut temsilciden tüm harcama izinlerini kaldırın:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getRevokeInstruction } from "@solana-program/token";
+
+const revokeInstruction = getRevokeInstruction({
+  source: tokenAccountAddress, // Your token account
+  owner: ownerKeypair // You (must sign)
+});
+```
+
+```bash !! title="CLI"
+spl-token revoke <TOKEN_ACCOUNT>
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  İptal işlemi **tüm** temsilci izinlerini kaldırır—kısmi iptal yoktur. Limiti
+  azaltmanız gerekiyorsa, aynı temsilciyi daha düşük bir miktarla onaylayın.
+</Callout>
+
+## Temsilci durumunu kontrol etme
+
+Bir token hesabını sorgulayarak mevcut temsilcisini ve kalan limitini görün:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { fetchToken } from "@solana-program/token";
+
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress);
+
+if (tokenAccount.data.delegate) {
+  console.log("Delegate:", tokenAccount.data.delegate);
+  console.log("Remaining allowance:", tokenAccount.data.delegatedAmount);
+} else {
+  console.log("No delegate set");
+}
+```
+
+```bash !! title="CLI"
+spl-token display <TOKEN_ACCOUNT>
+# Look for "Delegate" and "Delegated Amount" fields
+```
+
+</CodeTabs>
+
+## Temsilci olarak transfer yapma
+
+Temsilci olarak hareket ederken, standart bir transfer kullanın ancak sahibin
+yerine temsilci keypair'i ile imzalayın:
+
+```ts title="Transfer as Delegate"
+import { getTransferCheckedInstruction } from "@solana-program/token";
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: ownerTokenAccount, // The account you have permission to spend from
+  mint: usdcMintAddress,
+  destination: recipientTokenAccount,
+  authority: delegateKeypair, // You (the delegate) sign, not the owner
+  amount: 100_000_000n, // 100 USDC
+  decimals: 6
+});
+```
+
+Transfer şu durumlarda başarılı olur:
+
+- Kaynak hesapta yeterli bakiye varsa
+- Temsilci işlemi imzalarsa
+
+Her transfer, kalan ödeneği azaltır. Ödenek sıfıra ulaştığında, temsilci artık
+token transfer edemez.
+
+## Güvenlik hususları
+
+**Hesap sahipleri için:**
+
+- Yalnızca güvenilir temsilcileri onaylayın
+- Gerekli minimum harcama limitini belirleyin
+- Artık ihtiyaç duyulmadığında yetkilendirmeleri iptal edin
+- Beklenmeyen transferler için hesaplarınızı izleyin
+
+**Hizmet sağlayıcılar (temsilciler) için:**
+
+- Talep edilen harcama limitini kullanıcılara açıkça iletin
+- Temsilci hesabınız için uygun anahtar yönetimi uygulayın
+- Limitler tükenmeden önce yeniden onay talep etmek için ödenek tüketimini takip
+  edin
+
+## Yetkilendirme ve saklama karşılaştırması
+
+| Yön              | Yetkilendirme             | Tam saklama                         |
+| ---------------- | ------------------------- | ----------------------------------- |
+| Token sahipliği  | Kullanıcıda kalır         | Kullanıcı saklayıcıya transfer eder |
+| Harcama kontrolü | Onaylanan tutarla sınırlı | Transfer edilen fonlara tam erişim  |
+| İptal            | Anında, sahip tarafından  | Saklayıcının işbirliği gerektirir   |
+| Risk maruziyeti  | Onaylanan tutarla sınırlı | Tüm bakiye                          |
+| Gereken güven    | Sınırlı                   | Yüksek                              |
+
+Yetkilendirme, otomatik ödemeleri etkinleştirirken risk maruziyetini onaylanan
+tutarla sınırlayan bir orta yol sağlar.
+
+## İlgili kaynaklar
+
+- [Temsilciyi onayla](/docs/tokens/basics/approve-delegate) — Onay talimatı
+  hakkında teknik detaylar

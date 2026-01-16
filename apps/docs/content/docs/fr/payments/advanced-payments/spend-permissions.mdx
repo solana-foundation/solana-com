@@ -1,0 +1,194 @@
+---
+title: Autorisations de dépense
+description:
+  Déléguez la dépense de jetons à des tiers pour des paiements automatisés et
+  séquestres
+---
+
+Les programmes de jetons de Solana prennent en charge la **délégation** —
+accorder à un autre compte la permission de transférer des jetons depuis votre
+compte de jetons jusqu'à une limite spécifiée. Cela permet des cas d'usage tels
+que les paiements automatisés, les services de séquestre et le traitement de
+paiements par des tiers sans renoncer à la garde de vos fonds.
+
+## Comment fonctionne la délégation
+
+Lorsque vous approuvez un délégué, vous autorisez un compte spécifique à
+transférer des jetons en votre nom :
+
+- **Le propriétaire conserve la garde** : vous possédez toujours les jetons et
+  pouvez les transférer ou révoquer à tout moment
+- **Dépense plafonnée** : le délégué ne peut transférer que jusqu'au montant
+  approuvé
+- **Un seul délégué par compte** : chaque compte de jetons ne peut avoir qu'un
+  seul délégué actif
+- **Une nouvelle approbation remplace l'ancienne** : approuver un nouveau
+  délégué révoque automatiquement le précédent
+
+<Callout type="info">
+  La délégation est non-custodiale. Le délégué peut dépenser des jetons jusqu'à
+  la limite, mais ne peut pas accéder au compte ou le vider au-delà du montant
+  approuvé. Le propriétaire peut révoquer à tout moment.
+</Callout>
+
+## Cas d'usage professionnels
+
+| Cas d'usage                 | Comment la délégation aide                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| **Processeurs de paiement** | Le commerçant accorde au processeur la permission de régler les transactions                |
+| **Paie automatisée**        | La trésorerie approuve le service de paie pour verser les salaires                          |
+| **Services de séquestre**   | L'acheteur délègue à l'agent de séquestre pour une libération conditionnelle                |
+| **Plateformes de trading**  | L'utilisateur approuve la plateforme d'échange pour exécuter des trades en son nom          |
+| **Émission de cartes**      | L'utilisateur approuve l'émetteur de carte pour débiter les achats sur son compte de jetons |
+
+## Approuver un délégué
+
+Accorder à un autre compte la permission de dépenser des jetons depuis votre
+compte :
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getApproveCheckedInstruction } from "@solana-program/token";
+
+// Approve delegate to spend up to 1,000 USDC (6 decimals)
+const approveInstruction = getApproveCheckedInstruction({
+  source: tokenAccountAddress, // Your token account
+  mint: usdcMintAddress, // USDC mint
+  delegate: delegateAddress, // Account receiving permission
+  owner: ownerKeypair, // You (must sign)
+  amount: 1_000_000_000n, // 1,000 USDC in base units
+  decimals: 6
+});
+```
+
+```bash !! title="CLI"
+spl-token approve <TOKEN_ACCOUNT> <AMOUNT> <DELEGATE_ADDRESS>
+# Example: Approve 1000 USDC to a delegate
+spl-token approve 7v45Foih... 1000 DeLe9ate...
+```
+
+</CodeTabs>
+
+**Paramètres :**
+
+- `source` : le token account accordant la permission
+- `delegate` : le compte qui aura la permission de dépenser
+- `owner` : propriétaire actuel du token account (doit signer la transaction)
+- `amount` : nombre maximum de jetons que le délégué peut transférer
+- `decimals` : décimales du jeton pour validation (évite les erreurs de
+  décimales)
+
+## Révoquer un délégué
+
+Supprimer toutes les permissions de dépense du délégué actuel :
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getRevokeInstruction } from "@solana-program/token";
+
+const revokeInstruction = getRevokeInstruction({
+  source: tokenAccountAddress, // Your token account
+  owner: ownerKeypair // You (must sign)
+});
+```
+
+```bash !! title="CLI"
+spl-token revoke <TOKEN_ACCOUNT>
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  La révocation supprime **toutes** les permissions du délégué — il n'y a pas de
+  révocation partielle. Si vous devez réduire la limite, approuvez le même
+  délégué avec un montant inférieur.
+</Callout>
+
+## Vérifier le statut de délégation
+
+Interroger un token account pour voir son délégué actuel et l'allocation
+restante :
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { fetchToken } from "@solana-program/token";
+
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress);
+
+if (tokenAccount.data.delegate) {
+  console.log("Delegate:", tokenAccount.data.delegate);
+  console.log("Remaining allowance:", tokenAccount.data.delegatedAmount);
+} else {
+  console.log("No delegate set");
+}
+```
+
+```bash !! title="CLI"
+spl-token display <TOKEN_ACCOUNT>
+# Look for "Delegate" and "Delegated Amount" fields
+```
+
+</CodeTabs>
+
+## Transférer en tant que délégué
+
+Lorsque vous agissez en tant que délégué, utilisez un transfert standard mais
+signez avec le keypair du délégué au lieu du propriétaire :
+
+```ts title="Transfer as Delegate"
+import { getTransferCheckedInstruction } from "@solana-program/token";
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: ownerTokenAccount, // The account you have permission to spend from
+  mint: usdcMintAddress,
+  destination: recipientTokenAccount,
+  authority: delegateKeypair, // You (the delegate) sign, not the owner
+  amount: 100_000_000n, // 100 USDC
+  decimals: 6
+});
+```
+
+Le transfert réussira si :
+
+- Le compte source a un solde suffisant
+- Le délégué signe la transaction
+
+Chaque transfert réduit l'allocation restante. Lorsque l'allocation atteint
+zéro, le délégué ne peut plus transférer de jetons.
+
+## Considérations de sécurité
+
+**Pour les propriétaires de comptes :**
+
+- N'approuvez que des délégués de confiance
+- Définissez la limite de dépense minimale nécessaire
+- Révoquez les délégations lorsqu'elles ne sont plus nécessaires
+- Surveillez vos comptes pour détecter les transferts inattendus
+
+**Pour les fournisseurs de services (délégués) :**
+
+- Communiquez clairement la limite de dépense demandée aux utilisateurs
+- Implémentez une gestion appropriée des clés pour votre compte délégué
+- Suivez la consommation de l'allocation pour demander une nouvelle approbation
+  avant l'épuisement des limites
+
+## Délégation vs. garde
+
+| Aspect                | Délégation                       | Garde complète                          |
+| --------------------- | -------------------------------- | --------------------------------------- |
+| Propriété des jetons  | L'utilisateur conserve           | L'utilisateur transfère au dépositaire  |
+| Contrôle des dépenses | Plafonné au montant approuvé     | Accès complet aux fonds transférés      |
+| Révocation            | Instantanée, par le propriétaire | Nécessite la coopération du dépositaire |
+| Exposition au risque  | Limitée au montant approuvé      | Solde entier                            |
+| Confiance requise     | Limitée                          | Élevée                                  |
+
+La délégation offre un juste milieu — permettant les paiements automatisés tout
+en limitant l'exposition au risque au montant approuvé.
+
+## Ressources associées
+
+- [Approuver un délégué](/docs/tokens/basics/approve-delegate) — Détails
+  techniques sur l'instruction d'approbation

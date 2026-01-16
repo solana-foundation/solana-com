@@ -1,0 +1,206 @@
+---
+title: 検証ツール
+description: 受信したステーブルコイン決済を検証し、注文と照合します。
+---
+
+トークンは、トランザクションが確認された瞬間にウォレットに着金します。受信者による操作は必要ありません。Solanaは受信者のトークンアカウント残高をアトミックに増加させ、送信者の残高を減少させます。このガイドでは、トークンアカウント残高を理解し、受信決済を監視するための便利なツールについて説明します。
+
+## トークン残高の照会
+
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance)
+RPCメソッドを使用して、ステーブルコインの残高を確認します:
+
+```typescript
+import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function getBalance(walletAddress: Address) {
+  // Derive the token account address
+  const [ata] = await findAssociatedTokenPda({
+    mint: USDC_MINT,
+    owner: walletAddress,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Query balance via RPC
+  const { value } = await rpc.getTokenAccountBalance(ata).send();
+
+  return {
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
+  };
+}
+```
+
+## 受信転送の監視
+
+`accountNotifications`
+RPCメソッドを使用して、トークンアカウントをサブスクライブし、リアルタイムの決済通知を受け取ります:
+
+```typescript
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
+  const abortController = new AbortController();
+
+  const subscription = await rpcSubscriptions
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
+    .subscribe({ abortSignal: abortController.signal });
+
+  let previousBalance = 0n;
+
+  for await (const notification of subscription) {
+    const [data] = notification.value.data;
+    const dataBytes = getBase64Codec().encode(data);
+    const token = getTokenCodec().decode(dataBytes);
+    if (token.amount > previousBalance) {
+      const received = token.amount - previousBalance;
+      onPayment(received);
+    }
+    previousBalance = token.amount;
+  }
+  abortController.abort();
+}
+```
+
+ここでは、RPCサブスクリプションとSolanaネットワークへのWebSocket接続を使用していることに注意してください。
+
+各通知には、トークンアカウントデータのbase64エンコード文字列が含まれています。対象のアカウントがトークンアカウントであることがわかっているため、`@solana-program/token`パッケージの`getTokenCodec`メソッドを使用してデータをデコードできます。
+
+本番アプリケーションでは、より堅牢なストリーミングソリューションの使用を検討する必要があります。いくつかのオプションには以下が含まれます:
+
+- [Alchemy](https://docs.alchemy.com/reference/subscription-api)
+- [Triton](https://docs.triton.one/chains/solana/streaming)
+- [Helius](https://www.helius.dev/docs/data-streaming)
+- [QuickNode](https://www.quicknode.com/docs/solana/subscriptions)
+
+## トランザクション履歴の解析
+
+Solanaには、アカウントのトランザクション履歴を取得([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress))し、トランザクションの詳細を取得([`getTransaction`](/docs/rpc/http/gettransaction))するRPCメソッドがあります。トランザクション履歴を解析するには、トークンアカウントの最近の署名を取得し、各トランザクションの前後のトークン残高を取得します。各トランザクションの前後でATAの残高を比較することで、決済金額と方向(受信または送信)を判断できます。
+
+```typescript
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
+  const payments: ParsedPayment[] = [];
+
+  for (const sig of signatures) {
+    const tx = await rpc
+      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+      .send();
+
+    if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
+
+    // Find our ATA's index in the transaction
+    const accountKeys = tx.transaction.message.accountKeys;
+    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    if (ataIndex === -1) continue;
+
+    // Compare pre/post balances for our ATA
+    const pre = tx.meta.preTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+    const post = tx.meta.postTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+
+    const preAmount = BigInt(pre?.uiTokenAmount.amount ?? "0");
+    const postAmount = BigInt(post?.uiTokenAmount.amount ?? "0");
+    const diff = postAmount - preAmount;
+
+    if (diff !== 0n) {
+      payments.push({
+        signature: sig.signature,
+        timestamp: tx.blockTime,
+        amount: diff > 0n ? diff : -diff,
+        type: diff > 0n ? "incoming" : "outgoing"
+      });
+    }
+  }
+
+  return payments;
+}
+```
+
+取引相手を特定するには、トランザクションのトークン残高をスキャンして、反対方向に残高が変化した別のアカウントを探します。資金を受け取った場合は、同じ金額だけ残高が減少したアカウントを探してください。
+
+SPLトークン転送はユーザー間の支払いだけでなく存在する可能性があるため、このアプローチでは支払いではないトランザクションが含まれる場合があります。ここでは、メモを使用することが良い代替手段となります。
+
+### 事前/事後残高解析の制限事項
+
+上記のアプローチは、シンプルな支払いフローには適しています。しかし、大規模に支払いを処理する企業は、より詳細でリアルタイムなデータが必要になることがよくあります。
+
+- **instruction単位の内訳:**
+  1つのトランザクションに複数の転送を含めることができます。事前/事後残高は純変化のみを示し、個別の転送は示しません。
+- **マルチパーティトランザクション:**
+  複雑なトランザクション(スワップ、一括支払い)には複数のアカウントが関与します。残高差分では資金の完全な流れが明らかになりません。
+- **監査要件:**
+  金融コンプライアンスでは、最終残高だけでなく、正確な転送シーケンスの再構築が必要になることがよくあります。
+
+大量のトランザクションを処理する本番システムでは、個別の転送instructionsを解析し、トランザクションレベルの詳細を提供する専用の[インデックスソリューション](/docs/payments/accept-payments/indexing)の使用を検討してください。
+
+## メモを使用した支払いの照合
+
+送信者がメモ(請求書ID、注文番号)を含める場合、`getTransaction`
+RPCメソッドと`jsonParsed`エンコーディングを使用して、トランザクションのメッセージから抽出できます。
+
+```typescript
+function extractMemos(transaction): string | null {
+  const { instructions } = transaction.transaction.message;
+  let memos = "";
+  for (const instruction of instructions) {
+    if (instruction.program !== "spl-memo") continue;
+    memos += instruction.parsed + "; ";
+  }
+  return memos;
+}
+
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
+  const tx = await rpc
+    .getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      encoding: "jsonParsed"
+    })
+    .send();
+  if (!tx) return null;
+  return extractMemos(tx);
+}
+```
+
+## 保護対策
+
+回避すべきいくつかの障害モード:
+
+- **フロントエンドを信頼すること。**
+  チェックアウトページに「支払い完了」と表示されていますが、トランザクションは実際に着地しましたか?RPCにクエリを実行して、常にサーバー側で検証してください。フロントエンドの確認は偽装される可能性があります。
+
+- **「processed」ステータスで行動すること。**
+  Solanaトランザクションは3つの段階を経ます:processed → confirmed →
+  finalized。「processed」トランザクションは、フォーク中にドロップされる可能性があります。注文を発送する前に「confirmed」(1〜2秒)を待つか、高額トランザクションの場合は「finalized」(約13秒)を待ってください。
+
+- **ミントの無視。**
+  誰でも「USDC」という名前のトークンを作成できます。トークンアカウントのミントが、トークン名だけでなく、実際のステーブルコインのミントアドレスとトークンプログラムと一致することを検証してください。
+
+- **二重実行。**
+  Webhookが発火し、注文を発送します。ネットワークの一時的な問題でWebhookが再度発火します。これで2回発送してしまいました。処理済みのトランザクション署名を保存し、実行前に確認してください。

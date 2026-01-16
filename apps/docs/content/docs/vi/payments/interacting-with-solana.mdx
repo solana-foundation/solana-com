@@ -1,0 +1,227 @@
+---
+title: Tương tác với Solana
+description: Kết nối với mạng lưới và khám phá dữ liệu blockchain
+---
+
+Trước khi xây dựng luồng thanh toán, bạn cần kết nối với Solana và hiểu cách
+truy vấn dữ liệu mạng. Hướng dẫn này bao gồm những điều cơ bản: thiết lập kết
+nối và sử dụng các phương thức RPC bạn sẽ cần cho thanh toán bằng cách sử dụng
+[@solana/kit](https://www.npmjs.com/package/@solana/kit) TypeScript SDK và
+[Solana CLI](https://solana.com/docs/intro/installation). Ngoài ra, chúng tôi sẽ
+đề cập đến những điều cơ bản về việc sử dụng
+[Solana Explorer](https://explorer.solana.com) để xác minh thanh toán thủ công,
+kiểm tra tài khoản và gỡ lỗi các vấn đề.
+
+## Kết nối với Solana
+
+Solana RPC API là cách chính để tương tác với mạng lưới theo chương trình. URL
+RPC của bạn thực chất là API key để truy cập mạng.
+
+<Callout type="caution" title="Không sử dụng RPC công khai cho production">
+  Các endpoint công khai (`api.mainnet-beta.solana.com`,
+  `api.devnet.solana.com`) bị giới hạn tốc độ, không có SLA và không phù hợp cho
+  các luồng thanh toán production. Sử dụng [nhà cung cấp
+  RPC](https://solana.com/rpc) để bảo mật endpoint RPC riêng cho các triển khai
+  production.
+</Callout>
+
+Để phát triển và thử nghiệm, bạn có thể sử dụng các endpoint công khai bị giới
+hạn tốc độ.
+
+Tạo RPC client để tương tác với mạng:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+```
+
+```bash !! title="CLI"
+solana config set --url https://api.mainnet-beta.solana.com
+solana config get # to verify the connection
+```
+
+</CodeTabs>
+
+<Callout>
+  Để phát triển, hãy sử dụng devnet (`https://api.devnet.solana.com`) hoặc local
+  validator như [Surfpool](/docs/intro/installation/surfpool-cli-basics).
+</Callout>
+
+## Các phương thức RPC thường dùng
+
+[JSON-RPC API](/docs/rpc) của Solana cung cấp các phương thức để truy vấn mạng.
+Dưới đây là những phương thức bạn sẽ sử dụng nhiều nhất cho các luồng thanh
+toán.
+
+### Lấy thông tin tài khoản
+
+Tất cả các tài khoản trên Solana đều có thể định danh bằng public key của chúng.
+Sử dụng phương thức RPC [`getAccountInfo`](/docs/rpc/http/getaccountinfo) để lấy
+thông tin về bất kỳ tài khoản nào. Phương thức `getAccountInfo` trả về một đối
+tượng `AccountInfo`, chứa public key của tài khoản, số dư SOL, dữ liệu và một số
+metadata khác.
+
+Trường `data` là một chuỗi được mã hóa base64 của dữ liệu tài khoản. Bạn có thể
+mã hóa nó thành bytes bằng phương thức `getBase64Codec` từ package `@solana/kit`
+và sau đó giải mã nó thành một đối tượng có thể đọc được bằng codec mong đợi
+(nếu đã biết) cho dữ liệu của tài khoản (ví dụ: `getTokenCodec` cho token
+account).
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const accountInfo = await rpc
+  .getAccountInfo(address("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"), {
+    encoding: "base64"
+  })
+  .send();
+const dataBytes = getBase64Codec().encode(accountInfo.value.data);
+const parsedTokenData = getTokenCodec().decode(dataBytes);
+
+console.log(parsedTokenData);
+```
+
+```bash !! title="CLI"
+solana account 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+```
+
+</CodeTabs>
+
+### Lấy số dư token
+
+Kiểm tra số dư của token account bằng phương thức RPC
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const balance = await rpc.getTokenAccountBalance(tokenAccountAddress).send();
+
+console.log(balance.value.uiAmount); // Human-readable (e.g., 100.50)
+console.log(balance.value.amount); // Base units (e.g., "100500000")
+```
+
+```bash !! title="CLI"
+spl-token balance --address 7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St
+```
+
+</CodeTabs>
+
+### Xây dựng giao dịch
+
+Mọi giao dịch đều cần một blockhash gần đây để đảm bảo nó hợp lệ (và không bị
+cũ). Lấy một blockhash trước khi tạo giao dịch thanh toán bằng phương thức RPC
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+```
+
+```bash !! title="CLI"
+solana block-height
+```
+
+</CodeTabs>
+
+> Blockhash hết hạn sau ~60 giây. Lấy một blockhash mới ngay trước khi ký và
+> gửi.
+
+### Kiểm tra trạng thái giao dịch
+
+Xác minh một giao dịch đã được xử lý bằng phương thức RPC
+[`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const status = await rpc.getSignatureStatuses([signature]).send();
+
+const result = status.value[0];
+// result.confirmationStatus: "processed" | "confirmed" | "finalized"
+```
+
+```bash !! title="CLI"
+solana confirm <SIGNATURE>
+# For more details:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### Lấy chi tiết giao dịch
+
+Lấy toàn bộ chi tiết của một giao dịch đã xác nhận bằng phương thức RPC
+[`getTransaction`](/docs/rpc/http/gettransaction):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const transaction = await rpc
+  .getTransaction(signature, { maxSupportedTransactionVersion: 0 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 1 -v
+# Or decode a specific transaction:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### Lịch sử giao dịch
+
+Lấy các giao dịch gần đây cho một địa chỉ bằng phương thức RPC
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const signatures = await rpc
+  .getSignaturesForAddress(walletAddress, { limit: 10 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 10
+```
+
+</CodeTabs>
+
+> Để theo dõi thanh toán toàn diện, xem
+> [Chấp nhận thanh toán](/docs/payments/accept-payments) bao gồm webhook và phát
+> hiện giao dịch thời gian thực.
+
+## Khám phá dữ liệu công khai
+
+Sổ cái công khai của Solana có nghĩa là mọi giao dịch, token account và mint đều
+có thể kiểm toán đầy đủ. Các trình khám phá block cho phép bạn xác minh thanh
+toán thủ công, kiểm tra tài khoản và gỡ lỗi mà không cần viết code.
+
+**Những gì bạn có thể tra cứu:**
+
+- Xác minh thanh toán đã hoàn tất
+- Kiểm tra số dư token account
+- Gỡ lỗi giao dịch thất bại
+- Tra cứu chi tiết mint (supply, decimals, authority)
+
+**Các trình khám phá phổ biến:** [Solana Explorer](https://explorer.solana.com),
+[SolanaFM](https://solana.fm), [Solscan](https://solscan.io),
+[Orb](https://www.orbmarkets.io/)
+
+**Ví dụ về link:**
+
+- [USDC Token Mint](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+  — Supply, thị trường, holder và giao dịch của USDC
+- [USDC Token Transfer](https://explorer.solana.com/tx/3d2mQChCbqM5iogAN5PZw7KGZuVtQq3LbwU8hk55u4iUvYH1XJ7SQVQpWwoZj43MtthBqGBoqGBe9fn4Bo1VznjG)
+  — Chi tiết của một giao dịch thanh toán USDC
+- [USDG Token Account](https://explorer.solana.com/address/7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St)
+  — Số dư USDG và lịch sử giao dịch của người dùng

@@ -1,0 +1,258 @@
+---
+title: Индексация
+description:
+  Промышленный мониторинг транзакций для высоконагруженных платёжных систем
+---
+
+RPC-методы, такие как `getSignaturesForAddress` и `getTransaction`, подходят для
+проверки с низкой нагрузкой, но для продакшн-платёжных систем требуется более
+надёжная инфраструктура. В этом руководстве рассматриваются основные инструменты
+и паттерны для потоковой передачи транзакций в реальном времени, доступа к
+историческим данным и парсинга на уровне инструкций.
+
+## Почему индексация важна
+
+Стандартный RPC имеет ограничения при обработке платежей в масштабе:
+
+- **Лимиты запросов:** Публичные и даже платные RPC-эндпоинты имеют ограничения
+  на количество запросов
+- **Нет постоянства:** RPC предоставляет только текущее состояние, но не
+  историческую аналитику
+- **Избыточная нагрузка на опрос:** Многократные вызовы
+  `getSignaturesForAddress` неэффективны
+- **Грубая детализация:** Балансы до/после не показывают отдельные переводы
+  внутри сложных транзакций
+
+Индексационные решения решают эти задачи, забирая данные блокчейна на источнике
+и предоставляя их через специализированные API.
+
+## Сырые и обработанные данные транзакций
+
+Перед выбором подхода к индексации важно понимать, что содержат транзакции
+Solana. Сырые данные транзакций используют компактное бинарное кодирование —
+аккаунты указываются по индексам, а instruction data представлены в виде
+непрозрачных байтов, закодированных в Base58:
+
+```typescript
+// Raw: Requires manual decoding
+{ "programIdIndex": 6, "accounts": [2, 3, 4], "data": "3DfbZhE3qCnV" }
+
+// Parsed: Ready for business logic
+{
+  "type": "TRANSFER",
+  "tokenTransfers": [{
+    "fromUserAccount": "8PLd...9Nt8w3",
+    "toUserAccount": "7GLg...k487Ma",
+    "tokenAmount": 100.50,
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  // USDC
+  }]
+}
+```
+
+**Парсинг необходим** для платёжных систем — нужны суммы с учётом десятичных
+знаков, расшифрованные адреса кошельков и извлечённые поля memo.
+
+## Yellowstone gRPC
+
+Geyser — это плагин-интерфейс Solana для потоковой передачи данных об аккаунтах
+и транзакциях в реальном времени напрямую от валидаторов. Вместо опроса RPC вы
+подписываетесь на поток, который отправляет обновления по мере их обработки —
+обеспечивая **задержку менее 100 мс** по сравнению с ~200–400 мс для
+WebSocket-подписок.
+[Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc) — одна из самых
+популярных реализаций интерфейса плагинов Geyser. Yellowstone — это решение для
+потоковой передачи в реальном времени для:
+
+- Обновлений аккаунтов
+- Транзакций
+- Записей
+- Уведомлений о блоках
+- Уведомлений о слотах
+
+Чтобы использовать Yellowstone, вам понадобится gRPC-эндпоинт от провайдера
+RPC-сервисов. Вот некоторые варианты:
+
+- [Triton](https://docs.triton.one/project-yellowstone/dragons-mouth-grpc-subscriptions)
+- [Helius](https://www.helius.dev/docs/grpc)
+- [QuickNode](https://marketplace.quicknode.com/add-on/yellowstone-grpc-geyser-plugin)
+- [Alchemy](https://www.alchemy.com/docs/reference/yellowstone-grpc-overview)
+
+<CodeTabs>
+
+```rust !! title="Rust"
+use yellowstone_grpc_client::GeyserGrpcClient;
+use yellowstone_grpc_proto::prelude::*;
+
+let mut client = GeyserGrpcClient::build_from_shared("https://grpc-endpoint:10000")?
+    .x_token(Some("YOUR_TOKEN".to_string()))?
+    .connect()
+    .await?;
+
+let (mut tx, mut rx) = client.subscribe().await?;
+
+let mut filter = HashMap::new();
+filter.insert("payments".to_string(), SubscribeRequestFilterTransactions {
+    account_include: vec!["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string()],
+    vote: Some(false),
+    failed: Some(false),
+    ..Default::default()
+});
+
+tx.send(SubscribeRequest {
+    transactions: filter,
+    commitment: Some(CommitmentLevel::Confirmed as i32),
+    ..Default::default()
+}).await?;
+
+while let Some(msg) = rx.next().await {
+    if let Some(UpdateOneof::Transaction(tx)) = msg?.update_oneof {
+        // Raw protobuf data - requires parsing
+        println!("Transaction: {:?}", tx.transaction);
+    }
+}
+```
+
+```typescript !! title="TypeScript"
+import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
+
+const client = new Client("https://grpc-endpoint:10000", "YOUR_TOKEN");
+const stream = await client.subscribe();
+
+stream.write({
+  transactions: {
+    payments: {
+      accountInclude: ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"],
+      vote: false,
+      failed: false
+    }
+  },
+  commitment: CommitmentLevel.CONFIRMED
+});
+
+stream.on("data", (update) => {
+  if (update.transaction) {
+    // Raw protobuf data - requires parsing
+    console.log("Transaction:", update.transaction.transaction.signature);
+  }
+});
+```
+
+</CodeTabs>
+
+<Callout>
+  Yellowstone возвращает необработанные данные Protocol Buffer, а не JSON. Вам
+  потребуется декодировать бинарные instruction data с помощью IDL программ или
+  парсинговых библиотек. Давайте рассмотрим несколько вариантов для парсинга
+  данных Yellowstone.
+</Callout>
+
+**Ресурсы:**
+
+- [Репозиторий Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc)
+- [Документация по стримингу Triton](https://docs.triton.one/chains/solana/streaming)
+
+### Carbon
+
+[Carbon](https://github.com/sevenlabs-hq/carbon) — это Rust-фреймворк для
+создания production-индексаторов на базе Yellowstone gRPC. Его архитектура
+pipeline соединяет источники данных с декодерами и кастомными процессорами:
+
+```rust
+use carbon_core::pipeline::Pipeline;
+
+Pipeline::builder()
+    .datasource(yellowstone_grpc_source)
+    .instruction(TokenProgramDecoder, PaymentProcessor)
+    .metrics(Arc::new(PrometheusMetrics::new()))
+    .build()?
+    .run()
+    .await?;
+```
+
+В Carbon есть **40+ готовых декодеров** для популярных программ. Для платёжных
+систем декодер Token Program обрабатывает все варианты переводов, а ваш
+процессор реализует бизнес-логику:
+
+```rust
+#[async_trait]
+impl Processor for PaymentProcessor {
+    type InputType = (InstructionMetadata, DecodedInstruction<TokenInstruction>);
+
+    async fn process(
+        &mut self,
+        (meta, ix): Self::InputType,
+        _metrics: Arc<MetricsCollection>,
+    ) -> CarbonResult<()> {
+        if let TokenInstruction::Transfer { amount } = ix.data {
+            let accounts = Transfer::arrange_accounts(&ix.accounts)?;
+            if self.watched_wallets.contains(&accounts.destination) {
+                notify_payment(meta.signature, accounts.destination, amount).await;
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+**Ресурсы:**
+
+- [Carbon на GitHub](https://github.com/sevenlabs-hq/carbon)
+- [Yellowstone и Carbon: разбор данных Solana в реальном времени](https://www.quicknode.com/guides/solana-development/tooling/geyser/yellowstone-carbon)
+
+### Vixen
+
+[Yellowstone Vixen](https://github.com/rpcpool/yellowstone-vixen) — это
+open-source Rust-фреймворк для преобразования необработанных событий Yellowstone
+в структурированные, типизированные данные. Использует архитектуру **Parser +
+Handler**:
+
+- **Парсеры** десериализуют необработанные события Solana в типизированные
+  структуры
+- **Хендлеры** выполняют вашу бизнес-логику на разобранных данных
+- **Пайплайны** соединяют парсеры с хендлерами в настраиваемые потоки
+
+```rust
+use yellowstone_vixen::Runtime;
+use yellowstone_vixen_parser::token_program::{TokenProgramParser, TokenProgramState};
+
+// Build a pipeline that parses Token Program events
+Runtime::<YellowstoneGrpcSource>::builder()
+    .account(Pipeline::new(TokenProgramParser, [PaymentHandler]))
+    .build(config)?
+    .run()
+    .await;
+```
+
+Vixen включает встроенные парсеры для **SPL Token** и **Token-2022** с
+поддержкой генерации парсеров из любого Solana IDL. Для мониторинга платежей
+парсер токенов даёт типизированный доступ к переводам, эмиссиям и состояниям
+аккаунтов:
+
+```rust
+impl Handler<TokenProgramState> for PaymentHandler {
+    async fn handle(&self, state: &TokenProgramState) -> Result<()> {
+        match state {
+            TokenProgramState::TokenAccount(account) => {
+                if self.watched_wallets.contains(&account.owner) {
+                    process_balance_change(account).await;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+```
+
+**Ресурсы:**
+
+- [Yellowstone Vixen на GitHub](https://github.com/rpcpool/yellowstone-vixen)
+- [Vixen Streams](https://blog.triton.one/introducing-vixen-streams-real-time-parsed-solana-program-streaming/)
+  — хостинговый сервис Triton на базе Vixen
+
+## Начало работы
+
+Несколько RPC-провайдеров предлагают размещённую инфраструктуру для
+индексирования. Актуальный список провайдеров, предоставляющих вебхуки,
+расширенные API и gRPC-стриминг, смотрите на
+[solana.com/rpc](https://solana.com/rpc).
