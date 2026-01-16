@@ -1,14 +1,19 @@
 ---
 title: Verification Tools
-description: Verify incoming stablecoin payments and reconcile them with your orders.
+description:
+  Verify incoming stablecoin payments and reconcile them with your orders.
 ---
 
-Tokens land in your wallet the moment a transaction confirms. There is no action required by the recipient. Solana atomically increments the receiver's token account balance and decrements the sender's balance. In this guide, we cover some helpful tools for understanding your token account balance and watching for incoming payments.
-
+Tokens land in your wallet the moment a transaction confirms. There is no action
+required by the recipient. Solana atomically increments the receiver's token
+account balance and decrements the sender's balance. In this guide, we cover
+some helpful tools for understanding your token account balance and watching for
+incoming payments.
 
 ## Query Token Balance
 
-Check your stablecoin balance using the [`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) RPC method:
+Check your stablecoin balance using the
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) RPC method:
 
 ```typescript
 import { createSolanaRpc, address, type Address } from "@solana/kit";
@@ -32,25 +37,34 @@ async function getBalance(walletAddress: Address) {
   const { value } = await rpc.getTokenAccountBalance(ata).send();
 
   return {
-    raw: BigInt(value.amount),           // "1000000" -> 1000000n
-    formatted: value.uiAmountString,     // "1.00"
-    decimals: value.decimals             // 6
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
   };
 }
 ```
 
 ## Watch for Incoming Transfers
 
-Subscribe to your token account for real-time payment notifications using the `accountNotifications` RPC method:
+Subscribe to your token account for real-time payment notifications using the
+`accountNotifications` RPC method:
 
 ```typescript
-const rpcSubscriptions = createSolanaRpcSubscriptions("wss://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
 
-async function watchPayments(walletAddress: Address, onPayment: (amount: bigint) => void) {
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
   const abortController = new AbortController();
 
   const subscription = await rpcSubscriptions
-    .accountNotifications(ata, { commitment: "confirmed", encoding: "base64" })
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
     .subscribe({ abortSignal: abortController.signal });
 
   let previousBalance = 0n;
@@ -69,11 +83,17 @@ async function watchPayments(walletAddress: Address, onPayment: (amount: bigint)
 }
 ```
 
-Note here that we are using RPC Subscriptions and a websocket connection to the Solana network.
+Note here that we are using RPC Subscriptions and a websocket connection to the
+Solana network.
 
-Each notification contains a base64 encoded string of the transaction data. Because we know the account we are looking at is a token account, we can decode the data using the `getTokenCodec` method from the `@solana-program/token` package.
+Each notification contains a base64 encoded string of the token account data.
+Because we know the account we are looking at is a token account, we can decode
+the data using the `getTokenCodec` method from the `@solana-program/token`
+package.
 
-Note that for production applications, you should consider a more robust streaming solution. Some options include:
+Note that for production applications, you should consider a more robust
+streaming solution. Some options include:
+
 - [Alchemy](https://docs.alchemy.com/reference/subscription-api)
 - [Triton](https://docs.triton.one/chains/solana/streaming)
 - [Helius](https://www.helius.dev/docs/data-streaming)
@@ -81,11 +101,23 @@ Note that for production applications, you should consider a more robust streami
 
 ## Parsing Transaction History
 
-Solana has RPC methods that allow to to fetch an accounts transaction history ([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) and get the details of a transaction ([`getTransaction`](/docs/rpc/http/gettransaction)). To parse transaction history, we fetch recent signatures for our token account, then retrieve each transaction's pre/post token balances. By comparing our ATA's balance before and after each transaction, we can determine the payment amount and direction (incoming vs outgoing). 
+Solana has RPC methods that allow you to fetch an account's transaction history
+([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) and get
+the details of a transaction
+([`getTransaction`](/docs/rpc/http/gettransaction)). To parse transaction
+history, we fetch recent signatures for our token account, then retrieve each
+transaction's pre/post token balances. By comparing our ATA's balance before and
+after each transaction, we can determine the payment amount and direction
+(incoming vs outgoing).
 
 ```typescript
-async function getRecentPayments(walletAddress: Address, limit = 100): Promise<Payment[]> {
-  const signatures = await rpc.getSignaturesForAddress(ata, { limit }).send();
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
   const payments: ParsedPayment[] = [];
 
   for (const sig of signatures) {
@@ -117,7 +149,7 @@ async function getRecentPayments(walletAddress: Address, limit = 100): Promise<P
         signature: sig.signature,
         timestamp: tx.blockTime,
         amount: diff > 0n ? diff : -diff,
-        type: diff > 0n ? "incoming" : "outgoing",
+        type: diff > 0n ? "incoming" : "outgoing"
       });
     }
   }
@@ -126,23 +158,37 @@ async function getRecentPayments(walletAddress: Address, limit = 100): Promise<P
 }
 ```
 
-To identify the counterparty, you can scan the transaction's token balances for another account whose balance changed in the opposite direction—if you received funds, look for an account whose balance decreased by the same amount.
+To identify the counterparty, you can scan the transaction's token balances for
+another account whose balance changed in the opposite direction—if you received
+funds, look for an account whose balance decreased by the same amount.
 
-Because SPL token transfers can exist beyond just payments between users, this approach might yield some transactions that are not payments. A good alternative here is to use Memos.
+Because SPL token transfers can exist beyond just payments between users, this
+approach might yield some transactions that are not payments. A good alternative
+here is to use Memos.
 
 ### Limitations of Pre/Post Balance Parsing
 
-The approach above works well for simple payment flows. However, companies processing payments at scale often need more granular and real-time data:
+The approach above works well for simple payment flows. However, companies
+processing payments at scale often need more granular and real-time data:
 
-- **Per-instruction breakdown:** A single transaction can contain multiple transfers. Pre/post balances only show the net change, not individual transfers.
-- **Multi-party transactions:** Complex transactions (swaps, batch payments) involve multiple accounts. Balance diffs don't reveal the complete flow of funds.
-- **Audit requirements:** Financial compliance often requires reconstructing exact transfer sequences, not just final balances.
+- **Per-instruction breakdown:** A single transaction can contain multiple
+  transfers. Pre/post balances only show the net change, not individual
+  transfers.
+- **Multi-party transactions:** Complex transactions (swaps, batch payments)
+  involve multiple accounts. Balance diffs don't reveal the complete flow of
+  funds.
+- **Audit requirements:** Financial compliance often requires reconstructing
+  exact transfer sequences, not just final balances.
 
-For production systems handling high volumes, consider dedicated [indexing solutions](/docs/payments/accept-payments/indexing) that parse individual transfer instructions and provide transaction-level detail.
+For production systems handling high volumes, consider dedicated
+[indexing solutions](/docs/payments/accept-payments/indexing) that parse
+individual transfer instructions and provide transaction-level detail.
 
 ## Reconcile Payments with Memos
 
-When senders include memos (invoice IDs, order numbers), you can extract them from the transaction's message using the `getTransaction` RPC method and the `jsonParsed` encoding:
+When senders include memos (invoice IDs, order numbers), you can extract them
+from the transaction's message using the `getTransaction` RPC method and the
+`jsonParsed` encoding:
 
 ```typescript
 function extractMemos(transaction): string | null {
@@ -155,15 +201,17 @@ function extractMemos(transaction): string | null {
   return memos;
 }
 
-async function getTransactionMemo(signature: Signature): Promise<string | null> {
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
   const tx = await rpc
     .getTransaction(signature, {
       maxSupportedTransactionVersion: 0,
-      encoding: "jsonParsed",
+      encoding: "jsonParsed"
     })
     .send();
   if (!tx) return null;
-  return extractMemo(tx);
+  return extractMemos(tx);
 }
 ```
 
@@ -171,10 +219,19 @@ async function getTransactionMemo(signature: Signature): Promise<string | null> 
 
 A few failure modes to avoid:
 
-- **Trusting the frontend.** A checkout page says "payment complete"—but did the transaction actually land? Always verify server-side by querying the RPC. Frontend confirmations can be spoofed.
+- **Trusting the frontend.** A checkout page says "payment complete"—but did the
+  transaction actually land? Always verify server-side by querying the RPC.
+  Frontend confirmations can be spoofed.
 
-- **Acting on "processed" status.** Solana transactions go through three stages: processed → confirmed → finalized. A "processed" transaction can still be dropped during forks. Wait for "confirmed" (1-2 seconds) before shipping orders, or "finalized" (~13 seconds) for high-value transactions.
+- **Acting on "processed" status.** Solana transactions go through three stages:
+  processed → confirmed → finalized. A "processed" transaction can still be
+  dropped during forks. Wait for "confirmed" (1-2 seconds) before shipping
+  orders, or "finalized" (~13 seconds) for high-value transactions.
 
-- **Ignoring the mint.** Anyone can create a token called "USDC". Validate that the token account's mint matches the real stablecoin mint address and token program, not just the token name.
+- **Ignoring the mint.** Anyone can create a token called "USDC". Validate that
+  the token account's mint matches the real stablecoin mint address and token
+  program, not just the token name.
 
-- **Double-fulfillment.** Your webhook fires, you ship the order. Network hiccup, webhook fires again. Now you've shipped twice. Store processed transaction signatures and check before fulfilling.
+- **Double-fulfillment.** Your webhook fires, you ship the order. Network
+  hiccup, webhook fires again. Now you've shipped twice. Store processed
+  transaction signatures and check before fulfilling.
