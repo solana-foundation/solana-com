@@ -1,42 +1,41 @@
 import { createDatabase, createLocalDatabase } from "@tinacms/datalayer";
-import { GitHubProvider } from "tinacms-gitprovider-github";
-import { createClient } from "@vercel/kv";
 import { RedisLevel } from "upstash-redis-level";
+import { GitHubProvider } from "tinacms-gitprovider-github";
 
-// Check if we're in local development mode
+// Manage this flag in your CI/CD pipeline and make sure it is set to false in production
 const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
 
-// Determine the branch to use
-const branch =
-  process.env.GITHUB_BRANCH ||
+const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN as string;
+const owner = (process.env.GITHUB_OWNER ||
+  process.env.VERCEL_GIT_REPO_OWNER) as string;
+const repo = (process.env.GITHUB_REPO ||
+  process.env.VERCEL_GIT_REPO_SLUG) as string;
+const branch = (process.env.GITHUB_BRANCH ||
   process.env.VERCEL_GIT_COMMIT_REF ||
-  "main";
+  "main") as string;
 
-// Create the database based on environment
-const createDatabaseInstance = () => {
-  if (isLocal) {
-    // Local development: use in-memory database with filesystem
-    return createLocalDatabase();
-  }
+if (!branch) {
+  throw new Error(
+    "No branch found. Make sure that you have set the GITHUB_BRANCH or process.env.VERCEL_GIT_COMMIT_REF environment variable."
+  );
+}
 
-  // Production: use Vercel KV (Upstash Redis) with GitHub provider
-  const kvClient = createClient({
-    url: process.env.KV_REST_API_URL!,
-    token: process.env.KV_REST_API_TOKEN!,
-  });
-
-  return createDatabase({
-    gitProvider: new GitHubProvider({
-      repo: process.env.GITHUB_REPO!,
-      owner: process.env.GITHUB_OWNER!,
-      token: process.env.GITHUB_PERSONAL_ACCESS_TOKEN!,
-      branch,
-    }),
-    databaseAdapter: new RedisLevel<string, Record<string, unknown>>({
-      redis: kvClient,
-      debug: process.env.DEBUG === "true",
-    }),
-  });
-};
-
-export default createDatabaseInstance();
+export default isLocal
+  ? createLocalDatabase()
+  : createDatabase({
+      gitProvider: new GitHubProvider({
+        branch,
+        owner,
+        repo,
+        token,
+      }),
+      databaseAdapter: new RedisLevel<string, Record<string, any>>({
+        redis: {
+          url:
+            (process.env.KV_REST_API_URL as string) || "http://localhost:8079",
+          token: (process.env.KV_REST_API_TOKEN as string) || "example_token",
+        },
+        debug: process.env.DEBUG === "true" || false,
+      }),
+      namespace: branch,
+    });

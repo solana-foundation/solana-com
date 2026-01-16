@@ -1,4 +1,4 @@
-import { defineConfig } from "tinacms";
+import { defineConfig, LocalAuthProvider } from "tinacms";
 import { createWorkflowPlugin } from "./plugins/workflow";
 
 import Post from "./collection/post";
@@ -10,16 +10,32 @@ import CTA from "./collection/cta";
 import Switchback from "./collection/switchback";
 import Podcast from "./collection/podcast";
 import Link from "./collection/link";
+import { AuthProvider } from "@/lib/auth";
 
 // Determine the branch to use for preview URLs and content
 const branch =
-  process.env.GITHUB_BRANCH ||
-  process.env.VERCEL_GIT_COMMIT_REF ||
-  "main";
+  process.env.GITHUB_BRANCH || process.env.VERCEL_GIT_COMMIT_REF || "main";
+
+const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
+
+// Compute absolute URL for TinaCMS API
+// Server-side requests need an absolute URL since relative URLs have no origin
+const apiUrl = (() => {
+  // Use NEXT_PUBLIC_APP_URL if set (works for all environments)
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return `${process.env.NEXT_PUBLIC_APP_URL}/api/tina/gql`;
+  }
+  // Vercel deployment URL
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api/tina/gql`;
+  }
+  // Local development fallback
+  return "http://localhost:3002/api/tina/gql";
+})();
 
 const config: any = defineConfig({
-  // Self-hosted: point to our own API route instead of Tina Cloud
-  contentApiUrlOverride: "/api/tina/gql",
+  authProvider: isLocal ? new LocalAuthProvider() : new AuthProvider(),
+  contentApiUrlOverride: apiUrl,
   branch,
 
   media: {
@@ -31,7 +47,6 @@ const config: any = defineConfig({
   build: {
     publicFolder: "public",
     outputFolder: "admin",
-    basePath: "",
   },
   schema: {
     collections: [
@@ -60,12 +75,12 @@ const config: any = defineConfig({
       };
     },
   },
-  cmsCallback: (cms) => {
-    cms.flags.set("branch-switcher", true);
-    // Register workflow plugin for draft management
-    cms.plugins.add(createWorkflowPlugin());
-    return cms;
-  },
+  // cmsCallback: (cms) => {
+  //   cms.flags.set("branch-switcher", true);
+  //   // Register workflow plugin for draft management
+  //   cms.plugins.add(createWorkflowPlugin());
+  //   return cms;
+  // },
 });
 
 export default config;
