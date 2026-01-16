@@ -125,6 +125,14 @@ The system SHALL create a Git branch for draft content when an editor starts edi
 - **WHEN** an editor clicks "New Draft" for a content type
 - **THEN** a new branch is created with naming pattern `draft/[collection]/[slug]`
 - **AND** the editor is redirected to the content editor on that branch
+- **AND** the content file exists only on the draft branch (not on main)
+
+#### Scenario: Draft-only content indicator
+
+- **WHEN** viewing content that exists only on the draft branch (not yet published)
+- **THEN** the admin UI SHALL display a "Draft only - not yet published" badge
+- **AND** the content is visible in Vercel preview deployments for the draft branch
+- **AND** the content does not appear in production until published
 
 #### Scenario: Create draft for existing content
 
@@ -185,8 +193,11 @@ The system SHALL allow editors to view and manage existing drafts.
 
 #### Scenario: Discard draft
 
-- **WHEN** an editor clicks "Discard Draft" and confirms
-- **THEN** the draft branch is deleted without merging
+- **WHEN** an editor clicks "Discard Draft"
+- **THEN** a confirmation dialog SHALL appear warning that changes will be permanently deleted
+- **AND** if the editor confirms, the draft branch is deleted via GitHub API
+- **AND** the editor is redirected to the content list
+- **AND** if the editor cancels, no action is taken
 - **AND** any unpublished changes are permanently lost
 
 ### Requirement: Local Mode Enforcement

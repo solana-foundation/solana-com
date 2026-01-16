@@ -52,7 +52,7 @@
 ## 4. Admin UI Customization
 
 - [ ] 4.1 Create custom TinaCMS plugin for workflow UI (`tina/plugins/workflow.tsx`)
-- [ ] 4.2 Add draft status indicator component showing current branch
+- [ ] 4.2 Add draft status indicator component showing current branch and "Draft only" badge for unpublished content
 - [ ] 4.3 Add "Save Draft" button that triggers commit action
 - [ ] 4.4 Add "Publish" button with confirmation dialog
 - [ ] 4.5 Add "Discard Draft" button with confirmation

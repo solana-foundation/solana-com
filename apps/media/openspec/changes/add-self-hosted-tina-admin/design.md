@@ -392,8 +392,52 @@ KV_REST_API_TOKEN=xxxxxxxxxxxx
 # TINA_SEARCH_INDEXER_TOKEN
 ```
 
-## Open Questions
+## Resolved Questions
 
-1. Should draft branches be automatically deleted after merge, or retained for history?
-2. Should there be a "discard draft" action that deletes the branch without merging?
-3. How should we handle content that exists only in draft (new posts)?
+### 1. Branch Cleanup After Publish
+
+**Decision:** Auto-delete draft branches immediately after successful merge.
+
+**Rationale:**
+
+- Git commit history is preserved after merge (the branch itself adds no historical value)
+- GitHub PRs retain the full diff and branch reference even after deletion
+- Prevents branch accumulation and keeps the repository clean
+- Editors can still view the change history via PR links
+
+### 2. Discarding Unpublished Drafts
+
+**Decision:** Allow discarding drafts with a confirmation dialog.
+
+**Rationale:**
+
+- Essential for abandoning work that shouldn't be published
+- Confirmation prevents accidental deletion of work-in-progress
+- Without this, abandoned branches would accumulate indefinitely
+
+**UX Flow:**
+
+```
+Editor clicks "Discard Draft" → Confirmation modal appears:
+  "This will permanently delete all unpublished changes. This cannot be undone."
+  [Cancel] [Discard]
+→ On confirm: Delete branch via GitHub API, redirect to content list
+```
+
+### 3. Draft-Only Content (New Posts)
+
+**Decision:** Branch-scoped editing - new content exists only on the draft branch until published.
+
+**Rationale:**
+
+- Simplest mental model: draft branch = workspace, main = published
+- No placeholder files or metadata tracking needed
+- Consistent with how Git branching naturally works
+
+**Behavior:**
+
+- New content created on `draft/[collection]/[slug]` branch
+- File does not exist on `main` until merge
+- Admin UI shows "Draft only - not yet published" badge for new content
+- Publishing (merge to main) makes the file appear in production build
+- Vercel preview deployments show new content on draft branch URLs
