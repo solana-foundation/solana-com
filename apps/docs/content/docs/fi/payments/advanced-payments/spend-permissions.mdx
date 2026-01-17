@@ -1,0 +1,187 @@
+---
+title: Käyttöoikeudet
+description:
+  Delegoi tokenien käyttö kolmansille osapuolille automatisoituja ja
+  sulkutilimaksuja varten
+---
+
+Solanan Token Programs tukee **delegointia** – toisen tilin valtuuttamista
+siirtämään tokeneita token-tililtäsi tiettyyn rajaan asti. Tämä mahdollistaa
+käyttötapaukset kuten automatisoidut maksut, sulkutilit ja kolmannen osapuolen
+maksunkäsittely luopumatta varojen hallinnasta.
+
+## Miten delegointi toimii
+
+Kun hyväksyt delegaatin, valtuutat tietyn tilin siirtämään tokeneita puolestasi:
+
+- **Omistaja säilyttää hallinnan**: omistat edelleen tokenit ja voit siirtää tai
+  peruuttaa milloin tahansa
+- **Rajoitettu käyttö**: delegaatti voi siirtää vain hyväksyttyyn määrään asti
+- **Yksi delegaatti per tili**: jokaisella token-tilillä voi olla vain yksi
+  aktiivinen delegaatti
+- **Uusi hyväksyntä korvaa vanhan**: uuden delegaatin hyväksyminen peruuttaa
+  automaattisesti edellisen
+
+<Callout type="info">
+  Delegointi ei ole säilytyspalvelu. Delegaatti voi käyttää tokeneita rajaan
+  asti, mutta ei voi käyttää tai tyhjentää tiliä hyväksytyn määrän yli. Omistaja
+  voi peruuttaa milloin tahansa.
+</Callout>
+
+## Liiketoiminnan käyttötapaukset
+
+| Käyttötapaus                     | Miten delegointi auttaa                                                 |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| **Maksunkäsittelijät**           | Kauppias myöntää käsittelijälle luvan selvittää transaktiot             |
+| **Automatisoitu palkanlaskenta** | Kassaosasto hyväksyy palkanlaskentapalvelun maksamaan palkat            |
+| **Sulkutilit**                   | Ostaja delegoi sulkutiliagentille ehdollista vapauttamista varten       |
+| **Kaupankäyntialustat**          | Käyttäjä hyväksyy pörssin toteuttamaan kauppoja puolestaan              |
+| **Korttien myöntäminen**         | Käyttäjä hyväksyy kortinmyöntäjän veloittamaan ostokset token-tililtään |
+
+## Delegaatin hyväksyminen
+
+Myönnä toiselle tilille lupa käyttää tokeneja tililtäsi:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getApproveCheckedInstruction } from "@solana-program/token";
+
+// Approve delegate to spend up to 1,000 USDC (6 decimals)
+const approveInstruction = getApproveCheckedInstruction({
+  source: tokenAccountAddress, // Your token account
+  mint: usdcMintAddress, // USDC mint
+  delegate: delegateAddress, // Account receiving permission
+  owner: ownerKeypair, // You (must sign)
+  amount: 1_000_000_000n, // 1,000 USDC in base units
+  decimals: 6
+});
+```
+
+```bash !! title="CLI"
+spl-token approve <TOKEN_ACCOUNT> <AMOUNT> <DELEGATE_ADDRESS>
+# Example: Approve 1000 USDC to a delegate
+spl-token approve 7v45Foih... 1000 DeLe9ate...
+```
+
+</CodeTabs>
+
+**Parametrit:**
+
+- `source`: Token account, joka myöntää luvan
+- `delegate`: Tili, joka saa käyttöoikeuden
+- `owner`: Token accountin nykyinen omistaja (täytyy allekirjoittaa transaktio)
+- `amount`: Maksimimäärä tokeneita, jotka delegaatti voi siirtää
+- `decimals`: Tokenin desimaalit validointia varten (estää desimaaliviat)
+
+## Delegaatin peruuttaminen
+
+Poista kaikki käyttöoikeudet nykyiseltä delegaatilta:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getRevokeInstruction } from "@solana-program/token";
+
+const revokeInstruction = getRevokeInstruction({
+  source: tokenAccountAddress, // Your token account
+  owner: ownerKeypair // You (must sign)
+});
+```
+
+```bash !! title="CLI"
+spl-token revoke <TOKEN_ACCOUNT>
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  Revoke poistaa **kaikki** delegaatin oikeudet – osittaista peruutusta ei ole.
+  Jos haluat pienentää rajaa, hyväksy sama delegaatti pienemmällä määrällä.
+</Callout>
+
+## Delegoinnin tilan tarkistaminen
+
+Tarkista token accountista sen nykyinen delegaatti ja jäljellä oleva käyttöraja:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { fetchToken } from "@solana-program/token";
+
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress);
+
+if (tokenAccount.data.delegate) {
+  console.log("Delegate:", tokenAccount.data.delegate);
+  console.log("Remaining allowance:", tokenAccount.data.delegatedAmount);
+} else {
+  console.log("No delegate set");
+}
+```
+
+```bash !! title="CLI"
+spl-token display <TOKEN_ACCOUNT>
+# Look for "Delegate" and "Delegated Amount" fields
+```
+
+</CodeTabs>
+
+## Siirtäminen delegaattina
+
+Kun toimit delegaattina, käytä tavallista siirtoa mutta allekirjoita delegaatin
+keypairilla omistajan sijaan:
+
+```ts title="Transfer as Delegate"
+import { getTransferCheckedInstruction } from "@solana-program/token";
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: ownerTokenAccount, // The account you have permission to spend from
+  mint: usdcMintAddress,
+  destination: recipientTokenAccount,
+  authority: delegateKeypair, // You (the delegate) sign, not the owner
+  amount: 100_000_000n, // 100 USDC
+  decimals: 6
+});
+```
+
+Siirto onnistuu, jos:
+
+- Lähdetilillä on riittävä saldo
+- Delegaatti allekirjoittaa transaktion
+
+Jokainen siirto vähentää jäljellä olevaa käyttöoikeutta. Kun käyttöoikeus
+saavuttaa nollan, edustaja ei voi enää siirtää tokeneita.
+
+## Turvallisuusnäkökohdat
+
+**Tilin omistajille:**
+
+- Hyväksy vain luotettuja edustajia
+- Aseta mahdollisimman pieni tarpeellinen käyttöraja
+- Peru valtuutukset, kun niitä ei enää tarvita
+- Seuraa tilejäsi odottamattomien siirtojen varalta
+
+**Palveluntarjoajille (edustajille):**
+
+- Kerro selkeästi käyttäjille pyydetty käyttöraja
+- Toteuta asianmukainen avaintenhallinta edustajatilillesi
+- Seuraa käyttöoikeuden kulutusta pyytääksesi uudelleenhyväksyntää ennen rajojen
+  täyttymistä
+
+## Valtuutus vs. säilytys
+
+| Näkökohta               | Valtuutus                       | Täysi säilytys                     |
+| ----------------------- | ------------------------------- | ---------------------------------- |
+| Tokenien omistus        | Käyttäjä säilyttää              | Käyttäjä siirtää säilyttäjälle     |
+| Käyttöoikeuden hallinta | Rajoitettu hyväksyttyyn määrään | Täysi pääsy siirrettyihin varoihin |
+| Peruutus                | Välitön, omistajan toimesta     | Vaatii säilyttäjän yhteistyötä     |
+| Riskialtistus           | Rajoitettu hyväksyttyyn määrään | Koko saldo                         |
+| Vaadittu luottamus      | Rajoitettu                      | Korkea                             |
+
+Valtuutus tarjoaa keskitien – mahdollistaa automaattiset maksut samalla kun
+riskialtistus rajoittuu hyväksyttyyn määrään.
+
+## Aiheeseen liittyvät resurssit
+
+- [Approve Delegate](/docs/tokens/basics/approve-delegate) — Tekniset tiedot
+  approve-käskystä

@@ -1,0 +1,233 @@
+---
+title: 延迟执行
+description: 现在签署交易，稍后执行——支持审批流程、资金管理和安全签名
+---
+
+每笔 Solana 交易都包含一个最近的区块哈希——这是对网络最新状态的引用，用于证明该交易是在“当前”创建的。网络会拒绝任何区块哈希早于约 150 个区块（约 60-90 秒）的交易，从而防止重放攻击和过期提交。这种机制非常适合实时支付。但对于签名和提交之间需要间隔的流程，则会遇到问题，例如：
+
+| 场景             | 标准交易为何失效                                       |
+| ---------------- | ------------------------------------------------------ |
+| **资金管理操作** | 东京的 CFO 签名，纽约的 Controller 审批——90 秒远远不够 |
+| **合规流程**     | 交易需在执行前经过法律/合规审核                        |
+| **冷存储签名**   | 隔离设备需手动转移已签名交易                           |
+| **批量准备**     | 在工作时间准备工资或付款，夜间执行                     |
+| **多签协调**     | 多位审批人分布在不同时区                               |
+| **定时支付**     | 计划在未来某一日期执行支付                             |
+
+在传统金融中，签过字的支票不会在 90 秒内过期。某些区块链操作也不应如此。**持久随机数（Durable
+nonce）**
+通过用一个存储的、持久的值替代最近区块哈希来解决这个问题，该值只有在你使用时才会更新——让你的交易在你准备好提交前始终有效。
+
+## 工作原理
+
+你可以用 **随机数账户（nonce account）**
+替代最近区块哈希（有效期约 150 个区块），这是一种专门存储*唯一*值的账户。每笔使用该随机数的交易，必须在第一条指令中“推进”该值，以防止重放攻击。
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  nonce 账户的租金豁免费用约为 0.0015 SOL。一个 nonce 账户 =
+  同时仅允许一个待处理交易。若需并行处理工作流，请创建多个 nonce 账户。
+</Callout>
+
+## 设置：创建 nonce 账户
+
+创建 nonce 账户需要在一笔交易中包含两个指令：
+
+1. 使用 System Program 中的 `getCreateAccountInstruction` **创建账户**
+2. 使用 `getInitializeNonceAccountInstruction` **初始化为 nonce**
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## 构建延迟交易
+
+与标准交易相比有两个关键区别：
+
+1. 使用 nonce 值作为 blockhash
+2. 将 `advanceNonceAccount` 作为**第一个**指令添加
+
+### 获取 nonce 值
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### 使用 nonce 设置交易有效期
+
+不再使用会过期的最近 blockhash，而是使用 nonce 值：
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### 推进 nonce（必须作为第一个指令）
+
+每笔持久 nonce 交易**必须**将 `advanceNonceAccount`
+作为首个指令。这样可以防止重放攻击，在使用后使 nonce 值失效并更新为新值。
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## 签名与存储
+
+构建完成后，对交易进行签名并序列化以便存储：
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+将序列化后的字符串存入数据库——在 nonce 推进前，该字符串始终有效。
+
+## 多方审批工作流
+
+反序列化交易以添加更多签名，然后再次序列化以便存储或提交：
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+交易可以被序列化、存储，并在审批人之间传递。收集所有所需签名后，即可提交到网络。
+
+## 准备就绪后执行
+
+当所有审批完成后，将序列化的交易发送到网络：
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  每个 nonce 只能使用一次。如果交易失败或你决定不提交，必须在使用同一个 nonce
+  账户准备下一个交易前，先推进 nonce。
+</Callout>
+
+## 推进已用或废弃的 Nonce
+
+如需使待处理交易失效或让 nonce 可重复使用，请手动推进：
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+这会生成一个新的 nonce 值，使所有用旧值签名的交易永久失效。
+
+## 生产环境注意事项
+
+**Nonce 账户管理：**
+
+- 创建 nonce 账户池以并行准备交易
+- 跟踪哪些 nonce 处于“使用中”（有待签名的交易）
+- 在交易提交或废弃后实现 nonce 回收
+
+**安全性：**
+
+- nonce 权限方控制交易是否可作废。为增强控制和职责分离，建议将 nonce 权限方与交易签名人分离
+- _任何人_ 拥有序列化交易字节都可以将其提交到网络
+
+## 相关资源
+
+- [耐用 Nonce 简介](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

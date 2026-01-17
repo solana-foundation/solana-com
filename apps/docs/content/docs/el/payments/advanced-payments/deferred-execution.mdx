@@ -1,0 +1,262 @@
+---
+title: Αναβαλλόμενη εκτέλεση
+description:
+  Υπογράψτε συναλλαγές τώρα, εκτελέστε τις αργότερα—επιτρέποντας ροές εργασίας
+  έγκρισης, λειτουργίες ταμείου και ασφαλή υπογραφή
+---
+
+Κάθε συναλλαγή Solana περιλαμβάνει ένα πρόσφατο blockhash—μια αναφορά σε μια
+πρόσφατη κατάσταση δικτύου που αποδεικνύει ότι η συναλλαγή δημιουργήθηκε "τώρα".
+Το δίκτυο απορρίπτει οποιαδήποτε συναλλαγή με blockhash παλαιότερο από ~150
+blocks (~60-90 δευτερόλεπτα), αποτρέποντας επιθέσεις επανάληψης και ξεπερασμένες
+υποβολές. Αυτό λειτουργεί τέλεια για πληρωμές σε πραγματικό χρόνο. Αλλά
+διακόπτει ροές εργασίας που χρειάζονται χρονικό διάστημα μεταξύ υπογραφής και
+υποβολής, όπως:
+
+| Σενάριο                        | Γιατί αποτυγχάνουν οι τυπικές συναλλαγές                                                  |
+| ------------------------------ | ----------------------------------------------------------------------------------------- |
+| **Λειτουργίες ταμείου**        | Ο CFO στο Τόκιο υπογράφει, ο Controller στη Νέα Υόρκη εγκρίνει—90 δευτερόλεπτα δεν αρκούν |
+| **Ροές εργασίας συμμόρφωσης**  | Οι συναλλαγές χρειάζονται νομική/κανονιστική επανεξέταση πριν την εκτέλεση                |
+| **Υπογραφή cold storage**      | Τα air-gapped μηχανήματα απαιτούν χειροκίνητη μεταφορά υπογεγραμμένων συναλλαγών          |
+| **Προετοιμασία παρτίδας**      | Προετοιμάστε μισθοδοσία ή εκταμιεύσεις κατά τις εργάσιμες ώρες, εκτελέστε τη νύχτα        |
+| **Συντονισμός multi-sig**      | Πολλαπλοί εγκρίνοντες σε διαφορετικές ζώνες ώρας                                          |
+| **Προγραμματισμένες πληρωμές** | Προγραμματίστε πληρωμές για εκτέλεση σε μελλοντική ημερομηνία                             |
+
+Στα παραδοσιακά χρηματοοικονομικά, μια υπογεγραμμένη επιταγή δεν λήγει σε 90
+δευτερόλεπτα. Ορισμένες λειτουργίες blockchain δεν θα έπρεπε επίσης. Τα
+**durable nonces** λύνουν αυτό αντικαθιστώντας το πρόσφατο blockhash με μια
+αποθηκευμένη, μόνιμη τιμή που προχωρά μόνο όταν τη χρησιμοποιείτε—δίνοντάς σας
+συναλλαγές που παραμένουν έγκυρες μέχρι να είστε έτοιμοι να τις υποβάλετε.
+
+## Πώς λειτουργεί
+
+Αντί για ένα πρόσφατο blockhash (έγκυρο ~150 blocks), χρησιμοποιείτε έναν
+**λογαριασμό nonce**, έναν ειδικό λογαριασμό που αποθηκεύει μια _μοναδική_ τιμή.
+Κάθε συναλλαγή που χρησιμοποιεί αυτό το nonce πρέπει να το "προωθήσει" ως πρώτη
+εντολή, αποτρέποντας επιθέσεις επανάληψης.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  Ο λογαριασμός nonce κοστίζει ~0.0015 SOL για απαλλαγή από rent. Ένας
+  λογαριασμός nonce = μία εκκρεμής συναλλαγή τη φορά. Για παράλληλες ροές
+  εργασίας, δημιουργήστε πολλαπλούς λογαριασμούς nonce.
+</Callout>
+
+## Ρύθμιση: Δημιουργία λογαριασμού nonce
+
+Η δημιουργία ενός λογαριασμού nonce απαιτεί δύο οδηγίες σε μία μόνο συναλλαγή:
+
+1. **Δημιουργήστε τον λογαριασμό** χρησιμοποιώντας `getCreateAccountInstruction`
+   από το System Program
+2. **Αρχικοποιήστε τον ως nonce** χρησιμοποιώντας
+   `getInitializeNonceAccountInstruction`
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## Δημιουργία αναβαλλόμενης συναλλαγής
+
+Δύο βασικές διαφορές από τις τυπικές συναλλαγές:
+
+1. Χρησιμοποιήστε την τιμή nonce ως blockhash
+2. Προσθέστε `advanceNonceAccount` ως την **πρώτη** οδηγία
+
+### Ανάκτηση της τιμής nonce
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### Ορισμός διάρκειας ζωής συναλλαγής με nonce
+
+Αντί να χρησιμοποιήσετε ένα πρόσφατο blockhash που λήγει, χρησιμοποιήστε την
+τιμή nonce:
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### Προώθηση του nonce (απαιτούμενη πρώτη οδηγία)
+
+Κάθε durable nonce συναλλαγή **πρέπει** να περιλαμβάνει `advanceNonceAccount` ως
+την πρώτη της οδηγία. Αυτό αποτρέπει επιθέσεις επανάληψης ακυρώνοντας την τιμή
+nonce μετά τη χρήση και ενημερώνοντας την τιμή nonce.
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## Υπογραφή και αποθήκευση
+
+Μετά τη δημιουργία, υπογράψτε τη συναλλαγή και σειριοποιήστε την για αποθήκευση:
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Αποθηκεύστε το σειριοποιημένο string στη βάση δεδομένων σας—παραμένει έγκυρο
+μέχρι να προωθηθεί το nonce.
+
+## Ροή εργασίας έγκρισης πολλαπλών μερών
+
+Αποσειριοποιήστε τη συναλλαγή για να προσθέσετε επιπλέον υπογραφές, στη συνέχεια
+σειριοποιήστε ξανά για αποθήκευση ή υποβολή:
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Η συναλλαγή μπορεί να σειριοποιηθεί, να αποθηκευτεί και να μεταβιβαστεί μεταξύ
+των εγκριτών. Μόλις συλλεχθούν όλες οι απαιτούμενες υπογραφές, υποβάλετε στο
+δίκτυο.
+
+## Εκτέλεση όταν είστε έτοιμοι
+
+Όταν ολοκληρωθούν οι εγκρίσεις, στείλτε τη σειριοποιημένη συναλλαγή στο δίκτυο:
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  Κάθε nonce μπορεί να χρησιμοποιηθεί μόνο μία φορά. Εάν μια συναλλαγή αποτύχει
+  ή αποφασίσετε να μην την υποβάλετε, πρέπει να προωθήσετε το nonce πριν
+  προετοιμάσετε άλλη συναλλαγή με τον ίδιο λογαριασμό nonce.
+</Callout>
+
+## Προώθηση χρησιμοποιημένου ή εγκαταλελειμμένου nonce
+
+Για να ακυρώσετε μια εκκρεμή συναλλαγή ή να προετοιμάσετε το nonce για
+επαναχρησιμοποίηση, προωθήστε το χειροκίνητα:
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+Αυτό δημιουργεί μια νέα τιμή nonce, καθιστώντας οποιαδήποτε συναλλαγή υπογραφεί
+με την παλιά τιμή μόνιμα άκυρη.
+
+## Ζητήματα παραγωγής
+
+**Διαχείριση λογαριασμού nonce:**
+
+- Δημιουργήστε ένα σύνολο λογαριασμών nonce για παράλληλη προετοιμασία
+  συναλλαγών
+- Παρακολουθήστε ποια nonces είναι "σε χρήση" (έχουν εκκρεμείς υπογεγραμμένες
+  συναλλαγές)
+- Υλοποιήστε ανακύκλωση nonce μετά την υποβολή ή εγκατάλειψη συναλλαγών
+
+**Ασφάλεια:**
+
+- Η εξουσία nonce ελέγχει εάν οι συναλλαγές μπορούν να ακυρωθούν. Εξετάστε το
+  ενδεχόμενο διαχωρισμού της εξουσίας nonce από τους υπογράφοντες συναλλαγών για
+  πρόσθετο έλεγχο και διαχωρισμό καθηκόντων
+- _Οποιοσδήποτε_ με τα σειριοποιημένα bytes συναλλαγής μπορεί να την υποβάλει
+  στο δίκτυο
+
+## Σχετικοί πόροι
+
+- [Εισαγωγή στα durable nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

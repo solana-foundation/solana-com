@@ -1,0 +1,229 @@
+---
+title: Solana ile etkileşim
+description: Ağa bağlanın ve blokzincir verilerini keşfedin
+---
+
+Ödeme akışları oluşturmadan önce Solana'ya bağlanmanız ve ağ verilerini nasıl
+sorgulayacağınızı anlamanız gerekir. Bu kılavuz temel konuları kapsar: bağlantı
+kurma ve [@solana/kit](https://www.npmjs.com/package/@solana/kit) TypeScript
+SDK'sı ve [Solana CLI](https://solana.com/docs/intro/installation) kullanarak
+ödemeler için ihtiyaç duyacağınız RPC yöntemlerini kullanma. Ayrıca, ödemeleri
+manuel olarak doğrulamak, hesapları incelemek ve sorunları gidermek için
+[Solana Explorer](https://explorer.solana.com) kullanımının temellerini ele
+alacağız.
+
+## Solana'ya bağlanma
+
+Solana'nın RPC API'si, ağ ile programatik olarak etkileşim kurmanın birincil
+yoludur. RPC URL'niz, ağa erişim için etkin bir API anahtarıdır.
+
+<Callout type="caution" title="Üretim için genel RPC kullanmayın">
+  Genel uç noktalar (`api.mainnet-beta.solana.com`, `api.devnet.solana.com`) hız
+  sınırlıdır, SLA'sı yoktur ve üretim ödeme akışları için uygun değildir. Üretim
+  dağıtımları için özel bir RPC uç noktası güvence altına almak üzere bir [RPC
+  sağlayıcısı](https://solana.com/rpc) kullanın.
+</Callout>
+
+Geliştirme ve test için hız sınırlı genel uç noktaları kullanabilirsiniz.
+
+Ağ ile etkileşim kurmak için bir RPC istemcisi oluşturun:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+```
+
+```bash !! title="CLI"
+solana config set --url https://api.mainnet-beta.solana.com
+solana config get # to verify the connection
+```
+
+</CodeTabs>
+
+<Callout>
+  Geliştirme için devnet (`https://api.devnet.solana.com`) veya
+  [Surfpool](/docs/intro/installation/surfpool-cli-basics) gibi yerel bir
+  validator kullanın.
+</Callout>
+
+## Yaygın RPC yöntemleri
+
+Solana'nın [JSON-RPC API'si](/docs/rpc), ağı sorgulamak için yöntemler sunar.
+Ödeme akışları için en çok kullanacağınız yöntemler şunlardır.
+
+### Hesap bilgilerini alma
+
+Solana'daki tüm hesaplar, genel anahtarları ile adreslenebilir. Herhangi bir
+hesap hakkında bilgi almak için
+[`getAccountInfo`](/docs/rpc/http/getaccountinfo) RPC yöntemini kullanın.
+`getAccountInfo` yöntemi, hesabın genel anahtarını, SOL bakiyesini, verisini ve
+diğer bazı meta verileri içeren bir `AccountInfo` nesnesi döndürür.
+
+`data` alanı, hesabın verilerinin base64 kodlu bir dizesidir. Bunu `@solana/kit`
+paketindeki `getBase64Codec` metodunu kullanarak baytlara kodlayabilir ve
+ardından hesabın verileri için beklenen codec'i (biliniyorsa) kullanarak
+okunabilir bir nesneye çözebilirsiniz (örneğin, token hesapları için
+`getTokenCodec`).
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const accountInfo = await rpc
+  .getAccountInfo(address("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"), {
+    encoding: "base64"
+  })
+  .send();
+const dataBytes = getBase64Codec().encode(accountInfo.value.data);
+const parsedTokenData = getTokenCodec().decode(dataBytes);
+
+console.log(parsedTokenData);
+```
+
+```bash !! title="CLI"
+solana account 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+```
+
+</CodeTabs>
+
+### Token bakiyelerini alma
+
+Bir token hesabının bakiyesini
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) RPC metodunu
+kullanarak kontrol edin:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const balance = await rpc.getTokenAccountBalance(tokenAccountAddress).send();
+
+console.log(balance.value.uiAmount); // Human-readable (e.g., 100.50)
+console.log(balance.value.amount); // Base units (e.g., "100500000")
+```
+
+```bash !! title="CLI"
+spl-token balance --address 7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St
+```
+
+</CodeTabs>
+
+### İşlem oluşturma
+
+Her işlemin geçerli olduğundan (ve eskimediğinden) emin olmak için yakın tarihli
+bir blockhash'e ihtiyacı vardır. Bir ödeme işlemi oluşturmadan önce
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC metodunu
+kullanarak bir tane alın:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+```
+
+```bash !! title="CLI"
+solana block-height
+```
+
+</CodeTabs>
+
+> Blockhash'ler yaklaşık 60 saniye sonra sona erer. İmzalamadan ve göndermeden
+> hemen önce yeni bir tane alın.
+
+### İşlem durumunu kontrol etme
+
+Bir işlemin sonuçlandığını
+[`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses) RPC metodunu
+kullanarak doğrulayın:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const status = await rpc.getSignatureStatuses([signature]).send();
+
+const result = status.value[0];
+// result.confirmationStatus: "processed" | "confirmed" | "finalized"
+```
+
+```bash !! title="CLI"
+solana confirm <SIGNATURE>
+# For more details:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### İşlem detaylarını alma
+
+Onaylanmış bir işlemin tüm detaylarını
+[`getTransaction`](/docs/rpc/http/gettransaction) RPC metodu kullanarak alın:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const transaction = await rpc
+  .getTransaction(signature, { maxSupportedTransactionVersion: 0 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 1 -v
+# Or decode a specific transaction:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### İşlem geçmişi
+
+Bir adres için son işlemleri
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) RPC metodu
+kullanarak alın:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const signatures = await rpc
+  .getSignaturesForAddress(walletAddress, { limit: 10 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 10
+```
+
+</CodeTabs>
+
+> Kapsamlı ödeme izleme için, webhook'ları ve gerçek zamanlı işlem tespitini
+> kapsayan [Ödeme kabul etme](/docs/payments/accept-payments) bölümüne bakın.
+
+## Genel verileri keşfetme
+
+Solana'nın genel defteri, her işlemin, token hesabının ve mint'in tamamen
+denetlenebilir olduğu anlamına gelir. Blok gezginleri, kod yazmadan ödemeleri
+manuel olarak doğrulamanıza, hesapları incelemenize ve sorunları ayıklamanıza
+olanak tanır.
+
+**Arayabileceğiniz bilgiler:**
+
+- Bir ödemenin gerçekleştiğini doğrulama
+- Token hesap bakiyelerini inceleme
+- Başarısız işlemleri ayıklama
+- Mint detaylarını arama (arz, ondalık basamak, yetki)
+
+**Yaygın gezginler:** [Solana Explorer](https://explorer.solana.com),
+[SolanaFM](https://solana.fm), [Solscan](https://solscan.io),
+[Orb](https://www.orbmarkets.io/)
+
+**Örnek bağlantılar:**
+
+- [USDC Token Mint](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+  — USDC için arz, piyasalar, sahipler ve işlemler
+- [USDC Token transferi](https://explorer.solana.com/tx/3d2mQChCbqM5iogAN5PZw7KGZuVtQq3LbwU8hk55u4iUvYH1XJ7SQVQpWwoZj43MtthBqGBoqGBe9fn4Bo1VznjG)
+  — Bir USDC ödeme işleminin detayları
+- [USDG Token hesabı](https://explorer.solana.com/address/7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St)
+  — Bir kullanıcının USDG bakiyesi ve işlem geçmişi

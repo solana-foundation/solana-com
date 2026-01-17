@@ -1,0 +1,258 @@
+---
+title: Lập chỉ mục
+description:
+  Giám sát giao dịch cấp production cho hệ thống thanh toán khối lượng lớn
+---
+
+Các phương thức RPC như `getSignaturesForAddress` và `getTransaction` hoạt động
+tốt cho việc xác minh khối lượng thấp, nhưng các hệ thống thanh toán production
+cần cơ sở hạ tầng mạnh mẽ hơn. Hướng dẫn này bao gồm các công cụ và mẫu thiết kế
+cốt lõi cho streaming giao dịch thời gian thực, truy cập dữ liệu lịch sử và phân
+tích cú pháp cấp instruction.
+
+## Tại sao lập chỉ mục quan trọng
+
+RPC tiêu chuẩn có những hạn chế khi xử lý thanh toán ở quy mô lớn:
+
+- **Giới hạn tốc độ:** Các endpoint RPC công khai và thậm chí trả phí đều có
+  giới hạn truy vấn
+- **Không lưu trữ:** RPC chỉ cung cấp trạng thái hiện tại, không có phân tích
+  lịch sử
+- **Chi phí polling:** Gọi `getSignaturesForAddress` lặp đi lặp lại không hiệu
+  quả
+- **Độ chi tiết thô:** Số dư trước/sau không tiết lộ các lần chuyển riêng lẻ
+  trong các giao dịch phức tạp
+
+Các giải pháp lập chỉ mục giải quyết vấn đề này bằng cách thu thập dữ liệu
+blockchain tại nguồn và truy xuất thông qua các API được xây dựng chuyên biệt.
+
+## Dữ liệu giao dịch thô so với đã phân tích
+
+Trước khi chọn phương pháp lập chỉ mục, hãy hiểu những gì giao dịch Solana chứa
+đựng. Dữ liệu giao dịch thô sử dụng mã hóa nhị phân gọn nhẹ—các account được
+tham chiếu bằng chỉ số, và instruction data xuất hiện dưới dạng các byte được mã
+hóa Base58 không rõ ràng:
+
+```typescript
+// Raw: Requires manual decoding
+{ "programIdIndex": 6, "accounts": [2, 3, 4], "data": "3DfbZhE3qCnV" }
+
+// Parsed: Ready for business logic
+{
+  "type": "TRANSFER",
+  "tokenTransfers": [{
+    "fromUserAccount": "8PLd...9Nt8w3",
+    "toUserAccount": "7GLg...k487Ma",
+    "tokenAmount": 100.50,
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  // USDC
+  }]
+}
+```
+
+**Phân tích cú pháp là cần thiết** cho các hệ thống thanh toán—bạn cần số tiền
+đã điều chỉnh thập phân, địa chỉ ví đã phân giải và các trường memo được trích
+xuất.
+
+## Yellowstone gRPC
+
+Geyser là giao diện plugin của Solana để streaming dữ liệu account và giao dịch
+thời gian thực trực tiếp từ các validator. Thay vì polling RPC, bạn đăng ký một
+luồng dữ liệu đẩy các cập nhật khi chúng được xử lý—cung cấp **độ trễ dưới
+100ms** so với ~200-400ms cho các subscription WebSocket.
+[Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc) là một trong
+những triển khai được sử dụng rộng rãi nhất của giao diện plugin Geyser.
+Yellowstone là một giải pháp streaming thời gian thực cho:
+
+- Cập nhật account
+- Giao dịch
+- Entry
+- Thông báo block
+- Thông báo slot
+
+Để sử dụng Yellowstone, bạn sẽ cần một điểm cuối gRPC từ nhà cung cấp dịch vụ
+RPC. Một số lựa chọn bao gồm:
+
+- [Triton](https://docs.triton.one/project-yellowstone/dragons-mouth-grpc-subscriptions)
+- [Helius](https://www.helius.dev/docs/grpc)
+- [QuickNode](https://marketplace.quicknode.com/add-on/yellowstone-grpc-geyser-plugin)
+- [Alchemy](https://www.alchemy.com/docs/reference/yellowstone-grpc-overview)
+
+<CodeTabs>
+
+```rust !! title="Rust"
+use yellowstone_grpc_client::GeyserGrpcClient;
+use yellowstone_grpc_proto::prelude::*;
+
+let mut client = GeyserGrpcClient::build_from_shared("https://grpc-endpoint:10000")?
+    .x_token(Some("YOUR_TOKEN".to_string()))?
+    .connect()
+    .await?;
+
+let (mut tx, mut rx) = client.subscribe().await?;
+
+let mut filter = HashMap::new();
+filter.insert("payments".to_string(), SubscribeRequestFilterTransactions {
+    account_include: vec!["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string()],
+    vote: Some(false),
+    failed: Some(false),
+    ..Default::default()
+});
+
+tx.send(SubscribeRequest {
+    transactions: filter,
+    commitment: Some(CommitmentLevel::Confirmed as i32),
+    ..Default::default()
+}).await?;
+
+while let Some(msg) = rx.next().await {
+    if let Some(UpdateOneof::Transaction(tx)) = msg?.update_oneof {
+        // Raw protobuf data - requires parsing
+        println!("Transaction: {:?}", tx.transaction);
+    }
+}
+```
+
+```typescript !! title="TypeScript"
+import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
+
+const client = new Client("https://grpc-endpoint:10000", "YOUR_TOKEN");
+const stream = await client.subscribe();
+
+stream.write({
+  transactions: {
+    payments: {
+      accountInclude: ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"],
+      vote: false,
+      failed: false
+    }
+  },
+  commitment: CommitmentLevel.CONFIRMED
+});
+
+stream.on("data", (update) => {
+  if (update.transaction) {
+    // Raw protobuf data - requires parsing
+    console.log("Transaction:", update.transaction.transaction.signature);
+  }
+});
+```
+
+</CodeTabs>
+
+<Callout>
+  Yellowstone trả về dữ liệu Protocol Buffer thô, không phải JSON. Bạn sẽ cần
+  giải mã dữ liệu instruction nhị phân bằng cách sử dụng IDL của chương trình
+  hoặc thư viện phân tích cú pháp. Hãy cùng khám phá một số tùy chọn để phân
+  tích cú pháp dữ liệu Yellowstone.
+</Callout>
+
+**Tài nguyên:**
+
+- [Kho lưu trữ Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc)
+- [Tài liệu streaming của Triton](https://docs.triton.one/chains/solana/streaming)
+
+### Carbon
+
+[Carbon](https://github.com/sevenlabs-hq/carbon) là một framework Rust để xây
+dựng các indexer production được xây dựng trên nền tảng Yellowstone gRPC. Kiến
+trúc pipeline của nó kết nối các nguồn dữ liệu với bộ giải mã đến các bộ xử lý
+tùy chỉnh:
+
+```rust
+use carbon_core::pipeline::Pipeline;
+
+Pipeline::builder()
+    .datasource(yellowstone_grpc_source)
+    .instruction(TokenProgramDecoder, PaymentProcessor)
+    .metrics(Arc::new(PrometheusMetrics::new()))
+    .build()?
+    .run()
+    .await?;
+```
+
+Carbon bao gồm **hơn 40 bộ giải mã được xây dựng sẵn** cho các chương trình phổ
+biến. Đối với các hệ thống thanh toán, bộ giải mã Token Program xử lý tất cả các
+biến thể chuyển khoản trong khi bộ xử lý của bạn triển khai logic nghiệp vụ:
+
+```rust
+#[async_trait]
+impl Processor for PaymentProcessor {
+    type InputType = (InstructionMetadata, DecodedInstruction<TokenInstruction>);
+
+    async fn process(
+        &mut self,
+        (meta, ix): Self::InputType,
+        _metrics: Arc<MetricsCollection>,
+    ) -> CarbonResult<()> {
+        if let TokenInstruction::Transfer { amount } = ix.data {
+            let accounts = Transfer::arrange_accounts(&ix.accounts)?;
+            if self.watched_wallets.contains(&accounts.destination) {
+                notify_payment(meta.signature, accounts.destination, amount).await;
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+**Tài nguyên:**
+
+- [Carbon GitHub](https://github.com/sevenlabs-hq/carbon)
+- [Yellowstone và Carbon: Phân tích cú pháp dữ liệu chương trình Solana theo thời gian thực](https://www.quicknode.com/guides/solana-development/tooling/geyser/yellowstone-carbon)
+
+### Vixen
+
+[Yellowstone Vixen](https://github.com/rpcpool/yellowstone-vixen) là một
+framework Rust mã nguồn mở để chuyển đổi các sự kiện Yellowstone thô thành dữ
+liệu có cấu trúc, có kiểu. Nó sử dụng kiến trúc **Parser + Handler**:
+
+- **Parser** giải tuần tự hóa các sự kiện Solana thô thành các cấu trúc có kiểu
+- **Handler** thực thi logic nghiệp vụ của bạn trên dữ liệu đã được phân tích cú
+  pháp
+- **Pipeline** kết nối các parser với các handler trong các luồng có thể cấu
+  hình
+
+```rust
+use yellowstone_vixen::Runtime;
+use yellowstone_vixen_parser::token_program::{TokenProgramParser, TokenProgramState};
+
+// Build a pipeline that parses Token Program events
+Runtime::<YellowstoneGrpcSource>::builder()
+    .account(Pipeline::new(TokenProgramParser, [PaymentHandler]))
+    .build(config)?
+    .run()
+    .await;
+```
+
+Vixen bao gồm các parser tích hợp sẵn cho **SPL Token** và **Token-2022**, với
+hỗ trợ tạo parser từ bất kỳ IDL Solana nào. Đối với giám sát thanh toán, token
+parser cung cấp cho bạn quyền truy cập có kiểu vào các giao dịch chuyển khoản,
+mint và trạng thái tài khoản:
+
+```rust
+impl Handler<TokenProgramState> for PaymentHandler {
+    async fn handle(&self, state: &TokenProgramState) -> Result<()> {
+        match state {
+            TokenProgramState::TokenAccount(account) => {
+                if self.watched_wallets.contains(&account.owner) {
+                    process_balance_change(account).await;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+```
+
+**Tài nguyên:**
+
+- [Yellowstone Vixen GitHub](https://github.com/rpcpool/yellowstone-vixen)
+- [Vixen Streams](https://blog.triton.one/introducing-vixen-streams-real-time-parsed-solana-program-streaming/) -
+  Dịch vụ được lưu trữ của Triton được xây dựng trên Vixen
+
+## Bắt đầu
+
+Một số nhà cung cấp RPC cung cấp cơ sở hạ tầng lập chỉ mục được lưu trữ. Kiểm
+tra [solana.com/rpc](https://solana.com/rpc) để xem danh sách hiện tại các nhà
+cung cấp cung cấp webhooks, API nâng cao và gRPC streaming.

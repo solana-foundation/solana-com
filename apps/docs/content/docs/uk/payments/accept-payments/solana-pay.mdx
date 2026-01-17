@@ -1,0 +1,196 @@
+---
+title: Solana Pay
+description: Генеруйте URL-адреси платежів, QR-коди та транзакції
+draft: true
+---
+
+<Callout type="caution">
+  Commerce Kit наразі перебуває в бета-версії. API можуть змінитися до
+  стабільного релізу. Для додаткової інформації дивіться [документацію Commerce
+  Kit ](https://launch.solana.com/docs/commerce-kit).
+</Callout>
+
+[Solana Pay](https://solanapay.com) — це стандартний протокол для кодування
+запитів на оплату у вигляді URL-адрес. Ці URL-адреси можна поширювати як
+посилання, кодувати як QR-коди для мобільних гаманців або використовувати для
+програмного створення платіжних транзакцій.
+
+Пакет `@solana-commerce/solana-pay` надає кодування/парсинг URL-адрес, генерацію
+QR-кодів та створення транзакцій — сумісний з
+[@solana/kit](https://github.com/anza-xyz/kit).
+
+## Встановлення
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## Створення URL-адрес платежів
+
+Використовуйте `encodeURL`, щоб створити URL-адресу протоколу `solana:`, яку
+можуть парсити гаманці:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL in lamports
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchant...?amount=0.1&label=Coffee%20Shop&message=...
+```
+
+### Параметри URL-адреси
+
+| Параметр    | Тип         | Опис                                             |
+| ----------- | ----------- | ------------------------------------------------ |
+| `recipient` | `Address`   | Адреса гаманця продавця (обов'язково)            |
+| `amount`    | `bigint`    | Сума в лампортах або мінімальних одиницях токена |
+| `splToken`  | `Address`   | Адреса mint SPL-токена (пропустіть для SOL)      |
+| `reference` | `Address[]` | Унікальні посилання для відстеження платежів     |
+| `label`     | `string`    | Назва продавця, що відображається в гаманці      |
+| `message`   | `string`    | Повідомлення, що відображається перед оплатою    |
+| `memo`      | `string`    | Мемо в блокчейні, прикріплене до транзакції      |
+
+### Платежі SPL-токенами
+
+Для платежів стейблкоїнами вкажіть mint токена:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: USDC_MINT,
+  label: "My Store"
+});
+```
+
+### Відстеження платежів за допомогою посилань
+
+Згенеруйте унікальне посилання для ідентифікації конкретних платежів:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`
+});
+
+// Query the blockchain later for transactions containing this reference
+```
+
+## Генерація QR-кодів
+
+Використовуйте `createQR` для генерації QR-кодів, які можна сканувати мобільними
+гаманцями:
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "@solana/kit";
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 100000000n,
+  label: "Coffee Shop"
+});
+
+const qrCode = await createQR(
+  url.toString(),
+  400, // size in pixels
+  "white", // background
+  "black" // foreground
+);
+
+// Use as image source
+document.getElementById("qr").src = qrCode;
+```
+
+### Стилізовані QR-коди
+
+Для брендованих QR-кодів з логотипами та власним стилем:
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+
+const qr = await createStyledQRCode(url.toString(), {
+  width: 600,
+  margin: 3,
+  color: {
+    dark: "#9945FF", // Solana purple
+    light: "#FFFFFF"
+  },
+  errorCorrectionLevel: "H",
+  dotStyle: "dots",
+  cornerStyle: "extra-rounded",
+  logo: "/your-logo.png",
+  logoSize: 120
+});
+```
+
+## Побудова транзакцій
+
+Використовуйте `createTransfer` для побудови повної транзакції для підпису:
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 100000000n, // 0.1 SOL
+    memo: "Coffee purchase"
+  }
+);
+```
+
+Для SPL-токенів включіть адресу mint:
+
+```typescript
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 25000000n, // 25 USDC
+    splToken: USDC_MINT,
+    reference: [orderReference],
+    memo: "Order #12345"
+  }
+);
+```
+
+## Парсинг URL-адрес
+
+Валідуйте та витягуйте дані з URL-адрес Solana Pay:
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL("solana:merchant...?amount=1.5&label=Store");
+
+  console.log(parsed.recipient); // Address
+  console.log(parsed.amount); // 1500000000n (lamports)
+  console.log(parsed.label); // "Store"
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid URL:", error.message);
+  }
+}
+```

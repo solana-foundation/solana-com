@@ -1,0 +1,375 @@
+---
+title: 带备注的支付
+description: 了解如何为支付附加发票 ID 或备注信息。
+---
+
+Solana 的 memo 程序允许你为任何支付附加发票编号、订单 ID 或自定义参考信息。这些备注会永久记录在链上，并在交易日志中可见，方便你将支付与内部系统进行匹配。
+
+## 工作原理
+
+Memo 程序会将文本写入交易日志。这些日志会被区块浏览器和 RPC 服务商索引，使备注内容可以被搜索，便于支付对账。
+
+<Callout>
+  参见 [Solana 支付原理](/docs/payments/how-payments-work) 了解核心支付概念。
+</Callout>
+
+添加备注需要直接构建指令，这样你可以完全控制交易中包含的内容。
+
+以下步骤展示了核心流程。完整可运行代码请参见 [演示](#demo)。
+
+<ScrollyCoding>
+
+## !!steps 导入 Memo 程序
+
+从 `getAddMemoInstruction` 导入 `@solana-program/memo`，用于创建 memo 指令。
+
+<CodePlaceholder title="带备注的支付" />
+
+```ts !! title="Payment with Memo"
+// !focus
+import { getAddMemoInstruction } from "@solana-program/memo";
+```
+
+## !!steps 创建转账指令
+
+创建代币转账指令，指定源 ATA、目标 ATA、授权人（签名者）以及以基础单位计的金额。
+
+<CodePlaceholder title="带备注的支付" />
+
+```ts !! title="Payment with Memo"
+import { getAddMemoInstruction } from "@solana-program/memo";
+
+// !focus(1:6)
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n // adjusted for the mint's decimals
+});
+```
+
+## !!steps 创建 Memo 指令
+
+创建带有消息的 memo 指令。该消息将在交易的程序日志中可见。
+
+<CodePlaceholder title="带备注的支付" />
+
+```ts !! title="Payment with Memo"
+import { getAddMemoInstruction } from "@solana-program/memo";
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+// !focus(1:3)
+const memoInstruction = getAddMemoInstruction({
+  memo: "Payment for services rendered - Invoice #12345"
+});
+```
+
+## !!steps 发送带备注的交易
+
+将转账指令和 memo 指令合并到同一笔交易中。
+
+<CodePlaceholder title="带备注的支付" />
+
+```ts !! title="Payment with Memo"
+import { getAddMemoInstruction } from "@solana-program/memo";
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const memoInstruction = getAddMemoInstruction({
+  memo: "Payment for services rendered - Invoice #12345"
+});
+
+// !focus(1:5)
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  // !mark
+  instructions: [transferInstruction, memoInstruction],
+  version: 0
+});
+```
+
+## !!steps 在交易日志中查看 Memo
+
+交易确认后，获取该交易即可在日志中查看 Memo。Memo 会作为 Memo 程序的日志消息显示。
+
+<CodePlaceholder title="带有 Memo 的支付" />
+
+```sh title="Example Transaction Logs"
+"Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+"Program log: Instruction: Transfer",
+"Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1682 of 200000 compute units",
+"Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+"Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr invoke [1]",
+# !mark
+'Program log: Memo (len 46): "Payment for services rendered - Invoice #12345"',
+"Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr consumed 18097 of 198318 compute units",
+"Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr success",
+"Program ComputeBudget111111111111111111111111111111 invoke [1]",
+"Program ComputeBudget111111111111111111111111111111 success"
+```
+
+```ts !! title="Payment with Memo"
+import { getAddMemoInstruction } from "@solana-program/memo";
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const memoInstruction = getAddMemoInstruction({
+  memo: "Payment for services rendered - Invoice #12345"
+});
+
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  instructions: [transferInstruction, memoInstruction],
+  version: 0
+});
+
+// !focus(1:9)
+const transaction = await client.runtime.rpc
+  .getTransaction(signature, {
+    encoding: "jsonParsed",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+
+console.log("Transaction logs with Memo:");
+console.log(transaction?.meta?.logMessages);
+```
+
+</ScrollyCoding>
+
+### 演示
+
+<CodeTabs flags="r">
+
+```ts !! title="Demo"
+// !collapse(1:15) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getTransferInstruction
+} from "@solana-program/token-2022";
+// !mark
+import { getAddMemoInstruction } from "@solana-program/memo";
+
+// Generate keypairs for sender and recipient
+const sender = (await generateKeypair()).signer;
+const recipient = (await generateKeypair()).signer;
+
+console.log("Sender Address:", sender.address);
+console.log("Recipient Address:", recipient.address);
+
+// Demo Setup: Create client, mint account, token accounts, and fund with initial tokens
+const { client, mint } = await demoSetup(sender, recipient);
+
+console.log("\nMint Address:", mint.address);
+
+// Derive the Associated Token Accounts addresses (ATAs) for sender and recipient
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+console.log("Sender Token Account:", senderAta.toString());
+console.log("Recipient Token Account:", recipientAta.toString());
+
+// =============================================================================
+// Token Payment with Memo Demo
+// =============================================================================
+
+// Create instruction to transfer tokens from sender to recipient
+// Transferring 250,000 base units = 0.25 tokens (with 6 decimals)
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n // 0.25 tokens
+});
+
+// Create instruction to add a memo to the transaction
+// !mark(1:3)
+const memoInstruction = getAddMemoInstruction({
+  memo: "Payment for services rendered - Invoice #12345"
+});
+
+// Prepare and send transaction with both transfer and memo using @solana/client
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  // !mark
+  instructions: [transferInstruction, memoInstruction],
+  version: 0
+});
+
+console.log("\n=== Token Payment with Memo Complete ===");
+console.log("Transaction Signature:", signature.toString());
+
+// Fetch final token account balances using @solana/client SPL token helper
+const splToken = client.splToken({
+  mint: mint.address,
+  tokenProgram: "auto"
+});
+
+const senderBalance = await splToken.fetchBalance(sender.address);
+const recipientBalance = await splToken.fetchBalance(recipient.address);
+
+console.log("\nSender Token Account Balance:", senderBalance);
+console.log("Recipient Token Account Balance:", recipientBalance);
+
+// Fetch transaction details to view the memo in the logs
+const transaction = await client.runtime.rpc
+  .getTransaction(signature, {
+    encoding: "jsonParsed",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+
+console.log("\nTransaction logs with Memo:");
+console.log(transaction?.meta?.logMessages);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a token transfer with memo demo:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to sender for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token accounts for sender and recipient
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param recipient - The recipient's keypair
+ * @returns Returns client instance and mint address
+ */
+async function demoSetup(
+  sender: ServerKeypair["signer"],
+  recipient: ServerKeypair["signer"]
+) {
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund sender with SOL for transaction fees using @solana/client actions
+  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token 2022 program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction for recipient's ATA
+  const createRecipientAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
+  });
+
+  // Combine all instructions and send using @solana/client transaction helper
+  const setupInstructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    createRecipientAtaInstruction, // Create recipient's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Prepare and send transaction using @solana/client
+  await client.transaction.prepareAndSend({
+    authority: sender,
+    instructions: setupInstructions,
+    version: 0
+  });
+
+  return {
+    client,
+    mint
+  };
+}
+```
+
+</CodeTabs>

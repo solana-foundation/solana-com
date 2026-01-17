@@ -1,0 +1,191 @@
+---
+title: Permessi di spesa
+description:
+  Delega la spesa di token a terze parti per pagamenti automatizzati e in
+  deposito a garanzia
+---
+
+I Token Programs di Solana supportano la **delega**—concedere a un altro account
+il permesso di trasferire token dal tuo token account fino a un limite
+specificato. Questo abilita casi d'uso come pagamenti automatizzati, servizi di
+deposito a garanzia e elaborazione di pagamenti da parte di terzi senza
+rinunciare alla custodia dei tuoi fondi.
+
+## Come funziona la delega
+
+Quando approvi un delegato, stai autorizzando un account specifico a trasferire
+token per tuo conto:
+
+- **Il proprietario mantiene la custodia**: possiedi ancora i token e puoi
+  trasferirli o revocare in qualsiasi momento
+- **Spesa limitata**: il delegato può trasferire solo fino all'importo approvato
+- **Un solo delegato per account**: ogni token account può avere un solo
+  delegato attivo
+- **La nuova approvazione sostituisce la precedente**: approvare un nuovo
+  delegato revoca automaticamente quello precedente
+
+<Callout type="info">
+  La delega è non-custodial. Il delegato può spendere token fino al limite, ma
+  non può accedere o svuotare l'account oltre l'importo approvato. Il
+  proprietario può revocare in qualsiasi momento.
+</Callout>
+
+## Casi d'uso aziendali
+
+| Caso d'uso                         | Come aiuta la delega                                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Processori di pagamento**        | Il commerciante concede al processore il permesso di regolare le transazioni               |
+| **Buste paga automatizzate**       | La tesoreria approva il servizio di gestione stipendi per erogare i salari                 |
+| **Servizi di deposito a garanzia** | L'acquirente delega all'agente di deposito a garanzia per il rilascio condizionale         |
+| **Piattaforme di trading**         | L'utente approva l'exchange per eseguire operazioni per suo conto                          |
+| **Emissione di carte**             | L'utente approva l'emittente della carta per addebitare gli acquisti sul suo token account |
+
+## Approvare un delegato
+
+Concedi a un altro account il permesso di spendere token dal tuo account:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getApproveCheckedInstruction } from "@solana-program/token";
+
+// Approve delegate to spend up to 1,000 USDC (6 decimals)
+const approveInstruction = getApproveCheckedInstruction({
+  source: tokenAccountAddress, // Your token account
+  mint: usdcMintAddress, // USDC mint
+  delegate: delegateAddress, // Account receiving permission
+  owner: ownerKeypair, // You (must sign)
+  amount: 1_000_000_000n, // 1,000 USDC in base units
+  decimals: 6
+});
+```
+
+```bash !! title="CLI"
+spl-token approve <TOKEN_ACCOUNT> <AMOUNT> <DELEGATE_ADDRESS>
+# Example: Approve 1000 USDC to a delegate
+spl-token approve 7v45Foih... 1000 DeLe9ate...
+```
+
+</CodeTabs>
+
+**Parametri:**
+
+- `source`: Il token account che concede il permesso
+- `delegate`: L'account che avrà il permesso di spesa
+- `owner`: Proprietario attuale del token account (deve firmare la transazione)
+- `amount`: Numero massimo di token che il delegato può trasferire
+- `decimals`: Decimali del token per la validazione (previene errori decimali)
+
+## Revocare un delegato
+
+Rimuovi tutti i permessi di spesa dal delegato attuale:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getRevokeInstruction } from "@solana-program/token";
+
+const revokeInstruction = getRevokeInstruction({
+  source: tokenAccountAddress, // Your token account
+  owner: ownerKeypair // You (must sign)
+});
+```
+
+```bash !! title="CLI"
+spl-token revoke <TOKEN_ACCOUNT>
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  La revoca rimuove **tutti** i permessi del delegato—non esiste una revoca
+  parziale. Se devi ridurre il limite, approva lo stesso delegato con un importo
+  inferiore.
+</Callout>
+
+## Verificare lo stato della delega
+
+Interroga un token account per vedere il suo delegato attuale e l'allowance
+rimanente:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { fetchToken } from "@solana-program/token";
+
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress);
+
+if (tokenAccount.data.delegate) {
+  console.log("Delegate:", tokenAccount.data.delegate);
+  console.log("Remaining allowance:", tokenAccount.data.delegatedAmount);
+} else {
+  console.log("No delegate set");
+}
+```
+
+```bash !! title="CLI"
+spl-token display <TOKEN_ACCOUNT>
+# Look for "Delegate" and "Delegated Amount" fields
+```
+
+</CodeTabs>
+
+## Trasferire come delegato
+
+Quando agisci come delegato, usa un trasferimento standard ma firma con il
+keypair del delegato invece che con quello del proprietario:
+
+```ts title="Transfer as Delegate"
+import { getTransferCheckedInstruction } from "@solana-program/token";
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: ownerTokenAccount, // The account you have permission to spend from
+  mint: usdcMintAddress,
+  destination: recipientTokenAccount,
+  authority: delegateKeypair, // You (the delegate) sign, not the owner
+  amount: 100_000_000n, // 100 USDC
+  decimals: 6
+});
+```
+
+Il trasferimento avrà successo se:
+
+- L'account sorgente ha un saldo sufficiente
+- Il delegato firma la transazione
+
+Ogni trasferimento riduce l'allowance rimanente. Quando l'allowance raggiunge
+zero, il delegato non può più trasferire token.
+
+## Considerazioni sulla sicurezza
+
+**Per i proprietari degli account:**
+
+- Approva solo delegati fidati
+- Imposta il limite di spesa minimo necessario
+- Revoca le deleghe quando non sono più necessarie
+- Monitora i tuoi account per trasferimenti inaspettati
+
+**Per i fornitori di servizi (delegati):**
+
+- Comunica chiaramente il limite di spesa richiesto agli utenti
+- Implementa una corretta gestione delle chiavi per il tuo account delegato
+- Monitora il consumo dell'allowance per richiedere una nuova approvazione prima
+  che i limiti si esauriscano
+
+## Delega vs. custodia
+
+| Aspetto                | Delega                         | Custodia completa                    |
+| ---------------------- | ------------------------------ | ------------------------------------ |
+| Proprietà token        | L'utente mantiene              | L'utente trasferisce al custode      |
+| Controllo spesa        | Limitato all'importo approvato | Accesso completo ai fondi trasferiti |
+| Revoca                 | Istantanea, dal proprietario   | Richiede cooperazione del custode    |
+| Esposizione al rischio | Limitata all'importo approvato | Intero saldo                         |
+| Fiducia richiesta      | Limitata                       | Elevata                              |
+
+La delega fornisce una via di mezzo—consentendo pagamenti automatizzati
+limitando l'esposizione al rischio all'importo approvato.
+
+## Risorse correlate
+
+- [Approve Delegate](/docs/tokens/basics/approve-delegate) — Dettagli tecnici
+  sull'istruzione approve

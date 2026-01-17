@@ -1,0 +1,259 @@
+---
+title: Eksekusi tertunda
+description:
+  Tanda tangani transaksi sekarang, eksekusi nanti—memungkinkan alur kerja
+  persetujuan, operasi treasury, dan penandatanganan yang aman
+---
+
+Setiap transaksi Solana menyertakan blockhash terkini—referensi ke status
+jaringan terkini yang membuktikan transaksi dibuat "sekarang." Jaringan menolak
+transaksi apa pun dengan blockhash yang lebih lama dari ~150 blok (~60-90
+detik), mencegah serangan replay dan pengiriman yang kedaluwarsa. Ini bekerja
+sempurna untuk pembayaran real-time. Namun, ini merusak alur kerja yang
+memerlukan jeda antara penandatanganan dan pengiriman, seperti:
+
+| Skenario                         | Mengapa transaksi standar gagal                                                |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| **Operasi treasury**             | CFO di Tokyo menandatangani, Controller di NYC menyetujui—90 detik tidak cukup |
+| **Alur kerja kepatuhan**         | Transaksi memerlukan tinjauan hukum/kepatuhan sebelum eksekusi                 |
+| **Penandatanganan cold storage** | Mesin air-gapped memerlukan transfer manual transaksi yang ditandatangani      |
+| **Persiapan batch**              | Siapkan payroll atau pencairan selama jam kerja, eksekusi di malam hari        |
+| **Koordinasi multi-sig**         | Beberapa approver di zona waktu berbeda                                        |
+| **Pembayaran terjadwal**         | Jadwalkan pembayaran untuk dieksekusi di tanggal mendatang                     |
+
+Dalam keuangan tradisional, cek yang ditandatangani tidak kedaluwarsa dalam 90
+detik. Operasi blockchain tertentu juga seharusnya tidak demikian. **Durable
+nonces** mengatasi ini dengan mengganti blockhash terkini dengan nilai tersimpan
+yang persisten yang hanya berubah saat Anda menggunakannya—memberi Anda
+transaksi yang tetap valid hingga Anda siap mengirimkannya.
+
+## Cara kerjanya
+
+Alih-alih blockhash terkini (valid ~150 blok), Anda menggunakan **akun nonce**,
+akun khusus yang menyimpan nilai _unik_. Setiap transaksi yang menggunakan nonce
+ini harus "memajukan" nonce tersebut sebagai instruksi pertama, mencegah
+serangan replay.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  Akun nonce memerlukan ~0,0015 SOL untuk pembebasan rent. Satu akun nonce =
+  satu transaksi tertunda pada satu waktu. Untuk alur kerja paralel, buat
+  beberapa akun nonce.
+</Callout>
+
+## Pengaturan: membuat akun nonce
+
+Membuat akun nonce memerlukan dua instruksi dalam satu transaksi:
+
+1. **Buat akun** menggunakan `getCreateAccountInstruction` dari System Program
+2. **Inisialisasi sebagai nonce** menggunakan
+   `getInitializeNonceAccountInstruction`
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## Membangun transaksi tertunda
+
+Dua perbedaan utama dari transaksi standar:
+
+1. Gunakan nilai nonce sebagai blockhash
+2. Tambahkan `advanceNonceAccount` sebagai instruksi **pertama**
+
+### Mengambil nilai nonce
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### Mengatur masa berlaku transaksi dengan nonce
+
+Alih-alih menggunakan blockhash terbaru yang kedaluwarsa, gunakan nilai nonce:
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### Memajukan nonce (instruksi pertama yang diperlukan)
+
+Setiap transaksi durable nonce **harus** menyertakan `advanceNonceAccount`
+sebagai instruksi pertamanya. Ini mencegah serangan replay dengan membatalkan
+nilai nonce setelah digunakan dan memperbarui nilai nonce.
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## Menandatangani dan menyimpan
+
+Setelah membangun, tandatangani transaksi dan serialisasi untuk penyimpanan:
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Simpan string yang diserialisasi di database Anda—tetap valid hingga nonce
+dimajukan.
+
+## Alur kerja persetujuan multi-pihak
+
+Deserialisasi transaksi untuk menambahkan tanda tangan tambahan, lalu
+serialisasi lagi untuk penyimpanan atau pengiriman:
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Transaksi dapat diserialisasi, disimpan, dan diteruskan antar pemberi
+persetujuan. Setelah semua tanda tangan yang diperlukan terkumpul, kirimkan ke
+jaringan.
+
+## Eksekusi saat siap
+
+Ketika persetujuan selesai, kirim transaksi yang telah diserialisasi ke
+jaringan:
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  Setiap nonce hanya dapat digunakan sekali. Jika transaksi gagal atau Anda
+  memutuskan untuk tidak mengirimkannya, Anda harus memajukan nonce sebelum
+  menyiapkan transaksi lain dengan akun nonce yang sama.
+</Callout>
+
+## Memajukan nonce yang sudah digunakan atau ditinggalkan
+
+Untuk membatalkan transaksi yang tertunda atau menyiapkan nonce untuk digunakan
+kembali, majukan secara manual:
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+Ini menghasilkan nilai nonce baru, membuat transaksi apa pun yang ditandatangani
+dengan nilai lama menjadi tidak valid secara permanen.
+
+## Pertimbangan produksi
+
+**Manajemen akun nonce:**
+
+- Buat kumpulan akun nonce untuk persiapan transaksi paralel
+- Lacak nonce mana yang "sedang digunakan" (memiliki transaksi tertanda tangan
+  yang tertunda)
+- Implementasikan daur ulang nonce setelah transaksi dikirim atau ditinggalkan
+
+**Keamanan:**
+
+- Otoritas nonce mengontrol apakah transaksi dapat dibatalkan. Pertimbangkan
+  untuk memisahkan otoritas nonce dari penandatangan transaksi untuk kontrol
+  tambahan dan pemisahan tugas
+- _Siapa pun_ dengan byte transaksi yang telah diserialisasi dapat
+  mengirimkannya ke jaringan
+
+## Sumber daya terkait
+
+- [Pengantar Durable Nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

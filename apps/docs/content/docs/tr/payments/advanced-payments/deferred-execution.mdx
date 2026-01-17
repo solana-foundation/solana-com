@@ -1,0 +1,257 @@
+---
+title: Ertelenmiş yürütme
+description:
+  İşlemleri şimdi imzalayın, daha sonra yürütün—onay iş akışlarını, hazine
+  operasyonlarını ve güvenli imzalamayı mümkün kılar
+---
+
+Her Solana işlemi yakın zamanlı bir blok hash'i içerir—işlemin "şimdi"
+oluşturulduğunu kanıtlayan yakın zamanlı bir ağ durumuna referans. Ağ, ~150
+bloktan (~60-90 saniye) daha eski blok hash'ine sahip herhangi bir işlemi
+reddeder, böylece tekrar saldırılarını ve eski gönderimleri önler. Bu, gerçek
+zamanlı ödemeler için mükemmel çalışır. Ancak imzalama ve gönderim arasında
+boşluk gerektiren iş akışlarını bozar, örneğin:
+
+| Senaryo                      | Standart işlemler neden başarısız olur                                          |
+| ---------------------------- | ------------------------------------------------------------------------------- |
+| **Hazine operasyonları**     | Tokyo'daki CFO imzalar, New York'taki kontrolör onaylar—90 saniye yeterli değil |
+| **Uyumluluk iş akışları**    | İşlemlerin yürütülmeden önce yasal/uyumluluk incelemesi gerekir                 |
+| **Soğuk depolama imzalama**  | Hava boşluklu makineler, imzalı işlemlerin manuel transferini gerektirir        |
+| **Toplu hazırlık**           | Bordro veya ödemeleri mesai saatlerinde hazırlayın, gece yürütün                |
+| **Çoklu imza koordinasyonu** | Farklı zaman dilimlerindeki birden fazla onaylayıcı                             |
+| **Planlanmış ödemeler**      | Ödemeleri gelecekteki bir tarihte yürütülmek üzere planlayın                    |
+
+Geleneksel finansta, imzalanmış bir çek 90 saniyede geçerliliğini yitirmez.
+Belirli blokzincir operasyonları da yitirmemeli. **Dayanıklı nonce'lar** bunu,
+yakın zamanlı blok hash'ini yalnızca kullandığınızda ilerleyen, depolanmış,
+kalıcı bir değerle değiştirerek çözer—size göndermek için hazır olana kadar
+geçerli kalan işlemler sunar.
+
+## Nasıl çalışır
+
+Yakın zamanlı bir blok hash'i (~150 blok geçerli) yerine, benzersiz bir değer
+depolayan özel bir hesap olan **nonce hesabı** kullanırsınız. Bu nonce'u
+kullanan her işlem, tekrar saldırılarını önlemek için ilk talimat olarak onu
+"ilerletmelidir".
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  Nonce hesabı, rent muafiyeti için yaklaşık 0,0015 SOL maliyete sahiptir. Bir
+  nonce hesabı = aynı anda bir bekleyen işlem. Paralel iş akışları için birden
+  fazla nonce hesabı oluşturun.
+</Callout>
+
+## Kurulum: nonce hesabı oluşturma
+
+Bir nonce hesabı oluşturmak, tek bir işlemde iki talimat gerektirir:
+
+1. **Hesabı oluşturun** - System Program'dan `getCreateAccountInstruction`
+   kullanarak
+2. **Nonce olarak başlatın** - `getInitializeNonceAccountInstruction` kullanarak
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## Ertelenmiş işlem oluşturma
+
+Standart işlemlerden iki temel fark:
+
+1. Blockhash olarak nonce değerini kullanın
+2. `advanceNonceAccount` talimatını **ilk** talimat olarak ekleyin
+
+### Nonce değerini getirme
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### İşlem ömrünü nonce ile ayarlama
+
+Süresi dolan güncel bir blockhash kullanmak yerine, nonce değerini kullanın:
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### Nonce'u ilerletme (gerekli ilk talimat)
+
+Her dayanıklı nonce işlemi, ilk talimat olarak `advanceNonceAccount`
+**içermelidir**. Bu, kullanımdan sonra nonce değerini geçersiz kılarak ve nonce
+değerini güncelleyerek tekrar saldırılarını önler.
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## İmzalama ve depolama
+
+Oluşturduktan sonra, işlemi imzalayın ve depolama için serileştirin:
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Serileştirilmiş dizeyi veritabanınızda saklayın—nonce ilerletilene kadar geçerli
+kalır.
+
+## Çok taraflı onay iş akışı
+
+Ek imzalar eklemek için işlemi deserialize edin, ardından depolama veya gönderim
+için tekrar serileştirin:
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+İşlem serileştirilebilir, depolanabilir ve onaylayanlar arasında aktarılabilir.
+Gerekli tüm imzalar toplandığında, ağa gönderin.
+
+## Hazır olduğunda çalıştır
+
+Onaylar tamamlandığında, serileştirilmiş işlemi ağa gönderin:
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  Her nonce yalnızca bir kez kullanılabilir. Bir işlem başarısız olursa veya
+  göndermemeye karar verirseniz, aynı nonce hesabıyla başka bir işlem
+  hazırlamadan önce nonce'u ilerletmelisiniz.
+</Callout>
+
+## Kullanılmış veya terk edilmiş bir nonce'u ilerletme
+
+Bekleyen bir işlemi geçersiz kılmak veya nonce'u yeniden kullanıma hazırlamak
+için manuel olarak ilerletin:
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+Bu, yeni bir nonce değeri oluşturur ve eski değerle imzalanmış herhangi bir
+işlemi kalıcı olarak geçersiz kılar.
+
+## Üretim ortamı için dikkat edilmesi gerekenler
+
+**Nonce hesap yönetimi:**
+
+- Paralel işlem hazırlığı için bir nonce hesap havuzu oluşturun
+- Hangi nonce'ların "kullanımda" olduğunu takip edin (bekleyen imzalı işlemleri
+  olan)
+- İşlemler gönderildikten veya terk edildikten sonra nonce geri dönüşümü
+  uygulayın
+
+**Güvenlik:**
+
+- Nonce yetkisi, işlemlerin geçersiz kılınıp kılınamayacağını kontrol eder. Ek
+  kontrol ve görev ayrımı için nonce yetkisini işlem imzalayanlardan ayırmayı
+  düşünün
+- Serileştirilmiş işlem byte'larına sahip olan _herkes_ bunu ağa gönderebilir
+
+## İlgili kaynaklar
+
+- [Durable nonce'lara giriş](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

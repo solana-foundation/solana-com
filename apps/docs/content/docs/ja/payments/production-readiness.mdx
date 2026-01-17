@@ -1,0 +1,434 @@
+---
+title: 本番環境への準備
+description: devnetテストからmainnetデプロイメントへの移行
+---
+
+ローカルでの構築とdevnetでのテストは、Solana決済を始めるための優れた方法です。しかし、Mainnetへのデプロイの準備が整ったら、mainnetの特性を理解する必要があります。Devnetはミスを許容しますが、Mainnetは許容しません。このガイドでは、ユーザーがスムーズな体験を得られるようにするために重要な違いについて説明します。
+
+| Devnet                         | Mainnet                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------- |
+| フォーセットから無料のSOL      | 手数料のために[実際のSOLを取得](https://solana.com/ecosystem/explore?categories=exchange) |
+| ブロックスペースの競争が少ない | 優先手数料が重要                                                                          |
+| トランザクションが容易に成立   | トランザクション設定が重要                                                                |
+| パブリックRPCで十分            | 本番環境用RPCが必要                                                                       |
+| Devnetのキーペアとミント       | 異なるキーとトークンミント—設定を更新してください                                         |
+
+## RPCインフラストラクチャ
+
+[パブリックエンドポイント](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet-beta.solana.com`)はレート制限があり、SLAもありません。開発には問題ありませんが、本番環境の決済フローでは失敗します。これは、稼働時間保証のない共有APIを通じて決済プロセッサを実行しようとするようなものです。
+
+<Callout type="caution" title="本番環境ではパブリックRPCを使用しないでください">
+  信頼性が高く、低レイテンシのアクセスのために[プライベートRPCプロバイダー](https://solana.com/rpc)を使用してください。
+</Callout>
+
+RPCプロバイダーを選択する際は、以下を確認してください:
+
+- **信頼性**: 稼働時間保証付きのSLA(99.9%以上)
+- **レイテンシ**: ユーザーとの地理的な近接性
+- **機能**: トランザクション着地機能、インデックス作成、優先手数料API
+
+RPCプロバイダーの完全なリストについては、
+[RPCインフラストラクチャプロバイダー](https://solana.com/rpc)ガイドを参照してください。
+
+### 冗長RPC設定
+
+他のネットワークサービスプロバイダーと同様に、RPCプロバイダーもダウンタイムやパフォーマンス低下の期間を経験する可能性があります。アプリケーションの回復力を確保するために、複数のRPCプロバイダーを使用するようにアプリケーションを設定する必要があります。
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)は、RPCトランスポートをカスタマイズするためのライブラリを提供しており、独自の冗長RPCクライアントを構築できます。以下は、冗長RPCクライアントを構築する際の使用例です:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+独自のルーティングツールを構築したくない場合は、[Iron Forge](https://www.ironforge.sanctum.so/)のようなサードパーティサービスを活用して、ルーティングを処理させることができます。
+
+## トランザクションの着地
+
+Devnetでは、トランザクションは比較的容易に着地します。Mainnetでは、ブロックスペースを競い合うことになります。トランザクションがブロックに含まれる可能性を高めるには、トランザクションを適切に組み立てる必要があります。つまり:
+
+- トランザクション送信前に新しいブロックハッシュを含める
+- 競争力のある優先手数料を設定した優先手数料インストラクションをトランザクションに含める
+- トランザクションに必要な推定コンピュートユニットに基づいたコンピュートユニット制限インストラクションをトランザクションに含める
+
+さらに、Jito
+Bundlesのような他のツールを検討して、トランザクションがブロックに含まれる可能性を高めることをお勧めします。これらのツールについて詳しく見ていきましょう。
+
+### トランザクション送信設定
+
+Mainnetでトランザクションを送信する際は、最適な着地率を得るために以下のパラメータを設定してください:
+
+**ブロックハッシュ管理:**
+
+- `confirmed`コミットメントで取得
+- `getLatestBlockhash`から返される`lastValidBlockHeight`を保存—これによりトランザクションの有効期限がわかります
+- ブロックハッシュは約150ブロック(約60〜90秒)後に期限切れになります
+
+**送信オプション:**
+
+- `maxRetries: 0`
+  — 自動RPCリトライを無効化します。必要に応じてブロックハッシュを更新できるよう、リトライは自分で処理してください。
+- `skipPreflight: true`
+  — 送信前のシミュレーションをバイパスします。トランザクションを既に検証済みで、最低レイテンシが必要な場合に使用します。開発中はエラーを早期に検出するため`false`のままにしてください。
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### 優先手数料を使用する
+
+すべてのSolanaトランザクションには、SOLで支払われるトランザクション手数料が必要です。トランザクション手数料は、基本手数料と優先手数料の2つの部分に分かれています。基本手数料は、トランザクションを処理するバリデーターへの報酬です。優先手数料は任意の手数料で、現在のリーダーがトランザクションを処理する可能性を高めるためのものです。速達配送のようなものと考えてください。より速く、より確実な配送のために追加料金を支払うのです。
+
+**手数料の仕組み:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**実際のコスト:**
+
+- シンプルなUSDC送金: 通常時は約$0.001-0.005
+- 混雑時: 約$0.01-0.05
+- ピーク時の混雑: さらに高騰する可能性あり
+
+**実装例:**
+
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)パッケージは、トランザクションに対してコンピュートユニット価格(マイクロlamports単位)の命令を簡単に更新または追加するためのヘルパー関数を提供します。
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**手数料見積もりの取得:**
+ほとんどのRPCプロバイダーは優先手数料APIを提供しています:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+手数料の仕組みの詳細については、[トランザクション手数料](/docs/core/fees)および次のガイドを参照してください:
+[トランザクションに優先手数料を追加する方法](https://solana.com/developers/cookbook/transactions/add-priority-fees)。
+
+### コンピュートユニットを最適化する
+
+Solanaにおけるコンピュートは、プログラムが実行する作業量の実質的な尺度です。トランザクションで使用できるコンピュート量には制限があり(現在140万コンピュートユニット)、ブロックごとにアカウントあたりで使用できるコンピュート量にも制限があります(現在1億コンピュートユニット)。
+
+トランザクションを送信する際には、使用されるコンピュート量を見積もり、それに応じてコンピュートユニット制限を設定する必要があります。これは実質的に、トランザクションのために確保すべき総容量の量に対するリクエストです。実際には、トランザクションに必要なコンピュートユニットを適切に見積もることが、トランザクションをブロックに含めるために重要であり(また、優先手数料を管理する上でも重要です)。
+
+Solana JSON RPC
+APIには、トランザクションに必要なコンピュートユニットを推定するために使用できる[`simulatetransaction`](/docs/rpc/http/simulatetransaction)メソッドがあります。これには、使用されるコンピュートユニットの推定値が含まれます。[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)パッケージは、トランザクションに必要なコンピュートユニットを簡単に推定するためのヘルパー関数を提供します（内部的に`simulatetransaction`メソッドを使用します）。
+
+```ts
+import {
+  estimateComputeUnitLimitFactory,
+  updateOrAppendSetComputeUnitLimitInstruction
+} from "@solana-program/compute-budget";
+
+const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
+const computeUnitLimit = await estimateComputeUnitLimit(tx);
+const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
+  computeUnitLimit,
+  tx
+);
+```
+
+本番環境では、同じタイプのトランザクションを複数回繰り返す場合、毎回コンピュートユニットを推定するオーバーヘッドを避けるために、トランザクションタイプのコンピュート推定値をキャッシュすることを検討してください。
+
+### Jitoバンドル
+
+Jitoバンドルは、複数のトランザクションのアトミックな実行を管理するためのツールです。これは、チップと共に複数のトランザクションをJitoネットワークに送信することで実現されます。チップは、Jitoネットワークがあなたのトランザクションをブロックに含めるよう促すために使用できます。
+
+**リソース:**
+
+- [Jitoドキュメント](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 動画: Jitoバンドル](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [JitoバンドルについてのQuickNodeガイド](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### リトライ戦略
+
+トランザクションは様々な理由で失敗する可能性があります。成功/失敗を即座に返す従来の決済APIとは異なり、ブロックチェーントランザクションには確認の追跡が必要です。
+
+**主要な概念:**
+
+- **ブロックハッシュの有効期限**: トランザクションは約150ブロック（約60〜90秒）有効です
+- **冪等性**: 同じ署名済みトランザクションは常に同じシグネチャを生成します—再送信は安全です
+- **指数バックオフ**: 急速なリトライでネットワークを圧迫しないようにします
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`@solana/kit`の`sendAndConfirmTransactionFactory`は、確認のポーリングとブロック高の追跡を自動的に処理します。トランザクションのブロックハッシュが期限切れになると`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED`をスローし、新しいブロックハッシュでトランザクションを再構築する必要があることを通知します。
+
+### 追加リソース
+
+- [ガイド: トランザクションの確認と有効期限](https://solana.com/developers/guides/advanced/confirmation)
+- [Helius: Solanaでトランザクションを成功させる方法](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Solanaトランザクションを最適化する戦略](https://www.quicknode.com/docs/solana/transactions)
+
+## 確認レベルの理解
+
+Solanaは3つの確認レベルを提供しています。従来の金融用語で表すと:
+
+| レベル      | Solanaの定義         | 従来の金融における相当 | 使用例                     |
+| ----------- | -------------------- | ---------------------- | -------------------------- |
+| `processed` | ブロック内、未投票   | 承認待ち               | リアルタイムUI更新         |
+| `confirmed` | 過半数が投票済み     | 資金決済済み           | **ほとんどの支払い**       |
+| `finalized` | ルート化済み、不可逆 | 資金確定済み           | 高額取引、コンプライアンス |
+
+**各レベルの使用タイミング:**
+
+- **UI更新**: 即座のフィードバックには`processed`を表示(「支払いを送信しました」)
+- **ユーザーアカウントへの入金**:
+  `confirmed`を待機(ほとんどのトランザクションで安全)
+- **物理的な商品の発送**: `finalized`を待機
+- **大口出金**: `finalized`を待機
+- **コンプライアンス/監査**: 常に`finalized`ステータスを記録
+
+トランザクションステータスの確認の詳細については、[Solanaとのやり取り](/docs/payments/interacting-with-solana)を参照してください。
+
+## エラー処理
+
+Solana
+Kitは`isSolanaError()`を介して型付きエラーを提供します。文字列マッチングではなく、特定のエラーコードを使用してください:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**一般的なエラーコード:**
+
+| エラーコード                 | 原因                           | 対処方法                                                                                                              |
+| ---------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | ブロックハッシュの有効期限切れ | 新しいブロックハッシュで再構築                                                                                        |
+| `BLOCKHASH_NOT_FOUND`        | ブロックハッシュが見つからない | 新しいブロックハッシュで再構築                                                                                        |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOLが不足                      | 手数料支払者に資金を供給するか、[手数料抽象化](/docs/payments/send-payments/payment-processing/fee-abstraction)を使用 |
+| `INSUFFICIENT_FUNDS`         | トークンが不足                 | ユーザーは残高を増やす必要があります                                                                                  |
+| `ACCOUNT_NOT_FOUND`          | token accountが存在しない      | トランザクション内でATAを作成                                                                                         |
+
+## ガスレストランザクション
+
+ユーザーはステーブルコインでの支払いを期待しており、ネットワーク手数料のためにSOLを取得することは望んでいません。ガスレストランザクションはこの問題を解決します。これはVenmoのユーザーがACH手数料について考えないのと同様です。完全な実装については、[手数料の抽象化](/docs/payments/send-payments/payment-processing/fee-abstraction)を参照してください。
+
+## セキュリティ
+
+### 鍵管理
+
+- **フロントエンドコードで秘密鍵を公開しないでください。**バックエンド署名、ハードウェアウォレット、マルチシグネチャウォレット、または鍵管理サービスを使用してください。
+- **ホットウォレットとコールドウォレットを分離してください。**運用にはホットウォレット、資産管理にはコールドウォレットを使用します。
+- **すべての本番環境の鍵をバックアップしてください。**暗号化されたバックアップを複数の安全な場所に保管してください。鍵を紛失すると、永久にアクセスできなくなります。
+- **devnetとmainnetで異なる鍵を使用してください。**devnetの鍵をmainnetの鍵として使用しないでください。環境ベースの設定を使用して、各ネットワークに適切な鍵が読み込まれるようにしてください。
+
+### RPCセキュリティ
+
+RPCエンドポイントはAPIキーと同様に扱ってください。抽出や悪用が可能なフロントエンドコードで公開しないでください。バックエンドプロキシまたはクライアントコードにバンドルされない環境変数を使用してください。
+
+- [QuickNode: エンドポイントセキュリティのベストプラクティス](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius: Solana APIキーの保護: セキュリティのベストプラクティス](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### モニタリング
+
+本番環境では以下の指標を追跡してください:
+
+| 指標                   | 理由                   |
+| ---------------------- | ---------------------- |
+| トランザクション成功率 | 問題の早期検出         |
+| 確認レイテンシ         | ネットワーク状態の監視 |
+| 優先手数料支出         | コスト管理             |
+| RPCエラー率            | プロバイダーの状態     |
+
+以下についてアラートを設定してください:
+
+- 資産管理からの閾値を超える送金
+- トランザクション失敗率の急増
+- 異常な受信者パターン
+- RPCエラー率の増加
+
+大規模なリアルタイムトランザクション監視については、[インデックスガイド](/docs/payments/accept-payments/indexing)を参照してください。
+
+### アドレスの検証
+
+すべてのトークンとプログラムは、メインネット上に正確に1つのアドレスを持ちます。USDCや他のステーブルコインを模倣した偽装トークンは一般的です。これらは同じ名前とシンボルを持ちますが、異なるミントアドレスを持ちます。アプリケーションは、ミントアドレスをハードコードまたは許可リストに登録する必要があります(要件に基づいて)。信頼できないソースから動的に受け入れてはいけません。
+
+**環境ベースの設定:**
+DevnetとMainnetは、多くの場合、完全に異なるトークンミントを使用します。環境ごとに正しいアドレスを読み込むようにアプリケーション設定を構成してください。メインネットアドレスをハードコードしてテスト中に交換し忘れたり、さらに悪いことに、devnetアドレスを本番環境に出荷したりしないでください。
+
+一般的なステーブルコインのミントは次のとおりです:
+
+| トークン | 発行者 | ミントアドレス                                 |
+| -------- | ------ | ---------------------------------------------- |
+| USDC     | Circle | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT     | Tether | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD    | PayPal | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG     | Paxos  | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+プログラムアドレスも重要です。間違ったプログラムにinstructionsを送信すると、失敗するか、さらに悪いことに、資金の不可逆的な損失につながります。Token
+Programのアドレスは次のとおりです:
+
+| プログラム         | アドレス                                      |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+## ローンチ前チェックリスト
+
+- [ ] 手数料とrentのためのメインネットSOLを取得済み
+- [ ] 本番環境RPCを設定済み(公開エンドポイントではない)
+- [ ] フォールバックRPCエンドポイントを設定済み
+- [ ] 動的価格設定による優先手数料を実装済み
+- [ ] リトライロジックがブロックハッシュの有効期限切れに対応済み
+- [ ] ユースケースに適した確認レベルを設定済み
+- [ ] すべての一般的なエラーを適切に処理済み
+- [ ] ガスレスを設定済み(該当する場合)
+- [ ] メインネットトークンアドレスを検証済み(devnetミントではない)
+- [ ] すべてのキーを安全にバックアップ済み
+- [ ] キー管理をレビュー済み(フロントエンドにキーがない)
+- [ ] トランザクション監視とアラートが有効
+- [ ] 想定されるボリュームで負荷テスト済み
+
+## プログラムのデプロイ
+
+決済インフラストラクチャの一部としてカスタムSolanaプログラムをデプロイする場合、追加の考慮事項があります。
+
+### デプロイ前の準備
+
+- **Solana CLIのバージョン:**
+  最新バージョンの[Solana CLI](https://solana.com/docs/intro/installation)を使用していることを確認してください。
+- **プログラムのkeypair:**
+  プログラムはdevnetとmainnetで異なるアドレスを持ちます(同じkeypairを再利用している場合を除く)。アプリケーション設定内のすべての参照を更新してください。プログラムのkeypairは安全な場所に保管してください(`cargo clean`を実行すると、プログラムのkeypairが削除される可能性があることに注意してください)。
+- **アカウントの初期化:**
+  プログラムが管理者アカウント、PDA、またはその他の状態アカウントを必要とする場合、ユーザーがアプリケーションと対話する前に、これらがmainnet上に作成されていることを確認してください。プログラムが必要とする関連トークンアカウント(ATA)についても同様です。
+
+### デプロイプロセス
+
+- **バッファアカウント:**
+  大規模なプログラムはバッファアカウント経由でデプロイされます。`solana program deploy`コマンドはこれを自動的に処理しますが、デプロイはアトミックではないことを理解してください。中断された場合、バッファアカウントの復旧またはクローズが必要になる場合があります。[プログラムのデプロイ](https://solana.com/docs/programs/deploying)を参照してください。
+- **アップグレード権限:**
+  ローンチ後にプログラムをアップグレード可能にするかどうかを決定してください。不変性を確保する場合は、デプロイ後にアップグレード権限を取り消してください。柔軟性を保つ場合は、アップグレード権限キーを適切に保護してください。
+- **レント:**
+  デプロイウォレットに、すべてのプログラムアカウントのレント免除最小額をカバーするのに十分なSOLがあることを確認してください。
+- **検証:**
+  プログラムを[検証](https://solana.com/docs/programs/verified-builds)して、Solanaネットワークにデプロイする実行可能プログラムがリポジトリ内のソースコードと一致することを確認してください。
+
+プログラムのデプロイに関する完全なガイダンスについては、[プログラムのデプロイ](https://solana.com/docs/programs/deploying)を参照してください。

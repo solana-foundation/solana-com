@@ -1,0 +1,196 @@
+---
+title: Solana Pay
+description: Buat URL pembayaran, kode QR, dan transaksi
+draft: true
+---
+
+<Callout type="caution">
+  Commerce Kit saat ini dalam versi beta. API mungkin berubah sebelum rilis
+  stabil. Untuk detail tambahan, lihat [dokumentasi Commerce
+  Kit](https://launch.solana.com/docs/commerce-kit).
+</Callout>
+
+[Solana Pay](https://solanapay.com) adalah protokol standar untuk mengenkode
+permintaan pembayaran sebagai URL. URL ini dapat dibagikan sebagai tautan,
+dienkode sebagai kode QR untuk dompet mobile, atau digunakan untuk membangun
+transaksi pembayaran secara programatis.
+
+Paket `@solana-commerce/solana-pay` menyediakan enkode/parsing URL, pembuatan
+kode QR, dan pembangunan transaksi—kompatibel dengan
+[@solana/kit](https://github.com/anza-xyz/kit).
+
+## Instalasi
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## Membuat URL pembayaran
+
+Gunakan `encodeURL` untuk membuat URL protokol `solana:` yang dapat diparse oleh
+dompet:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL in lamports
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchant...?amount=0.1&label=Coffee%20Shop&message=...
+```
+
+### Parameter URL
+
+| Parameter   | Tipe        | Deskripsi                                   |
+| ----------- | ----------- | ------------------------------------------- |
+| `recipient` | `Address`   | Alamat dompet merchant (wajib)              |
+| `amount`    | `bigint`    | Jumlah dalam lamport atau unit minor token  |
+| `splToken`  | `Address`   | Alamat mint token SPL (abaikan untuk SOL)   |
+| `reference` | `Address[]` | Referensi unik untuk melacak pembayaran     |
+| `label`     | `string`    | Nama merchant yang ditampilkan di dompet    |
+| `message`   | `string`    | Pesan yang ditampilkan sebelum pembayaran   |
+| `memo`      | `string`    | Memo on-chain yang dilampirkan ke transaksi |
+
+### Pembayaran token SPL
+
+Untuk pembayaran stablecoin, tentukan mint token:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: USDC_MINT,
+  label: "My Store"
+});
+```
+
+### Pelacakan pembayaran dengan referensi
+
+Buat referensi unik untuk mengidentifikasi pembayaran tertentu:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`
+});
+
+// Query the blockchain later for transactions containing this reference
+```
+
+## Membuat kode QR
+
+Gunakan `createQR` untuk membuat kode QR yang dapat dipindai untuk dompet
+seluler:
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "@solana/kit";
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 100000000n,
+  label: "Coffee Shop"
+});
+
+const qrCode = await createQR(
+  url.toString(),
+  400, // size in pixels
+  "white", // background
+  "black" // foreground
+);
+
+// Use as image source
+document.getElementById("qr").src = qrCode;
+```
+
+### Kode QR dengan gaya
+
+Untuk kode QR bermerek dengan logo dan gaya khusus:
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+
+const qr = await createStyledQRCode(url.toString(), {
+  width: 600,
+  margin: 3,
+  color: {
+    dark: "#9945FF", // Solana purple
+    light: "#FFFFFF"
+  },
+  errorCorrectionLevel: "H",
+  dotStyle: "dots",
+  cornerStyle: "extra-rounded",
+  logo: "/your-logo.png",
+  logoSize: 120
+});
+```
+
+## Membangun transaksi
+
+Gunakan `createTransfer` untuk membangun transaksi lengkap untuk ditandatangani:
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 100000000n, // 0.1 SOL
+    memo: "Coffee purchase"
+  }
+);
+```
+
+Untuk token SPL, sertakan alamat mint:
+
+```typescript
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 25000000n, // 25 USDC
+    splToken: USDC_MINT,
+    reference: [orderReference],
+    memo: "Order #12345"
+  }
+);
+```
+
+## Mengurai URL
+
+Validasi dan ekstrak data dari URL Solana Pay:
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL("solana:merchant...?amount=1.5&label=Store");
+
+  console.log(parsed.recipient); // Address
+  console.log(parsed.amount); // 1500000000n (lamports)
+  console.log(parsed.label); // "Store"
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid URL:", error.message);
+  }
+}
+```

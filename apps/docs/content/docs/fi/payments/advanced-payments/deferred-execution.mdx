@@ -1,0 +1,258 @@
+---
+title: Lykätty suoritus
+description:
+  Allekirjoita transaktiot nyt, suorita myöhemmin – mahdollistaa
+  hyväksyntätyönkulut, treasury-toiminnot ja turvallisen allekirjoituksen
+---
+
+Jokainen Solana-transaktio sisältää viimeaikaisen lohkohashin – viittauksen
+viimeaikaiseen verkon tilaan, joka todistaa transaktion luodun "nyt". Verkko
+hylkää kaikki transaktiot, joiden lohkohash on vanhempi kuin ~150 lohkoa (~60–90
+sekuntia), estäen uudelleentoistohyökkäykset ja vanhentuneet lähetykset. Tämä
+toimii täydellisesti reaaliaikaisissa maksuissa. Mutta se rikkoo työnkulut,
+jotka tarvitsevat väliä allekirjoituksen ja lähetyksen välillä, kuten:
+
+| Skenaario                       | Miksi tavalliset transaktiot epäonnistuvat                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Treasury-toiminnot**          | Talousjohtaja Tokiossa allekirjoittaa, controller New Yorkissa hyväksyy – 90 sekuntia ei riitä |
+| **Compliance-työnkulut**        | Transaktiot vaativat juridisen/compliance-tarkastuksen ennen suoritusta                        |
+| **Cold storage -allekirjoitus** | Ilmaväliset koneet vaativat allekirjoitettujen transaktioiden manuaalisen siirron              |
+| **Eräkäsittelyn valmistelu**    | Valmistele palkanlaskenta tai maksut työaikana, suorita yöllä                                  |
+| **Multi-sig-koordinointi**      | Useita hyväksyjiä eri aikavyöhykkeillä                                                         |
+| **Ajoitetut maksut**            | Ajoita maksut suoritettavaksi tulevana päivänä                                                 |
+
+Perinteisessä rahoituksessa allekirjoitettu shekki ei vanhene 90 sekunnissa.
+Tiettyjen lohkoketjuoperaatioiden ei pitäisi sekään. **Kestävät noncet**
+ratkaisevat tämän korvaamalla viimeaikaisen lohkohashin tallennetulla, pysyvällä
+arvolla, joka etenee vain kun käytät sitä – antaen sinulle transaktioita, jotka
+pysyvät voimassa kunnes olet valmis lähettämään ne.
+
+## Miten se toimii
+
+Viimeaikaisen lohkohashin (voimassa ~150 lohkoa) sijaan käytät **nonce-tiliä**,
+erityistä tiliä, joka tallentaa _yksilöllisen_ arvon. Jokaisen tätä noncea
+käyttävän transaktion on "edistettävä" sitä ensimmäisenä käskynä, estäen
+uudelleentoistohyökkäykset.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  Nonce-tili maksaa ~0,0015 SOL vuokravapautuksesta. Yksi nonce-tili = yksi
+  odottava transaktio kerrallaan. Rinnakkaisiin työnkulkuihin luo useita
+  nonce-tilejä.
+</Callout>
+
+## Asennus: luo nonce-tili
+
+Nonce-tilin luominen vaatii kaksi käskyä yhdessä transaktiossa:
+
+1. **Luo tili** käyttäen `getCreateAccountInstruction` System Programista
+2. **Alusta se nonceksi** käyttäen `getInitializeNonceAccountInstruction`
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## Lykätyn transaktion rakentaminen
+
+Kaksi keskeistä eroa tavallisiin transaktioihin:
+
+1. Käytä nonce-arvoa blockhashina
+2. Lisää `advanceNonceAccount` **ensimmäisenä** käskynä
+
+### Hae nonce-arvo
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### Aseta transaktion elinikä noncella
+
+Sen sijaan, että käyttäisit viimeaikaista blockhashia, joka vanhenee, käytä
+nonce-arvoa:
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### Siirrä noncea eteenpäin (pakollinen ensimmäinen käsky)
+
+Jokaisen kestävän nonce-transaktion **täytyy** sisältää `advanceNonceAccount`
+ensimmäisenä käskynään. Tämä estää toistohyökkäykset mitätöimällä nonce-arvon
+käytön jälkeen ja päivittämällä nonce-arvon.
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## Allekirjoita ja tallenna
+
+Rakentamisen jälkeen allekirjoita transaktio ja serialisoi se tallennusta
+varten:
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Tallenna serialisoitu merkkijono tietokantaasi – se pysyy voimassa, kunnes nonce
+siirretään eteenpäin.
+
+## Moniosapuolinen hyväksyntätyönkulku
+
+Deserialisoi transaktio lisätäksesi lisää allekirjoituksia, serialisoi sitten
+uudelleen tallennusta tai lähetystä varten:
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Transaktio voidaan serialisoida, tallentaa ja välittää hyväksyjien välillä. Kun
+kaikki vaaditut allekirjoitukset on kerätty, lähetä verkkoon.
+
+## Suorita kun valmis
+
+Kun hyväksynnät on saatu, lähetä sarjallistettu transaktio verkkoon:
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  Jokaista noncea voidaan käyttää vain kerran. Jos transaktio epäonnistuu tai
+  päätät olla lähettämättä sitä, sinun on edistettävä noncea ennen toisen
+  transaktion valmistelua samalla nonce-tilillä.
+</Callout>
+
+## Käytetyn tai hylätyn noncen edistäminen
+
+Mitätöidäksesi odottavan transaktion tai valmistellaksesi noncen
+uudelleenkäyttöä varten, edistä sitä manuaalisesti:
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+Tämä luo uuden nonce-arvon, mikä tekee kaikista vanhalla arvolla
+allekirjoitetuista transaktioista pysyvästi virheellisiä.
+
+## Tuotantoympäristön huomioitavaa
+
+**Nonce-tilien hallinta:**
+
+- Luo joukko nonce-tilejä rinnakkaista transaktioiden valmistelua varten
+- Seuraa, mitkä noncet ovat "käytössä" (niillä on odottavia allekirjoitettuja
+  transaktioita)
+- Toteuta noncen kierrätys sen jälkeen, kun transaktiot on lähetetty tai hylätty
+
+**Turvallisuus:**
+
+- Nonce-valtuutus hallitsee sitä, voidaanko transaktiot mitätöidä. Harkitse
+  nonce-valtuutuksen erottamista transaktion allekirjoittajista lisävalvontaa ja
+  tehtävien erottelua varten
+- _Kuka tahansa_, jolla on sarjallistetut transaktiotavut, voi lähettää sen
+  verkkoon
+
+## Liittyvät resurssit
+
+- [Johdatus kestäviin nonceeihin](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

@@ -1,0 +1,296 @@
+---
+title: Solana에서 결제가 작동하는 방식
+description: Solana에서 결제를 보내고 받기 위한 핵심 개념
+---
+
+Solana에서 결제 플로우를 구축하기 전에 다섯 가지 핵심 개념을 이해해야 합니다:
+지갑, 스테이블코인, 토큰 계정, 수수료, 그리고 트랜잭션입니다. Solana 결제는 다중
+통화 결제 시스템과 명확하게 매핑됩니다:
+
+| 기존 결제 모델      | Solana                 | 설명                       |
+| ------------------- | ---------------------- | -------------------------- |
+| 고객 ID / 계좌 번호 | 지갑 주소              | 계정 소유자의 고유 식별자  |
+| 통화 (USD, EUR)     | 토큰 민트 (USDG, USDC) | 전송되는 자산 유형         |
+| 통화별 잔액         | 토큰 계정 (ATA)        | 특정 통화/민트의 잔액 보유 |
+
+은행 고객이 단일 신원을 가지지만 각 통화에 대해 별도의 잔액을 보유하는 것처럼,
+Solana 지갑은 하나의 주소를 가지지만 보유한 각 자산에 대해 별도의 토큰 계정을
+가집니다. 각 구성 요소를 자세히 살펴보겠습니다.
+
+## 지갑: 발신자와 수신자
+
+모든 결제에는 두 당사자가 관여하며, 각각은 **지갑 주소**로 식별됩니다. 지갑
+주소는 고유한 32바이트 공개 키입니다(예: `7EcDhS...`).
+
+- **발신자**: 결제를 시작하는 지갑입니다. 충분한 스테이블코인 계정 잔액을
+  보유하고 트랜잭션에 서명해야 합니다.
+- **수신자**: 목적지 지갑입니다. 서명하거나 기존 잔액을 보유할 필요가 없습니다.
+- **수수료 지불자**: 선택적 수수료 지불자 지갑입니다. 사용자 간 스테이블코인
+  전용 트랜잭션을 보조하거나 가능하게 하는 데 사용할 수 있습니다.
+
+지갑 주소는 은행 계좌 번호와 같다고 생각하세요: 공개되어 있고, 공유해도
+안전하며, 자금을 보내거나 받는 데 필요합니다.
+
+## 스테이블코인
+
+스테이블코인은 Solana에서 "토큰"이라고 불립니다. 토큰은 네트워크상의 자산 유형을
+나타냅니다. 각 토큰은 "민트 주소"라고 하는 고유 식별자를 가집니다. 결제 시스템을
+구축할 때, 상호 작용하는 자산을 식별하기 위해 이러한 민트 주소를 참조하게
+됩니다. 다음은 메인넷의 일반적인 스테이블코인 민트입니다:
+
+| 토큰  | 발행자 | 민트 주소                                      |
+| ----- | ------ | ---------------------------------------------- |
+| USDC  | Circle | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos  | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+Solana의 스테이블코인에 대한 자세한 내용은
+[스테이블코인](https://solana.com/solutions/stablecoins) 솔루션 페이지를
+참조하세요.
+
+<Callout>
+  결제를 받을 때는 항상 민트 주소와 Token Program을 검증해야 합니다. 토큰은
+  이름을 공유할 수 있지만 발행자와 기초 자산이 다를 수 있습니다.
+</Callout>
+
+## token account
+
+지갑은 토큰을 직접 보유하지 않습니다. 대신 각 지갑은 보유한 각 토큰 유형에 대한
+**token account**에 대한 권한을 가집니다. 결제는 발신자의 token account에서
+동일한 민트의 수신자 token account로 토큰을 전송하여 이루어집니다:
+
+![token account](/assets/docs/payments/payment-flow.png)
+
+**연결된 token account**는 특정 지갑과 민트에 연결된 결정론적 token
+account입니다. 지갑 주소와 민트가 주어지면 ATA 주소는 항상 동일합니다.
+
+1. **민트당 하나의 ATA**. 지갑은 USDC에 대해 정확히 하나의 ATA를, USDT에 대해
+   하나의 ATA를 가집니다.
+2. **수신 전에 존재해야 함**. 존재하지 않는 ATA로 토큰을 보낼 수 없습니다.
+3. **일반적으로 발신자가 생성**. 수신자의 ATA가 존재하지 않으면 발신자가 결제
+   트랜잭션의 일부로 생성할 수 있습니다.
+
+```typescript
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const [receiverATA] = await findAssociatedTokenPda({
+  mint: USDG_MINT_ADDRESS,
+  owner: receiverWallet.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+```
+
+## Token Program
+
+Solana에서 프로그램은 계정 상태를 관리하는 실행 가능한 로직입니다. token
+account는 **Token Program**에 의해 관리됩니다. 이는 전송을 검증하고 잔액을
+원자적으로 업데이트하는 온체인 코드입니다.
+
+Solana에는 두 개의 Token Program이 있습니다:
+
+| 프로그램          | 주소                                          | 이 프로그램을 사용하는 <br/> 토큰 예시 |
+| ----------------- | --------------------------------------------- | -------------------------------------- |
+| **Token Program** | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` | USDC, USDT                             |
+| **Token-2022**    | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` | PYUSD, USDG                            |
+
+Token-2022("Token Extensions"라고도 함)는 전송 훅, 전송 수수료, 기밀 전송과 같은
+기능을 추가합니다. 두 프로그램 모두 기본 전송에서는 유사하게 작동하지만, ATA를
+파생할 때는 올바른 프로그램을 사용해야 합니다.
+
+### 중요한 이유
+
+토큰을 생성하는 데 사용된 Token Program은 해당 토큰의 명령어와 계정 상태를
+관리합니다. 잘못된 프로그램을 사용하면 토큰을 전송할 수 없습니다.
+
+ATA는 세 가지 입력값에서 파생됩니다: `wallet + mint + token_program`. 잘못된
+프로그램을 사용하면 **완전히 다른 주소**가 생성됩니다:
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+
+// USDC uses Token Program
+const [usdcAta] = await findAssociatedTokenPda({
+  mint: USDC_MINT,
+  owner: walletAddress,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS // ✓ Correct
+});
+
+// ❌ This will produce a different address because it uses the wrong program
+const [wrongUsdcAta] = await findAssociatedTokenPda({
+  mint: USDC_MINT,
+  owner: walletAddress,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS // ❌ Wrong program
+});
+
+// PYUSD uses Token-2022
+const [pyusdAta] = await findAssociatedTokenPda({
+  mint: PYUSD_MINT,
+  owner: walletAddress,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS // ✓ Correct
+});
+```
+
+<Callout type="caution">
+  잘못된 프로그램으로 ATA를 파생하면 유효하지 않은 주소가 생성됩니다. 항상
+  토큰의 민트에 맞는 프로그램을 사용하세요.
+</Callout>
+
+동일한 원칙이 전송 명령어에도 적용됩니다. 각 token program에는 고유한 전송
+명령어가 있으며, 올바른 명령어를 호출해야 합니다:
+
+```typescript
+import { getTransferInstruction } from "@solana-program/token";
+import { getTransferInstruction as getTransferInstruction22 } from "@solana-program/token-2022";
+
+// For USDC (Token Program)
+const usdcTransferIx = getTransferInstruction({
+  source: senderUsdcAta,
+  destination: receiverUsdcAta,
+  authority: senderWallet,
+  amount: 1_000_000n // 1 USDC (6 decimals)
+});
+
+// For PYUSD (Token-2022)
+const pyusdTransferIx = getTransferInstruction22({
+  source: senderPyusdAta,
+  destination: receiverPyusdAta,
+  authority: senderWallet,
+  amount: 1_000_000n // 1 PYUSD (6 decimals)
+});
+
+// *Note*: Most token program JS Client functions include the ability
+// to specify the token program address. Generally, defining it is a
+// good practice to ensure you are fully aware of the program you are using
+const usdcTransferIx2 = getTransferInstruction(
+  {
+    source: senderUsdcAta,
+    destination: receiverUsdcAta,
+    authority: senderWallet,
+    amount: 1_000_000n // 1 USDC (6 decimals)
+  },
+  { tokenProgram: TOKEN_PROGRAM_ADDRESS }
+);
+```
+
+잘못된 프로그램으로 전송 명령어를 보내면 실패합니다. 프로그램은 관련된 token
+account를 소유하고 있는지 검증합니다. Token Program으로 생성된 계정은
+Token-2022를 통해 전송할 수 없으며, 그 반대도 마찬가지입니다.
+
+토큰이나 token account가 어떤 프로그램을 사용하는지 확인하려면 민트 또는 token
+account를 가져와서 `owner` 필드를 확인하세요:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const accountInfo = await rpc.getAccountInfo(address(mintAddress)).send();
+
+// The owner field tells you which program manages this token
+const tokenProgram = accountInfo.value?.owner;
+// Returns: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA (Token Program)
+//      or: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb (Token-2022)
+```
+
+결제 애플리케이션의 경우, 지원되는 각 토큰과 함께 올바른 프로그램 주소를
+저장하세요:
+
+```typescript
+const SUPPORTED_TOKENS = {
+  USDC: {
+    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    program: TOKEN_PROGRAM_ADDRESS,
+    decimals: 6
+  },
+  PYUSD: {
+    mint: "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+    program: TOKEN_2022_PROGRAM_ADDRESS,
+    decimals: 6
+  }
+};
+```
+
+### Token Extensions
+
+Token Extensions Program(Token 2022)은 확장이라고 하는 추가 명령어를 통해 더
+많은 기능을 제공합니다. 확장은 토큰 민트 또는 token account에 추가할 수 있는
+선택적 기능입니다.
+
+Token Extensions에 대한 자세한 내용은
+[Token Extensions](/docs/tokens/extensions) 문서를 참조하세요.
+
+## 수수료
+
+솔라나 결제에는 최대 세 가지 비용 요소가 포함됩니다:
+
+| 수수료 유형              | SOL                         | USD (추정) | 발생 시점                                  |
+| ------------------------ | --------------------------- | ---------- | ------------------------------------------ |
+| **기본 트랜잭션 수수료** | 5,000 lamports<sup>\*</sup> | ~$0.0007   | 모든 트랜잭션 (여러 결제를 묶어 분산 가능) |
+| **우선순위 수수료**      | 가변                        | 가변       | 선택 사항; 혼잡 시 더 빠른 처리            |
+| **계정 생성(rent)**      | ~0.0029 SOL                 | ~$0.40     | 새 token account 생성 시에만               |
+
+**결제당 총 비용**: 대부분의 전송에서 $0.001 미만입니다. 새 token account를
+생성하는 경우 총 ~$0.40 정도 예상됩니다.
+
+<Callout type="info">
+  솔라나는 [로컬 수수료
+  시장](https://github.com/solana-foundation/solana-improvement-documents/pull/436)을
+  사용합니다. 각 프로그램의 트랜잭션은 동일한 상태를 대상으로 하는 다른
+  트랜잭션과만 경쟁합니다. 이는 네트워크의 다른 곳에서 높은 활동이 있는 기간에도
+  결제 수수료가 낮고 예측 가능하게 유지됨을 의미합니다. Rent 비용도 [가까운
+  미래에 50% 감소할
+  예정](https://github.com/solana-foundation/solana-improvement-documents/pull/436)입니다.
+</Callout>
+
+<Callout>
+  사용자가 SOL과 상호작용하지 않도록 수수료를 완전히 추상화할 수 있습니다. 구현
+  패턴은 [수수료
+  추상화](/docs/payments/send-payments/payment-processing/fee-abstraction)를
+  참조하세요.
+</Callout>
+
+## 트랜잭션과 명령어
+
+트랜잭션은 솔라나에서 실행의 원자적 단위입니다. 모든 작업이 성공하거나 아무것도
+성공하지 않습니다. 각 트랜잭션에는 하나 이상의 명령어가 포함되며, 이는 개별
+명령(예: "USDC 10개 전송", "token account 생성")입니다.
+
+일반적인 결제 트랜잭션에는 두 가지 명령어가 포함될 수 있습니다: 수신자의 token
+account 생성(필요한 경우), 그런 다음 토큰 전송. 둘 다 원자적으로 실행되어
+부분적인 상태가 없습니다.
+[결제 처리](/docs/payments/send-payments/payment-processing)에서 볼 수 있듯이,
+여러 결제를 단일 트랜잭션으로 묶어 비용을 줄이고 처리량을 늘릴 수 있습니다.
+
+## 종합하기
+
+일반적인 결제 흐름:
+
+1. **입력 수집**. 발신자와 수신자의 지갑 주소, 그리고 전송할 토큰의 민트 주소를
+   가져옵니다.
+2. **ATA 도출**. 양측의 토큰 계정을 결정합니다.
+3. **구축 및 서명**. 필요한 전송 명령어로 트랜잭션을 구성하고, 발신자의 키로
+   서명합니다.
+4. **전송 및 확인**. 트랜잭션은 1초 이내에 완료됩니다.
+
+## 다음 단계
+
+<Cards>
+  <Card
+    title="Solana와 상호작용하기"
+    href="/docs/payments/interacting-with-solana"
+  >
+    네트워크에 연결하고 Solana 결제 데이터를 탐색하세요.
+  </Card>
+  <Card title="첫 결제 보내기" href="/docs/payments/send-payments">
+    스테이블코인 전송을 구축하고 전송하세요.
+  </Card>
+</Cards>
+
+<br />
+<small>
+  <sup>\*</sup> lamport는 SOL의 가장 작은 단위이며 0.000000001 SOL과 같습니다
+</small>

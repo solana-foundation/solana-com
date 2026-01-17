@@ -1,0 +1,268 @@
+---
+title: Verzögerte Ausführung
+description:
+  Transaktionen jetzt signieren, später ausführen – ermöglicht
+  Freigabe-Workflows, Treasury-Operationen und sicheres Signieren
+---
+
+Jede Solana-Transaktion enthält einen aktuellen Blockhash – ein Verweis auf
+einen aktuellen Netzwerkstatus, der beweist, dass die Transaktion "jetzt"
+erstellt wurde. Das Netzwerk lehnt jede Transaktion mit einem Blockhash ab, der
+älter als ca. 150 Blöcke (etwa 60–90 Sekunden) ist, um Replay-Angriffe und
+veraltete Einreichungen zu verhindern. Das funktioniert perfekt für
+Echtzeitzahlungen. Aber es scheitert bei Workflows, die eine Lücke zwischen
+Signatur und Einreichung benötigen, wie zum Beispiel:
+
+| Szenario                   | Warum Standard-Transaktionen scheitern                                         |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| **Treasury-Operationen**   | CFO in Tokio signiert, Controller in NYC genehmigt – 90 Sekunden reichen nicht |
+| **Compliance-Workflows**   | Transaktionen müssen vor der Ausführung rechtlich/compliance-geprüft werden    |
+| **Cold Storage Signing**   | Air-gapped Maschinen erfordern manuellen Transfer signierter Transaktionen     |
+| **Batch-Vorbereitung**     | Lohn- oder Auszahlungslisten tagsüber vorbereiten, nachts ausführen            |
+| **Multi-Sig-Koordination** | Mehrere Genehmiger über verschiedene Zeitzonen hinweg                          |
+| **Geplante Zahlungen**     | Zahlungen zur Ausführung an einem zukünftigen Datum terminieren                |
+
+Im traditionellen Finanzwesen verfällt ein unterschriebener Scheck nicht nach 90
+Sekunden. Bestimmte Blockchain-Operationen sollten das auch nicht. **Dauerhafte
+Nonces** lösen dieses Problem, indem sie den aktuellen Blockhash durch einen
+gespeicherten, persistenten Wert ersetzen, der sich nur beim Verwenden
+weiterentwickelt – so bleiben Transaktionen gültig, bis Sie sie einreichen
+möchten.
+
+## Funktionsweise
+
+Anstelle eines aktuellen Blockhashs (gültig für ca. 150 Blöcke) verwenden Sie
+ein **Nonce-Konto**, ein spezielles Konto, das einen _einzigartigen_ Wert
+speichert. Jede Transaktion, die diesen Nonce nutzt, muss ihn als ersten Schritt
+"weiterentwickeln", um Replay-Angriffe zu verhindern.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  Das Nonce-Konto kostet ~0,0015 SOL für die Mietbefreiung. Ein Nonce-Konto =
+  eine ausstehende Transaktion gleichzeitig. Für parallele Workflows erstellen
+  Sie mehrere Nonce-Konten.
+</Callout>
+
+## Einrichtung: Erstellen eines Nonce-Kontos
+
+Das Erstellen eines Nonce-Kontos erfordert zwei Anweisungen in einer einzigen
+Transaktion:
+
+1. **Erstellen Sie das Konto** mit `getCreateAccountInstruction` aus dem System
+   Program
+2. **Initialisieren Sie es als Nonce** mit
+   `getInitializeNonceAccountInstruction`
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## Erstellen einer verzögerten Transaktion
+
+Zwei wesentliche Unterschiede zu Standardtransaktionen:
+
+1. Verwenden Sie den Nonce-Wert als Blockhash
+2. Fügen Sie `advanceNonceAccount` als **erste** Anweisung hinzu
+
+### Abrufen des Nonce-Werts
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### Festlegen der Transaktionslebensdauer mit Nonce
+
+Anstatt einen aktuellen Blockhash zu verwenden, der abläuft, verwenden Sie den
+Nonce-Wert:
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### Fortschreiten des Nonce (erforderliche erste Anweisung)
+
+Jede dauerhafte Nonce-Transaktion **muss** `advanceNonceAccount` als ihre erste
+Anweisung enthalten. Dies verhindert Replay-Angriffe, indem der Nonce-Wert nach
+der Verwendung ungültig gemacht und der Nonce-Wert aktualisiert wird.
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## Signieren und speichern
+
+Nach dem Erstellen signieren Sie die Transaktion und serialisieren sie zur
+Speicherung:
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Speichern Sie die serialisierte Zeichenfolge in Ihrer Datenbank – sie bleibt
+gültig, bis der Nonce fortgeschritten ist.
+
+## Workflow für mehrseitige Genehmigung
+
+Deserialisieren Sie die Transaktion, um zusätzliche Signaturen hinzuzufügen, und
+serialisieren Sie sie dann erneut zur Speicherung oder Übermittlung:
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+Die Transaktion kann serialisiert, gespeichert und zwischen Genehmigern
+weitergegeben werden. Sobald alle erforderlichen Signaturen gesammelt sind,
+übermitteln Sie sie an das Netzwerk.
+
+## Ausführen, wenn bereit
+
+Wenn die Genehmigungen abgeschlossen sind, senden Sie die serialisierte
+Transaktion an das Netzwerk:
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  Jede Nonce kann nur einmal verwendet werden. Wenn eine Transaktion fehlschlägt
+  oder Sie sich entscheiden, sie nicht zu übermitteln, müssen Sie die Nonce
+  weiterschalten, bevor Sie eine weitere Transaktion mit demselben Nonce-Konto
+  vorbereiten.
+</Callout>
+
+## Weiterschalten einer verwendeten oder aufgegebenen Nonce
+
+Um eine ausstehende Transaktion ungültig zu machen oder die Nonce für die
+Wiederverwendung vorzubereiten, schalten Sie sie manuell weiter:
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+Dies erzeugt einen neuen Nonce-Wert und macht jede mit dem alten Wert signierte
+Transaktion dauerhaft ungültig.
+
+## Überlegungen für den Produktivbetrieb
+
+**Verwaltung von Nonce-Konten:**
+
+- Erstellen Sie einen Pool von Nonce-Konten für die parallele
+  Transaktionsvorbereitung
+- Verfolgen Sie, welche Nonces „in Verwendung" sind (ausstehende signierte
+  Transaktionen haben)
+- Implementieren Sie Nonce-Recycling, nachdem Transaktionen übermittelt oder
+  aufgegeben wurden
+
+**Sicherheit:**
+
+- Die Nonce-Autorität kontrolliert, ob Transaktionen ungültig gemacht werden
+  können. Erwägen Sie, die Nonce-Autorität von den Transaktionsunterzeichnern zu
+  trennen, um zusätzliche Kontrolle und Aufgabentrennung zu erreichen
+- _Jeder_ mit den serialisierten Transaktionsbytes kann diese an das Netzwerk
+  übermitteln
+
+## Verwandte Ressourcen
+
+- [Einführung in Durable Nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

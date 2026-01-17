@@ -1,0 +1,246 @@
+---
+title: التنفيذ المؤجل
+description:
+  وقّع على المعاملات الآن، ونفّذها لاحقًا—مما يتيح سير عمل الموافقات، وعمليات
+  الخزينة، والتوقيع الآمن
+---
+
+تتضمن كل معاملة على سولانا قيمة تجزئة كتلة حديثة—وهي إشارة إلى حالة شبكة حديثة
+تثبت أن المعاملة تم إنشاؤها "الآن". ترفض الشبكة أي معاملة تحتوي على قيمة تجزئة
+كتلة أقدم من ~150 كتلة (~60-90 ثانية)، مما يمنع هجمات إعادة التشغيل والإرسالات
+القديمة. يعمل هذا بشكل مثالي للمدفوعات في الوقت الفعلي. لكنه يعطل سير العمل الذي
+يحتاج إلى فجوة بين التوقيع والإرسال، مثل:
+
+| السيناريو                     | لماذا تفشل المعاملات القياسية                                              |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| **عمليات الخزينة**            | المدير المالي في طوكيو يوقّع، المراقب في نيويورك يوافق—90 ثانية ليست كافية |
+| **سير عمل الامتثال**          | تحتاج المعاملات إلى مراجعة قانونية/امتثال قبل التنفيذ                      |
+| **التوقيع من التخزين البارد** | تتطلب الأجهزة المعزولة عن الشبكة نقلًا يدويًا للمعاملات الموقعة            |
+| **إعداد الدفعات**             | إعداد كشوف الرواتب أو الصرفيات خلال ساعات العمل، وتنفيذها ليلاً            |
+| **تنسيق التوقيع المتعدد**     | عدة موافقين عبر مناطق زمنية مختلفة                                         |
+| **المدفوعات المجدولة**        | جدولة المدفوعات لتنفيذها في تاريخ مستقبلي                                  |
+
+في التمويل التقليدي، لا تنتهي صلاحية الشيك الموقع في 90 ثانية. بعض عمليات
+البلوكشين لا ينبغي أن تنتهي صلاحيتها أيضًا. **القيم الفريدة الدائمة** تحل هذه
+المشكلة عن طريق استبدال قيمة تجزئة الكتلة الحديثة بقيمة مخزنة ومستمرة لا تتقدم
+إلا عند استخدامها—مما يمنحك معاملات تظل صالحة حتى تصبح جاهزًا لإرسالها.
+
+## كيف يعمل
+
+بدلاً من قيمة تجزئة كتلة حديثة (صالحة لـ ~150 كتلة)، تستخدم **حساب قيمة فريدة**،
+وهو حساب خاص يخزن قيمة _فريدة_. يجب أن تقوم كل معاملة تستخدم هذه القيمة الفريدة
+"بتقديمها" كأول تعليمة، مما يمنع هجمات إعادة التشغيل.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STANDARD BLOCKHASH                                                         │
+│                                                                             │
+│    ┌──────┐      ┌──────────┐                                               │
+│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
+│    └──────┘      └──────────┘                                               │
+│       │                                                                     │
+│       └─────────  Transaction expires if not submitted in time              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DURABLE NONCE                                                              │
+│                                                                             │
+│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
+│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
+│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
+│                                                                             │
+│    Transaction remains valid until you submit it                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+<Callout type="info">
+  يكلف حساب nonce حوالي 0.0015 SOL للإعفاء من الإيجار. حساب nonce واحد = معاملة
+  معلقة واحدة في كل مرة. لسير العمل المتوازي، قم بإنشاء حسابات nonce متعددة.
+</Callout>
+
+## الإعداد: إنشاء حساب nonce
+
+يتطلب إنشاء حساب nonce تعليمتين في معاملة واحدة:
+
+1. **إنشاء الحساب** باستخدام `getCreateAccountInstruction` من برنامج النظام
+2. **تهيئته كـ nonce** باستخدام `getInitializeNonceAccountInstruction`
+
+```ts
+import { generateKeyPairSigner } from "@solana/kit";
+import {
+  getNonceSize,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+
+// Generate a keypair for the nonce account address
+const nonceKeypair = await generateKeyPairSigner();
+
+// Get required account size for rent calculation
+const space = BigInt(getNonceSize());
+
+// 1. Create the account (owned by System Program)
+getCreateAccountInstruction({
+  payer,
+  newAccount: nonceKeypair,
+  lamports: rent,
+  space,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// 2. Initialize as nonce account
+getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: authorityAddress // Controls nonce advancement
+});
+
+// Assemble and send transaction to the network
+```
+
+## بناء معاملة مؤجلة
+
+هناك فرقان رئيسيان عن المعاملات القياسية:
+
+1. استخدام قيمة nonce كـ blockhash
+2. إضافة `advanceNonceAccount` كتعليمة **أولى**
+
+### جلب قيمة nonce
+
+```ts
+import { fetchNonce } from "@solana-program/system";
+
+const nonceAccount = await fetchNonce(rpc, nonceAddress);
+const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
+```
+
+### تحديد مدة صلاحية المعاملة باستخدام nonce
+
+بدلاً من استخدام blockhash حديث ينتهي صلاحيته، استخدم قيمة nonce:
+
+```ts
+import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+
+setTransactionMessageLifetimeUsingBlockhash(
+  {
+    blockhash: nonceAccount.data.blockhash,
+    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+  },
+  transactionMessage
+);
+```
+
+### تقديم nonce (التعليمة الأولى المطلوبة)
+
+يجب أن تتضمن كل معاملة nonce دائمة `advanceNonceAccount` كتعليمة أولى. هذا يمنع
+هجمات إعادة التشغيل عن طريق إبطال قيمة nonce بعد الاستخدام وتحديث قيمة nonce.
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// MUST be the first instruction in your transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority // Signer that controls the nonce
+});
+```
+
+## التوقيع والتخزين
+
+بعد البناء، قم بتوقيع المعاملة وتسلسلها للتخزين:
+
+```ts
+import {
+  signTransactionMessageWithSigners,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Sign the transaction
+const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+
+// Serialize for storage (database, file, etc.)
+const txBytes = getTransactionEncoder().encode(signedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+قم بتخزين السلسلة المسلسلة في قاعدة البيانات الخاصة بك—تظل صالحة حتى يتم تقديم
+nonce.
+
+## سير عمل الموافقة متعدد الأطراف
+
+قم بإلغاء تسلسل المعاملة لإضافة توقيعات إضافية، ثم قم بالتسلسل مرة أخرى للتخزين
+أو الإرسال:
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getTransactionEncoder,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+
+// Serialize again for storage
+const txBytes = getTransactionEncoder().encode(fullySignedTx);
+const serialized = getBase64EncodedWireTransaction(txBytes);
+```
+
+يمكن تسلسل المعاملة وتخزينها وتمريرها بين الموافقين. بمجرد جمع جميع التوقيعات
+المطلوبة، قم بإرسالها إلى الشبكة.
+
+## التنفيذ عند الجاهزية
+
+عندما تكتمل الموافقات، أرسل المعاملة المتسلسلة إلى الشبكة:
+
+```ts
+const signature = await rpc
+  .sendTransaction(serializedTransaction, { encoding: "base64" })
+  .send();
+```
+
+<Callout type="caution">
+  يمكن استخدام كل nonce مرة واحدة فقط. إذا فشلت المعاملة أو قررت عدم إرسالها،
+  يجب عليك تقديم nonce قبل إعداد معاملة أخرى بنفس حساب nonce.
+</Callout>
+
+## تقديم nonce مستخدم أو متروك
+
+لإبطال معاملة معلقة أو إعداد nonce لإعادة الاستخدام، قم بتقديمه يدوياً:
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+هذا ينشئ قيمة nonce جديدة، مما يجعل أي معاملة موقعة بالقيمة القديمة غير صالحة
+بشكل دائم.
+
+## اعتبارات الإنتاج
+
+**إدارة حساب nonce:**
+
+- أنشئ مجموعة من حسابات nonce لإعداد المعاملات المتوازية
+- تتبع أي nonces "قيد الاستخدام" (لديها معاملات موقعة معلقة)
+- نفذ إعادة تدوير nonce بعد إرسال المعاملات أو التخلي عنها
+
+**الأمان:**
+
+- سلطة nonce تتحكم فيما إذا كان يمكن إبطال المعاملات. فكر في فصل سلطة nonce عن
+  موقعي المعاملات للحصول على تحكم إضافي و فصل المهام
+- _أي شخص_ لديه بايتات المعاملة المتسلسلة يمكنه إرسالها إلى الشبكة
+
+## الموارد ذات الصلة
+
+- [مقدمة إلى durable nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

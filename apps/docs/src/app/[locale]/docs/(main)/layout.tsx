@@ -16,8 +16,9 @@ export default async function Layout({
     ...tree,
     children: tree.children?.filter(
       (child) =>
-        typeof child.name !== "string" ||
-        !child.name.startsWith("Solana RPC Methods"),
+        child.type !== "folder" ||
+        (!child.index?.url?.includes("/docs/rpc") &&
+          !child.index?.url?.includes("/docs/payments")),
     ),
   };
   return (
