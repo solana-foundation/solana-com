@@ -104,12 +104,12 @@ getInitializeNonceAccountInstruction({
 
 ## Building a Deferred Transaction
 
-Two key differences from standard transactions:
-
-1. Use the nonce value as the blockhash
-2. Add `advanceNonceAccount` as the **first** instruction
+Instead of a recent blockhash, use the nonce value as the transaction's
+lifetime. To do this, we must first fetch the nonce value from the nonce account and then use it to set the transaction's lifetime.
 
 ### Fetch the Nonce Value
+
+First, fetch the nonce value from the nonce account:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -120,34 +120,27 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Set Transaction Lifetime with Nonce
 
-Instead of using a recent blockhash that expires, use the nonce value:
+Instead of using a recent blockhash that expires, use
+`setTransactionMessageLifetimeUsingDurableNonce`. This function does two things:
+
+1. Sets the nonce value as the transaction's "blockhash"
+2. Automatically prepends the `advanceNonceAccount` instruction (required as the
+   first instruction in all durable nonce transactions)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
-```
-
-### Advance the Nonce (Required First Instruction)
-
-Every durable nonce transaction **must** include `advanceNonceAccount` as its
-first instruction. This prevents replay attacks by invalidating the nonce value
-after use and updating the nonce value.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
 ```
 
 ## Sign and Store
@@ -157,7 +150,6 @@ After building, sign the transaction and serialize it for storage:
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -165,8 +157,7 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
 Store the serialized string in your database—it remains valid until the nonce is
@@ -181,8 +172,8 @@ for storage or submission:
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -190,11 +181,13 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 The transaction can be serialized, stored, and passed between approvers. Once
