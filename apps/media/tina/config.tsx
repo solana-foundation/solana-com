@@ -34,7 +34,7 @@ const apiUrl = (() => {
 })();
 
 const config: any = defineConfig({
-  authProvider: isLocal ? new LocalAuthProvider() : new AuthProvider(),
+  authProvider: isLocal ? new LocalAuthProvider() : AuthProvider,
   contentApiUrlOverride: apiUrl,
   branch,
 
