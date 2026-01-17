@@ -105,12 +105,14 @@ getInitializeNonceAccountInstruction({
 
 ## Membangun transaksi tertunda
 
-Dua perbedaan utama dari transaksi standar:
-
-1. Gunakan nilai nonce sebagai blockhash
-2. Tambahkan `advanceNonceAccount` sebagai instruksi **pertama**
+Alih-alih menggunakan blockhash terbaru, gunakan nilai nonce sebagai masa
+berlaku transaksi. Untuk melakukan ini, kita harus terlebih dahulu mengambil
+nilai nonce dari akun nonce, kemudian menggunakannya untuk mengatur masa berlaku
+transaksi.
 
 ### Mengambil nilai nonce
+
+Pertama, ambil nilai nonce dari akun nonce:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -121,44 +123,36 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Mengatur masa berlaku transaksi dengan nonce
 
-Alih-alih menggunakan blockhash terbaru yang kedaluwarsa, gunakan nilai nonce:
+Alih-alih menggunakan blockhash terbaru yang kedaluwarsa, gunakan
+`setTransactionMessageLifetimeUsingDurableNonce`. Fungsi ini melakukan dua hal:
+
+1. Menetapkan nilai nonce sebagai "blockhash" transaksi
+2. Secara otomatis menambahkan instruksi `advanceNonceAccount` di awal
+   (diperlukan sebagai instruksi pertama dalam semua transaksi durable nonce)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
 ```
 
-### Memajukan nonce (instruksi pertama yang diperlukan)
+## Tanda tangani dan simpan
 
-Setiap transaksi durable nonce **harus** menyertakan `advanceNonceAccount`
-sebagai instruksi pertamanya. Ini mencegah serangan replay dengan membatalkan
-nilai nonce setelah digunakan dan memperbarui nilai nonce.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
-```
-
-## Menandatangani dan menyimpan
-
-Setelah membangun, tandatangani transaksi dan serialisasi untuk penyimpanan:
+Setelah membangun, tanda tangani transaksi dan serialisasi untuk penyimpanan:
 
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -166,24 +160,23 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-Simpan string yang diserialisasi di database Anda—tetap valid hingga nonce
-dimajukan.
+Simpan string yang telah diserialisasi di database Anda—string ini tetap valid
+hingga nonce dimajukan.
 
 ## Alur kerja persetujuan multi-pihak
 
-Deserialisasi transaksi untuk menambahkan tanda tangan tambahan, lalu
+Deserialisasi transaksi untuk menambahkan tanda tangan tambahan, kemudian
 serialisasi lagi untuk penyimpanan atau pengiriman:
 
 ```ts
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -191,11 +184,13 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 Transaksi dapat diserialisasi, disimpan, dan diteruskan antar pemberi
@@ -219,7 +214,7 @@ const signature = await rpc
   menyiapkan transaksi lain dengan akun nonce yang sama.
 </Callout>
 
-## Memajukan nonce yang sudah digunakan atau ditinggalkan
+## Memajukan nonce yang digunakan atau ditinggalkan
 
 Untuk membatalkan transaksi yang tertunda atau menyiapkan nonce untuk digunakan
 kembali, majukan secara manual:
@@ -242,17 +237,17 @@ dengan nilai lama menjadi tidak valid secara permanen.
 **Manajemen akun nonce:**
 
 - Buat kumpulan akun nonce untuk persiapan transaksi paralel
-- Lacak nonce mana yang "sedang digunakan" (memiliki transaksi tertanda tangan
-  yang tertunda)
-- Implementasikan daur ulang nonce setelah transaksi dikirim atau ditinggalkan
+- Lacak nonce mana yang "sedang digunakan" (memiliki transaksi tertanda yang
+  tertunda)
+- Implementasikan daur ulang nonce setelah transaksi dikirim atau dibatalkan
 
 **Keamanan:**
 
 - Otoritas nonce mengontrol apakah transaksi dapat dibatalkan. Pertimbangkan
   untuk memisahkan otoritas nonce dari penandatangan transaksi untuk kontrol
   tambahan dan pemisahan tugas
-- _Siapa pun_ dengan byte transaksi yang telah diserialisasi dapat
-  mengirimkannya ke jaringan
+- _Siapa pun_ dengan byte transaksi yang diserialisasi dapat mengirimkannya ke
+  jaringan
 
 ## Sumber daya terkait
 
