@@ -4,12 +4,25 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY || "");
 
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "noreply@solana.com";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3002";
+const IS_SANDBOX = process.env.SENDGRID_SANDBOX_MODE === "true";
+const IS_DEV = process.env.NODE_ENV === "development";
 
 export async function sendMagicLinkEmail(
   email: string,
   token: string
 ): Promise<{ success: boolean; error?: string }> {
   const magicLink = `${APP_URL}/admin/auth/callback?token=${encodeURIComponent(token)}`;
+
+  // In sandbox/dev mode, log the magic link to console for easy access
+  if (IS_SANDBOX || IS_DEV) {
+    console.log(`🔐 MAGIC LINK (dev/sandbox mode): ${magicLink}`);
+  }
+
+  // In sandbox mode, skip actual email sending but return success
+  if (IS_SANDBOX) {
+    console.log("📧 Sandbox mode: email not sent, use the link above");
+    return { success: true };
+  }
 
   const msg = {
     to: email,
