@@ -33,10 +33,10 @@ const apiUrl = (() => {
   return "http://localhost:3002/api/tina/gql";
 })();
 
-const config = defineConfig({
+const config: ReturnType<typeof defineConfig> = defineConfig({
   authProvider: isLocal
     ? new LocalAuthProvider()
-    : (new CustomAuthProvider() as unknown as typeof LocalAuthProvider.prototype),
+    : (new CustomAuthProvider() as any),
   contentApiUrlOverride: apiUrl,
   branch,
 

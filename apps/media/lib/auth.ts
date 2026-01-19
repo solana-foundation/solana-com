@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { SignJWT, jwtVerify, JWTPayload } from "jose";
 import type { AuthProvider as TinaAuthProvider } from "@tinacms/datalayer";
 
@@ -162,7 +163,7 @@ export class CustomAuthProvider {
    * Called by TinaCMS admin to get the session provider component
    */
   getSessionProvider() {
-    return ({ children }: { children: React.ReactNode }) => {
+    return ({ children }: { children: ReactNode }) => {
       return children;
     };
   }
