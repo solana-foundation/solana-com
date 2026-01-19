@@ -78,7 +78,7 @@ export async function verifySessionToken(
 export const SESSION_COOKIE_NAME = "admin_session";
 
 export const SESSION_COOKIE_OPTIONS = {
-  httpOnly: true,
+  httpOnly: false, // Must be false for TinaCMS admin UI to read the token
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   maxAge: 60 * 60 * 24, // 24 hours
@@ -86,27 +86,14 @@ export const SESSION_COOKIE_OPTIONS = {
 };
 
 /**
- * TinaCMS Auth Provider for self-hosted backend
- * Integrates our magic link JWT authentication with TinaCMS
+ * TinaCMS Auth Provider for self-hosted backend (server-side only)
+ * Used by the API routes for authorization
  */
 export const AuthProvider: TinaAuthProvider = {
-  /**
-   * Authenticate a user - called when TinaCMS needs to verify credentials
-   * For magic link auth, this is used after the session is already established
-   */
   authenticate: async () => {
-    // Magic link auth doesn't use username/password
-    // Authentication is handled via the magic link flow
-    // This returns false to indicate no direct auth
-    return {
-      authenticated: false,
-    };
+    return { authenticated: false };
   },
 
-  /**
-   * Check if the current request is authorized
-   * Called on every TinaCMS API request
-   */
   isAuthorized: async (context: { req: Request }) => {
     const cookieHeader = context.req.headers.get("cookie");
     if (!cookieHeader) {
@@ -117,7 +104,6 @@ export const AuthProvider: TinaAuthProvider = {
       };
     }
 
-    // Parse cookies
     const cookies = Object.fromEntries(
       cookieHeader.split("; ").map((c) => {
         const [key, ...val] = c.split("=");
@@ -143,19 +129,12 @@ export const AuthProvider: TinaAuthProvider = {
       };
     }
 
-    return {
-      authorized: true,
-    };
+    return { authorized: true };
   },
 
-  /**
-   * Extract user info from the request context
-   */
   getUser: async (context: { req: Request }) => {
     const cookieHeader = context.req.headers.get("cookie");
-    if (!cookieHeader) {
-      return null;
-    }
+    if (!cookieHeader) return null;
 
     const cookies = Object.fromEntries(
       cookieHeader.split("; ").map((c) => {
@@ -165,17 +144,137 @@ export const AuthProvider: TinaAuthProvider = {
     );
 
     const sessionToken = cookies[SESSION_COOKIE_NAME];
-    if (!sessionToken) {
-      return null;
-    }
+    if (!sessionToken) return null;
 
     const session = await verifySessionToken(sessionToken);
-    if (!session) {
-      return null;
-    }
+    if (!session) return null;
 
-    return {
-      sub: session.email,
-    };
+    return { sub: session.email };
   },
 };
+
+/**
+ * Custom TinaCMS Auth Provider class for the admin UI (client-side)
+ * This integrates our magic link auth with TinaCMS's expected interface
+ */
+export class CustomAuthProvider {
+  /**
+   * Called by TinaCMS admin to get the session provider component
+   */
+  getSessionProvider() {
+    return ({ children }: { children: React.ReactNode }) => {
+      return children;
+    };
+  }
+
+  /**
+   * Get the current auth token (session cookie value)
+   */
+  async getToken(): Promise<{ id_token: string } | null> {
+    if (typeof document === "undefined") return null;
+
+    const cookies = Object.fromEntries(
+      document.cookie.split("; ").map((c) => {
+        const [key, ...val] = c.split("=");
+        return [key, val.join("=")];
+      })
+    );
+
+    const token = cookies[SESSION_COOKIE_NAME];
+    if (!token) return null;
+
+    return { id_token: token };
+  }
+
+  /**
+   * Get the current user
+   */
+  async getUser(): Promise<{ sub: string } | null> {
+    const token = await this.getToken();
+    if (!token) return null;
+
+    try {
+      const [, payloadB64] = token.id_token.split(".");
+      const payload = JSON.parse(atob(payloadB64));
+      return { sub: payload.email };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Authenticate - redirect to our login page
+   */
+  async authenticate(): Promise<{ authenticated: boolean }> {
+    if (typeof window !== "undefined") {
+      window.location.href = "/admin/login";
+    }
+    return { authenticated: false };
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  async isAuthenticated(): Promise<boolean> {
+    const token = await this.getToken();
+    return token !== null;
+  }
+
+  /**
+   * Check if user is authorized
+   */
+  async isAuthorized(): Promise<boolean> {
+    return this.isAuthenticated();
+  }
+
+  /**
+   * Authorize - same as authenticate for our flow
+   */
+  async authorize(): Promise<{ authenticated: boolean }> {
+    return this.authenticate();
+  }
+
+  /**
+   * Fetch with token - used by TinaCMS for API requests
+   */
+  async fetchWithToken(
+    url: string,
+    options: RequestInit = {}
+  ): Promise<Response> {
+    const token = await this.getToken();
+    const headers = new Headers(options.headers);
+
+    if (token) {
+      headers.set("Authorization", `Bearer ${token.id_token}`);
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: "include", // Include cookies
+    });
+  }
+
+  /**
+   * Logout - redirect to logout endpoint
+   */
+  async logout(): Promise<void> {
+    if (typeof window !== "undefined") {
+      window.location.href = "/admin/logout";
+    }
+  }
+
+  /**
+   * Get login strategy - redirect to our custom login page
+   */
+  getLoginStrategy(): "LoginScreen" | "Redirect" | "UsernamePassword" {
+    return "Redirect";
+  }
+
+  /**
+   * Get login screen component - not used since we use redirect
+   */
+  getLoginScreen() {
+    return null;
+  }
+}

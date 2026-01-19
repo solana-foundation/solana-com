@@ -10,7 +10,7 @@ import CTA from "./collection/cta";
 import Switchback from "./collection/switchback";
 import Podcast from "./collection/podcast";
 import Link from "./collection/link";
-import { AuthProvider } from "@/lib/auth";
+import { CustomAuthProvider } from "@/lib/auth";
 
 // Determine the branch to use for preview URLs and content
 const branch =
@@ -33,8 +33,10 @@ const apiUrl = (() => {
   return "http://localhost:3002/api/tina/gql";
 })();
 
-const config: any = defineConfig({
-  authProvider: isLocal ? new LocalAuthProvider() : AuthProvider,
+const config = defineConfig({
+  authProvider: isLocal
+    ? new LocalAuthProvider()
+    : (new CustomAuthProvider() as unknown as typeof LocalAuthProvider.prototype),
   contentApiUrlOverride: apiUrl,
   branch,
 
