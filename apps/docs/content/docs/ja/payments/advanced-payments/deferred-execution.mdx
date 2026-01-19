@@ -89,12 +89,11 @@ getInitializeNonceAccountInstruction({
 
 ## 遅延トランザクションの構築
 
-標準的なトランザクションとの2つの主な違い:
+最近のブロックハッシュの代わりに、nonceの値をトランザクションのライフタイムとして使用します。これを行うには、まずnonceアカウントからnonceの値を取得し、それを使用してトランザクションのライフタイムを設定する必要があります。
 
-1. blockhashとしてnonce値を使用
-2. `advanceNonceAccount`を**最初の**instructionとして追加
+### nonceの値を取得する
 
-### nonce値の取得
+まず、nonceアカウントからnonceの値を取得します。
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -105,42 +104,35 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### nonceによるトランザクション有効期限の設定
 
-期限切れになる最新のblockhashを使用する代わりに、nonce値を使用します:
+期限切れになる最近のブロックハッシュを使用する代わりに、`setTransactionMessageLifetimeUsingDurableNonce`を使用します。この関数は2つのことを行います。
+
+1. nonceの値をトランザクションの「ブロックハッシュ」として設定します
+2. `advanceNonceAccount`命令を自動的に先頭に追加します(すべてのdurable
+   nonceトランザクションで最初の命令として必須)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
 ```
 
-### nonceの進行(必須の最初のinstruction)
-
-すべての永続的nonceトランザクションは、最初のinstructionとして`advanceNonceAccount`を**必ず**含める必要があります。これにより、使用後にnonce値を無効化し、nonce値を更新することで、リプレイ攻撃を防ぎます。
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
-```
-
 ## 署名と保存
 
-構築後、トランザクションに署名し、保存用にシリアライズします:
+構築後、トランザクションに署名し、保存用にシリアライズします。
 
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -148,22 +140,21 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-シリアライズされた文字列をデータベースに保存します。nonceが進行されるまで有効です。
+シリアライズされた文字列をデータベースに保存します。nonceが進められるまで有効です。
 
-## 複数当事者承認ワークフロー
+## マルチパーティ承認ワークフロー
 
-トランザクションをデシリアライズして追加の署名を加え、再度シリアライズして保存または送信します:
+トランザクションをデシリアライズして追加の署名を加え、再度シリアライズして保存または送信します。
 
 ```ts
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -171,18 +162,20 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 トランザクションはシリアライズ、保存され、承認者間で受け渡すことができます。必要な署名がすべて収集されたら、ネットワークに送信します。
 
-## 準備完了時に実行
+## 準備が整ったら実行
 
-承認が完了したら、シリアル化されたトランザクションをネットワークに送信します：
+承認が完了したら、シリアライズされたトランザクションをネットワークに送信します。
 
 ```ts
 const signature = await rpc
@@ -191,12 +184,12 @@ const signature = await rpc
 ```
 
 <Callout type="caution">
-  各nonceは一度しか使用できません。トランザクションが失敗した場合、または送信しないことを決定した場合は、同じnonceアカウントで別のトランザクションを準備する前にnonceを進める必要があります。
+  各nonceは一度しか使用できません。トランザクションが失敗した場合、または送信しないことにした場合は、同じnonceアカウントで別のトランザクションを準備する前にnonceを進める必要があります。
 </Callout>
 
-## 使用済みまたは放棄されたnonceの進行
+## 使用済みまたは放棄されたnonceを進める
 
-保留中のトランザクションを無効化する、またはnonceを再利用できるように準備するには、手動で進めます：
+保留中のトランザクションを無効化するか、nonceを再利用できるように準備するには、手動で進めます。
 
 ```ts
 import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
@@ -208,21 +201,21 @@ getAdvanceNonceAccountInstruction({
 });
 ```
 
-これにより新しいnonce値が生成され、古い値で署名されたトランザクションは永久に無効になります。
+これにより新しいnonceの値が生成され、古い値で署名されたトランザクションは永久に無効になります。
 
 ## 本番環境での考慮事項
 
-**nonceアカウント管理：**
+**ノンスアカウント管理:**
 
-- 並列トランザクション準備のためのnonceアカウントのプールを作成
-- どのnonceが「使用中」（保留中の署名済みトランザクションがある）かを追跡
-- トランザクションが送信または放棄された後のnonceリサイクルを実装
+- 並列トランザクション準備のためのノンスアカウントプールを作成する
+- どのノンスが「使用中」(署名済みトランザクションが保留中)かを追跡する
+- トランザクションが送信または破棄された後のノンス再利用を実装する
 
-**セキュリティ：**
+**セキュリティ:**
 
-- nonce権限は、トランザクションを無効化できるかどうかを制御します。追加の制御と職務分離のために、nonce権限をトランザクション署名者から分離することを検討してください
+- ノンス権限は、トランザクションを無効化できるかどうかを制御します。追加の制御と職務分離のために、ノンス権限をトランザクション署名者から分離することを検討してください
 - シリアル化されたトランザクションバイトを持つ*誰でも*、それをネットワークに送信できます
 
 ## 関連リソース
 
-- [Durable Noncesの紹介](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
+- [Durable Noncesの概要](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

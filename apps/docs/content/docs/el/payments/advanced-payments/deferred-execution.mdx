@@ -107,12 +107,14 @@ getInitializeNonceAccountInstruction({
 
 ## Δημιουργία αναβαλλόμενης συναλλαγής
 
-Δύο βασικές διαφορές από τις τυπικές συναλλαγές:
-
-1. Χρησιμοποιήστε την τιμή nonce ως blockhash
-2. Προσθέστε `advanceNonceAccount` ως την **πρώτη** οδηγία
+Αντί για ένα πρόσφατο blockhash, χρησιμοποιήστε την τιμή nonce ως τη διάρκεια
+ζωής της συναλλαγής. Για να το κάνετε αυτό, πρέπει πρώτα να ανακτήσετε την τιμή
+nonce από τον λογαριασμό nonce και στη συνέχεια να τη χρησιμοποιήσετε για να
+ορίσετε τη διάρκεια ζωής της συναλλαγής.
 
 ### Ανάκτηση της τιμής nonce
+
+Πρώτα, ανακτήστε την τιμή nonce από τον λογαριασμό nonce:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -123,35 +125,28 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Ορισμός διάρκειας ζωής συναλλαγής με nonce
 
-Αντί να χρησιμοποιήσετε ένα πρόσφατο blockhash που λήγει, χρησιμοποιήστε την
-τιμή nonce:
+Αντί να χρησιμοποιήσετε ένα πρόσφατο blockhash που λήγει, χρησιμοποιήστε
+`setTransactionMessageLifetimeUsingDurableNonce`. Αυτή η συνάρτηση κάνει δύο
+πράγματα:
+
+1. Ορίζει την τιμή nonce ως το "blockhash" της συναλλαγής
+2. Προσθέτει αυτόματα την εντολή `advanceNonceAccount` στην αρχή (απαιτείται ως
+   η πρώτη εντολή σε όλες τις durable nonce συναλλαγές)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
-```
-
-### Προώθηση του nonce (απαιτούμενη πρώτη οδηγία)
-
-Κάθε durable nonce συναλλαγή **πρέπει** να περιλαμβάνει `advanceNonceAccount` ως
-την πρώτη της οδηγία. Αυτό αποτρέπει επιθέσεις επανάληψης ακυρώνοντας την τιμή
-nonce μετά τη χρήση και ενημερώνοντας την τιμή nonce.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
 ```
 
 ## Υπογραφή και αποθήκευση
@@ -161,7 +156,6 @@ getAdvanceNonceAccountInstruction({
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -169,12 +163,11 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
 Αποθηκεύστε το σειριοποιημένο string στη βάση δεδομένων σας—παραμένει έγκυρο
-μέχρι να προωθηθεί το nonce.
+μέχρι να προχωρήσει το nonce.
 
 ## Ροή εργασίας έγκρισης πολλαπλών μερών
 
@@ -185,8 +178,8 @@ const serialized = getBase64EncodedWireTransaction(txBytes);
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -194,11 +187,13 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 Η συναλλαγή μπορεί να σειριοποιηθεί, να αποθηκευτεί και να μεταβιβαστεί μεταξύ
@@ -217,7 +212,7 @@ const signature = await rpc
 
 <Callout type="caution">
   Κάθε nonce μπορεί να χρησιμοποιηθεί μόνο μία φορά. Εάν μια συναλλαγή αποτύχει
-  ή αποφασίσετε να μην την υποβάλετε, πρέπει να προωθήσετε το nonce πριν
+  ή αποφασίσετε να μην την υποβάλετε, πρέπει να προχωρήσετε το nonce πριν
   προετοιμάσετε άλλη συναλλαγή με τον ίδιο λογαριασμό nonce.
 </Callout>
 
@@ -241,13 +236,13 @@ getAdvanceNonceAccountInstruction({
 
 ## Ζητήματα παραγωγής
 
-**Διαχείριση λογαριασμού nonce:**
+**Διαχείριση λογαριασμών nonce:**
 
-- Δημιουργήστε ένα σύνολο λογαριασμών nonce για παράλληλη προετοιμασία
+- Δημιουργήστε μια δεξαμενή λογαριασμών nonce για παράλληλη προετοιμασία
   συναλλαγών
 - Παρακολουθήστε ποια nonces είναι "σε χρήση" (έχουν εκκρεμείς υπογεγραμμένες
   συναλλαγές)
-- Υλοποιήστε ανακύκλωση nonce μετά την υποβολή ή εγκατάλειψη συναλλαγών
+- Εφαρμόστε ανακύκλωση nonce μετά την υποβολή ή την εγκατάλειψη των συναλλαγών
 
 **Ασφάλεια:**
 
@@ -259,4 +254,4 @@ getAdvanceNonceAccountInstruction({
 
 ## Σχετικοί πόροι
 
-- [Εισαγωγή στα durable nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
+- [Εισαγωγή στα Durable Nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

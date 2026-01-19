@@ -101,12 +101,12 @@ getInitializeNonceAccountInstruction({
 
 ## 지연 트랜잭션 구축
 
-표준 트랜잭션과의 두 가지 주요 차이점:
+최근 블록해시 대신 논스 값을 트랜잭션의 수명으로 사용합니다. 이를 위해 먼저 논스
+계정에서 논스 값을 가져온 다음 이를 사용하여 트랜잭션의 수명을 설정해야 합니다.
 
-1. nonce 값을 blockhash로 사용
-2. `advanceNonceAccount`를 **첫 번째** 명령어로 추가
+### 논스 값 가져오기
 
-### nonce 값 가져오기
+먼저 논스 계정에서 논스 값을 가져옵니다:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -117,44 +117,37 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### nonce로 트랜잭션 수명 설정
 
-만료되는 최근 blockhash를 사용하는 대신 nonce 값을 사용합니다:
+만료되는 최근 블록해시를 사용하는 대신
+`setTransactionMessageLifetimeUsingDurableNonce`를 사용합니다. 이 함수는 두 가지
+작업을 수행합니다:
+
+1. 논스 값을 트랜잭션의 "블록해시"로 설정합니다
+2. `advanceNonceAccount` 명령어를 자동으로 앞에 추가합니다 (모든 영구 논스
+   트랜잭션에서 첫 번째 명령어로 필수)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
 ```
 
-### nonce 진행 (필수 첫 번째 명령어)
-
-모든 durable nonce 트랜잭션은 **반드시** `advanceNonceAccount`를 첫 번째
-명령어로 포함해야 합니다. 이는 사용 후 nonce 값을 무효화하고 nonce 값을
-업데이트하여 재생 공격을 방지합니다.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
-```
-
 ## 서명 및 저장
 
-구축 후 트랜잭션에 서명하고 저장을 위해 직렬화합니다:
+빌드 후 트랜잭션에 서명하고 저장을 위해 직렬화합니다:
 
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -162,23 +155,22 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-직렬화된 문자열을 데이터베이스에 저장하세요. nonce가 진행될 때까지 유효합니다.
+직렬화된 문자열을 데이터베이스에 저장하세요. 논스가 진행될 때까지 유효합니다.
 
 ## 다자간 승인 워크플로우
 
-트랜잭션을 역직렬화하여 추가 서명을 추가한 다음, 저장 또는 제출을 위해 다시
+트랜잭션을 역직렬화하여 추가 서명을 추가한 다음 저장 또는 제출을 위해 다시
 직렬화합니다:
 
 ```ts
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -186,17 +178,19 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
-트랜잭션은 직렬화, 저장 및 승인자 간 전달이 가능합니다. 필요한 모든 서명이
-수집되면 네트워크에 제출하세요.
+트랜잭션은 직렬화, 저장 및 승인자 간에 전달될 수 있습니다. 필요한 모든 서명이
+수집되면 네트워크에 제출합니다.
 
-## 준비가 완료되면 실행
+## 준비되면 실행
 
 승인이 완료되면 직렬화된 트랜잭션을 네트워크로 전송합니다:
 
@@ -212,9 +206,9 @@ const signature = await rpc
   진행해야 합니다.
 </Callout>
 
-## 사용되었거나 포기된 논스 진행하기
+## 사용되거나 포기된 논스 진행하기
 
-대기 중인 트랜잭션을 무효화하거나 논스를 재사용할 수 있도록 준비하려면 수동으로
+보류 중인 트랜잭션을 무효화하거나 재사용을 위해 논스를 준비하려면 수동으로
 진행합니다:
 
 ```ts
@@ -236,12 +230,12 @@ getAdvanceNonceAccountInstruction({
 
 - 병렬 트랜잭션 준비를 위한 논스 계정 풀 생성
 - "사용 중인" 논스(대기 중인 서명된 트랜잭션이 있는 논스) 추적
-- 트랜잭션이 제출되거나 포기된 후 논스 재활용 구현
+- 트랜잭션이 제출되거나 중단된 후 논스 재활용 구현
 
 **보안:**
 
-- 논스 권한은 트랜잭션을 무효화할 수 있는지 여부를 제어합니다. 추가 제어 및 직무
-  분리를 위해 논스 권한을 트랜잭션 서명자와 분리하는 것을 고려하세요
+- 논스 권한은 트랜잭션의 무효화 여부를 제어합니다. 추가적인 제어와 직무 분리를
+  위해 논스 권한을 트랜잭션 서명자와 분리하는 것을 고려하세요
 - 직렬화된 트랜잭션 바이트를 가진 _누구나_ 네트워크에 제출할 수 있습니다
 
 ## 관련 리소스

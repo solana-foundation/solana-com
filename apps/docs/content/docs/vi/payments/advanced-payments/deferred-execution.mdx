@@ -106,12 +106,13 @@ getInitializeNonceAccountInstruction({
 
 ## Xây dựng giao dịch hoãn lại
 
-Hai điểm khác biệt chính so với giao dịch tiêu chuẩn:
-
-1. Sử dụng giá trị nonce làm blockhash
-2. Thêm `advanceNonceAccount` làm lệnh **đầu tiên**
+Thay vì sử dụng blockhash gần đây, hãy dùng giá trị nonce làm thời gian sống của
+giao dịch. Để thực hiện điều này, trước tiên chúng ta phải lấy giá trị nonce từ
+tài khoản nonce và sau đó sử dụng nó để thiết lập thời gian sống của giao dịch.
 
 ### Lấy giá trị nonce
+
+Đầu tiên, lấy giá trị nonce từ tài khoản nonce:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -122,44 +123,36 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Đặt thời gian tồn tại của giao dịch bằng nonce
 
-Thay vì sử dụng blockhash gần đây sẽ hết hạn, hãy sử dụng giá trị nonce:
+Thay vì sử dụng blockhash gần đây có thời hạn, hãy dùng
+`setTransactionMessageLifetimeUsingDurableNonce`. Hàm này thực hiện hai việc:
+
+1. Đặt giá trị nonce làm "blockhash" của giao dịch
+2. Tự động thêm lệnh `advanceNonceAccount` vào đầu (bắt buộc là lệnh đầu tiên
+   trong tất cả các giao dịch durable nonce)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
 ```
 
-### Nâng cấp nonce (lệnh đầu tiên bắt buộc)
-
-Mọi giao dịch durable nonce **phải** bao gồm `advanceNonceAccount` làm lệnh đầu
-tiên của nó. Điều này ngăn chặn các cuộc tấn công replay bằng cách vô hiệu hóa
-giá trị nonce sau khi sử dụng và cập nhật giá trị nonce.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
-```
-
 ## Ký và lưu trữ
 
-Sau khi xây dựng, hãy ký giao dịch và tuần tự hóa nó để lưu trữ:
+Sau khi xây dựng, ký giao dịch và serialize để lưu trữ:
 
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -167,24 +160,23 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-Lưu trữ chuỗi đã tuần tự hóa trong cơ sở dữ liệu của bạn—nó vẫn hợp lệ cho đến
-khi nonce được nâng cấp.
+Lưu chuỗi đã serialize vào cơ sở dữ liệu của bạn—nó vẫn hợp lệ cho đến khi nonce
+được nâng cấp.
 
 ## Quy trình phê duyệt đa bên
 
-Giải tuần tự hóa giao dịch để thêm chữ ký bổ sung, sau đó tuần tự hóa lại để lưu
-trữ hoặc gửi:
+Deserialize giao dịch để thêm chữ ký bổ sung, sau đó serialize lại để lưu trữ
+hoặc gửi:
 
 ```ts
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -192,20 +184,21 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
-Giao dịch có thể được tuần tự hóa, lưu trữ và chuyển giữa những người phê duyệt.
-Sau khi tất cả các chữ ký cần thiết được thu thập, hãy gửi lên mạng.
+Giao dịch có thể được serialize, lưu trữ và chuyển giữa các bên phê duyệt. Khi
+đã thu thập đủ tất cả chữ ký cần thiết, hãy gửi lên mạng.
 
 ## Thực thi khi sẵn sàng
 
-Khi quá trình phê duyệt hoàn tất, gửi giao dịch đã được tuần tự hóa đến mạng
-lưới:
+Khi hoàn tất phê duyệt, gửi giao dịch đã serialize lên mạng:
 
 ```ts
 const signature = await rpc
@@ -215,14 +208,14 @@ const signature = await rpc
 
 <Callout type="caution">
   Mỗi nonce chỉ có thể được sử dụng một lần. Nếu giao dịch thất bại hoặc bạn
-  quyết định không gửi nó, bạn phải tăng nonce trước khi chuẩn bị giao dịch khác
-  với cùng tài khoản nonce.
+  quyết định không gửi nó, bạn phải nâng cấp nonce trước khi chuẩn bị giao dịch
+  khác với cùng tài khoản nonce.
 </Callout>
 
-## Tăng nonce đã sử dụng hoặc bị bỏ
+## Nâng cấp nonce đã sử dụng hoặc bị bỏ
 
-Để vô hiệu hóa giao dịch đang chờ xử lý hoặc chuẩn bị nonce để sử dụng lại, hãy
-tăng nó thủ công:
+Để vô hiệu hóa giao dịch đang chờ xử lý hoặc chuẩn bị nonce để tái sử dụng, hãy
+nâng cấp thủ công:
 
 ```ts
 import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
@@ -234,24 +227,23 @@ getAdvanceNonceAccountInstruction({
 });
 ```
 
-Điều này tạo ra một giá trị nonce mới, khiến bất kỳ giao dịch nào được ký với
-giá trị cũ trở nên vô hiệu vĩnh viễn.
+Điều này tạo ra giá trị nonce mới, khiến bất kỳ giao dịch nào được ký bằng giá
+trị cũ trở nên vô hiệu vĩnh viễn.
 
 ## Các cân nhắc khi triển khai
 
 **Quản lý tài khoản nonce:**
 
-- Tạo một nhóm tài khoản nonce để chuẩn bị giao dịch song song
-- Theo dõi nonce nào "đang được sử dụng" (có giao dịch đã ký đang chờ xử lý)
-- Triển khai tái chế nonce sau khi giao dịch được gửi hoặc bị bỏ
+- Tạo một nhóm các tài khoản nonce để chuẩn bị giao dịch song song
+- Theo dõi các nonce nào đang "được sử dụng" (có giao dịch đã ký đang chờ xử lý)
+- Triển khai tái sử dụng nonce sau khi giao dịch được gửi hoặc bị hủy bỏ
 
 **Bảo mật:**
 
-- Quyền hạn nonce kiểm soát việc giao dịch có thể bị vô hiệu hóa hay không. Hãy
-  cân nhắc tách quyền hạn nonce khỏi người ký giao dịch để có thêm quyền kiểm
-  soát và phân tách nhiệm vụ
-- _Bất kỳ ai_ có byte giao dịch đã được tuần tự hóa đều có thể gửi nó đến mạng
-  lưới
+- Quyền quản lý nonce kiểm soát việc giao dịch có thể bị vô hiệu hóa hay không.
+  Hãy cân nhắc tách quyền quản lý nonce khỏi người ký giao dịch để có thêm quyền
+  kiểm soát và phân tách nhiệm vụ
+- _Bất kỳ ai_ có byte giao dịch đã được tuần tự hóa đều có thể gửi nó lên mạng
 
 ## Tài nguyên liên quan
 

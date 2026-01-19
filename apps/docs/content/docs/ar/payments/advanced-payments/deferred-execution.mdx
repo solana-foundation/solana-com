@@ -100,12 +100,12 @@ getInitializeNonceAccountInstruction({
 
 ## بناء معاملة مؤجلة
 
-هناك فرقان رئيسيان عن المعاملات القياسية:
+بدلاً من استخدام blockhash حديث، استخدم قيمة nonce كعمر افتراضي للمعاملة. للقيام
+بذلك، يجب أولاً جلب قيمة nonce من حساب nonce ثم استخدامها لتعيين عمر المعاملة.
 
-1. استخدام قيمة nonce كـ blockhash
-2. إضافة `advanceNonceAccount` كتعليمة **أولى**
+### جلب قيمة Nonce
 
-### جلب قيمة nonce
+أولاً، اجلب قيمة nonce من حساب nonce:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -116,43 +116,36 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### تحديد مدة صلاحية المعاملة باستخدام nonce
 
-بدلاً من استخدام blockhash حديث ينتهي صلاحيته، استخدم قيمة nonce:
+بدلاً من استخدام blockhash حديث ينتهي صلاحيته، استخدم
+`setTransactionMessageLifetimeUsingDurableNonce`. تقوم هذه الدالة بأمرين:
+
+1. تعيين قيمة nonce كـ "blockhash" للمعاملة
+2. إضافة تعليمة `advanceNonceAccount` تلقائياً في البداية (مطلوبة كأول تعليمة في
+   جميع معاملات durable nonce)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
 ```
 
-### تقديم nonce (التعليمة الأولى المطلوبة)
-
-يجب أن تتضمن كل معاملة nonce دائمة `advanceNonceAccount` كتعليمة أولى. هذا يمنع
-هجمات إعادة التشغيل عن طريق إبطال قيمة nonce بعد الاستخدام وتحديث قيمة nonce.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
-```
-
 ## التوقيع والتخزين
 
-بعد البناء، قم بتوقيع المعاملة وتسلسلها للتخزين:
+بعد البناء، وقّع على المعاملة وقم بتسلسلها للتخزين:
 
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -160,11 +153,10 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-قم بتخزين السلسلة المسلسلة في قاعدة البيانات الخاصة بك—تظل صالحة حتى يتم تقديم
+قم بتخزين السلسلة المتسلسلة في قاعدة البيانات الخاصة بك—تظل صالحة حتى يتم تقديم
 nonce.
 
 ## سير عمل الموافقة متعدد الأطراف
@@ -176,8 +168,8 @@ nonce.
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -185,15 +177,17 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 يمكن تسلسل المعاملة وتخزينها وتمريرها بين الموافقين. بمجرد جمع جميع التوقيعات
-المطلوبة، قم بإرسالها إلى الشبكة.
+المطلوبة، أرسلها إلى الشبكة.
 
 ## التنفيذ عند الجاهزية
 
@@ -210,7 +204,7 @@ const signature = await rpc
   يجب عليك تقديم nonce قبل إعداد معاملة أخرى بنفس حساب nonce.
 </Callout>
 
-## تقديم nonce مستخدم أو متروك
+## تقديم Nonce مستخدم أو متروك
 
 لإبطال معاملة معلقة أو إعداد nonce لإعادة الاستخدام، قم بتقديمه يدوياً:
 
@@ -229,18 +223,18 @@ getAdvanceNonceAccountInstruction({
 
 ## اعتبارات الإنتاج
 
-**إدارة حساب nonce:**
+**إدارة حسابات Nonce:**
 
-- أنشئ مجموعة من حسابات nonce لإعداد المعاملات المتوازية
-- تتبع أي nonces "قيد الاستخدام" (لديها معاملات موقعة معلقة)
-- نفذ إعادة تدوير nonce بعد إرسال المعاملات أو التخلي عنها
+- إنشاء مجموعة من حسابات nonce للإعداد المتوازي للمعاملات
+- تتبع حسابات nonce "قيد الاستخدام" (التي لديها معاملات موقعة معلقة)
+- تنفيذ إعادة تدوير nonce بعد إرسال المعاملات أو التخلي عنها
 
 **الأمان:**
 
-- سلطة nonce تتحكم فيما إذا كان يمكن إبطال المعاملات. فكر في فصل سلطة nonce عن
-  موقعي المعاملات للحصول على تحكم إضافي و فصل المهام
-- _أي شخص_ لديه بايتات المعاملة المتسلسلة يمكنه إرسالها إلى الشبكة
+- تتحكم صلاحية nonce في إمكانية إبطال المعاملات. فكر في فصل صلاحية nonce عن
+  الموقعين على المعاملات للحصول على تحكم إضافي وفصل المهام
+- يمكن _لأي شخص_ لديه بايتات المعاملة المتسلسلة إرسالها إلى الشبكة
 
 ## الموارد ذات الصلة
 
-- [مقدمة إلى durable nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
+- [مقدمة إلى Durable Nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
