@@ -92,12 +92,11 @@ getInitializeNonceAccountInstruction({
 
 ## 构建延迟交易
 
-与标准交易相比有两个关键区别：
+与其使用最近的区块哈希，不如使用 nonce 值作为交易的生命周期。为此，我们首先需要从 nonce 账户中获取 nonce 值，然后用它来设置交易的生命周期。
 
-1. 使用 nonce 值作为 blockhash
-2. 将 `advanceNonceAccount` 作为**第一个**指令添加
+### 获取 Nonce 值
 
-### 获取 nonce 值
+首先，从 nonce 账户中获取 nonce 值：
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -108,33 +107,27 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### 使用 nonce 设置交易有效期
 
-不再使用会过期的最近 blockhash，而是使用 nonce 值：
+不要使用会过期的最近区块哈希，而是使用
+`setTransactionMessageLifetimeUsingDurableNonce`。此函数有两个作用：
+
+1. 将 nonce 值设置为交易的“blockhash”
+2. 自动在所有耐用 nonce 交易的第一条指令前添加 `advanceNonceAccount`
+   指令（这是必需的）
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
-```
-
-### 推进 nonce（必须作为第一个指令）
-
-每笔持久 nonce 交易**必须**将 `advanceNonceAccount`
-作为首个指令。这样可以防止重放攻击，在使用后使 nonce 值失效并更新为新值。
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
 ```
 
 ## 签名与存储
@@ -144,7 +137,6 @@ getAdvanceNonceAccountInstruction({
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -152,13 +144,12 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-将序列化后的字符串存入数据库——在 nonce 推进前，该字符串始终有效。
+将序列化后的字符串存入数据库——只要 nonce 未被推进，它就一直有效。
 
-## 多方审批工作流
+## 多方审批流程
 
 反序列化交易以添加更多签名，然后再次序列化以便存储或提交：
 
@@ -166,8 +157,8 @@ const serialized = getBase64EncodedWireTransaction(txBytes);
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -175,18 +166,20 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
-交易可以被序列化、存储，并在审批人之间传递。收集所有所需签名后，即可提交到网络。
+交易可以被序列化、存储，并在审批人之间传递。收集到所有必需签名后，提交到网络。
 
-## 准备就绪后执行
+## 随时执行
 
-当所有审批完成后，将序列化的交易发送到网络：
+审批完成后，将序列化的交易发送到网络：
 
 ```ts
 const signature = await rpc
@@ -196,12 +189,12 @@ const signature = await rpc
 
 <Callout type="caution">
   每个 nonce 只能使用一次。如果交易失败或你决定不提交，必须在使用同一个 nonce
-  账户准备下一个交易前，先推进 nonce。
+  账户准备下一个交易前推进 nonce。
 </Callout>
 
 ## 推进已用或废弃的 Nonce
 
-如需使待处理交易失效或让 nonce 可重复使用，请手动推进：
+如需使待处理交易失效或准备 nonce 以便再次使用，请手动推进：
 
 ```ts
 import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
@@ -219,14 +212,14 @@ getAdvanceNonceAccountInstruction({
 
 **Nonce 账户管理：**
 
-- 创建 nonce 账户池以并行准备交易
-- 跟踪哪些 nonce 处于“使用中”（有待签名的交易）
-- 在交易提交或废弃后实现 nonce 回收
+- 创建一组 Nonce 账户以便并行准备交易
+- 跟踪哪些 Nonce 正在“使用中”（即有待签名的交易）
+- 在交易提交或放弃后实现 Nonce 回收利用
 
 **安全性：**
 
-- nonce 权限方控制交易是否可作废。为增强控制和职责分离，建议将 nonce 权限方与交易签名人分离
-- _任何人_ 拥有序列化交易字节都可以将其提交到网络
+- Nonce 权限方控制交易是否可以作废。为增强控制和职责分离，建议将 Nonce 权限方与交易签名人分离
+- _任何人_ 只要拥有序列化后的交易字节，就可以将其提交到网络
 
 ## 相关资源
 

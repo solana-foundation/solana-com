@@ -106,12 +106,14 @@ getInitializeNonceAccountInstruction({
 
 ## Een uitgestelde transactie bouwen
 
-Twee belangrijke verschillen met standaard transacties:
-
-1. Gebruik de nonce-waarde als blockhash
-2. Voeg `advanceNonceAccount` toe als de **eerste** instructie
+In plaats van een recente blockhash, gebruik je de nonce-waarde als de
+levensduur van de transactie. Om dit te doen, moeten we eerst de nonce-waarde
+ophalen uit het nonce-account en deze vervolgens gebruiken om de levensduur van
+de transactie in te stellen.
 
 ### De nonce-waarde ophalen
+
+Haal eerst de nonce-waarde op uit het nonce-account:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -122,35 +124,27 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Transactielevensduur instellen met nonce
 
-In plaats van een recente blockhash te gebruiken die verloopt, gebruik je de
-nonce-waarde:
+In plaats van een recente blockhash te gebruiken die verloopt, gebruik je
+`setTransactionMessageLifetimeUsingDurableNonce`. Deze functie doet twee dingen:
+
+1. Stelt de nonce-waarde in als de "blockhash" van de transactie
+2. Voegt automatisch de `advanceNonceAccount` instructie toe (vereist als de
+   eerste instructie in alle duurzame nonce-transacties)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
-```
-
-### De nonce vooruitschuiven (vereiste eerste instructie)
-
-Elke durable nonce-transactie **moet** `advanceNonceAccount` bevatten als eerste
-instructie. Dit voorkomt replay-aanvallen door de nonce-waarde na gebruik te
-invalideren en de nonce-waarde bij te werken.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
 ```
 
 ## Ondertekenen en opslaan
@@ -160,7 +154,6 @@ Na het bouwen, onderteken je de transactie en serialiseer je deze voor opslag:
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -168,12 +161,11 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
 Sla de geserialiseerde string op in je database—deze blijft geldig totdat de
-nonce wordt vooruitgeschoven.
+nonce wordt verhoogd.
 
 ## Workflow voor goedkeuring door meerdere partijen
 
@@ -184,8 +176,8 @@ serialiseer vervolgens opnieuw voor opslag of indiening:
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -193,11 +185,13 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 De transactie kan worden geserialiseerd, opgeslagen en doorgegeven tussen
@@ -217,14 +211,14 @@ const signature = await rpc
 
 <Callout type="caution">
   Elke nonce kan slechts één keer worden gebruikt. Als een transactie mislukt of
-  je besluit deze niet in te dienen, moet je de nonce vooruitschuiven voordat je
-  een andere transactie voorbereidt met hetzelfde nonce-account.
+  je besluit deze niet in te dienen, moet je de nonce verhogen voordat je een
+  andere transactie voorbereidt met hetzelfde nonce-account.
 </Callout>
 
-## Een gebruikte of verlaten nonce vooruitschuiven
+## Een gebruikte of verlaten nonce verhogen
 
 Om een lopende transactie ongeldig te maken of de nonce voor te bereiden voor
-hergebruik, schuif je deze handmatig vooruit:
+hergebruik, verhoog je deze handmatig:
 
 ```ts
 import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
@@ -243,19 +237,19 @@ waarde is ondertekend permanent ongeldig wordt.
 
 **Nonce-accountbeheer:**
 
-- Creëer een pool van nonce-accounts voor parallelle transactievoorbereiding
+- Maak een pool van nonce-accounts voor parallelle transactievoorbereiding
 - Houd bij welke nonces "in gebruik" zijn (lopende ondertekende transacties
   hebben)
-- Implementeer nonce-recycling nadat transacties zijn ingediend of verlaten
+- Implementeer nonce-recycling nadat transacties zijn ingediend of afgebroken
 
 **Beveiliging:**
 
 - De nonce-autoriteit bepaalt of transacties ongeldig kunnen worden gemaakt.
   Overweeg om de nonce-autoriteit te scheiden van transactieondertekenaars voor
-  extra controle en scheiding van taken
+  extra controle en functiescheiding
 - _Iedereen_ met de geserialiseerde transactiebytes kan deze naar het netwerk
-  sturen
+  verzenden
 
 ## Gerelateerde bronnen
 
-- [Introductie tot durable nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
+- [Inleiding tot duurzame nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

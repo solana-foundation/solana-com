@@ -109,12 +109,13 @@ getInitializeNonceAccountInstruction({
 
 ## Construire une transaction différée
 
-Deux différences clés par rapport aux transactions standard :
-
-1. Utiliser la valeur nonce comme blockhash
-2. Ajouter `advanceNonceAccount` comme **première** instruction
+Au lieu d'un blockhash récent, utilisez la valeur nonce comme durée de vie de la
+transaction. Pour ce faire, nous devons d'abord récupérer la valeur nonce du
+compte nonce, puis l'utiliser pour définir la durée de vie de la transaction.
 
 ### Récupérer la valeur nonce
+
+Tout d'abord, récupérez la valeur nonce du compte nonce :
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -125,34 +126,28 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Définir la durée de vie de la transaction avec nonce
 
-Au lieu d'utiliser un blockhash récent qui expire, utilisez la valeur nonce :
+Au lieu d'utiliser un blockhash récent qui expire, utilisez
+`setTransactionMessageLifetimeUsingDurableNonce`. Cette fonction effectue deux
+actions :
+
+1. Définit la valeur nonce comme « blockhash » de la transaction
+2. Ajoute automatiquement l'instruction `advanceNonceAccount` au début (requise
+   comme première instruction dans toutes les transactions nonce durables)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
-```
-
-### Avancer le nonce (première instruction obligatoire)
-
-Chaque transaction avec nonce durable **doit** inclure `advanceNonceAccount`
-comme première instruction. Cela empêche les attaques par rejeu en invalidant la
-valeur nonce après utilisation et en mettant à jour la valeur nonce.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
 ```
 
 ## Signer et stocker
@@ -162,7 +157,6 @@ Après la construction, signez la transaction et sérialisez-la pour le stockage
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -170,8 +164,7 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
 Stockez la chaîne sérialisée dans votre base de données — elle reste valide
@@ -186,8 +179,8 @@ sérialisez à nouveau pour le stockage ou la soumission :
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -195,11 +188,13 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 La transaction peut être sérialisée, stockée et transmise entre les
@@ -238,27 +233,26 @@ getAdvanceNonceAccountInstruction({
 });
 ```
 
-Cela génère une nouvelle valeur de nonce, rendant toute transaction signée avec
+Cela génère une nouvelle valeur nonce, rendant toute transaction signée avec
 l'ancienne valeur définitivement invalide.
 
 ## Considérations pour la production
 
 **Gestion des comptes nonce :**
 
-- Créez un pool de comptes nonce pour la préparation de transactions en
-  parallèle
-- Suivez quels nonces sont "en cours d'utilisation" (ont des transactions
+- Créer un pool de comptes nonce pour la préparation parallèle des transactions
+- Suivre quels nonces sont « en cours d'utilisation » (ont des transactions
   signées en attente)
-- Implémentez le recyclage des nonces après que les transactions sont soumises
-  ou abandonnées
+- Implémenter le recyclage des nonces après la soumission ou l'abandon des
+  transactions
 
 **Sécurité :**
 
 - L'autorité du nonce contrôle si les transactions peuvent être invalidées.
   Envisagez de séparer l'autorité du nonce des signataires de transactions pour
   un contrôle supplémentaire et une séparation des responsabilités
-- _N'importe qui_ avec les octets de transaction sérialisés peut la soumettre au
-  réseau
+- _N'importe qui_ disposant des octets de transaction sérialisés peut la
+  soumettre au réseau
 
 ## Ressources associées
 

@@ -106,12 +106,14 @@ getInitializeNonceAccountInstruction({
 
 ## Создание отложенной транзакции
 
-Два ключевых отличия от стандартных транзакций:
+Вместо использования недавнего blockhash используйте значение nonce в качестве
+срока действия транзакции. Для этого сначала нужно получить значение nonce из
+nonce-аккаунта, а затем использовать его для установки срока действия
+транзакции.
 
-1. Используйте значение nonce как blockhash
-2. Добавьте `advanceNonceAccount` как **первую** инструкцию
+### Получение значения Nonce
 
-### Получение значения nonce
+Сначала получите значение nonce из nonce-аккаунта:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -122,45 +124,37 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Установка времени жизни транзакции с помощью nonce
 
-Вместо использования недавнего blockhash, который истекает, используйте значение
-nonce:
+Вместо использования недавнего blockhash, который истекает, используйте
+`setTransactionMessageLifetimeUsingDurableNonce`. Эта функция выполняет две
+задачи:
+
+1. Устанавливает значение nonce как "blockhash" транзакции
+2. Автоматически добавляет инструкцию `advanceNonceAccount` (требуется как
+   первая инструкция во всех транзакциях с durable nonce)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
 ```
 
-### Продвижение nonce (обязательная первая инструкция)
-
-Каждая транзакция с долговечным nonce **обязательно** должна включать
-`advanceNonceAccount` в качестве первой инструкции. Это предотвращает повторные
-атаки, делая значение nonce недействительным после использования и обновляя его.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
-```
-
 ## Подпись и сохранение
 
-После создания подпишите транзакцию и сериализуйте её для хранения:
+После сборки подпишите транзакцию и сериализуйте её для хранения:
 
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -168,12 +162,11 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-Сохраните сериализованную строку в вашей базе данных — она будет действительна,
-пока nonce не будет продвинут.
+Сохраните сериализованную строку в вашей базе данных — она останется
+действительной, пока nonce не будет обновлён.
 
 ## Многосторонний процесс согласования
 
@@ -184,8 +177,8 @@ const serialized = getBase64EncodedWireTransaction(txBytes);
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -193,19 +186,21 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
-Транзакцию можно сериализовать, хранить и передавать между согласующими. После
-сбора всех необходимых подписей отправьте её в сеть.
+Транзакцию можно сериализовать, хранить и передавать между участниками
+согласования. После сбора всех необходимых подписей отправьте её в сеть.
 
-## Выполнить, когда будете готовы
+## Выполнение после готовности
 
-Когда все одобрения получены, отправьте сериализованную транзакцию в сеть:
+Когда все согласования завершены, отправьте сериализованную транзакцию в сеть:
 
 ```ts
 const signature = await rpc
@@ -215,14 +210,14 @@ const signature = await rpc
 
 <Callout type="caution">
   Каждый nonce можно использовать только один раз. Если транзакция не удалась
-  или вы решили её не отправлять, необходимо продвинуть nonce, прежде чем
-  готовить новую транзакцию с тем же аккаунтом nonce.
+  или вы решили её не отправлять, необходимо обновить nonce перед подготовкой
+  новой транзакции с тем же nonce-аккаунтом.
 </Callout>
 
-## Продвижение использованного или заброшенного nonce
+## Обновление использованного или устаревшего Nonce
 
 Чтобы аннулировать ожидающую транзакцию или подготовить nonce к повторному
-использованию, продвиньте его вручную:
+использованию, обновите его вручную:
 
 ```ts
 import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
@@ -234,21 +229,21 @@ getAdvanceNonceAccountInstruction({
 });
 ```
 
-Это сгенерирует новое значение nonce, делая любую транзакцию, подписанную старым
-значением, навсегда недействительной.
+Это сгенерирует новое значение nonce, делая любую транзакцию, подписанную со
+старым значением, навсегда недействительной.
 
-## Особенности использования в продакшене
+## Вопросы эксплуатации
 
-**Управление аккаунтами nonce:**
+**Управление nonce-аккаунтами:**
 
-- Создайте пул аккаунтов nonce для параллельной подготовки транзакций
-- Отслеживайте, какие nonce "используются" (имеют ожидающие подписанные
+- Создайте пул nonce-аккаунтов для параллельной подготовки транзакций
+- Отслеживайте, какие nonces "используются" (имеют неподтверждённые подписанные
   транзакции)
-- Реализуйте повторное использование nonce после отправки или отмены транзакций
+- Реализуйте повторное использование nonces после отправки или отмены транзакций
 
 **Безопасность:**
 
-- Владелец nonce управляет возможностью аннулирования транзакций. Для
+- Владелец nonce-аккаунта контролирует возможность аннулирования транзакций. Для
   дополнительного контроля и разделения обязанностей рассмотрите возможность
   отделения владельца nonce от подписантов транзакций
 - _Любой_, у кого есть сериализованные байты транзакции, может отправить её в

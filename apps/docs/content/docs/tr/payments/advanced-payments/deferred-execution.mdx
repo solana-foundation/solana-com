@@ -105,12 +105,13 @@ getInitializeNonceAccountInstruction({
 
 ## Ertelenmiş işlem oluşturma
 
-Standart işlemlerden iki temel fark:
-
-1. Blockhash olarak nonce değerini kullanın
-2. `advanceNonceAccount` talimatını **ilk** talimat olarak ekleyin
+Son bir blockhash yerine, işlemin ömrü olarak nonce değerini kullanın. Bunu
+yapmak için önce nonce hesabından nonce değerini getirmeli ve ardından bunu
+işlemin ömrünü ayarlamak için kullanmalıyız.
 
 ### Nonce değerini getirme
+
+İlk olarak, nonce hesabından nonce değerini getirin:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -121,44 +122,37 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### İşlem ömrünü nonce ile ayarlama
 
-Süresi dolan güncel bir blockhash kullanmak yerine, nonce değerini kullanın:
+Süresi dolan son bir blockhash kullanmak yerine,
+`setTransactionMessageLifetimeUsingDurableNonce` kullanın. Bu fonksiyon iki şey
+yapar:
+
+1. Nonce değerini işlemin "blockhash"i olarak ayarlar
+2. `advanceNonceAccount` talimatını otomatik olarak başa ekler (tüm kalıcı nonce
+   işlemlerinde ilk talimat olarak gereklidir)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
 ```
 
-### Nonce'u ilerletme (gerekli ilk talimat)
+## İmzalama ve saklama
 
-Her dayanıklı nonce işlemi, ilk talimat olarak `advanceNonceAccount`
-**içermelidir**. Bu, kullanımdan sonra nonce değerini geçersiz kılarak ve nonce
-değerini güncelleyerek tekrar saldırılarını önler.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
-```
-
-## İmzalama ve depolama
-
-Oluşturduktan sonra, işlemi imzalayın ve depolama için serileştirin:
+Oluşturduktan sonra, işlemi imzalayın ve saklamak için serileştirin:
 
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -166,24 +160,23 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-Serileştirilmiş dizeyi veritabanınızda saklayın—nonce ilerletilene kadar geçerli
-kalır.
+Serileştirilmiş string'i veritabanınızda saklayın—nonce ilerletilene kadar
+geçerli kalır.
 
 ## Çok taraflı onay iş akışı
 
-Ek imzalar eklemek için işlemi deserialize edin, ardından depolama veya gönderim
+Ek imzalar eklemek için işlemi seriden çıkarın, ardından saklama veya gönderim
 için tekrar serileştirin:
 
 ```ts
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -191,17 +184,19 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
-İşlem serileştirilebilir, depolanabilir ve onaylayanlar arasında aktarılabilir.
+İşlem serileştirilebilir, saklanabilir ve onaylayanlar arasında aktarılabilir.
 Gerekli tüm imzalar toplandığında, ağa gönderin.
 
-## Hazır olduğunda çalıştır
+## Hazır olduğunda çalıştırma
 
 Onaylar tamamlandığında, serileştirilmiş işlemi ağa gönderin:
 
@@ -214,10 +209,10 @@ const signature = await rpc
 <Callout type="caution">
   Her nonce yalnızca bir kez kullanılabilir. Bir işlem başarısız olursa veya
   göndermemeye karar verirseniz, aynı nonce hesabıyla başka bir işlem
-  hazırlamadan önce nonce'u ilerletmelisiniz.
+  hazırlamadan önce nonce'u ilerlettirmeniz gerekir.
 </Callout>
 
-## Kullanılmış veya terk edilmiş bir nonce'u ilerletme
+## Kullanılmış veya terk edilmiş bir nonce'u ilerlettirme
 
 Bekleyen bir işlemi geçersiz kılmak veya nonce'u yeniden kullanıma hazırlamak
 için manuel olarak ilerletin:
@@ -235,14 +230,14 @@ getAdvanceNonceAccountInstruction({
 Bu, yeni bir nonce değeri oluşturur ve eski değerle imzalanmış herhangi bir
 işlemi kalıcı olarak geçersiz kılar.
 
-## Üretim ortamı için dikkat edilmesi gerekenler
+## Üretim ortamı hususları
 
 **Nonce hesap yönetimi:**
 
 - Paralel işlem hazırlığı için bir nonce hesap havuzu oluşturun
 - Hangi nonce'ların "kullanımda" olduğunu takip edin (bekleyen imzalı işlemleri
   olan)
-- İşlemler gönderildikten veya terk edildikten sonra nonce geri dönüşümü
+- İşlemler gönderildikten veya iptal edildikten sonra nonce geri dönüşümü
   uygulayın
 
 **Güvenlik:**
@@ -254,4 +249,4 @@ işlemi kalıcı olarak geçersiz kılar.
 
 ## İlgili kaynaklar
 
-- [Durable nonce'lara giriş](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
+- [Durable Nonce'lara giriş](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

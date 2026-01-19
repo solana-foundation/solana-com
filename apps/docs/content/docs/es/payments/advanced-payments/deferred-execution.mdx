@@ -104,12 +104,14 @@ getInitializeNonceAccountInstruction({
 
 ## Construir una transacción diferida
 
-Dos diferencias clave respecto a las transacciones estándar:
+En lugar de un blockhash reciente, usa el valor del nonce como el tiempo de vida
+de la transacción. Para hacer esto, primero debemos obtener el valor del nonce
+de la cuenta de nonce y luego usarlo para establecer el tiempo de vida de la
+transacción.
 
-1. Usar el valor nonce como blockhash
-2. Añadir `advanceNonceAccount` como la **primera** instrucción
+### Obtener el valor del nonce
 
-### Obtener el valor nonce
+Primero, obtén el valor del nonce de la cuenta de nonce:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -120,34 +122,27 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Establecer el tiempo de vida de la transacción con nonce
 
-En lugar de usar un blockhash reciente que expira, usa el valor nonce:
+En lugar de usar un blockhash reciente que expira, usa
+`setTransactionMessageLifetimeUsingDurableNonce`. Esta función hace dos cosas:
+
+1. Establece el valor del nonce como el "blockhash" de la transacción
+2. Antepone automáticamente la instrucción `advanceNonceAccount` (requerida como
+   la primera instrucción en todas las transacciones de nonce duradero)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
-```
-
-### Avanzar el nonce (primera instrucción requerida)
-
-Toda transacción durable nonce **debe** incluir `advanceNonceAccount` como su
-primera instrucción. Esto previene ataques de repetición al invalidar el valor
-nonce después de su uso y actualizar el valor nonce.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
 ```
 
 ## Firmar y almacenar
@@ -157,7 +152,6 @@ Después de construir, firma la transacción y serialízala para almacenarla:
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -165,24 +159,23 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
 Almacena la cadena serializada en tu base de datos: permanece válida hasta que
-el nonce se avance.
+el nonce sea avanzado.
 
 ## Flujo de trabajo de aprobación multipartita
 
-Deserializa la transacción para añadir firmas adicionales, luego serializa
+Deserializa la transacción para agregar firmas adicionales, luego serializa
 nuevamente para almacenarla o enviarla:
 
 ```ts
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -190,14 +183,16 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
-La transacción puede serializarse, almacenarse y pasarse entre aprobadores. Una
+La transacción puede ser serializada, almacenada y pasada entre aprobadores. Una
 vez que se recopilen todas las firmas requeridas, envíala a la red.
 
 ## Ejecutar cuando esté listo
@@ -212,15 +207,15 @@ const signature = await rpc
 ```
 
 <Callout type="caution">
-  Cada nonce solo se puede usar una vez. Si una transacción falla o decides no
+  Cada nonce solo puede usarse una vez. Si una transacción falla o decides no
   enviarla, debes avanzar el nonce antes de preparar otra transacción con la
   misma cuenta de nonce.
 </Callout>
 
 ## Avanzar un nonce usado o abandonado
 
-Para invalidar una transacción pendiente o preparar el nonce para su
-reutilización, avánzalo manualmente:
+Para invalidar una transacción pendiente o preparar el nonce para reutilizarlo,
+avánzalo manualmente:
 
 ```ts
 import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
@@ -237,21 +232,19 @@ con el valor antiguo sea permanentemente inválida.
 
 ## Consideraciones de producción
 
-**Gestión de cuentas de nonce:**
+**Gestión de cuentas nonce:**
 
-- Crea un grupo de cuentas de nonce para la preparación paralela de
-  transacciones
+- Crea un grupo de cuentas nonce para la preparación paralela de transacciones
 - Rastrea qué nonces están "en uso" (tienen transacciones firmadas pendientes)
 - Implementa el reciclaje de nonces después de que las transacciones se envíen o
   abandonen
 
 **Seguridad:**
 
-- La autoridad del nonce controla si las transacciones pueden ser invalidadas.
+- La autoridad del nonce controla si las transacciones pueden invalidarse.
   Considera separar la autoridad del nonce de los firmantes de transacciones
-  para un control adicional y separación de funciones
-- _Cualquiera_ con los bytes de la transacción serializada puede enviarla a la
-  red
+  para obtener control adicional y separación de funciones
+- _Cualquiera_ con los bytes de transacción serializados puede enviarla a la red
 
 ## Recursos relacionados
 

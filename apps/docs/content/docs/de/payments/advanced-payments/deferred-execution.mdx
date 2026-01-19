@@ -109,12 +109,14 @@ getInitializeNonceAccountInstruction({
 
 ## Erstellen einer verzögerten Transaktion
 
-Zwei wesentliche Unterschiede zu Standardtransaktionen:
+Anstelle eines aktuellen Blockhashes verwenden Sie den Nonce-Wert als
+Lebensdauer der Transaktion. Dazu müssen Sie zunächst den Nonce-Wert vom
+Nonce-Konto abrufen und ihn dann verwenden, um die Lebensdauer der Transaktion
+festzulegen.
 
-1. Verwenden Sie den Nonce-Wert als Blockhash
-2. Fügen Sie `advanceNonceAccount` als **erste** Anweisung hinzu
+### Nonce-Wert abrufen
 
-### Abrufen des Nonce-Werts
+Rufen Sie zunächst den Nonce-Wert vom Nonce-Konto ab:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -125,35 +127,28 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Festlegen der Transaktionslebensdauer mit Nonce
 
-Anstatt einen aktuellen Blockhash zu verwenden, der abläuft, verwenden Sie den
-Nonce-Wert:
+Anstatt einen aktuellen Blockhash zu verwenden, der abläuft, verwenden Sie
+`setTransactionMessageLifetimeUsingDurableNonce`. Diese Funktion erfüllt zwei
+Aufgaben:
+
+1. Setzt den Nonce-Wert als "Blockhash" der Transaktion
+2. Stellt automatisch die `advanceNonceAccount`-Anweisung voran (erforderlich
+   als erste Anweisung in allen Durable-Nonce-Transaktionen)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
-```
-
-### Fortschreiten des Nonce (erforderliche erste Anweisung)
-
-Jede dauerhafte Nonce-Transaktion **muss** `advanceNonceAccount` als ihre erste
-Anweisung enthalten. Dies verhindert Replay-Angriffe, indem der Nonce-Wert nach
-der Verwendung ungültig gemacht und der Nonce-Wert aktualisiert wird.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
 ```
 
 ## Signieren und speichern
@@ -164,7 +159,6 @@ Speicherung:
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -172,12 +166,11 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
-Speichern Sie die serialisierte Zeichenfolge in Ihrer Datenbank – sie bleibt
-gültig, bis der Nonce fortgeschritten ist.
+Speichern Sie die serialisierte Zeichenkette in Ihrer Datenbank – sie bleibt
+gültig, bis der Nonce fortgeschritten wird.
 
 ## Workflow für mehrseitige Genehmigung
 
@@ -188,8 +181,8 @@ serialisieren Sie sie dann erneut zur Speicherung oder Übermittlung:
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -197,15 +190,17 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 Die Transaktion kann serialisiert, gespeichert und zwischen Genehmigern
-weitergegeben werden. Sobald alle erforderlichen Signaturen gesammelt sind,
+weitergegeben werden. Sobald alle erforderlichen Signaturen gesammelt wurden,
 übermitteln Sie sie an das Netzwerk.
 
 ## Ausführen, wenn bereit
@@ -220,16 +215,16 @@ const signature = await rpc
 ```
 
 <Callout type="caution">
-  Jede Nonce kann nur einmal verwendet werden. Wenn eine Transaktion fehlschlägt
-  oder Sie sich entscheiden, sie nicht zu übermitteln, müssen Sie die Nonce
-  weiterschalten, bevor Sie eine weitere Transaktion mit demselben Nonce-Konto
-  vorbereiten.
+  Jeder Nonce kann nur einmal verwendet werden. Wenn eine Transaktion
+  fehlschlägt oder Sie sich entscheiden, sie nicht zu übermitteln, müssen Sie
+  den Nonce fortschreiten lassen, bevor Sie eine weitere Transaktion mit
+  demselben Nonce-Konto vorbereiten.
 </Callout>
 
-## Weiterschalten einer verwendeten oder aufgegebenen Nonce
+## Fortschreiten eines verwendeten oder aufgegebenen Nonce
 
-Um eine ausstehende Transaktion ungültig zu machen oder die Nonce für die
-Wiederverwendung vorzubereiten, schalten Sie sie manuell weiter:
+Um eine ausstehende Transaktion ungültig zu machen oder den Nonce für die
+Wiederverwendung vorzubereiten, schreiten Sie ihn manuell fort:
 
 ```ts
 import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
@@ -253,7 +248,7 @@ Transaktion dauerhaft ungültig.
 - Verfolgen Sie, welche Nonces „in Verwendung" sind (ausstehende signierte
   Transaktionen haben)
 - Implementieren Sie Nonce-Recycling, nachdem Transaktionen übermittelt oder
-  aufgegeben wurden
+  abgebrochen wurden
 
 **Sicherheit:**
 

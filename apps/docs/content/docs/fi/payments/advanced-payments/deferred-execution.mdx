@@ -104,12 +104,13 @@ getInitializeNonceAccountInstruction({
 
 ## Lykätyn transaktion rakentaminen
 
-Kaksi keskeistä eroa tavallisiin transaktioihin:
-
-1. Käytä nonce-arvoa blockhashina
-2. Lisää `advanceNonceAccount` **ensimmäisenä** käskynä
+Käytä äskettäisen lohkohajautuksen sijaan nonce-arvoa transaktion elinkaaren
+määrittämiseen. Tätä varten sinun on ensin haettava nonce-arvo nonce-tililtä ja
+käytettävä sitä transaktion elinkaaren asettamiseen.
 
 ### Hae nonce-arvo
+
+Hae ensin nonce-arvo nonce-tililtä:
 
 ```ts
 import { fetchNonce } from "@solana-program/system";
@@ -120,35 +121,28 @@ const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
 
 ### Aseta transaktion elinikä noncella
 
-Sen sijaan, että käyttäisit viimeaikaista blockhashia, joka vanhenee, käytä
-nonce-arvoa:
+Käytä vanhentuvan äskettäisen lohkohajautuksen sijaan
+`setTransactionMessageLifetimeUsingDurableNonce` -funktiota. Tämä funktio tekee
+kaksi asiaa:
+
+1. Asettaa nonce-arvon transaktion "lohkohajautukseksi"
+2. Lisää automaattisesti `advanceNonceAccount` -käskyn alkuun (vaaditaan
+   ensimmäisenä käskynä kaikissa kestävissä nonce-transaktioissa)
 
 ```ts
-import { setTransactionMessageLifetimeUsingBlockhash } from "@solana/kit";
+import {
+  setTransactionMessageLifetimeUsingDurableNonce,
+  type Nonce
+} from "@solana/kit";
 
-setTransactionMessageLifetimeUsingBlockhash(
+setTransactionMessageLifetimeUsingDurableNonce(
   {
-    blockhash: nonceAccount.data.blockhash,
-    lastValidBlockHeight: BigInt(2n ** 64n - 1n) // Effectively never expires
+    nonce: nonceAccount.data.blockhash as Nonce,
+    nonceAccountAddress: nonceAddress,
+    nonceAuthorityAddress: authorityAddress
   },
   transactionMessage
 );
-```
-
-### Siirrä noncea eteenpäin (pakollinen ensimmäinen käsky)
-
-Jokaisen kestävän nonce-transaktion **täytyy** sisältää `advanceNonceAccount`
-ensimmäisenä käskynään. Tämä estää toistohyökkäykset mitätöimällä nonce-arvon
-käytön jälkeen ja päivittämällä nonce-arvon.
-
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
-
-// MUST be the first instruction in your transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority // Signer that controls the nonce
-});
 ```
 
 ## Allekirjoita ja tallenna
@@ -159,7 +153,6 @@ varten:
 ```ts
 import {
   signTransactionMessageWithSigners,
-  getTransactionEncoder,
   getBase64EncodedWireTransaction
 } from "@solana/kit";
 
@@ -167,24 +160,23 @@ import {
 const signedTx = await signTransactionMessageWithSigners(transactionMessage);
 
 // Serialize for storage (database, file, etc.)
-const txBytes = getTransactionEncoder().encode(signedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+const serialized = getBase64EncodedWireTransaction(signedTx);
 ```
 
 Tallenna serialisoitu merkkijono tietokantaasi – se pysyy voimassa, kunnes nonce
-siirretään eteenpäin.
+edistetään.
 
 ## Moniosapuolinen hyväksyntätyönkulku
 
-Deserialisoi transaktio lisätäksesi lisää allekirjoituksia, serialisoi sitten
-uudelleen tallennusta tai lähetystä varten:
+Deserialisoi transaktio lisätäksesi ylimääräisiä allekirjoituksia, serialisoi
+sitten uudelleen tallennusta tai lähettämistä varten:
 
 ```ts
 import {
   getBase64Decoder,
   getTransactionDecoder,
-  getTransactionEncoder,
-  getBase64EncodedWireTransaction
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
@@ -192,11 +184,13 @@ const txBytes = getBase64Decoder().decode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
 // Each approver adds their signature
-const fullySignedTx = await newSigner.signTransactions([partiallySignedTx]);
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
 
-// Serialize again for storage
-const txBytes = getTransactionEncoder().encode(fullySignedTx);
-const serialized = getBase64EncodedWireTransaction(txBytes);
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
 ```
 
 Transaktio voidaan serialisoida, tallentaa ja välittää hyväksyjien välillä. Kun
@@ -204,7 +198,7 @@ kaikki vaaditut allekirjoitukset on kerätty, lähetä verkkoon.
 
 ## Suorita kun valmis
 
-Kun hyväksynnät on saatu, lähetä sarjallistettu transaktio verkkoon:
+Kun hyväksynnät on saatu valmiiksi, lähetä serialisoitu transaktio verkkoon:
 
 ```ts
 const signature = await rpc
@@ -214,7 +208,7 @@ const signature = await rpc
 
 <Callout type="caution">
   Jokaista noncea voidaan käyttää vain kerran. Jos transaktio epäonnistuu tai
-  päätät olla lähettämättä sitä, sinun on edistettävä noncea ennen toisen
+  päätät olla lähettämättä sitä, sinun on edistettävä nonce ennen toisen
   transaktion valmistelua samalla nonce-tilillä.
 </Callout>
 
@@ -233,8 +227,8 @@ getAdvanceNonceAccountInstruction({
 });
 ```
 
-Tämä luo uuden nonce-arvon, mikä tekee kaikista vanhalla arvolla
-allekirjoitetuista transaktioista pysyvästi virheellisiä.
+Tämä luo uuden nonce-arvon, mikä tekee vanhalla arvolla allekirjoitetusta
+transaktiosta pysyvästi virheellisen.
 
 ## Tuotantoympäristön huomioitavaa
 
@@ -243,16 +237,16 @@ allekirjoitetuista transaktioista pysyvästi virheellisiä.
 - Luo joukko nonce-tilejä rinnakkaista transaktioiden valmistelua varten
 - Seuraa, mitkä noncet ovat "käytössä" (niillä on odottavia allekirjoitettuja
   transaktioita)
-- Toteuta noncen kierrätys sen jälkeen, kun transaktiot on lähetetty tai hylätty
+- Toteuta nonce-kierrätys sen jälkeen, kun transaktiot on lähetetty tai hylätty
 
 **Turvallisuus:**
 
 - Nonce-valtuutus hallitsee sitä, voidaanko transaktiot mitätöidä. Harkitse
-  nonce-valtuutuksen erottamista transaktion allekirjoittajista lisävalvontaa ja
-  tehtävien erottelua varten
-- _Kuka tahansa_, jolla on sarjallistetut transaktiotavut, voi lähettää sen
+  nonce-valtuutuksen erottamista transaktioiden allekirjoittajista lisähallinnan
+  ja tehtävien erottelun saavuttamiseksi
+- _Kuka tahansa_, jolla on sarjallistetut transaktiotavut, voi lähettää ne
   verkkoon
 
-## Liittyvät resurssit
+## Aiheeseen liittyvät resurssit
 
-- [Johdatus kestäviin nonceeihin](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
+- [Johdatus kestäviin noncehin](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
