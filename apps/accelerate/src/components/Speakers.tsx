@@ -53,7 +53,8 @@ function SpeakerCard({ speaker }: SpeakerCardProps) {
         <div
           className="text-h1 uppercase leading-none text-accelerate-purple"
           style={{
-            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            fontFamily:
+              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
         >
           <p className="mb-0">{speaker.firstName}</p>
@@ -66,7 +67,8 @@ function SpeakerCard({ speaker }: SpeakerCardProps) {
           <p
             className="text-h2 text-white"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
             {speaker.company}
@@ -188,7 +190,8 @@ export function Speakers() {
               <h2
                 className="text-h1 text-accelerate-gray-100"
                 style={{
-                  fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                  fontFamily:
+                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 }}
               >
                 Speakers
@@ -196,15 +199,20 @@ export function Speakers() {
             </motion.div>
 
             {/* Right side: ALL SPEAKERS button and carousel controls */}
-            <motion.div variants={fadeInUp} className="flex flex-col items-end gap-2">
+            <motion.div
+              variants={fadeInUp}
+              className="flex flex-col items-end gap-2"
+            >
               {/* ALL SPEAKERS button */}
               <a
                 href="#speakers"
                 className="inline-flex items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
                 style={{
-                  fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                  fontFamily:
+                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                   fontSize: "16px",
-                  background: "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
+                  background:
+                    "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
                   border: "1px solid transparent",
                 }}
               >
@@ -219,7 +227,6 @@ export function Speakers() {
                   />
                 </svg>
               </a>
-
             </motion.div>
           </div>
 
@@ -234,9 +241,19 @@ export function Speakers() {
               className="flex items-center justify-center transition-opacity disabled:opacity-40 hover:opacity-80 disabled:hover:opacity-40"
               aria-label="Scroll left"
             >
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="rotate-180">
+              <svg
+                width="36"
+                height="36"
+                viewBox="0 0 36 36"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="rotate-180"
+              >
                 <circle cx="18" cy="18" r="18" fill="#838191" />
-                <path d="M26.7899 18.5553L20.0682 25.7744C19.9282 25.9248 19.7558 26 19.5512 26C19.3465 26 19.1741 25.9248 19.0341 25.7744C18.8941 25.624 18.8241 25.4389 18.8241 25.2191C18.8241 24.9993 18.8941 24.8142 19.0341 24.6638L24.5117 18.7809L9.72711 18.7983C9.63016 18.7867 9.5386 18.7636 9.45242 18.7289C9.36625 18.6941 9.28546 18.6363 9.21005 18.5553C9.07002 18.4049 9 18.2198 9 18C9 17.7802 9.07002 17.5951 9.21005 17.4447C9.28546 17.3637 9.36625 17.3059 9.45242 17.2712C9.5386 17.2364 9.63016 17.2133 9.72711 17.2017L24.5117 17.2191L19.0341 11.3362C18.8941 11.1858 18.8241 11.0007 18.8241 10.7809C18.8241 10.5611 18.8941 10.376 19.0341 10.2256C19.1741 10.0752 19.3465 10 19.5512 10C19.7558 10 19.9282 10.0752 20.0682 10.2256L26.7899 17.4447C26.93 17.5951 27 17.7802 27 18C27 18.2198 26.93 18.4049 26.7899 18.5553Z" fill="black" />
+                <path
+                  d="M26.7899 18.5553L20.0682 25.7744C19.9282 25.9248 19.7558 26 19.5512 26C19.3465 26 19.1741 25.9248 19.0341 25.7744C18.8941 25.624 18.8241 25.4389 18.8241 25.2191C18.8241 24.9993 18.8941 24.8142 19.0341 24.6638L24.5117 18.7809L9.72711 18.7983C9.63016 18.7867 9.5386 18.7636 9.45242 18.7289C9.36625 18.6941 9.28546 18.6363 9.21005 18.5553C9.07002 18.4049 9 18.2198 9 18C9 17.7802 9.07002 17.5951 9.21005 17.4447C9.28546 17.3637 9.36625 17.3059 9.45242 17.2712C9.5386 17.2364 9.63016 17.2133 9.72711 17.2017L24.5117 17.2191L19.0341 11.3362C18.8941 11.1858 18.8241 11.0007 18.8241 10.7809C18.8241 10.5611 18.8941 10.376 19.0341 10.2256C19.1741 10.0752 19.3465 10 19.5512 10C19.7558 10 19.9282 10.0752 20.0682 10.2256L26.7899 17.4447C26.93 17.5951 27 17.7802 27 18C27 18.2198 26.93 18.4049 26.7899 18.5553Z"
+                  fill="black"
+                />
               </svg>
             </button>
             <button
@@ -245,9 +262,18 @@ export function Speakers() {
               className="flex items-center justify-center transition-opacity disabled:opacity-40 hover:opacity-80 disabled:hover:opacity-40"
               aria-label="Scroll right"
             >
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg
+                width="36"
+                height="36"
+                viewBox="0 0 36 36"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <circle cx="18" cy="18" r="18" fill="#838191" />
-                <path d="M26.7899 18.5553L20.0682 25.7744C19.9282 25.9248 19.7558 26 19.5512 26C19.3465 26 19.1741 25.9248 19.0341 25.7744C18.8941 25.624 18.8241 25.4389 18.8241 25.2191C18.8241 24.9993 18.8941 24.8142 19.0341 24.6638L24.5117 18.7809L9.72711 18.7983C9.63016 18.7867 9.5386 18.7636 9.45242 18.7289C9.36625 18.6941 9.28546 18.6363 9.21005 18.5553C9.07002 18.4049 9 18.2198 9 18C9 17.7802 9.07002 17.5951 9.21005 17.4447C9.28546 17.3637 9.36625 17.3059 9.45242 17.2712C9.5386 17.2364 9.63016 17.2133 9.72711 17.2017L24.5117 17.2191L19.0341 11.3362C18.8941 11.1858 18.8241 11.0007 18.8241 10.7809C18.8241 10.5611 18.8941 10.376 19.0341 10.2256C19.1741 10.0752 19.3465 10 19.5512 10C19.7558 10 19.9282 10.0752 20.0682 10.2256L26.7899 17.4447C26.93 17.5951 27 17.7802 27 18C27 18.2198 26.93 18.4049 26.7899 18.5553Z" fill="black" />
+                <path
+                  d="M26.7899 18.5553L20.0682 25.7744C19.9282 25.9248 19.7558 26 19.5512 26C19.3465 26 19.1741 25.9248 19.0341 25.7744C18.8941 25.624 18.8241 25.4389 18.8241 25.2191C18.8241 24.9993 18.8941 24.8142 19.0341 24.6638L24.5117 18.7809L9.72711 18.7983C9.63016 18.7867 9.5386 18.7636 9.45242 18.7289C9.36625 18.6941 9.28546 18.6363 9.21005 18.5553C9.07002 18.4049 9 18.2198 9 18C9 17.7802 9.07002 17.5951 9.21005 17.4447C9.28546 17.3637 9.36625 17.3059 9.45242 17.2712C9.5386 17.2364 9.63016 17.2133 9.72711 17.2017L24.5117 17.2191L19.0341 11.3362C18.8941 11.1858 18.8241 11.0007 18.8241 10.7809C18.8241 10.5611 18.8941 10.376 19.0341 10.2256C19.1741 10.0752 19.3465 10 19.5512 10C19.7558 10 19.9282 10.0752 20.0682 10.2256L26.7899 17.4447C26.93 17.5951 27 17.7802 27 18C27 18.2198 26.93 18.4049 26.7899 18.5553Z"
+                  fill="black"
+                />
               </svg>
             </button>
           </div>

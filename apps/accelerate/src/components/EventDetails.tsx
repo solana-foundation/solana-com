@@ -30,14 +30,19 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
     >
       <p
         className="gradient-text text-h2"
-        style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
+        style={{
+          fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+        }}
       >
         {label}
       </p>
       <div>
         <p
           className="text-h2 text-white"
-          style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
+          style={{
+            fontFamily:
+              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          }}
         >
           {value}
         </p>
@@ -63,7 +68,10 @@ export function EventDetails() {
           <motion.h2
             variants={fadeInUp}
             className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
-            style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
+            style={{
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
           >
             Event details
           </motion.h2>
@@ -96,7 +104,10 @@ export function EventDetails() {
                   </div>
                   <p
                     className="text-h1 uppercase text-white/60"
-                    style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
+                    style={{
+                      fontFamily:
+                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                    }}
                   >
                     EMBEDDED MAP
                   </p>

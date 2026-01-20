@@ -1,10 +1,14 @@
 ## Context
 
-Implementing pixel-perfect UI from Figma design `7408:64` (Accelerate HK Desktop) for the Solana Accelerate Hong Kong event landing page. The design is 1920px wide and 8703px tall, containing multiple sections that need precise visual matching.
+Implementing pixel-perfect UI from Figma design `7408:64` (Accelerate HK
+Desktop) for the Solana Accelerate Hong Kong event landing page. The design is
+1920px wide and 8703px tall, containing multiple sections that need precise
+visual matching.
 
 **Stakeholders**: Marketing team (design approval), Engineering (implementation)
 
 **Constraints**:
+
 - Must use existing monorepo architecture and workspace packages
 - Must maintain responsive behavior while matching desktop design
 - All images must be exported from Figma (no stock images)
@@ -12,12 +16,14 @@ Implementing pixel-perfect UI from Figma design `7408:64` (Accelerate HK Desktop
 ## Goals / Non-Goals
 
 ### Goals
+
 - Achieve pixel-perfect match with Figma design on desktop (1920px)
 - Export all required assets from Figma as SVG/PNG
 - Implement responsive adaptations for mobile/tablet
 - Use Figma design tokens consistently throughout
 
 ### Non-Goals
+
 - Mobile-specific design variations (adapt desktop design responsively)
 - Interactive map implementation (placeholder only)
 - Ticket purchase functionality (links only)
@@ -28,22 +34,28 @@ Implementing pixel-perfect UI from Figma design `7408:64` (Accelerate HK Desktop
 
 **Decision**: Use Figma-specified fonts with Tailwind custom configuration
 
-**Font Family Requirement**: All components MUST use `font-family: "Space Grotesk"` for headlines, hero text, buttons, and navigation elements as specified below.
+**Font Family Requirement**: All components MUST use
+`font-family: "Space Grotesk"` for headlines, hero text, buttons, and navigation
+elements as specified below.
 
-| Token | Font | Weight | Size | Line Height |
-|-------|------|--------|------|-------------|
-| `hero` | Space Grotesk | 300 (Light) | 84px | 1 |
-| `h1` | Space Grotesk | 300 (Light) | 68px | 1 |
-| `h2` | Space Grotesk | 400 (Regular) | 32px | 1.1 |
-| `h3` | ABC Diatype | 300 (Light) | 24px | 1.2 |
-| `h4` | ABC Diatype | 400 (Regular) | 20px | 1.4 |
-| `p` | ABC Diatype | 300 (Light) | 20px | 1.4 |
-| `button` | Space Grotesk | 600 (SemiBold) | 16px | 1 |
-| `button-big` | Space Grotesk | 600 (SemiBold) | 18px | 1 |
+| Token        | Font          | Weight         | Size | Line Height |
+| ------------ | ------------- | -------------- | ---- | ----------- |
+| `hero`       | Space Grotesk | 300 (Light)    | 84px | 1           |
+| `h1`         | Space Grotesk | 300 (Light)    | 68px | 1           |
+| `h2`         | Space Grotesk | 400 (Regular)  | 32px | 1.1         |
+| `h3`         | ABC Diatype   | 300 (Light)    | 24px | 1.2         |
+| `h4`         | ABC Diatype   | 400 (Regular)  | 20px | 1.4         |
+| `p`          | ABC Diatype   | 300 (Light)    | 20px | 1.4         |
+| `button`     | Space Grotesk | 600 (SemiBold) | 16px | 1           |
+| `button-big` | Space Grotesk | 600 (SemiBold) | 18px | 1           |
 
-**Implementation Note**: Space Grotesk must be loaded via Next.js font optimization (`next/font/google`) and configured in Tailwind config as a custom font family. All hero titles, headings (h1, h2), buttons, and navigation text must explicitly use `font-family: "Space Grotesk"`.
+**Implementation Note**: Space Grotesk must be loaded via Next.js font
+optimization (`next/font/google`) and configured in Tailwind config as a custom
+font family. All hero titles, headings (h1, h2), buttons, and navigation text
+must explicitly use `font-family: "Space Grotesk"`.
 
-**Alternatives considered**: System fonts (rejected - design specifies custom fonts)
+**Alternatives considered**: System fonts (rejected - design specifies custom
+fonts)
 
 ### Color System
 
@@ -72,15 +84,17 @@ colors: {
 
 **Decision**: Export from Figma using node IDs, save to `public/images/`
 
-| Asset Type | Format | Location |
-|------------|--------|----------|
-| Decorative vectors (skyline, waves, dots, pills) | SVG | `/public/images/` |
-| Speaker headshots | PNG (400x400 min) | `/public/images/speakers/` |
-| Sponsor logos | SVG preferred, PNG fallback | `/public/images/sponsors/` |
-| Accelerate logo | SVG | `/public/images/` |
+| Asset Type                                       | Format                      | Location                   |
+| ------------------------------------------------ | --------------------------- | -------------------------- |
+| Decorative vectors (skyline, waves, dots, pills) | SVG                         | `/public/images/`          |
+| Speaker headshots                                | PNG (400x400 min)           | `/public/images/speakers/` |
+| Sponsor logos                                    | SVG preferred, PNG fallback | `/public/images/sponsors/` |
+| Accelerate logo                                  | SVG                         | `/public/images/`          |
 
 **Process**:
-1. Use Figma MCP `get_design_context` with `forceCode: true` for individual nodes
+
+1. Use Figma MCP `get_design_context` with `forceCode: true` for individual
+   nodes
 2. Extract SVG code from response for vector assets
 3. Download raster images via Figma export API
 4. Optimize SVGs with SVGO before committing
@@ -96,21 +110,24 @@ colors: {
 - Sponsors: Flexbox centered with tier-specific gaps
 
 **Alternatives considered**:
+
 - CSS-in-JS (rejected - Tailwind already in use)
 - Design system components only (rejected - need pixel precision)
 
 ### Responsive Strategy
 
-**Decision**: Desktop-first with breakpoint adaptations using standard Tailwind breakpoints (matching `apps/web`)
+**Decision**: Desktop-first with breakpoint adaptations using standard Tailwind
+breakpoints (matching `apps/web`)
 
-| Breakpoint | Behavior |
-|------------|----------|
-| `lg` (1024px+) | Full Figma layout |
-| `md` (768px-1023px) | 2-column grids become 1-column, reduced spacing |
-| `sm` (640px-767px) | Single column, stacked layout, smaller typography |
-| Default (<640px) | Mobile layout, further reduced spacing and typography |
+| Breakpoint          | Behavior                                              |
+| ------------------- | ----------------------------------------------------- |
+| `lg` (1024px+)      | Full Figma layout                                     |
+| `md` (768px-1023px) | 2-column grids become 1-column, reduced spacing       |
+| `sm` (640px-767px)  | Single column, stacked layout, smaller typography     |
+| Default (<640px)    | Mobile layout, further reduced spacing and typography |
 
 Key responsive adaptations:
+
 - Hero text scales down proportionally
 - Ticket cards stack vertically
 - Speaker grid becomes 2-column then 1-column
@@ -118,12 +135,12 @@ Key responsive adaptations:
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| ABC Diatype font not freely available | Use closest Google Font fallback (Inter) or load via @font-face |
-| Large SVG assets impact performance | Optimize with SVGO, use `loading="lazy"` for below-fold images |
-| Responsive adaptations diverge from design | Document breakpoint behaviors, get stakeholder sign-off |
-| Speaker/sponsor images change | Implement data-driven components for easy content updates |
+| Risk                                       | Mitigation                                                      |
+| ------------------------------------------ | --------------------------------------------------------------- |
+| ABC Diatype font not freely available      | Use closest Google Font fallback (Inter) or load via @font-face |
+| Large SVG assets impact performance        | Optimize with SVGO, use `loading="lazy"` for below-fold images  |
+| Responsive adaptations diverge from design | Document breakpoint behaviors, get stakeholder sign-off         |
+| Speaker/sponsor images change              | Implement data-driven components for easy content updates       |
 
 ## Migration Plan
 
@@ -137,7 +154,13 @@ Key responsive adaptations:
 
 ## Open Questions
 
-1. **Font licensing**: ✅ **Resolved** - ABC Diatype fonts are available in the monorepo and will be consolidated into a shared `@workspace/fonts` package for reuse across apps.
-2. **Map integration**: ✅ **Resolved** - Keep placeholder image only (no interactive map implementation).
-3. **Ticket links**: ✅ **Resolved** - Use `https://luma.com/sol-accelerate-hk` for ticket purchase buttons. Implement popup modal functionality so users stay on site when clicking ticket links.
-4. **Sponsor URLs**: ✅ **Resolved** - Use placeholders for sponsor website URLs until final list is provided.
+1. **Font licensing**: ✅ **Resolved** - ABC Diatype fonts are available in the
+   monorepo and will be consolidated into a shared `@workspace/fonts` package
+   for reuse across apps.
+2. **Map integration**: ✅ **Resolved** - Keep placeholder image only (no
+   interactive map implementation).
+3. **Ticket links**: ✅ **Resolved** - Use `https://luma.com/sol-accelerate-hk`
+   for ticket purchase buttons. Implement popup modal functionality so users
+   stay on site when clicking ticket links.
+4. **Sponsor URLs**: ✅ **Resolved** - Use placeholders for sponsor website URLs
+   until final list is provided.

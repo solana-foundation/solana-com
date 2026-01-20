@@ -72,12 +72,7 @@ export function Hero() {
         className="pointer-events-none absolute hidden lg:block"
         style={{ left: "-62px", top: "186px", width: "433px", height: "191px" }}
       >
-        <Image
-          src="/images/pills-left.svg"
-          alt=""
-          width={433}
-          height={191}
-        />
+        <Image src="/images/pills-left.svg" alt="" width={433} height={191} />
       </div>
 
       {/* Pills Right - rotated 180deg */}
@@ -88,15 +83,10 @@ export function Hero() {
           top: "261px",
           width: "359px",
           height: "116px",
-          transform: "rotate(180deg)"
+          transform: "rotate(180deg)",
         }}
       >
-        <Image
-          src="/images/pills-right.svg"
-          alt=""
-          width={359}
-          height={116}
-        />
+        <Image src="/images/pills-right.svg" alt="" width={359} height={116} />
       </div>
 
       {/* Header Navigation */}
@@ -118,21 +108,30 @@ export function Hero() {
           <a
             href="#speakers"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "16px" }}
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: "16px",
+            }}
           >
             Speakers
           </a>
           <a
             href="#sponsors"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "16px" }}
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: "16px",
+            }}
           >
             Sponsors
           </a>
           <a
             href="#faq"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: "16px" }}
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: "16px",
+            }}
           >
             FAQ
           </a>
@@ -143,12 +142,19 @@ export function Hero() {
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontSize: "16px",
                 minWidth: "186px",
-                background: "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
+                background:
+                  "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
                 border: "1px solid transparent",
               }}
             >
               <span>Get Tickets</span>
-              <svg width="8" height="8" viewBox="0 0 11 11" fill="none" className="ml-2">
+              <svg
+                width="8"
+                height="8"
+                viewBox="0 0 11 11"
+                fill="none"
+                className="ml-2"
+              >
                 <path
                   d="M2 9L9 2M9 2H4M9 2V7"
                   stroke="currentColor"
@@ -163,7 +169,14 @@ export function Hero() {
 
         {/* Mobile menu button */}
         <button className="flex h-10 w-10 items-center justify-center text-white md:hidden">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
@@ -189,7 +202,7 @@ export function Hero() {
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontWeight: 400,
                 lineHeight: 1.1,
-                color: "#19FB9B"
+                color: "#19FB9B",
               }}
             >
               February 11 / Hong Kong
@@ -202,7 +215,7 @@ export function Hero() {
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontWeight: 300,
                 lineHeight: 1,
-                color: "#D2D2D2"
+                color: "#D2D2D2",
               }}
             >
               Solana Accelerate APAC
@@ -226,12 +239,17 @@ export function Hero() {
                     fontFamily: "'Space Grotesk', sans-serif",
                     fontWeight: 600,
                     fontSize: "18px",
-                    letterSpacing: "0.9px"
+                    letterSpacing: "0.9px",
                   }}
                 >
                   Get Tickets
                 </span>
-                <Image src="/images/ticket-icon.svg" alt="Ticket icon" width={18} height={12} />
+                <Image
+                  src="/images/ticket-icon.svg"
+                  alt="Ticket icon"
+                  width={18}
+                  height={12}
+                />
               </button>
             </LumaModal>
           </motion.div>

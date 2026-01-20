@@ -30,11 +30,7 @@ interface SponsorTier {
   color: string;
 }
 
-function SponsorLogo({
-  sponsor,
-}: {
-  sponsor: Sponsor;
-}) {
+function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
   return (
     <motion.a
       variants={fadeInUp}
@@ -48,7 +44,8 @@ function SponsorLogo({
         alt={sponsor.name}
         className="h-auto w-full max-w-full object-contain"
         style={{
-          filter: "brightness(0) saturate(100%) invert(73%) sepia(6%) saturate(354%) hue-rotate(210deg) brightness(93%) contrast(88%)",
+          filter:
+            "brightness(0) saturate(100%) invert(73%) sepia(6%) saturate(354%) hue-rotate(210deg) brightness(93%) contrast(88%)",
         }}
       />
     </motion.a>
@@ -192,7 +189,8 @@ export function Sponsors() {
               <h2
                 className="text-h1 text-accelerate-gray-100"
                 style={{
-                  fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                  fontFamily:
+                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 }}
               >
                 Sponsors
@@ -202,9 +200,11 @@ export function Sponsors() {
               href="mailto:sponsors@solana.com"
               className="inline-flex items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
               style={{
-                fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                fontFamily:
+                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 fontSize: "16px",
-                background: "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
+                background:
+                  "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
                 border: "1px solid transparent",
               }}
             >
@@ -231,7 +231,8 @@ export function Sponsors() {
                   variants={fadeInUp}
                   className="text-button mb-8 text-center uppercase tracking-[0.2em]"
                   style={{
-                    fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                    fontFamily:
+                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                     color: tier.color,
                   }}
                 >
@@ -242,8 +243,8 @@ export function Sponsors() {
                     tier.name === "TITLE SPONSORS"
                       ? "gap-12"
                       : tier.name === "GOLD SPONSORS"
-                      ? "gap-8 lg:gap-[40px]"
-                      : "gap-8 lg:gap-[40px]"
+                        ? "gap-8 lg:gap-[40px]"
+                        : "gap-8 lg:gap-[40px]"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
@@ -253,8 +254,8 @@ export function Sponsors() {
                         tier.name === "TITLE SPONSORS"
                           ? "h-[168px] w-[400px]"
                           : tier.name === "GOLD SPONSORS"
-                          ? "h-[134px] w-[320px]"
-                          : "h-[134px] w-[320px]"
+                            ? "h-[134px] w-[320px]"
+                            : "h-[134px] w-[320px]"
                       }`}
                     >
                       <SponsorLogo sponsor={sponsor} />

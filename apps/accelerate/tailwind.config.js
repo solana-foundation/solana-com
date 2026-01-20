@@ -10,7 +10,11 @@ module.exports = {
     extend: {
       fontFamily: {
         // Figma design fonts
-        "space-grotesk": ["var(--font-space-grotesk)", "Space Grotesk", "sans-serif"],
+        "space-grotesk": [
+          "var(--font-space-grotesk)",
+          "Space Grotesk",
+          "sans-serif",
+        ],
         diatype: ["ABC Diatype", "Inter", "sans-serif"],
         brand: ["Diatype", "sans-serif"],
         mono: ["ABCFavoritMono", "monospace"],
@@ -89,7 +93,7 @@ module.exports = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        "speaker": "48px", // Speaker card image border radius
+        speaker: "48px", // Speaker card image border radius
         "speaker-lg": "58.462px", // Lily Liu special border radius
       },
       backgroundImage: {

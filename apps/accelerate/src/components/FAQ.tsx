@@ -44,7 +44,8 @@ function FAQAccordionItem({
             isOpen ? "text-accelerate-green" : "text-accelerate-gray-100"
           }`}
           style={{
-            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            fontFamily:
+              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
         >
           {item.question}
@@ -57,11 +58,7 @@ function FAQAccordionItem({
               className="h-9 w-9"
             />
           ) : (
-            <img
-              src="/images/faq-arrow.svg"
-              alt=""
-              className="h-9 w-9"
-            />
+            <img src="/images/faq-arrow.svg" alt="" className="h-9 w-9" />
           )}
         </div>
       </button>
@@ -160,7 +157,8 @@ export function FAQ() {
             variants={fadeInUp}
             className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
             FAQ
@@ -175,9 +173,7 @@ export function FAQ() {
                 key={index}
                 item={faq}
                 isOpen={openIndex === index}
-                onClick={() =>
-                  setOpenIndex(openIndex === index ? null : index)
-                }
+                onClick={() => setOpenIndex(openIndex === index ? null : index)}
               />
             ))}
           </div>

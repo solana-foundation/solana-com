@@ -2,7 +2,8 @@
 
 ### Requirement: Hero Section Display
 
-The landing page SHALL display a hero section with event branding, location, title, and primary call-to-action.
+The landing page SHALL display a hero section with event branding, location,
+title, and primary call-to-action.
 
 #### Scenario: Hero section renders correctly
 
@@ -11,7 +12,8 @@ The landing page SHALL display a hero section with event branding, location, tit
   - Accelerate logo in navigation (197x100px)
   - Navigation links: Speakers, Sponsors, FAQ, Get Tickets
   - Date and location text ("February 11 / Hong Kong") in green (#19FB9B)
-  - Main title "Solana Accelerate APAC" in light gray (#D2D2D2), Space Grotesk Light 84px with `font-family: "Space Grotesk"`
+  - Main title "Solana Accelerate APAC" in light gray (#D2D2D2), Space Grotesk
+    Light 84px with `font-family: "Space Grotesk"`
   - Gradient CTA button "Get Tickets" (purple-to-green gradient, 480x66px)
   - Hong Kong skyline background image (centered)
   - Decorative elements: purple glow, wave lines, dots pattern, pills
@@ -19,19 +21,22 @@ The landing page SHALL display a hero section with event branding, location, tit
 #### Scenario: Hero section is responsive
 
 - **WHEN** viewport width is less than 1024px
-- **THEN** the hero section adapts with smaller typography and stacked mobile navigation
+- **THEN** the hero section adapts with smaller typography and stacked mobile
+  navigation
 
 ---
 
 ### Requirement: Event Details Section Display
 
-The landing page SHALL display event details including date, venue, time, ticket pricing, and venue map.
+The landing page SHALL display event details including date, venue, time, ticket
+pricing, and venue map.
 
 #### Scenario: Event details render correctly
 
 - **WHEN** the user views the Event Details section
 - **THEN** the section displays in a 2-column layout:
-  - Left column (800px): Date, Venue (with address), Time, Tickets starting price
+  - Left column (800px): Date, Venue (with address), Time, Tickets starting
+    price
   - Right column (600px): Map placeholder with "EMBEDDED MAP" text
   - Row labels aligned at 360px offset
 
@@ -40,7 +45,8 @@ The landing page SHALL display event details including date, venue, time, ticket
 - **WHEN** the Event Details section is visible
 - **THEN** it shows:
   - Date: "February 11, 2026"
-  - Venue: "Hong Kong Convention and Exhibition Centre" with address "1號 Expo Dr, Wan Chai, Hong Kong"
+  - Venue: "Hong Kong Convention and Exhibition Centre" with address "1號 Expo
+    Dr, Wan Chai, Hong Kong"
   - Time: "9:00 AM GMT+8"
   - Tickets: "Starting at $99"
 
@@ -48,7 +54,8 @@ The landing page SHALL display event details including date, venue, time, ticket
 
 ### Requirement: Tickets Section Display
 
-The landing page SHALL display available ticket tiers with pricing and purchase options.
+The landing page SHALL display available ticket tiers with pricing and purchase
+options.
 
 #### Scenario: Ticket tiers render correctly
 
@@ -66,13 +73,16 @@ The landing page SHALL display available ticket tiers with pricing and purchase 
 
 ### Requirement: Speakers Section Display
 
-The landing page SHALL display featured speakers with photos, names, titles, and social links.
+The landing page SHALL display featured speakers with photos, names, titles, and
+social links.
 
 #### Scenario: Speaker grid renders correctly
 
 - **WHEN** the user views the Speakers section
-- **THEN** speakers are displayed in a 4-column grid (380px card width, 40px gap):
-  - Each card shows: grayscale photo (400px height), name (uppercase, multi-line), company, title, X (Twitter) link
+- **THEN** speakers are displayed in a 4-column grid (380px card width, 40px
+  gap):
+  - Each card shows: grayscale photo (400px height), name (uppercase,
+    multi-line), company, title, X (Twitter) link
 
 #### Scenario: Featured speakers are displayed
 
@@ -106,7 +116,8 @@ The landing page SHALL display sponsor logos organized by sponsorship tier.
 
 ### Requirement: FAQ Section Display
 
-The landing page SHALL display frequently asked questions in an expandable accordion format.
+The landing page SHALL display frequently asked questions in an expandable
+accordion format.
 
 #### Scenario: FAQ accordion functions correctly
 
@@ -134,7 +145,8 @@ The landing page SHALL display frequently asked questions in an expandable accor
 
 ### Requirement: Getting There Section Display
 
-The landing page SHALL display travel information including airport and accommodation details.
+The landing page SHALL display travel information including airport and
+accommodation details.
 
 #### Scenario: Travel info renders correctly
 
@@ -147,7 +159,8 @@ The landing page SHALL display travel information including airport and accommod
 
 ### Requirement: Footer CTA Section Display
 
-The landing page SHALL display a final call-to-action encouraging ticket purchase.
+The landing page SHALL display a final call-to-action encouraging ticket
+purchase.
 
 #### Scenario: Footer CTA renders correctly
 
@@ -162,15 +175,18 @@ The landing page SHALL display a final call-to-action encouraging ticket purchas
 
 ### Requirement: Design Token Consistency
 
-The landing page SHALL use consistent design tokens from the Figma design system.
+The landing page SHALL use consistent design tokens from the Figma design
+system.
 
 #### Scenario: Typography matches design
 
 - **WHEN** any text is rendered
 - **THEN** it uses the correct font family and weight:
-  - Headlines: Space Grotesk (Light 300, Regular 400, SemiBold 600) with `font-family: "Space Grotesk"`
+  - Headlines: Space Grotesk (Light 300, Regular 400, SemiBold 600) with
+    `font-family: "Space Grotesk"`
   - Body text: ABC Diatype (Light 300, Regular 400)
-- **AND** all hero titles, headings (h1, h2), buttons, and navigation text MUST explicitly use `font-family: "Space Grotesk"`
+- **AND** all hero titles, headings (h1, h2), buttons, and navigation text MUST
+  explicitly use `font-family: "Space Grotesk"`
 
 #### Scenario: Colors match design
 
@@ -185,7 +201,8 @@ The landing page SHALL use consistent design tokens from the Figma design system
 
 ### Requirement: Responsive Layout
 
-The landing page SHALL adapt layout for different screen sizes while maintaining design integrity.
+The landing page SHALL adapt layout for different screen sizes while maintaining
+design integrity.
 
 #### Scenario: Desktop layout (1920px)
 
@@ -195,7 +212,8 @@ The landing page SHALL adapt layout for different screen sizes while maintaining
 #### Scenario: Tablet layout (768px-1023px)
 
 - **WHEN** viewport width is between 768px and 1023px
-- **THEN** multi-column layouts reduce to fewer columns with proportional spacing
+- **THEN** multi-column layouts reduce to fewer columns with proportional
+  spacing
 
 #### Scenario: Mobile layout (below 768px)
 
@@ -206,7 +224,8 @@ The landing page SHALL adapt layout for different screen sizes while maintaining
 
 ### Requirement: Asset Integration
 
-The landing page SHALL use properly exported and optimized assets from the Figma design.
+The landing page SHALL use properly exported and optimized assets from the Figma
+design.
 
 #### Scenario: Vector assets are SVG
 
@@ -216,9 +235,11 @@ The landing page SHALL use properly exported and optimized assets from the Figma
 #### Scenario: Speaker images are optimized
 
 - **WHEN** speaker headshots are loaded
-- **THEN** they are PNG format, minimum 400x400px, displayed with grayscale filter
+- **THEN** they are PNG format, minimum 400x400px, displayed with grayscale
+  filter
 
 #### Scenario: Sponsor logos maintain quality
 
 - **WHEN** sponsor logos are loaded
-- **THEN** they are SVG format (preferred) or high-resolution PNG, displayed at tier-appropriate sizes
+- **THEN** they are SVG format (preferred) or high-resolution PNG, displayed at
+  tier-appropriate sizes

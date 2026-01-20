@@ -43,7 +43,8 @@ function InfoRow({ label, value, subValue, link }: InfoRowProps) {
         <p
           className="text-h2 text-white"
           style={{
-            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            fontFamily:
+              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
         >
           {value}
@@ -86,7 +87,8 @@ export function GettingThere() {
             variants={fadeInUp}
             className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
             Getting there

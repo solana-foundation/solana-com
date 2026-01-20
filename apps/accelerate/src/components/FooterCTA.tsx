@@ -55,7 +55,8 @@ export function FooterCTA() {
             variants={fadeInUp}
             className="text-hero mb-4 text-white/60"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
             Don&apos;t miss
@@ -66,7 +67,8 @@ export function FooterCTA() {
             variants={fadeInUp}
             className="text-hero mb-10"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
             <span className="text-white">SOLANA </span>
@@ -87,7 +89,8 @@ export function FooterCTA() {
                 <span
                   className="flex-1 text-left uppercase"
                   style={{
-                    fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                    fontFamily:
+                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                     fontWeight: 600,
                     fontSize: "18px",
                     letterSpacing: "0.9px",
@@ -95,7 +98,12 @@ export function FooterCTA() {
                 >
                   Get Tickets
                 </span>
-                <Image src="/images/ticket-icon.svg" alt="Ticket icon" width={18} height={12} />
+                <Image
+                  src="/images/ticket-icon.svg"
+                  alt="Ticket icon"
+                  width={18}
+                  height={12}
+                />
               </button>
             </LumaModal>
           </motion.div>
@@ -105,7 +113,8 @@ export function FooterCTA() {
             variants={fadeInUp}
             className="text-h2 text-white"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
             Limited tickets available

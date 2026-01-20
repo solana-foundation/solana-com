@@ -6,21 +6,28 @@
 - [x] 1.4 Export pills-left decoration SVG from Figma node `7408:14243`
 - [x] 1.5 Export pills-right decoration SVG from Figma node `7408:14246`
 - [x] 1.6 Export Accelerate logo SVG from nav component
-- [x] 1.7 Export speaker images (Lily Liu, Chris Chung, Shina Foo, Shawn Chain) as PNG
+- [x] 1.7 Export speaker images (Lily Liu, Chris Chung, Shina Foo, Shawn Chain)
+      as PNG
 - [x] 1.8 Export Sunrise sponsor logo from node `7408:14251`
-- [x] 1.9 Export Gold sponsor logos (DoubleZero, Playsolana, Bridge, Libeara) from nodes `7408:14266`
-- [x] 1.10 Export additional sponsor logos (Ant, Dabba, Solflare) from nodes `7408:14309`
+- [x] 1.9 Export Gold sponsor logos (DoubleZero, Playsolana, Bridge, Libeara)
+      from nodes `7408:14266`
+- [x] 1.10 Export additional sponsor logos (Ant, Dabba, Solflare) from nodes
+      `7408:14309`
 - [x] 1.11 Export pattern background SVG from node `7408:14249`
 - [x] 1.12 Export HK characters background element from node `7408:14555`
 - [x] 1.13 Optimize all SVGs with SVGO
 
 ## 2. Design Tokens & Configuration
 
-- [x] 2.1 Update `tailwind.config.js` with Figma color palette (G1, G2, G3, Grey scales)
-- [x] 2.2 Add custom font configuration for Space Grotesk (load via `next/font/google` and configure in Tailwind with `font-family: "Space Grotesk"`)
+- [x] 2.1 Update `tailwind.config.js` with Figma color palette (G1, G2, G3, Grey
+      scales)
+- [x] 2.2 Add custom font configuration for Space Grotesk (load via
+      `next/font/google` and configure in Tailwind with
+      `font-family: "Space Grotesk"`)
 - [x] 2.3 Add custom font configuration for ABC Diatype (or fallback)
 - [x] 2.4 Update `globals.css` with @font-face declarations
-- [x] 2.5 Add typography utility classes matching Figma tokens (hero, h1, h2, h3, h4, p, button)
+- [x] 2.5 Add typography utility classes matching Figma tokens (hero, h1, h2,
+      h3, h4, p, button)
 
 ## 3. Hero Section Implementation
 
@@ -33,8 +40,10 @@
 - [x] 3.7 Position pills-right at x=1860 (rotated 180deg)
 - [x] 3.8 Update navigation layout with exact spacing (38px gaps)
 - [x] 3.9 Style "Get Tickets" nav button with purple border
-- [x] 3.10 Update hero text: "February 11 / Hong Kong" with green color (#19FB9B)
-- [x] 3.11 Update hero title to Space Grotesk Light 84px with `font-family: "Space Grotesk"`
+- [x] 3.10 Update hero text: "February 11 / Hong Kong" with green color
+      (#19FB9B)
+- [x] 3.11 Update hero title to Space Grotesk Light 84px with
+      `font-family: "Space Grotesk"`
 - [x] 3.12 Implement gradient CTA button (purple to green, 480x66px)
 - [x] 3.13 Add grid icon (4 squares) to CTA button
 
@@ -114,7 +123,8 @@
 - [x] 10.2 Add "Don't miss" subtitle (white/60 opacity)
 - [x] 10.3 Style "SOLANA ACCELERATE" heading (gradient text)
 - [x] 10.4 Add "Limited tickets available" button with arrow
-- [x] 10.5 Add Hong Kong Chinese characters background ("香港") from node `7408:14555`
+- [x] 10.5 Add Hong Kong Chinese characters background ("香港") from node
+      `7408:14555`
 - [x] 10.6 Position background element correctly (1464x823px at bottom)
 
 ## 11. Responsive Adaptations
@@ -140,38 +150,54 @@
 ## 13. Design Review & Polish
 
 - [x] 13.1 Hero: Get tickets button needs correct gradient border
-- [x] 13.2 Hero: Get tickets should open popup modal with same functionality as `/Users/karambit/Sites/solana-com-breakpoint/components/LumaIframe/index.tsx`
-- [x] 13.3 Hero: Fix aspect ratio for `apps/accelerate/public/images/dots.svg` - dots aren't round and too stretched
+- [x] 13.2 Hero: Get tickets should open popup modal with same functionality as
+      `/Users/karambit/Sites/solana-com-breakpoint/components/LumaIframe/index.tsx`
+- [x] 13.3 Hero: Fix aspect ratio for `apps/accelerate/public/images/dots.svg` -
+      dots aren't round and too stretched
 - [x] 13.4 All: Fix all white backgrounds - should only be dark theme
 - [x] 13.5 All: Ensure all styles are appropriate for dark theme
 - [x] 13.6 Event: EventDetailRow label needs to match design
 - [x] 13.7 Tickets: Borders and colors need to match design
-- [x] 13.8 Tickets: Solana logo needs to be exported and positioned right on desktop only (hide for others)
+- [x] 13.8 Tickets: Solana logo needs to be exported and positioned right on
+      desktop only (hide for others)
 - [x] 13.9 Speakers: Fix spacing issues
 - [x] 13.10 Speakers: Fix layout of text and icon
 - [x] 13.11 Sponsors: Update to match design in Figma
-- [x] 13.12 FAQ: Accordion buttons need to match design and be exported from Figma
+- [x] 13.12 FAQ: Accordion buttons need to match design and be exported from
+      Figma
 - [x] 13.13 FAQ: All font colors and sizes need to match design
 - [x] 13.14 Getting there: Labels need to be multicolor as per design
 - [x] 13.15 Getting there: Match font colors and styles
 - [x] 13.16 CTA: Match font colors and styles
-- [x] 13.17 CTA: Fix visibility of `apps/accelerate/public/images/hk-characters.png`
-- [x] 13.18 Hero: Fix z-index for `apps/accelerate/public/images/dots.svg` - needs to be between skyline and swoosh
-- [x] 13.19 Event details: EventDetailRow label needs to be gradient and match design
+- [x] 13.17 CTA: Fix visibility of
+      `apps/accelerate/public/images/hk-characters.png`
+- [x] 13.18 Hero: Fix z-index for `apps/accelerate/public/images/dots.svg` -
+      needs to be between skyline and swoosh
+- [x] 13.19 Event details: EventDetailRow label needs to be gradient and match
+      design
 - [x] 13.20 Event details: EventDetailRow value is white and subvalue is green
-- [x] 13.21 Tickets: Solana logo on RHS needs to be exported and positioned right on desktop only (hide for others) - check design in Figma
-- [x] 13.22 Tickets: Borders need to be green and purple for different boxes - check design in Figma
-- [x] 13.23 Tickets: TicketCard title needs to be green and purple respectively for different boxes - check design in Figma
-- [x] 13.24 Speakers: speakers.map needs overflow and horizontal scroll with correct spacing between cards
+- [x] 13.21 Tickets: Solana logo on RHS needs to be exported and positioned
+      right on desktop only (hide for others) - check design in Figma
+- [x] 13.22 Tickets: Borders need to be green and purple for different boxes -
+      check design in Figma
+- [x] 13.23 Tickets: TicketCard title needs to be green and purple respectively
+      for different boxes - check design in Figma
+- [x] 13.24 Speakers: speakers.map needs overflow and horizontal scroll with
+      correct spacing between cards
 - [x] 13.25 Speakers: XIcon needs to be right aligned on card bottom right
-- [x] 13.26 Sponsors: Logos are missing from `apps/accelerate/public/images/sponsors` - check design in Figma
+- [x] 13.26 Sponsors: Logos are missing from
+      `apps/accelerate/public/images/sponsors` - check design in Figma
 - [x] 13.27 Sponsors: Background image is missing - check design in Figma
 - [x] 13.28 Sponsors: Become a sponsor button is missing - check design in Figma
-- [x] 13.29 FAQ: `{item.question}` font color should be grey and font weight needs to be corrected
+- [x] 13.29 FAQ: `{item.question}` font color should be grey and font weight
+      needs to be corrected
 - [x] 13.30 FAQ: `{item.question}` on dropdown active needs to be green
-- [x] 13.31 FAQ: Icon action button should be exported from Figma and implemented in place of inline SVG in FAQAccordionItem
+- [x] 13.31 FAQ: Icon action button should be exported from Figma and
+      implemented in place of inline SVG in FAQAccordionItem
 - [x] 13.32 All: Section title colors are grey not white
 - [x] 13.33 Getting there: Labels should be gradient color
 - [x] 13.34 Getting there: subValue text should always be green including links
-- [x] 13.35 FooterCTA: `apps/accelerate/public/images/hk-characters.png` needs to be visible and sized correctly behind text
-- [x] 13.36 All: Get Tickets button icon needs to be exported and reused in Hero, Tickets, and FooterCTA section buttons
+- [x] 13.35 FooterCTA: `apps/accelerate/public/images/hk-characters.png` needs
+      to be visible and sized correctly behind text
+- [x] 13.36 All: Get Tickets button icon needs to be exported and reused in
+      Hero, Tickets, and FooterCTA section buttons

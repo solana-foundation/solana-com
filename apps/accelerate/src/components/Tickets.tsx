@@ -34,8 +34,12 @@ function TicketCard({
   lumaId,
   variant,
 }: TicketCardProps) {
-  const borderColor = variant === "green" ? "border-accelerate-green" : "border-accelerate-purple";
-  const titleColor = variant === "green" ? "text-accelerate-green" : "text-accelerate-purple";
+  const borderColor =
+    variant === "green"
+      ? "border-accelerate-green"
+      : "border-accelerate-purple";
+  const titleColor =
+    variant === "green" ? "text-accelerate-green" : "text-accelerate-purple";
 
   return (
     <motion.div
@@ -47,7 +51,8 @@ function TicketCard({
         <h3
           className={`text-h2 ${titleColor}`}
           style={{
-            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            fontFamily:
+              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
         >
           {title}
@@ -55,7 +60,8 @@ function TicketCard({
         <span
           className="text-h2 text-white"
           style={{
-            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            fontFamily:
+              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
         >
           {price}
@@ -76,7 +82,8 @@ function TicketCard({
           <span
             className="flex-1 text-left uppercase"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
               fontWeight: 600,
               fontSize: "18px",
               letterSpacing: "0.9px",
@@ -84,7 +91,12 @@ function TicketCard({
           >
             Get Tickets
           </span>
-          <Image src="/images/ticket-icon.svg" alt="Ticket icon" width={18} height={12} />
+          <Image
+            src="/images/ticket-icon.svg"
+            alt="Ticket icon"
+            width={18}
+            height={12}
+          />
         </button>
       </LumaModal>
 
@@ -96,7 +108,8 @@ function TicketCard({
             href="#"
             className="text-button uppercase tracking-[0.05em] text-accelerate-green hover:underline"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
             APPLY FOR DISCOUNT
@@ -114,10 +127,7 @@ function TicketCard({
             fill="none"
             className="text-white/5"
           >
-            <path
-              d="M120 0H0V99L60 49.5L120 99V0Z"
-              fill="currentColor"
-            />
+            <path d="M120 0H0V99L60 49.5L120 99V0Z" fill="currentColor" />
           </svg>
         </div>
       )}
@@ -142,7 +152,8 @@ export function Tickets() {
             variants={fadeInUp}
             className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
             style={{
-              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
             Tickets
@@ -175,7 +186,6 @@ export function Tickets() {
                 alt="Solana"
                 width={120}
                 height={120}
-                className="opacity-20"
               />
             </div>
           </div>
