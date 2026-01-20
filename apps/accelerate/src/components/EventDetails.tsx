@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { MapPin } from "lucide-react";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -92,36 +91,22 @@ export function EventDetails() {
               <EventDetailRow label="Tickets:" value="Starting at $99" />
             </div>
 
-            {/* Map placeholder */}
+            {/* Embedded Map - Hong Kong Convention and Exhibition Centre */}
             <motion.div
               variants={fadeInUp}
-              className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/10 bg-[#1a1a1a] lg:aspect-auto lg:h-[732px] lg:w-[600px]"
+              className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 lg:aspect-auto lg:h-[732px] lg:w-[600px]"
             >
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-                    <MapPin className="h-8 w-8 text-white/40" />
-                  </div>
-                  <p
-                    className="text-h1 uppercase text-white/60"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    }}
-                  >
-                    EMBEDDED MAP
-                  </p>
-                </div>
-              </div>
-              {/* Map background pattern */}
-              <div className="absolute inset-0 opacity-5">
-                <div
-                  className="h-full w-full"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                  }}
-                />
-              </div>
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3691.8397711851847!2d114.17165037620083!3d22.28168794388889!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x340400f2e9a4e90d%3A0x55e8d8b5ddad5e1c!2sHong%20Kong%20Convention%20and%20Exhibition%20Centre!5e0!3m2!1sen!2shk!4v1705900000000!5m2!1sen!2shk&maptype=roadmap&style=feature:all|element:geometry|color:0x242f3e&style=feature:all|element:labels.text.stroke|color:0x242f3e&style=feature:all|element:labels.text.fill|color:0x746855&style=feature:water|element:geometry|color:0x17263c&style=feature:water|element:labels.text.fill|color:0x515c6d"
+                width="100%"
+                height="100%"
+                style={{ border: 0, filter: "invert(90%) hue-rotate(180deg)" }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Hong Kong Convention and Exhibition Centre - 1號 Expo Dr, Wan Chai, Hong Kong"
+                className="absolute inset-0 h-full w-full"
+              />
             </motion.div>
           </div>
         </motion.div>
