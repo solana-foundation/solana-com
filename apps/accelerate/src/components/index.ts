@@ -1,0 +1,8 @@
+export { Hero } from "./Hero";
+export { EventDetails } from "./EventDetails";
+export { Tickets } from "./Tickets";
+export { Speakers } from "./Speakers";
+export { Sponsors } from "./Sponsors";
+export { FAQ } from "./FAQ";
+export { GettingThere } from "./GettingThere";
+export { FooterCTA } from "./FooterCTA";
