@@ -25,23 +25,36 @@ interface Sponsor {
 interface SponsorTier {
   name: string;
   sponsors: Sponsor[];
+  size: "large" | "medium" | "small";
 }
 
-function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
+function SponsorLogo({
+  sponsor,
+  size,
+}: {
+  sponsor: Sponsor;
+  size: "large" | "medium" | "small";
+}) {
+  const sizeClasses = {
+    large: "h-20 md:h-24",
+    medium: "h-10 md:h-12",
+    small: "h-8 md:h-10",
+  };
+
   return (
     <motion.a
       variants={fadeInUp}
       href={sponsor.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="sponsor-logo flex items-center justify-center rounded-lg border border-white/10 bg-white/5 p-4 transition-all hover:border-white/20 hover:bg-white/10"
+      className="flex items-center justify-center opacity-60 grayscale transition-all hover:opacity-100 hover:grayscale-0"
     >
       <Image
         src={sponsor.logo}
         alt={sponsor.name}
-        width={120}
-        height={40}
-        className="h-8 w-auto object-contain"
+        width={200}
+        height={80}
+        className={`w-auto object-contain ${sizeClasses[size]}`}
       />
     </motion.a>
   );
@@ -50,7 +63,8 @@ function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
 export function Sponsors() {
   const sponsorTiers: SponsorTier[] = [
     {
-      name: "Title Sponsor",
+      name: "TITLE SPONSORS",
+      size: "large",
       sponsors: [
         {
           name: "Sunrise",
@@ -60,7 +74,8 @@ export function Sponsors() {
       ],
     },
     {
-      name: "Platinum Sponsors",
+      name: "GOLD SPONSORS",
+      size: "medium",
       sponsors: [
         {
           name: "DoubleZero",
@@ -68,9 +83,9 @@ export function Sponsors() {
           url: "https://doublezero.io",
         },
         {
-          name: "Firedancer",
-          logo: "/images/sponsors/firedancer.svg",
-          url: "https://firedancer.io",
+          name: "Playsolana",
+          logo: "/images/sponsors/playsolana.svg",
+          url: "https://playsolana.io",
         },
         {
           name: "Bridge",
@@ -78,24 +93,20 @@ export function Sponsors() {
           url: "https://bridge.xyz",
         },
         {
-          name: "Liberata",
-          logo: "/images/sponsors/liberata.svg",
-          url: "https://liberata.io",
+          name: "Libeara",
+          logo: "/images/sponsors/libeara.svg",
+          url: "https://libeara.io",
         },
       ],
     },
     {
-      name: "Gold Sponsors",
+      name: "SPONSORS",
+      size: "small",
       sponsors: [
         {
-          name: "HSBC",
-          logo: "/images/sponsors/hsbc.svg",
-          url: "https://hsbc.com",
-        },
-        {
-          name: "Dobbs",
-          logo: "/images/sponsors/dobbs.svg",
-          url: "https://dobbs.io",
+          name: "Dabba",
+          logo: "/images/sponsors/dabba.svg",
+          url: "https://dabba.io",
         },
         {
           name: "Solflare",
@@ -104,36 +115,11 @@ export function Sponsors() {
         },
       ],
     },
-    {
-      name: "Silver Sponsors",
-      sponsors: [
-        {
-          name: "DoubleZero",
-          logo: "/images/sponsors/doublezero.svg",
-          url: "https://doublezero.io",
-        },
-        {
-          name: "Firedancer",
-          logo: "/images/sponsors/firedancer.svg",
-          url: "https://firedancer.io",
-        },
-        {
-          name: "Bridge",
-          logo: "/images/sponsors/bridge.svg",
-          url: "https://bridge.xyz",
-        },
-        {
-          name: "Liberata",
-          logo: "/images/sponsors/liberata.svg",
-          url: "https://liberata.io",
-        },
-      ],
-    },
   ];
 
   return (
-    <section id="sponsors" className="section bg-white dark:bg-accelerate-dark">
-      <div className="container-accelerate">
+    <section id="sponsors" className="bg-white py-20 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -142,31 +128,34 @@ export function Sponsors() {
         >
           <motion.h2
             variants={fadeInUp}
-            className="heading-lg mb-12 text-black dark:text-white"
+            className="mb-16 text-4xl font-bold text-black md:text-5xl"
           >
             Sponsors
           </motion.h2>
 
-          <div className="space-y-12">
+          <div className="space-y-16">
             {sponsorTiers.map((tier) => (
               <div key={tier.name}>
                 <motion.p
                   variants={fadeInUp}
-                  className="mb-6 text-sm font-medium uppercase tracking-wider text-black/50 dark:text-white/50"
+                  className="mb-8 text-center text-xs font-medium uppercase tracking-[0.2em] text-black/40"
                 >
                   {tier.name}
                 </motion.p>
                 <div
-                  className={`grid gap-4 ${
-                    tier.name === "Title Sponsor"
-                      ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-                      : "grid-cols-2 md:grid-cols-4 lg:grid-cols-4"
+                  className={`flex flex-wrap items-center justify-center ${
+                    tier.size === "large"
+                      ? "gap-12"
+                      : tier.size === "medium"
+                        ? "gap-8 md:gap-16"
+                        : "gap-6 md:gap-12"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
                     <SponsorLogo
-                      key={sponsor.name + tier.name}
+                      key={sponsor.name}
                       sponsor={sponsor}
+                      size={tier.size}
                     />
                   ))}
                 </div>
@@ -176,20 +165,30 @@ export function Sponsors() {
 
           <motion.div
             variants={fadeInUp}
-            className="mt-16 rounded-2xl border border-white/10 bg-white/5 p-8 text-center"
+            className="mt-20 text-center"
           >
-            <h3 className="mb-2 text-xl font-semibold text-black dark:text-white">
-              Become a Sponsor
-            </h3>
-            <p className="mb-6 text-black/60 dark:text-white/60">
-              Partner with Solana Accelerate APAC and connect with the
-              blockchain community.
+            <p className="mb-4 text-black/60">
+              Interested in sponsoring?
             </p>
             <a
               href="mailto:sponsors@solana.com"
-              className="btn-primary inline-flex"
+              className="inline-flex items-center gap-2 rounded-full border border-black/20 bg-transparent px-6 py-3 text-sm font-medium text-black transition-colors hover:bg-black hover:text-white"
             >
-              Contact Us
+              Become a Sponsor
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+              >
+                <path
+                  d="M3 11L11 3M11 3H5M11 3V9"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </a>
           </motion.div>
         </motion.div>

@@ -17,23 +17,20 @@ const stagger = {
 
 export function FooterCTA() {
   return (
-    <section className="relative overflow-hidden bg-accelerate-dark py-24">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span
-            className="text-[20rem] font-bold leading-none text-white/5"
-            style={{
-              fontFamily: "system-ui, sans-serif",
-              letterSpacing: "-0.05em",
-            }}
-          >
-            香港
-          </span>
-        </div>
+    <section className="relative overflow-hidden bg-black py-24 lg:py-32">
+      {/* Large Chinese characters background */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
+        <span
+          className="select-none text-[20rem] font-bold leading-none text-white/[0.03] md:text-[30rem] lg:text-[40rem]"
+          style={{
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          香港
+        </span>
       </div>
 
-      <div className="container-accelerate relative z-10">
+      <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -41,62 +38,56 @@ export function FooterCTA() {
           variants={stagger}
           className="text-center"
         >
-          <motion.p variants={fadeInUp} className="mb-4 text-lg text-white/60">
+          <motion.p
+            variants={fadeInUp}
+            className="mb-4 text-lg text-white/60"
+          >
             Don&apos;t miss
           </motion.p>
-          <motion.h2 variants={fadeInUp} className="heading-xl mb-8 text-white">
-            SOLANA <span className="gradient-text">ACCELERATE</span>
+
+          <motion.h2
+            variants={fadeInUp}
+            className="mb-10 text-4xl font-bold md:text-5xl lg:text-6xl"
+          >
+            <span className="text-white">SOLANA </span>
+            <span
+              className="bg-gradient-to-r from-[#9945FF] via-[#14F195] to-[#00D4FF] bg-clip-text text-transparent"
+            >
+              ACCELERATE
+            </span>
           </motion.h2>
 
           <motion.div variants={fadeInUp}>
             <a
               href="#tickets"
-              className="btn-gradient inline-flex items-center gap-2 text-lg"
+              className="group inline-flex items-center gap-3 rounded-full border border-white/20 bg-transparent px-8 py-4 text-base font-medium text-white transition-all hover:border-white/40 hover:bg-white/5"
             >
               <span>Limited Tickets Available</span>
               <svg
-                className="h-5 w-5"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
                 fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+                className="transition-transform group-hover:translate-x-1"
               >
                 <path
+                  d="M3 8H13M13 8L8 3M13 8L8 13"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
                 />
               </svg>
             </a>
           </motion.div>
-
-          <motion.p variants={fadeInUp} className="mt-8 text-sm text-white/40">
-            February 19, 2025 • Hong Kong Convention and Exhibition Centre
-          </motion.p>
         </motion.div>
       </div>
 
-      {/* Bottom gradient wave decoration */}
-      <div className="absolute bottom-0 left-0 right-0">
-        <svg
-          className="h-24 w-full"
-          viewBox="0 0 1440 96"
-          fill="none"
-          preserveAspectRatio="none"
-        >
-          <path
-            d="M0 96V48C240 16 480 0 720 16C960 32 1200 80 1440 48V96H0Z"
-            fill="url(#footerGradient)"
-            fillOpacity="0.1"
-          />
-          <defs>
-            <linearGradient id="footerGradient" x1="0" y1="0" x2="1440" y2="0">
-              <stop offset="0%" stopColor="#9945FF" />
-              <stop offset="50%" stopColor="#14F195" />
-              <stop offset="100%" stopColor="#00D4FF" />
-            </linearGradient>
-          </defs>
-        </svg>
+      {/* Bottom copyright */}
+      <div className="relative z-10 mt-20 text-center">
+        <p className="text-sm text-white/30">
+          © Solana Foundation 2026
+        </p>
       </div>
     </section>
   );

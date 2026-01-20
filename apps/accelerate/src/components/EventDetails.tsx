@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Clock, Ticket } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -16,31 +16,24 @@ const stagger = {
   },
 };
 
-interface EventDetailItemProps {
-  icon: React.ReactNode;
+interface EventDetailRowProps {
   label: string;
   value: string;
   subValue?: string;
 }
 
-function EventDetailItem({
-  icon,
-  label,
-  value,
-  subValue,
-}: EventDetailItemProps) {
+function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="flex items-start gap-4 border-b border-white/10 py-6 last:border-b-0"
+      className="grid grid-cols-[140px_1fr] gap-4 border-b border-black/10 py-6 last:border-b-0 md:grid-cols-[200px_1fr]"
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5 text-accelerate-purple">
-        {icon}
-      </div>
-      <div className="flex-1">
-        <p className="mb-1 text-sm text-white/50">{label}</p>
-        <p className="text-lg font-medium text-white">{value}</p>
-        {subValue && <p className="mt-1 text-sm text-white/60">{subValue}</p>}
+      <p className="text-base text-black/50">{label}</p>
+      <div>
+        <p className="text-base font-medium text-black md:text-lg">{value}</p>
+        {subValue && (
+          <p className="mt-1 text-sm text-black/60">{subValue}</p>
+        )}
       </div>
     </motion.div>
   );
@@ -48,8 +41,8 @@ function EventDetailItem({
 
 export function EventDetails() {
   return (
-    <section id="event-details" className="section bg-accelerate-dark">
-      <div className="container-accelerate">
+    <section id="event-details" className="bg-white py-20 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -58,59 +51,57 @@ export function EventDetails() {
         >
           <motion.h2
             variants={fadeInUp}
-            className="heading-lg mb-12 text-white"
+            className="mb-12 text-4xl font-bold text-black md:text-5xl"
           >
             Event details
           </motion.h2>
 
-          <div className="grid gap-8 lg:grid-cols-2">
+          <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
             {/* Details list */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <EventDetailItem
-                icon={<Calendar className="h-5 w-5" />}
+            <div>
+              <EventDetailRow
                 label="Date"
-                value="February 19, 2025"
+                value="February 11, 2026"
               />
-              <EventDetailItem
-                icon={<MapPin className="h-5 w-5" />}
+              <EventDetailRow
                 label="Venue"
                 value="Hong Kong Convention and Exhibition Centre"
-                subValue="1 Harbour Road, Wan Chai, Hong Kong"
+                subValue="1號 Expo Dr, Wan Chai, Hong Kong"
               />
-              <EventDetailItem
-                icon={<Clock className="h-5 w-5" />}
+              <EventDetailRow
                 label="Time"
-                value="9:00 AM (GMT+8)"
+                value="9:00 AM GMT+8"
               />
-              <EventDetailItem
-                icon={<Ticket className="h-5 w-5" />}
-                label="Tickets"
-                value="Wait for April 2025"
+              <EventDetailRow
+                label="Tickets:"
+                value="Starting at $99"
               />
             </div>
 
             {/* Map placeholder */}
             <motion.div
               variants={fadeInUp}
-              className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-white/5 lg:aspect-auto lg:min-h-[400px]"
+              className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-black/10 bg-[#f5f5f5] lg:aspect-auto lg:min-h-[400px]"
             >
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/10">
-                    <MapPin className="h-8 w-8 text-accelerate-purple" />
+                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-black/5">
+                    <MapPin className="h-8 w-8 text-black/40" />
                   </div>
-                  <p className="text-lg font-medium text-white">EMBEDDED MAP</p>
-                  <p className="mt-2 text-sm text-white/50">
+                  <p className="text-lg font-medium text-black/60">
+                    EMBEDDED MAP
+                  </p>
+                  <p className="mt-2 text-sm text-black/40">
                     Interactive map coming soon
                   </p>
                 </div>
               </div>
               {/* Map background pattern */}
-              <div className="absolute inset-0 opacity-10">
+              <div className="absolute inset-0 opacity-5">
                 <div
                   className="h-full w-full"
                   style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239945FF' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
                   }}
                 />
               </div>

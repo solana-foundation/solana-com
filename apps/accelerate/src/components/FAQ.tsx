@@ -1,7 +1,6 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 const fadeInUp = {
@@ -12,7 +11,7 @@ const fadeInUp = {
 const stagger = {
   visible: {
     transition: {
-      staggerChildren: 0.1,
+      staggerChildren: 0.05,
     },
   },
 };
@@ -32,19 +31,38 @@ function FAQAccordionItem({
   onClick: () => void;
 }) {
   return (
-    <motion.div variants={fadeInUp} className="faq-item py-4">
+    <motion.div
+      variants={fadeInUp}
+      className="border-b border-black/10 last:border-b-0"
+    >
       <button
         onClick={onClick}
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-center justify-between py-6 text-left"
       >
-        <span className="pr-4 text-lg font-medium text-black dark:text-white">
+        <span className="pr-8 text-lg font-medium text-black md:text-xl">
           {item.question}
         </span>
-        <ChevronDown
-          className={`h-5 w-5 flex-shrink-0 text-black/50 transition-transform dark:text-white/50 ${
+        <div
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-black/10 transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
-        />
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            className="text-black/60"
+          >
+            <path
+              d="M2 4L6 8L10 4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
       </button>
       <AnimatePresence>
         {isOpen && (
@@ -55,7 +73,7 @@ function FAQAccordionItem({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <p className="pt-4 text-black/70 dark:text-white/70">
+            <p className="pb-6 pr-12 text-base leading-relaxed text-black/60">
               {item.answer}
             </p>
           </motion.div>
@@ -72,7 +90,7 @@ export function FAQ() {
     {
       question: "What's included in the ticket?",
       answer:
-        "Your ticket includes full access to all keynotes, panels, and networking sessions. You'll also receive a conference swag bag, lunch, and refreshments throughout the day. VIP ticket holders get additional perks including access to the VIP lounge and exclusive dinner with speakers.",
+        "Your ticket includes full access to Accelerate Hong Kong, featuring boundary-pushing talks, workshops, and meaningful connections across the Solana ecosystem and beyond.",
     },
     {
       question: "Is there a dress code?",
@@ -122,8 +140,8 @@ export function FAQ() {
   ];
 
   return (
-    <section id="faq" className="section bg-white dark:bg-accelerate-dark">
-      <div className="container-accelerate">
+    <section id="faq" className="bg-white py-20 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -132,12 +150,12 @@ export function FAQ() {
         >
           <motion.h2
             variants={fadeInUp}
-            className="heading-lg mb-8 text-black dark:text-white"
+            className="mb-12 text-4xl font-bold text-black md:text-5xl"
           >
             FAQ
           </motion.h2>
 
-          <div className="mx-auto max-w-3xl divide-y divide-black/10 dark:divide-white/10">
+          <div className="mx-auto max-w-4xl">
             {faqs.map((faq, index) => (
               <FAQAccordionItem
                 key={index}
@@ -149,11 +167,11 @@ export function FAQ() {
           </div>
 
           <motion.div variants={fadeInUp} className="mt-12 text-center">
-            <p className="text-black/60 dark:text-white/60">
+            <p className="text-black/60">
               Still have questions?{" "}
               <a
                 href="mailto:accelerate@solana.com"
-                className="text-accelerate-purple hover:underline"
+                className="font-medium text-[#9945FF] hover:underline"
               >
                 Contact us
               </a>

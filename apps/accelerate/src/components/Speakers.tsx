@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Twitter, Linkedin } from "lucide-react";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -23,48 +22,62 @@ interface Speaker {
   company: string;
   image: string;
   twitter?: string;
-  linkedin?: string;
 }
 
 interface SpeakerCardProps {
   speaker: Speaker;
 }
 
+function XIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="text-white/60 transition-colors hover:text-white"
+    >
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
 function SpeakerCard({ speaker }: SpeakerCardProps) {
   return (
-    <motion.div variants={fadeInUp} className="speaker-card group text-center">
-      <div className="relative mx-auto mb-4 h-40 w-40 overflow-hidden rounded-full border-2 border-white/10 transition-colors group-hover:border-accelerate-purple">
+    <motion.div variants={fadeInUp} className="group">
+      {/* Image */}
+      <div className="relative mb-6 aspect-square overflow-hidden rounded-3xl bg-gray-500">
         <Image
           src={speaker.image}
           alt={speaker.name}
           fill
-          className="object-cover grayscale transition-all group-hover:grayscale-0"
+          className="object-cover grayscale"
         />
       </div>
-      <h3 className="mb-1 text-lg font-semibold text-white">{speaker.name}</h3>
-      <p className="text-sm text-accelerate-purple">{speaker.title}</p>
-      <p className="mb-3 text-sm text-white/60">{speaker.company}</p>
-      <div className="flex justify-center gap-3">
-        {speaker.twitter && (
-          <a
-            href={speaker.twitter}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white/40 transition-colors hover:text-white"
-          >
-            <Twitter className="h-4 w-4" />
-          </a>
-        )}
-        {speaker.linkedin && (
-          <a
-            href={speaker.linkedin}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white/40 transition-colors hover:text-white"
-          >
-            <Linkedin className="h-4 w-4" />
-          </a>
-        )}
+
+      {/* Info */}
+      <div className="px-2">
+        <h3 className="mb-4 text-3xl font-bold uppercase leading-tight tracking-tight text-white md:text-4xl">
+          {speaker.name.split(" ").map((word, i) => (
+            <span key={i} className="block">
+              {word}
+            </span>
+          ))}
+        </h3>
+        <p className="mb-2 text-lg text-white/70">{speaker.company}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-base text-white/50">{speaker.title}</p>
+          {speaker.twitter && (
+            <a
+              href={speaker.twitter}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-transform hover:scale-110"
+            >
+              <XIcon />
+            </a>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -76,63 +89,77 @@ export function Speakers() {
       name: "Lily Liu",
       title: "President",
       company: "Solana Foundation",
-      image: "/images/speakers/lily-liu.jpg",
+      image: "/images/speakers/lily-liu.png",
       twitter: "https://twitter.com/calilyliu",
     },
     {
       name: "Chris Chung",
-      title: "CEO",
+      title: "CEO & Co-Founder",
       company: "Titan",
-      image: "/images/speakers/chris-chung.jpg",
+      image: "/images/speakers/chris-chung.png",
       twitter: "https://twitter.com/cchung",
     },
     {
-      name: "Shira Rozi",
-      title: "CEO",
-      company: "Parcoca",
-      image: "/images/speakers/shira-rozi.jpg",
-      twitter: "https://twitter.com/shirarozi",
+      name: "Shina Foo",
+      title: "Head of Growth",
+      company: "Perena",
+      image: "/images/speakers/shina-foo.png",
+      twitter: "https://twitter.com/shinafoo",
     },
     {
-      name: "Shawn Chan",
-      title: "Co-founder",
+      name: "Shawn Chain",
+      title: "CEO",
       company: "Singapore Gulf Bank",
-      image: "/images/speakers/shawn-chan.jpg",
-      linkedin: "https://linkedin.com/in/shawnchan",
+      image: "/images/speakers/shawn-chain.png",
+      twitter: "https://twitter.com/shawnchain",
     },
   ];
 
   return (
-    <section id="speakers" className="section bg-accelerate-dark">
-      <div className="container-accelerate">
+    <section id="speakers" className="bg-black py-20 lg:py-28">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
           variants={stagger}
         >
-          <motion.h2 variants={fadeInUp} className="heading-lg mb-4 text-white">
-            Speakers
-          </motion.h2>
-          <motion.p
-            variants={fadeInUp}
-            className="mb-12 max-w-2xl text-white/60"
-          >
-            Learn from industry leaders and pioneers building the future of
-            decentralized technology.
-          </motion.p>
+          <div className="mb-12 flex items-end justify-between">
+            <motion.h2
+              variants={fadeInUp}
+              className="text-4xl font-bold text-white md:text-5xl"
+            >
+              Speakers
+            </motion.h2>
+            <motion.div
+              variants={fadeInUp}
+              className="hidden items-center gap-2 md:flex"
+            >
+              <span className="text-sm text-white/50">More speakers coming soon</span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                className="rotate-45"
+              >
+                <path
+                  d="M2 10L10 2M10 2H4M10 2V8"
+                  stroke="white"
+                  strokeOpacity="0.5"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </motion.div>
+          </div>
 
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4 lg:gap-12">
+          <div className="grid grid-cols-2 gap-6 md:gap-8 lg:grid-cols-4 lg:gap-10">
             {speakers.map((speaker) => (
               <SpeakerCard key={speaker.name} speaker={speaker} />
             ))}
           </div>
-
-          <motion.div variants={fadeInUp} className="mt-12 text-center">
-            <p className="text-sm text-white/50">
-              More speakers to be announced soon.
-            </p>
-          </motion.div>
         </motion.div>
       </div>
     </section>
