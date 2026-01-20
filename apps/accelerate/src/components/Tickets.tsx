@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { LumaModal } from "./LumaModal";
 
 const fadeInUp = {
@@ -22,6 +23,7 @@ interface TicketCardProps {
   description: string;
   showStudentDiscount?: boolean;
   lumaId: string;
+  variant: "green" | "purple";
 }
 
 function TicketCard({
@@ -30,16 +32,20 @@ function TicketCard({
   description,
   showStudentDiscount,
   lumaId,
+  variant,
 }: TicketCardProps) {
+  const borderColor = variant === "green" ? "border-accelerate-green" : "border-accelerate-purple";
+  const titleColor = variant === "green" ? "text-accelerate-green" : "text-accelerate-purple";
+
   return (
     <motion.div
       variants={fadeInUp}
-      className="relative flex h-[339px] w-full flex-col rounded-none border border-white/10 bg-black p-10 lg:w-[600px]"
+      className={`relative flex h-[339px] w-full flex-col rounded-none border bg-black p-10 lg:w-[600px] ${borderColor}`}
     >
       {/* Title and Price Row */}
       <div className="mb-5 flex items-center justify-between">
         <h3
-          className="text-h2 text-white"
+          className={`text-h2 ${titleColor}`}
           style={{
             fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
@@ -78,19 +84,7 @@ function TicketCard({
           >
             Get Tickets
           </span>
-          {/* Grid icon (4 squares) */}
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 18 18"
-            fill="none"
-            className="shrink-0"
-          >
-            <rect x="0" y="0" width="8" height="8" fill="black" />
-            <rect x="10" y="0" width="8" height="8" fill="black" />
-            <rect x="0" y="10" width="8" height="8" fill="black" />
-            <rect x="10" y="10" width="8" height="8" fill="black" />
-          </svg>
+          <Image src="/images/ticket-icon.svg" alt="Ticket icon" width={18} height={12} />
         </button>
       </LumaModal>
 
@@ -146,7 +140,7 @@ export function Tickets() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-white lg:mb-20"
+            className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
             style={{
               fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
@@ -157,13 +151,14 @@ export function Tickets() {
           {/* Divider line */}
           <div className="mb-12 border-t border-white/10 lg:mb-20" />
 
-          {/* Ticket Cards Grid - 2 columns */}
-          <div className="flex flex-col gap-6 lg:flex-row lg:gap-[80px]">
+          {/* Ticket Cards Grid - 2 columns with Solana logo on right */}
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-[80px]">
             <TicketCard
               title="General Admission"
               price="$99"
               description="Full conference access"
               lumaId={lumaId}
+              variant="green"
             />
             <TicketCard
               title="Student"
@@ -171,7 +166,18 @@ export function Tickets() {
               description="Full conference access"
               showStudentDiscount
               lumaId={lumaId}
+              variant="purple"
             />
+            {/* Solana Logo - desktop only */}
+            <div className="hidden lg:flex lg:items-center lg:justify-center lg:pl-8">
+              <Image
+                src="/images/solana-logo.svg"
+                alt="Solana"
+                width={120}
+                height={120}
+                className="opacity-20"
+              />
+            </div>
           </div>
         </motion.div>
       </div>

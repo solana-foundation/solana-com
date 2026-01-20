@@ -20,15 +20,27 @@ const stagger = {
 export function FooterCTA() {
   return (
     <section className="relative overflow-hidden bg-black py-24 lg:py-32">
-      {/* Hong Kong Chinese characters background image from Figma */}
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-[823px] w-[1464px] -translate-x-1/2">
-        <Image
-          src="/images/hk-characters.png"
-          alt=""
-          fill
-          className="object-contain opacity-[0.08]"
-        />
+      {/* Hong Kong Chinese characters background image from Figma - positioned behind text */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="relative h-full w-full max-w-[1464px]">
+          <Image
+            src="/images/hk-characters.png"
+            alt=""
+            fill
+            className="object-contain opacity-[0.8]"
+          />
+        </div>
       </div>
+
+      {/* Dots pattern - overlaid over hk-characters, anchored to bottom, repeating horizontally */}
+      <div
+        className="pointer-events-none absolute bottom-0 left-0 right-0 z-[1] h-[322px] opacity-70"
+        style={{
+          backgroundImage: "url('/images/dots.svg')",
+          backgroundRepeat: "repeat-x",
+          backgroundPosition: "bottom",
+        }}
+      />
 
       <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
@@ -83,19 +95,7 @@ export function FooterCTA() {
                 >
                   Get Tickets
                 </span>
-                {/* Grid icon (4 squares) */}
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 18 18"
-                  fill="none"
-                  className="shrink-0"
-                >
-                  <rect x="0" y="0" width="8" height="8" fill="black" />
-                  <rect x="10" y="0" width="8" height="8" fill="black" />
-                  <rect x="0" y="10" width="8" height="8" fill="black" />
-                  <rect x="10" y="10" width="8" height="8" fill="black" />
-                </svg>
+                <Image src="/images/ticket-icon.svg" alt="Ticket icon" width={18} height={12} />
               </button>
             </LumaModal>
           </motion.div>

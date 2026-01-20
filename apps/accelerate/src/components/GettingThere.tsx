@@ -32,7 +32,7 @@ function InfoRow({ label, value, subValue, link }: InfoRowProps) {
       className="grid grid-cols-1 gap-4 border-b border-white/10 py-6 last:border-b-0 lg:grid-cols-[360px_1fr]"
     >
       <p
-        className="text-h2 text-white/50"
+        className="gradient-text text-h2"
         style={{
           fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
         }}
@@ -49,7 +49,7 @@ function InfoRow({ label, value, subValue, link }: InfoRowProps) {
           {value}
         </p>
         {subValue && (
-          <p className="text-p mt-3 text-white/60">
+          <p className="text-p mt-3 text-accelerate-green">
             {subValue}
             {link && (
               <>
@@ -84,7 +84,7 @@ export function GettingThere() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-white lg:mb-20"
+            className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
             style={{
               fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}

@@ -183,7 +183,7 @@ export function Sponsors() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-white lg:mb-20"
+            className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
             style={{
               fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
@@ -245,6 +245,31 @@ export function Sponsors() {
                 ))}
               </div>
             </div>
+
+            {/* Become a Sponsor CTA */}
+            <motion.div variants={fadeInUp} className="flex justify-center pt-8">
+              <a
+                href="mailto:sponsors@solana.com"
+                className="inline-flex items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+                style={{
+                  fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                  fontSize: "16px",
+                  background: "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
+                  border: "1px solid transparent",
+                }}
+              >
+                <span>Become a Sponsor</span>
+                <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
+                  <path
+                    d="M2 9L9 2M9 2H4M9 2V7"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+            </motion.div>
           </div>
         </motion.div>
       </div>

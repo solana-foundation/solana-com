@@ -29,7 +29,7 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
       className="grid grid-cols-1 gap-4 border-b border-white/10 py-6 last:border-b-0 sm:grid-cols-[140px_1fr] lg:grid-cols-[360px_1fr]"
     >
       <p
-        className="text-h2 text-white/50"
+        className="gradient-text text-h2"
         style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
       >
         {label}
@@ -42,7 +42,7 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
           {value}
         </p>
         {subValue && (
-          <p className="mt-3 text-p text-white/60">{subValue}</p>
+          <p className="mt-3 text-p text-accelerate-green">{subValue}</p>
         )}
       </div>
     </motion.div>
@@ -62,7 +62,7 @@ export function EventDetails() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-white lg:mb-20"
+            className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
             style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
           >
             Event details

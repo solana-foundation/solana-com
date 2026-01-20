@@ -40,33 +40,29 @@ function FAQAccordionItem({
         className="flex w-full items-center justify-between py-6 text-left"
       >
         <span
-          className="text-h2 pr-8 text-white"
+          className={`text-h2 pr-8 font-normal transition-colors ${
+            isOpen ? "text-accelerate-green" : "text-accelerate-gray-100"
+          }`}
           style={{
             fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
         >
           {item.question}
         </span>
-        <div
-          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/10 transition-transform ${
-            isOpen ? "rotate-180" : ""
-          }`}
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            className="text-white/60"
-          >
-            <path
-              d="M2 4L6 8L10 4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
+          {isOpen ? (
+            <img
+              src="/images/faq-arrow-expanded.svg"
+              alt=""
+              className="h-9 w-9"
             />
-          </svg>
+          ) : (
+            <img
+              src="/images/faq-arrow.svg"
+              alt=""
+              className="h-9 w-9"
+            />
+          )}
         </div>
       </button>
       <AnimatePresence>
@@ -162,7 +158,7 @@ export function FAQ() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-white lg:mb-20"
+            className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
             style={{
               fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}

@@ -46,10 +46,10 @@ function SpeakerCard({ speaker }: SpeakerCardProps) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="flex w-full flex-col gap-5 lg:w-[380px]"
+      className="relative flex w-[300px] flex-shrink-0 flex-col gap-5 sm:w-[340px] lg:w-[380px]"
     >
       {/* Image - 380x380px with rounded corners */}
-      <div className="relative h-[300px] w-full overflow-hidden rounded-[48px] bg-[#a0a0a0] sm:h-[380px] lg:h-[380px] lg:w-[380px]">
+      <div className="relative h-[300px] w-full overflow-hidden rounded-[48px] bg-[#a0a0a0] sm:h-[340px] lg:h-[380px]">
         <Image
           src={speaker.image}
           alt={speaker.name}
@@ -81,21 +81,21 @@ function SpeakerCard({ speaker }: SpeakerCardProps) {
           {speaker.company}
         </p>
 
-        {/* Title and Twitter */}
-        <div className="flex items-center justify-between">
-          <p className="text-p text-accelerate-gray-muted">{speaker.title}</p>
-          {speaker.twitter && (
-            <a
-              href={speaker.twitter}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition-transform hover:scale-110"
-            >
-              <XIcon />
-            </a>
-          )}
-        </div>
+        {/* Title */}
+        <p className="text-p text-accelerate-gray-muted">{speaker.title}</p>
       </div>
+
+      {/* Twitter/X Icon - positioned at bottom right of card */}
+      {speaker.twitter && (
+        <a
+          href={speaker.twitter}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute bottom-0 right-0 transition-transform hover:scale-110"
+        >
+          <XIcon />
+        </a>
+      )}
     </motion.div>
   );
 }
@@ -153,7 +153,7 @@ export function Speakers() {
           <div className="mb-12 flex items-end justify-between lg:mb-20">
             <motion.h2
               variants={fadeInUp}
-              className="text-h1 text-white"
+              className="text-h1 text-accelerate-gray-100"
               style={{
                 fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
               }}
@@ -183,11 +183,13 @@ export function Speakers() {
             </motion.div>
           </div>
 
-          {/* Speaker Grid - 4 columns on desktop with 40px gap */}
-          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-[40px]">
-            {speakers.map((speaker) => (
-              <SpeakerCard key={speaker.name} speaker={speaker} />
-            ))}
+          {/* Speaker Cards - horizontal scroll on mobile, 4 columns on desktop */}
+          <div className="-mx-6 overflow-x-auto px-6 lg:mx-0 lg:overflow-visible lg:px-0">
+            <div className="flex gap-6 lg:grid lg:grid-cols-4 lg:gap-[40px]">
+              {speakers.map((speaker) => (
+                <SpeakerCard key={speaker.name} speaker={speaker} />
+              ))}
+            </div>
           </div>
         </motion.div>
       </div>

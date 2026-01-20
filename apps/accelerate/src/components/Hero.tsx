@@ -33,9 +33,9 @@ export function Hero() {
         />
       </div>
 
-      {/* Hong Kong Skyline - centered, flipped */}
+      {/* Hong Kong Skyline - centered, flipped (z-1: bottom layer) */}
       <div
-        className="pointer-events-none absolute left-1/2 top-0 h-[932px] w-[1187px] -translate-x-1/2"
+        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[932px] w-[1187px] -translate-x-1/2"
         style={{ transform: "translateX(-50%) scaleY(-1) rotate(180deg)" }}
       >
         <Image
@@ -47,23 +47,23 @@ export function Hero() {
         />
       </div>
 
-      {/* Wave lines - Footer Element */}
-      <div className="pointer-events-none absolute left-0 top-[406px] h-[526px] w-full">
-        <Image
-          src="/images/wave-lines.svg"
-          alt=""
-          fill
-          className="object-cover"
-        />
-      </div>
-
-      {/* Dots pattern */}
-      <div className="pointer-events-none absolute bottom-0 right-0 h-[322px] w-full">
+      {/* Dots pattern (z-2: between skyline and wave) */}
+      <div className="pointer-events-none absolute bottom-0 right-0 z-[2] h-[322px] w-full">
         <Image
           src="/images/dots.svg"
           alt=""
           fill
           className="object-cover object-right-bottom"
+        />
+      </div>
+
+      {/* Wave lines - Footer Element (z-3: top decorative layer) */}
+      <div className="pointer-events-none absolute left-0 top-[406px] z-[3] h-[526px] w-full">
+        <Image
+          src="/images/wave-lines.svg"
+          alt=""
+          fill
+          className="object-cover"
         />
       </div>
 
@@ -231,13 +231,7 @@ export function Hero() {
                 >
                   Get Tickets
                 </span>
-                {/* Grid icon (4 squares) */}
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0">
-                  <rect x="0" y="0" width="8" height="8" fill="black" />
-                  <rect x="10" y="0" width="8" height="8" fill="black" />
-                  <rect x="0" y="10" width="8" height="8" fill="black" />
-                  <rect x="10" y="10" width="8" height="8" fill="black" />
-                </svg>
+                <Image src="/images/ticket-icon.svg" alt="Ticket icon" width={18} height={12} />
               </button>
             </LumaModal>
           </motion.div>

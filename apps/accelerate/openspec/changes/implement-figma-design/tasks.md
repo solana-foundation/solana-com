@@ -156,3 +156,22 @@
 - [x] 13.15 Getting there: Match font colors and styles
 - [x] 13.16 CTA: Match font colors and styles
 - [x] 13.17 CTA: Fix visibility of `apps/accelerate/public/images/hk-characters.png`
+- [x] 13.18 Hero: Fix z-index for `apps/accelerate/public/images/dots.svg` - needs to be between skyline and swoosh
+- [x] 13.19 Event details: EventDetailRow label needs to be gradient and match design
+- [x] 13.20 Event details: EventDetailRow value is white and subvalue is green
+- [x] 13.21 Tickets: Solana logo on RHS needs to be exported and positioned right on desktop only (hide for others) - check design in Figma
+- [x] 13.22 Tickets: Borders need to be green and purple for different boxes - check design in Figma
+- [x] 13.23 Tickets: TicketCard title needs to be green and purple respectively for different boxes - check design in Figma
+- [x] 13.24 Speakers: speakers.map needs overflow and horizontal scroll with correct spacing between cards
+- [x] 13.25 Speakers: XIcon needs to be right aligned on card bottom right
+- [x] 13.26 Sponsors: Logos are missing from `apps/accelerate/public/images/sponsors` - check design in Figma
+- [x] 13.27 Sponsors: Background image is missing - check design in Figma
+- [x] 13.28 Sponsors: Become a sponsor button is missing - check design in Figma
+- [x] 13.29 FAQ: `{item.question}` font color should be grey and font weight needs to be corrected
+- [x] 13.30 FAQ: `{item.question}` on dropdown active needs to be green
+- [x] 13.31 FAQ: Icon action button should be exported from Figma and implemented in place of inline SVG in FAQAccordionItem
+- [x] 13.32 All: Section title colors are grey not white
+- [x] 13.33 Getting there: Labels should be gradient color
+- [x] 13.34 Getting there: subValue text should always be green including links
+- [x] 13.35 FooterCTA: `apps/accelerate/public/images/hk-characters.png` needs to be visible and sized correctly behind text
+- [x] 13.36 All: Get Tickets button icon needs to be exported and reused in Hero, Tickets, and FooterCTA section buttons
