@@ -190,14 +190,13 @@ export function Sponsors() {
           >
             <div className="flex flex-col">
               <h2
-                className="text-h1 text-white"
+                className="text-h1 text-accelerate-gray-100"
                 style={{
                   fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 }}
               >
                 Sponsors
               </h2>
-              <div className="mt-2 h-px w-full bg-white" />
             </div>
             <a
               href="mailto:sponsors@solana.com"
@@ -221,6 +220,9 @@ export function Sponsors() {
               </svg>
             </a>
           </motion.div>
+
+          {/* Divider line */}
+          <div className="mb-12 border-t border-white/10 lg:mb-20" />
 
           <div className="space-y-16 lg:space-y-20">
             {sponsorTiers.map((tier) => (
