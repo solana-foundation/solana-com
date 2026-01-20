@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -18,16 +19,14 @@ const stagger = {
 export function FooterCTA() {
   return (
     <section className="relative overflow-hidden bg-black py-24 lg:py-32">
-      {/* Large Chinese characters background */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
-        <span
-          className="select-none text-[20rem] font-bold leading-none text-white/[0.03] md:text-[30rem] lg:text-[40rem]"
-          style={{
-            fontFamily: "system-ui, sans-serif",
-          }}
-        >
-          香港
-        </span>
+      {/* Hong Kong Chinese characters background image from Figma */}
+      <div className="pointer-events-none absolute bottom-0 left-1/2 h-[823px] w-[1464px] -translate-x-1/2">
+        <Image
+          src="/images/hk-characters.png"
+          alt=""
+          fill
+          className="object-contain opacity-[0.03]"
+        />
       </div>
 
       <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
@@ -38,56 +37,83 @@ export function FooterCTA() {
           variants={stagger}
           className="text-center"
         >
+          {/* "Don't miss" subtitle */}
           <motion.p
             variants={fadeInUp}
-            className="mb-4 text-lg text-white/60"
+            className="text-hero mb-4 text-white/60"
+            style={{
+              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
           >
             Don&apos;t miss
           </motion.p>
 
+          {/* "SOLANA ACCELERATE" heading with gradient */}
           <motion.h2
             variants={fadeInUp}
-            className="mb-10 text-4xl font-bold md:text-5xl lg:text-6xl"
+            className="text-hero mb-10"
+            style={{
+              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
           >
             <span className="text-white">SOLANA </span>
-            <span
-              className="bg-gradient-to-r from-[#9945FF] via-[#14F195] to-[#00D4FF] bg-clip-text text-transparent"
-            >
-              ACCELERATE
-            </span>
+            <span className="gradient-text">ACCELERATE</span>
           </motion.h2>
 
-          <motion.div variants={fadeInUp}>
+          {/* CTA Button */}
+          <motion.div variants={fadeInUp} className="mb-8">
             <a
               href="#tickets"
-              className="group inline-flex items-center gap-3 rounded-full border border-white/20 bg-transparent px-8 py-4 text-base font-medium text-white transition-all hover:border-white/40 hover:bg-white/5"
+              className="group inline-flex h-[66px] items-center justify-between rounded-[32px] px-7 text-black transition-all hover:opacity-90"
+              style={{
+                background: "linear-gradient(to right, #9945FF, #19FB9B)",
+                width: "480px",
+                maxWidth: "90vw",
+              }}
             >
-              <span>Limited Tickets Available</span>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                className="transition-transform group-hover:translate-x-1"
+              <span
+                className="flex-1 text-left uppercase"
+                style={{
+                  fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                  fontWeight: 600,
+                  fontSize: "18px",
+                  letterSpacing: "0.9px",
+                }}
               >
-                <path
-                  d="M3 8H13M13 8L8 3M13 8L8 13"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                Get Tickets
+              </span>
+              {/* Grid icon (4 squares) */}
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 18 18"
+                fill="none"
+                className="shrink-0"
+              >
+                <rect x="0" y="0" width="8" height="8" fill="black" />
+                <rect x="10" y="0" width="8" height="8" fill="black" />
+                <rect x="0" y="10" width="8" height="8" fill="black" />
+                <rect x="10" y="10" width="8" height="8" fill="black" />
               </svg>
             </a>
           </motion.div>
+
+          {/* "Limited tickets available" text */}
+          <motion.p
+            variants={fadeInUp}
+            className="text-h2 text-white"
+            style={{
+              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
+          >
+            Limited tickets available
+          </motion.p>
         </motion.div>
       </div>
 
       {/* Bottom copyright */}
       <div className="relative z-10 mt-20 text-center">
-        <p className="text-sm text-white/30">
-          © Solana Foundation 2026
-        </p>
+        <p className="text-sm text-white/30">© Solana Foundation 2026</p>
       </div>
     </section>
   );

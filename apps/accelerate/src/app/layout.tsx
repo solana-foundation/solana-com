@@ -1,19 +1,28 @@
 import { ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
-import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
+import { ThemeProvider } from "@solana-com/ui-chrome";
 import { loadMessages } from "@workspace/i18n/load-messages";
 import { getLangDir } from "rtl-detect";
+import { Space_Grotesk } from "next/font/google";
 import "../scss/index.scss";
 import "./globals.css";
+
+// Load Space Grotesk font from Google Fonts
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
 
 export const metadata = {
   title: "Solana Accelerate APAC - Hong Kong",
   description:
-    "Join us at Solana Accelerate APAC in Hong Kong on February 19, 2025. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
+    "Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
   openGraph: {
     title: "Solana Accelerate APAC - Hong Kong",
     description:
-      "Join us at Solana Accelerate APAC in Hong Kong on February 19, 2025.",
+      "Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026.",
     type: "website",
   },
 };
@@ -36,15 +45,13 @@ export default async function RootLayout({ children }: Props) {
     <html
       lang={locale}
       dir={direction}
-      className="dark"
+      className={`dark ${spaceGrotesk.variable}`}
       suppressHydrationWarning
     >
-      <body suppressHydrationWarning>
+      <body className={spaceGrotesk.className} suppressHydrationWarning>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
-            <Header showLanguage={false} showDevelopersNav={false} />
             <main className="min-h-screen">{children}</main>
-            <Footer />
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

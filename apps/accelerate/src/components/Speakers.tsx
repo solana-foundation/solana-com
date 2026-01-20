@@ -18,6 +18,8 @@ const stagger = {
 
 interface Speaker {
   name: string;
+  firstName: string;
+  lastName: string;
   title: string;
   company: string;
   image: string;
@@ -30,23 +32,24 @@ interface SpeakerCardProps {
 
 function XIcon() {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="text-white/60 transition-colors hover:text-white"
-    >
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
+    <Image
+      src="/images/x-social.svg"
+      alt="X (Twitter)"
+      width={31}
+      height={31}
+      className="opacity-60 transition-opacity hover:opacity-100"
+    />
   );
 }
 
 function SpeakerCard({ speaker }: SpeakerCardProps) {
   return (
-    <motion.div variants={fadeInUp} className="group">
-      {/* Image */}
-      <div className="relative mb-6 aspect-square overflow-hidden rounded-3xl bg-gray-500">
+    <motion.div
+      variants={fadeInUp}
+      className="flex w-full flex-col gap-5 lg:w-[380px]"
+    >
+      {/* Image - 380x380px with rounded corners */}
+      <div className="relative h-[300px] w-full overflow-hidden rounded-[48px] bg-[#a0a0a0] sm:h-[380px] lg:h-[380px] lg:w-[380px]">
         <Image
           src={speaker.image}
           alt={speaker.name}
@@ -55,18 +58,32 @@ function SpeakerCard({ speaker }: SpeakerCardProps) {
         />
       </div>
 
-      {/* Info */}
-      <div className="px-2">
-        <h3 className="mb-4 text-3xl font-bold uppercase leading-tight tracking-tight text-white md:text-4xl">
-          {speaker.name.split(" ").map((word, i) => (
-            <span key={i} className="block">
-              {word}
-            </span>
-          ))}
-        </h3>
-        <p className="mb-2 text-lg text-white/70">{speaker.company}</p>
+      {/* Info - with left border */}
+      <div className="flex flex-col gap-3 border-l border-accelerate-gray-300 pl-5">
+        {/* Name - uppercase, multi-line */}
+        <div
+          className="text-h1 uppercase leading-none text-accelerate-purple"
+          style={{
+            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          }}
+        >
+          <p className="mb-0">{speaker.firstName}</p>
+          <p>{speaker.lastName}</p>
+        </div>
+
+        {/* Company */}
+        <p
+          className="text-h2 text-white"
+          style={{
+            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          }}
+        >
+          {speaker.company}
+        </p>
+
+        {/* Title and Twitter */}
         <div className="flex items-center justify-between">
-          <p className="text-base text-white/50">{speaker.title}</p>
+          <p className="text-p text-accelerate-gray-muted">{speaker.title}</p>
           {speaker.twitter && (
             <a
               href={speaker.twitter}
@@ -87,13 +104,17 @@ export function Speakers() {
   const speakers: Speaker[] = [
     {
       name: "Lily Liu",
+      firstName: "LILY",
+      lastName: "LIU",
       title: "President",
-      company: "Solana Foundation",
+      company: "Solana foundation",
       image: "/images/speakers/lily-liu.png",
       twitter: "https://twitter.com/calilyliu",
     },
     {
       name: "Chris Chung",
+      firstName: "CHRIS",
+      lastName: "CHUNG",
       title: "CEO & Co-Founder",
       company: "Titan",
       image: "/images/speakers/chris-chung.png",
@@ -101,6 +122,8 @@ export function Speakers() {
     },
     {
       name: "Shina Foo",
+      firstName: "SHINA",
+      lastName: "FOO",
       title: "Head of Growth",
       company: "Perena",
       image: "/images/speakers/shina-foo.png",
@@ -108,6 +131,8 @@ export function Speakers() {
     },
     {
       name: "Shawn Chain",
+      firstName: "SHAWN",
+      lastName: "CHAIN",
       title: "CEO",
       company: "Singapore Gulf Bank",
       image: "/images/speakers/shawn-chain.png",
@@ -124,10 +149,14 @@ export function Speakers() {
           viewport={{ once: true, margin: "-100px" }}
           variants={stagger}
         >
-          <div className="mb-12 flex items-end justify-between">
+          {/* Header with arrow */}
+          <div className="mb-12 flex items-end justify-between lg:mb-20">
             <motion.h2
               variants={fadeInUp}
-              className="text-4xl font-bold text-white md:text-5xl"
+              className="text-h1 text-white"
+              style={{
+                fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              }}
             >
               Speakers
             </motion.h2>
@@ -135,19 +164,18 @@ export function Speakers() {
               variants={fadeInUp}
               className="hidden items-center gap-2 md:flex"
             >
-              <span className="text-sm text-white/50">More speakers coming soon</span>
+              {/* Arrow icon pointing right */}
               <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
+                width="36"
+                height="36"
+                viewBox="0 0 36 36"
                 fill="none"
-                className="rotate-45"
+                className="text-white/50"
               >
                 <path
-                  d="M2 10L10 2M10 2H4M10 2V8"
-                  stroke="white"
-                  strokeOpacity="0.5"
-                  strokeWidth="1.5"
+                  d="M8 28L28 8M28 8H12M28 8V24"
+                  stroke="currentColor"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
@@ -155,7 +183,8 @@ export function Speakers() {
             </motion.div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6 md:gap-8 lg:grid-cols-4 lg:gap-10">
+          {/* Speaker Grid - 4 columns on desktop with 40px gap */}
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-[40px]">
             {speakers.map((speaker) => (
               <SpeakerCard key={speaker.name} speaker={speaker} />
             ))}

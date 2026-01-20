@@ -39,7 +39,12 @@ function FAQAccordionItem({
         onClick={onClick}
         className="flex w-full items-center justify-between py-6 text-left"
       >
-        <span className="pr-8 text-lg font-medium text-black md:text-xl">
+        <span
+          className="text-h2 pr-8 text-black"
+          style={{
+            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          }}
+        >
           {item.question}
         </span>
         <div
@@ -73,7 +78,7 @@ function FAQAccordionItem({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <p className="pb-6 pr-12 text-base leading-relaxed text-black/60">
+            <p className="text-p max-w-[800px] pb-6 pr-12 leading-relaxed text-black/60">
               {item.answer}
             </p>
           </motion.div>
@@ -86,11 +91,17 @@ function FAQAccordionItem({
 export function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
+  // FAQ items matching the Figma design content
   const faqs: FAQItem[] = [
     {
       question: "What's included in the ticket?",
       answer:
         "Your ticket includes full access to Accelerate Hong Kong, featuring boundary-pushing talks, workshops, and meaningful connections across the Solana ecosystem and beyond.",
+    },
+    {
+      question: "Does my Consensus ticket also give me access to Accelerate?",
+      answer:
+        "No, Solana Accelerate is a separate event and requires its own ticket. However, we offer special pricing for Consensus attendees.",
     },
     {
       question: "Is there a dress code?",
@@ -100,7 +111,7 @@ export function FAQ() {
     {
       question: "Can I get a ticket to everything?",
       answer:
-        "Yes! The General Admission ticket gives you access to all main sessions. Builder and VIP tickets include additional exclusive events and networking opportunities.",
+        "Yes! The General Admission ticket gives you access to all main sessions, talks, and networking events at Accelerate Hong Kong.",
     },
     {
       question: "Can I get a refund?",
@@ -108,9 +119,9 @@ export function FAQ() {
         "Tickets are refundable up to 14 days before the event. After that, tickets can be transferred to another attendee. Please contact our support team for assistance with refunds or transfers.",
     },
     {
-      question: "What should I bring?",
+      question: "Where should I stay?",
       answer:
-        "Bring your ticket confirmation (digital or printed), a valid ID, and business cards for networking. Laptops are welcome for the workshop sessions. The venue provides free WiFi.",
+        "We recommend staying at the Grand Hyatt Hong Kong, which is offering discounted rates for event attendees. The venue is conveniently located near the Hong Kong Convention and Exhibition Centre.",
     },
     {
       question: "Is there parking available?",
@@ -133,9 +144,9 @@ export function FAQ() {
         "Photography for personal use is permitted. Professional recording equipment requires prior approval. The event will be professionally photographed and recorded - by attending, you consent to appearing in event media.",
     },
     {
-      question: "COVID Information",
+      question: "Contact information",
       answer:
-        "We follow all local health guidelines. Please check our website closer to the event date for the latest health and safety protocols.",
+        "For any questions or assistance, please email accelerate@solana.com. Our team will respond within 24-48 hours.",
     },
   ];
 
@@ -148,12 +159,19 @@ export function FAQ() {
           viewport={{ once: true, margin: "-100px" }}
           variants={stagger}
         >
+          {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="mb-12 text-4xl font-bold text-black md:text-5xl"
+            className="text-h1 mb-12 text-black lg:mb-20"
+            style={{
+              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
           >
             FAQ
           </motion.h2>
+
+          {/* Divider line */}
+          <div className="mb-12 border-t border-black/10 lg:mb-8" />
 
           <div className="mx-auto max-w-4xl">
             {faqs.map((faq, index) => (
@@ -161,22 +179,12 @@ export function FAQ() {
                 key={index}
                 item={faq}
                 isOpen={openIndex === index}
-                onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                onClick={() =>
+                  setOpenIndex(openIndex === index ? null : index)
+                }
               />
             ))}
           </div>
-
-          <motion.div variants={fadeInUp} className="mt-12 text-center">
-            <p className="text-black/60">
-              Still have questions?{" "}
-              <a
-                href="mailto:accelerate@solana.com"
-                className="font-medium text-[#9945FF] hover:underline"
-              >
-                Contact us
-              </a>
-            </p>
-          </motion.div>
         </motion.div>
       </div>
     </section>

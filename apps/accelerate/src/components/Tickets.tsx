@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -19,117 +18,121 @@ const stagger = {
 interface TicketCardProps {
   title: string;
   price: string;
-  originalPrice?: string;
   description: string;
-  hasCheckbox?: boolean;
-  checkboxLabel?: string;
-  isChecked?: boolean;
-  onCheckChange?: (checked: boolean) => void;
-}
-
-function TicketIcon() {
-  return (
-    <svg
-      width="48"
-      height="48"
-      viewBox="0 0 48 48"
-      fill="none"
-      className="text-black"
-    >
-      <rect
-        x="4"
-        y="12"
-        width="40"
-        height="24"
-        rx="4"
-        stroke="currentColor"
-        strokeWidth="2"
-        fill="none"
-      />
-      <path
-        d="M16 12V36"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeDasharray="4 4"
-      />
-      <circle cx="32" cy="24" r="4" stroke="currentColor" strokeWidth="2" fill="none" />
-    </svg>
-  );
+  showStudentDiscount?: boolean;
+  ticketUrl: string;
 }
 
 function TicketCard({
   title,
   price,
-  originalPrice,
   description,
-  hasCheckbox,
-  checkboxLabel,
-  isChecked,
-  onCheckChange,
+  showStudentDiscount,
+  ticketUrl,
 }: TicketCardProps) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="flex flex-col rounded-2xl border border-black/10 bg-white p-6 transition-all duration-300 hover:border-black/20 hover:shadow-lg"
+      className="relative flex h-[339px] w-full flex-col rounded-none border border-black/10 bg-white p-10 lg:w-[600px]"
     >
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h3 className="text-xl font-semibold text-black">{title}</h3>
-          <p className="mt-1 text-sm text-black/60">{description}</p>
-        </div>
-        <TicketIcon />
-      </div>
-
-      {hasCheckbox && (
-        <label className="mb-4 flex cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            checked={isChecked}
-            onChange={(e) => onCheckChange?.(e.target.checked)}
-            className="h-5 w-5 rounded border-black/20 text-[#9945FF] focus:ring-[#9945FF]"
-          />
-          <span className="text-sm text-black/70">{checkboxLabel}</span>
-        </label>
-      )}
-
-      <div className="mb-6 mt-auto">
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-bold text-black">{price}</span>
-          {originalPrice && (
-            <span className="text-lg text-black/40 line-through">
-              {originalPrice}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <a
-        href="#"
-        className="flex w-full items-center justify-center rounded-lg bg-black py-3.5 text-sm font-medium text-white transition-colors hover:bg-black/90"
-      >
-        Buy a ticket
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          className="ml-2"
+      {/* Title and Price Row */}
+      <div className="mb-5 flex items-center justify-between">
+        <h3
+          className="text-h2 text-black"
+          style={{
+            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          }}
         >
-          <path
-            d="M4 12L12 4M12 4H6M12 4V10"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          {title}
+        </h3>
+        <span
+          className="text-h2 text-black"
+          style={{
+            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          }}
+        >
+          {price}
+        </span>
+      </div>
+
+      {/* Description */}
+      <p className="text-p mb-auto text-black/60">{description}</p>
+
+      {/* CTA Button */}
+      <a
+        href={ticketUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex h-[66px] w-full items-center justify-between rounded-[32px] px-7 text-black transition-all hover:opacity-90"
+        style={{
+          background: "linear-gradient(to right, #9945FF, #19FB9B)",
+        }}
+      >
+        <span
+          className="flex-1 text-left uppercase"
+          style={{
+            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            fontWeight: 600,
+            fontSize: "18px",
+            letterSpacing: "0.9px",
+          }}
+        >
+          Get Tickets
+        </span>
+        {/* Grid icon (4 squares) */}
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 18 18"
+          fill="none"
+          className="shrink-0"
+        >
+          <rect x="0" y="0" width="8" height="8" fill="black" />
+          <rect x="10" y="0" width="8" height="8" fill="black" />
+          <rect x="0" y="10" width="8" height="8" fill="black" />
+          <rect x="10" y="10" width="8" height="8" fill="black" />
         </svg>
       </a>
+
+      {/* Student Discount Link */}
+      {showStudentDiscount && (
+        <div className="mt-6 flex items-center justify-between text-p">
+          <span className="text-black/60">Are you a Student?</span>
+          <a
+            href="#"
+            className="text-button uppercase tracking-[0.05em] text-accelerate-purple hover:underline"
+            style={{
+              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
+          >
+            APPLY FOR DISCOUNT
+          </a>
+        </div>
+      )}
+
+      {/* Ticket Icon Mark - positioned at top right of Student card */}
+      {showStudentDiscount && (
+        <div className="absolute right-0 top-0">
+          <svg
+            width="120"
+            height="99"
+            viewBox="0 0 120 99"
+            fill="none"
+            className="text-black/5"
+          >
+            <path
+              d="M120 0H0V99L60 49.5L120 99V0Z"
+              fill="currentColor"
+            />
+          </svg>
+        </div>
+      )}
     </motion.div>
   );
 }
 
 export function Tickets() {
-  const [isBuilder, setIsBuilder] = useState(false);
+  const ticketUrl = "https://lu.ma/sol-accelerate-hk";
 
   return (
     <section id="tickets" className="bg-white py-20 lg:py-28">
@@ -140,42 +143,36 @@ export function Tickets() {
           viewport={{ once: true, margin: "-100px" }}
           variants={stagger}
         >
+          {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="mb-12 text-4xl font-bold text-black md:text-5xl"
+            className="text-h1 mb-12 text-black lg:mb-20"
+            style={{
+              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
           >
             Tickets
           </motion.h2>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {/* Divider line */}
+          <div className="mb-12 border-t border-black/10 lg:mb-20" />
+
+          {/* Ticket Cards Grid - 2 columns */}
+          <div className="flex flex-col gap-6 lg:flex-row lg:gap-[80px]">
             <TicketCard
               title="General Admission"
               price="$99"
               description="Full conference access"
+              ticketUrl={ticketUrl}
             />
             <TicketCard
-              title="Builder"
-              price={isBuilder ? "$0" : "$99"}
-              originalPrice={isBuilder ? "$99" : undefined}
-              description="For active Solana developers"
-              hasCheckbox
-              checkboxLabel="Are you a developer?"
-              isChecked={isBuilder}
-              onCheckChange={setIsBuilder}
-            />
-            <TicketCard
-              title="VIP"
-              price="$499"
-              description="Premium experience"
+              title="Student"
+              price="$25"
+              description="Full conference access"
+              showStudentDiscount
+              ticketUrl={ticketUrl}
             />
           </div>
-
-          <motion.p
-            variants={fadeInUp}
-            className="mt-8 text-center text-sm text-black/50"
-          >
-            All tickets include access to keynotes, panels, and networking sessions.
-          </motion.p>
         </motion.div>
       </div>
     </section>

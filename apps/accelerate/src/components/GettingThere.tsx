@@ -29,13 +29,27 @@ function InfoRow({ label, value, subValue, link }: InfoRowProps) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="grid grid-cols-1 gap-4 border-b border-white/10 py-6 last:border-b-0 md:grid-cols-[200px_1fr]"
+      className="grid grid-cols-1 gap-4 border-b border-white/10 py-6 last:border-b-0 lg:grid-cols-[360px_1fr]"
     >
-      <p className="text-base text-white/50">{label}</p>
+      <p
+        className="text-h2 text-white/50"
+        style={{
+          fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+        }}
+      >
+        {label}
+      </p>
       <div>
-        <p className="text-lg font-medium text-white">{value}</p>
+        <p
+          className="text-h2 text-white"
+          style={{
+            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          }}
+        >
+          {value}
+        </p>
         {subValue && (
-          <p className="mt-2 text-base text-white/60">
+          <p className="text-p mt-3 text-white/60">
             {subValue}
             {link && (
               <>
@@ -44,7 +58,7 @@ function InfoRow({ label, value, subValue, link }: InfoRowProps) {
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#14F195] hover:underline"
+                  className="text-accelerate-green underline hover:no-underline"
                 >
                   {link.text}
                 </a>
@@ -67,12 +81,19 @@ export function GettingThere() {
           viewport={{ once: true, margin: "-100px" }}
           variants={stagger}
         >
+          {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="mb-12 text-4xl font-bold text-white md:text-5xl"
+            className="text-h1 mb-12 text-white lg:mb-20"
+            style={{
+              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
           >
             Getting there
           </motion.h2>
+
+          {/* Divider line */}
+          <div className="mb-12 border-t border-white/10 lg:mb-8" />
 
           <div className="mx-auto max-w-4xl">
             <InfoRow
