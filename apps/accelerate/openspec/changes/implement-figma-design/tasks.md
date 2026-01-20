@@ -137,21 +137,22 @@
 - [x] 12.6 Test responsive behavior at 768px and 375px
 - [x] 12.7 Run `pnpm build` to verify production build succeeds
 
-## 13. Design review
-- [ ] Hero: get tickets needs to have correct gradient border
-- [ ] Hero: Get tickets should open popup modal with same functionality as /Users/karambit/Sites/solana-com-breakpoint/components/LumaIframe/index.tsx
-- [ ] Hero: aspect ratio is off for apps/accelerate/public/images/dots.svg - dots aren't round and too stretched
-- [ ] All: fix all white backgrounds - should only be dark
-- [ ] All: make sure styles are appropriate for dark theme
-- [ ] Event: EventDetailRow label needs to match design 
-- [ ] Tickets: borders and colors need to match design
-- [ ] Tickets: Solana logo needs to be exported and sit right on desktop only hide for others
-- [ ] Speakers: spacing is wrong
-- [ ] Speakers: layout of text and icon is wrong
-- [ ] Sponsors: doesn't match design in Figma
-- [ ] FAQ: accordion buttons need to match design and be exported
-- [ ] FAQ: all font colors and sizes need to match design
-- [ ] Getting there: labels need to be multicolor as per design
-- [ ] Getting there: match font colors and styles
-- [ ] CTA: match font colors and styles 
-- [ ] CTA: apps/accelerate/public/images/hk-characters.png isn't visible
+## 13. Design Review & Polish
+
+- [ ] 13.1 Hero: Get tickets button needs correct gradient border
+- [ ] 13.2 Hero: Get tickets should open popup modal with same functionality as `/Users/karambit/Sites/solana-com-breakpoint/components/LumaIframe/index.tsx`
+- [ ] 13.3 Hero: Fix aspect ratio for `apps/accelerate/public/images/dots.svg` - dots aren't round and too stretched
+- [ ] 13.4 All: Fix all white backgrounds - should only be dark theme
+- [ ] 13.5 All: Ensure all styles are appropriate for dark theme
+- [ ] 13.6 Event: EventDetailRow label needs to match design
+- [ ] 13.7 Tickets: Borders and colors need to match design
+- [ ] 13.8 Tickets: Solana logo needs to be exported and positioned right on desktop only (hide for others)
+- [ ] 13.9 Speakers: Fix spacing issues
+- [ ] 13.10 Speakers: Fix layout of text and icon
+- [ ] 13.11 Sponsors: Update to match design in Figma
+- [ ] 13.12 FAQ: Accordion buttons need to match design and be exported from Figma
+- [ ] 13.13 FAQ: All font colors and sizes need to match design
+- [ ] 13.14 Getting there: Labels need to be multicolor as per design
+- [ ] 13.15 Getting there: Match font colors and styles
+- [ ] 13.16 CTA: Match font colors and styles
+- [ ] 13.17 CTA: Fix visibility of `apps/accelerate/public/images/hk-characters.png`
