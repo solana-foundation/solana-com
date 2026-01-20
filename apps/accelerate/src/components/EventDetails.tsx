@@ -26,23 +26,23 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="grid grid-cols-1 gap-4 border-b border-black/10 py-6 last:border-b-0 sm:grid-cols-[140px_1fr] lg:grid-cols-[360px_1fr]"
+      className="grid grid-cols-1 gap-4 border-b border-white/10 py-6 last:border-b-0 sm:grid-cols-[140px_1fr] lg:grid-cols-[360px_1fr]"
     >
       <p
-        className="text-h2 text-black/50"
+        className="text-h2 text-white/50"
         style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
       >
         {label}
       </p>
       <div>
         <p
-          className="text-h2 text-black"
+          className="text-h2 text-white"
           style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
         >
           {value}
         </p>
         {subValue && (
-          <p className="mt-3 text-p text-black/60">{subValue}</p>
+          <p className="mt-3 text-p text-white/60">{subValue}</p>
         )}
       </div>
     </motion.div>
@@ -51,7 +51,7 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
 
 export function EventDetails() {
   return (
-    <section id="event-details" className="bg-white py-20 lg:py-28">
+    <section id="event-details" className="bg-black py-20 lg:py-28">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
@@ -62,14 +62,14 @@ export function EventDetails() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-black lg:mb-20"
+            className="text-h1 mb-12 text-white lg:mb-20"
             style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
           >
             Event details
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-12 border-t border-black/10 lg:mb-20" />
+          <div className="mb-12 border-t border-white/10 lg:mb-20" />
 
           <div className="grid gap-10 lg:grid-cols-[800px_1fr] lg:gap-[80px]">
             {/* Details list */}
@@ -87,15 +87,15 @@ export function EventDetails() {
             {/* Map placeholder */}
             <motion.div
               variants={fadeInUp}
-              className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-black/10 bg-[#f5f5f5] lg:aspect-auto lg:h-[732px] lg:w-[600px]"
+              className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/10 bg-[#1a1a1a] lg:aspect-auto lg:h-[732px] lg:w-[600px]"
             >
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-black/5">
-                    <MapPin className="h-8 w-8 text-black/40" />
+                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
+                    <MapPin className="h-8 w-8 text-white/40" />
                   </div>
                   <p
-                    className="text-h1 uppercase text-black/60"
+                    className="text-h1 uppercase text-white/60"
                     style={{ fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif" }}
                   >
                     EMBEDDED MAP
@@ -107,7 +107,7 @@ export function EventDetails() {
                 <div
                   className="h-full w-full"
                   style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
                   }}
                 />
               </div>

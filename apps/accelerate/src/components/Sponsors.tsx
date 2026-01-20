@@ -172,7 +172,7 @@ export function Sponsors() {
   };
 
   return (
-    <section id="sponsors" className="bg-white py-20 lg:py-28">
+    <section id="sponsors" className="bg-black py-20 lg:py-28">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
@@ -183,7 +183,7 @@ export function Sponsors() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-black lg:mb-20"
+            className="text-h1 mb-12 text-white lg:mb-20"
             style={{
               fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
@@ -192,14 +192,14 @@ export function Sponsors() {
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-12 border-t border-black/10 lg:mb-20" />
+          <div className="mb-12 border-t border-white/10 lg:mb-20" />
 
           <div className="space-y-16 lg:space-y-20">
             {sponsorTiers.map((tier) => (
               <div key={tier.name}>
                 <motion.p
                   variants={fadeInUp}
-                  className="text-button mb-8 text-center uppercase tracking-[0.2em] text-accelerate-gray-100"
+                  className="text-button mb-8 text-center uppercase tracking-[0.2em] text-white/60"
                   style={{
                     fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                   }}

@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
+import { LumaModal } from "./LumaModal";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -135,27 +136,29 @@ export function Hero() {
           >
             FAQ
           </a>
-          <a
-            href="#tickets"
-            className="inline-flex items-center justify-between rounded-full border bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-              borderColor: "#9945FF",
-              minWidth: "186px"
-            }}
-          >
-            <span>Get Tickets</span>
-            <svg width="8" height="8" viewBox="0 0 11 11" fill="none" className="ml-2">
-              <path
-                d="M2 9L9 2M9 2H4M9 2V7"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </a>
+          <LumaModal lumaId="sol-accelerate-hk">
+            <button
+              className="relative inline-flex items-center justify-between rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: "16px",
+                minWidth: "186px",
+                background: "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
+                border: "1px solid transparent",
+              }}
+            >
+              <span>Get Tickets</span>
+              <svg width="8" height="8" viewBox="0 0 11 11" fill="none" className="ml-2">
+                <path
+                  d="M2 9L9 2M9 2H4M9 2V7"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </LumaModal>
         </nav>
 
         {/* Mobile menu button */}
@@ -208,34 +211,35 @@ export function Hero() {
 
           {/* CTA Button */}
           <motion.div variants={fadeInUp}>
-            <a
-              href="#tickets"
-              className="group inline-flex h-[66px] items-center justify-between rounded-[32px] px-7 py-6 text-black transition-all hover:opacity-90"
-              style={{
-                background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                width: "480px",
-                maxWidth: "90vw",
-              }}
-            >
-              <span
-                className="flex-1 text-left uppercase"
+            <LumaModal lumaId="sol-accelerate-hk">
+              <button
+                className="group inline-flex h-[66px] items-center justify-between rounded-[32px] px-7 py-6 text-black transition-all hover:opacity-90"
                 style={{
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontWeight: 600,
-                  fontSize: "18px",
-                  letterSpacing: "0.9px"
+                  background: "linear-gradient(to right, #9945FF, #19FB9B)",
+                  width: "480px",
+                  maxWidth: "90vw",
                 }}
               >
-                Get Tickets
-              </span>
-              {/* Grid icon (4 squares) */}
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0">
-                <rect x="0" y="0" width="8" height="8" fill="black" />
-                <rect x="10" y="0" width="8" height="8" fill="black" />
-                <rect x="0" y="10" width="8" height="8" fill="black" />
-                <rect x="10" y="10" width="8" height="8" fill="black" />
-              </svg>
-            </a>
+                <span
+                  className="flex-1 text-left uppercase"
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontWeight: 600,
+                    fontSize: "18px",
+                    letterSpacing: "0.9px"
+                  }}
+                >
+                  Get Tickets
+                </span>
+                {/* Grid icon (4 squares) */}
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="shrink-0">
+                  <rect x="0" y="0" width="8" height="8" fill="black" />
+                  <rect x="10" y="0" width="8" height="8" fill="black" />
+                  <rect x="0" y="10" width="8" height="8" fill="black" />
+                  <rect x="10" y="10" width="8" height="8" fill="black" />
+                </svg>
+              </button>
+            </LumaModal>
           </motion.div>
         </motion.div>
       </div>

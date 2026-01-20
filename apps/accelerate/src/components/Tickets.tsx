@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { LumaModal } from "./LumaModal";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -20,7 +21,7 @@ interface TicketCardProps {
   price: string;
   description: string;
   showStudentDiscount?: boolean;
-  ticketUrl: string;
+  lumaId: string;
 }
 
 function TicketCard({
@@ -28,17 +29,17 @@ function TicketCard({
   price,
   description,
   showStudentDiscount,
-  ticketUrl,
+  lumaId,
 }: TicketCardProps) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="relative flex h-[339px] w-full flex-col rounded-none border border-black/10 bg-white p-10 lg:w-[600px]"
+      className="relative flex h-[339px] w-full flex-col rounded-none border border-white/10 bg-black p-10 lg:w-[600px]"
     >
       {/* Title and Price Row */}
       <div className="mb-5 flex items-center justify-between">
         <h3
-          className="text-h2 text-black"
+          className="text-h2 text-white"
           style={{
             fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
@@ -46,7 +47,7 @@ function TicketCard({
           {title}
         </h3>
         <span
-          className="text-h2 text-black"
+          className="text-h2 text-white"
           style={{
             fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
@@ -56,51 +57,50 @@ function TicketCard({
       </div>
 
       {/* Description */}
-      <p className="text-p mb-auto text-black/60">{description}</p>
+      <p className="text-p mb-auto text-white/60">{description}</p>
 
       {/* CTA Button */}
-      <a
-        href={ticketUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex h-[66px] w-full items-center justify-between rounded-[32px] px-7 text-black transition-all hover:opacity-90"
-        style={{
-          background: "linear-gradient(to right, #9945FF, #19FB9B)",
-        }}
-      >
-        <span
-          className="flex-1 text-left uppercase"
+      <LumaModal lumaId={lumaId}>
+        <button
+          className="flex h-[66px] w-full items-center justify-between rounded-[32px] px-7 text-black transition-all hover:opacity-90"
           style={{
-            fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            fontWeight: 600,
-            fontSize: "18px",
-            letterSpacing: "0.9px",
+            background: "linear-gradient(to right, #9945FF, #19FB9B)",
           }}
         >
-          Get Tickets
-        </span>
-        {/* Grid icon (4 squares) */}
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 18 18"
-          fill="none"
-          className="shrink-0"
-        >
-          <rect x="0" y="0" width="8" height="8" fill="black" />
-          <rect x="10" y="0" width="8" height="8" fill="black" />
-          <rect x="0" y="10" width="8" height="8" fill="black" />
-          <rect x="10" y="10" width="8" height="8" fill="black" />
-        </svg>
-      </a>
+          <span
+            className="flex-1 text-left uppercase"
+            style={{
+              fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              fontWeight: 600,
+              fontSize: "18px",
+              letterSpacing: "0.9px",
+            }}
+          >
+            Get Tickets
+          </span>
+          {/* Grid icon (4 squares) */}
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            className="shrink-0"
+          >
+            <rect x="0" y="0" width="8" height="8" fill="black" />
+            <rect x="10" y="0" width="8" height="8" fill="black" />
+            <rect x="0" y="10" width="8" height="8" fill="black" />
+            <rect x="10" y="10" width="8" height="8" fill="black" />
+          </svg>
+        </button>
+      </LumaModal>
 
       {/* Student Discount Link */}
       {showStudentDiscount && (
         <div className="mt-6 flex items-center justify-between text-p">
-          <span className="text-black/60">Are you a Student?</span>
+          <span className="text-white/60">Are you a Student?</span>
           <a
             href="#"
-            className="text-button uppercase tracking-[0.05em] text-accelerate-purple hover:underline"
+            className="text-button uppercase tracking-[0.05em] text-accelerate-green hover:underline"
             style={{
               fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
@@ -118,7 +118,7 @@ function TicketCard({
             height="99"
             viewBox="0 0 120 99"
             fill="none"
-            className="text-black/5"
+            className="text-white/5"
           >
             <path
               d="M120 0H0V99L60 49.5L120 99V0Z"
@@ -132,10 +132,10 @@ function TicketCard({
 }
 
 export function Tickets() {
-  const ticketUrl = "https://lu.ma/sol-accelerate-hk";
+  const lumaId = "sol-accelerate-hk";
 
   return (
-    <section id="tickets" className="bg-white py-20 lg:py-28">
+    <section id="tickets" className="bg-black py-20 lg:py-28">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
@@ -146,7 +146,7 @@ export function Tickets() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-black lg:mb-20"
+            className="text-h1 mb-12 text-white lg:mb-20"
             style={{
               fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
@@ -155,7 +155,7 @@ export function Tickets() {
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-12 border-t border-black/10 lg:mb-20" />
+          <div className="mb-12 border-t border-white/10 lg:mb-20" />
 
           {/* Ticket Cards Grid - 2 columns */}
           <div className="flex flex-col gap-6 lg:flex-row lg:gap-[80px]">
@@ -163,14 +163,14 @@ export function Tickets() {
               title="General Admission"
               price="$99"
               description="Full conference access"
-              ticketUrl={ticketUrl}
+              lumaId={lumaId}
             />
             <TicketCard
               title="Student"
               price="$25"
               description="Full conference access"
               showStudentDiscount
-              ticketUrl={ticketUrl}
+              lumaId={lumaId}
             />
           </div>
         </motion.div>

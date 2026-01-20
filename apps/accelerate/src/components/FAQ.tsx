@@ -33,14 +33,14 @@ function FAQAccordionItem({
   return (
     <motion.div
       variants={fadeInUp}
-      className="border-b border-black/10 last:border-b-0"
+      className="border-b border-white/10 last:border-b-0"
     >
       <button
         onClick={onClick}
         className="flex w-full items-center justify-between py-6 text-left"
       >
         <span
-          className="text-h2 pr-8 text-black"
+          className="text-h2 pr-8 text-white"
           style={{
             fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
           }}
@@ -48,7 +48,7 @@ function FAQAccordionItem({
           {item.question}
         </span>
         <div
-          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-black/10 transition-transform ${
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/10 transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
         >
@@ -57,7 +57,7 @@ function FAQAccordionItem({
             height="12"
             viewBox="0 0 12 12"
             fill="none"
-            className="text-black/60"
+            className="text-white/60"
           >
             <path
               d="M2 4L6 8L10 4"
@@ -78,7 +78,7 @@ function FAQAccordionItem({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <p className="text-p max-w-[800px] pb-6 pr-12 leading-relaxed text-black/60">
+            <p className="text-p max-w-[800px] pb-6 pr-12 leading-relaxed text-white/60">
               {item.answer}
             </p>
           </motion.div>
@@ -151,7 +151,7 @@ export function FAQ() {
   ];
 
   return (
-    <section id="faq" className="bg-white py-20 lg:py-28">
+    <section id="faq" className="bg-black py-20 lg:py-28">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
@@ -162,7 +162,7 @@ export function FAQ() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-black lg:mb-20"
+            className="text-h1 mb-12 text-white lg:mb-20"
             style={{
               fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
@@ -171,7 +171,7 @@ export function FAQ() {
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-12 border-t border-black/10 lg:mb-8" />
+          <div className="mb-12 border-t border-white/10 lg:mb-8" />
 
           <div className="mx-auto max-w-4xl">
             {faqs.map((faq, index) => (
