@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -38,7 +38,7 @@ function SpeakerCard({ speaker }: SpeakerCardProps) {
       className="relative flex w-[300px] flex-shrink-0 flex-col gap-5 sm:w-[340px] lg:w-[380px]"
     >
       {/* Image - rounded rectangular */}
-      <div className="relative h-[300px] w-full overflow-hidden rounded-[48px] bg-[#a0a0a0] sm:h-[340px] lg:h-[380px]">
+      <div className="relative h-[300px] w-full overflow-hidden rounded-3xl bg-[#a0a0a0] sm:h-[340px] lg:h-[380px]">
         <Image
           src={speaker.image}
           alt={speaker.name}
@@ -145,6 +145,8 @@ export function Speakers() {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, scrollLeft: 0 });
 
   const scrollCarousel = (direction: "left" | "right") => {
     if (!carouselRef.current) return;
@@ -168,12 +170,91 @@ export function Speakers() {
     setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
   };
 
+  // Touch/Mouse handlers for dragging
+  const handleDragStart = useCallback((clientX: number) => {
+    if (!carouselRef.current) return;
+    setIsDragging(true);
+    dragStart.current = {
+      x: clientX,
+      scrollLeft: carouselRef.current.scrollLeft,
+    };
+  }, []);
+
+  const handleDragMove = useCallback(
+    (clientX: number) => {
+      if (!isDragging || !carouselRef.current) return;
+      const deltaX = clientX - dragStart.current.x;
+      carouselRef.current.scrollLeft = dragStart.current.scrollLeft - deltaX;
+    },
+    [isDragging],
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    checkScrollButtons();
+  }, []);
+
+  // Touch event handlers
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches[0]) {
+        handleDragStart(e.touches[0].clientX);
+      }
+    },
+    [handleDragStart],
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches[0]) {
+        handleDragMove(e.touches[0].clientX);
+      }
+    },
+    [handleDragMove],
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    handleDragEnd();
+  }, [handleDragEnd]);
+
+  // Mouse event handlers (for desktop drag support)
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      handleDragStart(e.clientX);
+      e.preventDefault();
+    },
+    [handleDragStart],
+  );
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      handleDragMove(e.clientX);
+    },
+    [handleDragMove],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    handleDragEnd();
+  }, [handleDragEnd]);
+
   useEffect(() => {
     checkScrollButtons();
     // Check on window resize
     window.addEventListener("resize", checkScrollButtons);
     return () => window.removeEventListener("resize", checkScrollButtons);
   }, []);
+
+  // Add global mouse move/up listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
     <section id="speakers" className="bg-black py-20 lg:py-28">
@@ -196,37 +277,6 @@ export function Speakers() {
               >
                 Speakers
               </h2>
-            </motion.div>
-
-            {/* Right side: ALL SPEAKERS button and carousel controls */}
-            <motion.div
-              variants={fadeInUp}
-              className="flex flex-col items-end gap-2"
-            >
-              {/* ALL SPEAKERS button */}
-              <a
-                href="#speakers"
-                className="inline-flex items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                  fontSize: "16px",
-                  background:
-                    "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                  border: "1px solid transparent",
-                }}
-              >
-                <span>ALL SPEAKERS</span>
-                <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
-                  <path
-                    d="M2 9L9 2M9 2H4M9 2V7"
-                    stroke="#19FB9B"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a>
             </motion.div>
           </div>
 
@@ -284,7 +334,17 @@ export function Speakers() {
             <div
               ref={carouselRef}
               onScroll={checkScrollButtons}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={handleMouseDown}
               className="-mx-6 overflow-x-auto px-6 scrollbar-hide lg:mx-0 lg:px-0"
+              style={{
+                touchAction: "pan-x",
+                WebkitOverflowScrolling: "touch",
+                cursor: isDragging ? "grabbing" : "grab",
+                userSelect: "none",
+              }}
             >
               <div className="flex gap-6">
                 {speakers.map((speaker) => (
