@@ -102,7 +102,7 @@ function TicketCard({
 
       {/* Student Discount Link */}
       {showStudentDiscount && (
-        <div className="mt-6 flex items-center justify-between text-p">
+        <div className="mt-6 flex flex-col gap-3 text-p lg:flex-row lg:items-center lg:justify-between lg:gap-0">
           <span className="text-white/60">Are you a Student?</span>
           <a
             href="#"
