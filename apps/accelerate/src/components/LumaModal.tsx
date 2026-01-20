@@ -27,7 +27,7 @@ export function LumaModal({ lumaId, children }: LumaModalProps) {
         <div className="relative">
           <iframe
             src={`https://lu.ma/embed/event/${lumaId}/simple`}
-            className="h-[calc(100vh-5rem)] w-full rounded-[30px] bg-transparent md:max-h-[591px]"
+            className="h-[calc(100vh-5rem)] w-full rounded-none bg-transparent md:max-h-[591px]"
             aria-hidden="false"
           />
         </div>
