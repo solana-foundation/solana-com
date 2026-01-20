@@ -58,7 +58,7 @@ function TicketCard({
           {title}
         </h3>
         <span
-          className="text-h2 text-white"
+          className={`text-h2 ${titleColor}`}
           style={{
             fontFamily:
               "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
