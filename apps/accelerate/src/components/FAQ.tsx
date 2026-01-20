@@ -87,59 +87,32 @@ export function FAQ() {
   // FAQ items matching the Figma design content
   const faqs: FAQItem[] = [
     {
-      question: "What's included in the ticket?",
+      question: "What is included in my ticket?",
       answer:
         "Your ticket includes full access to Accelerate Hong Kong, featuring boundary-pushing talks, workshops, and meaningful connections across the Solana ecosystem and beyond.",
     },
     {
       question: "Does my Consensus ticket also give me access to Accelerate?",
       answer:
-        "No, Solana Accelerate is a separate event and requires its own ticket. However, we offer special pricing for Consensus attendees.",
+        "No — Accelerate requires a separate ticket from Consensus. However, when purchasing your Consensus ticket, you can receive a discount for Accelerate at checkout.",
     },
     {
       question: "Is there a dress code?",
       answer:
-        "There is no strict dress code for the event. We recommend smart casual attire. The venue is air-conditioned, so you may want to bring a light jacket.",
-    },
-    {
-      question: "Can I get a ticket to everything?",
-      answer:
-        "Yes! The General Admission ticket gives you access to all main sessions, talks, and networking events at Accelerate Hong Kong.",
+        "There's no dress code. Come as you are and wear whatever you're comfortable in.",
     },
     {
       question: "Can I get a refund?",
       answer:
-        "Tickets are refundable up to 14 days before the event. After that, tickets can be transferred to another attendee. Please contact our support team for assistance with refunds or transfers.",
+        "Tickets are non-refundable, but they are transferable. To transfer your ticket, click here.",
     },
     {
       question: "Where should I stay?",
-      answer:
-        "We recommend staying at the Grand Hyatt Hong Kong, which is offering discounted rates for event attendees. The venue is conveniently located near the Hong Kong Convention and Exhibition Centre.",
+      answer: "Visit the travel section for more information.",
     },
     {
       question: "Is there parking available?",
-      answer:
-        "Yes, the Hong Kong Convention and Exhibition Centre has parking facilities available. However, we recommend using public transportation as parking can fill up quickly during large events.",
-    },
-    {
-      question: "Accessibility information",
-      answer:
-        "The venue is fully wheelchair accessible with elevators, accessible restrooms, and designated seating areas. If you require any specific accommodations, please contact us in advance.",
-    },
-    {
-      question: "Age restrictions",
-      answer:
-        "The event is open to attendees 18 years and older. Valid ID may be required for entry.",
-    },
-    {
-      question: "Recording/Photography policy",
-      answer:
-        "Photography for personal use is permitted. Professional recording equipment requires prior approval. The event will be professionally photographed and recorded - by attending, you consent to appearing in event media.",
-    },
-    {
-      question: "Contact information",
-      answer:
-        "For any questions or assistance, please email accelerate@solana.com. Our team will respond within 24-48 hours.",
+      answer: "TBD",
     },
   ];
 
