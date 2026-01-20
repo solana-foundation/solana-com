@@ -108,7 +108,7 @@ export function GettingThere() {
               subValue="Consensus is offering discounted hotel rates."
               link={{
                 text: "View details here.",
-                href: "#",
+                href: "https://consensus-hongkong.coindesk.com/travel/",
               }}
             />
           </div>
