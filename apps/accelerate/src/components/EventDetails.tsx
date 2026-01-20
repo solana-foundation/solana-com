@@ -78,9 +78,9 @@ export function EventDetails() {
           {/* Divider line */}
           <div className="mb-12 border-t border-white/10 lg:mb-20" />
 
-          <div className="grid gap-10 lg:grid-cols-[800px_1fr] lg:gap-[80px]">
+          <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:gap-[80px]">
             {/* Details list */}
-            <div>
+            <div className="order-1 md:order-1">
               <EventDetailRow label="Date" value="February 11, 2026" />
               <EventDetailRow
                 label="Venue"
@@ -94,7 +94,7 @@ export function EventDetails() {
             {/* Embedded Map - Hong Kong Convention and Exhibition Centre */}
             <motion.div
               variants={fadeInUp}
-              className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 lg:aspect-auto lg:h-[732px] lg:w-[600px]"
+              className="relative order-2 aspect-[4/3] w-full overflow-hidden border border-white/10 md:aspect-[3/4] lg:aspect-[600/732] lg:h-[732px]"
             >
               <iframe
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3691.8397711851847!2d114.17165037620083!3d22.28168794388889!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x340400f2e9a4e90d%3A0x55e8d8b5ddad5e1c!2sHong%20Kong%20Convention%20and%20Exhibition%20Centre!5e0!3m2!1sen!2shk!4v1705900000000!5m2!1sen!2shk&maptype=roadmap&style=feature:all|element:geometry|color:0x242f3e&style=feature:all|element:labels.text.stroke|color:0x242f3e&style=feature:all|element:labels.text.fill|color:0x746855&style=feature:water|element:geometry|color:0x17263c&style=feature:water|element:labels.text.fill|color:0x515c6d"
