@@ -20,7 +20,7 @@ const stagger = {
 
 export function Hero() {
   return (
-    <section className="relative h-[932px] w-full overflow-hidden bg-black">
+    <section className="relative h-[600px] md:h-[750px] lg:h-[932px] w-full overflow-hidden bg-black">
       {/* Purple/Magenta gradient glow on left */}
       <div className="pointer-events-none absolute -left-[100px] top-0 h-full w-[800px]">
         <div
@@ -35,7 +35,7 @@ export function Hero() {
 
       {/* Hong Kong Skyline - centered, flipped (z-1: bottom layer) */}
       <div
-        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[932px] w-[1187px] -translate-x-1/2"
+        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[600px] md:h-[750px] lg:h-[932px] w-[1187px] -translate-x-1/2"
         style={{ transform: "translateX(-50%) scaleY(-1) rotate(180deg)" }}
       >
         <Image
@@ -48,7 +48,7 @@ export function Hero() {
       </div>
 
       {/* Dots pattern (z-2: between skyline and wave) */}
-      <div className="pointer-events-none absolute bottom-0 right-0 z-[2] h-[322px] w-full">
+      <div className="pointer-events-none absolute bottom-0 right-0 z-[2] h-[200px] md:h-[250px] lg:h-[322px] w-full">
         <Image
           src="/images/dots.svg"
           alt=""
@@ -58,7 +58,7 @@ export function Hero() {
       </div>
 
       {/* Wave lines - Footer Element (z-3: top decorative layer) */}
-      <div className="pointer-events-none absolute left-0 top-[406px] z-[3] h-[526px] w-full">
+      <div className="pointer-events-none absolute left-0 top-[250px] md:top-[320px] lg:top-[406px] z-[3] h-[350px] md:h-[430px] lg:h-[526px] w-full">
         <Image
           src="/images/wave-lines.svg"
           alt=""
@@ -183,10 +183,7 @@ export function Hero() {
       </header>
 
       {/* Main Content - positioned at center */}
-      <div
-        className="relative z-10 flex flex-col items-center justify-center px-6 text-center"
-        style={{ paddingTop: "calc(415px - 120px)", paddingBottom: "245px" }}
-      >
+      <div className="relative z-10 flex flex-col items-center justify-center px-6 text-center pt-[180px] pb-[120px] md:pt-[240px] md:pb-[180px] lg:pt-[295px] lg:pb-[245px]">
         <motion.div
           initial="hidden"
           animate="visible"
