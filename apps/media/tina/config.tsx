@@ -77,12 +77,12 @@ const config: ReturnType<typeof defineConfig> = defineConfig({
       };
     },
   },
-  // cmsCallback: (cms) => {
-  //   cms.flags.set("branch-switcher", true);
-  //   // Register workflow plugin for draft management
-  //   cms.plugins.add(createWorkflowPlugin());
-  //   return cms;
-  // },
+  cmsCallback: (cms) => {
+    cms.flags.set("branch-switcher", true);
+    // Register workflow plugin for draft management
+    cms.plugins.add(createWorkflowPlugin());
+    return cms;
+  },
 });
 
 export default config;

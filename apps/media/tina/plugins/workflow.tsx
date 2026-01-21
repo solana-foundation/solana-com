@@ -1,8 +1,5 @@
-"use client";
-
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import type { TinaCMS } from "tinacms";
-import Link from "next/link";
 
 interface WorkflowState {
   currentBranch: string;
@@ -232,12 +229,12 @@ export function DiscardModal({
  */
 export function LogoutButton() {
   return (
-    <Link
+    <a
       href="/admin/logout"
       className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
     >
       Sign Out
-    </Link>
+    </a>
   );
 }
 
