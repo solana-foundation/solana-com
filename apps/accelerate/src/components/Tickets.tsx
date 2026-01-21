@@ -105,7 +105,7 @@ function TicketCard({
         <div className="mt-6 flex flex-col gap-3 text-p lg:flex-row lg:items-center lg:justify-between lg:gap-0">
           <span className="text-white/60">Are you a Student?</span>
           <a
-            href="#"
+            href="https://solanafoundation.typeform.com/hk26studentapp"
             className="text-button uppercase tracking-[0.05em] text-accelerate-green hover:underline"
             style={{
               fontFamily:
