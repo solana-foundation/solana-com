@@ -1,3 +1,15 @@
+const getSiteUrl = () => {
+  if (process.env.NODE_ENV === `development`) {
+    return `http://localhost:3004`;
+  }
+  if (process.env.VERCEL_ENV !== "production" && !!process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return `https://solana.com/accelerate`;
+};
+
+const siteUrl = getSiteUrl();
+
 export const config = {
   siteMetadata: {
     title: `Solana Accelerate APAC - Hong Kong`,
@@ -15,15 +27,10 @@ export const config = {
       "crypto event",
       "blockchain conference",
     ],
-    socialShare: `https://solana.com/accelerate-assets/images/social-share.jpg`,
+    socialShare: `${siteUrl}/images/social-card.webp`,
     author: `@solana`,
   },
-  siteUrl:
-    process.env.NODE_ENV === `development`
-      ? `http://localhost:3004`
-      : (process.env.VERCEL_ENV !== "production" && !!process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : `https://solana.com/accelerate`) || `https://solana.com/accelerate`,
+  siteUrl,
   social: {
     twitter: {
       name: `solana`,
