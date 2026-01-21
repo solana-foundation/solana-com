@@ -106,6 +106,8 @@ function TicketCard({
           <span className="text-white/60">Are you a Student?</span>
           <a
             href="https://solanafoundation.typeform.com/hk26studentapp"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-button uppercase tracking-[0.05em] text-accelerate-green hover:underline"
             style={{
               fontFamily:
