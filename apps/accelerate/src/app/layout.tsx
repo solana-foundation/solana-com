@@ -5,6 +5,8 @@ import { ThemeProvider } from "@solana-com/ui-chrome";
 import { loadMessages } from "@workspace/i18n/load-messages";
 import { getLangDir } from "rtl-detect";
 import { Space_Grotesk } from "next/font/google";
+import { getBaseMetadata } from "./metadata";
+import { config } from "@@/src/config";
 import "../scss/index.scss";
 import "./globals.css";
 
@@ -16,30 +18,13 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
-export const metadata = {
-  title: "Solana Accelerate APAC - Hong Kong",
-  description:
-    "Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
-  openGraph: {
-    title: "Solana Accelerate APAC - Hong Kong",
-    description:
-      "Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026.",
-    type: "website",
-  },
-  icons: [
-    {
-      url: "https://solana.com/favicon.png",
-      rel: "icon",
-      type: "image/png",
-    },
-  ],
-};
+const locale = "en";
+
+export const metadata = getBaseMetadata(locale);
 
 type Props = {
   children: ReactNode;
 };
-
-const locale = "en";
 
 export default async function RootLayout({ children }: Props) {
   const direction = getLangDir(locale);
@@ -49,6 +34,33 @@ export default async function RootLayout({ children }: Props) {
   );
   const messages = { ...accelerateMessages };
 
+  // Structured data for Event schema
+  const eventStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name: config.event.name,
+    description: config.event.description,
+    startDate: config.event.startDate,
+    endDate: config.event.endDate,
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    eventStatus: "https://schema.org/EventScheduled",
+    location: {
+      "@type": "Place",
+      name: config.event.location.name,
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: config.event.location.name,
+      },
+    },
+    organizer: {
+      "@type": "Organization",
+      name: "Solana Foundation",
+      url: "https://solana.com",
+    },
+    image: config.siteMetadata.socialShare,
+    url: config.siteUrl,
+  };
+
   return (
     <html
       lang={locale}
@@ -57,6 +69,13 @@ export default async function RootLayout({ children }: Props) {
       suppressHydrationWarning
     >
       <body className={spaceGrotesk.className} suppressHydrationWarning>
+        {/* Structured Data for Event (JSON-LD) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(eventStructuredData, null, 2),
+          }}
+        />
         {/* Google tag (gtag.js) */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-1YDTXXYYQ4"
