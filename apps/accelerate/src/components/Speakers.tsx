@@ -24,7 +24,6 @@ interface Speaker {
   title: string;
   company: string;
   image: string;
-  twitter?: string;
 }
 
 interface SpeakerCardProps {
@@ -74,27 +73,9 @@ function SpeakerCard({ speaker }: SpeakerCardProps) {
             {speaker.company}
           </p>
 
-          {/* Title with X icon */}
+          {/* Title */}
           <div className="flex items-center justify-between gap-4">
             <p className="text-p text-white">{speaker.title}</p>
-
-            {/* Circular X button */}
-            {speaker.twitter && (
-              <a
-                href={speaker.twitter}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80"
-              >
-                <Image
-                  src="/images/x-social.svg"
-                  alt="X (Twitter)"
-                  width={20}
-                  height={20}
-                  className="object-contain"
-                />
-              </a>
-            )}
           </div>
         </div>
       </div>
@@ -111,7 +92,6 @@ export function Speakers() {
       title: "President",
       company: "Solana foundation",
       image: "/images/speakers/lily-liu.png",
-      twitter: "https://twitter.com/calilyliu",
     },
     {
       name: "Chris Chung",
@@ -120,7 +100,6 @@ export function Speakers() {
       title: "CEO & Co-Founder",
       company: "Titan",
       image: "/images/speakers/chris-chung.png",
-      twitter: "https://twitter.com/cchung",
     },
     {
       name: "Shina Foo",
@@ -129,7 +108,6 @@ export function Speakers() {
       title: "Head of Growth",
       company: "Perena",
       image: "/images/speakers/shina-foo.png",
-      twitter: "https://twitter.com/shinafoo",
     },
     {
       name: "Shawn Chain",
@@ -138,7 +116,6 @@ export function Speakers() {
       title: "CEO",
       company: "Singapore Gulf Bank",
       image: "/images/speakers/shawn-chain.png",
-      twitter: "https://twitter.com/shawnchain",
     },
   ];
 
