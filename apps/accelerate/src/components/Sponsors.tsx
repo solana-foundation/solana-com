@@ -129,6 +129,40 @@ export function Sponsors() {
         },
       ],
     },
+    {
+      name: "SPONSORS",
+      color: "#2A88DE", // light blue
+      sponsors: [
+        {
+          name: "DoubleZero",
+          logo: "/images/sponsors/doublezero.svg",
+          url: "#",
+          width: 253,
+          height: 40,
+        },
+        {
+          name: "Playsolana",
+          logo: "/images/sponsors/playsolana.svg",
+          url: "#",
+          width: 320,
+          height: 134,
+        },
+        {
+          name: "Bridge",
+          logo: "/images/sponsors/bridge.svg",
+          url: "#",
+          width: 186,
+          height: 86,
+        },
+        {
+          name: "Libeara",
+          logo: "/images/sponsors/libeara.svg",
+          url: "#",
+          width: 204,
+          height: 46,
+        },
+      ],
+    },
   ];
 
   return (
