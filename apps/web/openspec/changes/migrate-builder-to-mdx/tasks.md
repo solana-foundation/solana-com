@@ -10,7 +10,7 @@
 - [ ] 1.5 Add retry logic with exponential backoff (match existing
       `lib/builder/api.js` pattern)
 - [ ] 1.6 Save JSON files to `apps/web/builder/section-page/{locale}/{slug}.json`
-- [ ] 1.7 Skip file creation when locale content is empty
+- [ ] 1.7 Skip file creation when locale content is empty or has the same id as the default (en) locale
 - [ ] 1.8 Log export progress and errors
 - [ ] 1.9 Run export script and verify all routes exported
 - [ ] 1.10 Commit `builder/` directory to git
@@ -55,6 +55,7 @@
 - [ ] 4.15 Convert `/privacy-policy` to `content/landings/en/privacy-policy.mdx`
 - [ ] 4.16 Convert available localized versions for each page (check Builder JSON
       for existing translations)
+- [ ] 4.17 Replace the asset URLs according to the file `apps/web/builder/assets/manifest.json`
 
 ## 5. Implement Route Handler (Phase 3)
 
