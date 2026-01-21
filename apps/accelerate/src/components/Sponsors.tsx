@@ -60,7 +60,7 @@ function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
 export function Sponsors() {
   const sponsorTiers: SponsorTier[] = [
     {
-      name: "TITLE SPONSORS",
+      name: "HEADLINE SPONSORS",
       color: "#19FB9B", // light green
       sponsors: [
         {
@@ -73,7 +73,7 @@ export function Sponsors() {
       ],
     },
     {
-      name: "GOLD SPONSORS",
+      name: "SIGNATURE SPONSORS",
       color: "#9945FF", // purple
       sponsors: [
         // First row
@@ -130,7 +130,7 @@ export function Sponsors() {
       ],
     },
     {
-      name: "SPONSORS",
+      name: "PREMIUM SPONSORS",
       color: "#2A88DE", // light blue
       sponsors: [
         {
