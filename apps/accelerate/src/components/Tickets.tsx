@@ -118,21 +118,6 @@ function TicketCard({
           </a>
         </div>
       )}
-
-      {/* Ticket Icon Mark - positioned at top right of Student card */}
-      {showStudentDiscount && (
-        <div className="absolute right-0 top-0">
-          <svg
-            width="120"
-            height="99"
-            viewBox="0 0 120 99"
-            fill="none"
-            className="text-white/5"
-          >
-            <path d="M120 0H0V99L60 49.5L120 99V0Z" fill="currentColor" />
-          </svg>
-        </div>
-      )}
     </motion.div>
   );
 }
