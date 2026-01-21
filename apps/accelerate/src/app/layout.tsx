@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { ThemeProvider } from "@solana-com/ui-chrome";
 import { loadMessages } from "@workspace/i18n/load-messages";
@@ -49,6 +50,19 @@ export default async function RootLayout({ children }: Props) {
       suppressHydrationWarning
     >
       <body className={spaceGrotesk.className} suppressHydrationWarning>
+        {/* Google tag (gtag.js) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-1YDTXXYYQ4"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-1YDTXXYYQ4');
+          `}
+        </Script>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             <main className="min-h-screen">{children}</main>
