@@ -2,10 +2,16 @@ import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 
+const prefix = "/accelerate-assets";
 const nextConfig: NextConfig = {
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   reactStrictMode: true,
   trailingSlash: false,
+  assetPrefix: prefix,
+
+  env: {
+    NEXT_PUBLIC_APP_NAME: "accelerate",
+  },
 
   webpack(config) {
     config.module.rules.push({
@@ -40,6 +46,7 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    path: `${prefix}/_next/image`,
     remotePatterns: [
       {
         protocol: "https",
@@ -58,6 +65,34 @@ const nextConfig: NextConfig = {
         hostname: "localhost",
       },
     ],
+  },
+
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/accelerate-assets/_next/:path+",
+          destination: "/_next/:path+",
+        },
+        // Rewrite /accelerate routes to root for proxy compatibility
+        {
+          source: "/accelerate",
+          destination: "/",
+        },
+        {
+          source: "/accelerate/:path*",
+          destination: "/:path*",
+        },
+        {
+          source: "/:locale/accelerate",
+          destination: "/",
+        },
+        {
+          source: "/:locale/accelerate/:path*",
+          destination: "/:path*",
+        },
+      ],
+    };
   },
 
   experimental: {
