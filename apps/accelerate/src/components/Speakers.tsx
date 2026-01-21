@@ -34,10 +34,10 @@ function SpeakerCard({ speaker }: SpeakerCardProps) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="relative flex w-[300px] flex-shrink-0 flex-col gap-5 sm:w-[340px] lg:w-[380px]"
+      className="relative flex w-[300px] flex-shrink-0 flex-col gap-5 sm:w-[340px] lg:w-[380px] 2xl:w-[312px]"
     >
       {/* Image - rounded rectangular */}
-      <div className="relative h-[300px] w-full overflow-hidden rounded-3xl bg-[#a0a0a0] sm:h-[340px] lg:h-[380px]">
+      <div className="relative h-[300px] w-full overflow-hidden rounded-3xl bg-[#a0a0a0] sm:h-[340px] lg:h-[380px] 2xl:h-[312px]">
         <Image
           src={speaker.image}
           alt={speaker.name}
@@ -234,7 +234,7 @@ export function Speakers() {
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
-    <section id="speakers" className="bg-black py-20 lg:py-28">
+    <section id="speakers" className="bg-black py-12 lg:py-16">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
@@ -243,7 +243,7 @@ export function Speakers() {
           variants={stagger}
         >
           {/* Header with title, underline, and ALL SPEAKERS button */}
-          <div className="mb-12 flex items-start justify-between lg:mb-20">
+          <div className="mb-8 flex items-start justify-between lg:mb-12">
             <motion.div variants={fadeInUp} className="flex flex-col">
               <h2
                 className="text-h1 text-accelerate-gray-100"
@@ -258,10 +258,10 @@ export function Speakers() {
           </div>
 
           {/* Divider line */}
-          <div className="mb-12 border-t border-white/10 lg:mb-10" />
+          <div className="mb-8 border-t border-white/10 lg:mb-10" />
 
           {/* Carousel Navigation Buttons - right aligned with ALL SPEAKERS button */}
-          <div className="flex justify-end gap-2 mb-10">
+          <div className="flex justify-end gap-2 mb-8">
             <button
               onClick={() => scrollCarousel("left")}
               disabled={!canScrollLeft}

@@ -166,7 +166,7 @@ export function Sponsors() {
   ];
 
   return (
-    <section id="sponsors" className="relative bg-black py-20 lg:py-28">
+    <section id="sponsors" className="relative bg-black py-12 lg:py-16">
       {/* Pattern background */}
       <div className="pointer-events-none absolute inset-0 z-0 opacity-50">
         <Image
@@ -188,7 +188,7 @@ export function Sponsors() {
           {/* Header section with title and button */}
           <motion.div
             variants={fadeInUp}
-            className="mb-12 flex flex-col items-start justify-between gap-6 lg:mb-20 lg:flex-row lg:items-center"
+            className="mb-8 flex flex-col items-start justify-between gap-6 lg:mb-12 lg:flex-row lg:items-center"
           >
             <div className="flex flex-col">
               <h2
@@ -227,7 +227,7 @@ export function Sponsors() {
           </motion.div>
 
           {/* Divider line */}
-          <div className="mb-12 border-t border-white/10 lg:mb-20" />
+          <div className="mb-8 border-t border-white/10 lg:mb-10" />
 
           <div className="space-y-16 lg:space-y-20">
             {sponsorTiers.map((tier) => (

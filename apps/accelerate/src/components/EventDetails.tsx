@@ -55,7 +55,7 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
 
 export function EventDetails() {
   return (
-    <section id="event-details" className="bg-black py-20 lg:py-28">
+    <section id="event-details" className="bg-black py-12 lg:py-16">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
@@ -66,7 +66,7 @@ export function EventDetails() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
+            className="text-h1 mb-8 text-accelerate-gray-100 lg:mb-12"
             style={{
               fontFamily:
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -76,7 +76,7 @@ export function EventDetails() {
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-12 border-t border-white/10 lg:mb-20" />
+          <div className="mb-8 border-t border-white/10 lg:mb-10" />
 
           <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:gap-[80px]">
             {/* Details list */}

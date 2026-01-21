@@ -19,7 +19,7 @@ const stagger = {
 
 export function FooterCTA() {
   return (
-    <section className="relative overflow-hidden bg-black py-16 sm:py-20 md:py-24 lg:py-32">
+    <section className="relative overflow-hidden bg-black py-12 lg:py-16">
       {/* Hong Kong Chinese characters background image from Figma - positioned behind text */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="relative h-full w-full max-w-[1464px]">

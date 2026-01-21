@@ -74,7 +74,7 @@ function InfoRow({ label, value, subValue, link }: InfoRowProps) {
 
 export function GettingThere() {
   return (
-    <section id="getting-there" className="bg-black py-20 lg:py-28">
+    <section id="getting-there" className="bg-black py-12 lg:py-16">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
         <motion.div
           initial="hidden"
@@ -85,7 +85,7 @@ export function GettingThere() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-12 text-accelerate-gray-100 lg:mb-20"
+            className="text-h1 mb-8 text-accelerate-gray-100 lg:mb-12"
             style={{
               fontFamily:
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -95,7 +95,7 @@ export function GettingThere() {
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-12 border-t border-white/10 lg:mb-8" />
+          <div className="mb-8 border-t border-white/10 lg:mb-10" />
 
           <div className="mx-auto max-w-4xl">
             <InfoRow
