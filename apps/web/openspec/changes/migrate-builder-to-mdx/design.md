@@ -84,20 +84,58 @@ fields.
 
 Map Builder components to React components importable in MDX:
 
-| Builder Component  | MDX Component         |
-| ------------------ | --------------------- |
-| Hero               | `<Hero />`            |
-| Switchback         | `<Switchback />`      |
-| CardDeck           | `<CardDeck />`        |
-| Stats              | `<Stats />`           |
-| Accordion          | `<Accordion />`       |
-| ConversionPanel    | `<ConversionPanel />` |
-| Trustbar           | `<Trustbar />`        |
-| FeatureHighlight   | `<FeatureHighlight />` |
-| Quote              | `<Quote />`           |
+| Builder Component | MDX Component |
+| --- | --- |
+| Accordion | `<Accordion />` |
+| Announcement Bar | `<AnnouncementBar />` |
+| Card Deck | `<CardDeck />` |
+| Carousel | `<Carousel />` |
+| CommunityGallery | `<CommunityGallery />` |
+| Content Editor | `<ContentEditor />` |
+| Conversion Panel | `<ConversionPanel />` |
+| Feature Highlight | `<FeatureHighlight />` |
+| Heading | `<Heading />` |
+| Hero | `<Hero />` |
+| Section Molecule | `<Section />` |
+| Newsletter Form | `<NewsletterForm />` |
+| Newsletter Multiple Lists Form | `<NewsletterMultipleListsForm />` |
+| Slider | `<Slider />` |
+| Stats | `<Stats />` |
+| Switchback | `<Switchback />` |
+| Switchback Chain | `<SwitchbackChain />` |
+| Switcher | `<Switcher />` |
+| Trustbar | `<Trustbar />` |
+| Quote | `<Quote />` |
+| Quote Slider | `<QuoteSlider />` |
+| Details Hero | `<DetailsHero />` |
+| Button | `<Button />` |
+| Copy | `<HtmlParser />` |
+| Tip | `<Tip />` |
+| Youtube | `<YoutubeVideo />` |
+| Rich Text Stats | `<RichTextStat />` |
+| Rich Text Quote | `<RichTextQuote />` |
+| Code Block | `<CodeBlock />` |
+| Breakpoint Speakers | `<BreakpointSpeakers />` |
+| Breakpoint Title | `<BreakpointTitle />` |
+| Breakpoint Hero | `<BreakpointHero />` |
+| Breakpoint Card | `<BreakpointCard />` |
+| Accelerate Stories | `<AccelerateStories />` |
+| Accelerate Accordion | `<AccelerateAccordion />` |
+| Accelerate Speakers | `<AccelerateSpeakers />` |
+| Accelerate Hero | `<AccelerateHero />` |
+| Accelerate Apply Button | `<AccelerateApplyButton />` |
+| Accelerate Link Button | `<AccelerateLinkButton />` |
+| Info Item | `<AccelerateInfoItem />` |
+| Info Section | `<AccelerateInfoSection />` |
+| Attendance | `<AccelerateAttendance />` |
+| Secondary button | `<AccelerateSecondaryButton />` |
+| Event description | `<AccelerateEventDescription />` |
+| Pricing | `<AcceleratePricing />` |
+| Star Container | `<AccelerateStarContainer />` |
 
 Components retain the same props interface. Import from
 `@solana-foundation/solana-lib` as before.
+Components have valid names.
 
 **Rationale**: Minimal code changes. Components already exist; only rendering
 context changes.
