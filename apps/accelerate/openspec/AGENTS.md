@@ -236,7 +236,7 @@ The system SHALL provide...
 ```
 
 If multiple capabilities are affected, create multiple delta files under
-`changes/[change-id]/specs/<capability>/spec.md`—one per capability.
+`changes/[change-id]/specs/<capability>/spec.md`-one per capability.
 
 4. **Create tasks.md:**
 
