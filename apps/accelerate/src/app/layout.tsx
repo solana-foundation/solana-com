@@ -26,6 +26,13 @@ export const metadata = {
       "Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026.",
     type: "website",
   },
+  icons: [
+    {
+      url: "https://solana.com/favicon.png",
+      rel: "icon",
+      type: "image/png",
+    },
+  ],
 };
 
 type Props = {
