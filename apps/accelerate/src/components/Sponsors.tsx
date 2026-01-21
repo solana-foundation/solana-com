@@ -32,11 +32,15 @@ interface SponsorTier {
 
 function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
   return (
-    <motion.a
+    // <motion.a
+    //   variants={fadeInUp}
+    //   href={sponsor.url}
+    //   target="_blank"
+    //   rel="noopener noreferrer"
+    //   className="relative z-10 flex items-center justify-center"
+    // >
+    <motion.div
       variants={fadeInUp}
-      href={sponsor.url}
-      target="_blank"
-      rel="noopener noreferrer"
       className="relative z-10 flex items-center justify-center"
     >
       <img
@@ -48,7 +52,8 @@ function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
             "brightness(0) saturate(100%) invert(73%) sepia(6%) saturate(354%) hue-rotate(210deg) brightness(93%) contrast(88%)",
         }}
       />
-    </motion.a>
+    </motion.div>
+    // </motion.a>
   );
 }
 
