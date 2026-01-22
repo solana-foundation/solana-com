@@ -175,19 +175,6 @@ export default config({
         body: fields.markdoc({
           label: "Body",
           components: componentBlocks,
-          options: {
-            heading: true,
-            bold: true,
-            italic: true,
-            link: true,
-            code: true,
-            blockquote: true,
-            image: true,
-            orderedList: true,
-            unorderedList: true,
-            divider: true,
-            table: true,
-          },
         }),
         cta: fields.relationship({
           label: "CTA",
