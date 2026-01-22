@@ -1,6 +1,16 @@
 import type { ReactNode } from "react";
 import { SignJWT, jwtVerify, JWTPayload } from "jose";
-import type { AuthProvider as TinaAuthProvider } from "@tinacms/datalayer";
+
+// Auth provider type (replaces TinaCMS AuthProvider)
+interface AuthProviderType {
+  authenticate: () => Promise<{ authenticated: boolean }>;
+  isAuthorized: (context: { req: Request }) => Promise<{
+    authorized: boolean;
+    errorCode?: number;
+    errorMessage?: string;
+  }>;
+  getUser: (context: { req: Request }) => Promise<{ sub: string } | null>;
+}
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 const ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "")
@@ -90,7 +100,7 @@ export const SESSION_COOKIE_OPTIONS = {
  * TinaCMS Auth Provider for self-hosted backend (server-side only)
  * Used by the API routes for authorization
  */
-export const AuthProvider: TinaAuthProvider = {
+export const AuthProvider: AuthProviderType = {
   authenticate: async () => {
     return { authenticated: false };
   },

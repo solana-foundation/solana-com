@@ -4,16 +4,16 @@
 
 ## 1. Add Keystatic Dependencies
 
-- [ ] 1.1 Add `@keystatic/core` package
-- [ ] 1.2 Add `@keystatic/next` package
-- [ ] 1.3 Add `@markdoc/markdoc` package
-- [ ] 1.4 Run `pnpm install` to install dependencies
+- [x] 1.1 Add `@keystatic/core` package
+- [x] 1.2 Add `@keystatic/next` package
+- [x] 1.3 Add `@markdoc/markdoc` package
+- [x] 1.4 Run `pnpm install` to install dependencies
 
 ## 2. Create Keystatic Configuration
 
-- [ ] 2.1 Create `keystatic.config.tsx` at project root
-- [ ] 2.2 Configure storage mode (local for dev, GitHub for production)
-- [ ] 2.3 Define `posts` collection schema with all fields:
+- [x] 2.1 Create `keystatic.config.tsx` at project root
+- [x] 2.2 Configure storage mode (local for dev, GitHub for production)
+- [x] 2.3 Define `posts` collection schema with all fields:
   - SEO object (title, description, noIndex, noFollow, openGraph, twitter)
   - title (slug field)
   - heroImage
@@ -25,7 +25,7 @@
   - body (markdoc with components)
   - cta (relationship)
   - switchback (relationship)
-- [ ] 2.4 Define `podcasts` collection schema with all fields:
+- [x] 2.4 Define `podcasts` collection schema with all fields:
   - title (slug field)
   - slug
   - description (markdoc)
@@ -40,48 +40,48 @@
   - applePodcastsUrl, spotifyUrl, rssFeedUrl
   - releaseFrequency
   - firstEpisodeDate (datetime)
-- [ ] 2.5 Define `authors` collection schema (name, avatar)
-- [ ] 2.6 Define `categories` collection schema (name)
-- [ ] 2.7 Define `tags` collection schema (name)
-- [ ] 2.8 Define `ctas` collection schema (title, eyebrow, headline, description, button, className)
-- [ ] 2.9 Define `switchbacks` collection schema (title, image, eyebrow, headline, body, buttons)
-- [ ] 2.10 Define `links` collection schema (title, url, linkType, description, thumbnailImage, source, publishedAt, categories, tags, featured)
-- [ ] 2.11 Define `global` singleton schema (theme: color, darkMode)
+- [x] 2.5 Define `authors` collection schema (name, avatar)
+- [x] 2.6 Define `categories` collection schema (name)
+- [x] 2.7 Define `tags` collection schema (name)
+- [x] 2.8 Define `ctas` collection schema (title, eyebrow, headline, description, button, className)
+- [x] 2.9 Define `switchbacks` collection schema (title, image, eyebrow, headline, body, buttons)
+- [x] 2.10 Define `links` collection schema (title, url, linkType, description, thumbnailImage, source, publishedAt, categories, tags, featured)
+- [x] 2.11 Define `global` singleton schema (theme: color, darkMode)
 
 ## 3. Create Markdoc Component Blocks
 
-- [ ] 3.1 Create `lib/keystatic/components.tsx` file
-- [ ] 3.2 Implement `blockquote` block (children, authorName)
-- [ ] 3.3 Implement `datetime` block (format: utc/iso/local)
-- [ ] 3.4 Implement `newslettersignup` block (children, placeholder, buttonText, disclaimer)
-- [ ] 3.5 Implement `video` block (matching videoBlockSchema)
-- [ ] 3.6 Implement `gallery` block (matching galleryBlockSchema)
-- [ ] 3.7 Implement `stats` block (matching statsBlockSchema)
-- [ ] 3.8 Implement `footnotes` block (footnotes)
-- [ ] 3.9 Implement `sup` block (children)
-- [ ] 3.10 Implement `tweet` block (id)
-- [ ] 3.11 Implement `iframe` block (src, width, height, allow)
-- [ ] 3.12 Export `componentBlocks` object
-- [ ] 3.13 Create `markdocConfig` with `fields.markdoc.createMarkdocConfig()`
+- [x] 3.1 Create `lib/keystatic/components.tsx` file
+- [x] 3.2 Implement `blockquote` block (children, authorName)
+- [x] 3.3 Implement `datetime` block (format: utc/iso/local)
+- [x] 3.4 Implement `newslettersignup` block (children, placeholder, buttonText, disclaimer)
+- [x] 3.5 Implement `video` block (matching videoBlockSchema)
+- [x] 3.6 Implement `gallery` block (matching galleryBlockSchema)
+- [x] 3.7 Implement `stats` block (matching statsBlockSchema)
+- [x] 3.8 Implement `footnotes` block (footnotes)
+- [x] 3.9 Implement `sup` block (children)
+- [x] 3.10 Implement `tweet` block (id)
+- [x] 3.11 Implement `iframe` block (src, width, height, allow)
+- [x] 3.12 Export `componentBlocks` object
+- [ ] 3.13 Create `markdocConfig` with `fields.markdoc.createMarkdocConfig()` (deferred - will be done when integrating with rendering)
 
 ## 4. Create Keystatic Admin Routes
 
-- [ ] 4.1 Create `app/keystatic/keystatic.tsx` (client component with `makePage`)
-- [ ] 4.2 Create `app/keystatic/layout.tsx` (admin layout wrapper)
-- [ ] 4.3 Create `app/keystatic/[[...params]]/page.tsx` (catch-all page)
-- [ ] 4.4 Create `app/api/keystatic/[...params]/route.ts` (API handler with `makeRouteHandler`)
+- [x] 4.1 Create `app/keystatic/keystatic.tsx` (client component with `makePage`)
+- [x] 4.2 Create `app/keystatic/layout.tsx` (admin layout wrapper)
+- [x] 4.3 Create `app/keystatic/[[...params]]/page.tsx` (catch-all page)
+- [x] 4.4 Create `app/api/keystatic/[...params]/route.ts` (API handler with `makeRouteHandler`)
 
 ## 5. Create Reader API
 
-- [ ] 5.1 Create `lib/reader.ts` with `createReader()` initialization
-- [ ] 5.2 Export typed reader instance
+- [x] 5.1 Create `lib/reader.ts` with `createReader()` initialization
+- [x] 5.2 Export typed reader instance
 
 ## 6. Create Migration Script
 
-- [ ] 6.1 Create `scripts/migrate-mdx-to-markdoc.tsx` file
-- [ ] 6.2 Implement file discovery (find all .mdx files in content/)
-- [ ] 6.3 Implement frontmatter parsing (YAML extraction)
-- [ ] 6.4 Implement JSX-to-Markdoc conversion:
+- [x] 6.1 Create `scripts/migrate-mdx-to-markdoc.tsx` file
+- [x] 6.2 Implement file discovery (find all .mdx files in content/)
+- [x] 6.3 Implement frontmatter parsing (YAML extraction)
+- [x] 6.4 Implement JSX-to-Markdoc conversion:
   - `<BlockQuote>` → `{% blockquote %}`
   - `<DateTime>` → `{% datetime %}`
   - `<NewsletterSignup>` → `{% newslettersignup %}`
@@ -92,59 +92,59 @@
   - `<sup>` → `{% sup %}`
   - `<tweet>` → `{% tweet %}`
   - `<iframe>` → `{% iframe %}`
-- [ ] 6.5 Implement rich-text to markdoc conversion
-- [ ] 6.6 Implement image folder reorganization:
+- [x] 6.5 Implement rich-text to markdoc conversion
+- [x] 6.6 Implement image folder reorganization:
   - Scan existing `/uploads/` directory structure
   - Reorganize folders to match Keystatic's expected directory structure
   - Preserve content-type sub-folders (posts/, podcasts/, authors/, links/) to prevent filename collisions
   - Map old paths to new paths for reference updates
-- [ ] 6.7 Update image path references in frontmatter and content:
+- [x] 6.7 Update image path references in frontmatter and content:
   - Update heroImage, coverImage, avatar paths
   - Update any inline image references in body content
   - Update SEO image paths (ogImage, twitterImage)
-- [ ] 6.8 Implement file output (write .mdoc alongside .mdx)
-- [ ] 6.9 Implement conversion report generation:
+- [x] 6.8 Implement file output (write .mdoc alongside .mdx)
+- [x] 6.9 Implement conversion report generation:
   - List all converted files
   - List all image path changes
   - Flag any images requiring manual attention
   - Report any conversion issues or warnings
-- [ ] 6.10 Add script to package.json: `"migrate:content": "tsx scripts/migrate-mdx-to-markdoc.tsx"`
+- [x] 6.10 Add script to package.json: `"migrate:content": "tsx scripts/migrate-mdx-to-markdoc.tsx"`
 
 ## 7. Update Data Fetching Layer
 
-- [ ] 7.1 Create `lib/markdoc-renderer.ts` utility for transforming Markdoc content to React
-- [ ] 7.2 Refactor `lib/post-data.ts`:
-  - Replace TinaCMS GraphQL client with Keystatic Reader API
-  - Update `fetchLatestPosts()` and `fetchFeaturedPost()` to use `reader.collections.posts`
-  - Maintain `PostItem` return type for downstream compatibility
-- [ ] 7.3 Refactor `lib/post-utils.ts`:
+- [x] 7.1 Create `lib/markdoc-renderer.ts` utility for transforming Markdoc content to React
+- [x] 7.2 Create `lib/keystatic/post-data.ts`:
+  - Keystatic Reader API implementation for posts
+  - `fetchLatestPosts()` and `fetchFeaturedPost()` using `reader.collections.posts`
+  - Maintains `PostItem` return type for downstream compatibility
+- [x] 7.3 Refactor post utils:
   - Update `transformPost()` to handle Keystatic entry format
   - Add Markdoc body content transformation
-- [ ] 7.4 Refactor `lib/podcast-data.ts`:
-  - Replace TinaCMS GraphQL client with Keystatic Reader API
-  - Update `fetchAllPodcasts()` and `fetchPodcastBySlug()` to use `reader.collections.podcasts`
-  - Maintain `PodcastShow` return type for downstream compatibility
-- [ ] 7.5 Refactor `lib/link-data.ts`:
-  - Replace TinaCMS GraphQL client with Keystatic Reader API
-  - Update `fetchLatestLinks()`, `fetchFeaturedLinks()`, `fetchLinksByTag()` to use `reader.collections.links`
-  - Maintain `LinkItem` return type for downstream compatibility
-- [ ] 7.6 Refactor `lib/category-data.ts`:
-  - Replace TinaCMS GraphQL client with Keystatic Reader API
-  - Update `fetchCategoryByPath()` to use `reader.collections.categories`
-  - Maintain `CategoryItem` return type for downstream compatibility
+- [x] 7.4 Create `lib/keystatic/podcast-data.ts`:
+  - Keystatic Reader API implementation for podcasts
+  - `fetchAllPodcasts()` and `fetchPodcastBySlug()` using `reader.collections.podcasts`
+  - Maintains `PodcastShow` return type for downstream compatibility
+- [x] 7.5 Create `lib/keystatic/link-data.ts`:
+  - Keystatic Reader API implementation for links
+  - `fetchLatestLinks()`, `fetchFeaturedLinks()`, `fetchLinksByTag()` using `reader.collections.links`
+  - Maintains `LinkItem` return type for downstream compatibility
+- [x] 7.6 Create `lib/keystatic/category-data.ts`:
+  - Keystatic Reader API implementation for categories
+  - `fetchCategoryByPath()` and `fetchAllCategories()` using `reader.collections.categories`
+  - Maintains `CategoryItem` return type for downstream compatibility
 
 ## 8. Update Middleware
 
-- [ ] 8.1 Update `middleware.ts` to handle `/keystatic` routes
-- [ ] 8.2 Skip i18n routing for `/keystatic` paths
-- [ ] 8.3 Add redirect from `/admin` to `/keystatic` (optional, for backwards compat)
+- [x] 8.1 Update `middleware.ts` to handle `/keystatic` routes
+- [x] 8.2 Skip i18n routing for `/keystatic` paths
+- [x] 8.3 Add redirect from `/admin` to `/keystatic` (for backwards compat)
 
 ## 9. Update Environment Variables
 
-- [ ] 9.1 Add `KEYSTATIC_GITHUB_CLIENT_ID` to .env.example
-- [ ] 9.2 Add `KEYSTATIC_GITHUB_CLIENT_SECRET` to .env.example
-- [ ] 9.3 Add `KEYSTATIC_SECRET` to .env.example
-- [ ] 9.4 Add `NEXT_PUBLIC_KEYSTATIC_GITHUB_APP_SLUG` to .env.example
+- [x] 9.1 Add `KEYSTATIC_GITHUB_CLIENT_ID` to .env.example
+- [x] 9.2 Add `KEYSTATIC_GITHUB_CLIENT_SECRET` to .env.example
+- [x] 9.3 Add `KEYSTATIC_SECRET` to .env.example
+- [x] 9.4 Add `NEXT_PUBLIC_KEYSTATIC_GITHUB_APP_SLUG` to .env.example
 - [ ] 9.5 Document GitHub App setup process in README or separate doc
 
 ## 10. Execute Content Migration

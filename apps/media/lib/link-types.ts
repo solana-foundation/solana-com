@@ -1,4 +1,4 @@
-import { TinaMarkdownContent } from "tinacms/dist/rich-text";
+import { MarkdocDocument } from "./post-types";
 
 export type LinkType = "article" | "tweet" | "video" | "github" | "other";
 
@@ -7,7 +7,7 @@ export type LinkItem = {
   title: string;
   url: string;
   linkType: LinkType;
-  description?: TinaMarkdownContent;
+  description?: MarkdocDocument;
   thumbnailImage?: string | null;
   source?: string;
   publishedAt: string;

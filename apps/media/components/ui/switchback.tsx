@@ -1,5 +1,6 @@
 import React from "react";
-import { TinaMarkdown } from "tinacms/dist/rich-text";
+import { DocumentRenderer } from "@keystatic/core/renderer";
+import { components } from "@/components/mdx-components";
 
 interface SwitchbackProps {
   title: string;
@@ -49,7 +50,10 @@ const Switchback: React.FC<SwitchbackProps> = ({
             )}
             <h2 className="text-3xl font-bold mb-4">{title}</h2>
             <div className="prose mb-6">
-              <TinaMarkdown content={body} />
+              <DocumentRenderer
+                document={(body as any)?.node?.children || body}
+                renderers={components}
+              />
             </div>
             {buttons && buttons.length > 0 && (
               <div className="flex gap-4">

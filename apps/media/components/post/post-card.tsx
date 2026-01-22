@@ -2,7 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { PostItem } from "@/lib/post-types";
-import { TinaMarkdown } from "tinacms/dist/rich-text";
+import { DocumentRenderer } from "@keystatic/core/renderer";
+import { components } from "@/components/mdx-components";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +39,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
           )}
           <div className="flex flex-col gap-4 grow">
             <div className="text-muted-foreground grow">
-              <TinaMarkdown content={post.description} />
+              <DocumentRenderer document={(post.description as any)?.node?.children || post.description || []} renderers={components} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted-foreground">
@@ -93,7 +94,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
         {post.title}
       </h3>
       <div className="text-muted-foreground grow">
-        <TinaMarkdown content={post.description} />
+        <DocumentRenderer document={(post.description as any)?.node?.children || post.description || []} renderers={components} />
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
         Read article

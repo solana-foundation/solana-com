@@ -2,7 +2,7 @@ import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatDuration, formatEpisodeDate } from "@/lib/podcast-data";
+import { formatDuration, formatEpisodeDate } from "@/lib/podcast-utils";
 import type { PodcastEpisode } from "@/lib/podcast-types";
 
 interface EpisodeCardProps {

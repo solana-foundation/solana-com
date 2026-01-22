@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { LinkItem } from "@/lib/link-types";
-import { TinaMarkdown } from "tinacms/dist/rich-text";
+import { DocumentRenderer } from "@keystatic/core/renderer";
+import { components } from "@/components/mdx-components";
 import {
   ArrowUpRight,
   FileText,
@@ -93,7 +94,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
       </h3>
       {link.description && (
         <div className="text-muted-foreground grow line-clamp-3">
-          <TinaMarkdown content={link.description} />
+          <DocumentRenderer document={(link.description as any)?.node?.children || link.description || []} renderers={components} />
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">

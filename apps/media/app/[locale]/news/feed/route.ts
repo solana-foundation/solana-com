@@ -1,14 +1,12 @@
 import { Feed } from "feed";
 import { NextResponse } from "next/server";
-import client from "@/tina/__generated__/client";
-import type { TinaMarkdownContent } from "tinacms/dist/rich-text";
+import { reader } from "@/lib/reader";
+import { MarkdocDocument } from "@/lib/post-types";
 
 export const revalidate = 300; // Revalidate every 5 minutes
 
-// Helper function to convert TinaMarkdown content to plain text
-function markdownToPlainText(
-  content: TinaMarkdownContent | null | undefined
-): string {
+// Helper function to convert Markdoc content to plain text
+function markdocToPlainText(content: MarkdocDocument | null | undefined): string {
   if (!content) return "";
 
   if (typeof content === "string") {
@@ -22,15 +20,16 @@ function markdownToPlainText(
           return item;
         }
         if (item && typeof item === "object") {
-          // Handle various markdown node types
-          if (item.type === "p" && item.children) {
-            return markdownToPlainText(item.children);
+          const node = item as Record<string, unknown>;
+          // Handle various markdoc node types
+          if (node.type === "paragraph" && node.children) {
+            return markdocToPlainText(node.children as MarkdocDocument);
           }
-          if (item.type === "text" && item.text) {
-            return item.text;
+          if (node.type === "text" && node.text) {
+            return node.text;
           }
-          if (item.children) {
-            return markdownToPlainText(item.children);
+          if (node.children) {
+            return markdocToPlainText(node.children as MarkdocDocument);
           }
         }
         return "";
@@ -59,19 +58,42 @@ function getImageMimeType(imageUrl: string): string {
   return mimeTypes[extension || ""] || "image/webp"; // Default to webp if unknown
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     // Use solana.com as the base URL for feed links
     const baseUrl = `https://solana.com`;
     const newsUrl = `${baseUrl}/news`;
 
     // Fetch posts (limit to 20 most recent)
-    const postsResponse = await client.queries.postConnection({
-      last: 20,
-      sort: "date",
+    const allSlugs = await reader.collections.posts.list();
+
+    // Fetch all posts to sort by date
+    const postsWithDates: Array<{
+      slug: string;
+      date: Date | null;
+      post: Awaited<ReturnType<typeof reader.collections.posts.read>>;
+    }> = [];
+
+    for (const slug of allSlugs) {
+      const post = await reader.collections.posts.read(slug);
+      if (post) {
+        postsWithDates.push({
+          slug,
+          date: post.date ? new Date(post.date) : null,
+          post,
+        });
+      }
+    }
+
+    // Sort by date descending and take top 20
+    postsWithDates.sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return b.date.getTime() - a.date.getTime();
     });
 
-    const posts = postsResponse.data.postConnection.edges || [];
+    const posts = postsWithDates.slice(0, 20);
 
     // Create feed instance
     const feed = new Feed({
@@ -84,34 +106,45 @@ export async function GET(request: Request) {
       favicon: `${baseUrl}/favicon.png`,
       copyright: `© ${new Date().getFullYear()} Solana Foundation. All rights reserved.`,
       updated:
-        posts.length > 0 && posts[0]?.node?.date
-          ? new Date(posts[0].node.date)
+        posts.length > 0 && posts[0]?.date
+          ? posts[0].date
           : new Date(),
     });
 
     // Add posts to feed
-    posts.forEach((postEdge) => {
-      const post = postEdge?.node;
-      if (!post) return;
+    for (const postEntry of posts) {
+      const post = postEntry?.post;
+      if (!post) continue;
 
-      const postUrl = `${newsUrl}/${post._sys.breadcrumbs.join("/")}`;
-      const description = markdownToPlainText(post.description) || "";
+      const postUrl = `${newsUrl}/${postEntry.slug}`;
+      const description = markdocToPlainText(post.description) || "";
+
+      // Resolve author
+      let authorName: string | null = null;
+      let authorAvatar: string | null = null;
+      if (post.author) {
+        const author = await reader.collections.authors.read(post.author);
+        if (author) {
+          authorName = String(author.name);
+          authorAvatar = author.avatar || null;
+        }
+      }
 
       // Build feed item
-      const feedItem: any = {
-        title: post.title || "Untitled",
-        id: post.id || postUrl,
+      const feedItem: Parameters<typeof feed.addItem>[0] = {
+        title: String(post.title) || "Untitled",
+        id: postEntry.slug,
         link: postUrl,
         description: description,
-        date: post.date ? new Date(post.date) : new Date(),
+        date: postEntry.date || new Date(),
       };
 
       // Add author if available
-      if (post.author?.name) {
+      if (authorName) {
         feedItem.author = [
           {
-            name: post.author.name,
-            ...(post.author.avatar && { link: post.author.avatar }),
+            name: authorName,
+            ...(authorAvatar && { link: authorAvatar }),
           },
         ];
       }
@@ -128,7 +161,7 @@ export async function GET(request: Request) {
       }
 
       feed.addItem(feedItem);
-    });
+    }
 
     // Generate RSS XML
     const rss = feed.rss2();

@@ -44,7 +44,18 @@ async function verifySession(token: string): Promise<boolean> {
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
-  // Handle admin routes - check authentication
+  // Handle Keystatic admin routes - skip i18n and auth
+  // Keystatic uses GitHub OAuth for authentication
+  if (pathname.startsWith("/keystatic")) {
+    return NextResponse.next();
+  }
+
+  // Redirect /admin to /keystatic for backwards compatibility
+  if (pathname === "/admin" || pathname === "/admin/") {
+    return NextResponse.redirect(new URL("/keystatic", req.url));
+  }
+
+  // Handle legacy admin routes - check authentication
   if (pathname.startsWith("/admin")) {
     // Allow login and auth callback routes without authentication
     if (
@@ -103,6 +114,8 @@ export default async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
+    // Match keystatic paths (for i18n skip)
+    "/keystatic/:path*",
     // Match admin paths for authentication
     "/admin/:path*",
     // Match all paths except static files and Next.js internals

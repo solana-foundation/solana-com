@@ -4,14 +4,15 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft } from "lucide-react";
-import { TinaMarkdown } from "tinacms/dist/rich-text";
+import { DocumentRenderer } from "@keystatic/core/renderer";
 import { Section } from "@/components/layout/section";
+import { components } from "@/components/mdx-components";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AudioPlayer } from "@/components/podcast/audio-player";
 import { EpisodeCard } from "@/components/podcast/episode-card";
 import { SubscribeButtons } from "@/components/podcast/subscribe-buttons";
-import { fetchEpisodesForPodcast, formatEpisodeDate } from "@/lib/podcast-data";
+import { formatEpisodeDate } from "@/lib/podcast-utils";
 import type { PodcastShow, PodcastEpisode } from "@/lib/podcast-types";
 import ErrorBoundary from "@/components/error-boundary";
 
@@ -46,11 +47,12 @@ export default function PodcastShowClientPage({
 
     setIsLoadingMore(true);
     try {
-      const moreEpisodesData = await fetchEpisodesForPodcast(
-        podcast,
-        12,
-        currentOffset
+      const res = await fetch(
+        `/api/podcasts/${podcast.slug}/episodes?limit=12&offset=${currentOffset}`
       );
+      if (!res.ok) throw new Error("Failed to fetch episodes");
+
+      const moreEpisodesData = await res.json();
 
       if (moreEpisodesData.episodes.length > 0) {
         setEpisodes((prev) => [...prev, ...moreEpisodesData.episodes]);
@@ -64,7 +66,7 @@ export default function PodcastShowClientPage({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMore, isLoadingMore, currentOffset, podcast]);
+  }, [hasMore, isLoadingMore, currentOffset, podcast.slug]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -134,7 +136,10 @@ export default function PodcastShowClientPage({
                   </p>
                 ) : (
                   <div className="text-lg text-muted-foreground prose prose-sm dark:prose-invert">
-                    <TinaMarkdown content={podcast.description} />
+                    <DocumentRenderer
+                      document={(podcast.description as any)?.node?.children || podcast.description || []}
+                      renderers={components}
+                    />
                   </div>
                 )}
               </div>
