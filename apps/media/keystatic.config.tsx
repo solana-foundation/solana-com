@@ -30,51 +30,6 @@ const githubStorage: GitHubConfig["storage"] = {
   },
 };
 
-// SEO fields shared across collections
-const seoFields = {
-  title: fields.text({ label: "SEO Title" }),
-  description: fields.text({ label: "SEO Description", multiline: true }),
-  image: fields.image({
-    label: "SEO Image",
-    directory: "public/uploads/posts",
-    publicPath: "/uploads/posts",
-  }),
-  noIndex: fields.checkbox({ label: "No Index" }),
-  noFollow: fields.checkbox({ label: "No Follow" }),
-  openGraph: fields.object(
-    {
-      ogTitle: fields.text({ label: "OG Title" }),
-      ogDescription: fields.text({ label: "OG Description", multiline: true }),
-      ogImage: fields.image({
-        label: "OG Image",
-        directory: "public/uploads/posts",
-        publicPath: "/uploads/posts",
-      }),
-      ogType: fields.array(fields.text({ label: "Type" }), {
-        label: "OG Type",
-        itemLabel: (props) => props.value || "Type",
-      }),
-      ogUrl: fields.text({ label: "OG URL" }),
-    },
-    { label: "Open Graph" }
-  ),
-  twitter: fields.object(
-    {
-      twitterTitle: fields.text({ label: "Twitter Title" }),
-      twitterDescription: fields.text({
-        label: "Twitter Description",
-        multiline: true,
-      }),
-      twitterImage: fields.image({
-        label: "Twitter Image",
-        directory: "public/uploads/posts",
-        publicPath: "/uploads/posts",
-      }),
-    },
-    { label: "Twitter" }
-  ),
-};
-
 // Background options for section blocks (exported for use in components)
 export const backgroundOptions = [
   { label: "Default", value: "bg-default" },
@@ -115,7 +70,6 @@ export default config({
       format: { contentField: "body" },
       entryLayout: "content",
       schema: {
-        seo: fields.object(seoFields, { label: "SEO" }),
         title: fields.slug({
           name: { label: "Title", validation: { isRequired: true } },
         }),
@@ -129,16 +83,16 @@ export default config({
         }),
         heroImage: fields.image({
           label: "Hero Image",
+          description: "Required for SEO. Used as og:image and twitter:image",
           directory: "public/uploads/posts",
           publicPath: "/uploads/posts",
+          validation: { isRequired: true },
         }),
-        description: fields.markdoc({
+        description: fields.text({
           label: "Description",
-          options: {
-            bold: true,
-            italic: true,
-            link: true,
-          },
+          description:
+            "Required for SEO. Used as meta description, og:description, and twitter:description",
+          multiline: true,
         }),
         author: fields.relationship({
           label: "Author",

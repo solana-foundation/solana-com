@@ -10,6 +10,8 @@ import { CallToAction } from "@/components/ui/call-to-action";
 import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { DocumentRenderer } from "@keystatic/core/renderer";
+import { markdocDocumentToPlainText } from "@/lib/markdoc-renderer";
+import { config } from "@/lib/config";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -240,6 +242,7 @@ export async function generateMetadata({
     };
   }
 
+  // Get author name for meta
   let authorName: string | undefined;
   if (post.author) {
     const author = await reader.collections.authors.read(post.author);
@@ -248,40 +251,64 @@ export async function generateMetadata({
     }
   }
 
-  const title = post.seo?.title || String(post.title);
-  const description = post.seo?.description || undefined;
+  // Derive SEO from post title, description, and hero image
+  const title = String(post.title);
 
-  const ogImage =
-    post.seo?.openGraph?.ogImage ||
-    post.seo?.twitter?.twitterImage ||
-    post.heroImage;
+  // Extract plain text from markdoc description for SEO
+  const descriptionResult = await post.description();
+  const description = markdocDocumentToPlainText(descriptionResult);
 
-  const twitterImage = post.seo?.twitter?.twitterImage || ogImage;
+  // Use hero image for OG and Twitter images
+  const ogImage = post.heroImage || config.siteMetadata.socialShare;
+
+  // Build canonical URL
+  const canonicalUrl = `${config.siteUrl}/news/${slug}`;
 
   return {
     title,
-    description,
+    description: description || undefined,
     robots: {
-      index: post.seo?.noIndex ? false : true,
-      follow: post.seo?.noFollow ? false : true,
+      index: true,
+      follow: true,
       googleBot: {
-        index: post.seo?.noIndex ? false : true,
-        follow: post.seo?.noFollow ? false : true,
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
       },
     },
     openGraph: {
-      title: post.seo?.openGraph?.ogTitle || title,
-      description: post.seo?.openGraph?.ogDescription || description,
-      url: post.seo?.openGraph?.ogUrl || undefined,
-      type: "article" as const,
-      images: ogImage ? [ogImage] : undefined,
+      title,
+      description: description || undefined,
+      url: canonicalUrl,
+      type: "article",
+      siteName: config.siteMetadata.title,
+      images: ogImage
+        ? [
+            {
+              url: ogImage,
+              width: 1200,
+              height: 630,
+              alt: title,
+            },
+          ]
+        : undefined,
+      publishedTime: post.date || undefined,
+      authors: authorName ? [authorName] : undefined,
     },
     twitter: {
-      card: twitterImage ? "summary_large_image" : "summary",
-      title: post.seo?.twitter?.twitterTitle || title,
-      description: post.seo?.twitter?.twitterDescription || description,
-      images: twitterImage ? [twitterImage] : undefined,
+      card: "summary_large_image",
+      title,
+      description: description || undefined,
+      images: ogImage ? [ogImage] : undefined,
+      creator: config.social.twitter.name
+        ? `@${config.social.twitter.name}`
+        : undefined,
     },
     authors: authorName ? [{ name: authorName }] : undefined,
+    alternates: {
+      canonical: canonicalUrl,
+    },
   };
 }
