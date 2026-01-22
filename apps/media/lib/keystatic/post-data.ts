@@ -27,7 +27,10 @@ async function transformPost(
 ): Promise<PostItem | null> {
   if (!post) return null;
 
-  const date = post.date ? new Date(post.date) : null;
+  // Ensure date is a string before processing
+  const dateString =
+    typeof post.date === "string" ? post.date : String(post.date || "");
+  const date = dateString ? new Date(dateString) : null;
   const formattedDate =
     date && !Number.isNaN(date.getTime()) ? format(date, "dd MMM yyyy") : "";
 
@@ -45,31 +48,87 @@ async function transformPost(
   }
 
   // Resolve category names
+  // Handle both object format (category: slug) and string format
   const categoryNames: string[] = [];
   if (post.categories) {
-    for (const catRef of post.categories) {
-      if (catRef.category) {
-        const catData = await reader.collections.categories.read(
-          catRef.category
-        );
-        if (catData?.name) {
-          categoryNames.push(String(catData.name));
+    for (const catItem of post.categories) {
+      // Check if it's an object with a category property (relationship format)
+      if (catItem && typeof catItem === "object" && "category" in catItem) {
+        if (catItem.category) {
+          const catData = await reader.collections.categories.read(
+            catItem.category
+          );
+          if (catData?.name) {
+            categoryNames.push(String(catData.name));
+          }
         }
+      } else if (typeof catItem === "string") {
+        // Handle string format directly
+        categoryNames.push(catItem);
       }
     }
   }
 
   // Resolve tag names
+  // Tags are now strings (not relationship objects)
   const tagNames: string[] = [];
   if (post.tags) {
-    for (const tagRef of post.tags) {
-      if (tagRef.tag) {
-        const tagData = await reader.collections.tags.read(tagRef.tag);
-        if (tagData?.name) {
-          tagNames.push(String(tagData.name));
+    for (const tagItem of post.tags) {
+      // Handle both string format (new) and object format (legacy)
+      if (typeof tagItem === "string") {
+        tagNames.push(tagItem);
+      } else if (tagItem && typeof tagItem === "object" && "tag" in tagItem) {
+        // Legacy format: relationship object
+        if (tagItem.tag) {
+          const tagData = await reader.collections.tags.read(tagItem.tag);
+          if (tagData?.name) {
+            tagNames.push(String(tagData.name));
+          }
         }
       }
     }
+  }
+
+  // Serialize description to ensure it's JSON-serializable (removes any functions)
+  let serializedDescription: any = null;
+
+  try {
+    let rawDescription = post.description;
+
+    // Handle if description is a function (getter/lazy-loaded value)
+    if (typeof rawDescription === "function") {
+      // Try to call the function to get the actual value
+      try {
+        rawDescription = rawDescription();
+      } catch (e) {
+        // If calling fails, try to access as a property or set to null
+        rawDescription = (post as any).description?.value || null;
+      }
+    }
+
+    // Only serialize if we have a valid value that's not a function
+    if (
+      rawDescription !== null &&
+      rawDescription !== undefined &&
+      typeof rawDescription !== "function"
+    ) {
+      // Use JSON.stringify with a replacer to remove any nested functions
+      const jsonString = JSON.stringify(rawDescription, (key, value) => {
+        // Remove functions and other non-serializable values
+        if (typeof value === "function") {
+          return undefined;
+        }
+        return value;
+      });
+
+      if (jsonString) {
+        serializedDescription = JSON.parse(jsonString);
+      }
+    }
+  } catch (e) {
+    // If serialization fails, set to null to avoid passing functions to RSC
+    console.warn(`Failed to serialize description for post ${slug}:`, e);
+    serializedDescription = null;
   }
 
   return {
@@ -79,7 +138,7 @@ async function transformPost(
     tags: tagNames,
     categories: categoryNames,
     url: `/news/${slug}`,
-    description: post.description as any, // Markdoc content type differs from TinaMarkdownContent
+    description: serializedDescription, // Markdoc content type, serialized for RSC
     heroImage:
       post.heroImage || "/media-assets/uploads/posts/default-blog.webp",
     author: {
@@ -108,13 +167,22 @@ export const fetchLatestPosts = async (
     }> = [];
 
     for (const slug of allSlugs) {
-      const post = await reader.collections.posts.read(slug);
-      if (post) {
-        postsWithDates.push({
-          slug,
-          date: post.date ? new Date(post.date) : null,
-          post,
-        });
+      try {
+        const post = await reader.collections.posts.read(slug);
+        if (post) {
+          // Ensure date is a string before creating Date object
+          const dateString =
+            typeof post.date === "string" ? post.date : String(post.date || "");
+          postsWithDates.push({
+            slug,
+            date: dateString ? new Date(dateString) : null,
+            post,
+          });
+        }
+      } catch (error) {
+        // Log error but continue processing other posts
+        console.error(`Failed to read post "${slug}":`, error);
+        // Skip this post and continue with others
       }
     }
 
@@ -197,17 +265,39 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
 
     // Find posts with "Featured" tag
     for (const slug of allSlugs) {
-      const post = await reader.collections.posts.read(slug);
-      if (post?.tags) {
-        for (const tagRef of post.tags) {
-          if (tagRef.tag) {
-            const tagData = await reader.collections.tags.read(tagRef.tag);
-            if (String(tagData?.name) === "Featured") {
+      try {
+        const post = await reader.collections.posts.read(slug);
+        if (post?.tags) {
+          for (const tagItem of post.tags) {
+            // Handle both string format (new) and object format (legacy)
+            let tagName: string | null = null;
+            if (typeof tagItem === "string") {
+              tagName = tagItem;
+            } else if (
+              tagItem &&
+              typeof tagItem === "object" &&
+              "tag" in tagItem
+            ) {
+              // Legacy format: relationship object
+              if (tagItem.tag) {
+                const tagData = await reader.collections.tags.read(tagItem.tag);
+                tagName = tagData?.name ? String(tagData.name) : null;
+              }
+            }
+
+            if (tagName === "Featured") {
               const transformed = await transformPost(slug, post);
               return { post: transformed };
             }
           }
         }
+      } catch (error) {
+        // Log error but continue processing other posts
+        console.error(
+          `Failed to read post "${slug}" in fetchFeaturedPost:`,
+          error
+        );
+        // Skip this post and continue with others
       }
     }
 

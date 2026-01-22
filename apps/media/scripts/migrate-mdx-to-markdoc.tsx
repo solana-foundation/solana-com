@@ -10,7 +10,7 @@
  * - Reference path format conversion
  */
 
-import { readdir, readFile, writeFile } from "fs/promises";
+import { readdir, readFile, writeFile, unlink } from "fs/promises";
 import { join, basename, extname } from "path";
 import { existsSync } from "fs";
 
@@ -31,6 +31,7 @@ const COLLECTIONS = [
 interface ConversionReport {
   totalFiles: number;
   convertedFiles: string[];
+  deletedFiles: string[];
   skippedFiles: string[];
   errors: { file: string; error: string }[];
   imagePathChanges: { oldPath: string; newPath: string }[];
@@ -40,6 +41,7 @@ interface ConversionReport {
 const report: ConversionReport = {
   totalFiles: 0,
   convertedFiles: [],
+  deletedFiles: [],
   skippedFiles: [],
   errors: [],
   imagePathChanges: [],
@@ -62,13 +64,10 @@ function convertJsxToMarkdoc(content: string): string {
   });
 
   // Handle <iframe src="..." width="..." height="..." allow="..." />
-  result = result.replace(
-    /<iframe\s+([^>]+)\/>/gi,
-    (_, attrs) => {
-      const attrStr = attrs.trim();
-      return `{% iframe ${attrStr} /%}`;
-    }
-  );
+  result = result.replace(/<iframe\s+([^>]+)\/>/gi, (_, attrs) => {
+    const attrStr = attrs.trim();
+    return `{% iframe ${attrStr} /%}`;
+  });
 
   // Handle <DateTime format="..." />
   result = result.replace(
@@ -128,50 +127,44 @@ function convertJsxToMarkdoc(content: string): string {
   );
 
   // Handle <stats title="..." stats={[...]} /> with complex JSON
-  result = result.replace(
-    /<stats\s+([\s\S]*?)\/>/gi,
-    (_match, attrs) => {
-      // Parse the attributes
-      const titleMatch = attrs.match(/title="([^"]*)"/);
-      const descMatch = attrs.match(/description="([^"]*)"/);
-      const backgroundMatch = attrs.match(/background="([^"]*)"/);
-      const statsMatch = attrs.match(/stats=\{(\[[\s\S]*?\])\}/);
+  result = result.replace(/<stats\s+([\s\S]*?)\/>/gi, (_match, attrs) => {
+    // Parse the attributes
+    const titleMatch = attrs.match(/title="([^"]*)"/);
+    const descMatch = attrs.match(/description="([^"]*)"/);
+    const backgroundMatch = attrs.match(/background="([^"]*)"/);
+    const statsMatch = attrs.match(/stats=\{(\[[\s\S]*?\])\}/);
 
-      let markdocAttrs = "";
-      if (titleMatch) markdocAttrs += ` title="${titleMatch[1]}"`;
-      if (descMatch) markdocAttrs += ` description="${descMatch[1]}"`;
-      if (backgroundMatch) markdocAttrs += ` background="${backgroundMatch[1]}"`;
-      if (statsMatch) {
-        // Convert the JS array syntax to JSON-like format
-        const statsJson = statsMatch[1]
-          .replace(/(\w+):/g, '"$1":')
-          .replace(/'/g, '"');
-        markdocAttrs += ` stats='${statsJson}'`;
-      }
-
-      return `{% stats${markdocAttrs} /%}`;
+    let markdocAttrs = "";
+    if (titleMatch) markdocAttrs += ` title="${titleMatch[1]}"`;
+    if (descMatch) markdocAttrs += ` description="${descMatch[1]}"`;
+    if (backgroundMatch) markdocAttrs += ` background="${backgroundMatch[1]}"`;
+    if (statsMatch) {
+      // Convert the JS array syntax to JSON-like format
+      const statsJson = statsMatch[1]
+        .replace(/(\w+):/g, '"$1":')
+        .replace(/'/g, '"');
+      markdocAttrs += ` stats='${statsJson}'`;
     }
-  );
+
+    return `{% stats${markdocAttrs} /%}`;
+  });
 
   // Handle <gallery background="..." images={[...]} /> with complex JSON
-  result = result.replace(
-    /<gallery\s+([\s\S]*?)\/>/gi,
-    (_match, attrs) => {
-      const backgroundMatch = attrs.match(/background="([^"]*)"/);
-      const imagesMatch = attrs.match(/images=\{(\[[\s\S]*?\])\}/);
+  result = result.replace(/<gallery\s+([\s\S]*?)\/>/gi, (_match, attrs) => {
+    const backgroundMatch = attrs.match(/background="([^"]*)"/);
+    const imagesMatch = attrs.match(/images=\{(\[[\s\S]*?\])\}/);
 
-      let markdocAttrs = "";
-      if (backgroundMatch) markdocAttrs += ` background="${backgroundMatch[1]}"`;
-      if (imagesMatch) {
-        const imagesJson = imagesMatch[1]
-          .replace(/(\w+):/g, '"$1":')
-          .replace(/'/g, '"');
-        markdocAttrs += ` images='${imagesJson}'`;
-      }
-
-      return `{% gallery${markdocAttrs} /%}`;
+    let markdocAttrs = "";
+    if (backgroundMatch) markdocAttrs += ` background="${backgroundMatch[1]}"`;
+    if (imagesMatch) {
+      const imagesJson = imagesMatch[1]
+        .replace(/(\w+):/g, '"$1":')
+        .replace(/'/g, '"');
+      markdocAttrs += ` images='${imagesJson}'`;
     }
-  );
+
+    return `{% gallery${markdocAttrs} /%}`;
+  });
 
   return result;
 }
@@ -211,10 +204,7 @@ function updateFrontmatterReferences(frontmatter: string): string {
   );
 
   // Update cta references
-  result = result.replace(
-    /^(cta:\s*)content\/ctas\/(.+)\.(md|mdx)$/gm,
-    "$1$2"
-  );
+  result = result.replace(/^(cta:\s*)content\/ctas\/(.+)\.(md|mdx)$/gm, "$1$2");
   result = result.replace(/^(cta:\s*)""$/gm, "cta:");
 
   // Update switchback references
@@ -236,10 +226,7 @@ function updateFrontmatterReferences(frontmatter: string): string {
 /**
  * Update image paths in frontmatter and content
  */
-function updateImagePaths(
-  content: string,
-  _collection: string
-): string {
+function updateImagePaths(content: string, _collection: string): string {
   let result = content;
 
   // Image paths are already using /uploads/ format
@@ -290,6 +277,12 @@ async function processFile(
     const newFilePath = filePath.replace(/\.mdx?$/, ".mdoc");
     await writeFile(newFilePath, newContent, "utf-8");
 
+    // Delete the original MDX/MD file after successful conversion
+    if (filePath !== newFilePath) {
+      await unlink(filePath);
+      report.deletedFiles.push(filePath);
+    }
+
     report.convertedFiles.push(filePath);
   } catch (error) {
     report.errors.push({
@@ -333,6 +326,7 @@ async function generateReport(): Promise<void> {
   reportContent += `## Summary\n\n`;
   reportContent += `- Total files processed: ${report.totalFiles}\n`;
   reportContent += `- Files converted: ${report.convertedFiles.length}\n`;
+  reportContent += `- Files deleted: ${report.deletedFiles.length}\n`;
   reportContent += `- Files skipped: ${report.skippedFiles.length}\n`;
   reportContent += `- Errors: ${report.errors.length}\n`;
   reportContent += `- Warnings: ${report.warnings.length}\n\n`;
@@ -366,6 +360,13 @@ async function generateReport(): Promise<void> {
     reportContent += `- ${file}\n`;
   }
 
+  if (report.deletedFiles.length > 0) {
+    reportContent += `\n## Deleted Files\n\n`;
+    for (const file of report.deletedFiles) {
+      reportContent += `- ${file}\n`;
+    }
+  }
+
   await writeFile(reportPath, reportContent, "utf-8");
   console.log(`\nReport saved to: ${reportPath}`);
 }
@@ -384,6 +385,7 @@ async function migrate(): Promise<void> {
   console.log("\nMigration complete!");
   console.log(`- Files processed: ${report.totalFiles}`);
   console.log(`- Files converted: ${report.convertedFiles.length}`);
+  console.log(`- Files deleted: ${report.deletedFiles.length}`);
   console.log(`- Errors: ${report.errors.length}`);
 
   await generateReport();

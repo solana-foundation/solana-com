@@ -8,8 +8,14 @@ import {
 } from "@keystatic/core";
 import { componentBlocks } from "./lib/keystatic/components";
 
-// Determine if we're in local mode
-const isLocal = process.env.TINA_PUBLIC_IS_LOCAL === "true";
+// Determine if we're in local mode or if GitHub credentials are missing
+const hasGitHubCredentials =
+  process.env.KEYSTATIC_GITHUB_CLIENT_ID &&
+  process.env.KEYSTATIC_GITHUB_CLIENT_SECRET &&
+  process.env.KEYSTATIC_SECRET;
+
+const isLocal =
+  process.env.TINA_PUBLIC_IS_LOCAL === "true" || !hasGitHubCredentials;
 
 // Storage configuration
 const localStorage: LocalConfig["storage"] = {
@@ -103,7 +109,7 @@ export default config({
   },
   collections: {
     posts: collection({
-      label: "Blog Posts",
+      label: "Posts",
       slugField: "title",
       path: "content/posts/*",
       format: { contentField: "body" },
@@ -289,8 +295,9 @@ export default config({
           label: "Release Frequency",
           description: "e.g., Weekly, Bi-weekly, Monthly",
         }),
-        firstEpisodeDate: fields.datetime({
+        firstEpisodeDate: fields.text({
           label: "First Episode Date",
+          description: "ISO date string for first episode",
         }),
       },
     }),
@@ -316,11 +323,12 @@ export default config({
       label: "Categories",
       slugField: "name",
       path: "content/categories/*",
-      format: { data: "yaml" },
+      format: { contentField: "description" },
       schema: {
         name: fields.slug({
           name: { label: "Name", validation: { isRequired: true } },
         }),
+        description: fields.markdoc({ label: "Description" }),
       },
     }),
 
@@ -328,11 +336,12 @@ export default config({
       label: "Tags",
       slugField: "name",
       path: "content/tags/*",
-      format: { data: "yaml" },
+      format: { contentField: "description" },
       schema: {
         name: fields.slug({
           name: { label: "Name", validation: { isRequired: true } },
         }),
+        description: fields.markdoc({ label: "Description" }),
       },
     }),
 
@@ -354,7 +363,10 @@ export default config({
               label: "Label",
               validation: { isRequired: true },
             }),
-            url: fields.text({ label: "URL", validation: { isRequired: true } }),
+            url: fields.text({
+              label: "URL",
+              validation: { isRequired: true },
+            }),
           },
           { label: "Button" }
         ),

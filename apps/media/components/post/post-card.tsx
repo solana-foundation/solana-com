@@ -12,7 +12,36 @@ interface PostCardProps {
   variant?: "vertical" | "horizontal";
 }
 
+// Helper function to normalize description to an array for DocumentRenderer
+function normalizeDescription(description: any): any[] {
+  if (!description) return [];
+
+  // If it's already an array, return it
+  if (Array.isArray(description)) return description;
+
+  // If it's an object with node.children, use that
+  if (description && typeof description === "object" && "node" in description) {
+    const children = (description as any).node?.children;
+    if (Array.isArray(children)) return children;
+  }
+
+  // If it's an object with children directly, use that
+  if (
+    description &&
+    typeof description === "object" &&
+    "children" in description
+  ) {
+    const children = (description as any).children;
+    if (Array.isArray(children)) return children;
+  }
+
+  // Default to empty array
+  return [];
+}
+
 export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
+  const descriptionDoc = normalizeDescription(post.description);
+
   if (variant === "horizontal") {
     return (
       <Link
@@ -40,11 +69,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
           <div className="flex flex-col gap-4 grow">
             <div className="text-muted-foreground grow">
               <DocumentRenderer
-                document={
-                  (post.description as any)?.node?.children ||
-                  post.description ||
-                  []
-                }
+                document={descriptionDoc}
                 renderers={components}
               />
             </div>
@@ -101,12 +126,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
         {post.title}
       </h3>
       <div className="text-muted-foreground grow">
-        <DocumentRenderer
-          document={
-            (post.description as any)?.node?.children || post.description || []
-          }
-          renderers={components}
-        />
+        <DocumentRenderer document={descriptionDoc} renderers={components} />
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
         Read article
