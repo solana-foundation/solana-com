@@ -3,9 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "@workspace/i18n/use-router";
 import { AnnouncementBar } from "@solana-foundation/solana-lib";
-import builder from "@builder.io/react";
-import { BUILDER_CONFIG } from "../../lib/builder/builderConstants";
 import styles from "./SitewideTopAlert.module.scss";
+
+// Local announcement bar configuration
+// Update this object to change the announcement bar content
+const ANNOUNCEMENT_CONFIG = {
+  enabled: false, // Set to true to enable the announcement bar
+  text: "",
+  cta: {
+    label: "",
+    url: "",
+  },
+  color: "primary",
+};
 
 /**
  * Displays an Alert at the top of the window excluding
@@ -18,34 +28,19 @@ function SitewideTopAlert({ locale }) {
   const [announcementBarData, setAnnouncementBarData] = useState(null);
 
   useEffect(() => {
-    // Fetch announcement bar data from Builder.io
-    builder.init(BUILDER_CONFIG.apiKey);
-    builder.apiVersion = "v3";
-    builder
-      .get("component-announcement-bar", {
-        staleCacheSeconds: 20,
-        userAttributes: {
-          locale,
-        },
-        options: {
-          locale,
-        },
-      })
-      .promise()
-      .then((response) => {
-        setAnnouncementBarData({
-          text: response.data.text,
-          cta: {
-            label: response.data.ctaLabel,
-            url: response.data.ctaUrl,
-          },
-          color: response.data.color,
-        });
+    // Use local configuration instead of Builder.io
+    if (ANNOUNCEMENT_CONFIG.enabled) {
+      setAnnouncementBarData({
+        text: ANNOUNCEMENT_CONFIG.text,
+        cta: ANNOUNCEMENT_CONFIG.cta,
+        color: ANNOUNCEMENT_CONFIG.color,
       });
+    }
   }, [locale]);
 
   if (
-    router.pathname.includes(announcementBarData?.cta.url) ||
+    !announcementBarData ||
+    router.pathname.includes(announcementBarData?.cta?.url) ||
     router.asPath.includes("/breakpoint/app")
   ) {
     return null;
@@ -53,7 +48,7 @@ function SitewideTopAlert({ locale }) {
 
   return (
     <>
-      {(announcementBarData?.text || announcementBarData?.cta.label) && (
+      {(announcementBarData?.text || announcementBarData?.cta?.label) && (
         <div className={styles["alertOuter"]}>
           <div className={styles["alertInner"]}>
             <AnnouncementBar {...announcementBarData} dismissable={false} />

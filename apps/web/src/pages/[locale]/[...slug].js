@@ -1,21 +1,13 @@
-import { builder, BuilderComponent, useIsPreviewing } from "@builder.io/react";
 import HTMLHead from "@/components/builder/HTMLHead";
 import NotFoundPage from "./404";
-import customComponentsRegistration from "@/utils/customComponentGenerator";
 import Layout from "@/components/layout";
-import { PAGE_BUILDER_CONFIG } from "@/lib/builder/page/constants";
-import { getPage, getAllPagesWithSlug } from "@/lib/builder/page/api";
 import ModalLauncher from "@/components/ModalLauncher/ModalLauncher";
+import MdxLandingRenderer from "@/components/LandingRenderer/MdxLandingRenderer";
+import { getLandingContent, getMigratedSlugs } from "@/lib/landings";
 import { slugWithLocales, usePathname } from "@workspace/i18n/routing";
 import { locales } from "@workspace/i18n/config";
 
-builder.init(PAGE_BUILDER_CONFIG.apiKey);
-builder.apiVersion = "v3";
-customComponentsRegistration();
-
-const Page = ({ page, builderLocale }) => {
-  const isPreviewing = useIsPreviewing();
-
+const Page = ({ page }) => {
   if (useAppRouterNavigation(page)) {
     if (typeof window === "undefined") {
       return null;
@@ -24,7 +16,7 @@ const Page = ({ page, builderLocale }) => {
     return null;
   }
 
-  if (!page && !isPreviewing) {
+  if (!page) {
     return <NotFoundPage />;
   }
 
@@ -36,15 +28,7 @@ const Page = ({ page, builderLocale }) => {
         twitterMeta={page?.data?.openGraph}
       />
       <Layout>
-        <BuilderComponent
-          model={PAGE_BUILDER_CONFIG.pagesModel}
-          content={page}
-          locale={builderLocale || "Default"}
-          options={{
-            includeRefs: true,
-            noTraverse: true,
-          }}
-        />
+        <MdxLandingRenderer mdxSource={page.mdxSource} />
         <ModalLauncher />
       </Layout>
     </>
@@ -53,12 +37,9 @@ const Page = ({ page, builderLocale }) => {
 
 export async function getStaticPaths() {
   try {
-    const allPages = await getAllPagesWithSlug();
-
-    const slugs = await allPages
-      ?.filter((page) => page.data.slug[0] !== "/")
-      ?.map((page) => page.data.slug.split("/"));
-    const paths = slugWithLocales(slugs || []);
+    const migratedSlugs = getMigratedSlugs();
+    const slugs = migratedSlugs.map((slug) => slug.split("/"));
+    const paths = slugWithLocales(slugs);
 
     return {
       paths,
@@ -83,22 +64,25 @@ export async function getStaticProps({ params }) {
       params?.slug && Array.isArray(params?.slug)
         ? params.slug.join("/")
         : params.slug;
-    const isDefaultLocale = locale === "en";
-    const builderLocale = isDefaultLocale ? "Default" : locale;
 
     if (!locales.includes(locale) || !slug) {
       return { notFound: true };
     }
 
-    const page = await getPage(slug, locale);
+    // Get content from MDX files (falls back to English)
+    const page = await getLandingContent(slug, locale);
+
+    if (!page) {
+      return { notFound: true };
+    }
+
     const messages = (await import(`@@/public/locales/${locale}/common.json`))
       .default;
 
     return {
       props: {
-        key: page?.id + page?.data.slug + params.slug,
+        key: page?.id + page?.data?.slug + params.slug,
         locale,
-        builderLocale,
         page: page || null,
         messages,
       },

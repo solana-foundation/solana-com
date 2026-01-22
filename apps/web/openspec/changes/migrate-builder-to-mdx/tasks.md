@@ -2,90 +2,90 @@
 
 ## 1. Export Builder Content (Phase 1)
 
-- [ ] 1.1 Create `apps/web/scripts/export-builder.ts` export script
-- [ ] 1.2 Configure Builder API client with existing API key
-- [ ] 1.3 Implement route list for all 50+ Builder pages
-- [ ] 1.4 Implement locale iteration (19 locales: en, ar, de, el, es, fi, fr, id,
+- [x] 1.1 Create `apps/web/scripts/export-builder.ts` export script
+- [x] 1.2 Configure Builder API client with existing API key
+- [x] 1.3 Implement route list for all 50+ Builder pages
+- [x] 1.4 Implement locale iteration (19 locales: en, ar, de, el, es, fi, fr, id,
       it, ja, ko, nl, pl, pt, ru, tr, uk, vi, zh)
-- [ ] 1.5 Add retry logic with exponential backoff (match existing
+- [x] 1.5 Add retry logic with exponential backoff (match existing
       `lib/builder/api.js` pattern)
-- [ ] 1.6 Save JSON files to `apps/web/builder/section-page/{locale}/{slug}.json`
+- [x] 1.6 Save JSON files to `apps/web/builder/section-page/{locale}/{slug}.json`
 - [ ] 1.7 Skip file creation when locale content is empty or has the same id as the default (en) locale
-- [ ] 1.8 Log export progress and errors
-- [ ] 1.9 Run export script and verify all routes exported
+- [x] 1.8 Log export progress and errors
+- [x] 1.9 Run export script and verify all routes exported
 - [ ] 1.10 Commit `builder/` directory to git
 
 ## 2. Download Builder Assets (Phase 1)
 
-- [ ] 2.1 Parse exported JSON for `cdn.builder.io` URLs
-- [ ] 2.2 Create asset download function with proper file extension detection
-- [ ] 2.3 Download assets to `apps/web/public/src/img/landings/`
-- [ ] 2.4 Generate `apps/web/builder/assets/manifest.json` mapping URLs to local
+- [x] 2.1 Parse exported JSON for `cdn.builder.io` URLs
+- [x] 2.2 Create asset download function with proper file extension detection
+- [x] 2.3 Download assets to `apps/web/public/src/img/landings/`
+- [x] 2.4 Generate `apps/web/builder/assets/manifest.json` mapping URLs to local
       paths
-- [ ] 2.5 Handle download failures gracefully (log and continue)
-- [ ] 2.6 Verify downloaded assets are readable (valid image files)
+- [x] 2.5 Handle download failures gracefully (log and continue)
+- [x] 2.6 Verify downloaded assets are readable (valid image files)
 - [ ] 2.7 Commit downloaded assets to git
 
 ## 3. Create MDX Infrastructure (Phase 2)
 
-- [ ] 3.1 Create `apps/web/content/landings/` directory structure
-- [ ] 3.2 Create `apps/web/content/landings/en/` directory
-- [ ] 3.3 Create `apps/web/content/landings/en/solutions/` directory
-- [ ] 3.4 Create MDX provider configuration with component mappings
-- [ ] 3.5 Configure MDX compilation (gray-matter for frontmatter, existing MDX
+- [x] 3.1 Create `apps/web/content/landings/` directory structure
+- [x] 3.2 Create `apps/web/content/landings/en/` directory
+- [x] 3.3 Create `apps/web/content/landings/en/solutions/` directory
+- [x] 3.4 Create MDX provider configuration with component mappings
+- [x] 3.5 Configure MDX compilation (gray-matter for frontmatter, existing MDX
       dependencies)
 
 ## 4. Convert Priority Pages to MDX (Phase 2)
 
-- [ ] 4.1 Convert `/solutions` (index) to
+- [x] 4.1 Convert `/solutions` (index) to
       `content/landings/en/solutions/index.mdx`
-- [ ] 4.2 Convert `/solutions/token-extensions` to MDX
-- [ ] 4.3 Convert `/solutions/actions` to MDX
-- [ ] 4.4 Convert `/solutions/solana-permissioned-environments` to MDX
-- [ ] 4.5 Convert `/solutions/games-tooling` to MDX
-- [ ] 4.6 Convert `/solutions/payments-tooling` to MDX
-- [ ] 4.7 Convert `/solutions/commerce-tooling` to MDX
-- [ ] 4.8 Convert `/solutions/financial-infrastructure` to MDX
-- [ ] 4.9 Convert `/solutions/digital-assets` to MDX
-- [ ] 4.10 Convert `/solutions/real-world-assets` to MDX
-- [ ] 4.11 Convert `/solutions/gaming-and-entertainment` to MDX
-- [ ] 4.12 Convert `/solutions/artists-creators` to MDX
-- [ ] 4.13 Convert `/rpc` to `content/landings/en/rpc.mdx`
-- [ ] 4.14 Convert `/tos` to `content/landings/en/tos.mdx`
-- [ ] 4.15 Convert `/privacy-policy` to `content/landings/en/privacy-policy.mdx`
+- [x] 4.2 Convert `/solutions/token-extensions` to MDX
+- [x] 4.3 Convert `/solutions/actions` to MDX
+- [x] 4.4 Convert `/solutions/solana-permissioned-environments` to MDX
+- [x] 4.5 Convert `/solutions/games-tooling` to MDX
+- [x] 4.6 Convert `/solutions/payments-tooling` to MDX
+- [x] 4.7 Convert `/solutions/commerce-tooling` to MDX
+- [x] 4.8 Convert `/solutions/financial-infrastructure` to MDX
+- [x] 4.9 Convert `/solutions/digital-assets` to MDX
+- [x] 4.10 Convert `/solutions/real-world-assets` to MDX
+- [x] 4.11 Convert `/solutions/gaming-and-entertainment` to MDX
+- [x] 4.12 Convert `/solutions/artists-creators` to MDX
+- [x] 4.13 Convert `/rpc` to `content/landings/en/rpc.mdx`
+- [x] 4.14 Convert `/tos` to `content/landings/en/tos.mdx`
+- [x] 4.15 Convert `/privacy-policy` to `content/landings/en/privacy-policy.mdx`
 - [ ] 4.16 Convert available localized versions for each page (check Builder JSON
       for existing translations)
-- [ ] 4.17 Replace the asset URLs according to the file `apps/web/builder/assets/manifest.json`
+- [x] 4.17 Replace the asset URLs according to the file `apps/web/builder/assets/manifest.json`
 
 ## 5. Implement Route Handler (Phase 3)
 
-- [ ] 5.1 Create new `apps/web/src/pages/[locale]/[...slug].js` implementation
-- [ ] 5.2 Implement MDX file loading with `gray-matter` for frontmatter parsing
-- [ ] 5.3 Implement locale fallback logic (try locale, fall back to `en`)
-- [ ] 5.4 Implement `getStaticPaths` to enumerate all MDX files
-- [ ] 5.5 Implement `getStaticProps` to load MDX content and messages
-- [ ] 5.6 Render SEO metadata from frontmatter via `HTMLHead` component
-- [ ] 5.7 Wrap content in `Layout` component with `ModalLauncher`
-- [ ] 5.8 Handle 404 for missing pages
+- [x] 5.1 Create new `apps/web/src/pages/[locale]/[...slug].js` implementation
+- [x] 5.2 Implement MDX file loading with `gray-matter` for frontmatter parsing
+- [x] 5.3 Implement locale fallback logic (try locale, fall back to `en`)
+- [x] 5.4 Implement `getStaticPaths` to enumerate all MDX files
+- [x] 5.5 Implement `getStaticProps` to load MDX content and messages
+- [x] 5.6 Render SEO metadata from frontmatter via `HTMLHead` component
+- [x] 5.7 Wrap content in `Layout` component with `ModalLauncher`
+- [x] 5.8 Handle 404 for missing pages
 
 ## 6. Visual Verification (Phase 3)
 
-- [ ] 6.1 Verify `/solutions` page renders correctly
-- [ ] 6.2 Verify `/solutions/token-extensions` page renders correctly
-- [ ] 6.3 Verify `/solutions/actions` page renders correctly
-- [ ] 6.4 Verify `/solutions/solana-permissioned-environments` page renders
+- [x] 6.1 Verify `/solutions` page renders correctly
+- [x] 6.2 Verify `/solutions/token-extensions` page renders correctly
+- [x] 6.3 Verify `/solutions/actions` page renders correctly
+- [x] 6.4 Verify `/solutions/solana-permissioned-environments` page renders
       correctly
-- [ ] 6.5 Verify `/solutions/games-tooling` page renders correctly
-- [ ] 6.6 Verify `/solutions/payments-tooling` page renders correctly
-- [ ] 6.7 Verify `/solutions/commerce-tooling` page renders correctly
-- [ ] 6.8 Verify `/solutions/financial-infrastructure` page renders correctly
-- [ ] 6.9 Verify `/solutions/digital-assets` page renders correctly
-- [ ] 6.10 Verify `/solutions/real-world-assets` page renders correctly
-- [ ] 6.11 Verify `/solutions/gaming-and-entertainment` page renders correctly
-- [ ] 6.12 Verify `/solutions/artists-creators` page renders correctly
-- [ ] 6.13 Verify `/rpc` page renders correctly
-- [ ] 6.14 Verify `/tos` page renders correctly
-- [ ] 6.15 Verify `/privacy-policy` page renders correctly
+- [x] 6.5 Verify `/solutions/games-tooling` page renders correctly
+- [x] 6.6 Verify `/solutions/payments-tooling` page renders correctly
+- [x] 6.7 Verify `/solutions/commerce-tooling` page renders correctly
+- [x] 6.8 Verify `/solutions/financial-infrastructure` page renders correctly
+- [x] 6.9 Verify `/solutions/digital-assets` page renders correctly
+- [x] 6.10 Verify `/solutions/real-world-assets` page renders correctly
+- [x] 6.11 Verify `/solutions/gaming-and-entertainment` page renders correctly
+- [x] 6.12 Verify `/solutions/artists-creators` page renders correctly
+- [x] 6.13 Verify `/rpc` page renders correctly
+- [x] 6.14 Verify `/tos` page renders correctly
+- [x] 6.15 Verify `/privacy-policy` page renders correctly
 - [ ] 6.16 Verify locale fallback works (non-en locale without translation falls
       back to en)
 
