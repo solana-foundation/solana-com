@@ -240,13 +240,16 @@ export default function PostsClientPage(props: PostsClientPageProps) {
               </div>
             )}
 
-            <LoadMoreStatus
-              isLoading={isLoadingMore}
-              hasMore={pageInfo.hasNextPage}
-              onLoadMore={handleLoadMore}
-              loadingText="Loading more posts..."
-              noMoreText="No more posts to load"
-            />
+            {/* Only show LoadMoreStatus when there are posts and no category filter is active */}
+            {posts.length > 0 && !selectedCategory && (
+              <LoadMoreStatus
+                isLoading={isLoadingMore}
+                hasMore={pageInfo.hasNextPage}
+                onLoadMore={handleLoadMore}
+                loadingText="Loading more posts..."
+                noMoreText="No more posts to load"
+              />
+            )}
           </div>
         </div>
       </Section>

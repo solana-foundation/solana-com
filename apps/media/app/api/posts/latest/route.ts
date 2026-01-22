@@ -31,7 +31,9 @@ async function fetchPosts(params: PostConnectionParams) {
           // Convert Markdoc content to plain text for description
           ?.map((post) => ({
             ...post,
-            description: extractPlainText(post.description as string),
+            description: extractPlainText(
+              post.description ? String(post.description) : ""
+            ),
           })) || [],
       pageInfo: response.pageInfo,
     };

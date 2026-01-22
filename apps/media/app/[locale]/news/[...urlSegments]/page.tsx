@@ -15,6 +15,34 @@ import type { Metadata } from "next";
 export const revalidate = 300;
 export const dynamicParams = true;
 
+// Transform Markdoc AST nodes to flatten attributes for DocumentRenderer
+// DocumentRenderer expects { type, src, alt, text, ... } but Markdoc AST has { type, attributes: { src, alt, content } }
+function transformMarkdocNodes(nodes: any[]): any[] {
+  if (!Array.isArray(nodes)) return [];
+
+  return nodes.map((node) => {
+    if (!node || typeof node !== "object") return node;
+
+    // Flatten attributes onto the node
+    const transformed: any = {
+      ...node,
+      ...node.attributes,
+    };
+
+    // Map 'content' to 'text' for text nodes - DocumentRenderer expects 'text' property
+    if (node.type === "text" && node.attributes?.content !== undefined) {
+      transformed.text = node.attributes.content;
+    }
+
+    // Recursively transform children
+    if (node.children && Array.isArray(node.children)) {
+      transformed.children = transformMarkdocNodes(node.children);
+    }
+
+    return transformed;
+  });
+}
+
 export default async function PostPage({
   params,
 }: {
@@ -52,8 +80,6 @@ export default async function PostPage({
   if (date && !isNaN(date.getTime())) {
     formattedDate = format(date, "d MMMM yyyy");
   }
-
-  const postUrl = `/news/${slug}`;
 
   return (
     <ErrorBoundary>
@@ -104,10 +130,24 @@ export default async function PostPage({
         </div>
 
         {await (async () => {
-          // Get the body content - Keystatic returns { node: [...] }
+          // Get the body content from Keystatic
           const bodyResult = await post.body();
-          // Extract the document array from the node property
-          const bodyDoc = (bodyResult as any)?.node?.children || [];
+          // For markdoc fields, the content is in result directly as an array
+          // or it's in result.node.children for AST format
+          let bodyDoc: any[] = [];
+          if (Array.isArray(bodyResult)) {
+            bodyDoc = bodyResult;
+          } else if (bodyResult && typeof bodyResult === "object") {
+            // Check for Keystatic's document format (array at top level)
+            // or Markdoc AST format (node.children)
+            const result = bodyResult as any;
+            if (result.node?.children) {
+              // Markdoc AST - transform nodes to have attributes at top level
+              bodyDoc = transformMarkdocNodes(result.node.children);
+            } else if (Array.isArray(result)) {
+              bodyDoc = result;
+            }
+          }
 
           if (cta) {
             return (
