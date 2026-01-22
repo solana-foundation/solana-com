@@ -1,5 +1,6 @@
 import Markdoc from "@markdoc/markdoc";
 import type { RenderableTreeNode } from "@markdoc/markdoc";
+import type { MarkdocDocument } from "./post-types";
 
 /**
  * Transform Markdoc content to a renderable tree
@@ -52,6 +53,59 @@ export function extractPlainText(content: string | null | undefined): string {
     console.warn("Failed to parse Markdoc content:", error);
     return "";
   }
+}
+
+/**
+ * Convert MarkdocDocument to plain text string
+ * Handles both string and MarkdocDocument object types
+ */
+export function markdocDocumentToPlainText(
+  content: MarkdocDocument | string | null | undefined
+): string {
+  if (!content) return "";
+
+  if (typeof content === "string") {
+    return extractPlainText(content);
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+        if (item && typeof item === "object") {
+          const node = item as Record<string, unknown>;
+          // Handle various markdoc node types
+          if (node.type === "paragraph" && node.children) {
+            return markdocDocumentToPlainText(node.children as MarkdocDocument);
+          }
+          if (node.type === "text" && node.text) {
+            return String(node.text);
+          }
+          if (node.children) {
+            return markdocDocumentToPlainText(node.children as MarkdocDocument);
+          }
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }
+
+  // If it's an object but not an array, try to extract text from it
+  if (content && typeof content === "object") {
+    const node = content as Record<string, unknown>;
+    if (node.children) {
+      return markdocDocumentToPlainText(node.children as MarkdocDocument);
+    }
+    if (node.text) {
+      return String(node.text);
+    }
+  }
+
+  return "";
 }
 
 export { Markdoc };

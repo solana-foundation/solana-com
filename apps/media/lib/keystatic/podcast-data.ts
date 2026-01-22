@@ -3,6 +3,7 @@ import {
   fetchEpisodesFromRSSCached,
   fetchEpisodeByIdFromRSS,
 } from "../podcast-rss";
+import { markdocDocumentToPlainText } from "../markdoc-renderer";
 import type {
   PodcastShow,
   PodcastEpisode,
@@ -47,11 +48,16 @@ async function transformPodcast(
   // Get tags array (copy to mutable array)
   const tags: string[] = podcast.tags ? [...podcast.tags] : [];
 
+  // Convert Markdoc description to plain text string for serialization
+  const descriptionString = markdocDocumentToPlainText(
+    podcast.description as any
+  );
+
   return {
     id: slug,
     title: String(podcast.title) || "Untitled Podcast",
     slug: podcast.slug || slug,
-    description: podcast.description as any, // Markdoc content type
+    description: descriptionString, // Converted to string for serialization
     coverImage: podcast.coverImage || "/uploads/podcasts/default-cover.png",
     category: categoryName,
     featured: podcast.featured || false,
