@@ -48,7 +48,8 @@ type GalleryImage = {
 
 // Keystatic DocumentRenderer renderers
 // Using 'as any' to work around complex type constraints in DocumentRendererProps
-export const components: DocumentRendererProps["renderers"] = {
+// Custom component blocks are added via the 'component' property
+export const components = {
   // Inline components
   inline: {
     // Code inline
@@ -109,12 +110,26 @@ export const components: DocumentRendererProps["renderers"] = {
         <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>
       );
     },
-    // Blockquotes
-    blockquote: ({ children }) => (
-      <blockquote className="border-l-4 border-primary pl-4 my-4 italic text-muted-foreground">
-        {children}
-      </blockquote>
-    ),
+    // Blockquotes - handles both standard markdown blockquotes and custom blockquotes with authorName
+    blockquote: (props: { children: React.ReactNode; authorName?: string }) => {
+      // If authorName is provided, it's a custom blockquote
+      if (props.authorName) {
+        return (
+          <div>
+            <blockquote className="border-l-4 border-primary pl-4 my-4 italic">
+              {props.children}
+              <footer className="mt-2 font-bold">— {props.authorName}</footer>
+            </blockquote>
+          </div>
+        );
+      }
+      // Standard markdown blockquote
+      return (
+        <blockquote className="border-l-4 border-primary pl-4 my-4 italic text-muted-foreground">
+          {props.children}
+        </blockquote>
+      );
+    },
     // Dividers
     divider: () => <hr className="my-8 border-border" />,
     // Images
@@ -185,137 +200,125 @@ export const components: DocumentRendererProps["renderers"] = {
         </table>
       </div>
     ),
-  },
-};
+    // Custom component renderers for Keystatic component blocks
+    // These are used when rendering custom blocks defined in keystatic config
+    datetime: (props: { format?: string }) => {
+      const dt = new Date();
+      switch (props.format) {
+        case "iso":
+          return <span>{format(dt, "yyyy-MM-dd")}</span>;
+        case "utc":
+          return <span>{format(dt, "eee, dd MMM yyyy HH:mm:ss OOOO")}</span>;
+        case "local":
+          return <span>{format(dt, "P")}</span>;
+        default:
+          return <span>{format(dt, "P")}</span>;
+      }
+    },
 
-// Custom component renderers for Keystatic component blocks
-// These are used when rendering custom blocks defined in keystatic config
-export const componentRenderers = {
-  blockquote: (props: { children: React.ReactNode; authorName?: string }) => (
-    <div>
-      <blockquote className="border-l-4 border-primary pl-4 my-4 italic">
-        {props.children}
-        {props.authorName && (
-          <footer className="mt-2 font-bold">— {props.authorName}</footer>
-        )}
-      </blockquote>
-    </div>
-  ),
-
-  datetime: (props: { format?: string }) => {
-    const dt = new Date();
-    switch (props.format) {
-      case "iso":
-        return <span>{format(dt, "yyyy-MM-dd")}</span>;
-      case "utc":
-        return <span>{format(dt, "eee, dd MMM yyyy HH:mm:ss OOOO")}</span>;
-      case "local":
-        return <span>{format(dt, "P")}</span>;
-      default:
-        return <span>{format(dt, "P")}</span>;
-    }
-  },
-
-  newslettersignup: (props: {
-    children: React.ReactNode;
-    placeholder?: string;
-    buttonText?: string;
-  }) => (
-    <div className="bg-card">
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div>{props.children}</div>
-        <div className="mt-8">
-          <form className="sm:flex">
-            <label htmlFor="email-address" className="sr-only">
-              Email address
-            </label>
-            <input
-              id="email-address"
-              name="email-address"
-              type="email"
-              autoComplete="email"
-              required
-              className="w-full px-5 py-3 border border-gray-300 shadow-xs placeholder-gray-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 sm:max-w-xs rounded-md"
-              placeholder={props.placeholder || "Enter your email"}
-            />
-            <div className="mt-3 rounded-md shadow-sm sm:mt-0 sm:ml-3 sm:shrink-0">
-              <button
-                type="submit"
-                className="w-full flex items-center justify-center py-3 px-5 border border-transparent text-base font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-              >
-                {props.buttonText || "Notify Me"}
-              </button>
-            </div>
-          </form>
+    newslettersignup: (props: {
+      children: React.ReactNode;
+      placeholder?: string;
+      buttonText?: string;
+    }) => (
+      <div className="bg-card">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div>{props.children}</div>
+          <div className="mt-8">
+            <form className="sm:flex">
+              <label htmlFor="email-address" className="sr-only">
+                Email address
+              </label>
+              <input
+                id="email-address"
+                name="email-address"
+                type="email"
+                autoComplete="email"
+                required
+                className="w-full px-5 py-3 border border-gray-300 shadow-xs placeholder-gray-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 sm:max-w-xs rounded-md"
+                placeholder={props.placeholder || "Enter your email"}
+              />
+              <div className="mt-3 rounded-md shadow-sm sm:mt-0 sm:ml-3 sm:shrink-0">
+                <button
+                  type="submit"
+                  className="w-full flex items-center justify-center py-3 px-5 border border-transparent text-base font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                >
+                  {props.buttonText || "Notify Me"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
-  ),
+    ),
 
-  video: (props: VideoBlockData) => <Video data={props} />,
+    video: (props: VideoBlockData) => <Video data={props} />,
 
-  tweet: (props: { id: string }) => (
-    <div data-theme="dark">
-      <Tweet id={props.id} />
-    </div>
-  ),
+    tweet: (props: { id: string }) => (
+      <div data-theme="dark">
+        <Tweet id={props.id} />
+      </div>
+    ),
 
-  iframe: (props: {
-    src: string;
-    width?: string;
-    height?: string;
-    allow?: string;
-  }) => (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        height: props.height || 0,
-        paddingBottom: props.height ? 0 : "61.5746%",
-      }}
-    >
-      <iframe
-        src={props.src}
+    iframe: (props: {
+      src: string;
+      width?: string;
+      height?: string;
+      allow?: string;
+    }) => (
+      <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
+          position: "relative",
           width: "100%",
-          height: "100%",
+          height: props.height || 0,
+          paddingBottom: props.height ? 0 : "61.5746%",
         }}
-        allow={props.allow || "encrypted-media"}
-        allowFullScreen
-      />
-    </div>
-  ),
+      >
+        <iframe
+          src={props.src}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+          }}
+          allow={props.allow || "encrypted-media"}
+          allowFullScreen
+        />
+      </div>
+    ),
 
-  gallery: (props: { background?: string; images?: GalleryImage[] }) => {
-    // Cast to any to avoid type conflicts between Keystatic schema and Gallery component
-    return <Gallery {...(props as any)} />;
+    gallery: (props: { background?: string; images?: GalleryImage[] }) => {
+      // Cast to any to avoid type conflicts between Keystatic schema and Gallery component
+      return <Gallery {...(props as any)} />;
+    },
+
+    stats: (props: StatsBlockData) => {
+      const statsData = {
+        title: props.title || "",
+        description: props.description || "",
+        stats: props.stats?.map((stat) => ({
+          stat: stat?.stat,
+          type: stat?.type,
+        })),
+        background: props.background || "bg-default",
+      };
+      return <Stats data={statsData} />;
+    },
+
+    footnotes: () => (
+      <h2 id="footnotes" className="scroll-mt-20">
+        Footnotes
+      </h2>
+    ),
+
+    sup: (props: { children: React.ReactNode }) => (
+      <sup>
+        <a href="#footnotes">{props.children}</a>
+      </sup>
+    ),
   },
-
-  stats: (props: StatsBlockData) => {
-    const statsData = {
-      title: props.title || "",
-      description: props.description || "",
-      stats: props.stats?.map((stat) => ({
-        stat: stat?.stat,
-        type: stat?.type,
-      })),
-      background: props.background || "bg-default",
-    };
-    return <Stats data={statsData} />;
-  },
-
-  footnotes: () => (
-    <h2 id="footnotes" className="scroll-mt-20">
-      Footnotes
-    </h2>
-  ),
-
-  sup: (props: { children: React.ReactNode }) => (
-    <sup>
-      <a href="#footnotes">{props.children}</a>
-    </sup>
-  ),
+} as DocumentRendererProps["renderers"] & {
+  block?: Record<string, (props: any) => React.ReactNode>;
 };

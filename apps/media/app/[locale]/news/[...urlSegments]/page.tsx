@@ -25,7 +25,75 @@ function transformMarkdocNodes(nodes: any[]): any[] {
   return nodes.map((node) => {
     if (!node || typeof node !== "object") return node;
 
-    // Flatten attributes onto the node
+    // Handle custom component blocks (like tweet, video, etc.)
+    // Keystatic markdoc component blocks can have different structures:
+    // 1. type: "component" with name property (markdoc AST)
+    // 2. component property with the component name (Keystatic document format)
+    // 3. type already set to component name (already transformed)
+    if (node.type === "component" && node.name) {
+      // Transform component blocks from markdoc AST format
+      const transformed: any = {
+        type: node.name, // Use the component name as the type (e.g., "tweet", "video")
+        ...node.attributes, // Flatten attributes (e.g., { id: "..." })
+      };
+
+      // Recursively transform children if they exist
+      if (node.children && Array.isArray(node.children)) {
+        transformed.children = transformMarkdocNodes(node.children);
+      }
+
+      return transformed;
+    }
+
+    // Handle Keystatic document format where component blocks have a "component" property
+    if (node.component && typeof node.component === "string") {
+      const transformed: any = {
+        type: node.component, // Use component name as type
+        ...node, // Include all other properties (including id, url, etc.)
+      };
+      delete transformed.component; // Remove the component property
+
+      // Recursively transform children if they exist
+      if (node.children && Array.isArray(node.children)) {
+        transformed.children = transformMarkdocNodes(node.children);
+      }
+
+      return transformed;
+    }
+
+    // If node already has a type that matches a custom component, ensure attributes are flattened
+    // This handles cases where the node is already partially transformed
+    if (
+      node.type &&
+      [
+        "tweet",
+        "video",
+        "iframe",
+        "gallery",
+        "stats",
+        "blockquote",
+        "datetime",
+        "newslettersignup",
+        "footnotes",
+        "sup",
+      ].includes(node.type)
+    ) {
+      // Ensure attributes are flattened for custom components
+      const transformed: any = {
+        ...node,
+        ...(node.attributes || {}), // Flatten any remaining attributes
+      };
+      delete transformed.attributes; // Remove attributes object if it exists
+
+      // Recursively transform children if they exist
+      if (node.children && Array.isArray(node.children)) {
+        transformed.children = transformMarkdocNodes(node.children);
+      }
+
+      return transformed;
+    }
+
+    // Flatten attributes onto the node for standard nodes
     const transformed: any = {
       ...node,
       ...node.attributes,
@@ -138,7 +206,8 @@ export default async function PostPage({
           // or it's in result.node.children for AST format
           let bodyDoc: any[] = [];
           if (Array.isArray(bodyResult)) {
-            bodyDoc = bodyResult;
+            // Already an array - transform to ensure component blocks are properly formatted
+            bodyDoc = transformMarkdocNodes(bodyResult);
           } else if (bodyResult && typeof bodyResult === "object") {
             // Check for Keystatic's document format (array at top level)
             // or Markdoc AST format (node.children)
@@ -147,7 +216,26 @@ export default async function PostPage({
               // Markdoc AST - transform nodes to have attributes at top level
               bodyDoc = transformMarkdocNodes(result.node.children);
             } else if (Array.isArray(result)) {
-              bodyDoc = result;
+              bodyDoc = transformMarkdocNodes(result);
+            }
+          }
+
+          // Debug: Log the structure to understand how component blocks are formatted
+          if (process.env.NODE_ENV === "development") {
+            const componentNodes = bodyDoc.filter(
+              (node: any) =>
+                node.component ||
+                node.type === "component" ||
+                (node.type &&
+                  ["tweet", "video", "iframe", "gallery", "stats"].includes(
+                    node.type
+                  ))
+            );
+            if (componentNodes.length > 0) {
+              console.log(
+                "Component nodes found:",
+                JSON.stringify(componentNodes.slice(0, 2), null, 2)
+              );
             }
           }
 
