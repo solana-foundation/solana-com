@@ -254,9 +254,10 @@ export async function generateMetadata({
   // Derive SEO from post title, description, and hero image
   const title = String(post.title);
 
-  // Extract plain text from markdoc description for SEO
-  const descriptionResult = await post.description();
-  const description = markdocDocumentToPlainText(descriptionResult);
+  // Description is a plain text field, not markdoc, so access it directly
+  const description = post.description
+    ? String(post.description).trim()
+    : undefined;
 
   // Use hero image for OG and Twitter images
   const ogImage = post.heroImage || config.siteMetadata.socialShare;
