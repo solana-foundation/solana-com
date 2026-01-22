@@ -210,11 +210,6 @@ export default config({
         title: fields.slug({
           name: { label: "Title", validation: { isRequired: true } },
         }),
-        slug: fields.text({
-          label: "Slug",
-          validation: { isRequired: true },
-          description: "URL-friendly identifier for this podcast",
-        }),
         description: fields.markdoc({
           label: "Description",
           options: {
