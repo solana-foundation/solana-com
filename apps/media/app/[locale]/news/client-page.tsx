@@ -73,12 +73,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [
-    pageInfo.hasNextPage,
-    pageInfo.endCursor,
-    isLoadingMore,
-    currentCursor,
-  ]);
+  }, [pageInfo.hasNextPage, pageInfo.endCursor, isLoadingMore, currentCursor]);
 
   // Extract regular posts from postsData
   useEffect(() => {

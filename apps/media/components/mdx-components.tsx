@@ -99,9 +99,15 @@ export const components: DocumentRendererProps["renderers"] = {
     // Lists
     list: ({ type, children }) => {
       if (type === "ordered") {
-        return <ol className="list-decimal list-inside mb-4 space-y-1">{children}</ol>;
+        return (
+          <ol className="list-decimal list-inside mb-4 space-y-1">
+            {children}
+          </ol>
+        );
       }
-      return <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>;
+      return (
+        <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>
+      );
     },
     // Blockquotes
     blockquote: ({ children }) => (
@@ -135,7 +141,13 @@ export const components: DocumentRendererProps["renderers"] = {
       );
     },
     // Tables - Keystatic table renderer receives { head, body }
-    table: ({ head, body }: { head?: { children: ReactNode; colSpan?: number; rowSpan?: number }[]; body: { children: ReactNode; colSpan?: number; rowSpan?: number }[][] }) => (
+    table: ({
+      head,
+      body,
+    }: {
+      head?: { children: ReactNode; colSpan?: number; rowSpan?: number }[];
+      body: { children: ReactNode; colSpan?: number; rowSpan?: number }[][];
+    }) => (
       <div className="overflow-x-auto my-4">
         <table className="w-full border-collapse border border-border">
           {head && (

@@ -68,7 +68,10 @@ export default async function PostPage({
                   {String(post.title)}
                 </h1>
 
-                <SocialShare title={String(post.title)} className="gap-3 mb-6" />
+                <SocialShare
+                  title={String(post.title)}
+                  className="gap-3 mb-6"
+                />
 
                 <p className="text-base text-gray-400 mb-8 lg:mb-0">
                   <span>{formattedDate}</span>
@@ -141,10 +144,7 @@ export default async function PostPage({
           return (
             <div className="max-w-6xl mx-auto mt-12 px-4 md:px-6 lg:px-8">
               <div className="prose dark:prose-dark w-full max-w-none">
-                <DocumentRenderer
-                  document={bodyDoc}
-                  renderers={components}
-                />
+                <DocumentRenderer document={bodyDoc} renderers={components} />
               </div>
             </div>
           );

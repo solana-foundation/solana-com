@@ -37,4 +37,3 @@ export const Video = ({ data }: { data: VideoBlockData }) => {
     </Section>
   );
 };
-

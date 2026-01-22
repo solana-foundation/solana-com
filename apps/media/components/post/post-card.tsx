@@ -39,7 +39,14 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
           )}
           <div className="flex flex-col gap-4 grow">
             <div className="text-muted-foreground grow">
-              <DocumentRenderer document={(post.description as any)?.node?.children || post.description || []} renderers={components} />
+              <DocumentRenderer
+                document={
+                  (post.description as any)?.node?.children ||
+                  post.description ||
+                  []
+                }
+                renderers={components}
+              />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted-foreground">
@@ -94,7 +101,12 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
         {post.title}
       </h3>
       <div className="text-muted-foreground grow">
-        <DocumentRenderer document={(post.description as any)?.node?.children || post.description || []} renderers={components} />
+        <DocumentRenderer
+          document={
+            (post.description as any)?.node?.children || post.description || []
+          }
+          renderers={components}
+        />
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
         Read article

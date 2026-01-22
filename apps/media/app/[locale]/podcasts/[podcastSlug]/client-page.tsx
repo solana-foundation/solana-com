@@ -137,7 +137,11 @@ export default function PodcastShowClientPage({
                 ) : (
                   <div className="text-lg text-muted-foreground prose prose-sm dark:prose-invert">
                     <DocumentRenderer
-                      document={(podcast.description as any)?.node?.children || podcast.description || []}
+                      document={
+                        (podcast.description as any)?.node?.children ||
+                        podcast.description ||
+                        []
+                      }
                       renderers={components}
                     />
                   </div>

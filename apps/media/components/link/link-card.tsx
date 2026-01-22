@@ -94,7 +94,14 @@ export const LinkCard = ({ link }: LinkCardProps) => {
       </h3>
       {link.description && (
         <div className="text-muted-foreground grow line-clamp-3">
-          <DocumentRenderer document={(link.description as any)?.node?.children || link.description || []} renderers={components} />
+          <DocumentRenderer
+            document={
+              (link.description as any)?.node?.children ||
+              link.description ||
+              []
+            }
+            renderers={components}
+          />
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">

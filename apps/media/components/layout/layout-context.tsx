@@ -46,10 +46,12 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({
   globalSettings: initialGlobalSettings,
   pageData: initialPageData,
 }) => {
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | undefined>(
-    initialGlobalSettings
+  const [globalSettings, setGlobalSettings] = useState<
+    GlobalSettings | undefined
+  >(initialGlobalSettings);
+  const [pageData, setPageData] = useState<Record<string, unknown>>(
+    initialPageData || {}
   );
-  const [pageData, setPageData] = useState<Record<string, unknown>>(initialPageData || {});
 
   const theme = globalSettings?.theme || { color: "blue", darkMode: "system" };
 

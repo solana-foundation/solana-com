@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchPodcastBySlug, fetchEpisodesForPodcast } from "@/lib/podcast-data";
+import {
+  fetchPodcastBySlug,
+  fetchEpisodesForPodcast,
+} from "@/lib/podcast-data";
 
 export async function GET(
   request: NextRequest,

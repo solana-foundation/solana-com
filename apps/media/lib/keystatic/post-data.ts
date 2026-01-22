@@ -80,7 +80,8 @@ async function transformPost(
     categories: categoryNames,
     url: `/news/${slug}`,
     description: post.description as any, // Markdoc content type differs from TinaMarkdownContent
-    heroImage: post.heroImage || "/media-assets/uploads/posts/default-blog.webp",
+    heroImage:
+      post.heroImage || "/media-assets/uploads/posts/default-blog.webp",
     author: {
       name: authorName,
       avatar: authorAvatar,

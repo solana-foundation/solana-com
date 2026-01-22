@@ -42,4 +42,3 @@ export const Stats = ({ data }: { data: StatsBlockData }) => {
     </Section>
   );
 };
-

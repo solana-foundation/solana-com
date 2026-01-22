@@ -124,4 +124,3 @@ export const Gallery: FC<GalleryProps> = ({ background, images }) => {
     </Section>
   );
 };
-

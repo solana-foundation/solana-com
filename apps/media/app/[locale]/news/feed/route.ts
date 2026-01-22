@@ -6,7 +6,9 @@ import { MarkdocDocument } from "@/lib/post-types";
 export const revalidate = 300; // Revalidate every 5 minutes
 
 // Helper function to convert Markdoc content to plain text
-function markdocToPlainText(content: MarkdocDocument | null | undefined): string {
+function markdocToPlainText(
+  content: MarkdocDocument | null | undefined
+): string {
   if (!content) return "";
 
   if (typeof content === "string") {
@@ -105,10 +107,7 @@ export async function GET() {
       image: `${baseUrl}/favicon.png`,
       favicon: `${baseUrl}/favicon.png`,
       copyright: `© ${new Date().getFullYear()} Solana Foundation. All rights reserved.`,
-      updated:
-        posts.length > 0 && posts[0]?.date
-          ? posts[0].date
-          : new Date(),
+      updated: posts.length > 0 && posts[0]?.date ? posts[0].date : new Date(),
     });
 
     // Add posts to feed
