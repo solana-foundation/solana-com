@@ -406,8 +406,8 @@ export default config({
           {
             src: fields.image({
               label: "Source",
-              directory: "public/uploads/builder",
-              publicPath: "/uploads/builder",
+              directory: "public/uploads/switchbacks",
+              publicPath: "/uploads/switchbacks",
             }),
             alt: fields.text({ label: "Alt" }),
           },

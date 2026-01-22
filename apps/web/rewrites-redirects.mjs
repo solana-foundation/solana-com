@@ -83,8 +83,8 @@ export default {
         locale: false,
       },
       {
-        source: "/uploads/builder/:path+",
-        destination: `${MEDIA_APP_URL}/media-assets/uploads/builder/:path+`,
+        source: "/uploads/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/uploads/:path+`,
         locale: false,
       },
       // Templates app assets (required for static assets with assetPrefix: "/templates-assets")
