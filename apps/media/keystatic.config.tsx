@@ -306,7 +306,8 @@ export default config({
       label: "Authors",
       slugField: "name",
       path: "content/authors/*",
-      format: { data: "yaml" },
+      format: { contentField: "bio" },
+      entryLayout: "content",
       schema: {
         name: fields.slug({
           name: { label: "Name", validation: { isRequired: true } },
@@ -315,6 +316,14 @@ export default config({
           label: "Avatar",
           directory: "public/uploads/authors",
           publicPath: "/uploads/authors",
+        }),
+        bio: fields.markdoc({
+          label: "Bio",
+          options: {
+            bold: true,
+            italic: true,
+            link: true,
+          },
         }),
       },
     }),
@@ -349,7 +358,8 @@ export default config({
       label: "CTAs",
       slugField: "title",
       path: "content/ctas/*",
-      format: { data: "yaml" },
+      format: { contentField: "body" },
+      entryLayout: "content",
       schema: {
         title: fields.slug({
           name: { label: "Title", validation: { isRequired: true } },
@@ -371,6 +381,14 @@ export default config({
           { label: "Button" }
         ),
         className: fields.text({ label: "Class Name" }),
+        body: fields.markdoc({
+          label: "Body",
+          options: {
+            bold: true,
+            italic: true,
+            link: true,
+          },
+        }),
       },
     }),
 
