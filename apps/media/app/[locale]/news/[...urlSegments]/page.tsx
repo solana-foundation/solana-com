@@ -104,46 +104,10 @@ export default async function PostPage({
         </div>
 
         {await (async () => {
-          // Get the body content - Keystatic returns { node: ... } for markdoc fields
+          // Get the body content - Keystatic returns { node: [...] }
           const bodyResult = await post.body();
-
-          // Debug: log the structure to understand what we're getting
-          if (process.env.NODE_ENV === "development") {
-            console.log("bodyResult:", bodyResult);
-            console.log("bodyResult type:", typeof bodyResult);
-            console.log("bodyResult.node:", (bodyResult as any)?.node);
-            console.log(
-              "bodyResult.node?.children:",
-              (bodyResult as any)?.node?.children
-            );
-          }
-
-          // DocumentRenderer expects an array - try node.children first, then node, then bodyResult
-          // This matches the pattern: (body as any)?.node?.children || body
-          const bodyDoc =
-            (bodyResult as any)?.node?.children ||
-            (bodyResult as any)?.node ||
-            bodyResult ||
-            [];
-
-          // Ensure bodyDoc is an array (DocumentRenderer requirement)
-          if (!Array.isArray(bodyDoc)) {
-            console.warn("bodyDoc is not an array:", bodyDoc);
-          }
-
-          if (process.env.NODE_ENV === "development") {
-            console.log("bodyDoc:", bodyDoc);
-            console.log(
-              "bodyDoc length:",
-              Array.isArray(bodyDoc) ? bodyDoc.length : "not an array"
-            );
-          }
-
-          // Early return if no content
-          if (!bodyDoc || (Array.isArray(bodyDoc) && bodyDoc.length === 0)) {
-            console.warn("No body content found for post");
-            return null;
-          }
+          // Extract the document array from the node property
+          const bodyDoc = (bodyResult as any)?.node?.children || [];
 
           if (cta) {
             return (
