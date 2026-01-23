@@ -2,6 +2,9 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import sponsorsData from "@/data/sponsors.json";
+import { getSponsorsByTier } from "@/lib/sponsors";
+import type { Sponsor } from "@/types/sponsors";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -16,29 +19,8 @@ const stagger = {
   },
 };
 
-interface Sponsor {
-  name: string;
-  logo: string;
-  url: string;
-  width?: number;
-  height?: number;
-}
-
-interface SponsorTier {
-  name: string;
-  sponsors: Sponsor[];
-  color: string;
-}
-
 function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
   return (
-    // <motion.a
-    //   variants={fadeInUp}
-    //   href={sponsor.url}
-    //   target="_blank"
-    //   rel="noopener noreferrer"
-    //   className="relative z-10 flex items-center justify-center"
-    // >
     <motion.div
       variants={fadeInUp}
       className="relative z-10 flex items-center justify-center"
@@ -53,117 +35,15 @@ function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
         }}
       />
     </motion.div>
-    // </motion.a>
   );
 }
 
 export function Sponsors() {
-  const sponsorTiers: SponsorTier[] = [
-    {
-      name: "HEADLINE SPONSORS",
-      color: "#19FB9B", // light green
-      sponsors: [
-        {
-          name: "Sunrise",
-          logo: "/images/sponsors/sunrise.svg",
-          url: "#",
-          width: 400,
-          height: 168,
-        },
-      ],
-    },
-    {
-      name: "SIGNATURE SPONSORS",
-      color: "#9945FF", // purple
-      sponsors: [
-        // First row
-        {
-          name: "DoubleZero",
-          logo: "/images/sponsors/doublezero.svg",
-          url: "#",
-          width: 253,
-          height: 40,
-        },
-        {
-          name: "Playsolana",
-          logo: "/images/sponsors/playsolana.svg",
-          url: "#",
-          width: 320,
-          height: 134,
-        },
-        {
-          name: "Bridge",
-          logo: "/images/sponsors/bridge.svg",
-          url: "#",
-          width: 186,
-          height: 86,
-        },
-        {
-          name: "Libeara",
-          logo: "/images/sponsors/libeara.svg",
-          url: "#",
-          width: 204,
-          height: 46,
-        },
-        // Second row
-        {
-          name: "Ant Group",
-          logo: "/images/sponsors/ant-group.svg",
-          url: "#",
-          width: 234,
-          height: 74,
-        },
-        {
-          name: "Dabba",
-          logo: "/images/sponsors/dabba.svg",
-          url: "#",
-          width: 240,
-          height: 38,
-        },
-        {
-          name: "Solflare",
-          logo: "/images/sponsors/solflare.svg",
-          url: "#",
-          width: 320,
-          height: 134,
-        },
-      ],
-    },
-    {
-      name: "PREMIUM SPONSORS",
-      color: "#2A88DE", // light blue
-      sponsors: [
-        {
-          name: "DoubleZero",
-          logo: "/images/sponsors/doublezero.svg",
-          url: "#",
-          width: 253,
-          height: 40,
-        },
-        {
-          name: "Playsolana",
-          logo: "/images/sponsors/playsolana.svg",
-          url: "#",
-          width: 320,
-          height: 134,
-        },
-        {
-          name: "Bridge",
-          logo: "/images/sponsors/bridge.svg",
-          url: "#",
-          width: 186,
-          height: 86,
-        },
-        {
-          name: "Libeara",
-          logo: "/images/sponsors/libeara.svg",
-          url: "#",
-          width: 204,
-          height: 46,
-        },
-      ],
-    },
-  ];
+  const sponsorTiers = getSponsorsByTier(sponsorsData.sponsors as Sponsor[]);
+
+  if (sponsorTiers.length === 0) {
+    return null;
+  }
 
   return (
     <section id="sponsors" className="relative bg-black py-12 lg:py-16">
@@ -245,22 +125,16 @@ export function Sponsors() {
                 </motion.p>
                 <div
                   className={`flex flex-wrap items-center justify-center ${
-                    tier.name === "TITLE SPONSORS"
-                      ? "gap-12"
-                      : tier.name === "GOLD SPONSORS"
-                        ? "gap-8 lg:gap-[40px]"
-                        : "gap-8 lg:gap-[40px]"
+                    tier.level === "headline" ? "gap-12" : "gap-8 lg:gap-[40px]"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
                     <div
                       key={sponsor.name}
                       className={`flex items-center justify-center ${
-                        tier.name === "TITLE SPONSORS"
+                        tier.level === "headline"
                           ? "h-[168px] w-[400px]"
-                          : tier.name === "GOLD SPONSORS"
-                            ? "h-[134px] w-[320px]"
-                            : "h-[134px] w-[320px]"
+                          : "h-[134px] w-[320px]"
                       }`}
                     >
                       <SponsorLogo sponsor={sponsor} />
