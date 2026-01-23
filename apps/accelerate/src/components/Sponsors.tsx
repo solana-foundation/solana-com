@@ -202,7 +202,7 @@ export function Sponsors() {
               </h2>
             </div>
             <a
-              href="mailto:sponsors@solana.com"
+              href="mailto:events@solana.org"
               className="inline-flex items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
               style={{
                 fontFamily:
