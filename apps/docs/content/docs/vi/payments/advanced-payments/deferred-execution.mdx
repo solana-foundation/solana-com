@@ -29,222 +29,313 @@ lệ cho đến khi bạn sẵn sàng gửi.
 
 ## Cách hoạt động
 
-Thay vì blockhash gần đây (hợp lệ ~150 khối), bạn sử dụng **tài khoản nonce**,
-một tài khoản đặc biệt lưu trữ một giá trị _duy nhất_. Mỗi giao dịch sử dụng
-nonce này phải "tiến" nó như là chỉ thị đầu tiên, ngăn chặn các cuộc tấn công
-phát lại.
+Thay vì sử dụng blockhash gần đây (có hiệu lực ~150 block), bạn sử dụng **tài
+khoản nonce**, một tài khoản đặc biệt lưu trữ giá trị _duy nhất_ có thể được sử
+dụng thay cho blockhash. Mỗi giao dịch sử dụng nonce này phải "nâng cấp" nó như
+là lệnh đầu tiên. Mỗi giá trị nonce chỉ có thể được sử dụng cho một giao dịch.
 
+```mermaid title="Durable Nonce"
+flowchart LR
+    D1[Sign] --> D2[Store] --> D3[Submit]
+    D3 -. "✓ No time limit" .-> D4[Success]
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  STANDARD BLOCKHASH                                                         │
-│                                                                             │
-│    ┌──────┐      ┌──────────┐                                               │
-│    │ Sign │ ───▶ │  Submit  │     ⏱️ Must happen within ~90 seconds         │
-│    └──────┘      └──────────┘                                               │
-│       │                                                                     │
-│       └─────────  Transaction expires if not submitted in time              │
-└─────────────────────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  DURABLE NONCE                                                              │
-│                                                                             │
-│    ┌──────┐      ┌───────┐       ┌─────────┐      ┌──────────┐              │
-│    │ Sign │ ───▶ │ Store │ ───▶  │ Approve │ ───▶ │  Submit  │              │
-│    └──────┘      └───────┘       └─────────┘      └──────────┘              │
-│                                                                             │
-│    Transaction remains valid until you submit it                            │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid title="Standard Blockhash"
+flowchart LR
+    S1[Sign] --> S2[Submit]
+    S2 -. "⏱️ ~90 sec limit" .-> S3[Expires]
 ```
 
 <Callout type="info">
-  Tài khoản nonce tốn khoảng ~0.0015 SOL để miễn phí rent. Một tài khoản nonce =
-  một giao dịch đang chờ xử lý tại một thời điểm. Đối với quy trình song song,
-  hãy tạo nhiều tài khoản nonce.
+  Tài khoản nonce tốn ~0.0015 SOL để miễn phí lưu trữ. Một tài khoản nonce = một
+  giao dịch đang chờ xử lý tại một thời điểm. Đối với quy trình song song, hãy
+  tạo nhiều tài khoản nonce.
 </Callout>
 
-## Thiết lập: Tạo tài khoản nonce
+### Tạo tài khoản nonce
 
 Việc tạo tài khoản nonce yêu cầu hai lệnh trong một giao dịch duy nhất:
 
-1. **Tạo tài khoản** bằng cách sử dụng `getCreateAccountInstruction` từ System
-   Program
-2. **Khởi tạo nó như một nonce** bằng cách sử dụng
-   `getInitializeNonceAccountInstruction`
+1. **Tạo tài khoản** sử dụng `getCreateAccountInstruction` từ System Program
+2. **Khởi tạo nó như một nonce** sử dụng `getInitializeNonceAccountInstruction`
 
-```ts
-import { generateKeyPairSigner } from "@solana/kit";
-import {
-  getNonceSize,
-  getCreateAccountInstruction,
-  getInitializeNonceAccountInstruction,
-  SYSTEM_PROGRAM_ADDRESS
-} from "@solana-program/system";
+<ScrollyCoding>
 
-// Generate a keypair for the nonce account address
+## !!steps Tạo keypair
+
+Tạo một keypair mới để sử dụng làm địa chỉ tài khoản nonce và tính toán không
+gian cần thiết cũng như phí lưu trữ.
+
+<CodePlaceholder title="Create Nonce Account" />
+
+```ts !! title="Create Nonce Account"
 const nonceKeypair = await generateKeyPairSigner();
-
-// Get required account size for rent calculation
-const space = BigInt(getNonceSize());
-
-// 1. Create the account (owned by System Program)
-getCreateAccountInstruction({
-  payer,
-  newAccount: nonceKeypair,
-  lamports: rent,
-  space,
-  programAddress: SYSTEM_PROGRAM_ADDRESS
-});
-
-// 2. Initialize as nonce account
-getInitializeNonceAccountInstruction({
-  nonceAccount: nonceKeypair.address,
-  nonceAuthority: authorityAddress // Controls nonce advancement
-});
-
-// Assemble and send transaction to the network
-```
-
-## Xây dựng giao dịch hoãn lại
-
-Thay vì sử dụng blockhash gần đây, hãy dùng giá trị nonce làm thời gian sống của
-giao dịch. Để thực hiện điều này, trước tiên chúng ta phải lấy giá trị nonce từ
-tài khoản nonce và sau đó sử dụng nó để thiết lập thời gian sống của giao dịch.
-
-### Lấy giá trị nonce
-
-Đầu tiên, lấy giá trị nonce từ tài khoản nonce:
-
-```ts
-import { fetchNonce } from "@solana-program/system";
-
-const nonceAccount = await fetchNonce(rpc, nonceAddress);
-const nonceValue = nonceAccount.data.blockhash; // Use this as your "blockhash"
-```
-
-### Đặt thời gian tồn tại của giao dịch bằng nonce
-
-Thay vì sử dụng blockhash gần đây có thời hạn, hãy dùng
-`setTransactionMessageLifetimeUsingDurableNonce`. Hàm này thực hiện hai việc:
-
-1. Đặt giá trị nonce làm "blockhash" của giao dịch
-2. Tự động thêm lệnh `advanceNonceAccount` vào đầu (bắt buộc là lệnh đầu tiên
-   trong tất cả các giao dịch durable nonce)
-
-```ts
-import {
-  setTransactionMessageLifetimeUsingDurableNonce,
-  type Nonce
-} from "@solana/kit";
-
-setTransactionMessageLifetimeUsingDurableNonce(
-  {
-    nonce: nonceAccount.data.blockhash as Nonce,
-    nonceAccountAddress: nonceAddress,
-    nonceAuthorityAddress: authorityAddress
-  },
-  transactionMessage
-);
-```
-
-## Ký và lưu trữ
-
-Sau khi xây dựng, ký giao dịch và serialize để lưu trữ:
-
-```ts
-import {
-  signTransactionMessageWithSigners,
-  getBase64EncodedWireTransaction
-} from "@solana/kit";
-
-// Sign the transaction
-const signedTx = await signTransactionMessageWithSigners(transactionMessage);
-
-// Serialize for storage (database, file, etc.)
-const serialized = getBase64EncodedWireTransaction(signedTx);
-```
-
-Lưu chuỗi đã serialize vào cơ sở dữ liệu của bạn—nó vẫn hợp lệ cho đến khi nonce
-được nâng cấp.
-
-## Quy trình phê duyệt đa bên
-
-Deserialize giao dịch để thêm chữ ký bổ sung, sau đó serialize lại để lưu trữ
-hoặc gửi:
-
-```ts
-import {
-  getBase64Decoder,
-  getTransactionDecoder,
-  getBase64EncodedWireTransaction,
-  partiallySignTransaction
-} from "@solana/kit";
-
-// Deserialize the stored transaction
-const txBytes = getBase64Decoder().decode(serializedString);
-const partiallySignedTx = getTransactionDecoder().decode(txBytes);
-
-// Each approver adds their signature
-const fullySignedTx = await partiallySignTransaction(
-  [newSigner],
-  partiallySignedTx
-);
-
-// Serialize again for storage or submission
-const serialized = getBase64EncodedWireTransaction(fullySignedTx);
-```
-
-Giao dịch có thể được serialize, lưu trữ và chuyển giữa các bên phê duyệt. Khi
-đã thu thập đủ tất cả chữ ký cần thiết, hãy gửi lên mạng.
-
-## Thực thi khi sẵn sàng
-
-Khi hoàn tất phê duyệt, gửi giao dịch đã serialize lên mạng:
-
-```ts
-const signature = await rpc
-  .sendTransaction(serializedTransaction, { encoding: "base64" })
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
   .send();
 ```
 
-<Callout type="caution">
-  Mỗi nonce chỉ có thể được sử dụng một lần. Nếu giao dịch thất bại hoặc bạn
-  quyết định không gửi nó, bạn phải nâng cấp nonce trước khi chuẩn bị giao dịch
-  khác với cùng tài khoản nonce.
-</Callout>
+## !!steps Tạo lệnh tạo tài khoản
 
-## Nâng cấp nonce đã sử dụng hoặc bị bỏ
+Tạo tài khoản thuộc sở hữu của System Program với đủ lamport để miễn phí lưu
+trữ.
 
-Để vô hiệu hóa giao dịch đang chờ xử lý hoặc chuẩn bị nonce để tái sử dụng, hãy
-nâng cấp thủ công:
+<CodePlaceholder title="Create Nonce Account" />
 
-```ts
-import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
 
-// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
-getAdvanceNonceAccountInstruction({
-  nonceAccount: nonceAddress,
-  nonceAuthority
+// !focus(1:7)
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
 });
 ```
 
-Điều này tạo ra giá trị nonce mới, khiến bất kỳ giao dịch nào được ký bằng giá
-trị cũ trở nên vô hiệu vĩnh viễn.
+## !!steps Khởi tạo lệnh nonce
 
-## Các cân nhắc khi triển khai
+Khởi tạo tài khoản như một tài khoản nonce, thiết lập quyền quản lý có thể nâng
+cấp nó.
 
-**Quản lý tài khoản nonce:**
+<CodePlaceholder title="Create Nonce Account" />
 
-- Tạo một nhóm các tài khoản nonce để chuẩn bị giao dịch song song
-- Theo dõi các nonce nào đang "được sử dụng" (có giao dịch đã ký đang chờ xử lý)
-- Triển khai tái sử dụng nonce sau khi giao dịch được gửi hoặc bị hủy bỏ
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
 
-**Bảo mật:**
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
 
-- Quyền quản lý nonce kiểm soát việc giao dịch có thể bị vô hiệu hóa hay không.
-  Hãy cân nhắc tách quyền quản lý nonce khỏi người ký giao dịch để có thêm quyền
-  kiểm soát và phân tách nhiệm vụ
-- _Bất kỳ ai_ có byte giao dịch đã được tuần tự hóa đều có thể gửi nó lên mạng
+// !focus(1:4)
+const initNonceIx = getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: sender.address
+});
+```
 
-## Tài nguyên liên quan
+## !!steps Xây dựng giao dịch
 
-- [Giới thiệu về Durable Nonces](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)
+Xây dựng một giao dịch với cả hai lệnh.
+
+<CodePlaceholder title="Create Nonce Account" />
+
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
+
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+const initNonceIx = getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: sender.address
+});
+
+// !focus(1:7)
+const { value: blockhash } = await rpc.getLatestBlockhash().send();
+const createNonceTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+  (tx) =>
+    appendTransactionMessageInstructions(
+      [createNonceAccountIx, initNonceIx],
+      tx
+    )
+);
+```
+
+## !!steps Ký và gửi
+
+Ký và gửi giao dịch để tạo và khởi tạo tài khoản nonce.
+
+<CodePlaceholder title="Tạo tài khoản nonce" />
+
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
+
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+const initNonceIx = getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: sender.address
+});
+
+const { value: blockhash } = await rpc.getLatestBlockhash().send();
+const createNonceTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+  (tx) =>
+    appendTransactionMessageInstructions(
+      [createNonceAccountIx, initNonceIx],
+      tx
+    )
+);
+
+// !focus(1:6)
+const signedCreateNonceTx =
+  await signTransactionMessageWithSigners(createNonceTx);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedCreateNonceTx,
+  { commitment: "confirmed" }
+);
+```
+
+</ScrollyCoding>
+
+### Xây dựng giao dịch hoãn lại
+
+Thay vì blockhash gần đây, hãy sử dụng `blockhash` của tài khoản nonce làm thời
+gian sống của giao dịch.
+
+<ScrollyCoding>
+
+## !!steps Lấy nonce
+
+Lấy dữ liệu từ tài khoản nonce. Sử dụng `blockhash` từ tài khoản nonce làm thời
+gian sống của giao dịch.
+
+```sh title="Example Nonce Account Data"
+{
+  version: 1,
+  state: 1,
+  authority: 'HgjaL8artMtmntaQDVM2UBk3gppsYYERS4PkUhiaLZD1',
+  # !mark
+  blockhash: '5U7seXqfgZx1uh5DFhdH1vyBhr7XGRrKxBAnJJTbbUa',
+  lamportsPerSignature: 5000n
+}
+```
+
+<CodePlaceholder title="Xây dựng giao dịch hoãn lại" />
+
+```ts !! title="Build Deferred Transaction"
+// !focus(1:1)
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+```
+
+## !!steps Tạo chỉ thị chuyển khoản
+
+Tạo chỉ thị cho khoản thanh toán của bạn. Ví dụ này cho thấy việc chuyển token.
+
+<CodePlaceholder title="Xây dựng giao dịch hoãn lại" />
+
+```ts !! title="Build Deferred Transaction"
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+
+// !focus(1:6)
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+```
+
+## !!steps Xây dựng giao dịch với durable nonce
+
+Sử dụng `setTransactionMessageLifetimeUsingDurableNonce` để đặt nonce làm
+blockhash và tự động thêm chỉ thị advance nonce vào đầu.
+
+<CodePlaceholder title="Xây dựng giao dịch hoãn lại" />
+
+```ts !! title="Build Deferred Transaction"
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+// !focus(1:14)
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) =>
+    // !mark(1:8)
+    setTransactionMessageLifetimeUsingDurableNonce(
+      {
+        nonce: nonceData.blockhash as Nonce,
+        nonceAccountAddress: nonceKeypair.address,
+        nonceAuthorityAddress: nonceData.authority
+      },
+      tx
+    ),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+```
+
+## !!steps Ký giao dịch
+
+Ký giao dịch. Bây giờ nó sử dụng durable nonce thay vì blockhash tiêu chuẩn.
+
+<CodePlaceholder title="Xây dựng giao dịch hoãn lại" />
+
+```ts !! title="Build Deferred Transaction"
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) =>
+    setTransactionMessageLifetimeUsingDurableNonce(
+      {
+        nonce: nonceData.blockhash as Nonce,
+        nonceAccountAddress: nonceKeypair.address,
+        nonceAuthorityAddress: nonceData.authority
+      },
+      tx
+    ),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+// !focus(1:2)
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+```
+
+</ScrollyCoding>
