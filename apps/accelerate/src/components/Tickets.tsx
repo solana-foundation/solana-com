@@ -21,7 +21,6 @@ interface TicketCardProps {
   title: string;
   price: string;
   description: string;
-  showStudentDiscount?: boolean;
   lumaId: string;
   variant: "green" | "purple";
 }
@@ -30,7 +29,6 @@ function TicketCard({
   title,
   price,
   description,
-  showStudentDiscount,
   lumaId,
   variant,
 }: TicketCardProps) {
@@ -44,7 +42,7 @@ function TicketCard({
   return (
     <motion.div
       variants={fadeInUp}
-      className={`relative flex h-[339px] w-full flex-col rounded-none border bg-black p-10 lg:w-[600px] ${borderColor}`}
+      className={`relative flex w-full flex-col rounded-none border bg-black p-10 ${borderColor}`}
     >
       {/* Title and Price Row */}
       <div className="mb-5 flex items-center justify-between">
@@ -69,7 +67,7 @@ function TicketCard({
       </div>
 
       {/* Description */}
-      <p className="text-p mb-auto text-white/60">{description}</p>
+      <p className="text-p mb-8 text-white/60">{description}</p>
 
       {/* CTA Button */}
       <LumaModal lumaId={lumaId}>
@@ -89,7 +87,7 @@ function TicketCard({
               letterSpacing: "0.9px",
             }}
           >
-            Get Tickets
+            Request to Join
           </span>
           <Image
             src="/images/ticket-icon.svg"
@@ -99,25 +97,6 @@ function TicketCard({
           />
         </button>
       </LumaModal>
-
-      {/* Student Discount Link */}
-      {showStudentDiscount && (
-        <div className="mt-6 flex flex-col gap-3 text-p lg:flex-row lg:items-center lg:justify-between lg:gap-0">
-          <span className="text-white/60">Are you a Student?</span>
-          <a
-            href="https://solanafoundation.typeform.com/hk26studentapp"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-button uppercase tracking-[0.05em] text-accelerate-green hover:underline"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            }}
-          >
-            APPLY FOR DISCOUNT
-          </a>
-        </div>
-      )}
     </motion.div>
   );
 }
@@ -149,22 +128,14 @@ export function Tickets() {
           {/* Divider line */}
           <div className="mb-8 border-t border-white/10 lg:mb-10" />
 
-          {/* Ticket Cards Grid - 2 columns with Solana logo on right */}
+          {/* Single Ticket Card with Solana Logo */}
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-[80px]">
             <TicketCard
               title="General Admission"
-              price="$99"
-              description="Full conference access"
+              price="Free"
+              description="Full conference access. Your registration is subject to host approval."
               lumaId={lumaId}
               variant="green"
-            />
-            <TicketCard
-              title="Student"
-              price="$25"
-              description="Full conference access"
-              showStudentDiscount
-              lumaId={lumaId}
-              variant="purple"
             />
             {/* Solana Logo - desktop only */}
             <div className="hidden lg:flex lg:items-center lg:justify-center lg:pl-8">
