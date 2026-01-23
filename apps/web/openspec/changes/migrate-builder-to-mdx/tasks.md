@@ -13,7 +13,7 @@
 - [ ] 1.7 Skip file creation when locale content is empty or has the same id as the default (en) locale
 - [x] 1.8 Log export progress and errors
 - [x] 1.9 Run export script and verify all routes exported
-- [ ] 1.10 Commit `builder/` directory to git
+- [x] 1.10 Commit `builder/` directory to git
 
 ## 2. Download Builder Assets (Phase 1)
 
@@ -24,7 +24,7 @@
       paths
 - [x] 2.5 Handle download failures gracefully (log and continue)
 - [x] 2.6 Verify downloaded assets are readable (valid image files)
-- [ ] 2.7 Commit downloaded assets to git
+- [x] 2.7 Commit downloaded assets to git
 
 ## 3. Create MDX Infrastructure (Phase 2)
 
