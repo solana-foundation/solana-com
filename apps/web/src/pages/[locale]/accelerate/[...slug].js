@@ -4,7 +4,7 @@ import customComponentsRegistration from "@/utils/customComponentGenerator";
 import AccelerateLayout from "@/components/accelerate/AccelerateLayout";
 import { getAllCustomSlugs, getCustomPage } from "@/lib/builder/api";
 import { ACCELERATE_BUILDER_CONFIG } from "@/lib/builder/accelerate/constants";
-import HTMLHead from "@/components/builder/HTMLHead";
+import HTMLHead from "@/components/HTMLHeadLegacy";
 import SimpleHero from "@/components/accelerate/AccelerateSimpleHero";
 import { slugWithLocales } from "@workspace/i18n/routing";
 
