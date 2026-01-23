@@ -1,7 +1,6 @@
 import {
   Hero,
   EventDetails,
-  Tickets,
   Speakers,
   Sponsors,
   FAQ,
@@ -14,7 +13,6 @@ export default function HomePage() {
     <>
       <Hero />
       <EventDetails />
-      <Tickets />
       <Speakers />
       <Sponsors />
       <FAQ />

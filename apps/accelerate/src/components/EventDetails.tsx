@@ -88,7 +88,7 @@ export function EventDetails() {
                 subValue="1號 Expo Dr, Wan Chai, Hong Kong"
               />
               <EventDetailRow label="Time" value="9:00 AM GMT+8" />
-              <EventDetailRow label="Tickets:" value="Starting at $99" />
+              <EventDetailRow label="Tickets:" value="Free" />
             </div>
 
             {/* Embedded Map - Hong Kong Convention and Exhibition Centre */}

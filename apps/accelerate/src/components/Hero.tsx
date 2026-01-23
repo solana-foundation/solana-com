@@ -147,7 +147,7 @@ export function Hero() {
                 border: "1px solid transparent",
               }}
             >
-              <span>Get Tickets</span>
+              <span>Request to Join</span>
               <svg
                 width="8"
                 height="8"
@@ -219,8 +219,19 @@ export function Hero() {
             </motion.h1>
           </div>
 
-          {/* CTA Button */}
-          <motion.div variants={fadeInUp}>
+          {/* Ticket Info and CTA Button */}
+          <motion.div
+            variants={fadeInUp}
+            className="flex flex-col items-center gap-4"
+          >
+            <p
+              className="text-lg md:text-xl text-white/80"
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+              }}
+            >
+              Tickets are free
+            </p>
             <LumaModal lumaId="sol-accelerate-hk">
               <button
                 className="group inline-flex h-[66px] items-center justify-between rounded-[32px] px-7 py-6 text-black transition-all hover:opacity-90"
@@ -239,7 +250,7 @@ export function Hero() {
                     letterSpacing: "0.9px",
                   }}
                 >
-                  Get Tickets
+                  Request to Join
                 </span>
                 <Image
                   src="/images/ticket-icon.svg"
