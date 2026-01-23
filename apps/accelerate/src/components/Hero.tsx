@@ -183,7 +183,7 @@ export function Hero() {
       </header>
 
       {/* Main Content - positioned at center */}
-      <div className="relative z-10 flex flex-col items-center justify-center px-6 text-center pt-[180px] pb-[120px] md:pt-[240px] md:pb-[180px] lg:pt-[295px] lg:pb-[245px]">
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center">
         <motion.div
           initial="hidden"
           animate="visible"
