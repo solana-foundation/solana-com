@@ -132,6 +132,7 @@ export default function Home({
         // rm bannerHref and bannerLabel to hide banner
         bannerHref="https://solana.com/privacyhack"
         bannerLabel={t("index.hero.bannerLabel")}
+        bannerExpiryDate="2026-02-10"
         cta={t("index.hero.cta")}
         bgJsonFilePath="/src/img/index/hero-bg.json"
         bgImageSrc="/src/img/index/hero-bg.webp"
