@@ -1,4 +1,4 @@
-import HTMLHead from "@/components/builder/HTMLHead";
+import HTMLHead from "@/components/HTMLHeadLegacy";
 import NotFoundPage from "./404";
 import Layout from "@/components/layout";
 import ModalLauncher from "@/components/ModalLauncher/ModalLauncher";

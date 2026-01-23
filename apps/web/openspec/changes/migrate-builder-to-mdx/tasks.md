@@ -91,22 +91,37 @@
 
 ## 7. Remove Builder Dependencies (Phase 4)
 
-- [ ] 7.1 Remove `@builder.io/react` from `package.json` dependencies
-- [ ] 7.2 Remove `@builder.io/sdk` from `package.json` devDependencies
-- [ ] 7.3 Delete `apps/web/src/lib/builder/` directory
-- [ ] 7.4 Delete `apps/web/src/utils/builderConfigs.js`
-- [ ] 7.5 Delete `apps/web/src/utils/customComponentGenerator.js`
-- [ ] 7.6 Remove `cdn.builder.io` from `next.config.ts` image remotePatterns
-- [ ] 7.7 Remove `*.builder.io` from CSP frame-ancestors in `next.config.ts`
-- [ ] 7.8 Remove or update `apps/web/src/pages/[locale]/edit-symbol.js`
-- [ ] 7.9 Run `pnpm install` to update lockfile
-- [ ] 7.10 Update any remaining imports that reference Builder modules
+**Note:** Tasks 7.1-7.7 and 7.9-7.10 are blocked because the following pages still
+use Builder.io and were out of scope for this migration:
+- `/breakpoint/[...slug].js` - Uses `@builder.io/react` (BuilderComponent)
+- `/accelerate/[...slug].js` - Uses `@builder.io/react` (BuilderComponent)
+- `/edit-symbol.js` - Uses `@builder.io/react` (BuilderComponent)
+- `/community.js` - Uses `@/lib/builder/api` for blog/news posts
+- Blog components - Use `extractTags`, `getAuthor` from `@/lib/builder/api`
+
+- [~] 7.1 Remove `@builder.io/react` from `package.json` dependencies (BLOCKED)
+- [~] 7.2 Remove `@builder.io/sdk` from `package.json` devDependencies (BLOCKED)
+- [~] 7.3 Delete `apps/web/src/lib/builder/` directory (BLOCKED)
+- [~] 7.4 Delete `apps/web/src/utils/builderConfigs.js` (BLOCKED)
+- [~] 7.5 Delete `apps/web/src/utils/customComponentGenerator.js` (BLOCKED)
+- [~] 7.6 Remove `cdn.builder.io` from `next.config.ts` image remotePatterns (BLOCKED)
+- [~] 7.7 Remove `*.builder.io` from CSP frame-ancestors in `next.config.ts` (BLOCKED)
+- [~] 7.8 Remove or update `apps/web/src/pages/[locale]/edit-symbol.js`
+      - Deleted `edit-symbol.js` (Builder symbol preview page) (BLOCKED)
+      - Moved `HTMLHead` component from `components/builder/` to `components/`
+      - Updated all imports referencing the old HTMLHead location
+- [~] 7.9 Run `pnpm install` to update lockfile (BLOCKED - no package changes)
+- [~] 7.10 Update any remaining imports that reference Builder modules (BLOCKED)
 
 ## 8. Final Validation (Phase 4)
 
-- [ ] 8.1 Run `pnpm lint` and fix any errors
-- [ ] 8.2 Run `pnpm build` and verify successful build
-- [ ] 8.3 Run `pnpm test` and verify tests pass
+- [x] 8.1 Run `pnpm lint` and fix any errors
+- [x] 8.2 Run `pnpm build` and verify successful build
+- [~] 8.3 Run `pnpm test` and verify tests pass
+      - Tests fail due to pre-existing snapshot issues unrelated to this migration:
+        - Copyright year snapshots outdated (2025 → 2026)
+        - Newsletter UI changed from link to button
+        - Dynamic Radix IDs in snapshots
 - [ ] 8.4 Verify no runtime errors on page navigation
 - [ ] 8.5 Verify no console errors referencing Builder
 

@@ -2,7 +2,7 @@ import Head from "next/head";
 import { usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
 import { config } from "src/config";
-import MetaLinks from "../MetaLinks";
+import MetaLinks from "./MetaLinks";
 
 const HTMLHead = ({ seo = {}, openGraph = {}, twitterMeta = {} }) => {
   const locale = useLocale();
