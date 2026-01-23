@@ -86,7 +86,7 @@
 - [x] 6.13 Verify `/rpc` page renders correctly
 - [x] 6.14 Verify `/tos` page renders correctly
 - [x] 6.15 Verify `/privacy-policy` page renders correctly
-- [ ] 6.16 Verify locale fallback works (non-en locale without translation falls
+- [x] 6.16 Verify locale fallback works (non-en locale without translation falls
       back to en)
 
 ## 7. Remove Builder Dependencies (Phase 4)
