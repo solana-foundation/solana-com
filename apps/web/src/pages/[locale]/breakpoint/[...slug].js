@@ -4,7 +4,7 @@ import customComponentsRegistration from "@/utils/customComponentGenerator";
 import BreakpointLayout from "@/components/breakpoint/BreakpointLayout";
 import { getAllCustomSlugs, getCustomPage } from "@/lib/builder/api";
 import { BREAKPOINT_BUILDER_CONFIG } from "@/lib/builder/breakpoint/constants";
-import HTMLHead from "@/components/builder/HTMLHead";
+import HTMLHead from "@/components/HTMLHeadLegacy";
 import SimpleHero from "@/components/breakpoint/BreakpointSimpleHero";
 import { slugWithLocales } from "@workspace/i18n/routing";
 
