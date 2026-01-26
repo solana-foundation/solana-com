@@ -50,6 +50,14 @@ function removeBrackets(text: string): string {
   return text.replace(/\s*\([^)]*\)/g, "").trim();
 }
 
+function removeComp(text: string): string {
+  return text
+    .replace(/\s*\(COMP\)/gi, "")
+    .replace(/\s*COMP\s*/gi, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 async function fetchSheetData(): Promise<SheetRow[]> {
   // Use service account authentication if available, otherwise fall back to API key
   let auth;
@@ -398,24 +406,47 @@ function extractFolderId(input: string): string | undefined {
 
 function findExistingLogos(sponsorSlug: string): string[] {
   const logos: string[] = [];
+  const seenPaths = new Set<string>();
 
   // Check for per-sponsor folder
   const sponsorDir = path.join(LOGOS_DIR, sponsorSlug);
   if (fs.existsSync(sponsorDir) && fs.statSync(sponsorDir).isDirectory()) {
     const files = fs.readdirSync(sponsorDir);
     for (const file of files) {
+      // Match PNG and SVG files (case-insensitive)
       if (/\.(svg|png|jpg|jpeg|webp)$/i.test(file)) {
-        logos.push(`/images/sponsors/${sponsorSlug}/${file}`);
+        const logoPath = `/images/sponsors/${sponsorSlug}/${file}`;
+        const lowerPath = logoPath.toLowerCase();
+        if (!seenPaths.has(lowerPath)) {
+          logos.push(logoPath);
+          seenPaths.add(lowerPath);
+        }
       }
     }
   }
 
-  // Check for flat file (legacy format)
-  const extensions = [".svg", ".png", ".jpg", ".jpeg", ".webp"];
-  for (const ext of extensions) {
-    const flatFile = path.join(LOGOS_DIR, `${sponsorSlug}${ext}`);
-    if (fs.existsSync(flatFile)) {
-      logos.push(`/images/sponsors/${sponsorSlug}${ext}`);
+  // Check for flat file (legacy format) - check all files in logos directory
+  // to handle case variations (e.g., logo.PNG, logo.png, logo.SVG, logo.svg)
+  const allFiles = fs.existsSync(LOGOS_DIR) ? fs.readdirSync(LOGOS_DIR) : [];
+  const baseNameLower = sponsorSlug.toLowerCase();
+
+  for (const file of allFiles) {
+    const fileLower = file.toLowerCase();
+    // Check if file matches sponsor slug with any image extension (case-insensitive)
+    // Match patterns like: slug.svg, slug.png, slug.PNG, slug.SVG, etc.
+    const extMatch = file.match(/\.(svg|png|jpg|jpeg|webp)$/i);
+    if (extMatch) {
+      const ext = extMatch[0]; // Preserve original case
+      const expectedNameLower = `${baseNameLower}${ext.toLowerCase()}`;
+      // Match if the file name (case-insensitive) matches expected name
+      if (fileLower === expectedNameLower) {
+        const logoPath = `/images/sponsors/${file}`;
+        const lowerPath = logoPath.toLowerCase();
+        if (!seenPaths.has(lowerPath)) {
+          logos.push(logoPath);
+          seenPaths.add(lowerPath);
+        }
+      }
     }
   }
 
@@ -455,7 +486,9 @@ async function syncSponsors() {
   const processedSlugs = new Set<string>();
 
   for (const row of publishedRows) {
-    const slug = slugify(row.name);
+    // Clean the name by removing COMP and brackets
+    const cleanedName = removeComp(removeBrackets(row.name));
+    const slug = slugify(cleanedName);
 
     // Skip if we've already processed this slug
     if (processedSlugs.has(slug)) {
@@ -474,15 +507,41 @@ async function syncSponsors() {
       console.log(`  Warning: No logos found for ${row.name}`);
     }
 
-    // Pick primary logo (prefer SVG, then first available)
+    // Pick primary logo (prefer SVG, then PNG, then WebP, then first available)
+    // Check for case variations in fallback
+    let fallbackLogo = `/images/sponsors/${slug}.svg`;
+    if (fs.existsSync(LOGOS_DIR)) {
+      const allFiles = fs.readdirSync(LOGOS_DIR);
+      const slugLower = slug.toLowerCase();
+      // Look for any SVG, PNG, or WebP file matching the slug (case-insensitive)
+      const svgFile = allFiles.find(
+        (f) => f.toLowerCase() === `${slugLower}.svg`,
+      );
+      const pngFile = allFiles.find(
+        (f) => f.toLowerCase() === `${slugLower}.png`,
+      );
+      const webpFile = allFiles.find(
+        (f) => f.toLowerCase() === `${slugLower}.webp`,
+      );
+      if (svgFile) {
+        fallbackLogo = `/images/sponsors/${svgFile}`;
+      } else if (pngFile) {
+        fallbackLogo = `/images/sponsors/${pngFile}`;
+      } else if (webpFile) {
+        fallbackLogo = `/images/sponsors/${webpFile}`;
+      }
+    }
+
     const primaryLogo =
-      availableLogos.find((l) => l.endsWith(".svg")) ||
+      availableLogos.find((l) => l.toLowerCase().endsWith(".svg")) ||
+      availableLogos.find((l) => l.toLowerCase().endsWith(".png")) ||
+      availableLogos.find((l) => l.toLowerCase().endsWith(".webp")) ||
       availableLogos[0] ||
-      `/images/sponsors/${slug}.svg`;
+      fallbackLogo;
 
     sponsors.push({
       slug,
-      name: removeBrackets(row.name),
+      name: cleanedName,
       url: row.url || "#",
       sponsorshipLevel: removeBrackets(row.sponsorshipLevel),
       logo: primaryLogo,
