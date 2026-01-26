@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useRef, useState, useEffect, useCallback } from "react";
+import speakersData from "../data/speakers.json";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -90,6 +91,58 @@ function SpeakerCard({ speaker, cardWidth }: SpeakerCardProps) {
           <div className="flex items-center justify-between gap-4">
             <p className="text-p text-white">{speaker.title}</p>
           </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
+  return (
+    <motion.div
+      variants={fadeInUp}
+      className="relative flex w-[140px] flex-shrink-0 flex-col gap-2 sm:w-[160px] sm:gap-3 lg:w-[180px]"
+    >
+      {/* Image - responsive sizes: 120px mobile, 140px tablet, 150px desktop */}
+      <div className="relative h-[120px] w-[120px] overflow-hidden rounded-2xl bg-[#a0a0a0] sm:h-[140px] sm:w-[140px] lg:h-[150px] lg:w-[150px]">
+        <Image
+          src={speaker.image}
+          alt={speaker.name}
+          width={150}
+          height={150}
+          className="object-cover grayscale"
+        />
+      </div>
+
+      {/* Info */}
+      <div className="relative flex w-[120px] flex-col gap-1.5 sm:w-[140px] sm:gap-2 lg:w-[150px]">
+        {/* Name - uppercase, multi-line */}
+        <div
+          className="text-[14px] uppercase leading-none text-accelerate-purple sm:text-[16px] lg:text-[18px]"
+          style={{
+            fontFamily:
+              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+          }}
+        >
+          <p className="mb-0">{speaker.firstName}</p>
+          <p>{speaker.lastName}</p>
+        </div>
+
+        {/* Company and Title */}
+        <div className="flex flex-col gap-0.5 sm:gap-1">
+          {/* Company */}
+          <p
+            className="text-[12px] text-white sm:text-[14px] lg:text-[16px]"
+            style={{
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
+          >
+            {speaker.company}
+          </p>
+
+          {/* Title */}
+          <p className="text-xs text-white/80 sm:text-sm">{speaker.title}</p>
         </div>
       </div>
     </motion.div>
@@ -377,6 +430,47 @@ export function Speakers() {
                     speaker={speaker}
                     cardWidth={cardWidth || undefined}
                   />
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* All Speakers Section - Vertically Scrolling Panel */}
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={stagger}
+        >
+          {/* Header */}
+          <div className="my-8 flex items-start justify-between lg:mb-12">
+            <motion.div variants={fadeInUp} className="flex flex-col">
+              <h2
+                className="text-h2 text-accelerate-gray-100"
+                style={{
+                  fontFamily:
+                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                }}
+              >
+                All Speakers
+              </h2>
+            </motion.div>
+          </div>
+
+          {/* Vertically Scrolling Panel with Horizontal Cards */}
+          <div className="relative">
+            <div
+              className="max-h-[600px] overflow-y-auto overflow-x-hidden scrollbar-custom border-t border-b border-white/10 pr-2 py-8"
+              style={{
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              <div className="flex flex-wrap justify-center gap-4 pb-4 sm:gap-5 lg:gap-6">
+                {speakersData.speakers.map((speaker) => (
+                  <SmallSpeakerCard key={speaker.slug} speaker={speaker} />
                 ))}
               </div>
             </div>
