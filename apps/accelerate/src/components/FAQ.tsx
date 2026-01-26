@@ -102,7 +102,7 @@ export function FAQ() {
     },
     {
       question: "Where should I stay?",
-      answer: "Visit the travel section for more information.",
+      answer: "Visit the Getting There section for more information.",
     },
   ];
 
