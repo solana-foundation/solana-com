@@ -137,7 +137,7 @@ export function Hero() {
           </a>
           <LumaModal lumaId="sol-accelerate-hk">
             <button
-              className="relative inline-flex items-center justify-between rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+              className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontSize: "16px",

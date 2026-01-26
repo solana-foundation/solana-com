@@ -83,13 +83,13 @@ export function FooterCTA() {
           <motion.div variants={fadeInUp} className="mb-6 sm:mb-8">
             <LumaModal lumaId="sol-accelerate-hk">
               <button
-                className="group inline-flex h-[56px] w-full max-w-[480px] items-center justify-between rounded-[32px] px-5 text-black transition-all hover:opacity-90 sm:h-[66px] sm:px-7"
+                className="group inline-flex h-[56px] w-full max-w-[480px] items-center justify-center rounded-[32px] px-5 text-black transition-all hover:opacity-90 sm:h-[66px] sm:px-7"
                 style={{
                   background: "linear-gradient(to right, #9945FF, #19FB9B)",
                 }}
               >
                 <span
-                  className="flex-1 text-left text-sm uppercase sm:text-base sm:tracking-[0.9px]"
+                  className="text-sm uppercase sm:text-base sm:tracking-[0.9px]"
                   style={{
                     fontFamily:
                       "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -103,7 +103,7 @@ export function FooterCTA() {
                   alt="Ticket icon"
                   width={18}
                   height={12}
-                  className="flex-shrink-0"
+                  className="ml-2 flex-shrink-0"
                 />
               </button>
             </LumaModal>
