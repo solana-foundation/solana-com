@@ -104,7 +104,7 @@ export function Speakers() {
       lastName: "LIU",
       title: "President",
       company: "Solana foundation",
-      image: "/images/speakers/lily-liu.png",
+      image: "/images/speakers/lily-liu.webp",
     },
     {
       name: "Chris Chung",
@@ -112,7 +112,7 @@ export function Speakers() {
       lastName: "CHUNG",
       title: "CEO & Co-Founder",
       company: "Titan",
-      image: "/images/speakers/chris-chung.png",
+      image: "/images/speakers/chris-chung.webp",
     },
     {
       name: "Shina Foo",
@@ -120,7 +120,7 @@ export function Speakers() {
       lastName: "FOO",
       title: "Head of Growth",
       company: "Perena",
-      image: "/images/speakers/shina-foo.png",
+      image: "/images/speakers/shina-foo.webp",
     },
     {
       name: "Shawn Chain",
@@ -128,7 +128,7 @@ export function Speakers() {
       lastName: "CHAIN",
       title: "CEO",
       company: "Singapore Gulf Bank",
-      image: "/images/speakers/shawn-chain.png",
+      image: "/images/speakers/shawn-chan.webp",
     },
   ];
 
