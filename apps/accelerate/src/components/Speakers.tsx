@@ -150,40 +150,29 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
 }
 
 export function Speakers() {
-  const speakers: Speaker[] = [
-    {
-      name: "Lily Liu",
-      firstName: "LILY",
-      lastName: "LIU",
-      title: "President",
-      company: "Solana foundation",
-      image: "/images/speakers/lily-liu.webp",
-    },
-    {
-      name: "Chris Chung",
-      firstName: "CHRIS",
-      lastName: "CHUNG",
-      title: "CEO & Co-Founder",
-      company: "Titan",
-      image: "/images/speakers/chris-chung.webp",
-    },
-    {
-      name: "Shina Foo",
-      firstName: "SHINA",
-      lastName: "FOO",
-      title: "Head of Growth",
-      company: "Perena",
-      image: "/images/speakers/shina-foo.webp",
-    },
-    {
-      name: "Shawn Chain",
-      firstName: "SHAWN",
-      lastName: "CHAIN",
-      title: "CEO",
-      company: "Singapore Gulf Bank",
-      image: "/images/speakers/shawn-chan.webp",
-    },
+  // Featured speakers for the carousel - using slugs to match with speakers.json
+  const featuredSpeakerSlugs = [
+    "lily-liu",
+    "chris-chung",
+    "shina-foo",
+    "shawn-chan",
   ];
+
+  // Get featured speakers from speakers.json data
+  const speakers: Speaker[] = featuredSpeakerSlugs
+    .map((slug) => {
+      const speaker = speakersData.speakers.find((s) => s.slug === slug);
+      if (!speaker) return null;
+      return {
+        name: speaker.name,
+        firstName: speaker.firstName,
+        lastName: speaker.lastName,
+        title: speaker.title,
+        company: speaker.company,
+        image: speaker.image,
+      };
+    })
+    .filter((s): s is Speaker => s !== null);
 
   const carouselRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
