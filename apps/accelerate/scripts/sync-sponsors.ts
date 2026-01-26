@@ -9,8 +9,8 @@ dotenv.config({ path: path.resolve(__dirname, "..", ".env.local") });
 dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 // Configuration from environment
-const SHEET_ID = process.env.GOOGLE_SHEET_ID;
-const SHEET_NAME = process.env.GOOGLE_SHEET_NAME;
+const SHEET_ID = process.env.GOOGLE_SHEET_ID!;
+const SHEET_NAME = process.env.GOOGLE_SHEET_NAME!;
 const API_KEY = process.env.GOOGLE_SHEETS_API_KEY;
 const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const SERVICE_ACCOUNT_KEY_BASE64 =
@@ -397,7 +397,7 @@ function extractFolderId(input: string): string | undefined {
 
   // Try to extract ID from any Google Drive link format
   const idMatch = trimmed.match(/id=([a-zA-Z0-9_-]+)/);
-  if (idMatch && idMatch[1].length >= 20) {
+  if (idMatch && idMatch[1] && idMatch[1].length >= 20) {
     return idMatch[1];
   }
 
