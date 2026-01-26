@@ -15,6 +15,11 @@ const stagger = {
   },
 };
 
+const listItemVariants = {
+  hidden: { opacity: 0, x: -10 },
+  visible: { opacity: 1, x: 0 },
+};
+
 interface EventDetailRowProps {
   label: string;
   value: string;
@@ -25,28 +30,15 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="grid grid-cols-1 gap-4 border-b border-white/10 py-6 last:border-b-0 sm:grid-cols-[140px_1fr] lg:grid-cols-[360px_1fr]"
+      className="grid grid-cols-1 gap-4 border-b border-white/10 py-6 last:border-b-0 sm:grid-cols-[160px_1fr] md:grid-cols-[240px_1fr] lg:grid-cols-[360px_1fr]"
     >
-      <p
-        className="gradient-text text-h2"
-        style={{
-          fontFamily: "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-        }}
-      >
-        {label}
-      </p>
+      <p className="gradient-text text-h2 font-space-grotesk">{label}</p>
       <div>
-        <p
-          className="text-h2 text-white"
-          style={{
-            fontFamily:
-              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-          }}
-        >
-          {value}
-        </p>
+        <p className="text-h2 font-space-grotesk text-white">{value}</p>
         {subValue && (
-          <p className="mt-3 text-p text-accelerate-green">{subValue}</p>
+          <p className="mt-3 font-diatype text-p text-accelerate-green">
+            {subValue}
+          </p>
         )}
       </div>
     </motion.div>
@@ -66,11 +58,7 @@ export function EventDetails() {
           {/* Section heading */}
           <motion.h2
             variants={fadeInUp}
-            className="text-h1 mb-8 text-accelerate-gray-100 lg:mb-12"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            }}
+            className="text-h1 mb-8 font-space-grotesk text-accelerate-gray-100 lg:mb-12"
           >
             Event details
           </motion.h2>
@@ -80,51 +68,39 @@ export function EventDetails() {
 
           {/* Intro copy */}
           <motion.div
-            variants={fadeInUp}
+            variants={stagger}
             className="mx-auto mb-10 max-w-4xl lg:mb-14"
           >
-            <p
-              className="text-p mb-4 leading-relaxed text-white"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
+            <motion.p
+              variants={fadeInUp}
+              className="mb-6 font-diatype text-p leading-relaxed text-white"
             >
               The fastest growing network in the world is coming to the fastest
               growing region of the world.
-            </p>
-            <p
-              className="text-p mb-6 leading-relaxed text-white"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
+            </motion.p>
+            <motion.p
+              variants={fadeInUp}
+              className="mb-6 font-diatype text-p leading-relaxed text-white"
             >
               Join us as we bring together founders, institutions, policymakers,
               and innovators to amplify the region&apos;s momentum and showcase
               the future of internet capital markets on Solana.
-            </p>
-            <p
-              className="text-p mb-8 leading-relaxed text-accelerate-green"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
+            </motion.p>
+            <motion.p
+              variants={fadeInUp}
+              className="mb-10 border-l-2 border-accelerate-green/50 pl-4 font-diatype text-p leading-relaxed text-accelerate-green"
             >
               You can apply today to experience the high-alpha environment you
               expect from our events in a more intimate setting.
-            </p>
-            <p
-              className="text-h2 mb-6 text-accelerate-gray-100"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
+            </motion.p>
+            <motion.p
+              variants={fadeInUp}
+              className="mb-6 font-space-grotesk text-h2 text-accelerate-gray-100"
             >
               We are once again cutting the fluff to bring a laser focus to the
               narratives actually moving markets:
-            </p>
-            <ul className="space-y-0">
+            </motion.p>
+            <dl className="space-y-0">
               {[
                 {
                   title: "Payments",
@@ -146,24 +122,29 @@ export function EventDetails() {
                   title: "Sell The Asset",
                   desc: "How SOL Staking ETFs and DATs are unlocking global adoption.",
                 },
-              ].map(({ title, desc }) => (
-                <li
+              ].map(({ title, desc }, index) => (
+                <motion.div
                   key={title}
-                  className="grid grid-cols-1 gap-4 border-b border-white/10 py-6 last:border-b-0 sm:grid-cols-[140px_1fr] lg:grid-cols-[360px_1fr]"
+                  variants={listItemVariants}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.08, duration: 0.4 }}
+                  whileHover={{
+                    x: 8,
+                    backgroundColor: "rgba(255,255,255,0.02)",
+                  }}
+                  className="grid cursor-default grid-cols-1 gap-4 border-b border-white/10 py-6 transition-colors last:border-b-0 sm:grid-cols-[160px_1fr] md:grid-cols-[240px_1fr] lg:grid-cols-[360px_1fr]"
                 >
-                  <span
-                    className="gradient-text text-h2"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    }}
-                  >
+                  <dt className="gradient-text font-space-grotesk text-h2">
                     {title}
-                  </span>
-                  <p className="text-p leading-relaxed text-white/80">{desc}</p>
-                </li>
+                  </dt>
+                  <dd className="font-diatype text-p leading-relaxed text-white/80">
+                    {desc}
+                  </dd>
+                </motion.div>
               ))}
-            </ul>
+            </dl>
           </motion.div>
 
           {/* Divider before details grid */}
