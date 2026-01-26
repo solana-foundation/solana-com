@@ -23,12 +23,12 @@ function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="relative z-10 flex items-center justify-center"
+      className="relative z-10 flex h-full w-full items-center justify-center"
     >
       <img
         src={sponsor.logo}
         alt={sponsor.name}
-        className="h-auto w-full max-w-full object-contain"
+        className="max-h-full max-w-full object-contain"
         style={{
           filter:
             "brightness(0) saturate(100%) invert(73%) sepia(6%) saturate(354%) hue-rotate(210deg) brightness(93%) contrast(88%)",
@@ -125,7 +125,9 @@ export function Sponsors() {
                 </motion.p>
                 <div
                   className={`flex flex-wrap items-center justify-center ${
-                    tier.level === "headline" ? "gap-12" : "gap-8 lg:gap-[40px]"
+                    tier.level === "headline"
+                      ? "gap-16"
+                      : "gap-12 lg:gap-[60px]"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
