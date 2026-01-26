@@ -466,17 +466,8 @@ export function Speakers() {
 
 function AllSpeakersSection() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
-  // Extract unique companies for filter
-  const companies = useMemo(() => {
-    const uniqueCompanies = Array.from(
-      new Set(speakersData.speakers.map((s) => s.company)),
-    ).sort();
-    return uniqueCompanies;
-  }, []);
-
-  // Filter speakers based on search and company
+  // Filter speakers based on search
   const filteredSpeakers = useMemo(() => {
     return speakersData.speakers.filter((speaker) => {
       const matchesSearch =
@@ -485,20 +476,16 @@ function AllSpeakersSection() {
         speaker.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
         speaker.title.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesCompany =
-        selectedCompany === null || speaker.company === selectedCompany;
-
-      return matchesSearch && matchesCompany;
+      return matchesSearch;
     });
-  }, [searchQuery, selectedCompany]);
+  }, [searchQuery]);
 
   // Clear filters
   const clearFilters = () => {
     setSearchQuery("");
-    setSelectedCompany(null);
   };
 
-  const hasActiveFilters = searchQuery !== "" || selectedCompany !== null;
+  const hasActiveFilters = searchQuery !== "";
 
   return (
     <motion.div
@@ -508,8 +495,11 @@ function AllSpeakersSection() {
       variants={stagger}
     >
       {/* Header with Search */}
-      <div className="my-8 flex flex-col gap-6 lg:mb-12">
-        <motion.div variants={fadeInUp} className="flex flex-col">
+      <div className="mb-8 mt-14 flex flex-col gap-6 lg:mb-12">
+        <motion.div
+          variants={fadeInUp}
+          className="flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+        >
           <h2
             className="text-h2 text-accelerate-gray-100"
             style={{
@@ -519,22 +509,16 @@ function AllSpeakersSection() {
           >
             All Speakers
           </h2>
-        </motion.div>
 
-        {/* Search and Filter Bar */}
-        <motion.div
-          variants={fadeInUp}
-          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-        >
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
-            <div className="relative">
+          {/* Search and Filter Bar */}
+          <div className="flex items-center gap-3 w-full sm:w-auto sm:max-w-2xl mt-4 sm:mt-0">
+            <div className="relative flex-1 min-w-0">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search speakers, companies, or titles..."
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pl-11 text-white placeholder:text-white/40 focus:border-accelerate-purple/50 focus:outline-none focus:ring-2 focus:ring-accelerate-purple/30 transition-all"
+                className="w-full min-w-[400px] rounded-xl border border-white/10 bg-white/5 px-4 py-3 pl-11 text-white placeholder:text-white/40 focus:border-accelerate-purple/50 focus:outline-none focus:ring-2 focus:ring-accelerate-purple/30 transition-all"
                 style={{
                   fontFamily:
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -571,52 +555,6 @@ function AllSpeakersSection() {
                 transition={{ duration: 0.3 }}
               />
             </div>
-          </div>
-
-          {/* Company Filter & Clear */}
-          <div className="flex items-center gap-3">
-            {/* Company Filter Dropdown */}
-            <div className="relative">
-              <select
-                value={selectedCompany || ""}
-                onChange={(e) => setSelectedCompany(e.target.value || null)}
-                className="appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-10 text-white focus:border-accelerate-purple/50 focus:outline-none focus:ring-2 focus:ring-accelerate-purple/30 transition-all cursor-pointer"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                }}
-              >
-                <option value="" className="bg-black text-white">
-                  All Companies
-                </option>
-                {companies.map((company) => (
-                  <option
-                    key={company}
-                    value={company}
-                    className="bg-black text-white"
-                  >
-                    {company}
-                  </option>
-                ))}
-              </select>
-              <svg
-                width="12"
-                height="8"
-                viewBox="0 0 12 8"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-              >
-                <path
-                  d="M1 1L6 6L11 1"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-white/60"
-                />
-              </svg>
-            </div>
 
             {/* Clear Filters Button */}
             <AnimatePresence>
@@ -626,7 +564,7 @@ function AllSpeakersSection() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                   onClick={clearFilters}
-                  className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm text-white/80 transition-all hover:border-accelerate-purple/50 hover:bg-accelerate-purple/10 hover:text-white"
+                  className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm text-white/80 transition-all hover:border-accelerate-purple/50 hover:bg-accelerate-purple/10 hover:text-white whitespace-nowrap"
                   style={{
                     fontFamily:
                       "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -639,27 +577,20 @@ function AllSpeakersSection() {
           </div>
         </motion.div>
 
-        {/* Results Count */}
-        <motion.div
-          variants={fadeInUp}
-          className="flex items-center gap-2 text-sm text-white/60"
-        >
-          <span>
-            {filteredSpeakers.length} speaker
-            {filteredSpeakers.length !== 1 ? "s" : ""}
-          </span>
-          {hasActiveFilters && (
-            <>
-              <span>•</span>
-              <button
-                onClick={clearFilters}
-                className="text-accelerate-purple hover:text-accelerate-green transition-colors underline"
-              >
-                Clear filters
-              </button>
-            </>
-          )}
-        </motion.div>
+        {/* Clear Filters Link */}
+        {hasActiveFilters && (
+          <motion.div
+            variants={fadeInUp}
+            className="flex items-center gap-2 text-sm text-white/60"
+          >
+            <button
+              onClick={clearFilters}
+              className="text-accelerate-purple hover:text-accelerate-green transition-colors underline"
+            >
+              Clear filters
+            </button>
+          </motion.div>
+        )}
       </div>
 
       {/* Divider */}
