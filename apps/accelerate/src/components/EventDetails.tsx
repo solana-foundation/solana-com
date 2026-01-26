@@ -158,7 +158,7 @@ export function EventDetails() {
                         "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                     }}
                   >
-                    {title}:
+                    {title}
                   </span>
                   <p className="text-p leading-relaxed text-white/80">{desc}</p>
                 </li>
