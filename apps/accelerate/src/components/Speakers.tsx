@@ -28,16 +28,29 @@ interface Speaker {
 
 interface SpeakerCardProps {
   speaker: Speaker;
+  cardWidth?: number;
 }
 
-function SpeakerCard({ speaker }: SpeakerCardProps) {
+function SpeakerCard({ speaker, cardWidth }: SpeakerCardProps) {
+  const aspectRatio = 1; // Square images
+  const imageHeight = cardWidth ? cardWidth : undefined;
+
   return (
     <motion.div
       variants={fadeInUp}
-      className="relative flex w-[300px] flex-shrink-0 flex-col gap-5 sm:w-[340px] lg:w-[380px] 2xl:w-[312px]"
+      className="relative flex w-[300px] flex-shrink-0 flex-col gap-5"
+      style={{
+        width: cardWidth ? `${cardWidth}px` : undefined,
+        minWidth: cardWidth ? `${cardWidth}px` : undefined,
+      }}
     >
       {/* Image - rounded rectangular */}
-      <div className="relative h-[300px] w-full overflow-hidden rounded-3xl bg-[#a0a0a0] sm:h-[340px] lg:h-[380px] 2xl:h-[312px]">
+      <div
+        className="relative h-[300px] w-full overflow-hidden rounded-3xl bg-[#a0a0a0]"
+        style={{
+          height: imageHeight ? `${imageHeight}px` : undefined,
+        }}
+      >
         <Image
           src={speaker.image}
           alt={speaker.name}
@@ -120,15 +133,49 @@ export function Speakers() {
   ];
 
   const carouselRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
+  const [cardWidth, setCardWidth] = useState<number | null>(null);
   const dragStart = useRef({ x: 0, scrollLeft: 0 });
 
-  const scrollCarousel = (direction: "left" | "right") => {
-    if (!carouselRef.current) return;
+  // Calculate card width to fit 4 across on desktop, responsive on tablet
+  const calculateCardWidth = useCallback(() => {
+    if (!containerRef.current) return;
 
-    const scrollAmount = 400; // Scroll by card width + gap
+    const containerWidth = containerRef.current.clientWidth;
+    const gap = 24; // gap-6 = 24px
+
+    // Mobile (< 640px) - fixed width for better UX
+    if (containerWidth < 640) {
+      setCardWidth(300);
+      return;
+    }
+
+    // Tablet (640px - 1024px) - show 2 cards
+    if (containerWidth < 1024) {
+      const calculatedWidth = (containerWidth - gap) / 2;
+      setCardWidth(Math.max(300, calculatedWidth));
+      return;
+    }
+
+    // Desktop (>= 1024px) - show 4 cards
+    const calculatedWidth = (containerWidth - 3 * gap) / 4;
+    setCardWidth(Math.max(280, calculatedWidth));
+  }, []);
+
+  useEffect(() => {
+    calculateCardWidth();
+    window.addEventListener("resize", calculateCardWidth);
+    return () => window.removeEventListener("resize", calculateCardWidth);
+  }, [calculateCardWidth]);
+
+  const scrollCarousel = (direction: "left" | "right") => {
+    if (!carouselRef.current || cardWidth === null) return;
+
+    const gap = 24; // gap-6 = 24px
+    const scrollAmount = cardWidth + gap; // Scroll by card width + gap
     const newScrollLeft =
       carouselRef.current.scrollLeft +
       (direction === "left" ? -scrollAmount : scrollAmount);
@@ -306,7 +353,7 @@ export function Speakers() {
           </div>
 
           {/* Carousel Navigation and Cards */}
-          <div className="relative">
+          <div className="relative" ref={containerRef}>
             {/* Speaker Cards Carousel */}
             <div
               ref={carouselRef}
@@ -325,7 +372,11 @@ export function Speakers() {
             >
               <div className="flex gap-6">
                 {speakers.map((speaker) => (
-                  <SpeakerCard key={speaker.name} speaker={speaker} />
+                  <SpeakerCard
+                    key={speaker.name}
+                    speaker={speaker}
+                    cardWidth={cardWidth || undefined}
+                  />
                 ))}
               </div>
             </div>
