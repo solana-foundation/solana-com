@@ -111,6 +111,15 @@ export function GettingThere() {
                 href: "https://consensus-hongkong.coindesk.com/travel/",
               }}
             />
+            <InfoRow
+              label=""
+              value="Nomadz"
+              subValue="web3-native travel aggregator on Solana. Save up to 60% on hotels and pay in crypto."
+              link={{
+                text: "nomadz.xyz",
+                href: "https://nomadz.xyz",
+              }}
+            />
           </div>
         </motion.div>
       </div>
