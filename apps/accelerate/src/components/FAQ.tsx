@@ -93,18 +93,12 @@ export function FAQ() {
     },
     {
       question: "Does my Consensus ticket also give me access to Accelerate?",
-      answer:
-        "No - Accelerate requires a separate ticket from Consensus. However, when purchasing your Consensus ticket, you can receive a discount for Accelerate at checkout.",
+      answer: "No - Accelerate requires a separate ticket from Consensus.",
     },
     {
       question: "Is there a dress code?",
       answer:
         "There's no dress code. Come as you are and wear whatever you're comfortable in.",
-    },
-    {
-      question: "Can I get a refund?",
-      answer:
-        "Tickets are non-refundable, but they are transferable. To transfer your ticket, click here.",
     },
     {
       question: "Where should I stay?",

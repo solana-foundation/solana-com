@@ -96,7 +96,7 @@ export function FooterCTA() {
                     fontWeight: 600,
                   }}
                 >
-                  Get Tickets
+                  Request to join
                 </span>
                 <Image
                   src="/images/ticket-icon.svg"

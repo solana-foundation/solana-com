@@ -219,22 +219,14 @@ export function Hero() {
             </motion.h1>
           </div>
 
-          {/* Ticket Info and CTA Button */}
+          {/* CTA Button */}
           <motion.div
             variants={fadeInUp}
             className="flex flex-col items-center gap-4"
           >
-            <p
-              className="text-lg md:text-xl text-white/80"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-              }}
-            >
-              Tickets are free
-            </p>
             <LumaModal lumaId="sol-accelerate-hk">
               <button
-                className="group inline-flex h-[66px] items-center justify-between rounded-[32px] px-7 py-6 text-black transition-all hover:opacity-90"
+                className="group inline-flex h-[66px] items-center justify-center rounded-[32px] px-7 py-6 text-black transition-all hover:opacity-90"
                 style={{
                   background: "linear-gradient(to right, #9945FF, #19FB9B)",
                   width: "480px",
@@ -242,7 +234,7 @@ export function Hero() {
                 }}
               >
                 <span
-                  className="flex-1 text-left uppercase"
+                  className="uppercase"
                   style={{
                     fontFamily: "'Space Grotesk', sans-serif",
                     fontWeight: 600,
@@ -257,6 +249,7 @@ export function Hero() {
                   alt="Ticket icon"
                   width={18}
                   height={12}
+                  className="ml-2"
                 />
               </button>
             </LumaModal>
