@@ -1,11 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { google } from "googleapis";
 import * as fs from "fs";
 import * as path from "path";
+import dotenv from "dotenv";
+
+// Load environment variables from .env.local or .env
+dotenv.config({ path: path.resolve(__dirname, "..", ".env.local") });
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 // Configuration from environment
-const SHEET_ID =
-  process.env.GOOGLE_SHEET_ID || "1gs7j3DRpHa-5X6soRMK9iVkS4Sbal005RSyIomvFm-A";
-const SHEET_NAME = process.env.GOOGLE_SHEET_NAME || "Sponsors";
+const SHEET_ID = process.env.GOOGLE_SHEET_ID;
+const SHEET_NAME = process.env.GOOGLE_SHEET_NAME;
 const API_KEY = process.env.GOOGLE_SHEETS_API_KEY;
 const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const SERVICE_ACCOUNT_KEY_BASE64 =
@@ -41,184 +46,354 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
+function removeBrackets(text: string): string {
+  return text.replace(/\s*\([^)]*\)/g, "").trim();
+}
+
 async function fetchSheetData(): Promise<SheetRow[]> {
-  if (!API_KEY) {
+  // Use service account authentication if available, otherwise fall back to API key
+  let auth;
+  let authMethod: "service_account" | "api_key" = "api_key";
+
+  if (SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_KEY_BASE64) {
+    try {
+      const privateKey = Buffer.from(
+        SERVICE_ACCOUNT_KEY_BASE64,
+        "base64",
+      ).toString("utf-8");
+
+      auth = new google.auth.JWT(SERVICE_ACCOUNT_EMAIL, undefined, privateKey, [
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/drive.readonly",
+      ]);
+      authMethod = "service_account";
+      console.log(
+        `Using service account authentication: ${SERVICE_ACCOUNT_EMAIL}`,
+      );
+    } catch (error) {
+      console.warn(
+        "Failed to initialize service account auth, falling back to API key:",
+        error,
+      );
+      auth = undefined;
+    }
+  }
+
+  // Fall back to API key for public sheets
+  if (!auth && API_KEY) {
+    authMethod = "api_key";
+    console.log(
+      "Using API key authentication (requires sheet to be publicly readable)",
+    );
+
+    // For public sheets with API key, use direct fetch
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME + "!A:Z")}?key=${API_KEY}`;
+      const fetchResponse = await fetch(url);
+
+      if (!fetchResponse.ok) {
+        if (fetchResponse.status === 403) {
+          throw new Error("PERMISSION_DENIED");
+        }
+        throw new Error(
+          `HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`,
+        );
+      }
+
+      const data = await fetchResponse.json();
+      const rows = data.values;
+
+      if (!rows || rows.length === 0) {
+        console.log("No data found in sheet.");
+        return [];
+      }
+
+      // First row is headers
+      const headerRow = rows[0];
+      if (!headerRow) {
+        console.log("No header row found in sheet.");
+        return [];
+      }
+      const headers = headerRow.map((h: string) => h.toLowerCase().trim());
+      const dataRows = rows.slice(1);
+
+      // Find column indices
+      const nameIdx = headers.findIndex(
+        (h: string) => h === "name" || h === "sponsor name" || h === "company",
+      );
+      const statusIdx = headers.findIndex(
+        (h: string) =>
+          h === "status" ||
+          h === "web status" ||
+          h === "logo received" ||
+          h.includes("logo received"),
+      );
+      const levelIdx = headers.findIndex(
+        (h: string) =>
+          h === "sponsorship level" ||
+          h === "sponsorhip level" ||
+          h.includes("sponsorship level") ||
+          h.includes("sponsorhip level") ||
+          h === "level" ||
+          h === "tier" ||
+          h === "sponsorship tier",
+      );
+      const urlIdx = headers.findIndex(
+        (h: string) => h === "url" || h === "website" || h === "link",
+      );
+      const logoFolderIdx = headers.findIndex((h: string) =>
+        h.includes("logo folder"),
+      );
+
+      console.log("Column mapping:", {
+        nameIdx,
+        statusIdx,
+        levelIdx,
+        urlIdx,
+        logoFolderIdx,
+      });
+      console.log("Headers found:", headers);
+
+      if (nameIdx === -1) {
+        throw new Error("Could not find 'name' column in sheet");
+      }
+
+      const sponsors: SheetRow[] = [];
+
+      for (const row of dataRows) {
+        const name = row[nameIdx]?.trim();
+        const status = statusIdx !== -1 ? row[statusIdx]?.trim() || "" : "";
+        const level = levelIdx !== -1 ? row[levelIdx]?.trim() || "" : "";
+        const url = urlIdx !== -1 ? row[urlIdx]?.trim() || "#" : "#";
+        const logoFolderRaw =
+          logoFolderIdx !== -1 ? row[logoFolderIdx]?.trim() || "" : "";
+        const logoFolderId = extractFolderId(logoFolderRaw);
+
+        if (!name) continue;
+
+        // Debug logging for first few rows
+        if (sponsors.length < 3 && logoFolderRaw) {
+          console.log(
+            `  Debug: ${name} - Raw folder value: "${logoFolderRaw}", Extracted ID: ${logoFolderId || "none"}`,
+          );
+        }
+
+        sponsors.push({
+          name,
+          status,
+          sponsorshipLevel: level,
+          url,
+          logoFolderId,
+        });
+      }
+
+      return sponsors;
+    } catch (error: any) {
+      if (error?.message === "PERMISSION_DENIED" || error?.code === 403) {
+        throw new Error(
+          `\n❌ Permission denied: The Google Sheet is not publicly readable.\n\n` +
+            `To fix this, choose one of the following:\n` +
+            `Option 1 (Recommended): Share with service account\n` +
+            `  1. Open the Google Sheet: https://docs.google.com/spreadsheets/d/${SHEET_ID}\n` +
+            `  2. Click "Share" button\n` +
+            `  3. Add this email with "Viewer" permission: ${SERVICE_ACCOUNT_EMAIL}\n` +
+            `  4. Make sure GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64 are set in .env\n\n` +
+            `Option 2: Make sheet publicly readable\n` +
+            `  1. Open the Google Sheet: https://docs.google.com/spreadsheets/d/${SHEET_ID}\n` +
+            `  2. Click "Share" button\n` +
+            `  3. Change access to "Anyone with the link" can view\n` +
+            `  4. Run the script again\n`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  if (!auth) {
     throw new Error(
-      "GOOGLE_SHEETS_API_KEY is required. Set it in .env.local or environment.",
+      "Either GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64, or GOOGLE_SHEETS_API_KEY is required. Set them in .env.local or .env.",
     );
   }
 
-  const sheets = google.sheets({ version: "v4", auth: API_KEY });
+  const sheets = google.sheets({ version: "v4", auth });
 
   console.log(`Fetching data from sheet: ${SHEET_ID}, tab: ${SHEET_NAME}`);
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A:Z`,
-  });
-
-  const rows = response.data.values;
-  if (!rows || rows.length === 0) {
-    console.log("No data found in sheet.");
-    return [];
-  }
-
-  // First row is headers
-  const headerRow = rows[0];
-  if (!headerRow) {
-    console.log("No header row found in sheet.");
-    return [];
-  }
-  const headers = headerRow.map((h: string) => h.toLowerCase().trim());
-  const dataRows = rows.slice(1);
-
-  // Find column indices
-  const nameIdx = headers.findIndex(
-    (h: string) => h === "name" || h === "sponsor name" || h === "company",
-  );
-  const statusIdx = headers.findIndex(
-    (h: string) => h === "status" || h === "web status",
-  );
-  const levelIdx = headers.findIndex(
-    (h: string) =>
-      h === "sponsorship level" ||
-      h === "level" ||
-      h === "tier" ||
-      h === "sponsorship tier",
-  );
-  const urlIdx = headers.findIndex(
-    (h: string) => h === "url" || h === "website" || h === "link",
-  );
-  const logoFolderIdx = headers.findIndex(
-    (h: string) =>
-      h === "logo folder" ||
-      h === "logo folder id" ||
-      h === "drive folder" ||
-      h === "logos",
-  );
-
-  console.log("Column mapping:", {
-    nameIdx,
-    statusIdx,
-    levelIdx,
-    urlIdx,
-    logoFolderIdx,
-  });
-  console.log("Headers found:", headers);
-
-  if (nameIdx === -1) {
-    throw new Error("Could not find 'name' column in sheet");
-  }
-
-  const sponsors: SheetRow[] = [];
-
-  for (const row of dataRows) {
-    const name = row[nameIdx]?.trim();
-    const status = statusIdx !== -1 ? row[statusIdx]?.trim() || "" : "";
-    const level = levelIdx !== -1 ? row[levelIdx]?.trim() || "" : "";
-    const url = urlIdx !== -1 ? row[urlIdx]?.trim() || "#" : "#";
-    const logoFolderId =
-      logoFolderIdx !== -1 ? row[logoFolderIdx]?.trim() || "" : "";
-
-    if (!name) continue;
-
-    sponsors.push({
-      name,
-      status,
-      sponsorshipLevel: level,
-      url,
-      logoFolderId: extractFolderId(logoFolderId),
+  try {
+    // First, get the spreadsheet metadata to list available sheets
+    const spreadsheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: SHEET_ID,
     });
-  }
 
-  return sponsors;
+    const availableSheets =
+      spreadsheetInfo.data.sheets?.map((sheet) => sheet.properties?.title) ||
+      [];
+
+    console.log(`Available sheets/tabs: ${availableSheets.join(", ")}`);
+
+    // Try to find the sheet by name (case-insensitive)
+    const matchingSheet = availableSheets.find(
+      (name) => name?.toLowerCase() === SHEET_NAME.toLowerCase(),
+    );
+
+    if (!matchingSheet) {
+      throw new Error(
+        `Sheet tab "${SHEET_NAME}" not found. Available tabs: ${availableSheets.join(", ")}\n` +
+          `Please check GOOGLE_SHEET_NAME in your .env file.`,
+      );
+    }
+
+    // Use the exact sheet name from the spreadsheet (preserves case and special characters)
+    const exactSheetName = matchingSheet;
+    console.log(`Using sheet: "${exactSheetName}"`);
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `'${exactSheetName}'!A:Z`,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      console.log("No data found in sheet.");
+      return [];
+    }
+
+    // First row is headers
+    const headerRow = rows[0];
+    if (!headerRow) {
+      console.log("No header row found in sheet.");
+      return [];
+    }
+    const headers = headerRow.map((h: string) => h.toLowerCase().trim());
+    const dataRows = rows.slice(1);
+
+    // Find column indices
+    const nameIdx = headers.findIndex(
+      (h: string) => h === "name" || h === "sponsor name" || h === "company",
+    );
+    const statusIdx = headers.findIndex(
+      (h: string) =>
+        h === "status" ||
+        h === "web status" ||
+        h === "logo received" ||
+        h.includes("logo received"),
+    );
+    const levelIdx = headers.findIndex(
+      (h: string) =>
+        h === "sponsorship level" ||
+        h === "sponsorhip level" ||
+        h.includes("sponsorship level") ||
+        h.includes("sponsorhip level") ||
+        h === "level" ||
+        h === "tier" ||
+        h === "sponsorship tier",
+    );
+    const urlIdx = headers.findIndex(
+      (h: string) => h === "url" || h === "website" || h === "link",
+    );
+    const logoFolderIdx = headers.findIndex((h: string) =>
+      h.includes("logo folder"),
+    );
+
+    console.log("Column mapping:", {
+      nameIdx,
+      statusIdx,
+      levelIdx,
+      urlIdx,
+      logoFolderIdx,
+    });
+    console.log("Headers found:", headers);
+
+    if (nameIdx === -1) {
+      throw new Error("Could not find 'name' column in sheet");
+    }
+
+    const sponsors: SheetRow[] = [];
+
+    for (const row of dataRows) {
+      const name = row[nameIdx]?.trim();
+      const status = statusIdx !== -1 ? row[statusIdx]?.trim() || "" : "";
+      const level = levelIdx !== -1 ? row[levelIdx]?.trim() || "" : "";
+      const url = urlIdx !== -1 ? row[urlIdx]?.trim() || "#" : "#";
+      const logoFolderRaw =
+        logoFolderIdx !== -1 ? row[logoFolderIdx]?.trim() || "" : "";
+      const logoFolderId = extractFolderId(logoFolderRaw);
+
+      if (!name) continue;
+
+      // Debug logging for first few rows
+      if (sponsors.length < 3 && logoFolderRaw) {
+        console.log(
+          `  Debug: ${name} - Raw folder value: "${logoFolderRaw}", Extracted ID: ${logoFolderId || "none"}`,
+        );
+      }
+
+      sponsors.push({
+        name,
+        status,
+        sponsorshipLevel: level,
+        url,
+        logoFolderId,
+      });
+    }
+
+    return sponsors;
+  } catch (error: any) {
+    if (error?.code === 403 || error?.status === 403) {
+      const errorMessage =
+        authMethod === "service_account"
+          ? `\n❌ Permission denied: The service account (${SERVICE_ACCOUNT_EMAIL}) does not have access to the Google Sheet.\n\n` +
+            `To fix this:\n` +
+            `1. Open the Google Sheet: https://docs.google.com/spreadsheets/d/${SHEET_ID}\n` +
+            `2. Click "Share" button\n` +
+            `3. Add this email with "Viewer" permission: ${SERVICE_ACCOUNT_EMAIL}\n` +
+            `4. Run the script again\n`
+          : `\n❌ Permission denied: The Google Sheet is not publicly readable.\n\n` +
+            `To fix this, choose one of the following:\n` +
+            `Option 1 (Recommended): Share with service account\n` +
+            `  1. Open the Google Sheet: https://docs.google.com/spreadsheets/d/${SHEET_ID}\n` +
+            `  2. Click "Share" button\n` +
+            `  3. Add this email with "Viewer" permission: ${SERVICE_ACCOUNT_EMAIL}\n` +
+            `  4. Make sure GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_BASE64 are set in .env\n\n` +
+            `Option 2: Make sheet publicly readable\n` +
+            `  1. Open the Google Sheet: https://docs.google.com/spreadsheets/d/${SHEET_ID}\n` +
+            `  2. Click "Share" button\n` +
+            `  3. Change access to "Anyone with the link" can view\n` +
+            `  4. Run the script again\n`;
+
+      throw new Error(errorMessage);
+    }
+    throw error;
+  }
 }
 
 function extractFolderId(input: string): string | undefined {
   if (!input) return undefined;
 
-  // If it's a URL, extract the folder ID
-  const folderMatch = input.match(/folders\/([a-zA-Z0-9_-]+)/);
+  const trimmed = input.trim();
+
+  // If it's a Google Drive URL, extract the folder ID
+  // Handles formats like:
+  // - https://drive.google.com/drive/folders/FOLDER_ID
+  // - https://drive.google.com/drive/u/0/folders/FOLDER_ID
+  // - drive.google.com/drive/folders/FOLDER_ID
+  const folderMatch = trimmed.match(/[\/]folders\/([a-zA-Z0-9_-]+)/);
   if (folderMatch) {
     return folderMatch[1];
   }
 
-  // If it looks like a folder ID already
-  if (/^[a-zA-Z0-9_-]+$/.test(input) && input.length > 10) {
-    return input;
+  // If it looks like a folder ID already (alphanumeric with dashes/underscores, at least 20 chars for Drive IDs)
+  if (/^[a-zA-Z0-9_-]+$/.test(trimmed) && trimmed.length >= 20) {
+    return trimmed;
+  }
+
+  // Try to extract ID from any Google Drive link format
+  const idMatch = trimmed.match(/id=([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1].length >= 20) {
+    return idMatch[1];
   }
 
   return undefined;
-}
-
-async function downloadLogosFromDrive(
-  folderId: string,
-  sponsorSlug: string,
-): Promise<string[]> {
-  if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_KEY_BASE64) {
-    console.log(
-      `  Skipping Drive download for ${sponsorSlug} - no service account credentials`,
-    );
-    return [];
-  }
-
-  try {
-    const privateKey = Buffer.from(
-      SERVICE_ACCOUNT_KEY_BASE64,
-      "base64",
-    ).toString("utf-8");
-
-    const auth = new google.auth.JWT(
-      SERVICE_ACCOUNT_EMAIL,
-      undefined,
-      privateKey,
-      ["https://www.googleapis.com/auth/drive.readonly"],
-    );
-
-    const drive = google.drive({ version: "v3", auth });
-
-    // List files in the folder
-    const listResponse = await drive.files.list({
-      q: `'${folderId}' in parents and (mimeType contains 'image/' or mimeType = 'image/svg+xml')`,
-      fields: "files(id, name, mimeType)",
-    });
-
-    const files = listResponse.data.files || [];
-    if (files.length === 0) {
-      console.log(`  No logo files found in folder ${folderId}`);
-      return [];
-    }
-
-    // Create sponsor logo directory
-    const sponsorLogoDir = path.join(LOGOS_DIR, sponsorSlug);
-    if (!fs.existsSync(sponsorLogoDir)) {
-      fs.mkdirSync(sponsorLogoDir, { recursive: true });
-    }
-
-    const downloadedLogos: string[] = [];
-
-    for (const file of files) {
-      if (!file.id || !file.name) continue;
-
-      const filePath = path.join(sponsorLogoDir, file.name);
-      const publicPath = `/images/sponsors/${sponsorSlug}/${file.name}`;
-
-      console.log(`  Downloading: ${file.name}`);
-
-      const response = await drive.files.get(
-        { fileId: file.id, alt: "media" },
-        { responseType: "arraybuffer" },
-      );
-
-      fs.writeFileSync(filePath, Buffer.from(response.data as ArrayBuffer));
-      downloadedLogos.push(publicPath);
-    }
-
-    return downloadedLogos;
-  } catch (error) {
-    console.error(`  Error downloading logos for ${sponsorSlug}:`, error);
-    return [];
-  }
 }
 
 function findExistingLogos(sponsorSlug: string): string[] {
@@ -260,36 +435,43 @@ async function syncSponsors() {
   console.log(`\nFound ${sheetRows.length} total rows in sheet`);
 
   // Filter for published sponsors
-  const publishedRows = sheetRows.filter(
-    (row) =>
-      row.status.toLowerCase().includes("published") &&
-      row.status.toLowerCase().includes("web"),
-  );
+  // Check if logo received column contains "yes", "received", "logo received", or similar positive indicators
+  const publishedRows = sheetRows.filter((row) => {
+    const statusLower = row.status.toLowerCase().trim();
+    return (
+      statusLower.includes("logo received") ||
+      statusLower.includes("received") ||
+      statusLower === "yes" ||
+      statusLower === "y" ||
+      statusLower === "true" ||
+      statusLower === "1"
+    );
+  });
   console.log(
-    `Found ${publishedRows.length} sponsors with "published web" status\n`,
+    `Found ${publishedRows.length} sponsors with "Logo Received" status\n`,
   );
 
   const sponsors: Sponsor[] = [];
+  const processedSlugs = new Set<string>();
 
   for (const row of publishedRows) {
     const slug = slugify(row.name);
-    console.log(`Processing: ${row.name} (${slug})`);
 
-    let availableLogos: string[] = [];
-
-    // Try to download from Drive if folder ID provided
-    if (row.logoFolderId) {
-      availableLogos = await downloadLogosFromDrive(row.logoFolderId, slug);
+    // Skip if we've already processed this slug
+    if (processedSlugs.has(slug)) {
+      console.log(`Skipping duplicate: ${row.name} (${slug})`);
+      continue;
     }
 
-    // Fall back to existing local logos
-    if (availableLogos.length === 0) {
-      availableLogos = findExistingLogos(slug);
-      if (availableLogos.length > 0) {
-        console.log(`  Using ${availableLogos.length} existing local logo(s)`);
-      } else {
-        console.log(`  Warning: No logos found for ${row.name}`);
-      }
+    processedSlugs.add(slug);
+    console.log(`Processing: ${row.name} (${slug})`);
+
+    // Use existing local logos
+    const availableLogos = findExistingLogos(slug);
+    if (availableLogos.length > 0) {
+      console.log(`  Using ${availableLogos.length} existing local logo(s)`);
+    } else {
+      console.log(`  Warning: No logos found for ${row.name}`);
     }
 
     // Pick primary logo (prefer SVG, then first available)
@@ -300,9 +482,9 @@ async function syncSponsors() {
 
     sponsors.push({
       slug,
-      name: row.name,
+      name: removeBrackets(row.name),
       url: row.url || "#",
-      sponsorshipLevel: row.sponsorshipLevel,
+      sponsorshipLevel: removeBrackets(row.sponsorshipLevel),
       logo: primaryLogo,
       availableLogos,
     });
