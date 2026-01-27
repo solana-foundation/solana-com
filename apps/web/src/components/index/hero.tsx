@@ -26,6 +26,7 @@ export type HeroProps = {
   bannerImgSrc?: string;
   bannerHref?: string;
   bannerLabel?: string;
+  bannerExpiryDate?: string; // ISO date string (e.g., "2026-02-10")
   cta?: string;
   // onCtaClick?: () => void;
   bgJsonFilePath?: string;
@@ -56,6 +57,7 @@ export const Hero: React.FC<HeroProps> = ({
   bannerImgSrc,
   bannerHref,
   bannerLabel,
+  bannerExpiryDate,
   cta,
   // onCtaClick,
   bgJsonFilePath,
@@ -65,6 +67,20 @@ export const Hero: React.FC<HeroProps> = ({
   getStartedLinks,
 }) => {
   const [open, setOpen] = useState(false);
+
+  // Check if banner should be shown based on expiry date
+  const shouldShowBanner = React.useMemo(() => {
+    if (!bannerHref || !bannerLabel) return false;
+    if (!bannerExpiryDate) return true; // Show if no expiry date set
+
+    const expiryDate = new Date(bannerExpiryDate);
+    const today = new Date();
+    // Set time to start of day for comparison
+    today.setHours(0, 0, 0, 0);
+    expiryDate.setHours(0, 0, 0, 0);
+
+    return today <= expiryDate;
+  }, [bannerHref, bannerLabel, bannerExpiryDate]);
 
   return (
     <>
@@ -136,7 +152,7 @@ export const Hero: React.FC<HeroProps> = ({
               )}
             </div>
 
-            {bannerHref && bannerLabel && (
+            {shouldShowBanner && (
               <div className="mt-[52px] -mx-twd-5 md:mx-twd-0">
                 <div className="overflow-hidden w-full md:w-[504px]">
                   <div className="w-full flex flex-row items-stretch p-twd-2 bg-[#DFCDF5] text-nd-inverse md:rounded-xl bg-blend-screen">
