@@ -1,3 +1,26 @@
+/**
+ * Asset prefix for static files (images, etc.) when deployed behind the main solana.com proxy.
+ * This matches the assetPrefix in next.config.ts and uses the same proxy path.
+ */
+export const ASSET_PREFIX = "/accelerate-assets";
+
+/**
+ * Prefixes a path with the asset prefix for static files.
+ * Use this for all image src attributes to ensure they work in production.
+ * @param path - The path to prefix (e.g., "/images/logo.svg")
+ * @returns The prefixed path (e.g., "/accelerate-assets/images/logo.svg")
+ */
+export function getImagePath(path: string): string {
+  if (!path) return path;
+  // Already has the asset prefix or is an external URL
+  if (path.startsWith(ASSET_PREFIX) || path.startsWith("http")) {
+    return path;
+  }
+  // Ensure path starts with /
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${ASSET_PREFIX}${normalizedPath}`;
+}
+
 const getSiteUrl = () => {
   if (process.env.NODE_ENV === `development`) {
     return `http://localhost:3004`;

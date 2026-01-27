@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { LumaModal } from "./LumaModal";
+import { getImagePath } from "@/config";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -39,7 +40,7 @@ export function Hero() {
         style={{ transform: "translateX(-50%) scaleY(-1) rotate(180deg)" }}
       >
         <Image
-          src="/images/hk-skyline.svg"
+          src={getImagePath("/images/hk-skyline.svg")}
           alt=""
           fill
           className="object-contain"
@@ -50,7 +51,7 @@ export function Hero() {
       {/* Dots pattern (z-2: between skyline and wave) */}
       <div className="pointer-events-none absolute bottom-0 right-0 z-[2] h-[200px] md:h-[250px] lg:h-[322px] w-full">
         <Image
-          src="/images/dots.svg"
+          src={getImagePath("/images/dots.svg")}
           alt=""
           fill
           className="object-cover object-right-bottom"
@@ -60,7 +61,7 @@ export function Hero() {
       {/* Wave lines - Footer Element (z-3: top decorative layer) */}
       <div className="pointer-events-none absolute left-0 top-[250px] md:top-[320px] lg:top-[406px] z-[3] h-[350px] md:h-[430px] lg:h-[526px] w-full">
         <Image
-          src="/images/wave-lines.svg"
+          src={getImagePath("/images/wave-lines.svg")}
           alt=""
           fill
           className="object-cover"
@@ -72,7 +73,12 @@ export function Hero() {
         className="pointer-events-none absolute hidden lg:block"
         style={{ left: "-62px", top: "186px", width: "433px", height: "191px" }}
       >
-        <Image src="/images/pills-left.svg" alt="" width={433} height={191} />
+        <Image
+          src={getImagePath("/images/pills-left.svg")}
+          alt=""
+          width={433}
+          height={191}
+        />
       </div>
 
       {/* Pills Right - rotated 180deg */}
@@ -86,7 +92,12 @@ export function Hero() {
           transform: "rotate(180deg)",
         }}
       >
-        <Image src="/images/pills-right.svg" alt="" width={359} height={116} />
+        <Image
+          src={getImagePath("/images/pills-right.svg")}
+          alt=""
+          width={359}
+          height={116}
+        />
       </div>
 
       {/* Header Navigation */}
@@ -94,7 +105,7 @@ export function Hero() {
         {/* Logo */}
         <Link href="/" className="flex items-center">
           <Image
-            src="/images/accelerate-logo.svg"
+            src={getImagePath("/images/accelerate-logo.svg")}
             alt="Accelerate APAC"
             width={197}
             height={100}
@@ -245,7 +256,7 @@ export function Hero() {
                   Request to Join
                 </span>
                 <Image
-                  src="/images/ticket-icon.svg"
+                  src={getImagePath("/images/ticket-icon.svg")}
                   alt="Ticket icon"
                   width={18}
                   height={12}

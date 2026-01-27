@@ -5,6 +5,7 @@ import Image from "next/image";
 import sponsorsData from "@/data/sponsors.json";
 import { getSponsorsByTier } from "@/lib/sponsors";
 import type { Sponsor } from "@/types/sponsors";
+import { getImagePath } from "@/config";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -26,7 +27,7 @@ function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
       className="relative z-10 flex h-full w-full items-center justify-center"
     >
       <img
-        src={sponsor.logo}
+        src={getImagePath(sponsor.logo)}
         alt={sponsor.name}
         className="max-h-full max-w-full object-contain"
         style={{
@@ -50,7 +51,7 @@ export function Sponsors() {
       {/* Pattern background */}
       <div className="pointer-events-none absolute inset-0 z-0 opacity-50">
         <Image
-          src="/images/pattern-bgr.svg"
+          src={getImagePath("/images/pattern-bgr.svg")}
           alt=""
           fill
           className="object-cover"

@@ -74,6 +74,11 @@ const nextConfig: NextConfig = {
           source: "/accelerate-assets/_next/:path+",
           destination: "/_next/:path+",
         },
+        // Serve static images from public/images via the asset prefix
+        {
+          source: "/accelerate-assets/images/:path+",
+          destination: "/images/:path+",
+        },
         // Rewrite /accelerate routes to root for proxy compatibility
         {
           source: "/accelerate",

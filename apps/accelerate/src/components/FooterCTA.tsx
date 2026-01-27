@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { LumaModal } from "./LumaModal";
+import { getImagePath } from "@/config";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -24,7 +25,7 @@ export function FooterCTA() {
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="relative h-full w-full max-w-[1464px]">
           <Image
-            src="/images/hk-characters.png"
+            src={getImagePath("/images/hk-characters.png")}
             alt=""
             fill
             className="object-contain opacity-[0.8]"
@@ -36,7 +37,7 @@ export function FooterCTA() {
       <div
         className="pointer-events-none absolute bottom-0 left-0 right-0 z-[1] h-[200px] sm:h-[250px] md:h-[300px] lg:h-[322px] opacity-70"
         style={{
-          backgroundImage: "url('/images/dots.svg')",
+          backgroundImage: `url('${getImagePath("/images/dots.svg")}')`,
           backgroundRepeat: "repeat-x",
           backgroundPosition: "bottom",
         }}
@@ -99,7 +100,7 @@ export function FooterCTA() {
                   Request to join
                 </span>
                 <Image
-                  src="/images/ticket-icon.svg"
+                  src={getImagePath("/images/ticket-icon.svg")}
                   alt="Ticket icon"
                   width={18}
                   height={12}

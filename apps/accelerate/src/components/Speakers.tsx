@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useState, useMemo } from "react";
 import speakersData from "../data/speakers.json";
+import { getImagePath } from "@/config";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -50,7 +51,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
           transition={{ duration: 0.4 }}
         >
           <Image
-            src={speaker.image}
+            src={getImagePath(speaker.image)}
             alt={speaker.name}
             width={150}
             height={150}

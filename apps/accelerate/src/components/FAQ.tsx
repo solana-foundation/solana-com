@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { getImagePath } from "@/config";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -53,12 +54,16 @@ function FAQAccordionItem({
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
           {isOpen ? (
             <img
-              src="/images/faq-arrow-expanded.svg"
+              src={getImagePath("/images/faq-arrow-expanded.svg")}
               alt=""
               className="h-9 w-9"
             />
           ) : (
-            <img src="/images/faq-arrow.svg" alt="" className="h-9 w-9" />
+            <img
+              src={getImagePath("/images/faq-arrow.svg")}
+              alt=""
+              className="h-9 w-9"
+            />
           )}
         </div>
       </button>
