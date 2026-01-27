@@ -126,17 +126,53 @@ export function Speakers() {
   );
 }
 
-const FEATURED_SPEAKER_SLUGS = [
+/** Display order for speakers (matches requested lineup). */
+const SPEAKER_ORDER: string[] = [
   "lily-liu",
-  "chris-chung",
-  "shina-foo",
+  "joseph-chee",
+  "brian-smith",
+  "austin-federa",
+  "shayon-sengupta",
+  "mark-greenberg",
   "shawn-chan",
-] as const;
+  "steve-zeng",
+  "joosik-lee",
+  "david-rodriguez",
+  "saeed-badreg",
+  "ben-nadareski",
+  "chef-kids",
+  "gal-stern",
+  "jiani-chen",
+  "patrick-kim",
+  "zheng-jie-lim",
+  "chris-chung",
+  "silvestre-ramos",
+  "cheryl-chan",
+  "dan-jablonski",
+  "kevin-kang",
+  "mable-jiang",
+  "yuan-gao",
+  "john-teo",
+  "yaoyao-ding",
+  "jessica-cao",
+  "kevin-eum",
+  "tracy-chow",
+  "jae-kim",
+  "abhi-bansal",
+  "yuchen-song",
+  "yash-agarwal",
+  "vesper-a",
+  "robin-nordnes",
+  "duke-song",
+  "james-zhang",
+  "shina-foo",
+  "chloe-lo",
+];
 
 function AllSpeakersSection() {
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter speakers; featured 4 first (carousel order), then rest in data order
+  // Filter speakers, then sort by SPEAKER_ORDER; any not in the list go at the end
   const filteredSpeakers = useMemo(() => {
     const filtered = speakersData.speakers.filter((speaker) => {
       const matchesSearch =
@@ -148,15 +184,12 @@ function AllSpeakersSection() {
       return matchesSearch;
     });
 
-    const featuredSlugSet = new Set<string>(FEATURED_SPEAKER_SLUGS);
-    const featured: (typeof speakersData.speakers)[number][] = [];
-    for (const slug of FEATURED_SPEAKER_SLUGS) {
-      const s = filtered.find((sp) => sp.slug === slug);
-      if (s) featured.push(s);
-    }
-    const rest = filtered.filter((sp) => !featuredSlugSet.has(sp.slug));
-
-    return [...featured, ...rest];
+    const orderIndex = new Map(SPEAKER_ORDER.map((slug, i) => [slug, i]));
+    return [...filtered].sort((a, b) => {
+      const ai = orderIndex.get(a.slug) ?? SPEAKER_ORDER.length;
+      const bi = orderIndex.get(b.slug) ?? SPEAKER_ORDER.length;
+      return ai - bi;
+    });
   }, [searchQuery]);
 
   // Clear filters
