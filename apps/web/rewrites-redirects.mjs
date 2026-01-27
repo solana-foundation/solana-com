@@ -1,4 +1,9 @@
-import { MEDIA_APP_URL, DOCS_APP_URL, TEMPLATES_APP_URL } from "./apps-urls";
+import {
+  MEDIA_APP_URL,
+  DOCS_APP_URL,
+  TEMPLATES_APP_URL,
+  ACCELERATE_APP_URL,
+} from "./apps-urls";
 
 export default {
   rewrites: {
@@ -13,6 +18,19 @@ export default {
         source: "/breakpoint/:path*",
         destination:
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
+        locale: false,
+      },
+      // Breakpoint app – locale-prefixed (so local pages can be removed)
+      {
+        source: "/:locale/breakpoint",
+        destination:
+          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint",
+        locale: false,
+      },
+      {
+        source: "/:locale/breakpoint/:path*",
+        destination:
+          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint/:path*",
         locale: false,
       },
       // Media app rewrites - new routes
@@ -93,6 +111,27 @@ export default {
         destination: `${TEMPLATES_APP_URL}/templates-assets/:path+`,
         locale: false,
       },
+      // Accelerate app rewrites
+      {
+        source: "/accelerate",
+        destination: `${ACCELERATE_APP_URL}/accelerate`,
+        locale: false,
+      },
+      {
+        source: "/accelerate/:path*",
+        destination: `${ACCELERATE_APP_URL}/accelerate/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/accelerate",
+        destination: `${ACCELERATE_APP_URL}/:locale/accelerate`,
+        locale: false,
+      },
+      {
+        source: "/:locale/accelerate/:path*",
+        destination: `${ACCELERATE_APP_URL}/:locale/accelerate/:path*`,
+        locale: false,
+      },
       // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",
@@ -102,6 +141,12 @@ export default {
       {
         source: "/developers/templates/:path*",
         destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
+        locale: false,
+      },
+      // Accelerate app assets (required for static assets with assetPrefix: "/accelerate-assets")
+      {
+        source: "/accelerate-assets/:path+",
+        destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,
         locale: false,
       },
       // Docs app assets (required for static assets with assetPrefix: "/docs-assets")
