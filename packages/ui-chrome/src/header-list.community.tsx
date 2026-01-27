@@ -107,12 +107,7 @@ export const HeaderListCommunity = () => {
         className="w-[350px] max-w-full"
         logo={<AccelerateLogo width={158} height={64} />}
         title={communityEvent?.title}
-        description={
-          communityEvent?.description ??
-          (communityEvent?.location && communityEvent?.date
-            ? `${communityEvent.location} • ${communityEvent.date}`
-            : undefined)
-        }
+        description={communityEvent?.description}
         cta={communityEvent?.cta}
         ctaHref="/accelerate"
         location={communityEvent?.location}
