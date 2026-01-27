@@ -20,6 +20,19 @@ export default {
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
         locale: false,
       },
+      // Breakpoint app – locale-prefixed (so local pages can be removed)
+      {
+        source: "/:locale/breakpoint",
+        destination:
+          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint",
+        locale: false,
+      },
+      {
+        source: "/:locale/breakpoint/:path*",
+        destination:
+          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint/:path*",
+        locale: false,
+      },
       // Media app rewrites - new routes
       {
         source: "/admin",
