@@ -119,25 +119,6 @@ export function Speakers() {
           viewport={{ once: true, margin: "-100px" }}
           variants={stagger}
         >
-          {/* Header with title */}
-          <div className="mb-8 flex items-start justify-between lg:mb-12">
-            <motion.div variants={fadeInUp} className="flex flex-col">
-              <h2
-                className="text-h1 text-accelerate-gray-100"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                }}
-              >
-                Speakers
-              </h2>
-            </motion.div>
-          </div>
-
-          {/* Divider line */}
-          <div className="mb-8 border-t border-white/10 lg:mb-10" />
-
-          {/* All speakers - search & grid */}
           <AllSpeakersSection />
         </motion.div>
       </div>
@@ -145,22 +126,37 @@ export function Speakers() {
   );
 }
 
+const FEATURED_SPEAKER_SLUGS = [
+  "lily-liu",
+  "chris-chung",
+  "shina-foo",
+  "shawn-chan",
+] as const;
+
 function AllSpeakersSection() {
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter and sort speakers alphabetically by name
+  // Filter speakers; featured 4 first (carousel order), then rest in data order
   const filteredSpeakers = useMemo(() => {
-    return speakersData.speakers
-      .filter((speaker) => {
-        const matchesSearch =
-          searchQuery === "" ||
-          speaker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          speaker.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          speaker.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const filtered = speakersData.speakers.filter((speaker) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        speaker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        speaker.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        speaker.title.toLowerCase().includes(searchQuery.toLowerCase());
 
-        return matchesSearch;
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      return matchesSearch;
+    });
+
+    const featuredSlugSet = new Set<string>(FEATURED_SPEAKER_SLUGS);
+    const featured: (typeof speakersData.speakers)[number][] = [];
+    for (const slug of FEATURED_SPEAKER_SLUGS) {
+      const s = filtered.find((sp) => sp.slug === slug);
+      if (s) featured.push(s);
+    }
+    const rest = filtered.filter((sp) => !featuredSlugSet.has(sp.slug));
+
+    return [...featured, ...rest];
   }, [searchQuery]);
 
   // Clear filters
@@ -177,21 +173,30 @@ function AllSpeakersSection() {
       viewport={{ once: true, margin: "-100px" }}
       variants={stagger}
     >
-      {/* Header with Search */}
+      {/* Header: Speakers title left, search right */}
       <div className="mb-8 flex flex-col gap-6 lg:mb-12">
         <motion.div
           variants={fadeInUp}
-          className="flex flex-col sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
         >
+          <h2
+            className="text-h1 text-accelerate-gray-100 shrink-0"
+            style={{
+              fontFamily:
+                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+            }}
+          >
+            Speakers
+          </h2>
           {/* Search and Filter Bar */}
-          <div className="flex items-center gap-3 w-full sm:w-auto sm:max-w-2xl mt-4 sm:mt-0">
-            <div className="relative flex-1 min-w-0">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:justify-end ">
+            <div className="relative min-w-0 flex-1 sm:max-w-none md:max-w-lg">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search speakers, companies, or titles..."
-                className="w-full min-w-[400px] rounded-xl border border-white/10 bg-white/5 px-4 py-3 pl-11 text-white placeholder:text-white/40 focus:border-accelerate-purple/50 focus:outline-none focus:ring-2 focus:ring-accelerate-purple/30 transition-all"
+                className="w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-3 pl-11 text-white placeholder:text-white/40 focus:border-accelerate-purple/50 focus:outline-none focus:ring-2 focus:ring-accelerate-purple/30 transition-all sm:min-w-[280px]"
                 style={{
                   fontFamily:
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
