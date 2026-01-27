@@ -137,6 +137,12 @@ export default {
         destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,
         locale: false,
       },
+      // Accelerate app Next.js optimizer/static (_next/*) paths
+      {
+        source: "/accelerate-assets/_next/:path+",
+        destination: `${ACCELERATE_APP_URL}/_next/:path+`,
+        locale: false,
+      },
       // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",
