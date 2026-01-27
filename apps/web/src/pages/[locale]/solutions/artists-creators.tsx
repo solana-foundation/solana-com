@@ -59,7 +59,7 @@ const ArtistsCreatorsPage = () => {
 
       <ResponsiveBox
         responsiveStyles={{
-          medium: {
+          large: {
             textAlign: "center",
             fontSize: "2.625rem",
             letterSpacing: "-.02em",
