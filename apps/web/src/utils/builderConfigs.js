@@ -766,7 +766,7 @@ export const SwitchbackConfig = {
     },
     { name: "emailError", type: "text", localized: true, defaultValue: "" },
     { name: "submitError", type: "text", localized: true, defaultValue: "" },
-    { name: "successMessge", type: "text", localized: true, defaultValue: "" },
+    { name: "successMessage", type: "text", localized: true, defaultValue: "" },
   ],
 };
 
@@ -1046,7 +1046,7 @@ export const ConversionPanelConfig = {
       showIf: (options) => options.get("variant") === "centered",
     },
     {
-      name: "successMessge",
+      name: "successMessage",
       type: "text",
       localized: true,
       defaultValue: "",
