@@ -26,21 +26,21 @@ export function ResponsiveBox({
   // Large includes medium and small base styles
   // Medium includes small base styles
   const getStyles = (): CSSProperties => {
-    if (isLarge && responsiveStyles.large) {
+    if (isLarge) {
       return {
-        ...responsiveStyles.small,
-        ...responsiveStyles.medium,
         ...responsiveStyles.large,
       };
     }
-    if (isMedium && responsiveStyles.medium) {
+    if (isMedium) {
       return {
-        ...responsiveStyles.small,
+        ...responsiveStyles.large,
         ...responsiveStyles.medium,
       };
     }
-    if (isSmall && responsiveStyles.small) {
+    if (isSmall) {
       return {
+        ...responsiveStyles.large,
+        ...responsiveStyles.medium,
         ...responsiveStyles.small,
       };
     }
