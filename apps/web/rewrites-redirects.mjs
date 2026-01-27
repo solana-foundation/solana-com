@@ -1011,18 +1011,14 @@ export default {
       source: "/accelerate/ship-or-die",
       destination: "/accelerate",
     },
-    // Temp: Redirect all /accelerate/* routes to /accelerate
+    // Temp: Redirect all /accelerate subpaths to /accelerate
     {
-      source: "/accelerate/*",
+      source: "/accelerate/:path+",
       destination: "/accelerate",
     },
     {
-      source: "/:locale/accelerate/*",
+      source: "/:locale/accelerate/:path+",
       destination: "/:locale/accelerate",
-    },
-    {
-      source: "/accelerate/ship-or-die",
-      destination: "/accelerate",
     },
     {
       source: "/docs/terminology",
