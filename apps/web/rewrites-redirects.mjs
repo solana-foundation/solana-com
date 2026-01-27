@@ -132,6 +132,11 @@ export default {
         destination: `${ACCELERATE_APP_URL}/:locale/accelerate/:path*`,
         locale: false,
       },
+      {
+        source: "/accelerate-assets/:path+",
+        destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,
+        locale: false,
+      },
       // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",
@@ -144,6 +149,11 @@ export default {
         locale: false,
       },
       // Accelerate app assets (required for static assets with assetPrefix: "/accelerate-assets")
+      {
+        source: "/accelerate-assets/images/:path+",
+        destination: `${ACCELERATE_APP_URL}/images/:path+`,
+        locale: false,
+      },
       {
         source: "/accelerate-assets/:path+",
         destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,

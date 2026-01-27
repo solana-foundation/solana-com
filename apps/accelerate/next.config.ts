@@ -70,11 +70,12 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        // Rewrite /accelerate-assets/_next/* to /_next/* for asset prefix compatibility
         {
           source: "/accelerate-assets/_next/:path+",
           destination: "/_next/:path+",
         },
-        // Serve static images from public/images via the asset prefix
+        // Internal rewrite for Next.js image optimizer to resolve source images
         {
           source: "/accelerate-assets/images/:path+",
           destination: "/images/:path+",
