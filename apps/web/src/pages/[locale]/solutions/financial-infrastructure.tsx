@@ -83,7 +83,6 @@ const FinancialInfrastructurePage = () => {
         <Heading
           headline={HEADINGS.priceDiscovery.headline}
           body={HEADINGS.priceDiscovery.body}
-          variant="standard"
         />
       </ResponsiveBox>
 
@@ -124,7 +123,6 @@ const FinancialInfrastructurePage = () => {
         <Heading
           headline={HEADINGS.peerToPeerLending.headline}
           body={HEADINGS.peerToPeerLending.body}
-          variant="standard"
         />
       </ResponsiveBox>
 
@@ -171,10 +169,7 @@ const FinancialInfrastructurePage = () => {
           },
         }}
       >
-        <Heading
-          headline={HEADINGS.learnFromDevelopers.headline}
-          variant="standard"
-        />
+        <Heading headline={HEADINGS.learnFromDevelopers.headline} />
       </ResponsiveBox>
 
       <CardDeck
