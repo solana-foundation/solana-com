@@ -32,6 +32,9 @@ const getSiteUrl = () => {
 };
 
 const siteUrl = getSiteUrl();
+// Assets are served from the root with an /accelerate-assets prefix; in production
+// the site URL includes /accelerate, so strip it to build absolute asset URLs.
+const assetBaseUrl = siteUrl.replace(/\/accelerate$/, "");
 
 export const config = {
   siteMetadata: {
@@ -50,7 +53,7 @@ export const config = {
       "crypto event",
       "blockchain conference",
     ],
-    socialShare: `${siteUrl}/images/social-card.webp`,
+    socialShare: `${assetBaseUrl}${getImagePath("/images/social-card.webp")}`,
     author: `@solana`,
   },
   siteUrl,
