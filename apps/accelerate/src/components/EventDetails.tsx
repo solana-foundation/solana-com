@@ -34,7 +34,9 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
     >
       <p className="gradient-text text-h2 font-space-grotesk">{label}</p>
       <div>
-        <p className="text-h2 font-space-grotesk text-white">{value}</p>
+        <p className="text-h2 font-space-grotesk text-accelerate-gray-100">
+          {value}
+        </p>
         {subValue && (
           <p className="mt-3 font-diatype text-p text-accelerate-green">
             {subValue}
@@ -55,17 +57,6 @@ export function EventDetails() {
           viewport={{ once: true, margin: "-100px" }}
           variants={stagger}
         >
-          {/* Section heading */}
-          <motion.h2
-            variants={fadeInUp}
-            className="text-h1 mb-8 font-space-grotesk text-accelerate-gray-100 lg:mb-12"
-          >
-            Event details
-          </motion.h2>
-
-          {/* Divider line */}
-          <div className="mb-8 border-t border-white/10 lg:mb-10" />
-
           {/* Intro copy */}
           <motion.div
             variants={stagger}
@@ -73,32 +64,11 @@ export function EventDetails() {
           >
             <motion.p
               variants={fadeInUp}
-              className="mb-6 font-diatype text-p leading-relaxed text-white"
-            >
-              The fastest growing network in the world is coming to the fastest
-              growing region of the world.
-            </motion.p>
-            <motion.p
-              variants={fadeInUp}
-              className="mb-6 font-diatype text-p leading-relaxed text-white"
+              className="mb-6 font-space-grotesk text-h4 text-accelerate-gray-100"
             >
               Join us as we bring together founders, institutions, policymakers,
               and innovators to amplify the region&apos;s momentum and showcase
               the future of internet capital markets on Solana.
-            </motion.p>
-            <motion.p
-              variants={fadeInUp}
-              className="mb-10 border-l-2 border-accelerate-green/50 pl-4 font-diatype text-p leading-relaxed text-accelerate-green"
-            >
-              You can apply today to experience the high-alpha environment you
-              expect from our events in a more intimate setting.
-            </motion.p>
-            <motion.p
-              variants={fadeInUp}
-              className="mb-6 font-space-grotesk text-h2 text-accelerate-gray-100"
-            >
-              We are once again cutting the fluff to bring a laser focus to the
-              narratives actually moving markets:
             </motion.p>
             <dl className="space-y-0">
               {[
@@ -139,15 +109,22 @@ export function EventDetails() {
                   <dt className="gradient-text font-space-grotesk text-h2">
                     {title}
                   </dt>
-                  <dd className="font-diatype text-p leading-relaxed text-white/80">
+                  <dd className="font-diatype text-p leading-relaxed text-white/50">
                     {desc}
                   </dd>
                 </motion.div>
               ))}
             </dl>
           </motion.div>
+          {/* Section heading */}
+          <motion.h2
+            variants={fadeInUp}
+            className="text-h1 mb-8 font-space-grotesk text-accelerate-gray-100 lg:mb-12"
+          >
+            Event details
+          </motion.h2>
 
-          {/* Divider before details grid */}
+          {/* Divider line */}
           <div className="mb-8 border-t border-white/10 lg:mb-10" />
 
           <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:gap-[80px]">
