@@ -47,6 +47,14 @@ const nextConfig: NextConfig = {
 
   images: {
     path: `${prefix}/_next/image`,
+    localPatterns: [
+      {
+        pathname: "/images/**",
+      },
+      {
+        pathname: "/accelerate-assets/images/**",
+      },
+    ],
     remotePatterns: [
       {
         protocol: "https",
