@@ -46,6 +46,9 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    // Disable Next.js optimizer so images use direct asset-prefixed URLs.
+    // This avoids proxying /accelerate-assets/_next/image through solana.com.
+    unoptimized: true,
     path: `${prefix}/_next/image`,
     localPatterns: [
       {
