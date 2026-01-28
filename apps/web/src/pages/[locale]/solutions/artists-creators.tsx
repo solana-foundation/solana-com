@@ -13,43 +13,67 @@ import {
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Columns } from "@/component-library/columns";
 import { withLocales } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import {
   META,
-  HERO,
-  BUTTONS,
-  STATS_TEXT,
-  HEADINGS,
-  SWITCHBACK,
-  CASE_STUDIES,
-  CARDS_CREATE,
-  CARDS_EARN,
-  CARDS_SHOWCASE,
-  CARDS_CONNECT,
-  CONVERSION_PANEL,
+  HERO_IMAGE,
+  SWITCHBACK_IMAGE,
+  CASE_STUDY_IMAGES,
+  CARDS_CREATE_URLS,
+  CARDS_EARN_URLS,
+  CARDS_SHOWCASE_URLS,
+  CARDS_CONNECT_URLS,
 } from "@/data/solutions/artists-creators";
 
 const ArtistsCreatorsPage = () => {
+  const t = useTranslations("artists-creators-solution");
+  const cardsCreate = CARDS_CREATE_URLS.map((url, index) => ({
+    url,
+    heading: t(`cardsCreate.${index}.heading`),
+    body: t(`cardsCreate.${index}.body`),
+  }));
+  const cardsEarn = CARDS_EARN_URLS.map((url, index) => ({
+    url,
+    heading: t(`cardsEarn.${index}.heading`),
+    body: t(`cardsEarn.${index}.body`),
+  }));
+  const cardsShowcase = CARDS_SHOWCASE_URLS.map((url, index) => ({
+    url,
+    heading: t(`cardsShowcase.${index}.heading`),
+    body: t(`cardsShowcase.${index}.body`),
+  }));
+  const cardsConnect = CARDS_CONNECT_URLS.map((url, index) => ({
+    url,
+    heading: t(`cardsConnect.${index}.heading`),
+    body: t(`cardsConnect.${index}.body`),
+  }));
+  const caseStudies = CASE_STUDY_IMAGES.map((src, index) => ({
+    image: { src, alt: "" },
+    headline: t(`caseStudies.${index}.headline`),
+    body: t.raw(`caseStudies.${index}.body`),
+  }));
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         socialShare={META.seoImage}
       />
 
       <Hero
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
         headingAs="h1"
-        body={HERO.body}
+        body={t.raw("hero.body")}
         centered={false}
         newsLetter={false}
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F660c4c99d1c045b2b473ddd5688bb9f2.png",
+          src: HERO_IMAGE,
         }}
         buttons={[
           {
-            label: BUTTONS.joinCommunity,
+            label: t("buttons.joinCommunity"),
             hierarchy: "primary",
             size: "lg",
             url: "/solutions/artists-creators/?modalLaunch=true&modalLaunchId=artistAndCreatorsNewsletter",
@@ -83,7 +107,7 @@ const ArtistsCreatorsPage = () => {
                   lineHeight: "inherit",
                 }}
               >
-                {STATS_TEXT.subtitle}
+                {t("statsText.subtitle")}
               </h2>
               <p
                 style={{
@@ -94,7 +118,7 @@ const ArtistsCreatorsPage = () => {
                   textTransform: "uppercase",
                   margin: 0,
                 }}
-                dangerouslySetInnerHTML={{ __html: STATS_TEXT.metrics }}
+                dangerouslySetInnerHTML={{ __html: t.raw("statsText.metrics") }}
               />
             </div>
           </div>
@@ -127,26 +151,19 @@ const ArtistsCreatorsPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.create.headline}
-          body={HEADINGS.create.body}
+          headline={t("headings.create.headline")}
+          body={t("headings.create.body")}
           variant="floatingButton"
         />
       </ResponsiveBox>
 
       <CardDeck
-        cards={CARDS_CREATE.map((card) => ({
+        cards={cardsCreate.map((card) => ({
           type: "gradient",
           callToAction: {
             hierarchy: "outline",
-            url: [
-              "https://magiceden.io/",
-              "https://studio.metaplex.com/",
-              "https://www.underdogprotocol.com/",
-              "https://www.solemna.com/",
-              "https://primitives.xyz/landing",
-              "https://www.ovols.com/creatorx/",
-            ][CARDS_CREATE.indexOf(card)],
-            label: BUTTONS.learnMore,
+            url: card.url,
+            label: t("buttons.learnMore"),
           },
           isFeatured: false,
           backgroundGradient: "purple",
@@ -164,25 +181,19 @@ const ArtistsCreatorsPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.earn.headline}
-          body={HEADINGS.earn.body}
+          headline={t("headings.earn.headline")}
+          body={t("headings.earn.body")}
           variant="floatingButton"
         />
       </ResponsiveBox>
 
       <CardDeck
-        cards={CARDS_EARN.map((card) => ({
+        cards={cardsEarn.map((card) => ({
           type: "gradient",
           callToAction: {
             hierarchy: "outline",
-            url: [
-              "https://hub.accessprotocol.co/creators",
-              "https://drip.haus/",
-              "https://helio.co/nfts/",
-              "https://tiplink.io/",
-              "https://royalties.metaplex.com/",
-            ][CARDS_EARN.indexOf(card)],
-            label: BUTTONS.learnMore,
+            url: card.url,
+            label: t("buttons.learnMore"),
           },
           backgroundGradient: "green",
           body: card.body,
@@ -199,30 +210,22 @@ const ArtistsCreatorsPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.showcase.headline}
-          body={HEADINGS.showcase.body}
+          headline={t("headings.showcase.headline")}
+          body={t("headings.showcase.body")}
           variant="floatingButton"
         />
       </ResponsiveBox>
 
       <CardDeck
-        cards={CARDS_SHOWCASE.map((card) => ({
+        cards={cardsShowcase.map((card) => ({
           type: "gradient",
           heading: card.heading,
           body: card.body,
           eyebrow: "",
           callToAction: {
-            label: BUTTONS.learnMore,
+            label: t("buttons.learnMore"),
             hierarchy: "outline",
-            url: [
-              "https://exchange.art/",
-              "https://www.mallow.art/",
-              "https://fostermarketplace.app/",
-              "https://magiceden.io/",
-              "https://primitives.xyz/landing",
-              "https://www.tensor.trade/",
-              "https://radius.art/",
-            ][CARDS_SHOWCASE.indexOf(card)],
+            url: card.url,
           },
           backgroundGradient: "pink",
         }))}
@@ -236,27 +239,22 @@ const ArtistsCreatorsPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.connect.headline}
-          body={HEADINGS.connect.body}
+          headline={t("headings.connect.headline")}
+          body={t("headings.connect.body")}
           variant="floatingButton"
         />
       </ResponsiveBox>
 
       <CardDeck
-        cards={CARDS_CONNECT.map((card) => ({
+        cards={cardsConnect.map((card) => ({
           type: "gradient",
           heading: card.heading,
           body: card.body,
           eyebrow: "",
           callToAction: {
-            label: BUTTONS.learnMore,
+            label: t("buttons.learnMore"),
             hierarchy: "outline",
-            url: [
-              "https://3.land/",
-              "https://grapes.network/",
-              "https://matrica.io/",
-              "https://www.dialect.to/",
-            ][CARDS_CONNECT.indexOf(card)],
+            url: card.url,
           },
           backgroundGradient: "blue",
         }))}
@@ -266,103 +264,61 @@ const ArtistsCreatorsPage = () => {
       <Switchback
         assetSide="right"
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F096a261cde734342950c77bb6cf3daef.png",
+          src: SWITCHBACK_IMAGE,
           alt: "",
         }}
-        eyebrow={SWITCHBACK.poweringCreators.eyebrow}
-        headline={SWITCHBACK.poweringCreators.headline}
-        body={SWITCHBACK.poweringCreators.body}
+        eyebrow={t("switchback.poweringCreators.eyebrow")}
+        headline={t("switchback.poweringCreators.headline")}
+        body={t.raw("switchback.poweringCreators.body")}
       />
 
       <SwitchbackChain
         hideBackground={true}
-        switchbacks={[
-          {
-            assetSide: "right",
-            buttons: [
-              {
-                hierarchy: "primary",
-                size: "md",
-                url: "/news/case-study-dialect",
-                label: BUTTONS.readCaseStudy,
-              },
-            ],
-            image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fc8f7cec94aaf4b928e5be1b5494ffbae.png",
-              alt: "",
+        switchbacks={caseStudies.map((caseStudy, index) => ({
+          assetSide: index % 2 === 0 ? "right" : "left",
+          buttons: [
+            {
+              hierarchy: "primary",
+              size: "md",
+              url: [
+                "/news/case-study-dialect",
+                "https://blockworks.co/news/drip-haus-mass-adoption-strategy",
+                "https://www.shilstonearts.com/offleash",
+              ][index],
+              label:
+                index === 0
+                  ? t("buttons.readCaseStudy")
+                  : t("buttons.learnMore"),
             },
-            eyebrow: "",
-            headline: CASE_STUDIES[0].headline,
-            body: CASE_STUDIES[0].body,
-            placeholder: "",
-            emailError: "",
-            submitError: "",
-            successMessage: "",
-          },
-          {
-            assetSide: "left",
-            buttons: [
-              {
-                hierarchy: "primary",
-                size: "md",
-                url: "https://blockworks.co/news/drip-haus-mass-adoption-strategy",
-                label: BUTTONS.learnMore,
-              },
-            ],
-            image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fc311dd7a1b4b4e40ad6932008fbfcd8d.png",
-              alt: "",
-            },
-            eyebrow: "",
-            headline: CASE_STUDIES[1].headline,
-            body: CASE_STUDIES[1].body,
-            placeholder: "",
-            emailError: "",
-            submitError: "",
-            successMessage: "",
-          },
-          {
-            assetSide: "right",
-            buttons: [
-              {
-                hierarchy: "primary",
-                size: "md",
-                url: "https://www.shilstonearts.com/offleash",
-                label: BUTTONS.learnMore,
-              },
-            ],
-            image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ffc485fa267294967b6c0be1f31738147.png",
-              alt: "",
-            },
-            eyebrow: "",
-            headline: CASE_STUDIES[2].headline,
-            body: CASE_STUDIES[2].body,
-            placeholder: "",
-            emailError: "",
-            submitError: "",
-            successMessage: "",
-          },
-        ]}
+          ],
+          image: caseStudy.image,
+          eyebrow: "",
+          headline: caseStudy.headline,
+          body: caseStudy.body,
+          placeholder: "",
+          emailError: "",
+          submitError: "",
+          successMessage: "",
+        }))}
       />
 
       <ConversionPanel
-        heading={CONVERSION_PANEL.cta.heading}
+        heading={t("conversionPanel.heading")}
         buttons={[
           {
-            label: BUTTONS.getInTouch,
+            label: t("buttons.getInTouch"),
             hierarchy: "secondary",
             size: "lg",
             url: "mailto:bd-social@solana.org",
           },
           {
-            label: BUTTONS.seeCaseStudies,
+            label: t("buttons.seeCaseStudies"),
             hierarchy: "outline",
             size: "lg",
             url: "/news/tag/case-studies",
           },
         ]}
-        body={CONVERSION_PANEL.cta.body}
+        body={t("conversionPanel.body")}
       />
     </Layout>
   );

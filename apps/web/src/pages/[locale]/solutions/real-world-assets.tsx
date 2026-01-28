@@ -1,4 +1,5 @@
 import { withLocales } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import {
@@ -13,24 +14,24 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 
 import {
   META,
-  HERO,
-  BUTTONS,
-  STATS,
   TRUSTBAR,
-  HEADINGS,
-  COMPLIANCE_CARDS,
-  TOKENIZATION_CARDS,
-  CASE_STUDY_CARDS,
-  DEVELOPER_CARDS,
-  CONVERSION_PANEL,
+  HERO_IMAGE,
+  DEVELOPER_CARD_IMAGE,
 } from "@/data/solutions/real-world-assets";
 
 const RealWorldAssetsPage = () => {
+  const t = useTranslations("real-world-assets-solution");
+
+  const stats = Array.from({ length: 3 }, (_, index) => ({
+    stat: t(`stats.${index}.value`),
+    description: t(`stats.${index}.description`),
+  }));
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         socialShare={META.seoImage}
       />
 
@@ -38,12 +39,12 @@ const RealWorldAssetsPage = () => {
         headingAs="h1"
         centered={false}
         newsLetter={false}
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
-        body={HERO.body}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body")}
         buttons={[
           {
-            label: BUTTONS.learnMore,
+            label: t("buttons.learnMore"),
             hierarchy: "primary",
             size: "md",
             iconSize: "md",
@@ -51,26 +52,26 @@ const RealWorldAssetsPage = () => {
           },
         ]}
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F4f9868dcae8e4115b0db20b5aa111703.png",
+          src: HERO_IMAGE,
           alt: "",
         }}
       />
 
-      <Stats stats={STATS} contained />
+      <Stats stats={stats} contained />
 
       <Trustbar
         variant="standard"
-        eyebrow={TRUSTBAR.eyebrow}
+        eyebrow={t("trustbar.eyebrow")}
         logos={TRUSTBAR.logos as { src: string; alt: string; url: string }[]}
       />
 
       <Heading
-        headline={HEADINGS.futureOfTrading.headline}
-        body={HEADINGS.futureOfTrading.body}
+        headline={t("headings.futureOfTrading.headline")}
+        body={t("headings.futureOfTrading.body")}
         variant="centered"
         buttons={[
           {
-            label: BUTTONS.exploreRwa,
+            label: t("buttons.exploreRwa"),
             hierarchy: "outline",
             size: "md",
             iconSize: "md",
@@ -86,7 +87,7 @@ const RealWorldAssetsPage = () => {
           small: { display: "block", marginBottom: "-50px" },
         }}
       >
-        <Heading headline={HEADINGS.complianceTooling.headline} />
+        <Heading headline={t("headings.complianceTooling.headline")} />
       </ResponsiveBox>
 
       <CardDeck
@@ -94,9 +95,9 @@ const RealWorldAssetsPage = () => {
         cards={[
           {
             type: "standard",
-            heading: COMPLIANCE_CARDS.spes.heading,
+            heading: t("complianceCards.spes.heading"),
             headingAs: "h3",
-            body: COMPLIANCE_CARDS.spes.body,
+            body: t("complianceCards.spes.body"),
             backgroundGradient: "none",
             callToAction: {
               hierarchy: "primary",
@@ -106,23 +107,23 @@ const RealWorldAssetsPage = () => {
           },
           {
             type: "standard",
-            heading: COMPLIANCE_CARDS.tokenExtensions.heading,
+            heading: t("complianceCards.tokenExtensions.heading"),
             headingAs: "h3",
-            body: COMPLIANCE_CARDS.tokenExtensions.body,
+            body: t("complianceCards.tokenExtensions.body"),
             callToAction: {
               hierarchy: "primary",
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://solana.com/solutions/token-extensions",
             },
           },
           {
             type: "standard",
-            heading: COMPLIANCE_CARDS.kycWithTransferHooks.heading,
+            heading: t("complianceCards.kycWithTransferHooks.heading"),
             headingAs: "h3",
-            body: COMPLIANCE_CARDS.kycWithTransferHooks.body,
+            body: t("complianceCards.kycWithTransferHooks.body"),
             callToAction: {
               hierarchy: "primary",
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://solana.com/solutions/token-extensions",
             },
           },
@@ -135,7 +136,7 @@ const RealWorldAssetsPage = () => {
           small: { display: "block", marginBottom: "-50px" },
         }}
       >
-        <Heading headline={HEADINGS.tokenization.headline} />
+        <Heading headline={t("headings.tokenization.headline")} />
       </ResponsiveBox>
 
       <CardDeck
@@ -143,36 +144,36 @@ const RealWorldAssetsPage = () => {
         cards={[
           {
             type: "standard",
-            heading: TOKENIZATION_CARDS.metaplexNFTs.heading,
+            heading: t("tokenizationCards.metaplexNFTs.heading"),
             headingAs: "h3",
-            body: TOKENIZATION_CARDS.metaplexNFTs.body,
+            body: t("tokenizationCards.metaplexNFTs.body"),
             backgroundGradient: "none",
             callToAction: {
               hierarchy: "primary",
-              label: BUTTONS.getStarted,
+              label: t("buttons.getStarted"),
               url: "https://developers.metaplex.com/",
               endIcon: "arrow-up-right",
             },
           },
           {
             type: "standard",
-            heading: TOKENIZATION_CARDS.compressedNFTs.heading,
+            heading: t("tokenizationCards.compressedNFTs.heading"),
             headingAs: "h3",
-            body: TOKENIZATION_CARDS.compressedNFTs.body,
+            body: t("tokenizationCards.compressedNFTs.body"),
             callToAction: {
               hierarchy: "primary",
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://solana.com/news/state-compression-compressed-nfts-solana",
             },
           },
           {
             type: "standard",
-            heading: TOKENIZATION_CARDS.bridgesplit.heading,
+            heading: t("tokenizationCards.bridgesplit.heading"),
             headingAs: "h3",
-            body: TOKENIZATION_CARDS.bridgesplit.body,
+            body: t("tokenizationCards.bridgesplit.body"),
             callToAction: {
               hierarchy: "primary",
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://www.bridgesplit.com/",
               endIcon: "arrow-up-right",
             },
@@ -186,7 +187,7 @@ const RealWorldAssetsPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.companiesUsingSolana.headline}
+          headline={t("headings.companiesUsingSolana.headline")}
           variant="centered"
         />
       </ResponsiveBox>
@@ -198,45 +199,43 @@ const RealWorldAssetsPage = () => {
           {
             type: "standard",
             isFeatured: true,
-            heading: CASE_STUDY_CARDS.credix.heading,
+            heading: t("caseStudyCards.credix.heading"),
             headingAs: "h2",
-            body: CASE_STUDY_CARDS.credix.body,
+            body: t("caseStudyCards.credix.body"),
             callToAction: {
-              label: BUTTONS.read,
+              label: t("buttons.read"),
               hierarchy: "outline",
               url: "https://solana.com/news/case-study-credix",
             },
             backgroundGradient: "purple",
-            eyebrow: CASE_STUDY_CARDS.credix.eyebrow,
+            eyebrow: t("caseStudyCards.credix.eyebrow"),
           },
           {
             type: "cta",
             isFeatured: false,
-            heading: CASE_STUDY_CARDS.homebase.heading,
+            heading: t("caseStudyCards.homebase.heading"),
             headingAs: "h2",
-            body: CASE_STUDY_CARDS.homebase.body,
             callToAction: {
-              label: BUTTONS.read,
+              label: t("buttons.read"),
               hierarchy: "outline",
               url: "https://solana.com/news/case-study-homebase",
             },
             backgroundGradient: "none",
-            eyebrow: CASE_STUDY_CARDS.homebase.eyebrow,
+            eyebrow: t("caseStudyCards.homebase.eyebrow"),
           },
           {
             type: "cta",
             isFeatured: false,
-            heading: CASE_STUDY_CARDS.baxus.heading,
+            heading: t("caseStudyCards.baxus.heading"),
             headingAs: "h2",
-            body: CASE_STUDY_CARDS.baxus.body,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "https://www.baxus.co/",
               endIcon: "arrow-up-right",
             },
             backgroundGradient: "none",
-            eyebrow: CASE_STUDY_CARDS.baxus.eyebrow,
+            eyebrow: t("caseStudyCards.baxus.eyebrow"),
           },
         ]}
       />
@@ -247,7 +246,7 @@ const RealWorldAssetsPage = () => {
           medium: { marginBottom: "-45px" },
         }}
       >
-        <Heading headline={HEADINGS.learnFromDevelopers.headline} />
+        <Heading headline={t("headings.learnFromDevelopers.headline")} />
       </ResponsiveBox>
 
       <CardDeck
@@ -256,10 +255,10 @@ const RealWorldAssetsPage = () => {
         cards={[
           {
             type: "image",
-            heading: DEVELOPER_CARDS.introToDevelopment.heading,
+            heading: t("developerCards.introToDevelopment.heading"),
             headingAs: "h3",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "/developers/guides/getstarted/hello-world-in-your-browser",
@@ -269,10 +268,10 @@ const RealWorldAssetsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.developmentCourse.heading,
+            heading: t("developerCards.developmentCourse.heading"),
             headingAs: "h3",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "https://www.soldev.app/course",
@@ -282,10 +281,10 @@ const RealWorldAssetsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.bootcamp.heading,
+            heading: t("developerCards.bootcamp.heading"),
             headingAs: "h3",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "https://youtu.be/0P8JeL3TURU?feature=shared",
@@ -295,10 +294,10 @@ const RealWorldAssetsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.moreTools.heading,
+            heading: t("developerCards.moreTools.heading"),
             headingAs: "h3",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "/developers",
@@ -311,11 +310,11 @@ const RealWorldAssetsPage = () => {
 
       <ConversionPanel
         variant="centered"
-        heading={CONVERSION_PANEL.heading}
-        body={CONVERSION_PANEL.body}
+        heading={t("conversionPanel.heading")}
+        body={t("conversionPanel.body")}
         buttons={[
           {
-            label: BUTTONS.seeDocs,
+            label: t("buttons.seeDocs"),
             hierarchy: "secondary",
             size: "lg",
             url: "https://docs.solana.com/",

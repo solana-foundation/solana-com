@@ -2,37 +2,17 @@ import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import { Hero, Section } from "@solana-foundation/solana-lib";
 import { withLocales } from "@workspace/i18n/routing";
-import {
-  META,
-  HERO,
-  CONTENT_1,
-  CONTENT_2,
-  CONTENT_3,
-  CONTENT_4,
-  CONTENT_5,
-  CONTENT_6,
-  CONTENT_7,
-  CONTENT_8,
-  CONTENT_9,
-  CONTENT_10,
-  TITLE_2,
-  TITLE_3,
-  TITLE_4,
-  TITLE_5,
-  TITLE_6,
-  TITLE_7,
-  TITLE_8,
-  TITLE_9,
-  TITLE_10,
-} from "@/data/privacy-policy";
+import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 
 const PrivacyPolicyPage = () => {
+  const t = useTranslations("privacy-policy");
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.seoTitle")}
+        description={t("meta.seoDescription")}
         // socialShare={META.seoImage}
       />
 
@@ -40,33 +20,57 @@ const PrivacyPolicyPage = () => {
         headingAs="h1"
         centered={false}
         newsLetter={false}
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
-        body={HERO.body}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t("hero.body")}
       />
 
       <Section>
-        <ReactMarkdown skipHtml={false}>{CONTENT_1}</ReactMarkdown>
-        <h3 id="collection-of-information">{TITLE_2}</h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_2}</ReactMarkdown>
-        <h3 id="use-of-information">{TITLE_3}</h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_3}</ReactMarkdown>
-        <h3 id="sharing-of-information">{TITLE_4}</h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_4}</ReactMarkdown>
-        <h3 id="analytics">{TITLE_5}</h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_5}</ReactMarkdown>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.intro")}
+        </ReactMarkdown>
+        <h3 id="collection-of-information">{t("sections.collection.title")}</h3>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.collection.body")}
+        </ReactMarkdown>
+        <h3 id="use-of-information">{t("sections.use.title")}</h3>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.use.body")}
+        </ReactMarkdown>
+        <h3 id="sharing-of-information">{t("sections.sharing.title")}</h3>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.sharing.body")}
+        </ReactMarkdown>
+        <h3 id="analytics">{t("sections.analytics.title")}</h3>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.analytics.body")}
+        </ReactMarkdown>
         <h3 id="transfer-of-information-to-the-united-states-and-other-countries">
-          {TITLE_6}
+          {t("sections.transfer.title")}
         </h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_6}</ReactMarkdown>
-        <h3 id="your-choices">{TITLE_7}</h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_7}</ReactMarkdown>
-        <h3 id="your-california-privacy-rights">{TITLE_8}</h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_8}</ReactMarkdown>
-        <h3 id="additional-disclosures-for-individuals-in-europe">{TITLE_9}</h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_9}</ReactMarkdown>
-        <h3 id="contact-us">{TITLE_10}</h3>
-        <ReactMarkdown skipHtml={false}>{CONTENT_10}</ReactMarkdown>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.transfer.body")}
+        </ReactMarkdown>
+        <h3 id="your-choices">{t("sections.choices.title")}</h3>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.choices.body")}
+        </ReactMarkdown>
+        <h3 id="your-california-privacy-rights">
+          {t("sections.california.title")}
+        </h3>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.california.body")}
+        </ReactMarkdown>
+        <h3 id="additional-disclosures-for-individuals-in-europe">
+          {t("sections.europe.title")}
+        </h3>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.europe.body")}
+        </ReactMarkdown>
+        <h3 id="contact-us">{t("sections.contact.title")}</h3>
+        <ReactMarkdown skipHtml={false}>
+          {t.raw("sections.contact.body")}
+        </ReactMarkdown>
       </Section>
     </Layout>
   );
@@ -82,10 +86,15 @@ export async function getStaticProps({
   const { locale = "en" } = params;
   const messages = (await import(`@@/public/locales/${locale}/common.json`))
     .default;
+  const enMessages = (await import(`@@/public/locales/en/common.json`)).default;
   return {
     props: {
       locale,
-      messages,
+      messages: {
+        ...messages,
+        "privacy-policy":
+          messages["privacy-policy"] ?? enMessages["privacy-policy"],
+      },
     },
     revalidate: 60,
   };

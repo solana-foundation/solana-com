@@ -1,4 +1,5 @@
 import { withLocales } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import {
@@ -12,20 +13,19 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 
 import {
   META,
-  HERO,
-  BUTTONS,
-  HEADINGS,
-  SWITCHBACKS,
-  DEVELOPER_CARDS,
-  CONVERSION_PANEL,
+  HERO_IMAGE,
+  SWITCHBACK_IMAGES,
+  DEVELOPER_CARD_IMAGES,
 } from "@/data/solutions/solana-permissioned-environments";
 
 const SolanaPermissionedEnvironmentsPage = () => {
+  const t = useTranslations("spe-solution");
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         socialShare={META.seoImage}
       />
 
@@ -33,37 +33,37 @@ const SolanaPermissionedEnvironmentsPage = () => {
         headingAs="h1"
         centered={false}
         newsLetter={false}
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
-        body={HERO.body}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body")}
         buttons={[
           {
-            label: BUTTONS.readTheDocs,
+            label: t("buttons.readTheDocs"),
             hierarchy: "primary",
             size: "lg",
             url: "https://solana.com/developers/guides/permissioned-environments",
           },
           {
-            label: BUTTONS.areSpesRightForYou,
+            label: t("buttons.areSpesRightForYou"),
             hierarchy: "outline",
             size: "lg",
             url: "https://solanafoundation.notion.site/Solana-Permissioned-Environments-Decision-Tree-f5c9aec58da34763ae9bc09397d7d968?pvs=4",
           },
           {
-            label: BUTTONS.getInTouch,
+            label: t("buttons.getInTouch"),
             hierarchy: "outline",
             size: "lg",
             url: "mailto:product@solana.org",
           },
         ]}
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F2675362eaf6e4eb09d2e880ddd81cac5.png",
+          src: HERO_IMAGE,
           alt: "",
         }}
       />
 
       <Heading
-        headline={HEADINGS.permissionedChains.headline}
+        headline={t("headings.permissionedChains.headline")}
         variant="centered"
       />
 
@@ -72,11 +72,11 @@ const SolanaPermissionedEnvironmentsPage = () => {
         switchbacks={[
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[0].eyebrow,
-            headline: SWITCHBACKS[0].headline,
-            body: SWITCHBACKS[0].body,
+            eyebrow: "",
+            headline: t("switchbacks.0.headline"),
+            body: t.raw("switchbacks.0.body"),
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F293c8a003c434aa7a2a29ce54cf4a232.png",
+              src: SWITCHBACK_IMAGES[0],
               alt: "",
             },
             placeholder: "",
@@ -86,11 +86,11 @@ const SolanaPermissionedEnvironmentsPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[1].eyebrow,
-            headline: SWITCHBACKS[1].headline,
-            body: SWITCHBACKS[1].body,
+            eyebrow: "",
+            headline: t("switchbacks.1.headline"),
+            body: t.raw("switchbacks.1.body"),
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F736faa258fdf4b188576f0ef0a4cad1e.png",
+              src: SWITCHBACK_IMAGES[1],
               alt: "",
             },
             placeholder: "",
@@ -100,11 +100,11 @@ const SolanaPermissionedEnvironmentsPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[2].eyebrow,
-            headline: SWITCHBACKS[2].headline,
-            body: SWITCHBACKS[2].body,
+            eyebrow: "",
+            headline: t("switchbacks.2.headline"),
+            body: t.raw("switchbacks.2.body"),
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F77cc8c60b17645d6b83f368de37e7134.png",
+              src: SWITCHBACK_IMAGES[2],
               alt: "",
             },
             placeholder: "",
@@ -114,19 +114,19 @@ const SolanaPermissionedEnvironmentsPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[3].eyebrow,
-            headline: SWITCHBACKS[3].headline,
-            body: SWITCHBACKS[3].body,
+            eyebrow: "",
+            headline: t("switchbacks.3.headline"),
+            body: t.raw("switchbacks.3.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "https://solana.com/solutions/token-extensions",
-                label: BUTTONS.learnMoreAboutTokenExtensions,
+                label: t("buttons.learnMoreAboutTokenExtensions"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fe80ca3b676a743b581582c6bb393e1d3.png",
+              src: SWITCHBACK_IMAGES[3],
               alt: "",
             },
             placeholder: "",
@@ -143,7 +143,7 @@ const SolanaPermissionedEnvironmentsPage = () => {
           medium: { marginBottom: "-45px" },
         }}
       >
-        <Heading headline={HEADINGS.learnFromDevelopers.headline} />
+        <Heading headline={t("headings.learnFromDevelopers.headline")} />
       </ResponsiveBox>
 
       <CardDeck
@@ -152,10 +152,10 @@ const SolanaPermissionedEnvironmentsPage = () => {
         cards={[
           {
             type: "image",
-            heading: DEVELOPER_CARDS.introToDevelopment.heading,
+            heading: t("developerCards.introToDevelopment.heading"),
             headingAs: "h3",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGES,
             },
             callToAction: {
               url: "/developers/guides/getstarted/hello-world-in-your-browser",
@@ -165,10 +165,10 @@ const SolanaPermissionedEnvironmentsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.developmentCourse.heading,
+            heading: t("developerCards.developmentCourse.heading"),
             headingAs: "h3",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGES,
             },
             callToAction: {
               url: "https://www.soldev.app/course",
@@ -178,10 +178,10 @@ const SolanaPermissionedEnvironmentsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.bootcamp.heading,
+            heading: t("developerCards.bootcamp.heading"),
             headingAs: "h3",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGES,
             },
             callToAction: {
               url: "https://youtu.be/0P8JeL3TURU?feature=shared",
@@ -191,10 +191,10 @@ const SolanaPermissionedEnvironmentsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.moreTools.heading,
+            heading: t("developerCards.moreTools.heading"),
             headingAs: "h3",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGES,
             },
             callToAction: {
               url: "/developers",
@@ -207,11 +207,11 @@ const SolanaPermissionedEnvironmentsPage = () => {
 
       <ConversionPanel
         variant="centered"
-        heading={CONVERSION_PANEL.heading}
-        body={CONVERSION_PANEL.body}
+        heading={t("conversionPanel.heading")}
+        body={t("conversionPanel.body")}
         buttons={[
           {
-            label: BUTTONS.contactUs,
+            label: t("buttons.contactUs"),
             hierarchy: "primary",
             size: "lg",
             url: "https://solanafoundation.typeform.com/to/EVODonPw",

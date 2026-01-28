@@ -1,4 +1,5 @@
 import { withLocales } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import {
@@ -12,22 +13,19 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 
 import {
   META,
-  HERO,
-  BUTTONS,
-  HEADINGS,
-  SWITCHBACKS,
-  PRICE_DISCOVERY_CARDS,
-  LENDING_CARDS,
-  DEVELOPER_CARDS,
-  CONVERSION_PANEL,
+  HERO_IMAGE,
+  SWITCHBACK_IMAGES,
+  DEVELOPER_CARD_IMAGE,
 } from "@/data/solutions/financial-infrastructure";
 
 const FinancialInfrastructurePage = () => {
+  const t = useTranslations("financial-infrastructure-solution");
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         socialShare={META.seoImage}
       />
 
@@ -35,17 +33,17 @@ const FinancialInfrastructurePage = () => {
         headingAs="h1"
         centered={false}
         newsLetter={false}
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
-        body={HERO.body}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body")}
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Faaa404f92f534213bc3bd27c02625c13.png",
+          src: HERO_IMAGE,
         }}
       />
 
       <Heading
-        headline={HEADINGS.suiteOfTools.headline}
-        body={HEADINGS.suiteOfTools.body}
+        headline={t("headings.suiteOfTools.headline")}
+        body={t("headings.suiteOfTools.body")}
         variant="centered"
       />
 
@@ -54,12 +52,12 @@ const FinancialInfrastructurePage = () => {
         switchbacks={[
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[0].eyebrow,
-            headline: SWITCHBACKS[0].headline,
-            body: SWITCHBACKS[0].body,
+            eyebrow: "",
+            headline: t("switchbacks.0.headline"),
+            body: t.raw("switchbacks.0.body"),
             buttons: [],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F4be0a39e13f243e4a79b37f4264131b0.png",
+              src: SWITCHBACK_IMAGES[0],
               alt: "",
             },
             placeholder: "",
@@ -81,8 +79,8 @@ const FinancialInfrastructurePage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.priceDiscovery.headline}
-          body={HEADINGS.priceDiscovery.body}
+          headline={t("headings.priceDiscovery.headline")}
+          body={t("headings.priceDiscovery.body")}
         />
       </ResponsiveBox>
 
@@ -91,19 +89,19 @@ const FinancialInfrastructurePage = () => {
         cards={[
           {
             type: "standard",
-            heading: PRICE_DISCOVERY_CARDS.raydium.heading,
-            body: PRICE_DISCOVERY_CARDS.raydium.body,
+            heading: t("priceDiscoveryCards.raydium.heading"),
+            body: t("priceDiscoveryCards.raydium.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://raydium.io/",
             },
           },
           {
             type: "standard",
-            heading: PRICE_DISCOVERY_CARDS.openbook.heading,
-            body: PRICE_DISCOVERY_CARDS.openbook.body,
+            heading: t("priceDiscoveryCards.openbook.heading"),
+            body: t("priceDiscoveryCards.openbook.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://github.com/openbook-dex",
             },
           },
@@ -121,8 +119,8 @@ const FinancialInfrastructurePage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.peerToPeerLending.headline}
-          body={HEADINGS.peerToPeerLending.body}
+          headline={t("headings.peerToPeerLending.headline")}
+          body={t("headings.peerToPeerLending.body")}
         />
       </ResponsiveBox>
 
@@ -131,28 +129,28 @@ const FinancialInfrastructurePage = () => {
         cards={[
           {
             type: "standard",
-            heading: LENDING_CARDS.mrgnlend.heading,
-            body: LENDING_CARDS.mrgnlend.body,
+            heading: t("lendingCards.mrgnlend.heading"),
+            body: t("lendingCards.mrgnlend.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://docs.marginfi.com/",
             },
           },
           {
             type: "standard",
-            heading: LENDING_CARDS.solend.heading,
-            body: LENDING_CARDS.solend.body,
+            heading: t("lendingCards.solend.heading"),
+            body: t("lendingCards.solend.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://solend.fi/",
             },
           },
           {
             type: "standard",
-            heading: LENDING_CARDS.lulo.heading,
-            body: LENDING_CARDS.lulo.body,
+            heading: t("lendingCards.lulo.heading"),
+            body: t("lendingCards.lulo.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "/ecosystem/openbook",
             },
           },
@@ -169,7 +167,7 @@ const FinancialInfrastructurePage = () => {
           },
         }}
       >
-        <Heading headline={HEADINGS.learnFromDevelopers.headline} />
+        <Heading headline={t("headings.learnFromDevelopers.headline")} />
       </ResponsiveBox>
 
       <CardDeck
@@ -178,9 +176,9 @@ const FinancialInfrastructurePage = () => {
         cards={[
           {
             type: "image",
-            heading: DEVELOPER_CARDS.introToDevelopment.heading,
+            heading: t("developerCards.introToDevelopment.heading"),
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "/developers/guides/getstarted/hello-world-in-your-browser",
@@ -191,9 +189,9 @@ const FinancialInfrastructurePage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.developmentCourse.heading,
+            heading: t("developerCards.developmentCourse.heading"),
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "https://www.soldev.app/course",
@@ -204,9 +202,9 @@ const FinancialInfrastructurePage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.bootcamp.heading,
+            heading: t("developerCards.bootcamp.heading"),
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "https://youtu.be/0P8JeL3TURU?feature=shared",
@@ -217,9 +215,9 @@ const FinancialInfrastructurePage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.moreTools.heading,
+            heading: t("developerCards.moreTools.heading"),
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "/developers",
@@ -232,17 +230,17 @@ const FinancialInfrastructurePage = () => {
       />
 
       <ConversionPanel
-        heading={CONVERSION_PANEL.heading}
-        body={CONVERSION_PANEL.body}
+        heading={t("conversionPanel.heading")}
+        body={t("conversionPanel.body")}
         buttons={[
           {
-            label: BUTTONS.seeDocs,
+            label: t("buttons.seeDocs"),
             hierarchy: "secondary",
             size: "lg",
             url: "https://docs.solana.com/",
           },
           {
-            label: BUTTONS.seeCaseStudies,
+            label: t("buttons.seeCaseStudies"),
             hierarchy: "outline",
             size: "lg",
             url: "/news/tag/case-studies",

@@ -14,23 +14,28 @@ import {
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Columns } from "@/component-library/columns";
 import { withLocales } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import {
   META,
-  HERO,
-  BUTTONS,
-  CONVERSION_PANEL,
-  HEADINGS,
-  SWITCHBACKS,
-  CARDS,
-  FAQ,
+  HERO_IMAGE,
+  SWITCHBACK_IMAGES,
+  CARD_IMAGES,
+  CARD_URLS,
 } from "@/data/solutions/token-extensions";
 
 const TokenExtensionsPage = () => {
+  const t = useTranslations("token-extensions-solution");
+
+  const faqItems = Array.from({ length: 12 }, (_, i) => ({
+    title: t(`faq.${i}.title`),
+    body: t.raw(`faq.${i}.body`),
+  }));
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         socialShare={META.seoImage}
       />
 
@@ -43,17 +48,17 @@ const TokenExtensionsPage = () => {
             hierarchy: "primary",
             size: "lg",
             iconSize: "md",
-            label: BUTTONS.startBuilding,
+            label: t("buttons.startBuilding"),
             url: "https://solana.com/developers/guides/token-extensions/getting-started",
           },
         ]}
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ff51feece35094bfba4ab2931f16836c7.png",
+          src: HERO_IMAGE,
           alt: "",
         }}
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
-        body={HERO.body}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body")}
       />
 
       <ResponsiveBox
@@ -67,7 +72,7 @@ const TokenExtensionsPage = () => {
           <Columns space={10} stackColumnsAt="tablet">
             <Button
               key="start-building"
-              label={BUTTONS.startBuilding}
+              label={t("buttons.startBuilding")}
               hierarchy="outline"
               size="lg"
               iconSize="md"
@@ -75,7 +80,7 @@ const TokenExtensionsPage = () => {
             />
             <Button
               key="get-in-touch"
-              label={BUTTONS.getInTouch}
+              label={t("buttons.getInTouch")}
               hierarchy="primary"
               size="lg"
               iconSize="md"
@@ -88,18 +93,18 @@ const TokenExtensionsPage = () => {
 
       <Columns space={30} stackColumnsAt="tablet">
         <ConversionPanel
-          heading={CONVERSION_PANEL.technicalPaper.heading}
+          heading={t("conversionPanel.technicalPaper.heading")}
           variant="inline-centered"
           buttons={[
             {
-              label: BUTTONS.read,
+              label: t("buttons.read"),
               hierarchy: "secondary",
               size: "md",
               iconSize: "md",
               url: "https://solana.com/solana_token_extensions_paper",
             },
           ]}
-          body={CONVERSION_PANEL.technicalPaper.body}
+          body={t("conversionPanel.technicalPaper.body")}
         />
       </Columns>
 
@@ -107,7 +112,7 @@ const TokenExtensionsPage = () => {
         <YoutubeVideo url="https://www.youtube.com/watch?v=CEuKahqOYbs" />
       </Section>
 
-      <Heading variant="centered" headline={HEADINGS.features} />
+      <Heading variant="centered" headline={t("headings.features")} />
 
       <SwitchbackChain
         hideBackground={true}
@@ -115,11 +120,11 @@ const TokenExtensionsPage = () => {
           {
             assetSide: "right",
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F5cd3bb07d43b4c79835035667336c4d2.png",
+              src: SWITCHBACK_IMAGES[0],
               alt: "",
             },
-            headline: SWITCHBACKS[0].headline,
-            body: SWITCHBACKS[0].body,
+            headline: t("switchbacks.0.headline"),
+            body: t.raw("switchbacks.0.body"),
             eyebrow: "",
             placeholder: "",
             emailError: "",
@@ -129,11 +134,11 @@ const TokenExtensionsPage = () => {
           {
             assetSide: "right",
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F3388c28f6118426782e772cfe7cba06b.png",
+              src: SWITCHBACK_IMAGES[1],
               alt: "",
             },
-            body: SWITCHBACKS[1].body,
-            headline: SWITCHBACKS[1].headline,
+            body: t.raw("switchbacks.1.body"),
+            headline: t("switchbacks.1.headline"),
             eyebrow: "",
             placeholder: "",
             emailError: "",
@@ -143,11 +148,11 @@ const TokenExtensionsPage = () => {
           {
             assetSide: "right",
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F86e1ae95a87544e4afb5c6314b354212.png",
+              src: SWITCHBACK_IMAGES[2],
               alt: "",
             },
-            headline: SWITCHBACKS[2].headline,
-            body: SWITCHBACKS[2].body,
+            headline: t("switchbacks.2.headline"),
+            body: t.raw("switchbacks.2.body"),
             eyebrow: "",
             placeholder: "",
             emailError: "",
@@ -157,11 +162,11 @@ const TokenExtensionsPage = () => {
           {
             assetSide: "right",
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F6f4c84e65147435586996bbb18096018.png",
+              src: SWITCHBACK_IMAGES[3],
               alt: "",
             },
-            body: SWITCHBACKS[3].body,
-            headline: SWITCHBACKS[3].headline,
+            body: t.raw("switchbacks.3.body"),
+            headline: t("switchbacks.3.headline"),
             eyebrow: "",
             placeholder: "",
             emailError: "",
@@ -177,7 +182,7 @@ const TokenExtensionsPage = () => {
           medium: { marginBottom: "-45px" },
         }}
       >
-        <Heading headline={HEADINGS.digIn} />
+        <Heading headline={t("headings.digIn")} />
       </ResponsiveBox>
 
       <CardDeck
@@ -185,55 +190,55 @@ const TokenExtensionsPage = () => {
           {
             type: "image",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F9596760b143048b5a5c7630bf3e42382.png",
+              src: CARD_IMAGES[0],
             },
             callToAction: {
-              url: "https://solana.com/news/token-extensions-on-solana",
+              url: CARD_URLS[0],
               endIcon: "arrow-right",
               hierarchy: "outline",
               label: "",
             },
             headingAs: "h3",
-            heading: CARDS[0].heading,
+            heading: t("cards.0.heading"),
           },
           {
             type: "image",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F5cd3bb07d43b4c79835035667336c4d2.png",
+              src: CARD_IMAGES[1],
             },
             callToAction: {
-              url: "https://solana.com/news/token-extensions-developer-guide",
+              url: CARD_URLS[1],
               endIcon: "arrow-right",
               hierarchy: "outline",
             },
             headingAs: "h3",
-            heading: CARDS[1].heading,
+            heading: t("cards.1.heading"),
           },
           {
             type: "image",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F5cd3bb07d43b4c79835035667336c4d2.png",
+              src: CARD_IMAGES[2],
             },
             callToAction: {
-              url: "https://solana.com/developers/guides/token-extensions/getting-started",
+              url: CARD_URLS[2],
               endIcon: "arrow-right",
               hierarchy: "outline",
             },
             headingAs: "h3",
-            heading: CARDS[2].heading,
+            heading: t("cards.2.heading"),
           },
           {
             type: "image",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F5cd3bb07d43b4c79835035667336c4d2.png",
+              src: CARD_IMAGES[3],
             },
             callToAction: {
-              url: "https://www.youtube.com/playlist?list=PLilwLeBwGuK6imBuGLSLmzMEyj6yVHGDO",
+              url: CARD_URLS[3],
               endIcon: "arrow-right",
               hierarchy: "outline",
             },
             headingAs: "h3",
-            heading: CARDS[3].heading,
+            heading: t("cards.3.heading"),
           },
         ]}
         featured={true}
@@ -247,24 +252,24 @@ const TokenExtensionsPage = () => {
             hierarchy: "primary",
             size: "lg",
             url: "https://solanafoundation.typeform.com/to/ST7YdGSz",
-            label: BUTTONS.contactUs,
+            label: t("buttons.contactUs"),
             endIcon: "arrow-up-right",
           },
           {
             hierarchy: "outline",
             size: "lg",
             url: "https://solana.com/developers/guides/token-extensions/getting-started",
-            label: BUTTONS.seeDocs,
+            label: t("buttons.seeDocs"),
           },
         ]}
-        heading={CONVERSION_PANEL.cta.heading}
-        body={CONVERSION_PANEL.cta.body}
+        heading={t("conversionPanel.cta.heading")}
+        body={t("conversionPanel.cta.body")}
       />
 
       <Accordion
-        accordions={FAQ}
-        headline={HEADINGS.faq.headline}
-        eyebrow={HEADINGS.faq.eyebrow}
+        accordions={faqItems}
+        headline={t("headings.faq.headline")}
+        eyebrow={t("headings.faq.eyebrow")}
       />
     </Layout>
   );

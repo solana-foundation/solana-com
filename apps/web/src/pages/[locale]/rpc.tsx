@@ -2,21 +2,23 @@ import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import { Section } from "@solana-foundation/solana-lib";
 import { withLocales } from "@workspace/i18n/routing";
-import { META, CONTENT } from "@/data/rpc";
+import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 
 const RpcPage = () => {
+  const t = useTranslations("rpc");
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         // socialShare={META.seoImage}
       />
 
       <Section>
         <div className="tw-html_parser">
-          <ReactMarkdown>{CONTENT}</ReactMarkdown>
+          <ReactMarkdown>{t.raw("content")}</ReactMarkdown>
         </div>
       </Section>
     </Layout>

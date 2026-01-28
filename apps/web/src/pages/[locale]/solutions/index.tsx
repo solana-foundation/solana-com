@@ -7,37 +7,46 @@ import {
   Stats,
 } from "@solana-foundation/solana-lib";
 import { withLocales } from "@workspace/i18n/routing";
-import {
-  META,
-  HEADINGS,
-  BUTTONS,
-  CARDS_TOOLS,
-  CARDS_USE_CASES,
-  CONVERSION_PANEL,
-  STATS,
-} from "@/data/solutions/index";
+import { useTranslations } from "next-intl";
+import { CONVERSION_PANEL_IMAGES } from "@/data/solutions/index";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 
 const SolutionsIndexPage = () => {
+  const t = useTranslations("solutions-index");
+
+  const toolsCards = Array.from({ length: 11 }, (_, index) => ({
+    heading: t(`cardsTools.${index}.heading`),
+  }));
+
+  const useCaseCards = Array.from({ length: 8 }, (_, index) => ({
+    heading: t(`cardsUseCases.${index}.heading`),
+    body: t(`cardsUseCases.${index}.body`),
+  }));
+
+  const stats = Array.from({ length: 3 }, (_, index) => ({
+    stat: t(`stats.${index}.stat`),
+    description: t(`stats.${index}.description`),
+  }));
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         // socialShare={META.seoImage}
       />
 
       <Heading
-        headline={HEADINGS.hero.headline}
+        headline={t("headings.hero.headline")}
         buttons={[
           {
-            label: BUTTONS.getStarted,
+            label: t("buttons.getStarted"),
             hierarchy: "primary",
             size: "lg",
             url: "https://solana.com/developers",
           },
         ]}
-        eyebrow={HEADINGS.hero.eyebrow}
+        eyebrow={t("headings.hero.eyebrow")}
       />
 
       <ResponsiveBox
@@ -47,16 +56,16 @@ const SolutionsIndexPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.tools.headline}
+          headline={t("headings.tools.headline")}
           buttons={[
             {
-              label: BUTTONS.readDocs,
+              label: t("buttons.readDocs"),
               hierarchy: "outline",
               size: "lg",
               url: "https://solana.com/developers",
             },
           ]}
-          body={HEADINGS.tools.body}
+          body={t("headings.tools.body")}
         />
       </ResponsiveBox>
 
@@ -64,7 +73,7 @@ const SolutionsIndexPage = () => {
         cards={[
           {
             type: "gradient",
-            heading: CARDS_TOOLS[0].heading,
+            heading: toolsCards[0].heading,
             headingAs: "h2",
             body: "",
             backgroundGradient: "green",
@@ -72,13 +81,13 @@ const SolutionsIndexPage = () => {
             hiddenOnDesktop: false,
             callToAction: {
               url: "/solutions/token22",
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[1].heading,
+            heading: toolsCards[1].heading,
             headingAs: "h2",
             body: "",
             backgroundGradient: "green",
@@ -86,62 +95,62 @@ const SolutionsIndexPage = () => {
             hiddenOnDesktop: false,
             callToAction: {
               url: "/solutions/payments-tooling",
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[2].heading,
+            heading: toolsCards[2].heading,
             headingAs: "h2",
             body: "",
             backgroundGradient: "green",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "/solutions/games-tooling",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[3].heading,
+            heading: toolsCards[3].heading,
             headingAs: "h2",
             body: "",
             backgroundGradient: "green",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "/solutions/financial-infrastructure",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[4].heading,
+            heading: toolsCards[4].heading,
             headingAs: "h2",
             body: "",
             backgroundGradient: "green",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "/solutions/digital-assets",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[5].heading,
+            heading: toolsCards[5].heading,
             headingAs: "h2",
             body: "",
             backgroundGradient: "green",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "https://solanamobile.com/developers",
               endIcon: "arrow-up-right",
@@ -149,7 +158,7 @@ const SolutionsIndexPage = () => {
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[6].heading,
+            heading: toolsCards[6].heading,
             headingAs: "h3",
             body: "",
             backgroundGradient: "green",
@@ -157,14 +166,14 @@ const SolutionsIndexPage = () => {
             hiddenOnDesktop: false,
             eyebrow: "",
             callToAction: {
-              label: "LEARN MORE",
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "https://solana.com/developers/ai",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[7].heading,
+            heading: toolsCards[7].heading,
             headingAs: "h3",
             body: "",
             backgroundGradient: "green",
@@ -172,14 +181,14 @@ const SolutionsIndexPage = () => {
             hiddenOnDesktop: false,
             eyebrow: "",
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "https://solana.com/solutions/solana-permissioned-environments",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[8].heading,
+            heading: toolsCards[8].heading,
             headingAs: "h3",
             body: "",
             backgroundGradient: "blue",
@@ -190,7 +199,7 @@ const SolutionsIndexPage = () => {
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[9].heading,
+            heading: toolsCards[9].heading,
             headingAs: "h3",
             body: "",
             backgroundGradient: "blue",
@@ -201,7 +210,7 @@ const SolutionsIndexPage = () => {
           },
           {
             type: "gradient",
-            heading: CARDS_TOOLS[10].heading,
+            heading: toolsCards[10].heading,
             headingAs: "h3",
             body: "",
             backgroundGradient: "blue",
@@ -218,16 +227,16 @@ const SolutionsIndexPage = () => {
       <ConversionPanel
         variant="inline-centered"
         mobileBackground={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F2ffe062107544cffa49618a58b9c50bc.png",
+          src: CONVERSION_PANEL_IMAGES.mobile.src,
         }}
         desktopBackground={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F389dc24276754a22b0dc57906f5ffe71.png",
+          src: CONVERSION_PANEL_IMAGES.desktop.src,
         }}
-        heading={CONVERSION_PANEL.featured.heading}
-        body={CONVERSION_PANEL.featured.body}
+        heading={t("conversionPanel.featured.heading")}
+        body={t("conversionPanel.featured.body")}
         buttons={[
           {
-            label: BUTTONS.learnMore,
+            label: t("buttons.learnMore"),
             hierarchy: "secondary",
             size: "xl",
             url: "https://solana.com/solutions/solana-permissioned-environments",
@@ -244,11 +253,11 @@ const SolutionsIndexPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.madeFor.headline}
-          body={HEADINGS.madeFor.body}
+          headline={t("headings.madeFor.headline")}
+          body={t("headings.madeFor.body")}
           buttons={[
             {
-              label: BUTTONS.seeCaseStudies,
+              label: t("buttons.seeCaseStudies"),
               hierarchy: "outline",
               size: "lg",
               url: "/news/tag/case-studies",
@@ -261,93 +270,93 @@ const SolutionsIndexPage = () => {
         cards={[
           {
             type: "gradient",
-            heading: CARDS_USE_CASES[0].heading,
+            heading: useCaseCards[0].heading,
             headingAs: "h2",
-            body: CARDS_USE_CASES[0].body,
+            body: useCaseCards[0].body,
             backgroundGradient: "purple",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "/solutions/enterprise",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_USE_CASES[1].heading,
+            heading: useCaseCards[1].heading,
             headingAs: "h2",
-            body: CARDS_USE_CASES[1].body,
+            body: useCaseCards[1].body,
             backgroundGradient: "purple",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "/solutions/gaming-and-entertainment",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_USE_CASES[2].heading,
+            heading: useCaseCards[2].heading,
             headingAs: "h2",
-            body: CARDS_USE_CASES[2].body,
+            body: useCaseCards[2].body,
             backgroundGradient: "purple",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "/solutions/artists-creators",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_USE_CASES[3].heading,
+            heading: useCaseCards[3].heading,
             headingAs: "h2",
-            body: CARDS_USE_CASES[3].body,
+            body: useCaseCards[3].body,
             backgroundGradient: "purple",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "/solutions/commerce-and-payments",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_USE_CASES[4].heading,
+            heading: useCaseCards[4].heading,
             headingAs: "h4",
-            body: CARDS_USE_CASES[4].body,
+            body: useCaseCards[4].body,
             backgroundGradient: "purple",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: "LEARN MORE",
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "https://solana.com/developers/defi",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_USE_CASES[5].heading,
+            heading: useCaseCards[5].heading,
             headingAs: "h4",
-            body: CARDS_USE_CASES[5].body,
+            body: useCaseCards[5].body,
             backgroundGradient: "purple",
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              label: "LEARN MORE",
+              label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "https://solana.com/developers/dao",
             },
           },
           {
             type: "gradient",
-            heading: CARDS_USE_CASES[6].heading,
+            heading: useCaseCards[6].heading,
             headingAs: "h4",
-            body: CARDS_USE_CASES[6].body,
+            body: useCaseCards[6].body,
             backgroundGradient: "blue",
             isFeatured: false,
             hiddenOnDesktop: false,
@@ -359,9 +368,9 @@ const SolutionsIndexPage = () => {
           },
           {
             type: "gradient",
-            heading: CARDS_USE_CASES[7].heading,
+            heading: useCaseCards[7].heading,
             headingAs: "h4",
-            body: CARDS_USE_CASES[7].body,
+            body: useCaseCards[7].body,
             backgroundGradient: "blue",
             isFeatured: false,
             hiddenOnDesktop: false,
@@ -377,31 +386,31 @@ const SolutionsIndexPage = () => {
       />
 
       <Heading
-        headline={HEADINGS.aboutSolana.headline}
-        body={HEADINGS.aboutSolana.body}
+        headline={t("headings.aboutSolana.headline")}
+        body={t("headings.aboutSolana.body")}
         variant="floatingButton"
       />
 
-      <Stats stats={STATS} contained />
+      <Stats stats={stats} contained />
 
       <ConversionPanel
         buttons={[
           {
-            label: BUTTONS.reachOut,
+            label: t("buttons.reachOut"),
             hierarchy: "secondary",
             size: "lg",
             url: "mailto:product@solana.org",
           },
           {
-            label: BUTTONS.seeDeveloperMaterials,
+            label: t("buttons.seeDeveloperMaterials"),
             hierarchy: "outline",
             size: "lg",
             url: "https://solana.com/developers",
           },
         ]}
         variant="centered"
-        body={HEADINGS.cta.body}
-        heading={HEADINGS.cta.heading}
+        body={t("headings.cta.body")}
+        heading={t("headings.cta.heading")}
       />
     </Layout>
   );

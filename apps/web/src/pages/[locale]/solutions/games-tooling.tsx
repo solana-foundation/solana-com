@@ -1,4 +1,5 @@
 import { withLocales } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import {
@@ -12,20 +13,19 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 
 import {
   META,
-  HERO,
-  BUTTONS,
-  HEADINGS,
-  SWITCHBACKS,
-  DEVELOPER_CARDS,
-  CONVERSION_PANEL,
+  HERO_IMAGE,
+  SWITCHBACK_IMAGES,
+  DEVELOPER_CARD_IMAGE,
 } from "@/data/solutions/games-tooling";
 
 const GamesToolingPage = () => {
+  const t = useTranslations("games-tooling-solution");
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         socialShare={META.seoImage}
       />
 
@@ -33,42 +33,45 @@ const GamesToolingPage = () => {
         headingAs="h1"
         centered={false}
         newsLetter={false}
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
-        body={HERO.body}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body")}
         buttons={[
           {
             hierarchy: "primary",
             size: "lg",
             url: "/developers/guides/games/getting-started-with-game-development",
-            label: BUTTONS.startBuilding,
+            label: t("buttons.startBuilding"),
           },
         ]}
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F0da0236d7c7342328aa45f164c6fa253.png",
+          src: HERO_IMAGE,
         }}
       />
 
-      <Heading headline={HEADINGS.suiteOfTools.headline} variant="centered" />
+      <Heading
+        headline={t("headings.suiteOfTools.headline")}
+        variant="centered"
+      />
 
       <SwitchbackChain
         hideBackground={true}
         switchbacks={[
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[0].eyebrow,
-            headline: SWITCHBACKS[0].headline,
-            body: SWITCHBACKS[0].body,
+            eyebrow: "",
+            headline: t("switchbacks.0.headline"),
+            body: t.raw("switchbacks.0.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "https://www.gameshift.dev/",
-                label: BUTTONS.learnMore,
+                label: t("buttons.learnMore"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F16d53459995844c9a19d6343539466b6.png",
+              src: SWITCHBACK_IMAGES[0],
               alt: "",
             },
             placeholder: "",
@@ -78,19 +81,19 @@ const GamesToolingPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[1].eyebrow,
-            headline: SWITCHBACKS[1].headline,
-            body: SWITCHBACKS[1].body,
+            eyebrow: "",
+            headline: t("switchbacks.1.headline"),
+            body: t.raw("switchbacks.1.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "https://docs.xnfts.dev/",
-                label: BUTTONS.readXnftDocs,
+                label: t("buttons.readXnftDocs"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F8ce3c7c7567b497a9851f6b57e5629f7.png",
+              src: SWITCHBACK_IMAGES[1],
               alt: "",
             },
             placeholder: "",
@@ -100,19 +103,19 @@ const GamesToolingPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[2].eyebrow,
-            headline: SWITCHBACKS[2].headline,
-            body: SWITCHBACKS[2].body,
+            eyebrow: "",
+            headline: t("switchbacks.2.headline"),
+            body: t.raw("switchbacks.2.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "https://docs.metaplex.com/programs/token-metadata/overview#semi-fungible-tokens",
-                label: BUTTONS.readSftDocs,
+                label: t("buttons.readSftDocs"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F4047398c82dd4a1799a798b67c6df076.png",
+              src: SWITCHBACK_IMAGES[2],
               alt: "",
             },
             placeholder: "",
@@ -133,7 +136,7 @@ const GamesToolingPage = () => {
           },
         }}
       >
-        <Heading headline={HEADINGS.learnFromDevelopers.headline} />
+        <Heading headline={t("headings.learnFromDevelopers.headline")} />
       </ResponsiveBox>
 
       <CardDeck
@@ -142,11 +145,11 @@ const GamesToolingPage = () => {
         cards={[
           {
             type: "image",
-            heading: DEVELOPER_CARDS.introToDevelopment.heading,
+            heading: t("developerCards.introToDevelopment.heading"),
             headingAs: "h2",
             backgroundGradient: "none",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "/developers/guides/getstarted/hello-world-in-your-browser",
@@ -158,11 +161,11 @@ const GamesToolingPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.developmentCourse.heading,
+            heading: t("developerCards.developmentCourse.heading"),
             headingAs: "h2",
             backgroundGradient: "none",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "https://www.soldev.app/course",
@@ -174,11 +177,11 @@ const GamesToolingPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.bootcamp.heading,
+            heading: t("developerCards.bootcamp.heading"),
             headingAs: "h2",
             backgroundGradient: "none",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "https://youtu.be/0P8JeL3TURU?feature=shared",
@@ -190,11 +193,11 @@ const GamesToolingPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.moreTools.heading,
+            heading: t("developerCards.moreTools.heading"),
             headingAs: "h2",
             backgroundGradient: "none",
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "/developers",
@@ -209,11 +212,11 @@ const GamesToolingPage = () => {
 
       <ConversionPanel
         variant="centered"
-        heading={CONVERSION_PANEL.heading}
-        body={CONVERSION_PANEL.body}
+        heading={t("conversionPanel.heading")}
+        body={t("conversionPanel.body")}
         buttons={[
           {
-            label: BUTTONS.seeSolanaDocs,
+            label: t("buttons.seeSolanaDocs"),
             hierarchy: "primary",
             size: "lg",
             url: "https://docs.solana.com/",

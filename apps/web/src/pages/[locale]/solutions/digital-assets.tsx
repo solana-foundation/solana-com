@@ -1,4 +1,3 @@
-import { withLocales } from "@workspace/i18n/routing";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import {
@@ -8,24 +7,24 @@ import {
   CardDeck,
   ConversionPanel,
 } from "@solana-foundation/solana-lib";
-
+import { ResponsiveBox } from "@/component-library/responsive-box";
+import { withLocales } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import {
   META,
-  HERO,
-  BUTTONS,
-  HEADINGS,
-  SWITCHBACKS,
-  DEVELOPER_CARDS,
-  CONVERSION_PANEL,
+  HERO_IMAGE,
+  SWITCHBACK_IMAGES,
+  DEVELOPER_CARD_IMAGE,
 } from "@/data/solutions/digital-assets";
-import { ResponsiveBox } from "@/component-library/responsive-box";
 
 const DigitalAssetsPage = () => {
+  const t = useTranslations("digital-assets-solution");
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         socialShare={META.seoImage}
       />
 
@@ -33,35 +32,38 @@ const DigitalAssetsPage = () => {
         headingAs="h1"
         centered={false}
         newsLetter={false}
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
-        body={HERO.body}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body")}
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fe2bd4f3dc22141109dc1a02bfb9fb197.png",
+          src: HERO_IMAGE,
           alt: "",
         }}
       />
 
-      <Heading headline={HEADINGS.digitalAssets.headline} variant="centered" />
+      <Heading
+        headline={t("headings.digitalAssets.headline")}
+        variant="centered"
+      />
 
       <SwitchbackChain
         hideBackground={true}
         switchbacks={[
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[0].eyebrow,
-            headline: SWITCHBACKS[0].headline,
-            body: SWITCHBACKS[0].body,
+            eyebrow: "",
+            headline: t("switchbacks.0.headline"),
+            body: t.raw("switchbacks.0.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "/solutions/token-extensions",
-                label: BUTTONS.learnMore,
+                label: t("buttons.learnMore"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fe80ca3b676a743b581582c6bb393e1d3.png",
+              src: SWITCHBACK_IMAGES[0],
               alt: "",
             },
             placeholder: "",
@@ -71,25 +73,25 @@ const DigitalAssetsPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[1].eyebrow,
-            headline: SWITCHBACKS[1].headline,
-            body: SWITCHBACKS[1].body,
+            eyebrow: "",
+            headline: t("switchbacks.1.headline"),
+            body: t.raw("switchbacks.1.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "/news/state-compression-compressed-nfts-solana",
-                label: BUTTONS.compressedNFTs,
+                label: t("buttons.compressedNFTs"),
               },
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "/news/solana-ecosystem-innovation-xnft",
-                label: BUTTONS.executableNFTs,
+                label: t("buttons.executableNFTs"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fd54baf62442c48db81a96a9b4108c882.png",
+              src: SWITCHBACK_IMAGES[1],
               alt: "",
             },
             placeholder: "",
@@ -99,19 +101,19 @@ const DigitalAssetsPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[2].eyebrow,
-            headline: SWITCHBACKS[2].headline,
-            body: SWITCHBACKS[2].body,
+            eyebrow: "",
+            headline: t("switchbacks.2.headline"),
+            body: t.raw("switchbacks.2.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "https://solanafoundation.notion.site/Fungible-Tokens-4b45a92f37994461af58e172fbc91d51?pvs=4",
-                label: BUTTONS.learnMore,
+                label: t("buttons.learnMore"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F0fcbb1d5c395433e98060c26541e4b59.png",
+              src: SWITCHBACK_IMAGES[2],
               alt: "",
             },
             placeholder: "",
@@ -121,11 +123,11 @@ const DigitalAssetsPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[3].eyebrow,
-            headline: SWITCHBACKS[3].headline,
-            body: SWITCHBACKS[3].body,
+            eyebrow: "",
+            headline: t("switchbacks.3.headline"),
+            body: t.raw("switchbacks.3.body"),
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fa6c307e3d0274a8f90acab88f4e918a2.png",
+              src: SWITCHBACK_IMAGES[3],
               alt: "",
             },
             placeholder: "",
@@ -146,7 +148,7 @@ const DigitalAssetsPage = () => {
           },
         }}
       >
-        <Heading headline={HEADINGS.learnFromDevelopers.headline} />
+        <Heading headline={t("headings.learnFromDevelopers.headline")} />
       </ResponsiveBox>
 
       <CardDeck
@@ -155,9 +157,9 @@ const DigitalAssetsPage = () => {
         cards={[
           {
             type: "image",
-            heading: DEVELOPER_CARDS.introToDevelopment.heading,
+            heading: t("developerCards.introToDevelopment.heading"),
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "/developers/guides/getstarted/hello-world-in-your-browser",
@@ -168,9 +170,9 @@ const DigitalAssetsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.developmentCourse.heading,
+            heading: t("developerCards.developmentCourse.heading"),
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "https://www.soldev.app/course",
@@ -181,9 +183,9 @@ const DigitalAssetsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.bootcamp.heading,
+            heading: t("developerCards.bootcamp.heading"),
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "https://youtu.be/0P8JeL3TURU?feature=shared",
@@ -194,9 +196,9 @@ const DigitalAssetsPage = () => {
           },
           {
             type: "image",
-            heading: DEVELOPER_CARDS.moreTools.heading,
+            heading: t("developerCards.moreTools.heading"),
             backgroundImage: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+              src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
               url: "/developers",
@@ -210,17 +212,17 @@ const DigitalAssetsPage = () => {
 
       <ConversionPanel
         variant="centered"
-        heading={CONVERSION_PANEL.heading}
-        body={CONVERSION_PANEL.body}
+        heading={t("conversionPanel.heading")}
+        body={t("conversionPanel.body")}
         buttons={[
           {
-            label: BUTTONS.seeDocs,
+            label: t("buttons.seeDocs"),
             hierarchy: "secondary",
             size: "lg",
             url: "https://docs.solana.com/",
           },
           {
-            label: BUTTONS.seeCaseStudies,
+            label: t("buttons.seeCaseStudies"),
             hierarchy: "outline",
             size: "lg",
             url: "https://solana.com/news/tag/case-studies",

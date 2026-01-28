@@ -2,27 +2,29 @@ import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import { Hero, Section } from "@solana-foundation/solana-lib";
 import { withLocales } from "@workspace/i18n/routing";
-import { META, HERO, CONTENT } from "@/data/tos";
+import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 
 const TosPage = () => {
+  const t = useTranslations("tos");
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.seoTitle")}
+        description={t("meta.seoDescription")}
         // socialShare={META.seoImage}
       />
 
       <Hero
-        headline={HERO.headline}
         headingAs="h1"
         centered={false}
         newsLetter={false}
+        headline={t("hero.headline")}
       />
 
       <Section>
-        <ReactMarkdown>{CONTENT}</ReactMarkdown>
+        <ReactMarkdown>{t.raw("content")}</ReactMarkdown>
       </Section>
     </Layout>
   );
@@ -38,10 +40,14 @@ export async function getStaticProps({
   const { locale = "en" } = params;
   const messages = (await import(`@@/public/locales/${locale}/common.json`))
     .default;
+  const enMessages = (await import(`@@/public/locales/en/common.json`)).default;
   return {
     props: {
       locale,
-      messages,
+      messages: {
+        ...messages,
+        tos: messages.tos ?? enMessages.tos,
+      },
     },
     revalidate: 60,
   };

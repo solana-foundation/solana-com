@@ -1,77 +1,15 @@
 export const META = {
-  title: "/solutions/payments-tooling",
-  seoTitle: "Payments tooling | Solana",
-  seoDescription:
-    "Accept stablecoin payments and build new payment rails. Tooling in the Solana ecosystem makes it easy to enable frictionless, near-zero payments tied to web3 native experiences.",
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F21255695ae8348ceaed7fe6880811d44.png",
 };
 
-export const HERO = {
-  eyebrow: "Payments tooling",
-  headline: "Enable frictionless — and permissionless — payment rails.",
-  body: "<p>Accept stablecoin payments and build new payment rails. Tooling in the Solana ecosystem makes it easy to enable frictionless, near-zero payments tied to web3 native experience</p>",
-};
+export const HERO_IMAGE =
+  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F61dddc8ac38f4ac6adb4b4d7f2f73faa.png";
 
-export const BUTTONS = {
-  getStarted: "Get started",
-  learnMore: "Learn More",
-  startBuilding: "Start Building",
-};
-
-export const HEADINGS = {
-  lightningFast: {
-    headline:
-      "Lightning-fast cross border payments — with near-zero fees and no intermediaries. ",
-    body: "See why next-generation payment rails are being built on Solana.",
-  },
-  permissionless: {
-    headline: "Permissionless. Borderless. Immediate.",
-    body: "The robust tools and infrastructure in the Solana network make accepting payments across borders instant. No wait time. No holding period. And they are simple to set up and use. ",
-  },
-  privacySupport: {
-    headline: "Privacy support, with Token Extensions",
-  },
-  learnFromDevelopers: {
-    headline: "Learn from Solana Developers",
-  },
-};
-
-export const FEATURE_CARDS = {
-  fast: {
-    heading: "Fast",
-    body: 'Millions of transactions are processed daily on Solana — more than every other blockchain solution combined. It\'s been called the potential "Visa of the digital asset ecosystem" by Bank of America.',
-  },
-  direct: {
-    heading: "Direct",
-    body: "Avoid intermediaries and their high fees. Solana Pay is the first open, direct merchant-to-consumer payment rail, and the only one that transacts at the speed of light.",
-  },
-  easy: {
-    heading: "Easy",
-    body: "Set up crypto payments in your ecommerce storefront in minutes and start doing business with the millions who hold Solana-based stablecoins like USDC.",
-  },
-  sustainable: {
-    heading: "Sustainable",
-    body: "Solana transactions use the same energy as a few Google searches, and the entire network is carbon neutral.",
-  },
-};
-
-export const SWITCHBACKS = [
-  {
-    headline: "Easy ecommerce setup with Helio's Solana Pay x Shopify",
-    body: "<p>The Solana Pay app for Shopify, by Helio, enables ecommerce sites to accept stablecoins on Solana, making it easy for any online store to enable web3-native experiences.</p>",
-    eyebrow: "",
-  },
-  {
-    headline: "Point of sales on Solana with Decaf",
-    body: "<p>Accept stablecoins and enable web3 experiences in real life with a Solana-compatible point of sales system.</p>",
-    eyebrow: "",
-  },
-  {
-    headline: "Links as wallets by Tiplink",
-    body: "<p>Send NFTs, tokens, or other digital assets with a link, QR code, or NFC tap — even if they don't have a wallet.</p>",
-    eyebrow: "",
-  },
+export const SWITCHBACK_IMAGES = [
+  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fe1e740244dc04e1e9c69b4b7f907373b.png",
+  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F95eae019372b47aba840c1b23abd88a6.png",
+  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F0a0e942cac3c4e32abd5f64fbd59fad1.png",
 ];
 
 export const TRUSTBAR_LOGOS = [
@@ -95,36 +33,5 @@ export const TRUSTBAR_LOGOS = [
   },
 ];
 
-export const TOKEN_EXTENSIONS_STATS = {
-  headline:
-    "Token extensions have native support for a host of business-friendly features.",
-  stats: [
-    { stat: "", description: "Confidential transactions." },
-    { stat: "", description: "Stablecoin tooling." },
-    { stat: "", description: "Onchain metadata." },
-    { stat: "", description: "Permanent delegation." },
-  ],
-};
-
-export const DEVELOPER_CARDS = {
-  introToDevelopment: {
-    heading: "Intro to Solana Development",
-  },
-  developmentCourse: {
-    heading: "Solana Development Course",
-  },
-  bootcamp: {
-    heading: "Solana Bootcamp",
-  },
-  moreTools: {
-    heading: "More Solana Developer Tools",
-  },
-  buildNow: {
-    heading: "Build Now",
-  },
-};
-
-export const CONVERSION_PANEL = {
-  heading: "Beyond Payments",
-  body: "Frictionless payments serve as more than just transactions – they build relationships with customers and engender trust and loyalty. See how businesses everywhere leverage Solana payments tooling for deep consumer loyalty.",
-};
+export const DEVELOPER_CARD_IMAGE =
+  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png";

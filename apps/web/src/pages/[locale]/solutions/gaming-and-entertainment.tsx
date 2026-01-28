@@ -1,4 +1,5 @@
 import { withLocales } from "@workspace/i18n/routing";
+import { useTranslations } from "next-intl";
 import HTMLHead from "@/components/HTMLHead";
 import Layout from "@/components/layout";
 import {
@@ -14,25 +15,24 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 
 import {
   META,
-  HERO,
-  BUTTONS,
-  STATS,
+  HERO_IMAGE,
   TRUSTBAR_LOGOS,
-  HEADINGS,
-  LAUNCH_CARDS,
-  UPGRADING_CARDS,
-  MIDDLEWARE_CARDS,
-  TOOLKIT_CARDS,
-  SWITCHBACKS,
-  CONVERSION_PANEL,
+  SWITCHBACK_IMAGES,
 } from "@/data/solutions/gaming-and-entertainment";
 
 const GamingAndEntertainmentPage = () => {
+  const t = useTranslations("gaming-and-entertainment-solution");
+
+  const stats = Array.from({ length: 3 }, (_, index) => ({
+    stat: t(`stats.${index}.stat`),
+    description: t(`stats.${index}.description`),
+  }));
+
   return (
     <Layout>
       <HTMLHead
-        title={META.seoTitle}
-        description={META.seoDescription}
+        title={t("meta.title")}
+        description={t("meta.description")}
         socialShare={META.seoImage}
       />
 
@@ -40,33 +40,33 @@ const GamingAndEntertainmentPage = () => {
         headingAs="h1"
         centered={false}
         newsLetter={false}
-        eyebrow={HERO.eyebrow}
-        headline={HERO.headline}
-        body={HERO.body}
+        eyebrow={t("hero.eyebrow")}
+        headline={t("hero.headline")}
+        body={t.raw("hero.body")}
         buttons={[
           {
-            label: BUTTONS.getStarted,
+            label: t("buttons.getStarted"),
             hierarchy: "primary",
             size: "lg",
             url: "https://solanacookbook.com/gaming/hello-world.html",
           },
           {
-            label: BUTTONS.getInTouch,
+            label: t("buttons.getInTouch"),
             hierarchy: "outline",
             size: "lg",
             url: "mailto:games@solana.org",
           },
         ]}
         image={{
-          src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fc78a3ad482b04046937e69793765f789.png",
+          src: HERO_IMAGE,
         }}
       />
 
       <Stats
-        stats={STATS}
+        stats={stats}
         buttons={[
           {
-            label: BUTTONS.getInTouch,
+            label: t("buttons.getInTouch"),
             hierarchy: "link",
             size: "md",
             endIcon: "arrow-up-right",
@@ -81,8 +81,8 @@ const GamingAndEntertainmentPage = () => {
       />
 
       <Heading
-        headline={HEADINGS.singleState.headline}
-        body={HEADINGS.singleState.body}
+        headline={t("headings.singleState.headline")}
+        body={t("headings.singleState.body")}
         variant="centered"
       />
 
@@ -93,7 +93,7 @@ const GamingAndEntertainmentPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.launchAndSync.headline}
+          headline={t("headings.launchAndSync.headline")}
           variant="floatingButton"
         />
       </ResponsiveBox>
@@ -103,46 +103,46 @@ const GamingAndEntertainmentPage = () => {
         cards={[
           {
             type: "standard",
-            heading: LAUNCH_CARDS.metaplexNFTs.heading,
-            body: LAUNCH_CARDS.metaplexNFTs.body,
+            heading: t("launchCards.metaplexNFTs.heading"),
+            body: t("launchCards.metaplexNFTs.body"),
             callToAction: {
-              label: BUTTONS.learnHow,
+              label: t("buttons.learnHow"),
               url: "https://developers.metaplex.com/",
             },
           },
           {
             type: "standard",
-            heading: LAUNCH_CARDS.gamesLaunchers.heading,
-            body: LAUNCH_CARDS.gamesLaunchers.body,
+            heading: t("launchCards.gamesLaunchers.heading"),
+            body: t("launchCards.gamesLaunchers.body"),
             callToAction: {
-              label: BUTTONS.seeLaunchers,
+              label: t("buttons.seeLaunchers"),
               url: "https://www.notion.so/solanafoundation/Games-Lunchers-cd0a86f30cea4264b9710624e5b624b1",
             },
           },
           {
             type: "standard",
-            heading: LAUNCH_CARDS.sdks.heading,
-            body: LAUNCH_CARDS.sdks.body,
+            heading: t("launchCards.sdks.heading"),
+            body: t("launchCards.sdks.body"),
             callToAction: {
-              label: BUTTONS.seeSDKs,
+              label: t("buttons.seeSDKs"),
               url: "https://www.notion.so/solanafoundation/Game-Engine-SDKs-0c7e0dc1bc4a44bead31dc0723668987",
             },
           },
           {
             type: "standard",
-            heading: LAUNCH_CARDS.gamingSync.heading,
-            body: LAUNCH_CARDS.gamingSync.body,
+            heading: t("launchCards.gamingSync.heading"),
+            body: t("launchCards.gamingSync.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://www.notion.so/solanafoundation/Gaming-Sync-6cc362c4372046e09244ed6bf1fcebc9?pvs=4",
             },
           },
           {
             type: "standard",
-            heading: LAUNCH_CARDS.listenersWebhooks.heading,
-            body: LAUNCH_CARDS.listenersWebhooks.body,
+            heading: t("launchCards.listenersWebhooks.heading"),
+            body: t("launchCards.listenersWebhooks.body"),
             callToAction: {
-              label: BUTTONS.seeProviders,
+              label: t("buttons.seeProviders"),
               url: "https://www.notion.so/solanafoundation/Webhooks-RPCs-55b715df0a5c47ea8be2cded8089f544?pvs=4",
             },
           },
@@ -156,7 +156,7 @@ const GamingAndEntertainmentPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.upgradingAssets.headline}
+          headline={t("headings.upgradingAssets.headline")}
           variant="floatingButton"
         />
       </ResponsiveBox>
@@ -166,19 +166,19 @@ const GamingAndEntertainmentPage = () => {
         cards={[
           {
             type: "standard",
-            heading: UPGRADING_CARDS.guide.heading,
-            body: UPGRADING_CARDS.guide.body,
+            heading: t("upgradingCards.guide.heading"),
+            body: t("upgradingCards.guide.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://www.notion.so/solanafoundation/Upgrading-Game-Assets-6826e35cfcc747b89d5d69cb8d76d01d?pvs=4",
             },
           },
           {
             type: "standard",
-            heading: UPGRADING_CARDS.getInTouch.heading,
-            body: UPGRADING_CARDS.getInTouch.body,
+            heading: t("upgradingCards.getInTouch.heading"),
+            body: t("upgradingCards.getInTouch.body"),
             callToAction: {
-              label: BUTTONS.contactUs,
+              label: t("buttons.contactUs"),
               url: "mailto:games@solana.org",
             },
           },
@@ -192,7 +192,7 @@ const GamingAndEntertainmentPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.fullStackMiddleware.headline}
+          headline={t("headings.fullStackMiddleware.headline")}
           variant="floatingButton"
         />
       </ResponsiveBox>
@@ -202,28 +202,28 @@ const GamingAndEntertainmentPage = () => {
         cards={[
           {
             type: "standard",
-            heading: MIDDLEWARE_CARDS.gameShift.heading,
-            body: MIDDLEWARE_CARDS.gameShift.body,
+            heading: t("middlewareCards.gameShift.heading"),
+            body: t("middlewareCards.gameShift.body"),
             callToAction: {
-              label: BUTTONS.gameShift,
+              label: t("buttons.gameShift"),
               url: "https://gameshift.solanalabs.com/",
             },
           },
           {
             type: "standard",
-            heading: MIDDLEWARE_CARDS.beamable.heading,
-            body: MIDDLEWARE_CARDS.beamable.body,
+            heading: t("middlewareCards.beamable.heading"),
+            body: t("middlewareCards.beamable.body"),
             callToAction: {
-              label: BUTTONS.beamable,
+              label: t("buttons.beamable"),
               url: "https://beamable.com/marketplace/solana-integration",
             },
           },
           {
             type: "standard",
-            heading: MIDDLEWARE_CARDS.getInTouch.heading,
-            body: MIDDLEWARE_CARDS.getInTouch.body,
+            heading: t("middlewareCards.getInTouch.heading"),
+            body: t("middlewareCards.getInTouch.body"),
             callToAction: {
-              label: BUTTONS.contactUs,
+              label: t("buttons.contactUs"),
               url: "mailto:games@solana.org",
             },
           },
@@ -237,7 +237,7 @@ const GamingAndEntertainmentPage = () => {
         }}
       >
         <Heading
-          headline={HEADINGS.solanaToolkit.headline}
+          headline={t("headings.solanaToolkit.headline")}
           variant="floatingButton"
         />
       </ResponsiveBox>
@@ -247,41 +247,41 @@ const GamingAndEntertainmentPage = () => {
         cards={[
           {
             type: "standard",
-            heading: TOOLKIT_CARDS.gamesTooling.heading,
+            heading: t("toolkitCards.gamesTooling.heading"),
             headingAs: "h3",
-            body: TOOLKIT_CARDS.gamesTooling.body,
+            body: t("toolkitCards.gamesTooling.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "/solutions/games-tooling",
             },
           },
           {
             type: "standard",
-            heading: TOOLKIT_CARDS.loyaltyPrograms.heading,
+            heading: t("toolkitCards.loyaltyPrograms.heading"),
             headingAs: "h3",
-            body: TOOLKIT_CARDS.loyaltyPrograms.body,
+            body: t("toolkitCards.loyaltyPrograms.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://docs.solana.com/",
             },
           },
           {
             type: "standard",
-            heading: TOOLKIT_CARDS.userManagement.heading,
+            heading: t("toolkitCards.userManagement.heading"),
             headingAs: "h3",
-            body: TOOLKIT_CARDS.userManagement.body,
+            body: t("toolkitCards.userManagement.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "https://docs.solana.com/",
             },
           },
           {
             type: "standard",
-            heading: TOOLKIT_CARDS.token22.heading,
+            heading: t("toolkitCards.token22.heading"),
             headingAs: "h3",
-            body: TOOLKIT_CARDS.token22.body,
+            body: t("toolkitCards.token22.body"),
             callToAction: {
-              label: BUTTONS.learnMore,
+              label: t("buttons.learnMore"),
               url: "/solutions/token22",
             },
           },
@@ -293,19 +293,19 @@ const GamingAndEntertainmentPage = () => {
         switchbacks={[
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[0].eyebrow,
-            headline: SWITCHBACKS[0].headline,
-            body: SWITCHBACKS[0].body,
+            eyebrow: "",
+            headline: t("switchbacks.0.headline"),
+            body: t.raw("switchbacks.0.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "https://staratlas.com/",
-                label: BUTTONS.playStarAtlas,
+                label: t("buttons.playStarAtlas"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F0b4c36a1725a455e81fcf98300a8865f.png",
+              src: SWITCHBACK_IMAGES[0],
               alt: "",
             },
             placeholder: "",
@@ -315,19 +315,19 @@ const GamingAndEntertainmentPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[1].eyebrow,
-            headline: SWITCHBACKS[1].headline,
-            body: SWITCHBACKS[1].body,
+            eyebrow: "",
+            headline: t("switchbacks.1.headline"),
+            body: t.raw("switchbacks.1.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "https://solana.com/ecosystem/aurory",
-                label: BUTTONS.learnHowAuroryWorks,
+                label: t("buttons.learnHowAuroryWorks"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F073ec297175a47de8de27a54e2d1721b.png",
+              src: SWITCHBACK_IMAGES[1],
               alt: "",
             },
             placeholder: "",
@@ -337,19 +337,19 @@ const GamingAndEntertainmentPage = () => {
           },
           {
             assetSide: "right",
-            eyebrow: SWITCHBACKS[2].eyebrow,
-            headline: SWITCHBACKS[2].headline,
-            body: SWITCHBACKS[2].body,
+            eyebrow: "",
+            headline: t("switchbacks.2.headline"),
+            body: t.raw("switchbacks.2.body"),
             buttons: [
               {
                 hierarchy: "primary",
                 size: "md",
                 url: "https://www.billboard.com/pro/def-jam-signs-virtual-nft-band-whales-major-label-web3-deal/",
-                label: BUTTONS.learnMore,
+                label: t("buttons.learnMore"),
               },
             ],
             image: {
-              src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F8883371d952e41149af4d693e07217ff.png",
+              src: SWITCHBACK_IMAGES[2],
               alt: "",
             },
             placeholder: "",
@@ -361,17 +361,17 @@ const GamingAndEntertainmentPage = () => {
       />
 
       <ConversionPanel
-        heading={CONVERSION_PANEL.heading}
-        body={CONVERSION_PANEL.body}
+        heading={t("conversionPanel.heading")}
+        body={t("conversionPanel.body")}
         buttons={[
           {
-            label: BUTTONS.contactUs,
+            label: t("buttons.contactUs"),
             hierarchy: "secondary",
             size: "lg",
             url: "mailto:games@solana.org",
           },
           {
-            label: BUTTONS.seeCaseStudies,
+            label: t("buttons.seeCaseStudies"),
             hierarchy: "outline",
             size: "lg",
             url: "/news/tag/case-studies",
