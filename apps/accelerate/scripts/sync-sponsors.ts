@@ -482,6 +482,23 @@ async function syncSponsors() {
     `Found ${publishedRows.length} sponsors with "Logo Received" status\n`,
   );
 
+  // Load existing sponsors so we only add/update, never remove
+  const existingBySlug = new Map<string, Sponsor>();
+  if (fs.existsSync(SPONSORS_JSON)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(SPONSORS_JSON, "utf-8")) as {
+        sponsors?: Sponsor[];
+      };
+      if (Array.isArray(existing.sponsors)) {
+        for (const s of existing.sponsors) {
+          existingBySlug.set(s.slug, s);
+        }
+      }
+    } catch {
+      // Ignore parse errors; we'll build from sheet only
+    }
+  }
+
   const sponsors: Sponsor[] = [];
   const processedSlugs = new Set<string>();
 
@@ -547,6 +564,17 @@ async function syncSponsors() {
       logo: primaryLogo,
       availableLogos,
     });
+  }
+
+  // Preserve existing sponsors that are not in the sheet (add-only: never remove)
+  const sheetSlugs = new Set(sponsors.map((s) => s.slug));
+  for (const [slug, existing] of existingBySlug) {
+    if (!sheetSlugs.has(slug)) {
+      sponsors.push(existing);
+      console.log(
+        `Kept existing sponsor not in sheet: ${existing.name} (${slug})`,
+      );
+    }
   }
 
   // Write JSON file
