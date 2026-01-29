@@ -10,7 +10,7 @@ export const HERO_MOBILE_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F7c1d61c8c4ad4a72833e0e8a9d9a253e.png";
 
 export const ARTIST_VIDEO =
-  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fc47d00bdac004e3bbd0833c00176ef8d_2Fcompressed.png";
+  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fc47d00bdac004e3bbd0833c00176ef8d_2Fcompressed.mp4";
 
 export const LAURA_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F7a95ee5e42f64dfe95b933a747535da7.png";
