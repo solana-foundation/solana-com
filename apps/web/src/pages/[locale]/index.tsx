@@ -36,6 +36,7 @@ import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
 import { PostItem } from "@/types/media";
 import { fetchLatestPosts } from "@/lib/media/post";
 import { useEffect, useState, useMemo } from "react";
+import { uniqBy } from "lodash";
 
 const TransactionsStat = dynamic(
   () =>
@@ -387,16 +388,14 @@ export async function getStaticProps({ params }) {
       const featuredEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
         period: "future",
       });
-      // Breakpoint 2026 calendar (https://luma.com/bp26)
-      const bp26Events = await fetchCalendarEvents("cal-vSUPHVSJHqgysCR", {
-        period: "future",
-      });
-      events = [...events, ...featuredEvents, ...bp26Events];
+      events = [...events, ...featuredEvents];
+      // Dedupe by key (e.g. signup form events added to every fetch)
+      events = uniqBy(events, "key");
       // Sort events by date
       events.sort(
         (a, b) =>
-          new Date(a.schedule.from).getTime() -
-          new Date(b.schedule.from).getTime(),
+          new Date(a.schedule.from ?? 0).getTime() -
+          new Date(b.schedule.from ?? 0).getTime(),
       );
       firstFeaturedEventIndex =
         featuredEvents.length > 0 ? pastEvents.length : 0;
