@@ -1,8 +1,7 @@
-const { getAllUrls } = require("./src/lib/builder/getUrls");
 const {
   getMediaPostUrls,
   getMediaPodcastUrls,
-} = require("./src/lib/builder/media-urls");
+} = require("./src/lib/sitemap/media-urls");
 const https = require("https");
 
 async function fetchTemplates() {
@@ -46,8 +45,6 @@ module.exports = {
     };
   },
   additionalPaths: async () => {
-    const builderUrls = await getAllUrls();
-
     // Fetch media app posts (replaces old Builder post model)
     const mediaPostUrls = getMediaPostUrls();
 
@@ -71,11 +68,6 @@ module.exports = {
       })),
     ];
 
-    return [
-      ...builderUrls,
-      ...mediaPostUrls,
-      ...mediaPodcastUrls,
-      ...templateUrls,
-    ];
+    return [...mediaPostUrls, ...mediaPodcastUrls, ...templateUrls];
   },
 };

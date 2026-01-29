@@ -68,8 +68,8 @@ const StyledPostCard = styled.article`
  */
 const PostCard = ({ post }) => {
   const t = useTranslations();
-  const url = `/news/${post?.data?.slug}/`;
-  const featuredImage = post?.data?.image ?? "/src/img/news/blogbackup.png";
+  const url = post?.url;
+  const featuredImage = post?.heroImage ?? "/src/img/news/blogbackup.png";
 
   return (
     <StyledPostCard>
@@ -86,7 +86,7 @@ const PostCard = ({ post }) => {
             />
           </Link>
         </div>
-        <h3 className="post-card-title">{post?.name}</h3>
+        <h3 className="post-card-title">{post?.title}</h3>
       </div>
       <div>
         <Button to={url}>{t("blog.readArticle")}</Button>

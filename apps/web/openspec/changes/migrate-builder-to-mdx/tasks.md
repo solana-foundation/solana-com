@@ -91,27 +91,19 @@
 
 ## 7. Remove Builder Dependencies (Phase 4)
 
-**Note:** Tasks 7.1-7.7 and 7.9-7.10 are blocked because the following pages still
-use Builder.io and were out of scope for this migration:
-- `/breakpoint/[...slug].js` - Uses `@builder.io/react` (BuilderComponent)
-- `/accelerate/[...slug].js` - Uses `@builder.io/react` (BuilderComponent)
-- `/edit-symbol.js` - Uses `@builder.io/react` (BuilderComponent)
-- `/community.js` - Uses `@/lib/builder/api` for blog/news posts
-- Blog components - Use `extractTags`, `getAuthor` from `@/lib/builder/api`
-
-- [~] 7.1 Remove `@builder.io/react` from `package.json` dependencies (BLOCKED)
-- [~] 7.2 Remove `@builder.io/sdk` from `package.json` devDependencies (BLOCKED)
-- [~] 7.3 Delete `apps/web/src/lib/builder/` directory (BLOCKED)
-- [~] 7.4 Delete `apps/web/src/utils/builderConfigs.js` (BLOCKED)
-- [~] 7.5 Delete `apps/web/src/utils/customComponentGenerator.js` (BLOCKED)
-- [~] 7.6 Remove `cdn.builder.io` from `next.config.ts` image remotePatterns (BLOCKED)
-- [~] 7.7 Remove `*.builder.io` from CSP frame-ancestors in `next.config.ts` (BLOCKED)
-- [~] 7.8 Remove or update `apps/web/src/pages/[locale]/edit-symbol.js`
-      - Deleted `edit-symbol.js` (Builder symbol preview page) (BLOCKED)
+- [x] 7.1 Remove `@builder.io/react` from `package.json` dependencies
+- [x] 7.2 Remove `@builder.io/sdk` from `package.json` devDependencies
+- [x] 7.3 Delete `apps/web/src/lib/builder/` directory
+- [x] 7.4 Delete `apps/web/src/utils/builderConfigs.js`
+- [x] 7.5 Delete `apps/web/src/utils/customComponentGenerator.js`
+- [x] 7.6 Remove `cdn.builder.io` from `next.config.ts` image remotePatterns
+- [x] 7.7 Remove `*.builder.io` from CSP frame-ancestors in `next.config.ts`
+- [x] 7.8 Remove or update `apps/web/src/pages/[locale]/edit-symbol.js`
+      - Deleted `edit-symbol.js` (Builder symbol preview page)
       - Moved `HTMLHead` component from `components/builder/` to `components/`
       - Updated all imports referencing the old HTMLHead location
-- [~] 7.9 Run `pnpm install` to update lockfile (BLOCKED - no package changes)
-- [~] 7.10 Update any remaining imports that reference Builder modules (BLOCKED)
+- [x] 7.9 Run `pnpm install` to update lockfile
+- [x] 7.10 Update any remaining imports that reference Builder modules
 
 ## 8. Final Validation (Phase 4)
 

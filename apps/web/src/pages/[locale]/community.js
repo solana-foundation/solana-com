@@ -8,15 +8,13 @@ import CommunityNews from "@/components/community/CommunityNews";
 import CommunityCollective from "@/components/community/CommunityCollective";
 import { withLocales } from "@workspace/i18n/routing";
 import { useTranslations } from "next-intl";
-import { getPostsPage, getPostPagination } from "@/lib/builder/api";
+import { fetchLatestPosts } from "@/lib/media/post";
 import {
   getGHStargazers,
   getYTVideos,
   scrapeMeetupMemberCount,
   getYoutubeSubscriberCount,
 } from "@/utils/followerFunctions";
-
-import { NEWS_BUILDER_CONFIG } from "@/lib/builder/news/constants";
 
 /**
  * Community Page for `/community` page.
@@ -47,10 +45,9 @@ const CommunityPage = ({ posts, socialData, youtubeVideos }) => {
 
 export async function getStaticProps({ params }) {
   const { locale = "en" } = params;
-  const [posts, pagination, youtube, github, meetup, youtubeVideos] =
+  const [posts, youtube, github, meetup, youtubeVideos] =
     await Promise.allSettled([
-      getPostsPage(NEWS_BUILDER_CONFIG.postsModel, 1, 6),
-      getPostPagination(1, NEWS_BUILDER_CONFIG.postsModel),
+      fetchLatestPosts({ limit: 6 }),
       getYoutubeSubscriberCount(),
       getGHStargazers(),
       scrapeMeetupMemberCount(),
@@ -67,10 +64,9 @@ export async function getStaticProps({ params }) {
         youtube: youtube?.value || null,
         github: github?.value || null,
         meetup: meetup?.value || null,
-        news: pagination?.value?.total || null,
       },
       youtubeVideos: youtubeVideos?.value,
-      posts: posts?.value || [],
+      posts: posts?.value?.posts || [],
       messages,
     },
     revalidate: 60,
