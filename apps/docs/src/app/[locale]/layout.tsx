@@ -6,13 +6,16 @@ import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
 import { NextIntlClientProvider } from "next-intl";
 import { Metadata } from "next";
 import { PostHogProvider } from "@@/src/app/components/posthog/PostHogProvider";
-import SitewideTopAlert from "@/components/sharedPageSections/SitewideTopAlert";
-
 import { config } from "@@/src/config";
 import { getBaseMetadata } from "@@/src/app/metadata";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
-import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
+import {
+  Header,
+  Footer,
+  ThemeProvider,
+  SitewideTopAlert,
+} from "@solana-com/ui-chrome";
 import { loadMessages } from "@workspace/i18n/load-messages";
 
 type Props = {
@@ -39,7 +42,6 @@ export default async function RootLayout({ children, params }: Props) {
   // Merge translations, with docs-specific taking precedence.
   const messages = { ...webMessages, ...docsMessages };
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
-  const builderLocale = locale == "en" ? "Default" : locale;
   return (
     <html lang={locale} dir={direction} suppressHydrationWarning>
       <body suppressHydrationWarning>
@@ -57,7 +59,7 @@ export default async function RootLayout({ children, params }: Props) {
           <PostHogProvider>
             <ThemeProvider>
               <GTMTrackingSnippet />
-              <SitewideTopAlert locale={builderLocale} />
+              <SitewideTopAlert />
               <CookieConsent />
               <Header />
               {children}
