@@ -88,7 +88,7 @@ export function SitewideTopAlert() {
   // Don't render on pages that match the CTA URL
   if (
     announcementBarData.cta?.url &&
-    router.pathname.includes(announcementBarData.cta.url)
+    router.asPath.includes(announcementBarData.cta.url)
   ) {
     return null;
   }

@@ -14,11 +14,11 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 const SolutionsIndexPage = () => {
   const t = useTranslations("solutions-index");
 
-  const toolsCards = Array.from({ length: 11 }, (_, index) => ({
+  const toolsCards = Array.from({ length: 8 }, (_, index) => ({
     heading: t(`cardsTools.${index}.heading`),
   }));
 
-  const useCaseCards = Array.from({ length: 8 }, (_, index) => ({
+  const useCaseCards = Array.from({ length: 6 }, (_, index) => ({
     heading: t(`cardsUseCases.${index}.heading`),
     body: t(`cardsUseCases.${index}.body`),
   }));
@@ -186,39 +186,6 @@ const SolutionsIndexPage = () => {
               url: "https://solana.com/solutions/solana-permissioned-environments",
             },
           },
-          {
-            type: "gradient",
-            heading: toolsCards[8].heading,
-            headingAs: "h3",
-            body: "",
-            backgroundGradient: "blue",
-            isFeatured: false,
-            hiddenOnDesktop: false,
-            eyebrow: "",
-            callToAction: { label: "PAGE Coming Soon", hierarchy: "link" },
-          },
-          {
-            type: "gradient",
-            heading: toolsCards[9].heading,
-            headingAs: "h3",
-            body: "",
-            backgroundGradient: "blue",
-            isFeatured: false,
-            hiddenOnDesktop: false,
-            eyebrow: "",
-            callToAction: { label: "Page Coming Soon", hierarchy: "link" },
-          },
-          {
-            type: "gradient",
-            heading: toolsCards[10].heading,
-            headingAs: "h3",
-            body: "",
-            backgroundGradient: "blue",
-            isFeatured: false,
-            hiddenOnDesktop: false,
-            eyebrow: "",
-            callToAction: { label: "Page Coming Soon", hierarchy: "link" },
-          },
         ]}
         featured={false}
         numCols={3}
@@ -350,34 +317,6 @@ const SolutionsIndexPage = () => {
               label: t("buttons.learnMore"),
               hierarchy: "outline",
               url: "https://solana.com/developers/dao",
-            },
-          },
-          {
-            type: "gradient",
-            heading: useCaseCards[6].heading,
-            headingAs: "h4",
-            body: useCaseCards[6].body,
-            backgroundGradient: "blue",
-            isFeatured: false,
-            hiddenOnDesktop: false,
-            callToAction: {
-              label: "Page Coming Soon",
-              hierarchy: "link",
-              url: "",
-            },
-          },
-          {
-            type: "gradient",
-            heading: useCaseCards[7].heading,
-            headingAs: "h4",
-            body: useCaseCards[7].body,
-            backgroundGradient: "blue",
-            isFeatured: false,
-            hiddenOnDesktop: false,
-            callToAction: {
-              label: "Page Coming Soon",
-              hierarchy: "link",
-              url: "",
             },
           },
         ]}
