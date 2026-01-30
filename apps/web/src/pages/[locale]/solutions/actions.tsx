@@ -33,7 +33,7 @@ const ActionsPage = () => {
 
   const sliderCards = SLIDER_IMAGES.map((src, i) => ({
     image: {
-      alt: "",
+      alt: t(`sliderCards.${i}.title`),
       src,
     },
     button: {
@@ -86,7 +86,7 @@ const ActionsPage = () => {
         headingAs="h1"
         centered={false}
         image={{
-          alt: "",
+          alt: t("hero.headline"),
           src: HERO_IMAGE,
         }}
         newsLetter={false}
@@ -178,7 +178,7 @@ const ActionsPage = () => {
             width={1500}
             height={1500}
             sizes="(max-width: 998px) 96vw, 87vw"
-            alt=""
+            alt={t("headings.meetUsers")}
             style={{ objectFit: "cover", width: "100%" }}
             loading="eager"
           />
@@ -197,7 +197,7 @@ const ActionsPage = () => {
       <Switchback
         assetSide="right"
         image={{
-          alt: "",
+          alt: t("switchback.dialect.headline"),
           src: SWITCHBACK_IMAGE,
         }}
         headline={t("switchback.dialect.headline")}

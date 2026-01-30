@@ -53,7 +53,7 @@ const RealWorldAssetsPage = () => {
         ]}
         image={{
           src: HERO_IMAGE,
-          alt: "",
+          alt: t("hero.headline"),
         }}
       />
 

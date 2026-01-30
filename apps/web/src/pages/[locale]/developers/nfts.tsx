@@ -126,7 +126,7 @@ const DevelopersNftsPage = () => {
           body={t.raw("hero.body")}
           buttons={heroButtons as React.ComponentProps<typeof Hero>["buttons"]}
           image={{
-            alt: "",
+            alt: t("hero.headline"),
             src: HERO_IMAGE,
           }}
         />
@@ -169,7 +169,7 @@ const DevelopersNftsPage = () => {
       <Switchback
         assetSide="right"
         image={{
-          alt: "",
+          alt: t("switchback.headline"),
           src: SWITCHBACK_IMAGE,
         }}
         eyebrow={t("switchback.eyebrow")}

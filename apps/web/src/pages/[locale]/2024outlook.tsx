@@ -111,7 +111,7 @@ const Outlook2024Page = () => {
         headline={t("hero.headline")}
         buttons={heroButtons as any}
         image={{
-          alt: "",
+          alt: t("hero.headline"),
           src: HERO_IMAGE,
         }}
       />

@@ -54,7 +54,7 @@ const TokenExtensionsPage = () => {
         ]}
         image={{
           src: HERO_IMAGE,
-          alt: "",
+          alt: t("hero.headline"),
         }}
         eyebrow={t("hero.eyebrow")}
         headline={t("hero.headline")}
@@ -121,7 +121,7 @@ const TokenExtensionsPage = () => {
             assetSide: "right",
             image: {
               src: SWITCHBACK_IMAGES[0],
-              alt: "",
+              alt: t("switchbacks.0.headline"),
             },
             headline: t("switchbacks.0.headline"),
             body: t.raw("switchbacks.0.body"),
@@ -135,7 +135,7 @@ const TokenExtensionsPage = () => {
             assetSide: "right",
             image: {
               src: SWITCHBACK_IMAGES[1],
-              alt: "",
+              alt: t("switchbacks.1.headline"),
             },
             body: t.raw("switchbacks.1.body"),
             headline: t("switchbacks.1.headline"),
@@ -149,7 +149,7 @@ const TokenExtensionsPage = () => {
             assetSide: "right",
             image: {
               src: SWITCHBACK_IMAGES[2],
-              alt: "",
+              alt: t("switchbacks.2.headline"),
             },
             headline: t("switchbacks.2.headline"),
             body: t.raw("switchbacks.2.body"),
@@ -163,7 +163,7 @@ const TokenExtensionsPage = () => {
             assetSide: "right",
             image: {
               src: SWITCHBACK_IMAGES[3],
-              alt: "",
+              alt: t("switchbacks.3.headline"),
             },
             body: t.raw("switchbacks.3.body"),
             headline: t("switchbacks.3.headline"),

@@ -76,7 +76,7 @@ const RequestForStartupsPage = () => {
         <Switchback
           assetSide="right"
           image={{
-            alt: "",
+            alt: t("switchback.headline"),
             src: SWITCHBACK_IMAGE,
           }}
           eyebrow=""

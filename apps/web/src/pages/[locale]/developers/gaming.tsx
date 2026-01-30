@@ -70,6 +70,10 @@ const DevelopersGamingPage = () => {
   const switchbackChainItems = SWITCHBACK_CHAIN.switchbacks.map(
     (switchback, index) => ({
       ...switchback,
+      image: {
+        ...switchback.image,
+        alt: t(`switchbackChain.items.${index}.headline`),
+      },
       eyebrow: "",
       headline: t(`switchbackChain.items.${index}.headline`),
       body: t.raw(`switchbackChain.items.${index}.body`),
@@ -108,7 +112,7 @@ const DevelopersGamingPage = () => {
           headline={t("hero.headline")}
           body={t.raw("hero.body")}
           buttons={heroButtons as React.ComponentProps<typeof Hero>["buttons"]}
-          image={{ alt: "", src: HERO_IMAGE }}
+          image={{ alt: t("hero.headline"), src: HERO_IMAGE }}
         />
       </ResponsiveBox>
 
@@ -151,7 +155,10 @@ const DevelopersGamingPage = () => {
               typeof Switchback
             >["buttons"]
           }
-          image={SHOWCASE_SWITCHBACK.image}
+          image={{
+            ...SHOWCASE_SWITCHBACK.image,
+            alt: t("switchback.headline"),
+          }}
           placeholder=""
           emailError=""
           submitError=""

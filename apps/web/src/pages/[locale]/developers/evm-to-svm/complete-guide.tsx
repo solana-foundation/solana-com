@@ -105,7 +105,7 @@ const DevelopersEvmToSvmCompleteGuidePage = () => {
         width={image.width}
         height={image.height}
         sizes={image.sizes}
-        alt=""
+        alt={image.alt ?? ""}
         style={{
           width: "100%",
           height: "auto",

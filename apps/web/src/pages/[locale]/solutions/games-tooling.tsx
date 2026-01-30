@@ -46,6 +46,7 @@ const GamesToolingPage = () => {
         ]}
         image={{
           src: HERO_IMAGE,
+          alt: t("hero.headline"),
         }}
       />
 
@@ -72,7 +73,7 @@ const GamesToolingPage = () => {
             ],
             image: {
               src: SWITCHBACK_IMAGES[0],
-              alt: "",
+              alt: t("switchbacks.0.headline"),
             },
             placeholder: "",
             emailError: "",
@@ -94,7 +95,7 @@ const GamesToolingPage = () => {
             ],
             image: {
               src: SWITCHBACK_IMAGES[1],
-              alt: "",
+              alt: t("switchbacks.1.headline"),
             },
             placeholder: "",
             emailError: "",
@@ -116,7 +117,7 @@ const GamesToolingPage = () => {
             ],
             image: {
               src: SWITCHBACK_IMAGES[2],
-              alt: "",
+              alt: t("switchbacks.2.headline"),
             },
             placeholder: "",
             emailError: "",

@@ -87,7 +87,7 @@ const DevelopersPaymentsPage = () => {
           headline={t("hero.headline")}
           body={t.raw("hero.body")}
           buttons={heroButtons as React.ComponentProps<typeof Hero>["buttons"]}
-          image={{ alt: "", src: HERO_IMAGE }}
+          image={{ alt: t("hero.headline"), src: HERO_IMAGE }}
         />
       </ResponsiveBox>
 
@@ -135,7 +135,7 @@ const DevelopersPaymentsPage = () => {
       <ResponsiveBox responsiveStyles={blockSpacing}>
         <Switchback
           assetSide="left"
-          image={{ alt: "", src: SWITCHBACK_IMAGE }}
+          image={{ alt: t("switchback.headline"), src: SWITCHBACK_IMAGE }}
           eyebrow={t("switchback.eyebrow")}
           headline={t("switchback.headline")}
           body={t.raw("switchback.body")}

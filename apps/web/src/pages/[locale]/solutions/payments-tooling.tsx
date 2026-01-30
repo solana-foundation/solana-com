@@ -52,7 +52,7 @@ const PaymentsToolingPage = () => {
     ],
     image: {
       src: SWITCHBACK_IMAGES[i],
-      alt: "",
+      alt: t(`switchbacks.${i}.headline`),
     },
     placeholder: "",
     emailError: "",
@@ -85,6 +85,7 @@ const PaymentsToolingPage = () => {
         ]}
         image={{
           src: HERO_IMAGE,
+          alt: t("hero.headline"),
         }}
       />
 

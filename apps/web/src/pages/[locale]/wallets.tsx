@@ -107,15 +107,15 @@ const WalletsPage = () => {
         body={t.raw("hero.body")}
         buttons={heroButtons as React.ComponentProps<typeof Hero>["buttons"]}
         image={{
-          alt: "",
+          alt: t("hero.headline"),
           src: HERO_IMAGE,
         }}
         rightImage={{
-          alt: "",
+          alt: t("hero.headline"),
           src: HERO_RIGHT_IMAGE,
         }}
         leftImage={{
-          alt: "",
+          alt: t("hero.headline"),
           src: HERO_RIGHT_IMAGE,
         }}
       />

@@ -131,6 +131,7 @@ export const IMAGE_ASSETS = {
     height: 1500,
     sizes: "(max-width: 998px) 47vw, 43vw",
     fit: "contain",
+    alt: "Table of contents for EVM to Solana developer guide",
   },
   accountModel: {
     src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fc213f02517a64dfbadfb56e05c51128c.png",
@@ -138,6 +139,7 @@ export const IMAGE_ASSETS = {
     height: 675,
     sizes: "(max-width: 638px) 95vw, (max-width: 998px) 96vw, 87vw",
     fit: "cover",
+    alt: "Diagram comparing EVM and Solana account model",
   },
   tokenProgram: {
     src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F67649c6ad3464fa1b07b3bdabce52c8c.png",
@@ -145,6 +147,7 @@ export const IMAGE_ASSETS = {
     height: 675,
     sizes: "(max-width: 638px) 95vw, (max-width: 998px) 96vw, 87vw",
     fit: "cover",
+    alt: "Solana Token Program architecture diagram",
   },
   upgradeFlow: {
     src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F169d65c59d4443ff9229e76bbcf69697.png",
@@ -152,6 +155,7 @@ export const IMAGE_ASSETS = {
     height: 59,
     sizes: "(max-width: 638px) 63vw, (max-width: 998px) 41vw, 29vw",
     fit: "contain",
+    alt: "Solana program upgrade flow diagram",
   },
   playgroundInit: {
     src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F0ca7cec6395f41a6b6f8314fd3c3c1e9.png",
@@ -159,6 +163,7 @@ export const IMAGE_ASSETS = {
     height: 650,
     sizes: "(max-width: 638px) 79vw, (max-width: 998px) 51vw, 36vw",
     fit: "contain",
+    alt: "Solana Playground initialization screenshot",
   },
   playgroundLogs: {
     src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F7f382a94721e484aa57ae08c2f4391b9.png",
@@ -166,6 +171,7 @@ export const IMAGE_ASSETS = {
     height: 416,
     sizes: "(max-width: 638px) 95vw, (max-width: 998px) 71vw, 50vw",
     fit: "contain",
+    alt: "Solana Playground console logs output",
   },
   playgroundVote: {
     src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F914ca3ebc38945be808993711af801e6.png",
@@ -173,6 +179,7 @@ export const IMAGE_ASSETS = {
     height: 344,
     sizes: "(max-width: 638px) 95vw, (max-width: 998px) 71vw, 50vw",
     fit: "contain",
+    alt: "Solana Playground vote transaction example",
   },
   playgroundResults: {
     src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F4930bf05e3e9451b93bd895750065759.png",
@@ -180,6 +187,7 @@ export const IMAGE_ASSETS = {
     height: 824,
     sizes: "(max-width: 638px) 79vw, (max-width: 998px) 51vw, 36vw",
     fit: "contain",
+    alt: "Solana Playground execution results",
   },
 };
 

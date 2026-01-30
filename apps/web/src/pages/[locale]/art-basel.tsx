@@ -77,7 +77,7 @@ const ArtBaselPage = () => {
           width={2000}
           height={1333}
           sizes="100vw"
-          alt=""
+          alt={t("hero.headline")}
           style={{ objectFit: "cover", width: "100%" }}
           loading="eager"
         />
@@ -95,7 +95,7 @@ const ArtBaselPage = () => {
             headingAs="h1"
             centered={false}
             newsLetter={false}
-            image={{ alt: "", src: HERO_IMAGE }}
+            image={{ alt: t("hero.headline"), src: HERO_IMAGE }}
             eyebrow={t("hero.eyebrow")}
             headline={t("hero.headline")}
             body={t.raw("hero.body")}
@@ -182,7 +182,7 @@ const ArtBaselPage = () => {
                 width={1200}
                 height={1500}
                 sizes="(max-width: 638px) 95vw, (max-width: 998px) 47vw, 43vw"
-                alt=""
+                alt={t("artists.laura.author.name")}
                 style={{ objectFit: "cover", width: "100%" }}
                 loading="eager"
               />
@@ -207,7 +207,7 @@ const ArtBaselPage = () => {
                 width={1898}
                 height={1500}
                 sizes="(max-width: 638px) 95vw, (max-width: 998px) 47vw, 43vw"
-                alt=""
+                alt={t("artists.cultureHacker.author.name")}
                 style={{ objectFit: "cover", width: "100%" }}
                 loading="eager"
               />

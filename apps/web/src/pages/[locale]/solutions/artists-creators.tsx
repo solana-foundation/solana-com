@@ -48,7 +48,7 @@ const ArtistsCreatorsPage = () => {
     body: t(`cardsConnect.${index}.body`),
   }));
   const caseStudies = CASE_STUDY_IMAGES.map((src, index) => ({
-    image: { src, alt: "" },
+    image: { src, alt: t(`caseStudies.${index}.headline`) },
     headline: t(`caseStudies.${index}.headline`),
     body: t.raw(`caseStudies.${index}.body`),
   }));
@@ -70,6 +70,7 @@ const ArtistsCreatorsPage = () => {
         newsLetter={false}
         image={{
           src: HERO_IMAGE,
+          alt: t("hero.headline"),
         }}
         buttons={[
           {
@@ -265,7 +266,7 @@ const ArtistsCreatorsPage = () => {
         assetSide="right"
         image={{
           src: SWITCHBACK_IMAGE,
-          alt: "",
+          alt: t("switchback.poweringCreators.headline"),
         }}
         eyebrow={t("switchback.poweringCreators.eyebrow")}
         headline={t("switchback.poweringCreators.headline")}

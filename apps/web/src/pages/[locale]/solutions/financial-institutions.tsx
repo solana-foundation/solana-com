@@ -56,7 +56,7 @@ const FinancialInstitutionsPage = () => {
     assetSide: "right",
     image: {
       src: switchback.image,
-      alt: "",
+      alt: t(`switchbacks.${index}.headline`),
     },
     eyebrow: "",
     headline: t(`switchbacks.${index}.headline`),
@@ -112,11 +112,11 @@ const FinancialInstitutionsPage = () => {
           ] as React.ComponentProps<typeof Hero>["buttons"]
         }
         image={{
-          alt: "",
+          alt: t("hero.headline"),
           src: HERO_IMAGE,
         }}
         rightImage={{
-          alt: "",
+          alt: t("hero.headline"),
           src: HERO_RIGHT_IMAGE,
         }}
       />

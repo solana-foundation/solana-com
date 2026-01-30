@@ -58,7 +58,7 @@ const SolanaPermissionedEnvironmentsPage = () => {
         ]}
         image={{
           src: HERO_IMAGE,
-          alt: "",
+          alt: t("hero.headline"),
         }}
       />
 
@@ -77,7 +77,7 @@ const SolanaPermissionedEnvironmentsPage = () => {
             body: t.raw("switchbacks.0.body"),
             image: {
               src: SWITCHBACK_IMAGES[0],
-              alt: "",
+              alt: t("switchbacks.0.headline"),
             },
             placeholder: "",
             emailError: "",
@@ -91,7 +91,7 @@ const SolanaPermissionedEnvironmentsPage = () => {
             body: t.raw("switchbacks.1.body"),
             image: {
               src: SWITCHBACK_IMAGES[1],
-              alt: "",
+              alt: t("switchbacks.1.headline"),
             },
             placeholder: "",
             emailError: "",
@@ -105,7 +105,7 @@ const SolanaPermissionedEnvironmentsPage = () => {
             body: t.raw("switchbacks.2.body"),
             image: {
               src: SWITCHBACK_IMAGES[2],
-              alt: "",
+              alt: t("switchbacks.2.headline"),
             },
             placeholder: "",
             emailError: "",
@@ -127,7 +127,7 @@ const SolanaPermissionedEnvironmentsPage = () => {
             ],
             image: {
               src: SWITCHBACK_IMAGES[3],
-              alt: "",
+              alt: t("switchbacks.3.headline"),
             },
             placeholder: "",
             emailError: "",

@@ -44,7 +44,7 @@ const CommerceToolingPage = () => {
     ],
     image: {
       src: SWITCHBACK_IMAGES.bobaGuys,
-      alt: "",
+      alt: t("switchbacks.bobaGuys.headline"),
     },
     placeholder: "",
     emailError: "",
@@ -67,7 +67,7 @@ const CommerceToolingPage = () => {
     ],
     image: {
       src: SWITCHBACK_IMAGES.solanaPay,
-      alt: "",
+      alt: t("switchbacks.solanaPay.headline"),
     },
     placeholder: "",
     emailError: "",
@@ -106,7 +106,7 @@ const CommerceToolingPage = () => {
         ]}
         image={{
           src: HERO_IMAGE,
-          alt: "",
+          alt: t("hero.headline"),
         }}
       />
 
