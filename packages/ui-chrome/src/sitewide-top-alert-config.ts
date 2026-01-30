@@ -31,12 +31,12 @@ export interface SitewideTopAlertConfig {
 }
 
 export const sitewideTopAlertConfig: SitewideTopAlertConfig = {
-  enabled: true,
-  text: "Breakpoint 2025 — Join us in Singapore. Register now for talks, workshops, and networking.",
+  enabled: false,
+  text: "",
   cta: {
-    label: "Get tickets",
-    url: "/breakpoint/app",
+    label: "",
+    url: "",
   },
-  color: "purple",
+  color: "green",
   excludedPaths: ["/breakpoint/app"],
 };
