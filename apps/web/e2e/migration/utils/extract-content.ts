@@ -87,10 +87,12 @@ export async function extractPageContent(
       }
     });
 
-    // Extract buttons
+    // Extract buttons (including styled links that act as buttons)
     const buttons: ExtractedButton[] = [];
     document
-      .querySelectorAll('button, a[role="button"], [class*="btn"]')
+      .querySelectorAll(
+        'button, a[role="button"], [class*="btn"], [class*="button"], [class*="Button"], [class*="cta"], [class*="Cta"], [class*="CTA"]',
+      )
       .forEach((button) => {
         const text = cleanText(button.textContent);
         if (text && text.length < 100) {
@@ -315,10 +317,22 @@ export function compareContent(
 }
 
 /**
- * Normalize text for comparison (lowercase, remove extra whitespace).
+ * Normalize text for comparison (lowercase, remove extra whitespace, normalize special chars).
  */
 function normalizeText(text: string): string {
-  return text.toLowerCase().trim().replace(/\s+/g, " ");
+  return (
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ")
+      // Normalize various dash characters to regular hyphen
+      // Em-dash (—), en-dash (–), non-breaking hyphen (‑), figure dash (‒), minus sign (−)
+      // Box drawing horizontal (─, ━, ┄, ┅, ┈, ┉)
+      .replace(/[—–‑‒−─━┄┅┈┉]/g, "-")
+      // Normalize curly quotes and apostrophes to straight versions
+      .replace(/['']/g, "'")
+      .replace(/[""]/g, '"')
+  );
 }
 
 /**

@@ -44,8 +44,13 @@ export default function HTMLHead({
 
   // Build canonical URL
   const canonicalUrl = `${config.siteUrl}${localeNoEnDefault}${asPathNoRedirect}`;
+  // Check if title already ends with site name suffix to avoid duplication
+  const siteSuffix = ` | ${config.siteMetadata.title}`;
+  const titleAlreadyHasSuffix = title?.endsWith(siteSuffix);
   const fullTitle = title
-    ? `${title} | ${config.siteMetadata.title}`
+    ? titleAlreadyHasSuffix
+      ? title
+      : `${title}${siteSuffix}`
     : config.siteMetadata.title;
 
   if (addDefaultMeta) {
@@ -147,8 +152,10 @@ export default function HTMLHead({
   return (
     <>
       <NextSeo
-        {...(addDefaultMeta && { title })}
-        titleTemplate={`%s | ${config.siteMetadata.title}`}
+        title={addDefaultMeta ? title : undefined}
+        titleTemplate={
+          titleAlreadyHasSuffix ? "%s" : `%s | ${config.siteMetadata.title}`
+        }
         additionalMetaTags={meta}
       />
 
