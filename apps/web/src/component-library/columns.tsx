@@ -5,7 +5,8 @@ type Breakpoint = "mobile" | "tablet" | "desktop";
 
 interface ColumnsProps {
   children: React.ReactNode;
-  space?: number | string;
+  /** Gap between columns in pixels */
+  space?: number;
   stackColumnsAt?: Breakpoint;
   reverseColumnsWhenStacked?: boolean;
   className?: string;
@@ -24,7 +25,7 @@ export const Columns: React.FC<ColumnsProps> = ({
   reverseColumnsWhenStacked = false,
   className,
 }) => {
-  const gapStyle = typeof space === "number" ? `${space}px` : space;
+  const gapClass = space > 0 ? `gap-[${space}px]` : "";
 
   const baseClasses = "flex [&>*]:flex-1 items-center";
 
@@ -37,8 +38,7 @@ export const Columns: React.FC<ColumnsProps> = ({
 
   return (
     <div
-      className={twMerge(baseClasses, directionClasses, className)}
-      style={{ gap: gapStyle }}
+      className={twMerge(baseClasses, gapClass, directionClasses, className)}
     >
       {children}
     </div>
