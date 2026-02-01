@@ -22,6 +22,7 @@ export async function MainDocsPage({
       toc={toc}
       full={page.data.full}
       title={page.data.h1 || page.data.title}
+      description={page.data.description}
       filePath={page.data.info.path}
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
