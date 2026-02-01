@@ -1,202 +1,177 @@
 #!/usr/bin/env python3
 """
-Script to generate LLMs.txt file by scanning all .mdx files in the content directory
+Script to generate LLMs.txt files for all locales.
+Generates:
+- llms.txt (English, curated index)
+- llms-full.txt (English, inline content)
+- llms-{locale}.txt for each configured locale
 """
 
 import os
 import re
-import json
-from collections import defaultdict
+from typing import Dict, List, Tuple
 
-# Base directory to scan
+# Configuration
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.join(REPO_ROOT, 'apps', 'docs', 'content')
-# Output file path
-OUTPUT_FILE = os.path.join(REPO_ROOT, 'apps', 'web', 'public', 'llms.txt')
+DOCS_DIR = os.path.join(REPO_ROOT, 'apps', 'docs', 'content', 'docs')
+OUTPUT_DIR = os.path.join(REPO_ROOT, 'apps', 'web', 'public')
 
-def extract_frontmatter(file_path):
-    """Extract title and description from frontmatter in .mdx files"""
-    title = ""
-    description = ""
-    
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-            
-            # Check if file has frontmatter (between --- markers)
-            frontmatter_match = re.search(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
-            if frontmatter_match:
-                frontmatter = frontmatter_match.group(1)
-                
-                # Extract title
-                title_match = re.search(r'title:\s*[\'"]?(.*?)[\'"]?(\s*\n|$)', frontmatter)
-                if title_match:
-                    title = title_match.group(1).strip()
-                
-                # Extract description - improved pattern for multiline descriptions
-                # First try to match descriptions in quotes
-                desc_match = re.search(r'description:\s*[\'"]([^\'"]*)[\'"]', frontmatter, re.DOTALL)
-                if desc_match:
-                    description = desc_match.group(1).strip()
-                else:
-                    # Try to match multiline descriptions with indentation
-                    desc_match = re.search(r'description:\s*(?:>)?\s*([^\n]*(?:\n\s+[^\n]+)*)', frontmatter)
-                    if desc_match:
-                        # Clean up the multiline description
-                        description = re.sub(r'\n\s+', ' ', desc_match.group(1)).strip()
-                    else:
-                        # Last attempt - try to match any description format
-                        desc_match = re.search(r'description:\s*(.*?)(?:\n[a-zA-Z]+:|$)', frontmatter, re.DOTALL)
-                        if desc_match:
-                            description = re.sub(r'\n\s+', ' ', desc_match.group(1)).strip()
-                            # Remove quotes if they wrap the entire description
-                            description = re.sub(r'^[\'"]|[\'"]$', '', description)
-    except Exception as e:
-        print(f"Error processing {file_path}: {e}")
-    
-    return title, description.replace('\n', '')
+# All supported locales (from packages/i18n/src/config.ts)
+LOCALES = [
+    "en", "ar", "de", "el", "es", "fi", "fr", "hi", "id", "it",
+    "ja", "ko", "nl", "pl", "pt", "ru", "tr", "uk", "vi", "zh"
+]
 
-def get_section_name(path):
-    """Get a human-readable section name from a path"""
-    parts = path.split(os.sep)
+# Language names for each locale
+LANGUAGE_NAMES = {
+    "en": "English",
+    "zh": "汉语 (Chinese)",
+    "ru": "Русский (Russian)",
+    "es": "Español (Spanish)",
+    "fr": "Français (French)",
+    "id": "Bahasa Indonesia",
+    "pt": "Português (Portuguese)",
+    "vi": "Tiếng Việt (Vietnamese)",
+    "de": "Deutsch (German)",
+    "tr": "Türkçe (Turkish)",
+    "ko": "한국어 (Korean)",
+    "uk": "Українська (Ukrainian)",
+    "ar": "العربية (Arabic)",
+    "it": "Italiano (Italian)",
+    "pl": "Polski (Polish)",
+    "ja": "日本語 (Japanese)",
+    "nl": "Nederlands (Dutch)",
+    "el": "Ελληνικά (Greek)",
+    "fi": "suomi (Finnish)",
+    "hi": "हिन्दी (Hindi)",
+}
+
+# Curated sections for each locale (same structure, localized URLs)
+CURATED_SECTIONS = {
+    "Core Concepts": [
+        ("Accounts", "docs/{locale}/core/accounts", "How Solana stores data in accounts"),
+        ("Transactions", "docs/{locale}/core/transactions", "The fundamental building blocks for interacting with Solana"),
+        ("Programs", "docs/{locale}/core/programs", "Smart contracts on Solana"),
+        ("Program Derived Addresses", "docs/{locale}/core/pda", "Deterministic addresses for program-controlled accounts"),
+        ("Cross Program Invocation", "docs/{locale}/core/cpi", "How programs invoke other programs"),
+        ("Fees on Solana", "docs/{locale}/core/fees", "Transaction costs and priority fees"),
+    ],
+    "Getting Started": [
+        ("Introduction", "docs/{locale}/intro", "Overview of Solana development"),
+        ("Quick Start", "docs/{locale}/intro/quick-start", "Build your first Solana program"),
+        ("Installation", "docs/{locale}/intro/installation", "Set up your local development environment"),
+    ],
+    "Tokens": [
+        ("Token Basics", "docs/{locale}/tokens/basics", "SPL Token fundamentals"),
+        ("Create Mint", "docs/{locale}/tokens/basics/create-mint", "Create new token mints"),
+        ("Token Extensions", "docs/{locale}/tokens/extensions", "Token-2022 program features"),
+    ],
+    "RPC API": [
+        ("HTTP Methods", "docs/{locale}/rpc/http", "JSON-RPC API reference"),
+        ("WebSocket Methods", "docs/{locale}/rpc/websocket", "Real-time subscriptions"),
+    ],
+}
+
+# Additional English-only sections
+ENGLISH_EXTRAS = {
+    "Cookbook": [
+        ("Send SOL", "cookbook/transactions/send-sol", "Transfer SOL between accounts"),
+        ("Create Account", "cookbook/accounts/create-account", "Create accounts on Solana"),
+        ("Get Balance", "cookbook/accounts/get-account-balance", "Retrieve SOL balance"),
+        ("Add Priority Fees", "cookbook/transactions/add-priority-fees", "Increase transaction priority"),
+        ("Create Keypair", "cookbook/wallets/create-keypair", "Generate new keypairs"),
+    ],
+    "Program Development": [
+        ("Developing Programs", "docs/en/programs", "Build on-chain programs"),
+        ("Anchor Framework", "docs/en/programs/anchor", "High-level framework for Solana programs"),
+        ("Testing Programs", "docs/en/programs/testing", "Test programs with bankrun and other tools"),
+    ],
+}
+
+
+def generate_llms_txt(locale: str) -> str:
+    """Generate llms.txt content for a specific locale."""
+    base_url = "https://solana.com"
+    lang_name = LANGUAGE_NAMES.get(locale, locale)
     
-    # Skip 'content' in the path
-    if 'content' in parts:
-        parts = parts[parts.index('content')+1:]
-    
-    # Use the first two parts for the section name
-    if len(parts) >= 2:
-        return parts[0].capitalize() + " - " + parts[1].capitalize()
-    elif len(parts) == 1:
-        return parts[0].capitalize()
+    # Header
+    if locale == "en":
+        lines = [
+            "# Solana",
+            "",
+            "> Solana is the high-performance blockchain designed for mass adoption, capable of processing thousands of transactions per second with sub-second finality.",
+            "",
+            "This documentation provides comprehensive guides, references, and tutorials for developers building on Solana.",
+            "",
+        ]
     else:
-        return "General"
+        lines = [
+            f"# Solana ({lang_name})",
+            "",
+            f"> Solana documentation in {lang_name}.",
+            "",
+            f"This is the {lang_name} version of the Solana developer documentation.",
+            "",
+        ]
+    
+    # Add curated sections
+    for section_name, links in CURATED_SECTIONS.items():
+        lines.append(f"## {section_name}")
+        lines.append("")
+        for title, path_template, description in links:
+            path = path_template.format(locale=locale)
+            url = f"{base_url}/{path}"
+            lines.append(f"- [{title}]({url}): {description}")
+        lines.append("")
+    
+    # Add English-only extras
+    if locale == "en":
+        for section_name, links in ENGLISH_EXTRAS.items():
+            lines.append(f"## {section_name}")
+            lines.append("")
+            for title, path, description in links:
+                url = f"{base_url}/{path}"
+                lines.append(f"- [{title}]({url}): {description}")
+            lines.append("")
+    
+    # Add optional resources section
+    lines.append("## Optional")
+    lines.append("")
+    lines.append("- [Solana StackExchange](https://solana.stackexchange.com): Community Q&A")
+    lines.append("- [Validator Setup](https://docs.anza.xyz/operations/setup-a-validator): Run a validator node")
+    lines.append("")
+    
+    return "\n".join(lines)
 
-def get_relative_url(file_path):
-    """Convert a file path to a relative URL for the website"""
-    # Remove the base directory and file extension
-    rel_path = file_path.replace(BASE_DIR, '')
-    
-    # Convert .mdx to appropriate URL format
-    if rel_path.endswith('index.mdx'):
-        rel_path = rel_path[:-9]  # Remove 'index.mdx'
-    elif rel_path.endswith('.mdx'):
-        rel_path = rel_path[:-4]  # Remove '.mdx'
-    
-    # Ensure the path starts with /
-    if not rel_path.startswith('/'):
-        rel_path = '/' + rel_path
-    
-    if '/guides/' in rel_path:
-        rel_path = rel_path.replace('/guides/', '/developers/guides/')
-    
-    # Base URL
-    base_url = "https://solana.com" + rel_path
-    
-    # Add UTM parameters for GA4 tracking (shorter version)
-    utm_params = {
-        'utm_source': 'llms',
-        'utm_medium': 'ai',
-        'utm_campaign': 'txt'
-    }
-    
-    # Construct URL with UTM parameters
-    tracking_url = base_url + '?' + '&'.join([f"{k}={v}" for k, v in utm_params.items()])
-    
-    return tracking_url
-
-def scan_directory():
-    """Scan the content directory for .mdx files and organize them by section"""
-    sections = defaultdict(list)
-    
-    for root, _, files in os.walk(BASE_DIR):
-        for file in files:
-            if file.endswith('.mdx'):
-                file_path = os.path.join(root, file)
-                
-                # Skip files in node_modules or hidden directories
-                if 'node_modules' in file_path or '/.' in file_path:
-                    continue
-                
-                # Get title and description
-                title, description = extract_frontmatter(file_path)
-                
-                # Use filename as title if no title found
-                if not title:
-                    title = os.path.splitext(file)[0].replace('-', ' ').title()
-                
-                # Get section name
-                section = get_section_name(root)
-                
-                # Get relative URL
-                url = get_relative_url(file_path)
-                
-                sections[section].append({
-                    'title': title,
-                    'url': url,
-                    'description': description
-                })
-    
-    return sections
-
-def check_meta_json(directory):
-    """Check for meta.json files to get section information"""
-    meta_path = os.path.join(directory, 'meta.json')
-    if os.path.exists(meta_path):
-        try:
-            with open(meta_path, 'r', encoding='utf-8') as f:
-                meta_data = json.load(f)
-                return meta_data.get('title', ''), meta_data.get('description', '')
-        except Exception as e:
-            print(f"Error reading meta.json in {directory}: {e}")
-    return '', ''
-
-def generate_llms_txt(sections):
-    """Generate the LLMs.txt file content"""
-    content = []
-    
-    # Add header
-    content.append("# Solana Documentation")
-    content.append("")
-    content.append("> Solana is the high-performance blockchain designed for mass adoption. This documentation provides comprehensive guides, references, and tutorials for developers looking to build scalable blockchain applications on Solana.")
-    content.append("")
-    content.append("The Solana documentation is organized into several key sections covering core concepts, client-side development, program development, and validator operations. This LLMs.txt file provides structured access to the most important documentation resources.")
-    content.append("")
-    
-    # Add sections
-    for section, pages in sorted(sections.items()):
-        if pages:  # Only add sections with pages
-            content.append(f"## {section}")
-            content.append("")
-            
-            for page in sorted(pages, key=lambda x: x['title']):
-                description = f": {page['description']}" if page['description'] else ""
-                content.append(f"- [{page['title']}]({page['url']}){description}")
-            
-            content.append("")
-    
-    # Add optional section
-    content.append("## Optional")
-    content.append("")
-    content.append("- [StackExchange Support](https://solana.stackexchange.com): Get help from the Solana community on StackExchange")
-    content.append("- [Validator Setup](https://docs.anza.xyz/operations/setup-a-validator): Setup a validator and get connected to a cluster")
-    content.append("")
-    
-    return "\n".join(content)
 
 def main():
-    print("Scanning content directory...")
-    sections = scan_directory()
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     
-    print(f"Found {sum(len(pages) for pages in sections.values())} pages in {len(sections)} sections")
+    # Generate locale-specific files
+    for locale in LOCALES:
+        locale_dir = os.path.join(DOCS_DIR, locale)
+        
+        # Only generate if locale directory exists
+        if not os.path.isdir(locale_dir):
+            print(f"Skipping {locale} - directory not found")
+            continue
+        
+        content = generate_llms_txt(locale)
+        
+        if locale == "en":
+            # English goes to llms.txt (main file)
+            output_path = os.path.join(OUTPUT_DIR, "llms.txt")
+        else:
+            # Other locales go to llms-{locale}.txt
+            output_path = os.path.join(OUTPUT_DIR, f"llms-{locale}.txt")
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        print(f"Generated: {output_path}")
     
-    llms_content = generate_llms_txt(sections)
-    
-    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
-        f.write(llms_content)
-    
-    print(f"LLMs.txt file generated at {OUTPUT_FILE}")
+    print(f"\nGenerated {len(LOCALES)} llms.txt files")
+
 
 if __name__ == "__main__":
     main()
