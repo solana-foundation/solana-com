@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 
+const CONTENT_ROOT = path.resolve(process.cwd(), "content");
+
+function isSafePathSegment(segment: string) {
+  return (
+    segment.length > 0 &&
+    segment !== "." &&
+    segment !== ".." &&
+    !segment.includes("/") &&
+    !segment.includes("\\") &&
+    !segment.includes("\0")
+  );
+}
+
 /**
  * API route to serve raw markdown content for LLM consumption.
  * Handles requests like:
@@ -24,7 +37,20 @@ export async function GET(
   }
 
   const [section, ...slugParts] = pathSegments;
-  const slug = slugParts.join("/");
+
+  if (slugParts.length === 0) {
+    return NextResponse.json(
+      { error: "Invalid path. Expected: /api/md/{section}/{slug}" },
+      { status: 400 }
+    );
+  }
+
+  const safeSlugParts = slugParts.filter(Boolean);
+  if (!safeSlugParts.length || !safeSlugParts.every(isSafePathSegment)) {
+    return NextResponse.json({ error: "Invalid path." }, { status: 400 });
+  }
+
+  const slug = safeSlugParts.join("/");
 
   // Map URL sections to content directories
   let contentDir: string;
@@ -45,17 +71,19 @@ export async function GET(
   }
 
   try {
+    const baseDir = path.resolve(CONTENT_ROOT, contentDir);
+    const resolvedPath = path.resolve(baseDir, ...safeSlugParts);
+
+    if (!resolvedPath.startsWith(`${baseDir}${path.sep}`)) {
+      return NextResponse.json({ error: "Invalid path." }, { status: 400 });
+    }
+
     // Try both .mdx and .md extensions
     const extensions = [".mdx", ".md"];
     let content: string | null = null;
 
     for (const ext of extensions) {
-      const filePath = path.join(
-        process.cwd(),
-        "content",
-        contentDir,
-        `${slug}${ext}`
-      );
+      const filePath = `${resolvedPath}${ext}`;
 
       try {
         content = await fs.readFile(filePath, "utf-8");

@@ -28,6 +28,18 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Handle index.html.md requests (for directory URLs)
+  if (pathname.endsWith("/index.html.md")) {
+    const segments = pathname.split("/").filter(Boolean);
+    const hasLocale = locales.includes(segments[0]);
+    const pathWithoutLocale = hasLocale ? segments.slice(1) : segments;
+    const basePath = pathWithoutLocale.slice(0, -1).join("/"); // Remove index.html.md
+
+    const url = req.nextUrl.clone();
+    url.pathname = `/api/md/${basePath}`;
+    return NextResponse.rewrite(url);
+  }
+
   // Handle .md requests - serve raw markdown for LLM consumption
   // See https://llmstxt.org/ for specification
   if (pathname.endsWith(".md")) {
@@ -36,18 +48,6 @@ export default async function middleware(req: NextRequest) {
     const hasLocale = locales.includes(segments[0]);
     const pathWithoutLocale = hasLocale ? segments.slice(1) : segments;
     const basePath = pathWithoutLocale.join("/").slice(0, -3); // Remove .md
-
-    const url = req.nextUrl.clone();
-    url.pathname = `/api/md/${basePath}`;
-    return NextResponse.rewrite(url);
-  }
-
-  // Handle index.html.md requests (for directory URLs)
-  if (pathname.endsWith("/index.html.md")) {
-    const segments = pathname.split("/").filter(Boolean);
-    const hasLocale = locales.includes(segments[0]);
-    const pathWithoutLocale = hasLocale ? segments.slice(1) : segments;
-    const basePath = pathWithoutLocale.slice(0, -1).join("/"); // Remove index.html.md
 
     const url = req.nextUrl.clone();
     url.pathname = `/api/md/${basePath}`;

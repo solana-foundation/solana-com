@@ -15,7 +15,6 @@ export async function PaymentsDocsPage({
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
   const { body: MDX, toc } = await page.data.load();
-  const markdown = await page.data.getText("raw");
   return (
     <DocsPage
       toc={toc}
@@ -25,7 +24,7 @@ export async function PaymentsDocsPage({
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
-      markdown={markdown}
+      locale={locale}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (

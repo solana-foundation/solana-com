@@ -3,7 +3,6 @@
 Script to generate LLMs.txt files for all locales.
 Generates:
 - llms.txt (English, curated index)
-- llms-full.txt (English, inline content)
 - llms-{locale}.txt for each configured locale
 """
 
@@ -49,44 +48,69 @@ LANGUAGE_NAMES = {
 # Curated sections for each locale (same structure, localized URLs)
 CURATED_SECTIONS = {
     "Core Concepts": [
-        ("Accounts", "docs/{locale}/core/accounts", "How Solana stores data in accounts"),
-        ("Transactions", "docs/{locale}/core/transactions", "The fundamental building blocks for interacting with Solana"),
-        ("Programs", "docs/{locale}/core/programs", "Smart contracts on Solana"),
-        ("Program Derived Addresses", "docs/{locale}/core/pda", "Deterministic addresses for program-controlled accounts"),
-        ("Cross Program Invocation", "docs/{locale}/core/cpi", "How programs invoke other programs"),
-        ("Fees on Solana", "docs/{locale}/core/fees", "Transaction costs and priority fees"),
+        ("Accounts", "docs/core/accounts", "How Solana stores data in accounts"),
+        ("Transactions", "docs/core/transactions", "The fundamental building blocks for interacting with Solana"),
+        ("Programs", "docs/core/programs", "Smart contracts on Solana"),
+        ("Program Derived Addresses", "docs/core/pda", "Deterministic addresses for program-controlled accounts"),
+        ("Cross Program Invocation", "docs/core/cpi", "How programs invoke other programs"),
+        ("Fees on Solana", "docs/core/fees", "Transaction costs and priority fees"),
     ],
     "Getting Started": [
-        ("Introduction", "docs/{locale}/intro", "Overview of Solana development"),
-        ("Quick Start", "docs/{locale}/intro/quick-start", "Build your first Solana program"),
-        ("Installation", "docs/{locale}/intro/installation", "Set up your local development environment"),
+        ("Introduction", "docs/intro", "Overview of Solana development"),
+        ("Quick Start", "docs/intro/quick-start", "Build your first Solana program"),
+        ("Installation", "docs/intro/installation", "Set up your local development environment"),
     ],
     "Tokens": [
-        ("Token Basics", "docs/{locale}/tokens/basics", "SPL Token fundamentals"),
-        ("Create Mint", "docs/{locale}/tokens/basics/create-mint", "Create new token mints"),
-        ("Token Extensions", "docs/{locale}/tokens/extensions", "Token-2022 program features"),
+        ("Token Basics", "docs/tokens/basics", "SPL Token fundamentals"),
+        ("Create Mint", "docs/tokens/basics/create-mint", "Create new token mints"),
+        ("Token Extensions", "docs/tokens/extensions", "Token-2022 program features"),
     ],
     "RPC API": [
-        ("HTTP Methods", "docs/{locale}/rpc/http", "JSON-RPC API reference"),
-        ("WebSocket Methods", "docs/{locale}/rpc/websocket", "Real-time subscriptions"),
+        ("HTTP Methods", "docs/rpc/http", "JSON-RPC API reference"),
+        ("WebSocket Methods", "docs/rpc/websocket", "Real-time subscriptions"),
     ],
 }
 
 # Additional English-only sections
 ENGLISH_EXTRAS = {
     "Cookbook": [
-        ("Send SOL", "cookbook/transactions/send-sol", "Transfer SOL between accounts"),
-        ("Create Account", "cookbook/accounts/create-account", "Create accounts on Solana"),
-        ("Get Balance", "cookbook/accounts/get-account-balance", "Retrieve SOL balance"),
-        ("Add Priority Fees", "cookbook/transactions/add-priority-fees", "Increase transaction priority"),
-        ("Create Keypair", "cookbook/wallets/create-keypair", "Generate new keypairs"),
+        ("Send SOL", "developers/cookbook/transactions/send-sol", "Transfer SOL between accounts"),
+        ("Create Account", "developers/cookbook/accounts/create-account", "Create accounts on Solana"),
+        ("Get Balance", "developers/cookbook/accounts/get-account-balance", "Retrieve SOL balance"),
+        ("Add Priority Fees", "developers/cookbook/transactions/add-priority-fees", "Increase transaction priority"),
+        ("Create Keypair", "developers/cookbook/wallets/create-keypair", "Generate new keypairs"),
     ],
     "Program Development": [
-        ("Developing Programs", "docs/en/programs", "Build on-chain programs"),
-        ("Anchor Framework", "docs/en/programs/anchor", "High-level framework for Solana programs"),
-        ("Testing Programs", "docs/en/programs/testing", "Test programs with bankrun and other tools"),
+        ("Developing Programs", "docs/programs", "Build on-chain programs"),
+        ("Anchor Framework", "docs/programs/anchor", "High-level framework for Solana programs"),
+        ("Testing Programs", "docs/programs/testing", "Test programs with bankrun and other tools"),
     ],
 }
+
+
+def with_locale_prefix(locale: str, path: str) -> str:
+    """Prefix non-default locales for Next Intl routes."""
+    if locale == "en":
+        return path
+    return f"{locale}/{path}"
+
+def normalize_llms_urls(content: str) -> str:
+    content = re.sub(
+        r"https://solana\.com/docs/en(?=/|$)",
+        "https://solana.com/docs",
+        content,
+    )
+    content = re.sub(
+        r"https://solana\.com/docs/([a-z]{2})(?=/)",
+        r"https://solana.com/\1/docs",
+        content,
+    )
+    content = re.sub(
+        r"https://solana\.com/cookbook(?=/|$)",
+        "https://solana.com/developers/cookbook",
+        content,
+    )
+    return content
 
 
 def generate_llms_txt(locale: str) -> str:
@@ -119,7 +143,7 @@ def generate_llms_txt(locale: str) -> str:
         lines.append(f"## {section_name}")
         lines.append("")
         for title, path_template, description in links:
-            path = path_template.format(locale=locale)
+            path = with_locale_prefix(locale, path_template)
             url = f"{base_url}/{path}"
             lines.append(f"- [{title}]({url}): {description}")
         lines.append("")
@@ -156,14 +180,20 @@ def main():
             print(f"Skipping {locale} - directory not found")
             continue
         
-        content = generate_llms_txt(locale)
-        
         if locale == "en":
             # English goes to llms.txt (main file)
             output_path = os.path.join(OUTPUT_DIR, "llms.txt")
+            content = generate_llms_txt(locale)
         else:
             # Other locales go to llms-{locale}.txt
             output_path = os.path.join(OUTPUT_DIR, f"llms-{locale}.txt")
+            if os.path.isfile(output_path):
+                with open(output_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            else:
+                content = generate_llms_txt(locale)
+
+        content = normalize_llms_urls(content)
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(content)

@@ -22,10 +22,12 @@ function TechArticleSchema({
   title,
   description,
   href,
+  locale,
 }: {
   title: string;
   description?: string;
   href: string;
+  locale: string;
 }) {
   const structuredData = {
     "@context": "https://schema.org",
@@ -50,7 +52,7 @@ function TechArticleSchema({
       "@type": "WebPage",
       "@id": `https://solana.com${href}`,
     },
-    inLanguage: "en",
+    inLanguage: locale,
     isAccessibleForFree: true,
     license: "https://creativecommons.org/licenses/by/4.0/",
   };
@@ -74,7 +76,7 @@ export function DocsPage(props: {
   description?: string;
   pageTree?: any;
   href: string;
-  markdown: string;
+  locale: string;
 }) {
   const path = props.filePath;
   const editUrl = getEditUrl(path);
@@ -84,6 +86,7 @@ export function DocsPage(props: {
         title={props.title}
         description={props.description}
         href={props.href}
+        locale={props.locale}
       />
       <FumaDocsPage
         toc={props.toc}
@@ -119,8 +122,8 @@ export function DocsPage(props: {
             </Link>
           </h1>
           <div className="flex flex-row gap-2 items-center border-b pb-4 pt-2">
-            <LLMCopyButton markdown={props.markdown} />
-            <ViewOptions markdown={props.markdown} />
+            <LLMCopyButton markdownUrl={`${props.href}.md`} />
+            <ViewOptions />
           </div>
         </div>
         <DocsBody className="text-lg container-docs">{props.children}</DocsBody>

@@ -86,31 +86,15 @@ answers about Solana.
 
 ### 1. Raw Markdown at \*.md URLs
 
-**Status**: Partial / Deferred  
-**Current State**: The source MDX files are available in the repository at
-`/apps/docs/content/docs/{locale}/`. The llms-full.txt provides inline content
-for LLM consumption.
+**Status**: Implemented  
+**Current State**: Docs and media apps serve raw markdown at `*.md` and
+`index.html.md` URLs via middleware rewrites to `/api/md/...` with
+`Content-Type: text/markdown`.
 
-**Rationale for Deferral**: Implementing `.md` URL variants requires Next.js
-middleware changes and careful consideration of:
+**Notes**:
 
-- URL structure (`/docs/core/accounts.md` vs `/docs/core/accounts`)
-- Directory URLs (`index.html.md` pattern)
-- Content negotiation headers
-- CDN caching implications
-- API route to read and serve MDX as raw markdown
-
-**Workaround**: LLMs can use:
-
-1. `/llms-full.txt` for comprehensive inline documentation
-2. `/llms.txt` for curated links to HTML pages
-3. GitHub raw URLs for MDX source files
-
-**Recommendation**: Implement as a separate PR with proper QA testing. Consider:
-
-- API route at `/api/markdown/[...path].md`
-- Middleware to intercept `.md` requests
-- Content-Type: text/markdown header
+- Directory-style URLs map to `index.html.md` when a corresponding page exists.
+- Missing content returns a 404 from the API route.
 
 ### 2. GEO/LLM Content Improvements
 

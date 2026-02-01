@@ -15,9 +15,9 @@ export async function GET(
 ) {
   const { path } = await params;
 
-  if (!path || path.length < 2) {
+  if (!path || path.length < 1) {
     return NextResponse.json(
-      { error: "Invalid path. Expected: /api/md/{locale}/{section}/..." },
+      { error: "Invalid path. Expected: /api/md/{section}/..." },
       { status: 400 },
     );
   }
@@ -30,6 +30,14 @@ export async function GET(
   let slug: string[];
 
   if (locales.includes(localeOrSection)) {
+    if (rest.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Invalid path. Expected: /api/md/{locale}/{section}/...",
+        },
+        { status: 400 },
+      );
+    }
     locale = localeOrSection;
     [section, ...slug] = rest;
   } else {
