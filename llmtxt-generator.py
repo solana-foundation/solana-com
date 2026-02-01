@@ -46,6 +46,12 @@ LANGUAGE_NAMES = {
     "hi": "हिन्दी (Hindi)",
 }
 
+# AI agent resources section (English only, static URLs)
+AI_AGENT_RESOURCES = [
+    ("SKILL.md", "SKILL.md", "Comprehensive guide for AI agents to understand and build on Solana"),
+    ("Full Documentation", "llms-full.txt", "Complete inline documentation with code examples and API reference"),
+]
+
 # Curated sections for each locale (same structure, localized URLs)
 CURATED_SECTIONS = {
     "Core Concepts": [
@@ -159,7 +165,14 @@ def generate_llms_txt(locale: str) -> str:
             "",
             "This documentation provides comprehensive guides, references, and tutorials for developers building on Solana.",
             "",
+            "## AI Agent Resources",
+            "",
         ]
+        # Add AI agent resources
+        for title, path, description in AI_AGENT_RESOURCES:
+            url = f"{base_url}/{path}"
+            lines.append(f"- [{title}]({url}): {description}")
+        lines.append("")
     else:
         lines = [
             f"# Solana ({lang_name})",
