@@ -15,19 +15,19 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Handle .md requests - serve raw markdown for LLM consumption
-  // See https://llmstxt.org/ for specification
-  if (pathname.endsWith(".md")) {
-    // Remove .md extension and rewrite to API route
-    const basePath = pathname.slice(0, -3);
+  // Handle index.html.md requests (for directory URLs)
+  if (pathname.endsWith("/index.html.md")) {
+    const basePath = pathname.slice(0, -14); // Remove /index.html.md
     const url = req.nextUrl.clone();
     url.pathname = `/api/md${basePath}`;
     return NextResponse.rewrite(url);
   }
 
-  // Handle index.html.md requests (for directory URLs)
-  if (pathname.endsWith("/index.html.md")) {
-    const basePath = pathname.slice(0, -14); // Remove /index.html.md
+  // Handle .md requests - serve raw markdown for LLM consumption
+  // See https://llmstxt.org/ for specification
+  if (pathname.endsWith(".md")) {
+    // Remove .md extension and rewrite to API route
+    const basePath = pathname.slice(0, -3);
     const url = req.nextUrl.clone();
     url.pathname = `/api/md${basePath}`;
     return NextResponse.rewrite(url);
