@@ -1,0 +1,644 @@
+# Solana Documentation (Full)
+
+> Solana is a high-performance blockchain for decentralized applications and marketplaces. It provides fast, secure, scalable, and energy-efficient infrastructure for developers. This document contains the complete inline documentation for building on Solana.
+
+## Core Concepts
+
+### Accounts
+
+All data on the Solana network is stored in accounts. You can think of the Solana network as a public database with a single Accounts table. The relationship between an account and its address is similar to that of a key-value pair, with the key being the address and the value being the account.
+
+#### Account Address
+
+The account's address is a 32-byte unique ID used to locate the account on the Solana blockchain. Account addresses are often shown as base58 encoded strings. Most accounts use an Ed25519 public key as their address, but this is not required, as Solana also supports program derived addresses.
+
+#### Account Structure
+
+Every Account has a maximum size of 10MiB and contains following information:
+
+- `lamports`: The number of lamports in the account (1 SOL = 1,000,000,000 lamports)
+- `data`: The account's data as a byte array
+- `owner`: The ID of the program that owns the account
+- `executable`: Indicates whether the account contains executable binary
+- `rent_epoch`: The deprecated rent epoch field
+
+```rust
+pub struct Account {
+    pub lamports: u64,
+    pub data: Vec<u8>,
+    pub owner: Pubkey,
+    pub executable: bool,
+    pub rent_epoch: Epoch,
+}
+```
+
+#### Types of Accounts
+
+- **Program accounts**: Accounts that contain executable code (smart contracts)
+- **Data accounts**: Accounts that do not contain executable code
+
+#### System Accounts
+
+Accounts owned by the System Program are called system accounts. All wallet accounts are system accounts, which allows them to pay transaction fees.
+
+### Transactions
+
+To interact with the Solana network, you must send a transaction. A transaction is an envelope that holds several forms (instructions) that tell the network what to do.
+
+**Transactions are atomic**: If a single instruction fails, the entire transaction will fail and no changes will occur.
+
+A Transaction consists of:
+
+- `signatures`: An array of signatures
+- `message`: Transaction information, including the list of instructions to be processed
+
+Transactions have a total size limit of 1232 bytes.
+
+#### Message Structure
+
+- `header`: The message header (number of signatures required, readonly accounts)
+- `account_keys`: An array of account addresses required by the transaction's instructions
+- `recent_blockhash`: A blockhash that acts as a timestamp for the transaction
+- `instructions`: An array of instructions to be processed
+
+#### Blockhash Expiration
+
+A blockhash expires after 150 blocks (approximately one minute, assuming each block is 400ms). After expiration, the transaction cannot be processed.
+
+### Programs
+
+On Solana, a smart contract is called a program. A program is a stateless account that contains executable code. Users interact with a program by sending a transaction containing one or more instructions.
+
+Programs are written in Rust with two common development approaches:
+
+- **Anchor**: A framework designed for fast and easy Solana development using Rust macros
+- **Native Rust**: Write programs without leveraging any frameworks
+
+#### Built-in Programs
+
+- **System Program** (`11111111111111111111111111111111`): Creates new accounts, allocates account data, assigns accounts to programs, transfers SOL
+- **BPF Loaders**: Deploy and manage programs on-chain
+
+### Program Derived Addresses (PDAs)
+
+A program-derived address (PDA) is an address that is deterministically derived using a program ID and one or more optional inputs (seeds). PDAs look similar to public key addresses but do not have a corresponding private key.
+
+The Solana runtime enables programs to sign for PDAs without needing a private key. Using a PDA eliminates the need to keep track of the account's address.
+
+#### Deriving a PDA
+
+```typescript
+// TypeScript (Kit)
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+```
+
+```typescript
+// TypeScript (Legacy)
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(seeds, programAddress);
+```
+
+```rust
+// Rust
+use solana_sdk::pubkey::Pubkey;
+
+let program_address = pubkey!("11111111111111111111111111111111");
+let seeds = [b"helloWorld".as_ref()];
+let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+```
+
+#### Canonical Bump
+
+The bump seed is an extra byte appended to the optional seeds. The derivation function iterates through bump values, starting at 255 and decrementing by 1, until a value produces a valid off-curve address. The first value that produces a valid off-curve address is called the "canonical bump."
+
+**Security Note**: Always include security checks to ensure a PDA passed to the program is derived from the canonical bump.
+
+### Cross Program Invocations (CPIs)
+
+A cross-program invocation (CPI) occurs when one Solana program directly invokes the instructions of another program. This allows for program composability.
+
+When making a CPI, a program can sign on behalf of a PDA derived from its program ID. These signer privileges extend from the caller program to the callee program.
+
+The maximum depth of CPI invocations is 4 (stack height starts at 1 for the initial transaction).
+
+#### CPI with PDA Signers
+
+```rust
+use solana_program::program::invoke_signed;
+
+let signer_seeds: &[&[&[u8]]] = &[&[b"pda", recipient_pubkey.as_ref(), &[bump_seed]]];
+
+invoke_signed(
+    &transfer_instruction,
+    &[pda_account_info, recipient_info, system_program_info],
+    signer_seeds,
+)?;
+```
+
+#### CPI without PDA Signers
+
+```rust
+use solana_program::program::invoke;
+
+invoke(&transfer_instruction, &[sender_info, recipient_info, system_program_info])?;
+```
+
+### Transaction Fees
+
+Every Solana transaction requires a transaction fee, paid in SOL. Transaction fees are split into two parts:
+
+#### Base Fee
+
+Every transaction costs 5000 lamports per included signature. This fee is paid by the first signer on the transaction.
+
+- 50% burned (taken out of the circulating SOL supply)
+- 50% distributed to the validator that processed the transaction
+
+#### Prioritization Fee
+
+An optional fee used to increase the chance that the current leader (validator) will process your transaction. The validator receives 100% of the priority fee.
+
+```
+Prioritization fee = CU limit * CU price
+```
+
+#### Compute Units
+
+- Default per instruction: 200,000 CUs
+- Default per transaction: 1.4 million CUs
+
+```typescript
+// TypeScript
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 });
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 });
+```
+
+---
+
+## Cookbook: Code Examples
+
+### How to Send SOL
+
+To send SOL, invoke the SystemProgram's transfer instruction.
+
+```typescript
+// TypeScript (Kit)
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+```
+
+```typescript
+// TypeScript (Legacy)
+import { SystemProgram, Transaction } from "@solana/web3.js";
+
+const transferTransaction = new Transaction().add(
+  SystemProgram.transfer({
+    fromPubkey: fromKeypair.publicKey,
+    toPubkey: toKeypair.publicKey,
+    lamports: lamportsToSend
+  })
+);
+```
+
+```rust
+// Rust
+use solana_system_interface::instruction::transfer;
+
+let transfer_ix = transfer(&from_keypair.pubkey(), &to_keypair.pubkey(), LAMPORTS_PER_SOL);
+```
+
+### How to Create an Account
+
+To create an account on Solana, invoke the System Program's createAccount instruction. You must specify the number of bytes (space) for the new account and fund it with lamports for rent exemption.
+
+```typescript
+// TypeScript (Kit)
+import { getCreateAccountInstruction, SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
+
+const space = 0n;
+const rentLamports = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: newAccount,
+  lamports: rentLamports,
+  programAddress: SYSTEM_PROGRAM_ADDRESS,
+  space
+});
+```
+
+```typescript
+// TypeScript (Legacy)
+import { SystemProgram } from "@solana/web3.js";
+
+const rentLamports = await connection.getMinimumBalanceForRentExemption(space);
+
+SystemProgram.createAccount({
+  fromPubkey: fromKeypair.publicKey,
+  newAccountPubkey: newAccount.publicKey,
+  lamports: rentLamports,
+  space,
+  programId: SystemProgram.programId
+});
+```
+
+### How to Create a Keypair
+
+```typescript
+// TypeScript (Kit)
+import { generateKeyPairSigner } from "@solana/kit";
+
+const keypairSigner = await generateKeyPairSigner();
+```
+
+```typescript
+// TypeScript (Legacy)
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rust
+// Rust
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+let keypair = Keypair::new();
+println!("Public Key: {}", keypair.pubkey());
+```
+
+### How to Calculate Rent (Account Creation Cost)
+
+Every account on Solana must maintain a minimum balance called "rent" for its data to be stored on-chain. Rent is proportional to the size of the account.
+
+```typescript
+// TypeScript
+const space = 0; // bytes
+const rentLamports = await connection.getMinimumBalanceForRentExemption(space);
+```
+
+```rust
+// Rust
+let space = 0;
+let rent = client.get_minimum_balance_for_rent_exemption(space).await?;
+```
+
+### How to Get Account Balance
+
+```typescript
+// TypeScript (Kit)
+import { createSolanaRpc, address } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+const balance = await rpc.getBalance(address("...")).send();
+```
+
+```typescript
+// TypeScript (Legacy)
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection("https://api.mainnet.solana.com");
+const balance = await connection.getBalance(new PublicKey("..."));
+```
+
+### How to Add Priority Fees
+
+```typescript
+// TypeScript
+import { ComputeBudgetProgram, Transaction } from "@solana/web3.js";
+
+const transaction = new Transaction()
+  .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 300_000 }))
+  .add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }))
+  .add(transferInstruction);
+```
+
+---
+
+## RPC API Reference
+
+### getAccountInfo
+
+Fetch account data, lamports, and owner for an address.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getAccountInfo",
+  "params": [
+    "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg",
+    { "encoding": "base64" }
+  ]
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": { "slot": 1 },
+    "value": {
+      "data": ["", "base64"],
+      "executable": false,
+      "lamports": 1000000000,
+      "owner": "11111111111111111111111111111111",
+      "rentEpoch": 2
+    }
+  },
+  "id": 1
+}
+```
+
+### getBalance
+
+Get SOL balance for an address.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBalance",
+  "params": ["83astBRguLMdt2h5U1Tpdq5tjFoJ6noeGwaY3mDLVcri"]
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": { "context": { "slot": 1 }, "value": 0 },
+  "id": 1
+}
+```
+
+### sendTransaction
+
+Submit a signed transaction to the cluster.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "sendTransaction",
+  "params": [
+    "4hXTCkRzt9WyecNzV1XPgCDfGAZzQKNxLXgynuGnFM...",
+    { "encoding": "base64" }
+  ]
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": "2id3YC2jK9G5Wo2phDx4gJVAew8DcY5NAojnVuao8rkxwPYPe8cSwE5GzhEgJA2y8fVjDEo6iR6ykBvDxrTQrtpb",
+  "id": 1
+}
+```
+
+### getLatestBlockhash
+
+Get the latest blockhash for transactions.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getLatestBlockhash",
+  "params": [{ "commitment": "processed" }]
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": { "slot": 2792 },
+    "value": {
+      "blockhash": "EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N",
+      "lastValidBlockHeight": 3090
+    }
+  },
+  "id": 1
+}
+```
+
+### getSignatureStatuses
+
+Check transaction confirmation status.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignatureStatuses",
+  "params": [
+    ["5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW"]
+  ]
+}
+```
+
+### getTransaction
+
+Retrieve transaction details by signature.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getTransaction",
+  "params": [
+    "2nBhEBYYvfaAe16UMNqRHre4YNSskvuYgx3M6E4JP1oDYvZEJHvoPzyUidNgNX5r9sTyN1J9UxtbCXy2rqYcuyuv",
+    "json"
+  ]
+}
+```
+
+### getProgramAccounts
+
+Query accounts owned by a program.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getProgramAccounts",
+  "params": [
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    {
+      "encoding": "jsonParsed",
+      "filters": [{ "dataSize": 165 }]
+    }
+  ]
+}
+```
+
+### simulateTransaction
+
+Test transaction execution without submitting.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "simulateTransaction",
+  "params": [
+    "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAEDArczbMia...",
+    { "encoding": "base64" }
+  ]
+}
+```
+
+### requestAirdrop
+
+Request test SOL on devnet/testnet.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "requestAirdrop",
+  "params": ["83astBRguLMdt2h5U1Tpdq5tjFoJ6noeGwaY3mDLVcri", 1000000000]
+}
+```
+
+### getTokenAccountsByOwner
+
+List token accounts for a wallet.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getTokenAccountsByOwner",
+  "params": [
+    "4Qkev8aNZcqFNSRhQzwyLMFSsi94jHqE8WNVTJzTP99F",
+    { "mint": "3wyAj7Rt1TWVPZVteFJPLa26JmLvdb1CAKEFZm3NY75E" },
+    { "encoding": "jsonParsed" }
+  ]
+}
+```
+
+---
+
+## Token Program
+
+### SPL Token Program
+
+The SPL Token Program provides the standard interface for fungible and non-fungible tokens on Solana.
+
+**Program ID (Token)**: `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`
+**Program ID (Token-2022)**: `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`
+
+### Create a Token Mint
+
+```typescript
+// TypeScript
+import { createInitializeMintInstruction, TOKEN_2022_PROGRAM_ID, MINT_SIZE } from "@solana/spl-token";
+
+const mintKeypair = Keypair.generate();
+const lamports = await getMinimumBalanceForRentExemptMint(connection);
+
+const createAccountIx = SystemProgram.createAccount({
+  fromPubkey: payer.publicKey,
+  newAccountPubkey: mintKeypair.publicKey,
+  space: MINT_SIZE,
+  lamports,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+const initializeMintIx = createInitializeMintInstruction(
+  mintKeypair.publicKey,
+  9, // decimals
+  payer.publicKey, // mint authority
+  payer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+```
+
+### Token Extensions (Token-2022)
+
+Token-2022 provides additional features:
+
+- Transfer fees
+- Confidential transfers
+- Interest-bearing tokens
+- Non-transferable tokens
+- Permanent delegate
+- Memo transfer requirement
+- Metadata
+- And more
+
+---
+
+## Frontend Development
+
+### Solana Kit (Modern SDK)
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPairSigner,
+  lamports
+} from "@solana/kit";
+
+// Create RPC connection
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions("wss://api.mainnet.solana.com");
+
+// Generate keypair
+const keypair = await generateKeyPairSigner();
+
+// Get balance
+const balance = await rpc.getBalance(keypair.address).send();
+```
+
+### Legacy Web3.js
+
+```typescript
+import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+// Create connection
+const connection = new Connection("https://api.mainnet.solana.com", "confirmed");
+
+// Generate keypair
+const keypair = Keypair.generate();
+
+// Get balance
+const balance = await connection.getBalance(keypair.publicKey);
+console.log(`Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
+```
+
+---
+
+## Useful Resources
+
+- **Solana Documentation**: https://solana.com/docs
+- **Solana Cookbook**: https://solana.com/cookbook
+- **RPC API Reference**: https://solana.com/docs/rpc
+- **Solana StackExchange**: https://solana.stackexchange.com
+- **Anchor Framework**: https://www.anchor-lang.com/docs
+- **Solana GitHub**: https://github.com/solana-labs
+- **Validator Setup**: https://docs.anza.xyz/operations/setup-a-validator
