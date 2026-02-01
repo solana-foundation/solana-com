@@ -6,6 +6,7 @@ Generates:
 - llms-{locale}.txt for each configured locale
 """
 
+import argparse
 import os
 import re
 from typing import Dict, List, Tuple
@@ -65,9 +66,33 @@ CURATED_SECTIONS = {
         ("Create Mint", "docs/tokens/basics/create-mint", "Create new token mints"),
         ("Token Extensions", "docs/tokens/extensions", "Token-2022 program features"),
     ],
+    "Frontend": [
+        ("@solana/client", "docs/frontend/client", "Headless client runtime for Solana frontends"),
+        ("@solana/react-hooks", "docs/frontend/react-hooks", "React hooks and provider for Solana apps"),
+        ("Next.js + Solana React Hooks", "docs/frontend/nextjs-solana", "Set up wallet integration in Next.js"),
+        ("@solana/web3-compat", "docs/frontend/web3-compat", "Compatibility layer for legacy web3.js apps"),
+    ],
+    "Client SDKs": [
+        ("JavaScript/TypeScript SDK", "docs/clients/official/javascript", "Official TypeScript SDK for Solana"),
+        ("Rust SDK", "docs/clients/official/rust", "Official Rust crates for Solana"),
+        ("Python SDK", "docs/clients/community/python", "Community-maintained Python client"),
+        ("Solana Gaming SDKs", "docs/clients/community/game-sdks", "Community SDKs for Solana game development"),
+    ],
+    "References": [
+        ("RPC Endpoints", "docs/references/clusters", "Network clusters, public RPC endpoints, and rate limits"),
+        ("Staking", "docs/references/staking", "Staking concepts and stake account details"),
+        ("Terminology", "docs/references/terminology", "Glossary of Solana terms and definitions"),
+    ],
     "RPC API": [
         ("HTTP Methods", "docs/rpc/http", "JSON-RPC API reference"),
         ("WebSocket Methods", "docs/rpc/websocket", "Real-time subscriptions"),
+    ],
+    "Payments": [
+        ("Payments Overview", "docs/payments", "Build payment systems with instant settlement"),
+        ("How Payments Work", "docs/payments/how-payments-work", "Core concepts for Solana payments"),
+        ("Send Payments", "docs/payments/send-payments", "Send stablecoin payments with memos and batching"),
+        ("Accept Payments", "docs/payments/accept-payments", "Integrate checkout and payment acceptance"),
+        ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
     ],
 }
 
@@ -79,6 +104,13 @@ ENGLISH_EXTRAS = {
         ("Get Balance", "developers/cookbook/accounts/get-account-balance", "Retrieve SOL balance"),
         ("Add Priority Fees", "developers/cookbook/transactions/add-priority-fees", "Increase transaction priority"),
         ("Create Keypair", "developers/cookbook/wallets/create-keypair", "Generate new keypairs"),
+    ],
+    "Guides": [
+        ("AI Tools on Solana", "developers/guides/getstarted/intro-to-ai", "Overview of AI tools and workflows on Solana"),
+        ("Introduction to x402", "developers/guides/getstarted/intro-to-x402", "Build a simple HTTP 402 payment flow"),
+        ("Build an x402 Facilitator", "developers/guides/getstarted/build-a-x402-facilitator", "End-to-end x402 facilitator demo"),
+        ("Actions and Blinks", "developers/guides/advanced/actions", "Build Solana Actions APIs and shareable blinks"),
+        ("Game Development Quickstart", "developers/guides/games/getting-started-with-game-development", "Get started building games on Solana"),
     ],
     "Program Development": [
         ("Developing Programs", "docs/programs", "Build on-chain programs"),
@@ -168,7 +200,20 @@ def generate_llms_txt(locale: str) -> str:
     return "\n".join(lines)
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate llms.txt files for all configured locales.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate locale files even if they already exist.",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     # Generate locale-specific files
@@ -187,7 +232,7 @@ def main():
         else:
             # Other locales go to llms-{locale}.txt
             output_path = os.path.join(OUTPUT_DIR, f"llms-{locale}.txt")
-            if os.path.isfile(output_path):
+            if os.path.isfile(output_path) and not args.force:
                 with open(output_path, "r", encoding="utf-8") as f:
                     content = f.read()
             else:
