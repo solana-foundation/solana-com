@@ -71,6 +71,13 @@ CURATED_SECTIONS = {
 
 # Additional English-only sections
 ENGLISH_EXTRAS = {
+    "Learn": [
+        ("What is Solana", "learn/what-is-solana", "Introduction to Solana for beginners"),
+        ("What is a Wallet", "learn/what-is-a-wallet", "Understanding crypto wallets"),
+        ("Getting Started", "learn/getting-started", "First steps with Solana"),
+        ("Introduction to DeFi", "learn/introduction-to-defi-on-solana", "Decentralized finance on Solana"),
+        ("Introduction to Tokens", "learn/introduction-to-solana-tokens", "Understanding SPL tokens"),
+    ],
     "Cookbook": [
         ("Send SOL", "developers/cookbook/transactions/send-sol", "Transfer SOL between accounts"),
         ("Create Account", "developers/cookbook/accounts/create-account", "Create accounts on Solana"),
@@ -84,6 +91,10 @@ ENGLISH_EXTRAS = {
         ("Build an x402 Facilitator", "developers/guides/getstarted/build-a-x402-facilitator", "End-to-end x402 facilitator demo"),
         ("Actions and Blinks", "developers/guides/advanced/actions", "Build Solana Actions APIs and shareable blinks"),
         ("Game Development Quickstart", "developers/guides/games/getting-started-with-game-development", "Get started building games on Solana"),
+        ("DePIN Getting Started", "developers/guides/depin/getting-started", "Build decentralized physical infrastructure on Solana"),
+        ("Durable Nonces", "developers/guides/advanced/introduction-to-durable-nonces", "Use durable nonces for offline signing"),
+        ("Lookup Tables", "developers/guides/advanced/lookup-tables", "Reduce transaction size with address lookup tables"),
+        ("Transfer Hook", "developers/guides/token-extensions/transfer-hook", "Implement custom logic on token transfers"),
     ],
     "Program Development": [
         ("Developing Programs", "docs/programs", "Build on-chain programs"),

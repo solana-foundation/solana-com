@@ -2,9 +2,9 @@
 name: llms-txt-generator
 description:
   Upgrade llmtxt-generator.py by scanning apps/ for doc structure changes, then
-  regenerate llms.txt and llms-{locale}.txt while only adding missing sections.
-  Use when updating the generator, adding new doc sections, or refreshing LLM
-  text files.
+  regenerate llms.txt and llms-en.txt while only adding missing sections. Use
+  when updating the generator, adding new doc sections, or refreshing LLM text
+  files.
 ---
 
 # LLMs.txt Generator Upgrader
@@ -19,11 +19,8 @@ the user explicitly asks.
 ## Discovery: apps structure
 
 1. Scan `apps/` to understand doc surfaces and routing structure.
-   - Focus on `apps/docs/content/docs` and other developer-facing content (for
-     example `apps/web/content` or `apps/web/src/app/[locale]/developers`).
 2. Note any new top-level doc categories or developer resources that are not
    represented in the current `llms.txt`.
-3. Check `packages/i18n/src/config.ts` for any locale changes.
 
 ## Baseline: current llms.txt
 
@@ -55,7 +52,7 @@ python llmtxt-generator.py
 Outputs:
 
 - `apps/web/public/llms.txt`
-- `apps/web/public/llms-{locale}.txt`
+- `apps/web/public/llms-en.txt`
 
 ## Output constraints
 
