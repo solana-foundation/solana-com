@@ -129,11 +129,11 @@ export default function Home({
         subtitle={t("index.hero.subtitle")}
         bannerEyebrow={t("index.hero.bannerEyebrow")}
         bannerDescription={t("index.hero.bannerDescription")}
-        bannerImgSrc="/src/img/index/privacy-hack.webp"
+        bannerImgSrc="/src/img/index/agent-hackathon.webp"
         // rm bannerHref and bannerLabel to hide banner
-        bannerHref="https://solana.com/privacyhack"
+        bannerHref="https://colosseum.com/agent-hackathon/"
         bannerLabel={t("index.hero.bannerLabel")}
-        bannerExpiryDate="2026-02-10"
+        bannerExpiryDate="2026-02-28"
         cta={t("index.hero.cta")}
         bgJsonFilePath="/src/img/index/hero-bg.json"
         bgImageSrc="/src/img/index/hero-bg.webp"
