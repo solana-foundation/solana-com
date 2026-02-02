@@ -1,50 +1,17 @@
 #!/usr/bin/env python3
 """
-Script to generate LLMs.txt files for all locales.
+Script to generate LLMs.txt source files.
 Generates:
 - llms.txt (English, curated index)
-- llms-{locale}.txt for each configured locale
+- llms-en.txt (source file for Lingo translations)
 """
 
-import argparse
 import os
 import re
-from typing import Dict, List, Tuple
 
 # Configuration
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-DOCS_DIR = os.path.join(REPO_ROOT, 'apps', 'docs', 'content', 'docs')
 OUTPUT_DIR = os.path.join(REPO_ROOT, 'apps', 'web', 'public')
-
-# All supported locales (from packages/i18n/src/config.ts)
-LOCALES = [
-    "en", "ar", "de", "el", "es", "fi", "fr", "hi", "id", "it",
-    "ja", "ko", "nl", "pl", "pt", "ru", "tr", "uk", "vi", "zh"
-]
-
-# Language names for each locale
-LANGUAGE_NAMES = {
-    "en": "English",
-    "zh": "汉语 (Chinese)",
-    "ru": "Русский (Russian)",
-    "es": "Español (Spanish)",
-    "fr": "Français (French)",
-    "id": "Bahasa Indonesia",
-    "pt": "Português (Portuguese)",
-    "vi": "Tiếng Việt (Vietnamese)",
-    "de": "Deutsch (German)",
-    "tr": "Türkçe (Turkish)",
-    "ko": "한국어 (Korean)",
-    "uk": "Українська (Ukrainian)",
-    "ar": "العربية (Arabic)",
-    "it": "Italiano (Italian)",
-    "pl": "Polski (Polish)",
-    "ja": "日本語 (Japanese)",
-    "nl": "Nederlands (Dutch)",
-    "el": "Ελληνικά (Greek)",
-    "fi": "suomi (Finnish)",
-    "hi": "हिन्दी (Hindi)",
-}
 
 # AI agent resources section (English only, static URLs)
 AI_AGENT_RESOURCES = [
@@ -52,7 +19,7 @@ AI_AGENT_RESOURCES = [
     ("Full Documentation", "llms-full.txt", "Complete inline documentation with code examples and API reference"),
 ]
 
-# Curated sections for each locale (same structure, localized URLs)
+# Curated sections for the English source file
 CURATED_SECTIONS = {
     "Core Concepts": [
         ("Accounts", "docs/core/accounts", "How Solana stores data in accounts"),
@@ -125,13 +92,6 @@ ENGLISH_EXTRAS = {
     ],
 }
 
-
-def with_locale_prefix(locale: str, path: str) -> str:
-    """Prefix non-default locales for Next Intl routes."""
-    if locale == "en":
-        return path
-    return f"{locale}/{path}"
-
 def normalize_llms_urls(content: str) -> str:
     content = re.sub(
         r"https://solana\.com/docs/en(?=/|$)",
@@ -151,57 +111,42 @@ def normalize_llms_urls(content: str) -> str:
     return content
 
 
-def generate_llms_txt(locale: str) -> str:
-    """Generate llms.txt content for a specific locale."""
+def generate_llms_txt() -> str:
+    """Generate llms.txt content for the English source file."""
     base_url = "https://solana.com"
-    lang_name = LANGUAGE_NAMES.get(locale, locale)
-    
-    # Header
-    if locale == "en":
-        lines = [
-            "# Solana",
-            "",
-            "> Solana is the high-performance blockchain designed for mass adoption, capable of processing thousands of transactions per second with sub-second finality.",
-            "",
-            "This documentation provides comprehensive guides, references, and tutorials for developers building on Solana.",
-            "",
-            "## AI Agent Resources",
-            "",
-        ]
-        # Add AI agent resources
-        for title, path, description in AI_AGENT_RESOURCES:
-            url = f"{base_url}/{path}"
-            lines.append(f"- [{title}]({url}): {description}")
-        lines.append("")
-    else:
-        lines = [
-            f"# Solana ({lang_name})",
-            "",
-            f"> Solana documentation in {lang_name}.",
-            "",
-            f"This is the {lang_name} version of the Solana developer documentation.",
-            "",
-        ]
+    lines = [
+        "# Solana",
+        "",
+        "> Solana is the high-performance blockchain designed for mass adoption, capable of processing thousands of transactions per second with sub-second finality.",
+        "",
+        "This documentation provides comprehensive guides, references, and tutorials for developers building on Solana.",
+        "",
+        "## AI Agent Resources",
+        "",
+    ]
+    # Add AI agent resources
+    for title, path, description in AI_AGENT_RESOURCES:
+        url = f"{base_url}/{path}"
+        lines.append(f"- [{title}]({url}): {description}")
+    lines.append("")
     
     # Add curated sections
     for section_name, links in CURATED_SECTIONS.items():
         lines.append(f"## {section_name}")
         lines.append("")
-        for title, path_template, description in links:
-            path = with_locale_prefix(locale, path_template)
+        for title, path, description in links:
             url = f"{base_url}/{path}"
             lines.append(f"- [{title}]({url}): {description}")
         lines.append("")
     
     # Add English-only extras
-    if locale == "en":
-        for section_name, links in ENGLISH_EXTRAS.items():
-            lines.append(f"## {section_name}")
-            lines.append("")
-            for title, path, description in links:
-                url = f"{base_url}/{path}"
-                lines.append(f"- [{title}]({url}): {description}")
-            lines.append("")
+    for section_name, links in ENGLISH_EXTRAS.items():
+        lines.append(f"## {section_name}")
+        lines.append("")
+        for title, path, description in links:
+            url = f"{base_url}/{path}"
+            lines.append(f"- [{title}]({url}): {description}")
+        lines.append("")
     
     # Add optional resources section
     lines.append("## Optional")
@@ -213,52 +158,22 @@ def generate_llms_txt(locale: str) -> str:
     return "\n".join(lines)
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Generate llms.txt files for all configured locales.",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Regenerate locale files even if they already exist.",
-    )
-    return parser.parse_args()
+def write_output(filename: str, content: str) -> str:
+    output_path = os.path.join(OUTPUT_DIR, filename)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return output_path
 
 
 def main():
-    args = parse_args()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
-    # Generate locale-specific files
-    for locale in LOCALES:
-        locale_dir = os.path.join(DOCS_DIR, locale)
-        
-        # Only generate if locale directory exists
-        if not os.path.isdir(locale_dir):
-            print(f"Skipping {locale} - directory not found")
-            continue
-        
-        if locale == "en":
-            # English goes to llms.txt (main file)
-            output_path = os.path.join(OUTPUT_DIR, "llms.txt")
-            content = generate_llms_txt(locale)
-        else:
-            # Other locales go to llms-{locale}.txt
-            output_path = os.path.join(OUTPUT_DIR, f"llms-{locale}.txt")
-            if os.path.isfile(output_path) and not args.force:
-                with open(output_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-            else:
-                content = generate_llms_txt(locale)
+    content = normalize_llms_urls(generate_llms_txt())
 
-        content = normalize_llms_urls(content)
-        
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        
+    for filename in ("llms-en.txt", "llms.txt"):
+        output_path = write_output(filename, content)
         print(f"Generated: {output_path}")
-    
-    print(f"\nGenerated {len(LOCALES)} llms.txt files")
+
+    print("\nTranslations are handled by Lingo via .github/workflows/i18n.yml")
 
 
 if __name__ == "__main__":
