@@ -30,7 +30,7 @@ export function DocsHero({ title, description, markdown }: DocsHeroProps) {
         </p>
         <div className="mt-6 flex w-full justify-center">
           <div className="w-full max-w-2xl">
-            <InkeepSearchBar className="!w-full !max-w-none" />
+            <InkeepSearchBar className="!w-full !max-w-none" expanded />
           </div>
         </div>
         <div className="mt-5 flex flex-row justify-center gap-2">
