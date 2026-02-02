@@ -15,24 +15,6 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Handle index.html.md requests (for directory URLs)
-  if (pathname.endsWith("/index.html.md")) {
-    const basePath = pathname.slice(0, -14); // Remove /index.html.md
-    const url = req.nextUrl.clone();
-    url.pathname = `/api/md${basePath}`;
-    return NextResponse.rewrite(url);
-  }
-
-  // Handle .md requests - serve raw markdown for LLM consumption
-  // See https://llmstxt.org/ for specification
-  if (pathname.endsWith(".md")) {
-    // Remove .md extension and rewrite to API route
-    const basePath = pathname.slice(0, -3);
-    const url = req.nextUrl.clone();
-    url.pathname = `/api/md${basePath}`;
-    return NextResponse.rewrite(url);
-  }
-
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
       `${req.nextUrl.origin + pathname.toLowerCase()}`,
@@ -74,15 +56,10 @@ export default async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Match all paths including .md files for LLM consumption
-  // Exclude api routes, static files, and Next.js internals
+  // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
+  // Also exclude api routes, static files, and Next.js internals
   matcher: [
-    // Include .md files for markdown serving
-    "/:path*.md",
-    // Include index.html.md for directory URLs
-    "/:path*/index.html.md",
-    // Include all other paths except static assets
-    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|docs-assets|.*\\.(?!md)[^/]*$).*)",
+    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|docs-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

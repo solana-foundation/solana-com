@@ -12,59 +12,6 @@ import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
 import { LLMCopyButton, ViewOptions } from "./page-actions";
-import Script from "next/script";
-
-/**
- * JSON-LD structured data for TechArticle schema
- * Improves GEO (Generative Engine Optimization) and LLM discoverability
- */
-function TechArticleSchema({
-  title,
-  description,
-  href,
-  locale,
-}: {
-  title: string;
-  description?: string;
-  href: string;
-  locale: string;
-}) {
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "TechArticle",
-    headline: title,
-    description: description || `Solana developer documentation: ${title}`,
-    url: `https://solana.com${href}`,
-    publisher: {
-      "@type": "Organization",
-      name: "Solana Foundation",
-      logo: {
-        "@type": "ImageObject",
-        url: "https://solana.com/favicon.png",
-      },
-    },
-    author: {
-      "@type": "Organization",
-      name: "Solana Foundation",
-      url: "https://solana.com",
-    },
-    mainEntityOfPage: {
-      "@type": "WebPage",
-      "@id": `https://solana.com${href}`,
-    },
-    inLanguage: locale,
-    isAccessibleForFree: true,
-    license: "https://creativecommons.org/licenses/by/4.0/",
-  };
-
-  return (
-    <Script
-      id="tech-article-schema"
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-    />
-  );
-}
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -73,63 +20,54 @@ export function DocsPage(props: {
   hideTableOfContents?: boolean;
   full?: boolean;
   title: string;
-  description?: string;
   pageTree?: any;
   href: string;
-  locale: string;
+  markdown: string;
 }) {
   const path = props.filePath;
   const editUrl = getEditUrl(path);
   return (
-    <>
-      <TechArticleSchema
-        title={props.title}
-        description={props.description}
-        href={props.href}
-        locale={props.locale}
-      />
-      <FumaDocsPage
-        toc={props.toc}
-        full={props.full}
-        breadcrumb={{
-          enabled: true,
-          includeRoot: { url: "/docs" },
-          includeSeparator: true,
-        }}
-        tableOfContentPopover={{
-          enabled: !props.hideTableOfContents,
-        }}
-        tableOfContent={{
-          footer: (
-            <>
-              <EditOnGithub href={editUrl} />
-              <ScrollToTop />
-            </>
-          ),
-          enabled: !props.hideTableOfContents,
-        }}
-        footer={{
-          component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
-        }}
-      >
-        <div>
-          <h1 className="text-3xl font-bold">
-            <Link
-              className="!text-fd-accent-foreground text-4xl md:text-5xl"
-              href={props.href}
-            >
-              {props.title}
-            </Link>
-          </h1>
-          <div className="flex flex-row gap-2 items-center border-b pb-4 pt-2">
-            <LLMCopyButton markdownUrl={`${props.href}.md`} />
-            <ViewOptions />
-          </div>
+    <FumaDocsPage
+      toc={props.toc}
+      full={props.full}
+      breadcrumb={{
+        enabled: true,
+        includeRoot: { url: "/docs" },
+        includeSeparator: true,
+      }}
+      tableOfContentPopover={{
+        enabled: !props.hideTableOfContents,
+      }}
+      tableOfContent={{
+        footer: (
+          <>
+            <EditOnGithub href={editUrl} />
+            <ScrollToTop />
+          </>
+        ),
+        enabled: !props.hideTableOfContents,
+      }}
+      footer={{
+        component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
+      }}
+    >
+      <div>
+        <h1 className="text-3xl font-bold">
+          <Link
+            className="!text-fd-accent-foreground text-4xl md:text-5xl"
+            href={props.href}
+          >
+            {props.title}
+          </Link>
+        </h1>
+        <div className="flex flex-row gap-2 items-center border-b pb-4 pt-2">
+          <LLMCopyButton markdown={props.markdown} />
+          <ViewOptions markdown={props.markdown} />
         </div>
-        <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
-        <Rate onRateAction={onRateAction} />
-      </FumaDocsPage>
-    </>
+      </div>
+      <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
+      <Rate onRateAction={onRateAction} />
+    </FumaDocsPage>
   );
 }
 

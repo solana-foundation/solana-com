@@ -33,31 +33,14 @@ function useCopyButton(
 
 export function LLMCopyButton({
   /**
-   * The URL to fetch the raw Markdown/MDX content
+   * The raw Markdown/MDX content of the page
    */
-  markdownUrl,
+  markdown,
 }: {
-  markdownUrl: string;
+  markdown: string;
 }) {
-  const [cachedMarkdown, setCachedMarkdown] = useState<string | null>(null);
   const [checked, onClick] = useCopyButton(async () => {
-    let content = cachedMarkdown;
-    if (!content) {
-      const response = await fetch(markdownUrl, {
-        headers: {
-          Accept: "text/markdown",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch markdown: ${response.status}`);
-      }
-
-      content = await response.text();
-      setCachedMarkdown(content);
-    }
-
-    await navigator.clipboard.writeText(content);
+    await navigator.clipboard.writeText(markdown);
   });
 
   return (
@@ -82,7 +65,14 @@ const optionVariants = cva(
   "text-sm p-2 rounded-lg inline-flex items-center gap-2 hover:bg-fd-accent [&_svg]:size-4 text-fd-muted-foreground",
 );
 
-export function ViewOptions() {
+export function ViewOptions({
+  markdown: _,
+}: {
+  /**
+   * The raw Markdown/MDX content of the page
+   */
+  markdown: string;
+}) {
   const items = useMemo(() => {
     const currentUrl =
       typeof window !== "undefined" ? window.location.href : "loading";

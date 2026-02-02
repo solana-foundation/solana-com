@@ -19,6 +19,7 @@ export async function RpcDocsPage({
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
   const { body: MDX, toc } = await page.data.load();
+  const markdown = await page.data.getText("raw");
   return (
     <DocsPage
       toc={toc}
@@ -28,7 +29,7 @@ export async function RpcDocsPage({
       hideTableOfContents={page.data.hideTableOfContents}
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
-      locale={locale}
+      markdown={markdown}
     >
       <MDX components={{ ...mdxComponents, ...rpcMDXComponents }} />
     </DocsPage>
