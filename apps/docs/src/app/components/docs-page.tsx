@@ -12,6 +12,7 @@ import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
 import { LLMCopyButton, ViewOptions } from "./page-actions";
+import { DocsHero } from "./docs-hero";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -20,9 +21,11 @@ export function DocsPage(props: {
   hideTableOfContents?: boolean;
   full?: boolean;
   title: string;
+  description?: string;
   pageTree?: any;
   href: string;
   markdown: string;
+  isRoot?: boolean;
 }) {
   const path = props.filePath;
   const editUrl = getEditUrl(path);
@@ -31,7 +34,7 @@ export function DocsPage(props: {
       toc={props.toc}
       full={props.full}
       breadcrumb={{
-        enabled: true,
+        enabled: !props.isRoot,
         includeRoot: { url: "/docs" },
         includeSeparator: true,
       }}
@@ -51,23 +54,49 @@ export function DocsPage(props: {
         component: <Footer pageUrl={props.href} pageTree={props.pageTree} />,
       }}
     >
-      <div>
-        <h1 className="text-3xl font-bold">
-          <Link
-            className="!text-fd-accent-foreground text-4xl md:text-5xl"
-            href={props.href}
-          >
-            {props.title}
-          </Link>
-        </h1>
-        <div className="flex flex-row gap-2 items-center border-b pb-4 pt-2">
-          <LLMCopyButton markdown={props.markdown} />
-          <ViewOptions markdown={props.markdown} />
-        </div>
-      </div>
+      {props.isRoot ? (
+        <DocsHero
+          title={props.title}
+          description={props.description}
+          markdown={props.markdown}
+        />
+      ) : (
+        <DocsHeader
+          href={props.href}
+          title={props.title}
+          markdown={props.markdown}
+        />
+      )}
       <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
       <Rate onRateAction={onRateAction} />
     </FumaDocsPage>
+  );
+}
+
+function DocsHeader({
+  href,
+  title,
+  markdown,
+}: {
+  href: string;
+  title: string;
+  markdown: string;
+}) {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold">
+        <Link
+          className="!text-fd-accent-foreground text-4xl md:text-5xl"
+          href={href}
+        >
+          {title}
+        </Link>
+      </h1>
+      <div className="flex flex-row gap-2 items-center border-b pb-4 pt-2">
+        <LLMCopyButton markdown={markdown} />
+        <ViewOptions markdown={markdown} />
+      </div>
+    </div>
   );
 }
 
