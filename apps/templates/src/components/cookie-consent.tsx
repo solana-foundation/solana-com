@@ -28,7 +28,7 @@ const getLocalStorage = (key: string, defaultValue: boolean | null) => {
     console.error(error);
   }
 
-  if (sticky !== null && sticky !== "undefined") {
+  if (sticky !== null) {
     if (now > sticky.timeToExpire) {
       localStorage.removeItem(key);
     }
