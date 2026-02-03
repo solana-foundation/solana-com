@@ -1,6 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, X } from "lucide-react";
 import agendaData from "@/data/agenda.json";
 
 const fadeInUp = {
@@ -134,7 +136,10 @@ function SessionCard({ session }: { session: Session }) {
 
   return (
     <motion.div
-      variants={fadeInUp}
+      initial={{ opacity: 1, y: 0 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.2 }}
       className={`group relative grid grid-cols-1 gap-4 border-b border-white/10 py-6 transition-colors last:border-b-0 md:grid-cols-[140px_1fr_100px] lg:grid-cols-[180px_1fr_120px] ${
         isBreak ? "bg-white/[0.02]" : "hover:bg-white/[0.02]"
       }`}
@@ -189,8 +194,186 @@ function SessionCard({ session }: { session: Session }) {
   );
 }
 
+const SESSION_TYPES: Session["type"][] = [
+  "keynote",
+  "panel",
+  "fireside",
+  "lightning",
+  "demo",
+  "break",
+  "closing",
+];
+
+function FilterBar({
+  searchQuery,
+  setSearchQuery,
+  selectedTypes,
+  toggleType,
+  clearFilters,
+  hasActiveFilters,
+}: {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  selectedTypes: Session["type"][];
+  toggleType: (type: Session["type"]) => void;
+  clearFilters: () => void;
+  hasActiveFilters: boolean;
+}) {
+  const badgeStyles: Record<
+    Session["type"],
+    { bg: string; text: string; activeBg: string; label: string }
+  > = {
+    keynote: {
+      bg: "bg-accelerate-purple/10 hover:bg-accelerate-purple/20",
+      activeBg: "bg-accelerate-purple/30 ring-1 ring-accelerate-purple/50",
+      text: "text-accelerate-purple",
+      label: "Keynote",
+    },
+    panel: {
+      bg: "bg-accelerate-green/10 hover:bg-accelerate-green/20",
+      activeBg: "bg-accelerate-green/30 ring-1 ring-accelerate-green/50",
+      text: "text-accelerate-green",
+      label: "Panel",
+    },
+    fireside: {
+      bg: "bg-orange-500/10 hover:bg-orange-500/20",
+      activeBg: "bg-orange-500/30 ring-1 ring-orange-500/50",
+      text: "text-orange-400",
+      label: "Fireside",
+    },
+    lightning: {
+      bg: "bg-accelerate-cyan/10 hover:bg-accelerate-cyan/20",
+      activeBg: "bg-accelerate-cyan/30 ring-1 ring-accelerate-cyan/50",
+      text: "text-accelerate-cyan",
+      label: "Lightning",
+    },
+    demo: {
+      bg: "bg-yellow-500/10 hover:bg-yellow-500/20",
+      activeBg: "bg-yellow-500/30 ring-1 ring-yellow-500/50",
+      text: "text-yellow-400",
+      label: "Demo",
+    },
+    break: {
+      bg: "bg-white/5 hover:bg-white/10",
+      activeBg: "bg-white/15 ring-1 ring-white/30",
+      text: "text-white/60",
+      label: "Break",
+    },
+    closing: {
+      bg: "bg-white/5 hover:bg-white/10",
+      activeBg: "bg-white/15 ring-1 ring-white/30",
+      text: "text-white/60",
+      label: "Closing",
+    },
+  };
+
+  return (
+    <motion.div variants={fadeInUp} className="mb-8 space-y-4">
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+        <input
+          type="text"
+          placeholder="Search sessions, speakers, companies..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg border border-white/10 bg-white/[0.02] py-3 pl-11 pr-10 text-white placeholder-white/40 transition-colors focus:border-accelerate-green/50 focus:outline-none focus:ring-1 focus:ring-accelerate-green/50"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/70"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Type Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-sm text-white/40">Filter by type:</span>
+        {SESSION_TYPES.map((type) => {
+          const style = badgeStyles[type];
+          const isSelected = selectedTypes.includes(type);
+          return (
+            <button
+              key={type}
+              onClick={() => toggleType(type)}
+              className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-all ${style.text} ${isSelected ? style.activeBg : style.bg}`}
+            >
+              {style.label}
+            </button>
+          );
+        })}
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+          >
+            <X className="h-3 w-3" />
+            Clear
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 export function Agenda() {
   const { event, focusTopics, sessions } = agendaData;
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<Session["type"][]>([]);
+
+  const toggleType = (type: Session["type"]) => {
+    setSelectedTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+    );
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedTypes([]);
+  };
+
+  const hasActiveFilters = searchQuery.length > 0 || selectedTypes.length > 0;
+
+  const filteredSessions = useMemo(() => {
+    return (sessions as Session[]).filter((session) => {
+      // Filter by type
+      if (selectedTypes.length > 0 && !selectedTypes.includes(session.type)) {
+        return false;
+      }
+
+      // Filter by search query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const searchableText = [
+          session.title,
+          session.subtitle,
+          session.location,
+          session.moderator?.name,
+          session.moderator?.company,
+          session.moderator?.title,
+          ...session.speakers.map((s) => s.name),
+          ...session.speakers.map((s) => s.company),
+          ...session.speakers.map((s) => s.title),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        if (!searchableText.includes(query)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [sessions, searchQuery, selectedTypes]);
+
+  const sessionCount = filteredSessions.length;
+  const totalCount = (sessions as Session[]).length;
 
   return (
     <section id="agenda" className="bg-black py-12 lg:py-16">
@@ -225,6 +408,31 @@ export function Agenda() {
           {/* Divider */}
           <div className="mb-8 border-t border-white/10 lg:mb-10" />
 
+          {/* Filter Bar */}
+          <FilterBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            selectedTypes={selectedTypes}
+            toggleType={toggleType}
+            clearFilters={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+          />
+
+          {/* Results Count */}
+          {hasActiveFilters && (
+            <motion.div variants={fadeInUp} className="mb-4">
+              <p className="text-sm text-white/50">
+                Showing{" "}
+                <span className="font-medium text-white/70">
+                  {sessionCount}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium text-white/70">{totalCount}</span>{" "}
+                sessions
+              </p>
+            </motion.div>
+          )}
+
           {/* Schedule Header */}
           <motion.div
             variants={fadeInUp}
@@ -243,9 +451,29 @@ export function Agenda() {
 
           {/* Sessions */}
           <div>
-            {(sessions as Session[]).map((session) => (
-              <SessionCard key={session.id} session={session} />
-            ))}
+            <AnimatePresence mode="sync">
+              {filteredSessions.length > 0 ? (
+                filteredSessions.map((session) => (
+                  <SessionCard key={session.id} session={session} />
+                ))
+              ) : (
+                <motion.div
+                  key="empty-state"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="py-12 text-center text-white/50"
+                >
+                  <p className="text-lg">No sessions match your filters</p>
+                  <button
+                    onClick={clearFilters}
+                    className="mt-3 text-sm text-accelerate-green transition-colors hover:text-accelerate-green/80"
+                  >
+                    Clear all filters
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* MC Note */}
