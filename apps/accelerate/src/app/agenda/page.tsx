@@ -16,106 +16,108 @@ export default function AgendaPage() {
   return (
     <div className="min-h-screen bg-black">
       {/* Header Navigation */}
-      <header className="relative z-20 flex items-center justify-between px-6 py-5 lg:px-[60px] lg:py-5">
-        {/* Logo */}
-        <Link href="/accelerate" className="flex items-center">
-          <Image
-            src={getImagePath("/images/accelerate-logo.svg")}
-            alt="Accelerate APAC"
-            width={197}
-            height={100}
-            className="h-[60px] w-auto lg:h-[80px]"
-            priority
-          />
-        </Link>
-
-        {/* Navigation */}
-        <nav className="hidden items-center gap-[38px] md:flex">
-          <a
-            href="/accelerate#speakers"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
-            Speakers
-          </a>
-          <Link
-            href="/accelerate/agenda"
-            className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
-            Agenda
+      <header className="relative z-20">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-5 lg:px-[60px] lg:py-5">
+          {/* Logo */}
+          <Link href="/accelerate" className="flex items-center">
+            <Image
+              src={getImagePath("/images/accelerate-logo.svg")}
+              alt="Accelerate APAC"
+              width={197}
+              height={100}
+              className="h-[60px] w-auto lg:h-[80px]"
+              priority
+            />
           </Link>
-          <a
-            href="/accelerate#sponsors"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
-            Sponsors
-          </a>
-          <a
-            href="/accelerate#faq"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
-            FAQ
-          </a>
-          <LumaModal lumaId="sol-accelerate-hk">
-            <button
-              className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+
+          {/* Navigation */}
+          <nav className="hidden items-center gap-[38px] md:flex">
+            <a
+              href="/accelerate#speakers"
+              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontSize: "16px",
-                minWidth: "186px",
-                background:
-                  "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                border: "1px solid transparent",
               }}
             >
-              <span>Request to Join</span>
-              <svg
-                width="8"
-                height="8"
-                viewBox="0 0 11 11"
-                fill="none"
-                className="ml-2"
+              Speakers
+            </a>
+            <Link
+              href="/accelerate/agenda"
+              className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80"
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: "16px",
+              }}
+            >
+              Agenda
+            </Link>
+            <a
+              href="/accelerate#sponsors"
+              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: "16px",
+              }}
+            >
+              Sponsors
+            </a>
+            <a
+              href="/accelerate#faq"
+              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: "16px",
+              }}
+            >
+              FAQ
+            </a>
+            <LumaModal lumaId="sol-accelerate-hk">
+              <button
+                className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+                style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontSize: "16px",
+                  minWidth: "186px",
+                  background:
+                    "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
+                  border: "1px solid transparent",
+                }}
               >
-                <path
-                  d="M2 9L9 2M9 2H4M9 2V7"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </LumaModal>
-        </nav>
+                <span>Request to Join</span>
+                <svg
+                  width="8"
+                  height="8"
+                  viewBox="0 0 11 11"
+                  fill="none"
+                  className="ml-2"
+                >
+                  <path
+                    d="M2 9L9 2M9 2H4M9 2V7"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </LumaModal>
+          </nav>
 
-        {/* Mobile menu button */}
-        <button className="flex h-10 w-10 items-center justify-center text-white md:hidden">
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+          {/* Mobile menu button */}
+          <button className="flex h-10 w-10 items-center justify-center text-white md:hidden">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {/* Hero Banner */}
