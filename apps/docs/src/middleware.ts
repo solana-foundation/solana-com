@@ -52,6 +52,35 @@ export default async function middleware(req: NextRequest) {
     req.nextUrl.searchParams.delete("slug");
   }
 
+  const hasLocalePrefix = locales.includes(pathSegments[0]);
+  const normalizedSegments = hasLocalePrefix
+    ? pathSegments.slice(1)
+    : pathSegments;
+  const normalizedPath = `/${normalizedSegments.join("/")}`;
+
+  if (normalizedPath.endsWith(".md")) {
+    const markdownPrefixes = [
+      "/docs",
+      "/developers/guides",
+      "/developers/cookbook",
+      "/learn",
+    ];
+    const isMarkdownPath = markdownPrefixes.some(
+      (prefix) =>
+        normalizedPath === `${prefix}.md` ||
+        normalizedPath.startsWith(`${prefix}/`),
+    );
+
+    if (isMarkdownPath) {
+      const cleanedSegments = [...normalizedSegments];
+      const lastIndex = cleanedSegments.length - 1;
+      cleanedSegments[lastIndex] = cleanedSegments[lastIndex].slice(0, -3);
+      const rewriteUrl = req.nextUrl.clone();
+      rewriteUrl.pathname = `/api/markdown/${cleanedSegments.join("/")}`;
+      return NextResponse.rewrite(rewriteUrl);
+    }
+  }
+
   return handleI18nRouting(req);
 }
 
@@ -59,7 +88,7 @@ export const config = {
   // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
-    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|docs-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|docs-assets|.*\\.(?!md$)).*)",
   ],
   runtime: "nodejs",
 };
