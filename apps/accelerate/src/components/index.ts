@@ -6,3 +6,4 @@ export { Sponsors } from "./Sponsors";
 export { FAQ } from "./FAQ";
 export { GettingThere } from "./GettingThere";
 export { FooterCTA } from "./FooterCTA";
+export { HashScroll } from "./HashScroll";

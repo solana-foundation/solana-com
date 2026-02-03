@@ -7,11 +7,13 @@ import {
   FAQ,
   GettingThere,
   FooterCTA,
+  HashScroll,
 } from "@/components";
 
 export default function HomePage() {
   return (
     <>
+      <HashScroll />
       <Hero />
       <EventDetails />
       <AgendaBanner />
