@@ -1,0 +1,268 @@
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { motion } from "framer-motion";
+import { Agenda } from "@/components/Agenda";
+import { LumaModal } from "@/components/LumaModal";
+import { getImagePath } from "@/config";
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
+
+export default function AgendaPage() {
+  return (
+    <div className="min-h-screen bg-black">
+      {/* Header Navigation */}
+      <header className="relative z-20 flex items-center justify-between px-6 py-5 lg:px-[60px] lg:py-5">
+        {/* Logo */}
+        <Link href="/accelerate" className="flex items-center">
+          <Image
+            src={getImagePath("/images/accelerate-logo.svg")}
+            alt="Accelerate APAC"
+            width={197}
+            height={100}
+            className="h-[60px] w-auto lg:h-[80px]"
+            priority
+          />
+        </Link>
+
+        {/* Navigation */}
+        <nav className="hidden items-center gap-[38px] md:flex">
+          <a
+            href="/accelerate#speakers"
+            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: "16px",
+            }}
+          >
+            Speakers
+          </a>
+          <Link
+            href="/accelerate/agenda"
+            className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80"
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: "16px",
+            }}
+          >
+            Agenda
+          </Link>
+          <a
+            href="/accelerate#sponsors"
+            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: "16px",
+            }}
+          >
+            Sponsors
+          </a>
+          <a
+            href="/accelerate#faq"
+            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: "16px",
+            }}
+          >
+            FAQ
+          </a>
+          <LumaModal lumaId="sol-accelerate-hk">
+            <button
+              className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: "16px",
+                minWidth: "186px",
+                background:
+                  "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
+                border: "1px solid transparent",
+              }}
+            >
+              <span>Request to Join</span>
+              <svg
+                width="8"
+                height="8"
+                viewBox="0 0 11 11"
+                fill="none"
+                className="ml-2"
+              >
+                <path
+                  d="M2 9L9 2M9 2H4M9 2V7"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </LumaModal>
+        </nav>
+
+        {/* Mobile menu button */}
+        <button className="flex h-10 w-10 items-center justify-center text-white md:hidden">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </header>
+
+      {/* Hero Banner */}
+      <section className="relative overflow-hidden bg-black py-12 lg:py-20">
+        {/* Gradient glow */}
+        <div className="pointer-events-none absolute -left-[200px] top-0 h-full w-[600px]">
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse 60% 50% at 30% 50%, rgba(153, 69, 255, 0.4) 0%, rgba(137, 58, 233, 0.2) 40%, transparent 70%)",
+              filter: "blur(80px)",
+            }}
+          />
+        </div>
+
+        <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{
+              visible: { transition: { staggerChildren: 0.1 } },
+            }}
+          >
+            <motion.div variants={fadeInUp}>
+              <Link
+                href="/accelerate"
+                className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-white/60 transition-colors hover:text-white"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="rotate-180"
+                >
+                  <path
+                    d="M6 12L10 8L6 4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Back to Accelerate APAC
+              </Link>
+            </motion.div>
+
+            <motion.p
+              variants={fadeInUp}
+              className="mb-3 text-lg font-medium text-accelerate-green md:text-xl"
+              style={{
+                fontFamily:
+                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              }}
+            >
+              February 11, 2026 / Hong Kong
+            </motion.p>
+
+            <motion.h1
+              variants={fadeInUp}
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px]"
+              style={{
+                fontFamily:
+                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                fontWeight: 300,
+                lineHeight: 1,
+                color: "#D2D2D2",
+              }}
+            >
+              Conference <span className="gradient-text">Agenda</span>
+            </motion.h1>
+
+            <motion.p
+              variants={fadeInUp}
+              className="mt-6 max-w-2xl text-lg text-white/60"
+            >
+              A full day of keynotes, panels, and lightning talks covering
+              payments, DeFi, tokenization, AI infrastructure, and more.
+            </motion.p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Agenda Content */}
+      <Agenda />
+
+      {/* Footer CTA */}
+      <section className="relative bg-black py-16 lg:py-24">
+        <div className="mx-auto max-w-[1440px] px-6 text-center lg:px-[60px]">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={{
+              visible: { transition: { staggerChildren: 0.1 } },
+            }}
+          >
+            <motion.h2
+              variants={fadeInUp}
+              className="mb-6 text-3xl font-light text-white sm:text-4xl md:text-5xl"
+              style={{
+                fontFamily:
+                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              }}
+            >
+              Ready to <span className="gradient-text">Accelerate</span>?
+            </motion.h2>
+
+            <motion.div variants={fadeInUp}>
+              <LumaModal lumaId="sol-accelerate-hk">
+                <button
+                  className="group inline-flex h-[56px] items-center justify-center rounded-[32px] px-8 text-black transition-all hover:opacity-90 sm:h-[66px]"
+                  style={{
+                    background: "linear-gradient(to right, #9945FF, #19FB9B)",
+                  }}
+                >
+                  <span
+                    className="text-sm uppercase sm:text-base sm:tracking-[0.9px]"
+                    style={{
+                      fontFamily:
+                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Request to Join
+                  </span>
+                  <Image
+                    src={getImagePath("/images/ticket-icon.svg")}
+                    alt="Ticket icon"
+                    width={18}
+                    height={12}
+                    className="ml-2 flex-shrink-0"
+                  />
+                </button>
+              </LumaModal>
+            </motion.div>
+          </motion.div>
+        </div>
+
+        {/* Bottom copyright */}
+        <div className="mt-12 text-center">
+          <p className="text-xs text-white/30 sm:text-sm">
+            © Solana Foundation 2026
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}

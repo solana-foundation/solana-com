@@ -127,6 +127,16 @@ export function Hero() {
             Speakers
           </a>
           <a
+            href="/accelerate/agenda"
+            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: "16px",
+            }}
+          >
+            Agenda
+          </a>
+          <a
             href="#sponsors"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
             style={{
