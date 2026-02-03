@@ -128,7 +128,9 @@ export function Sponsors() {
                   className={`flex flex-wrap items-center justify-center ${
                     tier.level === "headline"
                       ? "gap-16"
-                      : "gap-12 lg:gap-[60px]"
+                      : tier.level === "signature"
+                        ? "gap-12 lg:gap-[60px]"
+                        : "gap-8 lg:gap-12"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
@@ -137,7 +139,9 @@ export function Sponsors() {
                       className={`flex items-center justify-center ${
                         tier.level === "headline"
                           ? "h-[168px] w-[400px]"
-                          : "h-[134px] w-[320px]"
+                          : tier.level === "signature"
+                            ? "h-[134px] w-[320px]"
+                            : "h-[80px] w-[200px]"
                       }`}
                     >
                       <SponsorLogo sponsor={sponsor} />
