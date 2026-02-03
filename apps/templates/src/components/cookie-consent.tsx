@@ -5,12 +5,25 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Button } from "@workspace/ui";
 
+type CookieConsentStore = {
+  value: boolean;
+  timeToExpire: number;
+};
+
+type WindowWithGtag = Window & {
+  gtag?: (...args: unknown[]) => void;
+  builderNoTrack?: boolean;
+};
+
 const getLocalStorage = (key: string, defaultValue: boolean | null) => {
   const now = new Date().getTime();
-  let sticky: { value: boolean; timeToExpire: number } | null = null;
+  let sticky: CookieConsentStore | null = null;
 
   try {
-    sticky = JSON.parse(localStorage.getItem(key) || "null");
+    const stored = JSON.parse(localStorage.getItem(key) || "null") as
+      | CookieConsentStore
+      | null;
+    sticky = stored;
   } catch (error) {
     console.error(error);
   }
@@ -44,25 +57,27 @@ export const CookieConsent = () => {
     setIsLoaded(true);
 
     if (typeof window !== "undefined" && consent !== null) {
-      (window as any).builderNoTrack = !consent;
+      (window as WindowWithGtag).builderNoTrack = !consent;
     }
   }, []);
 
   useEffect(() => {
-    if (typeof (window as any).gtag !== "undefined" && isLoaded) {
+    const windowWithGtag = window as WindowWithGtag;
+
+    if (typeof windowWithGtag.gtag !== "undefined" && isLoaded) {
       if (cookieConsent === null) {
         return;
       }
 
       setLocalStorage("cookie_consent", cookieConsent);
-      (window as any).gtag("consent", "update", {
+      windowWithGtag.gtag("consent", "update", {
         ad_storage: cookieConsent ? "granted" : "denied",
         ad_user_data: cookieConsent ? "granted" : "denied",
         ad_personalization: cookieConsent ? "granted" : "denied",
         analytics_storage: cookieConsent ? "granted" : "denied",
       });
 
-      (window as any).builderNoTrack = !cookieConsent;
+      windowWithGtag.builderNoTrack = !cookieConsent;
     }
   }, [cookieConsent, isLoaded]);
 
