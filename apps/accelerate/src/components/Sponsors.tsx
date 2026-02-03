@@ -82,9 +82,30 @@ export function Sponsors() {
                 Sponsors
               </h2>
             </div>
+            {/* Mobile: Simple link */}
             <a
               href="mailto:events@solana.org"
-              className="inline-flex items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+              className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.05em] text-accelerate-green underline underline-offset-4 transition-colors hover:text-white lg:hidden"
+              style={{
+                fontFamily:
+                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              }}
+            >
+              <span>BECOME A SPONSOR</span>
+              <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
+                <path
+                  d="M2 9L9 2M9 2H4M9 2V7"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </a>
+            {/* Desktop: Styled button */}
+            <a
+              href="mailto:events@solana.org"
+              className="hidden items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5 lg:inline-flex"
               style={{
                 fontFamily:
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
