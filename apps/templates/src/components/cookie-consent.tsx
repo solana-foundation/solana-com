@@ -20,9 +20,9 @@ const getLocalStorage = (key: string, defaultValue: boolean | null) => {
   let sticky: CookieConsentStore | null = null;
 
   try {
-    const stored = JSON.parse(localStorage.getItem(key) || "null") as
-      | CookieConsentStore
-      | null;
+    const stored = JSON.parse(
+      localStorage.getItem(key) || "null",
+    ) as CookieConsentStore | null;
     sticky = stored;
   } catch (error) {
     console.error(error);
