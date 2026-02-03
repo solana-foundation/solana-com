@@ -62,6 +62,10 @@ export const createFilters = (t: (key: string) => string): TemplateFilter[] => [
         id: "node",
         name: t("keywords.node"),
       },
+      {
+        id: "pinocchio",
+        name: t("keywords.pinocchio"),
+      },
     ],
     name: t("categories.frameworks"),
   },
@@ -122,6 +126,7 @@ export const filters: TemplateFilter[] = [
       { id: "react", name: "React" },
       { id: "react-native", name: "React Native" },
       { id: "node", name: "Node" },
+      { id: "pinocchio", name: "Pinocchio" },
     ],
     name: "Frameworks",
   },
