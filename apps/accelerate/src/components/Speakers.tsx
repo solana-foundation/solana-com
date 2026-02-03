@@ -34,17 +34,18 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
   return (
     <motion.div
       variants={fadeInUp}
-      className="group relative flex w-[140px] flex-shrink-0 flex-col gap-2 sm:w-[160px] sm:gap-3 lg:w-[180px]"
+      className="group relative flex w-full flex-shrink-0 flex-col gap-2 sm:w-[160px] sm:gap-3 lg:w-[165px]"
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
     >
-      {/* Image - responsive sizes: 120px mobile, 140px tablet, 150px desktop */}
+      {/* Image - full width on mobile, fixed sizes on tablet/desktop */}
       <motion.div
-        className="relative h-[120px] w-[120px] overflow-hidden rounded-2xl bg-[#a0a0a0] sm:h-[140px] sm:w-[140px] lg:h-[150px] lg:w-[150px]"
+        className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#a0a0a0] sm:aspect-auto sm:h-[140px] sm:w-[140px] lg:h-[145px] lg:w-[145px]"
         whileHover={{ scale: 1.05 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
         <motion.div
+          className="h-full w-full"
           animate={{
             filter: isHovered ? "grayscale(0%)" : "grayscale(100%)",
           }}
@@ -53,9 +54,9 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
           <Image
             src={getImagePath(speaker.image)}
             alt={speaker.name}
-            width={150}
-            height={150}
-            className="object-cover"
+            width={400}
+            height={400}
+            className="h-full w-full object-cover"
           />
         </motion.div>
         {/* Gradient overlay on hover */}
@@ -68,10 +69,10 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
       </motion.div>
 
       {/* Info */}
-      <div className="relative flex w-[120px] flex-col gap-1.5 sm:w-[140px] sm:gap-2 lg:w-[150px]">
+      <div className="relative flex w-full flex-col gap-1.5 sm:w-[140px] sm:gap-2 lg:w-[145px]">
         {/* Name - uppercase, multi-line */}
         <motion.div
-          className="text-[14px] uppercase leading-none sm:text-[16px] lg:text-[18px]"
+          className="text-[18px] uppercase leading-none sm:text-[16px] lg:text-[18px]"
           style={{
             fontFamily:
               "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -89,7 +90,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
         <div className="flex flex-col gap-0.5 sm:gap-1">
           {/* Company */}
           <motion.p
-            className="text-[12px] sm:text-[14px] lg:text-[16px]"
+            className="text-[16px] sm:text-[14px] lg:text-[16px]"
             style={{
               fontFamily:
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -103,7 +104,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
           </motion.p>
 
           {/* Title */}
-          <p className="text-xs text-white/80 sm:text-sm">{speaker.title}</p>
+          <p className="text-sm text-white/80 sm:text-sm">{speaker.title}</p>
         </div>
       </div>
     </motion.div>
@@ -170,8 +171,11 @@ const SPEAKER_ORDER: string[] = [
   "chloe-lo",
 ];
 
+const MOBILE_INITIAL_COUNT = 10;
+
 function AllSpeakersSection() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAllMobile, setShowAllMobile] = useState(false);
 
   // Filter speakers, then sort by SPEAKER_ORDER; any not in the list go at the end
   const filteredSpeakers = useMemo(() => {
@@ -312,27 +316,130 @@ function AllSpeakersSection() {
       <div className="relative">
         <AnimatePresence mode="wait">
           {filteredSpeakers.length > 0 ? (
-            <motion.div
-              key="speakers-grid"
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
-              variants={stagger}
-              className="flex flex-wrap justify-center gap-4 pb-8 sm:gap-5 lg:gap-6"
-            >
-              {filteredSpeakers.map((speaker, index) => (
+            <>
+              {/* Desktop/Tablet: show all speakers */}
+              <motion.div
+                key="speakers-grid-desktop"
+                initial="hidden"
+                animate="visible"
+                exit="hidden"
+                variants={stagger}
+                className="hidden sm:grid sm:grid-cols-[repeat(auto-fill,160px)] sm:justify-center sm:gap-5 lg:grid-cols-[repeat(auto-fill,165px)] lg:gap-6 pb-8"
+              >
+                {filteredSpeakers.map((speaker, index) => (
+                  <motion.div
+                    key={speaker.slug}
+                    variants={fadeInUp}
+                    custom={index}
+                    initial="hidden"
+                    animate="visible"
+                    transition={{ delay: index * 0.03 }}
+                  >
+                    <SmallSpeakerCard speaker={speaker} />
+                  </motion.div>
+                ))}
+              </motion.div>
+
+              {/* Mobile: show first 10, then accordion for rest */}
+              <div className="sm:hidden">
                 <motion.div
-                  key={speaker.slug}
-                  variants={fadeInUp}
-                  custom={index}
+                  key="speakers-grid-mobile"
                   initial="hidden"
                   animate="visible"
-                  transition={{ delay: index * 0.03 }}
+                  exit="hidden"
+                  variants={stagger}
+                  className="grid grid-cols-1 gap-6 pb-6"
                 >
-                  <SmallSpeakerCard speaker={speaker} />
+                  {filteredSpeakers
+                    .slice(0, MOBILE_INITIAL_COUNT)
+                    .map((speaker, index) => (
+                      <motion.div
+                        key={speaker.slug}
+                        variants={fadeInUp}
+                        custom={index}
+                        initial="hidden"
+                        animate="visible"
+                        transition={{ delay: index * 0.03 }}
+                      >
+                        <SmallSpeakerCard speaker={speaker} />
+                      </motion.div>
+                    ))}
                 </motion.div>
-              ))}
-            </motion.div>
+
+                {/* See All Button - only show if there are more speakers */}
+                {filteredSpeakers.length > MOBILE_INITIAL_COUNT && (
+                  <>
+                    <AnimatePresence>
+                      {showAllMobile && (
+                        <motion.div
+                          key="speakers-grid-mobile-expanded"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.4, ease: "easeInOut" }}
+                          className="overflow-hidden"
+                        >
+                          <motion.div
+                            initial="hidden"
+                            animate="visible"
+                            variants={stagger}
+                            className="grid grid-cols-1 gap-6 pb-6"
+                          >
+                            {filteredSpeakers
+                              .slice(MOBILE_INITIAL_COUNT)
+                              .map((speaker, index) => (
+                                <motion.div
+                                  key={speaker.slug}
+                                  variants={fadeInUp}
+                                  custom={index}
+                                  initial="hidden"
+                                  animate="visible"
+                                  transition={{ delay: index * 0.03 }}
+                                >
+                                  <SmallSpeakerCard speaker={speaker} />
+                                </motion.div>
+                              ))}
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <motion.button
+                      onClick={() => setShowAllMobile(!showAllMobile)}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-6 py-4 text-white transition-all hover:border-accelerate-purple/50 hover:bg-accelerate-purple/10"
+                      style={{
+                        fontFamily:
+                          "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <span>
+                        {showAllMobile
+                          ? "Show less"
+                          : `See all ${filteredSpeakers.length} speakers`}
+                      </span>
+                      <motion.svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        animate={{ rotate: showAllMobile ? 180 : 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <path
+                          d="M5 7.5L10 12.5L15 7.5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </motion.svg>
+                    </motion.button>
+                  </>
+                )}
+              </div>
+            </>
           ) : (
             <motion.div
               key="no-results"
