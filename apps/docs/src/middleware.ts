@@ -5,6 +5,24 @@ import {
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 
+// These are the prefixes that we want to serve as markdown if
+// the Accept header includes "text/markdown" or if
+// the pathname ends with ".md"
+const MARKDOWN_PREFIXES = [
+  "/docs",
+  "/developers/guides",
+  "/developers/cookbook",
+  "/learn",
+] as const;
+
+function matchesMarkdownPrefix(path: string): boolean {
+  const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
+  return MARKDOWN_PREFIXES.some(
+    (prefix) =>
+      pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`),
+  );
+}
+
 // routingWithoutDetection: prevents redirects based on Accept-Language that would leak Vercel URL
 // preserveProxiedLocaleCookie: prevents overwriting the main app's NEXT_LOCALE cookie
 // when requests come through the web app's rewrite (fixes "random language" bug)
@@ -58,27 +76,27 @@ export default async function middleware(req: NextRequest) {
     : pathSegments;
   const normalizedPath = `/${normalizedSegments.join("/")}`;
 
-  if (normalizedPath.endsWith(".md")) {
-    const markdownPrefixes = [
-      "/docs",
-      "/developers/guides",
-      "/developers/cookbook",
-      "/learn",
-    ];
-    const isMarkdownPath = markdownPrefixes.some(
-      (prefix) =>
-        normalizedPath === `${prefix}.md` ||
-        normalizedPath.startsWith(`${prefix}/`),
-    );
+  // Accept header content negotiation for markdown
+  const acceptHeader = req.headers.get("accept") || "";
+  const wantsMarkdown = acceptHeader.includes("text/markdown");
 
-    if (isMarkdownPath) {
-      const cleanedSegments = [...normalizedSegments];
-      const lastIndex = cleanedSegments.length - 1;
-      cleanedSegments[lastIndex] = cleanedSegments[lastIndex].slice(0, -3);
-      const rewriteUrl = req.nextUrl.clone();
-      rewriteUrl.pathname = `/api/markdown/${cleanedSegments.join("/")}`;
-      return NextResponse.rewrite(rewriteUrl);
+  if (wantsMarkdown && !normalizedPath.endsWith(".md")) {
+    if (matchesMarkdownPrefix(normalizedPath)) {
+      const mdUrl = req.nextUrl.clone();
+      mdUrl.pathname = hasLocalePrefix
+        ? `/${pathSegments[0]}${normalizedPath}.md`
+        : `${normalizedPath}.md`;
+      return NextResponse.redirect(mdUrl, 302);
     }
+  }
+
+  if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
+    const cleanedSegments = [...normalizedSegments];
+    const lastIndex = cleanedSegments.length - 1;
+    cleanedSegments[lastIndex] = cleanedSegments[lastIndex].slice(0, -3);
+    const rewriteUrl = req.nextUrl.clone();
+    rewriteUrl.pathname = `/api/markdown/${cleanedSegments.join("/")}`;
+    return NextResponse.rewrite(rewriteUrl);
   }
 
   return handleI18nRouting(req);
