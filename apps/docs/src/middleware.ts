@@ -23,6 +23,12 @@ function matchesMarkdownPrefix(path: string): boolean {
   );
 }
 
+function rewriteToMarkdownApi(req: NextRequest, segments: string[]) {
+  const url = req.nextUrl.clone();
+  url.pathname = `/api/markdown/${segments.join("/")}`;
+  return NextResponse.rewrite(url);
+}
+
 // routingWithoutDetection: prevents redirects based on Accept-Language that would leak Vercel URL
 // preserveProxiedLocaleCookie: prevents overwriting the main app's NEXT_LOCALE cookie
 // when requests come through the web app's rewrite (fixes "random language" bug)
@@ -85,18 +91,13 @@ export default async function middleware(req: NextRequest) {
     !normalizedPath.endsWith(".md") &&
     matchesMarkdownPrefix(normalizedPath)
   ) {
-    const rewriteUrl = req.nextUrl.clone();
-    rewriteUrl.pathname = `/api/markdown/${normalizedSegments.join("/")}`;
-    return NextResponse.rewrite(rewriteUrl);
+    return rewriteToMarkdownApi(req, normalizedSegments);
   }
 
   if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
-    const cleanedSegments = [...normalizedSegments];
-    const lastIndex = cleanedSegments.length - 1;
-    cleanedSegments[lastIndex] = cleanedSegments[lastIndex].slice(0, -3);
-    const rewriteUrl = req.nextUrl.clone();
-    rewriteUrl.pathname = `/api/markdown/${cleanedSegments.join("/")}`;
-    return NextResponse.rewrite(rewriteUrl);
+    const segments = [...normalizedSegments];
+    segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
+    return rewriteToMarkdownApi(req, segments);
   }
 
   return handleI18nRouting(req);
