@@ -1052,15 +1052,6 @@ export default {
       source: "/accelerate/ship-or-die",
       destination: "/accelerate",
     },
-    // Temp: Redirect all /accelerate subpaths to /accelerate
-    {
-      source: "/accelerate/:path+",
-      destination: "/accelerate",
-    },
-    {
-      source: "/:locale/accelerate/:path+",
-      destination: "/:locale/accelerate",
-    },
     {
       source: "/docs/terminology",
       destination: "/docs/references/terminology",
