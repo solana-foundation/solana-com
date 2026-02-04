@@ -80,14 +80,14 @@ export default async function middleware(req: NextRequest) {
   const acceptHeader = req.headers.get("accept") || "";
   const wantsMarkdown = acceptHeader.includes("text/markdown");
 
-  if (wantsMarkdown && !normalizedPath.endsWith(".md")) {
-    if (matchesMarkdownPrefix(normalizedPath)) {
-      const mdUrl = req.nextUrl.clone();
-      mdUrl.pathname = hasLocalePrefix
-        ? `/${pathSegments[0]}${normalizedPath}.md`
-        : `${normalizedPath}.md`;
-      return NextResponse.redirect(mdUrl, 302);
-    }
+  if (
+    wantsMarkdown &&
+    !normalizedPath.endsWith(".md") &&
+    matchesMarkdownPrefix(normalizedPath)
+  ) {
+    const rewriteUrl = req.nextUrl.clone();
+    rewriteUrl.pathname = `/api/markdown/${normalizedSegments.join("/")}`;
+    return NextResponse.rewrite(rewriteUrl);
   }
 
   if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
