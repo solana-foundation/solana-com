@@ -27,6 +27,18 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const canonicalSkillPath = "/SKILL.md";
+  if (pathname.toLowerCase() === "/skill.md") {
+    if (pathname !== canonicalSkillPath) {
+      return NextResponse.redirect(
+        `${req.nextUrl.origin}${canonicalSkillPath}`,
+        308,
+      );
+    }
+
+    return NextResponse.next();
+  }
+
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
       `${req.nextUrl.origin + pathname.toLowerCase()}`,
@@ -71,6 +83,8 @@ export const config = {
   // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
+    "/SKILL.md",
+    "/skill.md",
     "/((?!api|opengraph|_next|_vercel|breakpoint|docs|learn|news|podcasts|media-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",

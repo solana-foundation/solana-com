@@ -63,11 +63,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     const existingRedirects: Redirect[] = [
       {
-        source: "/SKILL.md",
-        destination: "/skill.md",
-        permanent: true,
-      },
-      {
         source: "/news/tag/:tag*/page/:page*",
         destination: `/news/tag/:tag*`,
         permanent: true,
