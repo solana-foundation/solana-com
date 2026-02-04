@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { LumaModal } from "./LumaModal";
@@ -19,7 +20,25 @@ const stagger = {
   },
 };
 
+const navLinkStyle = {
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontSize: "16px",
+};
+
 export function Hero() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
   return (
     <section className="relative h-[600px] md:h-[750px] lg:h-[932px] w-full overflow-hidden bg-black">
       {/* Purple/Magenta gradient glow on left */}
@@ -189,7 +208,13 @@ export function Hero() {
         </nav>
 
         {/* Mobile menu button */}
-        <button className="flex h-10 w-10 items-center justify-center text-white md:hidden">
+        <button
+          type="button"
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileMenuOpen}
+          className="flex h-10 w-10 items-center justify-center text-white md:hidden"
+          onClick={() => setMobileMenuOpen(true)}
+        >
           <svg
             width="24"
             height="24"
@@ -202,6 +227,115 @@ export function Hero() {
           </svg>
         </button>
       </header>
+
+      {/* Mobile menu overlay */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <div key="mobile-menu" className="fixed inset-0 z-30 md:hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              aria-hidden="true"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, x: "100%" }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: "100%" }}
+              transition={{ type: "tween", duration: 0.25 }}
+              className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-[#0D0D0D] px-6 py-5"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-white/60">Menu</span>
+                <button
+                  type="button"
+                  aria-label="Close menu"
+                  className="flex h-10 w-10 items-center justify-center text-white"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <nav className="mt-8 flex flex-col gap-6">
+                <a
+                  href="#speakers"
+                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+                  style={navLinkStyle}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Speakers
+                </a>
+                <a
+                  href="/accelerate/agenda"
+                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+                  style={navLinkStyle}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Agenda
+                </a>
+                <a
+                  href="#sponsors"
+                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+                  style={navLinkStyle}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Sponsors
+                </a>
+                <a
+                  href="#faq"
+                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+                  style={navLinkStyle}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  FAQ
+                </a>
+                <LumaModal lumaId="sol-accelerate-hk">
+                  <button
+                    type="button"
+                    className="relative mt-2 w-full inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+                    style={{
+                      ...navLinkStyle,
+                      minWidth: "186px",
+                      background:
+                        "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
+                      border: "1px solid transparent",
+                    }}
+                  >
+                    <span>Request to Join</span>
+                    <svg
+                      width="8"
+                      height="8"
+                      viewBox="0 0 11 11"
+                      fill="none"
+                      className="ml-2"
+                    >
+                      <path
+                        d="M2 9L9 2M9 2H4M9 2V7"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </LumaModal>
+              </nav>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content - positioned at center */}
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center">
