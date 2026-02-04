@@ -192,7 +192,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/SKILL.md",
+        source: "/:path*.md",
         headers: [
           {
             key: "Content-Type",
