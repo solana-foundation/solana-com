@@ -183,6 +183,16 @@ export default {
         locale: false,
       },
       {
+        source: "/docs.md",
+        destination: `${DOCS_APP_URL}/docs.md`,
+        locale: false,
+      },
+      {
+        source: "/docs/:path*.md",
+        destination: `${DOCS_APP_URL}/docs/:path*.md`,
+        locale: false,
+      },
+      {
         source: "/docs/:path*",
         destination: `${DOCS_APP_URL}/docs/:path*`,
         locale: false,
@@ -193,6 +203,11 @@ export default {
         locale: false,
       },
       {
+        source: "/learn/:path*.md",
+        destination: `${DOCS_APP_URL}/learn/:path*.md`,
+        locale: false,
+      },
+      {
         source: "/learn/:path*",
         destination: `${DOCS_APP_URL}/learn/:path*`,
         locale: false,
@@ -200,6 +215,11 @@ export default {
       {
         source: "/developers",
         destination: `${DOCS_APP_URL}/developers`,
+        locale: false,
+      },
+      {
+        source: "/developers/:path*.md",
+        destination: `${DOCS_APP_URL}/developers/:path*.md`,
         locale: false,
       },
       {
@@ -229,6 +249,11 @@ export default {
         locale: false,
       },
       {
+        source: "/:locale/docs/:path*.md",
+        destination: `${DOCS_APP_URL}/:locale/docs/:path*.md`,
+        locale: false,
+      },
+      {
         source: "/:locale/docs/:path*",
         destination: `${DOCS_APP_URL}/:locale/docs/:path*`,
         locale: false,
@@ -239,6 +264,11 @@ export default {
         locale: false,
       },
       {
+        source: "/:locale/learn/:path*.md",
+        destination: `${DOCS_APP_URL}/:locale/learn/:path*.md`,
+        locale: false,
+      },
+      {
         source: "/:locale/learn/:path*",
         destination: `${DOCS_APP_URL}/:locale/learn/:path*`,
         locale: false,
@@ -246,6 +276,11 @@ export default {
       {
         source: "/:locale/developers",
         destination: `${DOCS_APP_URL}/:locale/developers`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/:path*.md",
+        destination: `${DOCS_APP_URL}/:locale/developers/:path*.md`,
         locale: false,
       },
       {
