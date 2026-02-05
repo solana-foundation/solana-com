@@ -25,67 +25,85 @@ export function DevelopersNav({ containerClassName }) {
           <div className="flex items-center">
             <div
               id="docs-sidebar-toggle-slot"
-              className="mr-2 flex items-center empty:hidden"
-            />
-            <nav className="flex items-center flex-wrap">
-            <NavLink
-              partiallyActive
-              to="/docs"
-              partiallyActiveIgnore={["/docs/rpc", "/docs/payments"]}
-              activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
+              className="mr-1.5 relative hidden h-8 w-8 shrink-0 items-center justify-center text-[#848895] md:flex light:text-[#7f8391] [&>button]:text-inherit [&>button:hover]:!text-white light:[&>button:hover]:!text-gray-900 [&[data-toggle-mounted='true']>.docs-sidebar-toggle-fallback]:hidden"
             >
-              <DocsIcon height="16" width="16" className="inline-block mr-2" />
-              <span className="align-middle">
-                {t("developers.nav.documentation")}
+              <span className="inline-flex justify-center items-center w-8 h-8 rounded-md docs-sidebar-toggle-fallback">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-4 h-4"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M9 3v18" />
+                </svg>
               </span>
-            </NavLink>
-            <NavLink
-              partiallyActive
-              to="/docs/rpc"
-              activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-            >
-              <RpcApiIcon
-                height="16"
-                width="16"
-                className="inline-block mr-2"
-              />
-              <span className="align-middle">{t("developers.nav.rpc")}</span>
-            </NavLink>
-            <NavLink
-              partiallyActive
-              to="/developers/cookbook"
-              activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-            >
-              <CookbookIcon
-                height="16"
-                width="16"
-                className="inline-block mr-2"
-              />
-              <span className="align-middle">
-                {t("developers.nav.cookbook")}
-              </span>
-            </NavLink>
-            <NavLink
-              partiallyActive
-              to="/docs/payments"
-              activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
-            >
-              <WalletIcon
-                height="16"
-                width="16"
-                className="inline-block mr-2"
-              />
-              <span className="align-middle">{t("developers.nav.payments")}</span>
-            </NavLink>
-            <NavLink href="https://solana.stackexchange.com/" target="_blank">
-              <StackExchangeIcon
-                height="16"
-                width="16"
-                className="inline-block mr-2"
-                fill="currentColor"
-              />
-              <span className="align-middle">Get Support</span>
-            </NavLink>
+            </div>
+            <nav className="flex flex-wrap items-center">
+              <NavLink
+                partiallyActive
+                to="/docs"
+                partiallyActiveIgnore={["/docs/rpc", "/docs/payments"]}
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <DocsIcon height="16" width="16" className="inline-block mr-2" />
+                <span className="align-middle">
+                  {t("developers.nav.documentation")}
+                </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/docs/rpc"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <RpcApiIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">{t("developers.nav.rpc")}</span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/developers/cookbook"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <CookbookIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">
+                  {t("developers.nav.cookbook")}
+                </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/docs/payments"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <WalletIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">
+                  {t("developers.nav.payments")}
+                </span>
+              </NavLink>
+              <NavLink href="https://solana.stackexchange.com/" target="_blank">
+                <StackExchangeIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                  fill="currentColor"
+                />
+                <span className="align-middle">Get Support</span>
+              </NavLink>
             </nav>
           </div>
         </div>
