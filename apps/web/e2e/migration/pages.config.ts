@@ -29,16 +29,6 @@ export const PAGES_TO_COMPARE: PageConfig[] = [
     category: "solutions",
   },
   {
-    route: "/solutions/payments-tooling",
-    name: "Payments Tooling",
-    category: "solutions",
-  },
-  {
-    route: "/solutions/commerce-tooling",
-    name: "Commerce Tooling",
-    category: "solutions",
-  },
-  {
     route: "/solutions/financial-infrastructure",
     name: "Financial Infrastructure",
     category: "solutions",
@@ -93,11 +83,6 @@ export const PAGES_TO_COMPARE: PageConfig[] = [
   {
     route: "/developers/nfts",
     name: "Developers - NFTs",
-    category: "developers",
-  },
-  {
-    route: "/developers/payments",
-    name: "Developers - Payments",
     category: "developers",
   },
   {

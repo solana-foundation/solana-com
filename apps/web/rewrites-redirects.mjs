@@ -309,6 +309,23 @@ export default {
   },
 
   redirects: [
+    // Payments pages consolidated to institutional-payments
+    {
+      source: "/solutions/payments-tooling",
+      destination: "/solutions/institutional-payments",
+    },
+    {
+      source: "/developers/payments",
+      destination: "/solutions/institutional-payments",
+    },
+    {
+      source: "/solutions/commerce-and-payments",
+      destination: "/solutions/institutional-payments",
+    },
+    {
+      source: "/solutions/commerce-tooling",
+      destination: "/solutions/institutional-payments",
+    },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     // TODO: set to newws/upgrades when we have articles
