@@ -7,3 +7,7 @@ export { NewsletterModal } from "./newsletter-modal";
 export { SitewideTopAlert } from "./sitewide-top-alert";
 export { sitewideTopAlertConfig } from "./sitewide-top-alert-config";
 export type { SitewideTopAlertConfig } from "./sitewide-top-alert-config";
+export {
+  DOCS_SIDEBAR_TOGGLE_SLOT_ID,
+  DocsSidebarToggleIcon,
+} from "./docs-sidebar-toggle";

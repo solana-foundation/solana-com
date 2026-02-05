@@ -3,6 +3,10 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { SidebarCollapseTrigger } from "fumadocs-ui/layouts/docs/sidebar";
+import {
+  DOCS_SIDEBAR_TOGGLE_SLOT_ID,
+  DocsSidebarToggleIcon,
+} from "@solana-com/ui-chrome";
 
 export function DocsSidebarTogglePortal({
   enabled = true,
@@ -17,7 +21,7 @@ export function DocsSidebarTogglePortal({
       return;
     }
 
-    setContainer(document.getElementById("docs-sidebar-toggle-slot"));
+    setContainer(document.getElementById(DOCS_SIDEBAR_TOGGLE_SLOT_ID));
   }, [enabled]);
 
   useLayoutEffect(() => {
@@ -39,7 +43,9 @@ export function DocsSidebarTogglePortal({
     <SidebarCollapseTrigger
       aria-label="Toggle sidebar"
       className="hidden md:inline-flex h-8 w-8 text-inherit [&_svg]:size-4"
-    />,
+    >
+      <DocsSidebarToggleIcon className="!w-4 !h-4" />
+    </SidebarCollapseTrigger>,
     container,
   );
 }
