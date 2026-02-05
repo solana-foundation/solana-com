@@ -5,6 +5,37 @@ import {
   ACCELERATE_APP_URL,
 } from "./apps-urls";
 
+/**
+ * Generates both bare-path and locale-prefixed versions of each redirect.
+ * - For internal destinations: `:locale` param is prepended to both source and destination
+ * - For external destinations (http/https): `:locale` param is only prepended to source
+ * - All generated redirects use `locale: false` for explicit path control
+ */
+function withLocaleRedirects(redirects) {
+  return redirects.flatMap(({ source, destination, ...rest }) => {
+    const isExternalDest =
+      destination.startsWith("https://") || destination.startsWith("http://");
+
+    const localeDestination = isExternalDest
+      ? destination
+      : destination.startsWith("/")
+        ? `/:locale${destination}`
+        : `/:locale/${destination}`;
+
+    return [
+      // Bare path (e.g. /brand → /branding)
+      { source, destination, locale: false, ...rest },
+      // Locale-prefixed (e.g. /:locale/brand → /:locale/branding)
+      {
+        source: `/:locale${source}`,
+        destination: localeDestination,
+        locale: false,
+        ...rest,
+      },
+    ];
+  });
+}
+
 export default {
   rewrites: {
     beforeFiles: [
@@ -308,7 +339,7 @@ export default {
     fallback: [],
   },
 
-  redirects: [
+  redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     // TODO: set to newws/upgrades when we have articles
@@ -1053,6 +1084,10 @@ export default {
       destination: "/accelerate",
     },
     {
+      source: "/accelerate/tickets",
+      destination: "/accelerate",
+    },
+    {
       source: "/docs/terminology",
       destination: "/docs/references/terminology",
     },
@@ -1367,5 +1402,5 @@ export default {
         "/developers/cookbook/development/using-mainnet-accounts-programs",
       destination: "/docs/intro/installation/surfpool-cli-basics",
     },
-  ],
+  ]),
 };
