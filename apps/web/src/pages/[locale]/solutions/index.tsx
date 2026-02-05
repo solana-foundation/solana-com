@@ -94,7 +94,7 @@ const SolutionsIndexPage = () => {
             isFeatured: false,
             hiddenOnDesktop: false,
             callToAction: {
-              url: "/solutions/payments-tooling",
+              url: "/solutions/institutional-payments",
               label: t("buttons.learnMore"),
               hierarchy: "outline",
             },
@@ -288,7 +288,7 @@ const SolutionsIndexPage = () => {
             callToAction: {
               label: t("buttons.learnMore"),
               hierarchy: "outline",
-              url: "/solutions/commerce-and-payments",
+              url: "/solutions/institutional-payments",
             },
           },
           {

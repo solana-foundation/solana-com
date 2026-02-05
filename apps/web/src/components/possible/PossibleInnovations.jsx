@@ -159,7 +159,7 @@ const PossibleInnovation = () => {
               {t.rich("possible.innovations.payment.description1", {
                 paymentsLink: (chunks) => (
                   <Link
-                    href="/developers/payments"
+                    href="/solutions/institutional-payments"
                     className="text-decoration-underline copy__link"
                   >
                     {chunks}
