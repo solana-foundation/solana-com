@@ -58,7 +58,7 @@ function CustomSidebar() {
   return (
     <>
       <CollapsibleSidebar
-        className="md:bg-transparent text-base"
+        className="md:bg-transparent text-base data-[collapsed=true]:pointer-events-none"
         style={{ maxHeight: "calc(100vh - 65px)" }}
       >
         <SidebarViewport>
