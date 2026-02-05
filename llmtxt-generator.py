@@ -101,6 +101,20 @@ ENGLISH_EXTRAS = {
         ("Anchor Framework", "docs/programs/anchor", "High-level framework for Solana programs"),
         ("Testing Programs", "docs/programs/testing", "Test programs with bankrun and other tools"),
     ],
+    "EVM to SVM": [
+        ("Solana for EVM Developers", "developers/evm-to-svm", "Learn about the key differences in building between Solana and Ethereum"),
+        ("Complete Guide", "developers/evm-to-svm/complete-guide", "A complete guide to Solana development for Ethereum developers"),
+        ("Accounts", "developers/evm-to-svm/accounts", "See how accounts differ between Ethereum and Solana"),
+        ("Client Differences", "developers/evm-to-svm/client-differences", "See the difference between clients and types in SVM vs EVM"),
+        ("Consensus", "developers/evm-to-svm/consensus", "Learn how consensus works on Solana compared to Ethereum"),
+        ("EIP-2612", "developers/evm-to-svm/eip2612", "Learn how to build EIP-2612 on Solana"),
+        ("ERC20", "developers/evm-to-svm/erc20", "Learn how to build ERC20 on Solana using the Token Program"),
+        ("ERC3643", "developers/evm-to-svm/erc3643", "Learn how to build ERC3643 on Solana"),
+        ("ERC4337", "developers/evm-to-svm/erc4337", "Learn how to build ERC4337 on Solana"),
+        ("ERC4626", "developers/evm-to-svm/erc4626", "Learn how to build ERC4626 on Solana"),
+        ("ERC721", "developers/evm-to-svm/erc721", "Learn how to build ERC721 on Solana using Metaplex"),
+        ("Smart Contracts", "developers/evm-to-svm/smart-contracts", "Explore programs and how they work on Solana"),
+    ],
 }
 
 def normalize_llms_urls(content: str) -> str:
