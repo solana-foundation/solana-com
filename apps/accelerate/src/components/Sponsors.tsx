@@ -21,6 +21,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  VisuallyHidden,
 } from "@workspace/ui";
 import sponsorsData from "@/data/sponsors.json";
 import { getSponsorsByTier } from "@/lib/sponsors";
@@ -495,7 +496,15 @@ export function Sponsors() {
                   <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-accelerate-purple via-accelerate-green to-accelerate-cyan" />
                 </div>
                 <div className="relative max-h-[85vh] space-y-6 overflow-y-auto px-6 py-6 lg:px-10 lg:py-8">
-                  <DialogHeader className="gap-4"></DialogHeader>
+                  <DialogHeader className="gap-4">
+                    <VisuallyHidden>
+                      <DialogTitle>
+                        {activeSponsor
+                          ? `${activeDisplayName} sponsor profile`
+                          : "Sponsor profile"}
+                      </DialogTitle>
+                    </VisuallyHidden>
+                  </DialogHeader>
 
                   {!activeSponsor && (
                     <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
