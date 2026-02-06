@@ -1,39 +1,57 @@
 ---
 title: Accounts
 description:
-  Learn about Solana's account model, including how accounts store data and
-  programs, rent mechanics, account ownership, and the relationship between
-  programs and data accounts. Understand the core concepts of Solana's key-value
-  storage system.
+  Learn about Solana accounts, the fundamental data unit that stores state on the
+  network. Covers account structure, addresses, program and data accounts, rent,
+  ownership, and account modification rules.
 ---
 
-All data on the Solana network is stored in accounts. You can think of the
-Solana network as a public database with a single Accounts table. The
-relationship between an account and its address is similar to that of a
-key-value pair, with the key being the address and the value being the account.
+An account is Solana's fundamental data unit for storing state. The network
+stores all state in a key-value store where each key is a 32-byte address and
+each value is an account.
 
-Each account has the same basic [structure](#account-structure) and can be
-located using its [address](#account-address).
+Key properties:
+
+- Every account has the same [structure](#account-structure) (five fields).
+- Each account is identified by a unique 32-byte [address](#account-address).
+- Maximum account data size is
+  [10 MiB](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/system-interface/src/lib.rs#L22).
+- Every account must hold a minimum lamport balance (the
+  [rent-exempt balance](/docs/references/terminology#rent)) proportional to its
+  data size.
+
+| Constraint | Value | Source |
+|---|---|---|
+| Max account data size | 10 MiB (10,485,760 bytes) | [`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34) |
+| Max data growth per instruction | 10 KiB (10,240 bytes) | [`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/account-info/src/lib.rs#L17) |
+| Max data growth per transaction | 20 MiB (20,971,520 bytes) | [`MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L38) |
+| Max loaded accounts data per tx | 64 MiB (67,108,864 bytes) | [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53) |
+| Max accounts per transaction | 256 | [`MAX_ACCOUNTS_PER_TRANSACTION`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L29) |
+| Max accounts per instruction | 255 | [`MAX_ACCOUNTS_PER_INSTRUCTION`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L32) |
+| Account data alignment in BPF | 8 bytes (u128 on BPF) | [`BPF_ALIGN_OF_U128`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/program-entrypoint/src/lib.rs#L341) |
+| Account base storage overhead | 64 bytes per account | [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45) |
+| Address size | 32 bytes (Ed25519 public key) | -- |
+| Rent-exempt minimum (formula) | (account_size + 128) \* 3,480 lamports/byte-year \* 2 years | [`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L104) |
+
+Depends on: none (foundational concept). Used by: [Programs](/docs/core/programs), [Transactions](/docs/core/transactions), [PDAs](/docs/core/pda).
 
 ![Diagram of 3 accounts and their addresses. Includes the account structure definition.](/assets/docs/core/accounts/accounts.png)
 
 ## Account address
 
-The account's address is a 32-byte unique ID used to locate the account on the
-Solana blockchain. Account addresses are often shown as base58 encoded strings.
-Most accounts use an [Ed25519](https://ed25519.cr.yp.to/)
-[public key](#public-key) as their address, but this is not required, as Solana
-also supports [program derived addresses](#program-derived-address).
+Every account address is a 32-byte value, displayed as a base58-encoded string.
+An address can be one of two types:
+
+1. **Public key** -- corresponds to an [Ed25519](https://ed25519.cr.yp.to/) keypair (has a private key)
+2. **Program derived address (PDA)** -- deterministically derived from a program ID and seeds (no private key)
 
 ![An account with its base58 encoded public key address](/assets/docs/core/accounts/account-address.svg)
 
 ### Public key
 
-The example below demonstrates how to use the Solana SDK to create a keypair. A
-`Keypair` includes:
-
-- A public key which serves as the account address
-- A private key which is used to sign transactions
+A `Keypair` consists of a public key (used as the account address) and a
+private key (used to sign transactions). The following example generates a
+keypair using the Solana SDK.
 
 <CodeTabs storage="accounts" flags="r">
 
@@ -68,10 +86,10 @@ async fn main() {
 
 ### Program derived address
 
-A [program derived address](/docs/core/pda) (PDA) is an address that is
-deterministically derived using a program ID and one or more optional inputs
-(seeds). The example below demonstrates how to use the Solana SDK to create a
-program derived address.
+A [program derived address](/docs/core/pda) (PDA) is deterministically derived
+from a program ID and one or more optional seeds. PDAs do not have a
+corresponding private key. The following example derives a PDA using the
+Solana SDK.
 
 <CodeTabs storage="accounts" flags="r">
 
@@ -124,19 +142,18 @@ async fn main() {
 ## Account structure
 
 Every
-[`Account`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60)
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/account/src/lib.rs#L32-L44)
 has a maximum size of
-[10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)
-and contains following information:
+[`MAX_PERMITTED_DATA_LENGTH`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/system-interface/src/lib.rs#L22)
+(10 MiB) and contains five fields:
 
 <WithMentions>
 
-- [`lamports`](mention:lamports): The number of lamports in the account
-- [`data`](mention:data): The account's data
-- [`owner`](mention:owner): The ID of the program that owns the account
-- [`executable`](mention:executable): Indicates whether the account contains
-  executable binary
-- [`rent_epoch`](mention:rent_epoch): The deprecated rent epoch field
+- [`lamports`](mention:lamports): The account's balance in lamports (1 SOL = 1,000,000,000 lamports). Type: `u64`. Only the `owner` program can debit this field; any program can credit any **writable** account.
+- [`data`](mention:data): Arbitrary byte array storing account state or executable program code. Type: `Vec<u8>`. Only the `owner` program can modify this field. Max size: 10 MiB.
+- [`owner`](mention:owner): The 32-byte `Pubkey` that identifies which program has write access to the `data` and `lamports` fields. Only the current owner can reassign ownership, and only when `data` is zero-initialized.
+- [`executable`](mention:executable): Boolean flag; `true` means this account contains executable program code. Once set to `true`, it cannot be reverted. The account must be rent-exempt before this flag is set.
+- [`rent_epoch`](mention:rent_epoch): Deprecated field; set to `u64::MAX` ([`RENT_EXEMPT_RENT_EPOCH`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L16)) for rent-exempt accounts. Previously tracked when rent was next due.
 
 ```rust title="Account"
 pub struct Account {
@@ -161,26 +178,59 @@ pub struct Account {
 
 </WithMentions>
 
+<Callout type="info">
+  `is_signer` and `is_writable` are **not** stored on the account itself. They
+  are instruction-level properties set per-instruction in the transaction
+  message. This means the same account can be read-only in one instruction and
+  writable in another within the same transaction.
+</Callout>
+
+The runtime also uses
+[`AccountSharedData`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/account/src/lib.rs#L110),
+a copy-on-write variant of `Account` that uses `Arc<Vec<u8>>` for the data
+field. This allows efficient cloning when accounts are loaded but not modified.
+During transaction execution, accounts are stored in a
+[`TransactionAccounts`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L241)
+structure that tracks borrow state, resize deltas, and lamport balance changes.
+
 <ScrollyCoding>
 
 ## !!steps Lamports
 
-The account's balance in [lamports](/docs/references/terminology#lamport).
+The `lamports` field holds the account's balance in
+[lamports](/docs/references/terminology#lamport) (1 SOL = 1,000,000,000
+lamports).
 
-Every account must have a minimum lamport balance, called
-[rent](/docs/references/terminology#rent), which allows its data to be stored
-on-chain. Rent is proportional to the size of the account.
+Every account must maintain a minimum lamport balance, known as the rent-exempt
+balance, to keep its data stored on-chain. This balance is proportional to the
+account's data size.
 
 <Callout type="info">
-  Although this balance is called rent, it works more like a deposit, as the
-  full balance can be recovered when the account is closed. (The name "rent"
-  comes from the now deprecated rent epoch field.)
+  Although often called "rent," the rent-exempt balance functions as a
+  refundable deposit--the full balance is recovered when the account is closed.
+  The deprecated rent collection mechanism (which once charged periodic fees for
+  under-funded accounts) is separate from this minimum-balance requirement.
 </Callout>
 
-(See the
-[minimum balance](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)
-formula and the applicable
-[constants](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70).)
+Accounts exist in one of three
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+values:
+
+1. `Uninitialized` -- 0 lamports
+2. `RentPaying` -- above 0 but below the rent-exempt minimum
+3. `RentExempt` -- at or above the rent-exempt minimum
+
+Allowed transitions (enforced by
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126)):
+any state to `Uninitialized` (closing the account) or any state to `RentExempt`
+(funding). `RentPaying` to `RentPaying` is only allowed if the data size stays
+the same and lamports do not increase.
+
+(See
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L104)
+and the rent
+[constants](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L47-L75):
+on mainnet `lamports_per_byte` = 3,480 and `exemption_threshold` = 2.0, so the effective rate is 3,480 * 2 = 6,960 lamports/byte; `ACCOUNT_STORAGE_OVERHEAD` = 128 bytes.)
 
 ```rust !! title="Account Examples"
 // Example Token Mint Account
@@ -208,20 +258,19 @@ Account {
 
 ## !!steps Data
 
-This field is commonly referred to as "account data". The `data` in this field
-is considered arbitrary as it can contain any sequence of bytes. Each program
-defines the structure of the data stored in this field.
+The `data` field stores an arbitrary byte array. Its contents depend on the
+account type:
 
-- Program accounts: This field contains either executable program code or the
-  address of a [program data account](#program-data-accounts) which stores the
-  executable program code.
-- Data accounts: This field generally stores state data, meant to be read.
+- **Program accounts**: Contains executable bytecode or the address of a
+  [program data account](#program-data-accounts) that stores the bytecode.
+- **Data accounts**: Contains program-defined state data. The owning program
+  defines the serialization format.
 
-Reading data from a Solana account involves two steps:
+Reading account data requires two steps:
 
-1. Fetching the account using its [address](#account-address)
-2. Deserializing the account's `data` field from raw bytes into the appropriate
-   data structure, as defined by the program that owns the account.
+1. Fetch the account by its [address](#account-address).
+2. Deserialize the `data` field from raw bytes into the program-defined data
+   structure.
 
 ```rust !! title="Account Examples"
 // Example Token Mint Account
@@ -251,14 +300,18 @@ Account {
 
 ## !!steps Owner
 
-This field contains the program ID of the account's owner.
+The `owner` field contains the program ID (public key) of the program that
+owns this account.
 
-Every Solana account has a [program](/docs/core/programs) designated as its
-owner. The account's owner is the only program that can change the account's
-`data` or deduct lamports, as indicated by the program's instructions.
+The owner program is the only program that can:
+- Modify the account's `data` field
+- Deduct lamports from the account's `lamports` field
 
-(In the case of a program account, the owner is its
-[loader program](https://solana.com/docs/core/programs#loader-programs).)
+Any program can credit (add) lamports to any **writable** account, but only the owner can
+debit them.
+
+For program accounts, the owner is the account's
+[loader program](/docs/core/programs#loader-programs).
 
 ```rust !! title="Account Examples"
 // Example Token Mint Account
@@ -286,11 +339,11 @@ Account {
 
 ## !!steps Executable
 
-This field indicates whether an account is a
-[program account](#program-accounts) or a [data account](#data-accounts)
+The `executable` field is a boolean that determines whether the account is a
+[program account](#program-accounts) or a [data account](#data-accounts):
 
-- If `true`: The account is a program account
-- If `false`: The account is a data account
+- `true` = program account (contains executable code)
+- `false` = data account (stores state)
 
 ```rust !! title="Account Examples"
 // Example Token Mint Account
@@ -320,8 +373,9 @@ Account {
 
 **The `rent_epoch` field is deprecated.**
 
-In the past, this field tracked when an account would need to pay rent. However,
-this rent collection mechanism has since been deprecated.
+Previously tracked when an account would next owe rent. Since rent collection
+is deprecated, `rent_epoch` is set to `u64::MAX` (18446744073709551615) for all
+rent-exempt accounts.
 
 ```rust !! title="Account Examples"
 // Example Token Mint Account
@@ -351,34 +405,29 @@ Account {
 
 ## Types of accounts
 
-There are two basic categories that accounts fall into:
+The [`executable`](#executable) field determines an account's category:
 
-- [Program accounts](#program-accounts): Accounts that contain executable code
-- [Data accounts](#data-accounts): Accounts that do not contain executable code
+- **[Program accounts](#program-accounts)**: `executable` = `true`. Contains executable code.
+- **[Data accounts](#data-accounts)**: `executable` = `false`. Stores state or user data.
 
-This separation of a program's code and its state is a key feature of Solana's
-account model. (Similar to operating systems, which typically have separate
-files for programs and their data.)
+This separation of code from mutable state allows programs to be shared by
+many data accounts without redeployment.
 
 ### Program accounts
 
-Every program is owned by a
-[loader program](/docs/core/programs#loader-programs), which is used to deploy
-and manage the account. When a new [program](/docs/core/programs) is deployed,
-an account is created to store its [executable](#executable) code. This is
-called a program account. (For simplicity, you can consider the program account
-to be the program itself.)
-
-In the diagram below, you can see a loader program is used to deploy a program
-account. The program account's `data` contains the executable program code.
+A program account stores executable code. Every program account is owned by a
+[loader program](/docs/core/programs#loader-programs). When a
+[program](/docs/core/programs) is deployed, the runtime creates a program
+account to hold its bytecode.
 
 ![Diagram of a program account, its 4 component and its loader program.](/assets/docs/core/accounts/program-account-simple.svg)
 
 #### Program data accounts
 
-Programs deployed using loader-v3 do not contain program code in their `data`
-field. Instead, their `data` points to a separate **program data account**,
-which contains the program code. (See the diagram below.)
+Programs deployed using loader-v3 (see [Loader programs](/docs/core/programs#loader-programs))
+do not store executable bytecode in their own `data` field. Instead, their
+`data` points to a separate **program data account** that contains the program
+code. (See the diagram below.)
 
 ![A program account with data. The data points to a separate program data account](/assets/docs/core/accounts/program-account-expanded.svg)
 
@@ -387,8 +436,8 @@ which contains the program code. (See the diagram below.)
   stage the upload.
 </Callout>
 
-The example below fetches the Token Program account. Notice that the
-`executable` field is set to `true`, indicating the account is a program.
+The following example fetches the Token Program account. The `executable` field
+is `true`, confirming it is a program account.
 
 <CodeTabs storage="accounts" flags="r">
 
@@ -461,25 +510,23 @@ async fn main() -> Result<()> {
 
 ### Data accounts
 
-Data accounts do not contain executable code. Instead, they store information.
+Data accounts do not contain executable code. They store program-defined state.
 
 #### Program state account
 
-Programs use data accounts to maintain their state. To do so, they must first
-create a new data account. The process of creating a program state account is
-often abstracted, but it is helpful to understand the underlying process.
+Programs store their state in data accounts. Creating a program state account
+involves two steps:
 
-To manage its state, a new program must:
-
-1. Invoke the [System Program](/docs/core/programs#the-system-program) to create
-   an account. (The System Program then transfers ownership to the new program.)
-2. Initialize the account data, as defined by its
+1. Invoke the [System Program](/docs/core/programs#the-system-program) to
+   create the account. The System Program transfers ownership to the
+   specified program.
+2. The owning program initializes the account's `data` field according to its
    [instructions](/docs/core/instructions).
 
 ![Diagram of a data account owned by a program account](/assets/docs/core/accounts/data-account.svg)
 
-The example below creates and fetches a Token Mint account owned by the Token
-2022 program.
+The following example creates and fetches a Token Mint account owned by the
+Token 2022 program.
 
 <CodeTabs storage="accounts" flags="r">
 
@@ -771,18 +818,18 @@ async fn main() -> Result<()> {
 
 #### System accounts
 
-Not all accounts are assigned a new owner after being created by the System
-Program. Accounts owned by the System Program are called system accounts. All
-wallet accounts are system accounts, which allows them to pay
-[transaction fees](/docs/core/fees).
+Accounts that remain owned by the System Program after creation are called
+system accounts. All wallet accounts are system accounts. The fee payer on a
+transaction must be a system account, because only System Program-owned accounts
+can pay [transaction fees](/docs/core/fees).
 
 ![A wallet owned by the System Program containing 1,000,000 lamports](/assets/docs/core/accounts/system-account.svg)
 
-When SOL is sent to a new address for the first time, an account is created at
-that address owned by the System Program.
+Sending SOL to a new address for the first time creates a new account at that
+address owned by the System Program.
 
-In the example below, a new keypair is generated and funded with SOL. After
-running the code, you can see the address of the account's `owner` is
+The following example generates a new keypair, funds it with SOL, and
+fetches the account. The `owner` field is
 `11111111111111111111111111111111` (the
 [System Program](/docs/core/programs#the-system-program)).
 
@@ -881,11 +928,21 @@ async fn main() -> Result<()> {
 
 #### Sysvar accounts
 
-Sysvar accounts exist at predefined addresses and provide access to cluster
-state data. They update dynamically with data about the network cluster. See the
-full list of [Sysvar Accounts](https://docs.anza.xyz/runtime/sysvars).
+Sysvar accounts are special accounts at predefined addresses that provide
+read-only access to cluster state data. They update dynamically each slot.
+Commonly used sysvars:
 
-The example below fetches and deserializes data from the Sysvar Clock account.
+| Sysvar | Purpose |
+|---|---|
+| Clock | Current slot, epoch, and Unix timestamp |
+| Rent | Minimum balance requirements |
+| EpochSchedule | Epoch timing and slot boundaries |
+
+Some sysvars are accessible within programs via `get()` without passing the
+account in the transaction. See the full list of
+[Sysvar Accounts](https://docs.anza.xyz/runtime/sysvars).
+
+The following example fetches and deserializes the Sysvar Clock account.
 
 <CodeTabs storage="accounts" flags="r">
 
@@ -965,3 +1022,184 @@ async fn main() -> Result<()> {
 ```
 
 </CodeTabs>
+
+## Rent and minimum balance
+
+Every account must maintain a minimum lamport balance to remain stored on-chain.
+This minimum is called the **rent-exempt balance** and is calculated by the
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L104)
+function:
+
+```
+rent_exempt_minimum = (account_data_size + ACCOUNT_STORAGE_OVERHEAD) * lamports_per_byte * exemption_threshold
+```
+
+| Constant | Value | Source |
+|---|---|---|
+| `ACCOUNT_STORAGE_OVERHEAD` | 128 bytes | [`ACCOUNT_STORAGE_OVERHEAD`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L75) |
+| `lamports_per_byte` (mainnet) | 3,480 | Rent sysvar; SDK default [`DEFAULT_LAMPORTS_PER_BYTE`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L47) is 6,960 with threshold 1.0 |
+| `exemption_threshold` (mainnet) | 2.0 | [`CURRENT_EXEMPTION_THRESHOLD`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L61) |
+| `RENT_EXEMPT_RENT_EPOCH` | `u64::MAX` | [`RENT_EXEMPT_RENT_EPOCH`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L16) |
+
+**Example**: A 0-byte data account requires `(0 + 128) * 3480 * 2 = 890,880 lamports` (~0.00089 SOL).
+
+### Rent state machine
+
+The runtime tracks each account's
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+and enforces allowed transitions after every transaction via
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126).
+A disallowed transition produces `TransactionError::InsufficientFundsForRent`.
+
+| Pre-state | Post-state: Uninitialized | Post-state: RentExempt | Post-state: RentPaying |
+|---|---|---|---|
+| **Uninitialized** | Allowed | Allowed | **Blocked** |
+| **RentExempt** | Allowed | Allowed | **Blocked** |
+| **RentPaying** | Allowed | Allowed | Only if data size unchanged AND lamports do not increase (may decrease or stay same) |
+
+Key rules:
+
+- **Creating accounts**: New accounts must be either `Uninitialized` (0 lamports) or `RentExempt` (at or above minimum balance). You cannot create an account in `RentPaying` state.
+- **Closing accounts**: Transfer all lamports out to transition to `Uninitialized`.
+- **Legacy RentPaying accounts**: Accounts that were already `RentPaying` before rent enforcement can remain `RentPaying` only if their data size does not change and their lamports do not increase (may decrease or stay the same).
+- **Incinerator exception**: The incinerator address (`1nc1nerator11111111111111111111111111111111`) is exempt from rent state checks.
+
+## Account modification rules
+
+The Solana runtime enforces these rules after each instruction executes via
+[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727)
+methods. Each rule is checked at the point of modification, and the transaction
+is rolled back if any check fails.
+
+### Lamports rules
+
+| Rule | Enforcement | Error |
+|---|---|---|
+| Only the owner can debit lamports | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): checks `is_owned_by_current_program()` when `lamports < current` | `ExternalAccountLamportSpend` |
+| Read-only accounts cannot have lamports changed | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): checks `is_writable()` | `ReadonlyLamportChange` |
+| Any program can credit lamports to a writable account | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): the ownership check only applies when the new balance is less than the current balance; the writable check at [line 788](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789) still applies | `ReadonlyLamportChange` |
+| Lamports must balance across an instruction | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): verifies `get_lamports_delta() == 0` | `UnbalancedInstruction` |
+
+### Data rules
+
+| Rule | Enforcement | Error |
+|---|---|---|
+| Only the owner can modify data | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023): checks `is_owned_by_current_program()` | `ExternalAccountDataModified` |
+| Read-only accounts cannot have data modified | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016): checks `is_writable()` | `ReadonlyDataModified` |
+| Only the owner can resize data | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037): checks `is_owned_by_current_program()` when `new_len != old_len` | `AccountDataSizeChanged` |
+| Max data size: 10 MiB | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332): checks `new_len <= MAX_ACCOUNT_DATA_LEN` | `InvalidRealloc` |
+| Max growth per instruction: 10 KiB | Deserialization in [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629): checks `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE` | `InvalidRealloc` |
+| Max growth per transaction: 20 MiB | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330): checks cumulative `resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION` | `MaxAccountsDataAllocationsExceeded` |
+
+### Owner rules
+
+| Rule | Enforcement | Error |
+|---|---|---|
+| Only the current owner can reassign the owner | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755): checks `is_owned_by_current_program()` | `ModifiedProgramId` |
+| Account must be writable | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759): checks `is_writable()` | `ModifiedProgramId` |
+| Data must be zero-initialized | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763): checks `is_zeroed(data)` | `ModifiedProgramId` |
+
+### Executable flag rules
+
+| Rule | Enforcement | Error |
+|---|---|---|
+| Account must be rent-exempt | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967): checks `rent.is_exempt(lamports, data_len)` | `ExecutableAccountNotRentExempt` |
+| Only the owner can set the flag | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): checks `is_owned_by_current_program()` | `ExecutableModified` |
+| Account must be writable | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): checks `is_writable()` | `ExecutableModified` |
+
+### Account borrow rules
+
+During instruction execution, the runtime enforces single-writer borrow
+semantics on accounts. A program can obtain either one mutable reference or
+multiple immutable references to an account, but not both simultaneously. If a
+program attempts to borrow an account that is already mutably borrowed (or
+mutably borrow an account that is already immutably borrowed), the instruction
+fails with `AccountBorrowFailed`. Similarly, if an instruction completes while
+a borrow is still outstanding, the runtime returns `AccountBorrowOutstanding`.
+These are common errors developers encounter when passing the same account
+to multiple arguments of a single instruction.
+
+## Account loading
+
+Before a transaction executes, the runtime loads all referenced accounts via
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+This process performs several validations:
+
+1. **Fee payer validation**: The fee payer (first account) must exist, be a system account or nonce account, and have enough lamports to cover fees while remaining rent-exempt
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   If the payer is neither a system account nor a nonce account, the transaction fails with `TransactionError::InvalidAccountForFee`.
+
+2. **Loaded data size limit**: The total size of all loaded accounts (including a
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   of 64 bytes per account) must not exceed
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 MiB). Exceeding this limit produces `TransactionError::MaxLoadedAccountsDataSizeExceeded`.
+
+3. **Program account validation**: Every program invoked by an instruction must exist and be owned
+   by one of the valid
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/account/src/lib.rs#L509)
+   (the native loader or one of the BPF loaders). If the program account does not exist, the
+   transaction fails with `TransactionError::ProgramAccountNotFound`. If it exists but has an
+   invalid owner, the transaction fails with `TransactionError::InvalidProgramForExecution`.
+
+4. **Rent epoch update**: Rent-exempt accounts that do not yet have `rent_epoch` set to `u64::MAX`
+   are updated during loading
+   ([`update_rent_exempt_status_for_account()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L351-L362)).
+
+5. **Non-existent accounts**: Accounts that do not exist on-chain are loaded as default accounts
+   (0 lamports, empty data, owned by system program) with `rent_epoch` set to `u64::MAX`.
+
+## BPF serialization format
+
+When a program is invoked, the runtime serializes accounts into a contiguous
+memory buffer and passes it to the BPF VM. The serialization format (for the
+standard aligned format used by all loaders except the deprecated loader-v1) is
+defined in
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+The buffer begins with a `u64` (8 bytes, little-endian) containing the number
+of accounts
+([serialization.rs line 531](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L531)).
+Then, for each account in the instruction, the buffer contains:
+
+| Offset | Size | Field | Type |
+|---|---|---|---|
+| 0 | 1 | duplicate marker | `u8` (`0xFF` = unique, index = duplicate of that account) |
+| 1 | 1 | is_signer | `u8` (0 or 1) |
+| 2 | 1 | is_writable | `u8` (0 or 1) |
+| 3 | 1 | executable | `u8` (0 or 1) |
+| 4 | 4 | original_data_len (reserved, always 0) | `[0u8; 4]` |
+| 8 | 32 | key | `Pubkey` |
+| 40 | 32 | owner | `Pubkey` |
+| 72 | 8 | lamports | `u64` (little-endian) |
+| 80 | 8 | data_len | `u64` (little-endian) |
+| 88 | data_len | data | `[u8]` |
+| 88 + data_len | 10240 + padding | realloc space + alignment | Zero-filled to `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + padding to align to `BPF_ALIGN_OF_U128` (8 bytes) |
+| ... | 8 | rent_epoch | `u64` (little-endian) |
+
+After all accounts, the buffer appends:
+
+| Size | Field |
+|---|---|
+| 8 | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data |
+| 32 | program_id (`Pubkey`) |
+
+For duplicate accounts, only 1 byte (the duplicate marker with the index of
+the original) plus 7 bytes of padding are written.
+
+After the program executes, the runtime deserializes the buffer back
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+and applies any changes to `lamports`, `data` (including length changes up to
+`MAX_PERMITTED_DATA_INCREASE`), and `owner`.
+
+## Common pitfalls
+
+- Only the account's owner program can modify its `data` or deduct lamports. Attempting to write from a non-owner program fails at runtime.
+- Closing an account requires transferring all lamports out. If lamports remain, the account persists.
+- Account data can only grow by 10 KiB per instruction ([`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/account-info/src/lib.rs#L17)). Larger allocations require multiple instructions or `realloc`.
+- The `rent_epoch` field is deprecated. All accounts must be rent-exempt (hold >= minimum balance). The runtime rejects transactions that would leave an account below the minimum.
+- Any program can credit lamports to any **writable** account, but only the owner can debit them.
+- Changing an account's owner requires zero-initialized data. Reassigning a non-empty account fails with `ModifiedProgramId`.
+- The total data growth across all accounts in a single transaction cannot exceed 20 MiB ([`MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L38)).
+- The total loaded account data per transaction is capped at 64 MiB ([`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)). This includes all accounts referenced in the transaction plus implicitly loaded program data accounts.

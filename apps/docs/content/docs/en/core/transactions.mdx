@@ -1,21 +1,49 @@
 ---
 title: Transactions
 description:
-  Learn about Solana transactions—the fundamental building blocks for
-  interacting with the Solana blockchain. Understand transaction structure and
-  instruction composition with practical examples.
+  Learn about Solana transactions - the atomic unit of interaction with the
+  Solana network. Understand transaction structure, message components,
+  signatures, versioned transactions, and durable nonces.
 ---
 
-To interact with the Solana network, you must send a transaction. You can think
-of a transaction as an envelope that holds several forms. Each form is an
-instruction that tells the network what to do. Sending the transaction is like
-mailing the envelope so the forms can be processed.
+A transaction is the fundamental unit of state change on Solana. Each
+transaction bundles one or more [instructions](/docs/core/instructions) together
+with cryptographic signatures and a recent blockhash, then submits them to the
+network as a single atomic operation. If any instruction fails, all state
+changes in the transaction revert.
 
-The example below shows a simplified version of two transactions. When the first
-transaction is processed, it will execute a single instruction. When the second
-transaction is processed, it will execute three instructions **in sequential
-order**: first instruction 1, followed by instruction 2, followed by
-instruction 3.
+Properties:
+
+- **Atomic execution**: all instructions succeed or all revert. Fees are still
+  charged on failure.
+- **Size limit**: 1,232 bytes maximum, derived from the IPv6 minimum MTU
+  (1,280 bytes) minus 48 bytes for network headers (40 IPv6 + 8 UDP/fragment).
+- **Signatures**: each signer provides one 64-byte Ed25519 signature.
+- **Blockhash expiry**: a transaction's recent blockhash is valid for
+  approximately 150 blocks (~60 seconds at 400ms block time).
+
+| Constraint | Value | Source |
+|---|---|---|
+| Max transaction size | 1,232 bytes | [`PACKET_DATA_SIZE`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/packet/src/lib.rs#L32) |
+| Max accounts per transaction | 256 | [`MAX_ACCOUNTS_PER_TRANSACTION`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L29) |
+| Blockhash expiry | 150 blocks (~60s) | [`MAX_PROCESSING_AGE`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/clock/src/lib.rs#L99) |
+| Signature size | 64 bytes (Ed25519) | -- |
+| Base fee per signature | 5,000 lamports | [Fees](/docs/core/fees#base-fee) |
+| Max loaded accounts data / tx | 64 MiB | [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53) |
+| Max signatures per packet | 12 | [`MAX_SIGNATURES_PER_PACKET`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-view/src/signature_frame.rs#L18) |
+| BlockhashQueue size | 300 entries | [`MAX_RECENT_BLOCKHASHES`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/clock/src/lib.rs#L93). The queue holds 300 entries but only the 150 most recent (`MAX_PROCESSING_AGE`) are accepted for transactions. |
+| ALT loaded size overhead | 8,248 bytes per ALT | [`ADDRESS_LOOKUP_TABLE_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L49) |
+| MessageHeader size | 3 bytes | fixed: 3 x u8 |
+| Max instruction trace length | 64 | [`MAX_INSTRUCTION_TRACE_LENGTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L41) |
+| Max instruction data (CPI) | 10 KiB | [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33) |
+| Account base overhead | 64 bytes per account | [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45) |
+
+Depends on: [Instructions](/docs/core/instructions) (instruction array), [Accounts](/docs/core/accounts) (account keys). Used by: [Fees](/docs/core/fees) (fee calculation).
+
+The diagram below shows a simplified view of two transactions. The first
+transaction contains a single instruction. The second transaction contains three
+instructions executed **in sequential order**: instruction 1, then instruction 2,
+then instruction 3.
 
 <Callout type="warn">
   Transactions are **atomic**: If a single instruction fails, the entire
@@ -24,9 +52,11 @@ instruction 3.
 
 ![A simplified diagram showing two transactions](/assets/docs/core/transactions/transaction-simple.svg)
 
+## Transaction structure
+
 A
-[`Transaction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
-consists of the following information:
+[`Transaction`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/transaction/src/lib.rs#L177)
+has two top-level fields:
 
 <WithMentions>
 
@@ -51,42 +81,68 @@ pub struct Transaction {
 
 ![Diagram showing the two parts of a transaction](/assets/docs/core/transactions/tx_format.png)
 
-Transactions have a total size limit of
-[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
-bytes. This limit includes both the [`signatures`](#signatures) array and the
+The total serialized size of a transaction must not exceed
+[`PACKET_DATA_SIZE`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/packet/src/lib.rs#L32)
+(1,232 bytes). This limit equals 1,280 bytes (the IPv6 minimum MTU) minus 48
+bytes for network headers (40 bytes IPv6 + 8 bytes fragment/UDP). The 1,232
+bytes include both the [`signatures`](#signatures) array and the
 [`message`](#message) struct.
 
 <Callout>
   This limit is designed to avoid packet fragmentation on typical internet
   infrastructure. While IPv6 supports MTUs larger than 9000 bytes, most internet
-  routers use a default MTU of 1500 bytes (standard Ethernet). To ensure
-  transactions fit within a single packet without fragmentation, Solana uses
-  1280 bytes (the minimum MTU required for IPv6) minus 48 bytes for network
-  headers (40 bytes IPv6 + 8 bytes fragment/UDP header), resulting in the 1232
-  byte transaction size limit.
+  routers use a default MTU of 1500 bytes (standard Ethernet). Solana uses the
+  IPv6 minimum MTU to ensure transactions fit within a single packet without
+  fragmentation.
 </Callout>
 
 ![Diagram showing the transaction format and size limits](/assets/docs/core/transactions/issues_with_legacy_txs.png)
 
 ## Signatures
 
-The transaction's `signatures` array contains `Signature` structs. Each
-[`Signature`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
-is 64 bytes and is created by signing the transaction's `Message` with the
-account's private key. A signature must be provided for each
-[signer account](#account-addresses) included on any of the transaction's
-instructions.
+The `signatures` field is a compact-encoded array of
+[`Signature`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/signature/src/lib.rs#L41)
+values. Each `Signature` is 64 bytes, produced by Ed25519-signing the
+serialized `Message` with a signer account's private key. One signature is
+required for every [signer account](#account-addresses) referenced by the
+transaction's instructions.
 
-The first signature belongs to the account that will pay the transaction's
-[base fee](/docs/core/fees#base-fee) and is the transaction signature. The
-transaction signature can be used to look up the transaction's details on the
-network.
+The first signature in the array belongs to the **fee payer** -- the account
+that pays the transaction's [base fee](/docs/core/fees#base-fee). This first
+signature also serves as the **transaction ID**, used to look up the
+transaction on the network.
+
+Fee payer requirements:
+
+- Must be the first account in the message (index 0) and a signer.
+- Must be a System Program-owned account or a nonce account (validated by
+  [`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+- Must hold enough lamports to cover `rent_exempt_minimum + total_fee`;
+  otherwise the transaction fails with `InsufficientFundsForFee`.
+
+### Signature verification
+
+During sigverify, the validator reads the raw transaction bytes and verifies
+each Ed25519 signature against the corresponding signer public key and the
+message bytes. Verification is parallelized across CPU cores (or offloaded to
+GPU when available). Each signature in the `signatures` array at offset `i` is
+verified against the public key at index `i` in the `account_keys` array, over
+the serialized message bytes (everything after the signatures array). See
+[`verify_packet`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L112-L152).
+
+The maximum number of signatures in a valid transaction is 12. This derives
+from the packet size: each signature requires a paired 32-byte public key, so
+`1232 / (64 + 32) = 12`. The validator enforces this via
+[`MAX_SIGNATURES_PER_PACKET`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-view/src/signature_frame.rs#L18).
+Note that 12 is a theoretical upper bound for packet parsing; a transaction
+with 12 signatures would leave only ~80 bytes for the message body (header,
+blockhash, and instructions), which is insufficient for most practical use.
 
 ## Message
 
-The transaction's `message` is a
-[`Message`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)
-struct that contains the following information:
+The `message` field is a
+[`Message`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/message/src/legacy.rs#L70)
+struct containing the transaction's payload:
 
 <WithMentions>
 
@@ -134,16 +190,17 @@ pub struct Message {
 
 <WithMentions>
 
-The message's `header` is a
-[`MessageHeader`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
-struct. It contains the following information:
+The `header` field is a
+[`MessageHeader`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/message/src/lib.rs#L122)
+struct with three `u8` fields that partition the `account_keys` array into
+permission groups:
 
-- [`num_required_signatures`](mention:num_required_signatures): The total number
-  of signatures required by the transaction
-- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): The
-  total number of read-only accounts that require signatures
+- [`num_required_signatures`](mention:num_required_signatures): Total number of
+  signatures required by the transaction.
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): Number
+  of signed accounts that are read-only.
 - [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts):
-  The total number of read-only accounts that don't require signatures
+  Number of unsigned accounts that are read-only.
 
 ```rust title="MessageHeader"
 pub struct MessageHeader {
@@ -171,34 +228,54 @@ pub struct MessageHeader {
 
 ### Account addresses
 
-The message's
-[`account_keys`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
-is an array of account addresses, sent in
-[compact array format](/docs/references/terminology#compact-array-format). The
-array's prefix indicates its length. Each item in the array is a public key,
-pointing to an account used by its instructions. The `accounts_keys` array must
-be complete, and strictly ordered, as follows:
+The
+[`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/message/src/legacy.rs#L78)
+field is a compact-encoded array of public keys. Each entry identifies an
+account used by at least one of the transaction's instructions. The array must
+include every account and must follow this strict ordering:
 
 1. Signer + Writable
 2. Signer + Read-only
-3. Not signer + Writable
-4. Not signer + Read-only
+3. Non-signer + Writable
+4. Non-signer + Read-only
 
 <Callout>
-  Strict ordering allows the `account_keys` array to be combined with the
-  information in the message's [`header`](#header) to determine the permissions
-  for each account.
+  This strict ordering allows the `account_keys` array to be combined with the
+  three counts in the message's [`header`](#header) to determine the permissions
+  for each account--without storing per-account metadata flags. The header
+  counts partition the array into the four permission groups listed above.
 </Callout>
 
 ![Diagram showing the order of the account addresses array](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
 ### Recent blockhash
 
-The message's `recent_blockhash` is a hash value that acts as a transaction
-timestamp and prevents duplicate transactions. A blockhash expires after
-[150 blocks](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134).
-(Equivalent to one minute—assuming each block is 400ms.) After the block
-expires, the transaction is expired and cannot be processed.
+The `recent_blockhash` field is a 32-byte hash that serves two purposes:
+
+1. **Timestamp**: proves the transaction was created recently.
+2. **Deduplication**: prevents the same transaction from being processed twice.
+
+The validator maintains a
+[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33-L44)
+-- a HashMap of recent blockhashes indexed by a monotonically increasing
+`hash_index`. Each new slot, the bank registers the slot's blockhash with
+`register_hash()`. The queue retains up to
+[`MAX_RECENT_BLOCKHASHES`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/clock/src/lib.rs#L93)
+(300) entries; older entries are pruned when the queue exceeds this limit.
+
+When a transaction arrives, the validator calls
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180),
+which checks the `BlockhashQueue` for the transaction's `recent_blockhash`. The
+effective acceptance window is `MAX_PROCESSING_AGE` (150 slots), which at 400ms
+per slot equals approximately 60 seconds. If the blockhash is not found in the
+queue within this age, the transaction is rejected with `BlockhashNotFound` --
+unless it is a valid [durable nonce transaction](#durable-nonces).
+
+After a transaction is successfully processed, its message hash (not blockhash)
+is recorded in the
+[status cache](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L213-L237).
+If the same transaction is submitted again while its blockhash is still valid,
+the validator rejects it with `AlreadyProcessed`.
 
 <Callout>
   The [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC method
@@ -208,25 +285,21 @@ expires, the transaction is expired and cannot be processed.
 
 ### Instructions
 
-The message's
-[`instructions`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
-is an array of all the instructions to be processed, sent in
-[compact array format](/docs/references/terminology#compact-array-format). The
-array's prefix indicates its length. Each item in the array is a
-[`CompiledInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
-struct and includes the following information:
+The
+[`instructions`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/message/src/legacy.rs#L87)
+field is a compact-encoded array of
+[`CompiledInstruction`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/message/src/compiled_instruction.rs#L23)
+structs. Each `CompiledInstruction` references accounts by index into the
+`account_keys` array rather than by full public key. It contains:
 
 <WithMentions>
 
-1. [`program_id_index`](mention:program-id-index): An index pointing to an
-   address in the [`account_keys`](#account-addresses) array. This value
-   indicates the address of the program that processes the instruction.
-2. [`accounts`](mention:account-indexes): An array of indices pointing to
-   addresses in the `account_keys` array. Each index points to the address of an
-   account required for this instruction.
-3. [`data`](mention:instruction-data): A byte array specifying which instruction
-   to invoke on the program. It also includes any additional data required by
-   the instruction. (For example, function arguments)
+1. [`program_id_index`](mention:program-id-index): Index into
+   [`account_keys`](#account-addresses) identifying the program to invoke.
+2. [`accounts`](mention:account-indexes): Array of indices into `account_keys`
+   specifying the accounts to pass to the program.
+3. [`data`](mention:instruction-data): Byte array containing the instruction
+   discriminator and serialized arguments.
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -247,6 +320,240 @@ pub struct CompiledInstruction {
 </WithMentions>
 
 ![Compact array of Instructions](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+## Transaction binary format
+
+Transactions are serialized using a compact encoding scheme. All variable-length
+arrays (signatures, account keys, instructions) are prefixed with a
+[compact-u16](https://solana.com/docs/core/instruction#compact-u16-format)
+length encoding. This format uses 1 byte for values 0-127 and 2-3 bytes for
+larger values.
+
+**Legacy transaction layout** (on the wire):
+
+| Field | Size | Description |
+|---|---|---|
+| `num_signatures` | 1-3 bytes (compact-u16) | Number of signatures |
+| `signatures` | `num_signatures` x 64 bytes | Ed25519 signatures |
+| `num_required_signatures` | 1 byte | `MessageHeader` field 1 |
+| `num_readonly_signed` | 1 byte | `MessageHeader` field 2 |
+| `num_readonly_unsigned` | 1 byte | `MessageHeader` field 3 |
+| `num_account_keys` | 1-3 bytes (compact-u16) | Number of static account keys |
+| `account_keys` | `num_account_keys` x 32 bytes | Public keys |
+| `recent_blockhash` | 32 bytes | Blockhash |
+| `num_instructions` | 1-3 bytes (compact-u16) | Number of instructions |
+| `instructions` | variable | Array of [compiled instructions](#instructions) |
+
+Each compiled instruction is serialized as:
+
+| Field | Size | Description |
+|---|---|---|
+| `program_id_index` | 1 byte | Index into account keys |
+| `num_accounts` | 1-3 bytes (compact-u16) | Number of account indices |
+| `account_indices` | `num_accounts` x 1 byte | Account key indices |
+| `data_len` | 1-3 bytes (compact-u16) | Length of instruction data |
+| `data` | `data_len` bytes | Opaque instruction data |
+
+### Size budget
+
+Given `PACKET_DATA_SIZE` = 1,232 bytes, the available space can be calculated:
+
+```
+Total = 1232 bytes
+ - compact-u16(num_sigs)          # 1 byte (for <= 127 signatures)
+ - num_sigs * 64                  # signature bytes
+ - 3                              # message header
+ - compact-u16(num_keys)          # 1 byte
+ - num_keys * 32                  # account key bytes
+ - 32                             # recent blockhash
+ - compact-u16(num_ixs)           # 1 byte
+ - sum(instruction_sizes)         # per-instruction overhead + data
+```
+
+For a single-signer transaction with 3 accounts and 1 instruction with 12
+bytes of data:
+
+```
+1 (sig count) + 64 (signature)
++ 3 (header) + 1 (key count) + 96 (3 keys) + 32 (blockhash)
++ 1 (ix count) + 1 (program_id_index) + 1 (account count) + 2 (account indices)
++ 1 (data length) + 12 (data)
+= 215 bytes  (1017 bytes remaining)
+```
+
+## Transaction processing pipeline
+
+When a transaction arrives at a validator, it passes through a series of
+validation and execution stages. The following describes the full pipeline from
+receipt to commit, with source file references into the
+[agave](https://github.com/anza-xyz/agave/tree/v3.1.8) validator client.
+
+### 1. Receive and deserialize
+
+The validator receives transaction bytes over UDP/QUIC. The raw bytes must fit
+within a single packet (`PACKET_DATA_SIZE` = 1,232 bytes). The bytes are
+deserialized into a `VersionedTransaction`, which contains the signatures array
+and a `VersionedMessage` (either legacy or v0).
+
+### 2. Signature verification (sigverify)
+
+Signatures are verified in the
+[sigverify stage](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs)
+before the transaction enters the banking stage. For each signature at
+index `i`, the verifier checks Ed25519(`signatures[i]`, `account_keys[i]`,
+`message_bytes`). If any signature is invalid, the packet is discarded.
+
+Verification is parallelized: the validator splits packet batches into chunks
+of
+[`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)
+(128) and processes them in parallel using Rayon. When GPU perf-libs are
+available, verification is offloaded to the GPU.
+
+### 3. Sanitize
+
+The deserialized transaction is sanitized to produce a `SanitizedTransaction`
+(or
+[`RuntimeTransaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/runtime_transaction.rs#L31)).
+Sanitization validates structural invariants:
+
+- Number of signatures matches `num_required_signatures` in the header
+- All instruction `program_id_index` and `account_indices` are within bounds
+- No duplicate account keys in the static keys list
+- The fee payer (account index 0) is a writable signer
+
+The `RuntimeTransaction` wrapper caches precomputed metadata from
+[`TransactionMeta`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/transaction_meta.rs#L38-L44):
+the message hash, vote transaction flag, precompile signature counts
+(Ed25519/secp256k1/secp256r1), compute budget instruction details, and total
+instruction data length.
+
+### 4. Check compute budget, age, and status cache
+
+The
+[`check_transactions`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L55-L69)
+method performs several checks per transaction:
+
+**Compute budget**: The transaction's compute budget instructions are parsed
+and validated first. Fee details are calculated from the budget limits and
+prioritization fee. If the compute budget is invalid or conflicting, the
+transaction fails with `InvalidComputeBudget`.
+
+**Blockhash age**: The transaction's `recent_blockhash` is looked up in the
+[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
+If the hash is found and its age is within `MAX_PROCESSING_AGE` (150 slots),
+the transaction proceeds. If not found, the validator checks for a valid
+[durable nonce](#durable-nonces).
+
+**Status cache**: The transaction's message hash is checked against a status
+cache. If found, the transaction is rejected with `AlreadyProcessed`.
+
+### 5. Validate nonce and fee payer
+
+The
+[`validate_transaction_nonce_and_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L580-L620)
+method in the SVM handles two validations:
+
+**Nonce validation** (if applicable): For nonce transactions, the validator
+loads the nonce account and verifies:
+- The account is owned by the System Program
+- It parses as `State::Initialized`
+- The stored durable nonce matches the transaction's `recent_blockhash`
+- The nonce can be advanced (its current durable nonce differs from the
+  next durable nonce, i.e., the nonce has not already been used in the
+  current block)
+- The nonce authority has signed the transaction
+
+If valid, the nonce is advanced to the next durable nonce value. See
+[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729).
+
+**Fee payer validation**: The fee payer account (always index 0) is loaded
+and checked by
+[`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417):
+
+- Account must exist (lamports > 0), otherwise `AccountNotFound`
+- Account must be a system account or nonce account, otherwise
+  `InvalidAccountForFee`
+- Lamports must cover `min_balance + total_fee`, where `min_balance` is 0 for
+  system accounts or `rent.minimum_balance(NonceState::size())` for nonce
+  accounts; otherwise `InsufficientFundsForFee`
+- After fee deduction, the account must remain rent-exempt (cannot transition
+  from rent-exempt to rent-paying)
+
+The fee is deducted from the fee payer at this stage. A snapshot of the
+fee-subtracted fee payer (and advanced nonce, if applicable) is saved as
+`RollbackAccounts` -- these are the accounts that get committed even if
+execution fails.
+
+### 6. Load accounts
+
+[`load_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L419-L455)
+loads all accounts referenced by the transaction. The
+[`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)
+wraps the external account store and maintains a batch-local cache so that
+accounts modified by earlier transactions in the same batch are visible to
+later ones (SIMD-83 ordering).
+
+For each non-fee-payer account, the loader:
+
+1. Fetches the account from the cache or accounts-db
+2. Updates rent-exempt status if needed
+3. Accumulates the account's data size toward the
+   [`loaded_accounts_data_size_limit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (default 64 MiB). Each account incurs a base overhead of
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   (64 bytes) plus its data length
+
+For each program invoked by the transaction's instructions, the loader
+verifies that the program account exists and is owned by a valid loader
+(`NativeLoader` or one of the `PROGRAM_OWNERS`). Invalid programs fail with
+`ProgramAccountNotFound` or `InvalidProgramForExecution`.
+
+LoaderV3 (upgradeable) programs implicitly load their associated programdata
+account, which also counts toward the loaded data size limit.
+
+If account loading fails but the fee payer was successfully validated, the
+transaction becomes a
+[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)
+result: the fee is still collected but no instructions execute.
+
+### 7. Execute instructions
+
+[`execute_loaded_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L847)
+creates a `TransactionContext` with all loaded accounts and invokes
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs).
+Instructions execute sequentially in the order they appear in the message.
+Each instruction invocation creates an `InvokeContext` and calls the target
+program.
+
+After execution, the runtime verifies that:
+- The sum of lamports across all accounts has not changed
+- No account transitioned from rent-exempt to rent-paying
+
+### 8. Commit or rollback
+
+If execution succeeds, the modified account states from the
+`TransactionContext` are written back to the `AccountLoader`'s batch-local
+cache. If execution fails, only the `RollbackAccounts` (fee payer with fee
+deducted and advanced nonce) are written back -- the fee is still collected,
+but all other account changes are discarded.
+
+### Pipeline summary
+
+```
+Receive packet (UDP/QUIC)
+  --> Deserialize into VersionedTransaction
+  --> Sigverify (parallel Ed25519 verification)
+  --> Sanitize (structural validation, metadata extraction)
+  --> Parse compute budget, calculate fees
+  --> Check blockhash age / nonce validity
+  --> Check status cache (dedup)
+  --> Validate fee payer (load, check balance, deduct fee)
+  --> Load all accounts (with data size limits)
+  --> Load programs (verify loaders)
+  --> Execute instructions sequentially
+  --> Verify post-conditions (lamport balance, rent state)
+  --> Commit account changes (or rollback on failure)
+```
 
 ## Example transaction structure
 
@@ -495,9 +802,90 @@ but notice that each instruction contains the same required information.
 </CodeTabs>
 </WithMentions>
 
-After a transaction is submitted, you can retrieve its details using the
-transaction signature and the [getTransaction](/docs/rpc/http/gettransaction)
-RPC method. The response will have a structure similar to the following snippet.
+## Versioned transactions
+
+Solana supports two transaction formats: **legacy** and **versioned** (v0).
+
+Legacy messages have a first byte equal to `num_required_signatures` (range
+0x00-0x7F). Versioned messages set the high bit using
+[`MESSAGE_VERSION_PREFIX`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/message/src/versions/mod.rs#L39)
+(`0x80`), so a v0 message begins with byte `0x80`.
+
+The validator determines the version by inspecting the first byte of the
+message. This happens in the
+[`MessageHeaderFrame`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-view/src/message_header_frame.rs#L12-L26)
+parser:
+
+- If `first_byte & 0x80 != 0`: versioned message. The version is
+  `first_byte & 0x7F` (currently only version 0 is supported). The next 3
+  bytes are the `MessageHeader`.
+- If `first_byte & 0x80 == 0`: legacy message. The first byte *is*
+  `num_required_signatures`, and the next 2 bytes complete the header.
+
+### V0 message format
+
+A v0 message has the same fields as a legacy message, plus an additional
+`address_table_lookups` array appended after the instructions:
+
+| Field | Size | Description |
+|---|---|---|
+| `0x80` | 1 byte | Version prefix byte |
+| `header` | 3 bytes | MessageHeader (same as legacy) |
+| `static_account_keys` | compact-u16 + N x 32 bytes | Keys that appear literally in the transaction |
+| `recent_blockhash` | 32 bytes | Blockhash |
+| `instructions` | compact-u16 + variable | Same format as legacy |
+| `address_table_lookups` | compact-u16 + variable | ALT references (see below) |
+
+Each address table lookup entry contains:
+
+| Field | Size | Description |
+|---|---|---|
+| `account_key` | 32 bytes | The ALT account's public key |
+| `writable_indexes` | compact-u16 + N x 1 byte | Indices into the ALT for writable accounts |
+| `readonly_indexes` | compact-u16 + N x 1 byte | Indices into the ALT for read-only accounts |
+
+### Address lookup table resolution
+
+An ALT is an on-chain account that stores up to 256 public keys. By
+referencing an ALT, a transaction can include additional accounts using 1-byte
+indices instead of 32-byte public keys, significantly reducing per-account
+overhead.
+
+At runtime, before execution begins, the validator resolves all ALT references
+into full public keys. The resolved addresses are appended to the static
+account keys to form the complete account keys list. ALT-resolved accounts
+follow the same ordering as static accounts: writable lookups come before
+read-only lookups.
+
+Each resolved ALT adds
+[`ADDRESS_LOOKUP_TABLE_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L49)
+(8,248 bytes) toward the
+[`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+(64 MiB) limit, even if only one address is looked up from it. This overhead
+covers the maximum table size (8,192 bytes) plus 56 bytes for account metadata.
+
+<Callout>
+  Address lookup tables only affect how accounts are referenced in the on-wire
+  transaction. At execution time, the runtime resolves all indices to full
+  account addresses. ALT-resolved accounts can only be writable or read-only
+  (non-signer); they cannot be signers.
+</Callout>
+
+### Version comparison
+
+| Feature | Legacy | V0 |
+|---|---|---|
+| Message prefix byte | `num_required_signatures` (0x00-0x7F) | `0x80` (version prefix) |
+| Address lookup tables | Not supported | Supported |
+| Max static account keys | 256 | 256 |
+| Additional ALT-resolved accounts | 0 | Up to 256 per ALT |
+| Total account limit | 256 (`MAX_ACCOUNTS_PER_TRANSACTION`) | 256 (static + ALT-resolved combined) |
+| Transaction size savings | -- | 31 bytes per ALT-resolved account |
+
+## Transaction details from network
+
+After submission, retrieve transaction details using the transaction signature
+and the [getTransaction](/docs/rpc/http/gettransaction) RPC method.
 
 <Callout>
   You can also find the transaction using [Solana
@@ -560,3 +948,97 @@ RPC method. The response will have a structure similar to the following snippet.
   "version": "legacy"
 }
 ```
+
+## Durable nonces
+
+A durable nonce transaction replaces the recent blockhash with a stored nonce
+value, removing the ~60-second expiry window. This enables offline signing and
+delayed submission.
+
+### How nonce transactions work
+
+A nonce account is a System Program-owned account that stores a
+`State::Initialized` value containing three fields: an **authority** pubkey
+(who can advance the nonce), a **durable nonce** value (a hash derived from a
+recent blockhash), and **lamports per signature** (the fee rate when the nonce
+was last advanced).
+
+To use a durable nonce:
+
+1. Create and initialize a nonce account using `CreateAccount` +
+   `InitializeNonceAccount`
+2. Build the transaction with `AdvanceNonceAccount` as the **first
+   instruction** and the nonce value as the `recent_blockhash`
+3. Sign the transaction (can be done offline, since the nonce does not expire)
+4. Submit when ready
+
+### Nonce detection
+
+The runtime detects nonce transactions by checking whether the first
+instruction (index
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0) is a call to the System Program with the `AdvanceNonceAccount`
+instruction discriminator (`4u32` in little-endian). The nonce account must
+be the first account of that instruction and must be writable. See
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
+
+### Nonce validation flow
+
+When a transaction's `recent_blockhash` is not found in the `BlockhashQueue`,
+the validator checks if it is a valid nonce transaction via
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180):
+
+1. The nonce's stored `durable_nonce` must differ from the next durable nonce
+   (derived from the current blockhash) -- this ensures the nonce has not
+   already been used in this block
+2. The nonce account must be loaded and must parse as `State::Initialized`
+3. The stored `durable_nonce` must match the transaction's `recent_blockhash`
+4. The nonce authority must have signed the `AdvanceNonceAccount` instruction
+
+If all checks pass, the nonce is advanced to the next durable nonce value
+before execution begins. On execution failure, the advanced nonce and the
+fee-deducted fee payer are still committed (preventing replay while collecting
+fees).
+
+### Nonce failure behavior
+
+If a nonce transaction **fails validation** (nonce already used, authority not
+signed, account not found), the entire transaction is dropped -- no fees
+collected, no state changes.
+
+If a nonce transaction **passes validation but execution fails** (an
+instruction returns an error), the nonce is still advanced and fees are still
+collected. This prevents the transaction from being replayed while ensuring the
+validator is compensated.
+
+## Validation failure reference
+
+The following table lists common validation errors and at which stage they
+occur:
+
+| Error | Stage | Cause |
+|---|---|---|
+| `InvalidSignature` | Sigverify | Ed25519 signature does not verify |
+| `BlockhashNotFound` | Age check | Blockhash not in queue and not a valid nonce |
+| `AlreadyProcessed` | Status cache | Transaction was already processed |
+| `AccountNotFound` | Fee payer validation | Fee payer account does not exist |
+| `InvalidAccountForFee` | Fee payer validation | Fee payer is not a system or nonce account |
+| `InsufficientFundsForFee` | Fee payer validation | Fee payer cannot cover fee + rent-exempt minimum |
+| `ProgramAccountNotFound` | Account loading | An invoked program does not exist |
+| `InvalidProgramForExecution` | Account loading | Program is not owned by a valid loader |
+| `MaxLoadedAccountsDataSizeExceeded` | Account loading | Total loaded data exceeds 64 MiB limit |
+| `InvalidComputeBudget` | Compute budget parsing | Invalid or conflicting compute budget instructions |
+| `InvalidRentPayingAccount` | Post-execution check | Account transitioned from rent-exempt to rent-paying |
+| `InsufficientFundsForRent` | Post-execution check | Account does not have enough lamports to cover rent for its data size |
+
+## Common pitfalls
+
+- Transactions exceeding 1,232 bytes fail before reaching the validator. Address Lookup Tables (ALTs) in versioned transactions reduce size by replacing 32-byte addresses with 1-byte indices.
+- A stale blockhash (older than 150 blocks) causes the transaction to be rejected. Always fetch a fresh blockhash close to submission time.
+- The fee payer must be the first account in the signers list and must be a System Program-owned account or a nonce account.
+- Transactions are atomic: if any instruction fails, all state changes revert, but fees are still charged.
+- The 256-account limit includes all accounts across all instructions, plus program IDs. Deduplication happens automatically.
+- Durable nonce transactions don't expire with blockhash age but require a nonce account and an `AdvanceNonceAccount` instruction as the first instruction.
+- Each address lookup table used in a v0 transaction costs 8,248 bytes toward the 64 MiB loaded accounts data limit, even if only one address is looked up.
+- The maximum number of signatures per valid transaction is 12 (derived from packet size: each signature requires a paired 32-byte pubkey, so 1232 / (64 + 32) = 12).
+- Program accounts referenced in instructions are implicitly loaded. LoaderV3 programs also implicitly load their program data account.

@@ -6,95 +6,244 @@ description:
   transactions.
 ---
 
-Every Solana transaction requires a transaction fee, paid in SOL. Transaction
-fees are split into two parts: the base fee and the prioritization fee. The base
-fee compensates validators for processing the transaction. The prioritization
-fee is an optional fee, to increase the chance that the current leader will
-process your transaction.
+Every Solana [transaction](/docs/core/transactions) requires a fee paid in SOL.
+The fee has two components: a **base fee** and an optional **prioritization
+fee**. The base fee compensates validators for the cryptographic work of
+verifying signatures. The prioritization fee increases the likelihood that the
+current leader schedules your transaction ahead of competing ones.
+
+Summary:
+
+- **Base fee**: 5,000 lamports per signature. Split 50% burned / 50% to the
+  validator.
+- **Prioritization fee**: `ceil(compute_unit_price * compute_unit_limit / 1,000,000)` lamports. 100% goes to the validator (not burned).
+- **Default CU limit per instruction**: 200,000 CUs. **Max per transaction**:
+  1,400,000 CUs.
+- **Default CU price**: 0 micro-lamports. Fees are charged whether the
+  transaction succeeds or fails.
+
+| Constraint                     | Value                | Source                                                                                                                                              |
+| ------------------------------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base fee per signature         | 5,000 lamports       | [`lamports_per_signature`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L64-L71)                                                   |
+| Default CU limit / instruction | 200,000              | [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)               |
+| Builtin instruction default CU | 3,000                | [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)            |
+| Max CU limit / transaction     | 1,400,000            | [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                               |
+| Micro-lamports per lamport     | 1,000,000            | [`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)                       |
+| Max block CUs                  | 60,000,000           | [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                                          |
+| Max writable account CUs/block | 12,000,000           | [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)                               |
+| Max vote CUs/block             | 36,000,000           | [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                                           |
+| Max loaded accounts data / tx  | 64 MiB               | [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)                   |
+| Max block accounts data growth | 100 MB               | [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43)                        |
+| Signature cost (scheduler)     | 720 CUs              | [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)                                           |
+| Write lock cost (scheduler)    | 300 CUs              | [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)                                         |
+| Instruction data cost          | 1 CU per 4 bytes (integer division) | [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22)                               |
+| Account data page size         | 32 KiB               | [`ACCOUNT_DATA_COST_PAGE_SIZE`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/fee-structure/src/lib.rs#L74)                                          |
+| Heap cost per 32 KiB page      | 8 CUs                | [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                                     |
+
+Depends on: [Transactions](/docs/core/transactions) (fee payer, signatures).
+Used by: all transaction submission workflows.
+
+<Callout>
+  Accounts must also maintain a minimum lamport balance (the rent-exempt
+  balance) to keep their data on-chain. This is not a transaction fee--see the
+  [Accounts](/docs/core/accounts) page for details on the rent-exempt balance.
+</Callout>
+
+## Fee calculation algorithm
+
+The total fee for a transaction is computed by
+[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72):
+
+```text title="Total fee formula"
+total_fee = base_fee + prioritization_fee
+```
+
+The inputs are the transaction message, the current `lamports_per_signature`
+(currently 5,000), and the prioritization fee derived from compute budget
+instructions. The total fee is deducted from the fee payer before execution
+begins. If the transaction fails, the fee is still charged.
 
 ## Base fee
 
-Every transaction costs 5000 [lamports](/docs/references/terminology#lamport)
-per included signature. This fee is paid by the first signer on the transaction.
-Only accounts owned by the System Program can pay transaction fees. The base fee
-is split as follows:
+The base fee covers the cost of Ed25519 signature verification plus any
+precompile signature verifications. Every signature in the transaction is
+charged, including signatures verified by the Ed25519, Secp256k1, and
+Secp256r1 precompile programs.
 
-- **50% burned:** Half is
-  [burned](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/fee-calculator/src/lib.rs#L70)
-  (taken out of the circulating SOL supply).
-- **50% distributed:** Half is
-  [paid to the validator](https://github.com/anza-xyz/agave/blob/e621336acad4f5d6e5b860eaa1b074b01c99253c/runtime/src/bank/fee_distribution.rs#L58-L62)
-  that processed the transaction.
+The
+[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
+function computes:
+
+```text title="Base fee formula"
+signature_count = num_transaction_signatures
+                + num_ed25519_signatures
+                + num_secp256k1_signatures
+                + num_secp256r1_signatures   (if feature enabled)
+
+base_fee = signature_count * lamports_per_signature
+```
+
+- `num_transaction_signatures`: the number of Ed25519 signatures on the
+  transaction (typically one per signer).
+- `num_ed25519_signatures`, `num_secp256k1_signatures`,
+  `num_secp256r1_signatures`: signatures verified by the corresponding
+  precompile programs.
+- `lamports_per_signature`: currently
+  [5,000 lamports](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/fee-structure/src/lib.rs#L102).
+
+For a simple single-signer transaction with no precompile calls, the base fee
+is `1 * 5,000 = 5,000` lamports. A 2-of-3 multisig with 2 required signatures
+pays `2 * 5,000 = 10,000` lamports.
+
+### Fee distribution
+
+The base fee and prioritization fee are distributed differently. The
+[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
+function in the runtime computes:
+
+```text title="Fee distribution"
+burn_amount     = transaction_fee * 50 / 100
+validator_share = (transaction_fee - burn_amount) + priority_fee
+```
+
+- **Base fee (transaction_fee)**: 50% is
+  [burned](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
+  (removed from circulating supply) and 50% goes to the block-producing
+  validator. The burn percent is
+  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/fee-calculator/src/lib.rs#L72).
+- **Prioritization fee**: 100% goes to the validator (none is burned). This
+  follows
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md).
+
+The validator's total reward for a transaction is:
+
+```text
+validator_reward = (base_fee / 2) + prioritization_fee
+```
+
+If the fee deposit to the leader's account fails (e.g. account is not owned by
+the System Program, would become rent-paying, or would overflow), the deposit
+amount is
+[burned instead](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L130-L143).
 
 ## Prioritization fee
 
-A
-[prioritization fee](https://github.com/anza-xyz/agave/blob/v2.2.14/compute-budget/src/compute_budget_limits.rs#L47-L48)
-is an optional fee used to increase the chance that the current leader
-(validator) will process your transaction. The validator receives
-[100% of the priority fee](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md).
-Prioritization fees can be set by adjusting the transaction's
-[computation unit](/docs/references/terminology#compute-units) (CU) price and CU
-limit. (See the
+The prioritization fee is an optional fee that increases the scheduling priority
+of a transaction. The validator receives
+[100% of the priority fee](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md)
+(none is burned). A compute unit (CU) is a unit of computation that the runtime
+meters during transaction execution. Every operation (arithmetic, memory access,
+syscall) costs a fixed number of CUs. You can set the prioritization fee by
+including [compute budget instructions](/docs/references/terminology#compute-units)
+in your transaction. (See the
 [How to Use Priority Fees guide](/developers/guides/advanced/how-to-use-priority-fees)
-for more details on prioritization fees.)
+for details.)
 
-The prioritization fee is calculated as follows:
+### Prioritization fee formula
+
+The
+[`get_prioritization_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L61-L69)
+function computes:
 
 ```text title="Prioritization fee formula"
-Prioritization fee = CU limit * CU price
+micro_lamport_fee = compute_unit_price * compute_unit_limit
+prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
 ```
 
-The prioritization fee is used to determine your
-[transaction's priority](https://github.com/anza-xyz/agave/blob/v2.2.14/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L646),
-relative to other transactions. It is calculated using the following formula:
+Variables:
 
-```text title="Transaction priority formula"
-Priority = (Prioritization fee + Base fee) / (1 + CU limit + Signature CUs + Write lock CUs)
+- **CU price** (`compute_unit_price`): micro-lamports per CU (set via
+  `SetComputeUnitPrice`; default 0)
+- **CU limit** (`compute_unit_limit`): maximum CUs the transaction may consume
+  (set via `SetComputeUnitLimit`; default depends on instruction count)
+- **1,000,000**: conversion factor from micro-lamports to lamports
+  ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17))
+
+The implementation performs the computation in `u128` to avoid overflow. The
+ceiling division adds `MICRO_LAMPORTS_PER_LAMPORT - 1` before dividing. If the
+result overflows `u64`, it saturates to
+[`u64::MAX`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L67-L68).
+
+```rust title="Ceiling division implementation" {4-7}
+fn get_prioritization_fee(compute_unit_price: u64, compute_unit_limit: u64) -> u64 {
+    let micro_lamport_fee: u128 =
+        (compute_unit_price as u128).saturating_mul(compute_unit_limit as u128);
+    micro_lamport_fee
+        .saturating_add(999_999u128)   // ceil
+        .checked_div(1_000_000u128)
+        .and_then(|fee| u64::try_from(fee).ok())
+        .unwrap_or(u64::MAX)
+}
 ```
 
-#### Compute unit limit
+**Example calculation:**
 
-By
-[default](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget.rs#L149-L197),
-each instruction is allocated
-[200,000 CUs](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget_limits.rs#L10)
-and each transaction is allocated
-[1.4 million CUs](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget_limits.rs#L14).
-You can change these defaults by including a
-[`SetComputeUnitLimit`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/compute_budget.rs#L42-L44)
+- CU price = 1 micro-lamport, CU limit = 300,000
+- micro_lamport_fee = 1 \* 300,000 = 300,000
+- Priority fee = (300,000 + 999,999) / 1,000,000 = **1 lamport**
+- Total fee = base fee (5,000) + priority fee (1) = **5,001 lamports**
+
+### Compute unit limit
+
+Each instruction is allocated a
+[default of 200,000 CUs](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44),
+and each transaction is capped at
+[1,400,000 CUs](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39).
+When no explicit `SetComputeUnitLimit` instruction is present, the
+[default is calculated](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219)
+based on instruction type:
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **Builtin instructions** (System Program, Stake, Vote, etc. that have not
+  been migrated to SBF): each allocated
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3,000 CUs (per
+  [SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)).
+- **Non-builtin instructions** (user-deployed SBF programs): each allocated
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200,000 CUs.
+- **Migrating builtins** that have completed migration to SBF (feature-gated):
+  treated as non-builtin (200,000 CUs each).
+
+The result is clamped to `MAX_COMPUTE_UNIT_LIMIT` (1,400,000).
+
+You can override this default by including a
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/compute-budget-interface/src/lib.rs)
 instruction in your transaction.
 
-To calculate the appropriate CU limit for your transaction, we recommend the
-following steps:
+To determine the appropriate CU limit:
 
-1. Estimate the required CU units by
-   [simulating](/developers/guides/advanced/how-to-request-optimal-compute) the
-   transaction
-2. Add a 10% safety margin to this estimate
+1. [Simulate](/developers/guides/advanced/how-to-request-optimal-compute) the
+   transaction to measure CU consumption.
+2. Add a 10% safety margin to the simulated value.
 
 <Callout type="warn">
-  The priority fee is determined by the requested compute unit limit
+  The priority fee is determined by the requested compute unit limit on the
   transaction, *not* the actual number of compute units used. If you set a
-  compute unit limit that's too high or use the default amount, you may pay for
+  compute unit limit that is too high or use the default amount, you pay for
   unused compute units.
 </Callout>
 
-#### Compute unit price
+### Compute unit price
 
 The compute unit price is an optional amount of
 [micro-lamports](/docs/references/terminology#micro-lamports) paid for each
-requested CU. You can think of the CU price as a tip to encourage the validator
-to prioritize your transaction. To set the CU price, include a
-[`SetComputeUnitPrice`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/compute_budget.rs#L48-L50)
+requested CU. The CU price directly determines the prioritization fee. To set
+the CU price, include a
+[`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/compute-budget-interface/src/lib.rs)
 instruction in your transaction.
 
 <Callout>
   The default CU price is 0, meaning the default prioritization fee is also 0.
 </Callout>
 
-For help determining the best CU price for your transaction, see the real-time
-CU price recommendation provided listed in the table below.
+For real-time CU price estimates, see the priority fee API providers below.
 
 | Provider                                | Priority Fee API                                                                  |
 | --------------------------------------- | --------------------------------------------------------------------------------- |
@@ -102,7 +251,32 @@ CU price recommendation provided listed in the table below.
 | [QuickNode](https://www.quicknode.com/) | [Documentation](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
 | [Triton](https://triton.one/)           | [Documentation](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
 
-#### Example
+### Transaction scheduling priority
+
+The scheduler ranks transactions using the
+[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546)
+function:
+
+```text title="Transaction priority formula"
+Priority = reward * 1,000,000 / (cost + 1)
+```
+
+- **reward**: the validator's fee income = prioritization fee + non-burned
+  portion of the base fee. Computed by
+  [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83).
+- **cost**: the scheduler's
+  [estimated CU cost](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
+  (signature costs + write lock costs + instruction data costs + program
+  execution costs + loaded accounts data size cost). See
+  [Scheduler cost model](#scheduler-cost-model) below.
+- **1,000,000**: a multiplier to preserve precision, since cost often exceeds
+  reward in raw lamports.
+- **+1**: prevents division by zero.
+
+The priority determines the order in which transactions are dequeued from the
+scheduler's buffer for execution.
+
+### Example
 
 The examples below show how to set the CU limit and CU price on a transaction
 using Solana SDKs.
@@ -110,7 +284,7 @@ using Solana SDKs.
 | SDK                            | Source Code Reference                                                                                                          |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218) |
-| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/compute_budget.rs#L17-L31)                 |
+| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/compute-budget-interface/src/lib.rs) |
 
 <CodeTabs storage="compute-budget">
 
@@ -238,3 +412,197 @@ async fn main() -> anyhow::Result<()> {
 ```
 
 </CodeTabs>
+
+## Compute budget instructions
+
+The
+[Compute Budget Program](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`) accepts four instruction
+variants. Each instruction takes no accounts--only data.
+
+| Variant                           | Discriminator | Parameter          | Type  | Description                                                             |
+| --------------------------------- | ------------- | ------------------ | ----- | ----------------------------------------------------------------------- |
+| `RequestHeapFrame`                | `1`           | `bytes`            | `u32` | Requested heap size in bytes for each program in the transaction        |
+| `SetComputeUnitLimit`             | `2`           | `units`            | `u32` | Max CUs the transaction may consume                                     |
+| `SetComputeUnitPrice`             | `3`           | `micro_lamports`   | `u64` | CU price in micro-lamports                                              |
+| `SetLoadedAccountsDataSizeLimit`  | `4`           | `bytes`            | `u32` | Max total bytes of account data the transaction may load                |
+
+[Source: `ComputeBudgetInstruction` enum](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/compute-budget-interface/src/lib.rs)
+
+### Constraints and error conditions
+
+The following rules apply when
+[processing compute budget instructions](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153):
+
+- **One per type**: only one of each instruction variant is allowed per
+  transaction. Including duplicates causes a
+  [`DuplicateInstruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L162-L164)
+  error (the entire transaction fails).
+- **`RequestHeapFrame`**: the value must be between
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)
+  (32 KiB) and
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)
+  (256 KiB), and must be a
+  [multiple of 1,024](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194).
+  Otherwise the transaction fails with `InvalidInstructionData`. The heap size
+  applies to every program invoked in the transaction (including CPIs).
+- **`SetComputeUnitLimit`**: any `u32` value is accepted. The effective limit
+  is clamped to [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+  (1,400,000).
+- **`SetComputeUnitPrice`**: any `u64` value is accepted (0 to `u64::MAX`).
+- **`SetLoadedAccountsDataSizeLimit`**: the value must be greater than 0
+  (`NonZeroU32`). A value of 0 causes
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141).
+  The effective limit is clamped to
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+  (64 MiB).
+- **Unrecognized data**: any instruction sent to the Compute Budget Program that
+  does not deserialize to a known variant fails with `InvalidInstructionData`.
+
+## Scheduler cost model
+
+The validator's
+[scheduler](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)
+uses a
+[cost model](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)
+to estimate transaction resource usage **before execution**. These
+pre-execution cost estimates determine whether a transaction fits within the
+block's remaining capacity. They are separate from the CU metering that happens
+during execution.
+
+The total scheduler cost is the sum of five components
+([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### Cost components
+
+| Component                        | Formula                                                  | Source                                                                                                                     |
+| -------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Signature cost**               | `num_ed25519_sigs * 720 + num_secp256k1_sigs * 6,690 + num_ed25519_precompile_sigs * 2,280 (or 2,400) + num_secp256r1_sigs * 4,800` | [`get_signature_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)              |
+| **Write lock cost**              | `num_writable_accounts * 300`                            | [`get_write_lock_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)             |
+| **Instruction data cost**        | `total_instruction_data_bytes / 4`                       | [`get_instructions_data_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)      |
+| **Programs execution cost**      | CU limit (from compute budget or default calculation)    | [`get_estimated_execution_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)    |
+| **Loaded accounts data cost**    | `ceil(loaded_data_bytes / 32,768) * 8`                   | [`calculate_loaded_accounts_data_size_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) |
+
+All values are in compute units. The
+[`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)
+= 30 is the cluster-averaged CU-to-microsecond conversion rate used to derive
+the signature and write-lock constants.
+
+<Callout>
+  The Ed25519 precompile signature cost is `2,280`
+  ([`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14))
+  by default, or `2,400`
+  ([`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16))
+  when the `ed25519_precompile_verify_strict` feature is active.
+  Secp256r1 costs (`4,800`) only apply when the `enable_secp256r1_precompile`
+  feature is active; otherwise the Secp256r1 cost is 0.
+</Callout>
+
+### Scheduler cost constants
+
+| Constant                        | Value       | Formula            | Source                                                                                                            |
+| ------------------------------- | ----------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `COMPUTE_UNIT_TO_US_RATIO`      | 30          | --                 | [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)  |
+| `SIGNATURE_COST`                | 720 CUs     | 30 \* 24           | [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)|
+| `SECP256K1_VERIFY_COST`         | 6,690 CUs   | 30 \* 223          | [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)|
+| `ED25519_VERIFY_COST`           | 2,280 CUs   | 30 \* 76           | [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)|
+| `ED25519_VERIFY_STRICT_COST`    | 2,400 CUs   | 30 \* 80           | [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)|
+| `SECP256R1_VERIFY_COST`         | 4,800 CUs   | 30 \* 160          | [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)|
+| `WRITE_LOCK_UNITS`              | 300 CUs     | 30 \* 10           | [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)|
+| `INSTRUCTION_DATA_BYTES_COST`   | 4           | 140 / 30 (integer) | [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22)|
+| `DEFAULT_HEAP_COST`             | 8 CUs       | ~0.5 us \* 15 CU/us| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)|
+| `ACCOUNT_DATA_COST_PAGE_SIZE`   | 32,768 bytes| 32 \* 1024         | [`fee-structure/lib.rs:74`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/fee-structure/src/lib.rs#L74)           |
+
+`INSTRUCTION_DATA_BYTES_COST` represents bytes per compute unit (not cost per
+byte). The data cost = `instruction_data_bytes / INSTRUCTION_DATA_BYTES_COST`.
+
+### Simple vote transactions
+
+Vote transactions use a
+[static cost of 3,428 CUs](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21),
+which equals the vote program's default CUs (2,100) + 1 signature (720) + 2
+write locks (600) + 1 page of loaded data (8). This cost is applied regardless
+of the actual signature count; vote transactions can have 1 or 2 signatures,
+but the cost model always uses 1.
+
+### Block limits
+
+The scheduler enforces the following per-block limits. If adding a transaction
+would exceed any limit, it is not included in the block.
+
+| Limit                                | Value           | Source                                                                                                                         |
+| ------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Max total block CUs                  | 60,000,000      | [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    |
+| Max CUs per writable account         | 12,000,000      | [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         |
+| Max vote transaction CUs             | 36,000,000      | [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     |
+| Max accounts data growth             | 100 MB          | [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) |
+
+The per-writable-account limit of 12M CUs means that transactions writing to
+a "hot" account (one nearing this limit) may be delayed or dropped even with
+high priority fees. The vote-transaction limit of 36M CUs reserves at least
+24M CUs in each block for non-vote transactions.
+
+<Callout type="warn">
+  SIMD-0256 defines the current block limit (60M CUs). SIMD-0286 proposes
+  increasing it to
+  [`100,000,000`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L30)
+  CUs when activated.
+</Callout>
+
+## Execution budget constants
+
+The following constants from
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)
+define runtime limits during transaction execution:
+
+| Constant                                | Value        | Description                                          |
+| --------------------------------------- | ------------ | ---------------------------------------------------- |
+| `MAX_COMPUTE_UNIT_LIMIT`                | 1,400,000    | Maximum CU limit per transaction                     |
+| `DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`| 200,000      | Default CUs per non-builtin instruction              |
+| `MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT` | 3,000    | Default CUs per builtin instruction (SIMD-0170)      |
+| `DEFAULT_HEAP_COST`                     | 8 CUs        | Cost per 32 KiB heap page                            |
+| `MIN_HEAP_FRAME_BYTES`                  | 32,768       | Minimum heap size (32 KiB)                           |
+| `MAX_HEAP_FRAME_BYTES`                  | 262,144      | Maximum heap size (256 KiB)                          |
+| `MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`   | 67,108,864   | Maximum loaded account data per transaction (64 MiB) |
+| `MAX_INSTRUCTION_STACK_DEPTH`           | 5            | Maximum CPI nesting depth                            |
+| `MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268` | 9            | Max CPI nesting depth with SIMD-0268                 |
+| `MAX_CALL_DEPTH`                        | 64           | Maximum SBF-to-SBF call depth within a program       |
+| `STACK_FRAME_SIZE`                      | 4,096 bytes  | Size of one SBF stack frame                          |
+| `DEFAULT_INVOCATION_COST`               | 1,000 CUs    | Cost of one CPI invocation                           |
+| `INVOKE_UNITS_COST_SIMD_0339`           | 946 CUs      | CPI invocation cost with SIMD-0339                   |
+
+## Common pitfalls
+
+- **Fees on failure:** The base fee and prioritization fee are charged even when
+  a transaction fails. A failed transaction still pays the full fee.
+- **CU limit, not usage:** The priority fee is calculated from the requested CU
+  limit, not the CUs actually consumed. Over-estimating the CU limit wastes
+  SOL.
+- **Zero default priority:** Setting the CU price to 0 (the default) means no
+  prioritization fee. During congestion, these transactions may be dropped.
+- **Per-signature, not per-transaction:** The base fee is per signature. A
+  multisig transaction with N signers pays `N * 5,000` lamports as the base
+  fee.
+- **Precompile signatures are charged:** Ed25519, Secp256k1, and Secp256r1
+  precompile verification signatures each cost 5,000 lamports in the base fee,
+  in addition to the normal transaction signatures.
+- **No duplicate budget instructions:** Only one `SetComputeUnitLimit` and one
+  `SetComputeUnitPrice` instruction is allowed per transaction. Duplicates fail
+  the entire transaction.
+- **Fee payer constraints:** The fee payer must be owned by the System Program.
+  For a regular system account, the fee payer must have at least `total_fee`
+  lamports. However, the fee deduction must not cause the account to transition
+  from rent-exempt to rent-paying (though going to zero is allowed). For a nonce
+  fee payer, the balance must be at least
+  `rent_exempt_minimum(nonce_data_size) + total_fee`.
+- **Hot account throttling:** Each writable account is limited to 12M CUs per
+  block. Transactions writing to a heavily-used account may be delayed even with
+  high priority fees.
