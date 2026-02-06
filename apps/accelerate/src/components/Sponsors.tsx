@@ -1,10 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui";
 import sponsorsData from "@/data/sponsors.json";
 import { getSponsorsByTier } from "@/lib/sponsors";
-import type { Sponsor } from "@/types/sponsors";
+import type { Sponsor, SponsorTier } from "@/types/sponsors";
 import { getImagePath } from "@/config";
 
 const fadeInUp = {
@@ -19,6 +27,161 @@ const stagger = {
     },
   },
 };
+
+const GRID_API_ENDPOINT = "https://beta.node.thegrid.id/graphql";
+
+const GRID_PROFILE_QUERY = `
+  query SponsorProfiles($slugs: [String!]) {
+    profileInfos(where: { root: { slug: { _in: $slugs } } }) {
+      name
+      logo
+      tagLine
+      descriptionShort
+      descriptionLong
+      foundingDate
+      profileSector {
+        name
+      }
+      profileStatus {
+        name
+      }
+      profileType {
+        name
+      }
+      urls {
+        url
+        urlType {
+          name
+        }
+      }
+      root {
+        slug
+        socials {
+          socialType {
+            name
+          }
+          urls {
+            url
+            urlType {
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+type GridProfileUrl = {
+  url?: string | null;
+  urlType?: { name?: string | null } | null;
+};
+
+type GridProfileSocial = {
+  socialType?: { name?: string | null } | null;
+  urls?: GridProfileUrl[] | null;
+};
+
+type GridProfile = {
+  name?: string | null;
+  logo?: string | null;
+  tagLine?: string | null;
+  descriptionShort?: string | null;
+  descriptionLong?: string | null;
+  foundingDate?: string | null;
+  profileSector?: { name?: string | null } | null;
+  profileStatus?: { name?: string | null } | null;
+  profileType?: { name?: string | null } | null;
+  urls?: GridProfileUrl[] | null;
+  root?: { slug?: string | null; socials?: GridProfileSocial[] | null } | null;
+};
+
+type GridResponse = {
+  data?: { profileInfos?: GridProfile[] };
+  errors?: Array<{ message?: string }>;
+};
+
+const SOCIAL_PRIORITY = [
+  "Twitter / X",
+  "Discord",
+  "Telegram",
+  "LinkedIn",
+  "YouTube",
+  "Medium",
+  "GitHub",
+];
+
+const URL_TYPE_PRIORITY = ["main", "website", "app", "documentation", "blog"];
+
+function getMainUrl(profile?: GridProfile) {
+  const urls = profile?.urls ?? [];
+  if (!urls.length) return undefined;
+
+  for (const type of URL_TYPE_PRIORITY) {
+    const match = urls.find(
+      (item) => item?.urlType?.name?.toLowerCase() === type,
+    );
+    if (match?.url) return match.url;
+  }
+
+  return urls[0]?.url ?? undefined;
+}
+
+function getSocialLinks(profile?: GridProfile) {
+  const socials = profile?.root?.socials ?? [];
+  const seen = new Set<string>();
+  const links: Array<{ label: string; url: string }> = [];
+
+  for (const social of socials) {
+    const label = social?.socialType?.name;
+    const url = social?.urls?.[0]?.url;
+    if (!label || !url || seen.has(label)) continue;
+    seen.add(label);
+    links.push({ label, url });
+  }
+
+  links.sort((a, b) => {
+    const indexA = SOCIAL_PRIORITY.indexOf(a.label);
+    const indexB = SOCIAL_PRIORITY.indexOf(b.label);
+    if (indexA === -1 && indexB === -1) return 0;
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+
+  return links;
+}
+
+async function fetchGridProfiles(slugs: string[], signal?: AbortSignal) {
+  const response = await fetch(GRID_API_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: GRID_PROFILE_QUERY,
+      variables: { slugs },
+    }),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Grid request failed (${response.status})`);
+  }
+
+  const payload = (await response.json()) as GridResponse;
+
+  if (payload.errors?.length) {
+    throw new Error(payload.errors[0]?.message ?? "Grid request failed");
+  }
+
+  const profiles = payload.data?.profileInfos ?? [];
+  return profiles.reduce<Record<string, GridProfile>>((acc, profile) => {
+    const slug = profile.root?.slug;
+    if (slug) acc[slug] = profile;
+    return acc;
+  }, {});
+}
 
 function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
   return (
@@ -39,8 +202,84 @@ function SponsorLogo({ sponsor }: { sponsor: Sponsor }) {
   );
 }
 
+type ActiveSponsor = {
+  sponsor: Sponsor;
+  tier: SponsorTier;
+};
+
 export function Sponsors() {
   const sponsorTiers = getSponsorsByTier(sponsorsData.sponsors as Sponsor[]);
+  const [activeSponsor, setActiveSponsor] = useState<ActiveSponsor | null>(
+    null,
+  );
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [profilesBySlug, setProfilesBySlug] = useState<
+    Record<string, GridProfile>
+  >({});
+  const [unmatchedSlugs, setUnmatchedSlugs] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const activeSlug = activeSponsor?.sponsor.gridProfileSlug ?? null;
+  const activeProfile = activeSlug ? profilesBySlug[activeSlug] : undefined;
+  const isLoading = Boolean(loadingSlug);
+  const activeMainUrl = activeProfile ? getMainUrl(activeProfile) : undefined;
+  const activeSocials = activeProfile
+    ? getSocialLinks(activeProfile).slice(0, 4)
+    : [];
+  const activeMeta = [
+    activeProfile?.profileSector?.name,
+    activeProfile?.profileType?.name,
+    activeProfile?.profileStatus?.name,
+  ].filter(Boolean);
+  const activeDescription =
+    activeProfile?.descriptionLong ?? activeProfile?.descriptionShort;
+  const isProfileMissing = Boolean(activeSlug && unmatchedSlugs[activeSlug]);
+  const activeDisplayName =
+    activeProfile?.name ?? activeSponsor?.sponsor.name ?? "Sponsor";
+  const activeTierName = activeSponsor?.tier.name ?? "Sponsor Tier";
+  const dataPageUrl = activeSlug
+    ? `https://thegrid.id/profiles/${activeSlug}`
+    : undefined;
+
+  useEffect(() => {
+    if (!isModalOpen || !activeSponsor) return;
+
+    const slug = activeSponsor.sponsor.gridProfileSlug;
+    if (!slug || profilesBySlug[slug] || unmatchedSlugs[slug]) return;
+
+    const controller = new AbortController();
+    setLoadError(null);
+    setLoadingSlug(slug);
+
+    fetchGridProfiles([slug], controller.signal)
+      .then((profiles) => {
+        if (!profiles[slug]) {
+          setUnmatchedSlugs((prev) => ({ ...prev, [slug]: true }));
+        }
+        setProfilesBySlug((prev) => ({ ...prev, ...profiles }));
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setLoadError(
+          error instanceof Error ? error.message : "Unable to load Grid data.",
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoadingSlug(null);
+        }
+      });
+
+    return () => controller.abort();
+  }, [activeSponsor, isModalOpen, profilesBySlug, unmatchedSlugs]);
+
+  function handleOpenSponsor(sponsor: Sponsor, tier: SponsorTier) {
+    setActiveSponsor({ sponsor, tier });
+    setIsModalOpen(true);
+  }
 
   if (sponsorTiers.length === 0) {
     return null;
@@ -155,9 +394,13 @@ export function Sponsors() {
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
-                    <div
+                    <button
                       key={sponsor.name}
-                      className={`flex items-center justify-center ${
+                      type="button"
+                      onClick={() => handleOpenSponsor(sponsor, tier)}
+                      aria-haspopup="dialog"
+                      aria-label={`Open ${sponsor.name} profile`}
+                      className={`flex items-center justify-center bg-transparent p-0 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accelerate-purple/60 ${
                         tier.level === "headline"
                           ? "h-[168px] w-[400px]"
                           : tier.level === "signature"
@@ -166,12 +409,231 @@ export function Sponsors() {
                       }`}
                     >
                       <SponsorLogo sponsor={sponsor} />
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
             ))}
           </div>
+          <Dialog
+            open={isModalOpen}
+            onOpenChange={(open) => {
+              setIsModalOpen(open);
+              if (!open) {
+                setActiveSponsor(null);
+                setLoadError(null);
+                setLoadingSlug(null);
+              }
+            }}
+          >
+            <DialogContent className="max-w-[980px] overflow-hidden border-white/10 bg-[#07070a] p-0 text-white shadow-[0_30px_80px_rgba(0,0,0,0.65)]">
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-0">
+                  <div className="absolute inset-0 bg-[radial-gradient(120%_120%_at_5%_0%,rgba(153,69,255,0.22),transparent_55%)]" />
+                  <div className="absolute inset-0 bg-[radial-gradient(120%_120%_at_95%_0%,rgba(25,251,155,0.16),transparent_60%)]" />
+                  <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-accelerate-purple via-accelerate-green to-accelerate-cyan" />
+                </div>
+                <div className="relative max-h-[85vh] space-y-6 overflow-y-auto px-6 py-6 lg:px-10 lg:py-8">
+                  <DialogHeader className="gap-4">
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.32em] text-white/60">
+                      <span className="rounded-full border border-white/10 px-3 py-1">
+                        Grid Profile
+                      </span>
+                      <span
+                        className="rounded-full border border-white/10 px-3 py-1"
+                        style={{ color: activeSponsor?.tier.color }}
+                      >
+                        {activeTierName}
+                      </span>
+                    </div>
+                    <DialogTitle className="text-h2 text-white">
+                      {activeDisplayName}
+                    </DialogTitle>
+                    <DialogDescription className="text-sm text-accelerate-gray-100/70">
+                      {activeProfile?.tagLine ??
+                        "Live sponsor metadata pulled directly from The Grid."}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {!activeSponsor && (
+                    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                      Select a sponsor logo to view their Grid profile.
+                    </div>
+                  )}
+
+                  {loadError && (
+                    <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                      {loadError}
+                    </div>
+                  )}
+
+                  {isLoading && (
+                    <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                      Loading sponsor profile from The Grid...
+                    </div>
+                  )}
+
+                  {activeSponsor && (
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+                      <div className="space-y-6">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+                          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                            <div className="relative flex h-20 w-36 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/50 p-3">
+                              <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-transparent" />
+                              <img
+                                src={
+                                  activeProfile?.logo ||
+                                  getImagePath(activeSponsor.sponsor.logo)
+                                }
+                                alt={activeDisplayName}
+                                className="relative z-10 max-h-full max-w-full object-contain"
+                              />
+                            </div>
+                            <div className="space-y-3">
+                              <p className="text-2xl font-semibold text-white">
+                                {activeDisplayName}
+                              </p>
+                              {activeProfile?.tagLine && (
+                                <p className="text-sm text-white/70">
+                                  {activeProfile.tagLine}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {activeMeta.length > 0 && (
+                            <div className="mt-5 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.2em] text-white/60">
+                              {activeMeta.map((item) => (
+                                <span
+                                  key={item}
+                                  className="rounded-full border border-white/10 px-3 py-1"
+                                >
+                                  {item}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
+                          <h4 className="text-xs uppercase tracking-[0.32em] text-white/60">
+                            About
+                          </h4>
+                          <p className="mt-3 text-sm text-white/70">
+                            {activeDescription ??
+                              "No description is available for this profile yet."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-5">
+                        <div className="rounded-2xl border border-white/10 bg-black/50 p-6">
+                          <h4 className="text-xs uppercase tracking-[0.32em] text-white/60">
+                            Quick Links
+                          </h4>
+                          <div className="mt-4 grid gap-3 text-[11px] uppercase tracking-[0.22em]">
+                            {activeMainUrl && (
+                              <a
+                                href={activeMainUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="group flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-white/75 transition hover:border-accelerate-green/60 hover:text-accelerate-green"
+                              >
+                                Website
+                                <span className="text-white/40 transition group-hover:text-accelerate-green">
+                                  -&gt;
+                                </span>
+                              </a>
+                            )}
+                            {dataPageUrl && (
+                              <a
+                                href={dataPageUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="group flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-white/75 transition hover:border-accelerate-green/60 hover:text-accelerate-green"
+                              >
+                                Data page
+                                <span className="text-white/40 transition group-hover:text-accelerate-green">
+                                  -&gt;
+                                </span>
+                              </a>
+                            )}
+                            {activeSocials.map((social) => (
+                              <a
+                                key={social.label}
+                                href={social.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="group flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-white/70 transition hover:border-white/30 hover:text-white"
+                              >
+                                {social.label}
+                                <span className="text-white/30 transition group-hover:text-white">
+                                  -&gt;
+                                </span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/10 bg-black/50 p-6">
+                          <h4 className="text-xs uppercase tracking-[0.32em] text-white/60">
+                            Profile Data
+                          </h4>
+                          <div className="mt-4 space-y-3 text-sm text-white/70">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] uppercase tracking-[0.22em] text-white/50">
+                                Founded
+                              </span>
+                              <span>
+                                {activeProfile?.foundingDate ?? "N/A"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] uppercase tracking-[0.22em] text-white/50">
+                                Status
+                              </span>
+                              <span>
+                                {activeProfile?.profileStatus?.name ?? "N/A"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] uppercase tracking-[0.22em] text-white/50">
+                                Sector
+                              </span>
+                              <span>
+                                {activeProfile?.profileSector?.name ?? "N/A"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] uppercase tracking-[0.22em] text-white/50">
+                                Type
+                              </span>
+                              <span>
+                                {activeProfile?.profileType?.name ?? "N/A"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {!activeSlug && (
+                          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
+                            No Grid profile is mapped for this sponsor yet.
+                          </div>
+                        )}
+
+                        {isProfileMissing && !isLoading && (
+                          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
+                            Grid profile not returned yet. Use the data page
+                            link to verify the profile.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </motion.div>
       </div>
     </section>

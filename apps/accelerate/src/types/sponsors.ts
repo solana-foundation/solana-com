@@ -5,6 +5,7 @@ export interface Sponsor {
   sponsorshipLevel: string;
   logo: string;
   availableLogos: string[];
+  gridProfileSlug?: string | null;
 }
 
 export interface SponsorTier {
