@@ -7,7 +7,6 @@ const BASE_URL = "https://solana.com";
 const NEWS_URL = `${BASE_URL}/news`;
 const RSS_CANONICAL_PATH = "/news/rss.xml";
 
-export const RSS_REVALIDATE_SECONDS = 300;
 export const NEWS_RSS_CANONICAL_URL = `${BASE_URL}${RSS_CANONICAL_PATH}`;
 
 const RSS_CONTENT_TYPE = "application/rss+xml; charset=utf-8";
