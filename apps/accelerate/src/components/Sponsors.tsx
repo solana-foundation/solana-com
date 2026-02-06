@@ -25,7 +25,7 @@ import {
 } from "@workspace/ui";
 import sponsorsData from "@/data/sponsors.json";
 import { getSponsorsByTier } from "@/lib/sponsors";
-import type { Sponsor, SponsorTier } from "@/types/sponsors";
+import type { GridProfile, Sponsor, SponsorTier } from "@/types/sponsors";
 import { getImagePath } from "@/config";
 
 const fadeInUp = {
@@ -84,30 +84,6 @@ const GRID_PROFILE_QUERY = `
     }
   }
 `;
-
-type GridProfileUrl = {
-  url?: string | null;
-  urlType?: { name?: string | null } | null;
-};
-
-type GridProfileSocial = {
-  socialType?: { name?: string | null } | null;
-  urls?: GridProfileUrl[] | null;
-};
-
-type GridProfile = {
-  name?: string | null;
-  logo?: string | null;
-  tagLine?: string | null;
-  descriptionShort?: string | null;
-  descriptionLong?: string | null;
-  foundingDate?: string | null;
-  profileSector?: { name?: string | null } | null;
-  profileStatus?: { name?: string | null } | null;
-  profileType?: { name?: string | null } | null;
-  urls?: GridProfileUrl[] | null;
-  root?: { slug?: string | null; socials?: GridProfileSocial[] | null } | null;
-};
 
 type GridResponse = {
   data?: { profileInfos?: GridProfile[] };
@@ -276,26 +252,34 @@ export function Sponsors() {
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const activeSlug = activeSponsor?.sponsor.gridProfileSlug ?? null;
+  const activeSponsorData = activeSponsor?.sponsor;
+  const activeManualProfile = activeSponsorData?.gridProfile ?? null;
+  const activeSlug = activeSponsorData?.gridProfileSlug ?? null;
   const activeProfile = activeSlug ? profilesBySlug[activeSlug] : undefined;
-  const isLoading = Boolean(loadingSlug);
-  const activeMainUrl = activeProfile ? getMainUrl(activeProfile) : undefined;
-  const activeSocials = activeProfile
-    ? getSocialLinks(activeProfile).slice(0, 4)
+  const resolvedProfile = activeProfile ?? activeManualProfile ?? undefined;
+  const isLoading = Boolean(loadingSlug) && !resolvedProfile;
+  const activeMainUrl = resolvedProfile
+    ? getMainUrl(resolvedProfile)
+    : undefined;
+  const activeSocials = resolvedProfile
+    ? getSocialLinks(resolvedProfile).slice(0, 4)
     : [];
   const activeMeta = [
-    activeProfile?.profileSector?.name,
-    activeProfile?.profileType?.name,
-    activeProfile?.profileStatus?.name,
+    resolvedProfile?.profileSector?.name,
+    resolvedProfile?.profileType?.name,
+    resolvedProfile?.profileStatus?.name,
   ].filter(Boolean);
   const activeDescription =
-    activeProfile?.descriptionLong ?? activeProfile?.descriptionShort;
-  const isProfileMissing = Boolean(activeSlug && unmatchedSlugs[activeSlug]);
+    resolvedProfile?.descriptionLong ?? resolvedProfile?.descriptionShort;
+  const isProfileMissing = Boolean(
+    activeSlug && unmatchedSlugs[activeSlug] && !activeManualProfile,
+  );
   const activeDisplayName =
-    activeProfile?.name ?? activeSponsor?.sponsor.name ?? "Sponsor";
+    resolvedProfile?.name ?? activeSponsorData?.name ?? "Sponsor";
   const activeTierName = activeSponsor?.tier.name ?? "Sponsor Tier";
-  const dataPageUrl = activeSlug
-    ? `https://thegrid.id/profiles/${activeSlug}`
+  const dataPageSlug = activeProfile?.root?.slug;
+  const dataPageUrl = dataPageSlug
+    ? `https://thegrid.id/profiles/${dataPageSlug}`
     : undefined;
   const activeQuickLinks = [
     activeMainUrl ? { label: "Website", url: activeMainUrl } : null,
@@ -310,7 +294,9 @@ export function Sponsors() {
     if (!isModalOpen || !activeSponsor) return;
 
     const slug = activeSponsor.sponsor.gridProfileSlug;
-    if (!slug || profilesBySlug[slug] || unmatchedSlugs[slug]) return;
+    const manualProfile = activeSponsor.sponsor.gridProfile;
+    if (!slug || manualProfile || profilesBySlug[slug] || unmatchedSlugs[slug])
+      return;
 
     const controller = new AbortController();
     setLoadError(null);
@@ -598,7 +584,7 @@ export function Sponsors() {
                         </p>
                       </div>
 
-                      {!activeSlug && (
+                      {!activeSlug && !resolvedProfile && (
                         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
                           No Grid profile is mapped for this sponsor yet.
                         </div>
