@@ -4,6 +4,9 @@ import {
   TEMPLATES_APP_URL,
   ACCELERATE_APP_URL,
 } from "./apps-urls";
+import { locales } from "@workspace/i18n/config";
+
+const LOCALE_REGEX = locales.join("|");
 
 /**
  * Generates both bare-path and locale-prefixed versions of each redirect.
@@ -27,7 +30,7 @@ function withLocaleRedirects(redirects) {
       { source, destination, locale: false, ...rest },
       // Locale-prefixed (e.g. /:locale/brand → /:locale/branding)
       {
-        source: `/:locale${source}`,
+        source: `/:locale(${LOCALE_REGEX})${source}`,
         destination: localeDestination,
         locale: false,
         ...rest,
