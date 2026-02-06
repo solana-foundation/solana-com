@@ -4,6 +4,18 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import {
+  ArrowUpRight,
+  BookOpen,
+  ExternalLinkIcon,
+  Github,
+  Linkedin,
+  Link2,
+  MessageCircle,
+  Send,
+  Twitter,
+  Youtube,
+} from "lucide-react";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -112,6 +124,47 @@ const SOCIAL_PRIORITY = [
 ];
 
 const URL_TYPE_PRIORITY = ["main", "website", "app", "documentation", "blog"];
+
+function getQuickLinkIcon(label: string, url?: string) {
+  const labelNorm = label.toLowerCase().trim();
+
+  switch (labelNorm) {
+    case "website":
+      return ExternalLinkIcon;
+    case "data page":
+      return ArrowUpRight;
+    case "github":
+      return Github;
+    case "linkedin":
+      return Linkedin;
+    case "telegram":
+      return Send;
+    case "twitter / x":
+    case "twitter":
+    case "x":
+      return Twitter;
+    case "discord":
+      return MessageCircle;
+    case "youtube":
+      return Youtube;
+    case "medium":
+      return BookOpen;
+    default:
+      if (url) {
+        const href = url.toLowerCase();
+        if (href.includes("twitter.com") || href.includes("x.com"))
+          return Twitter;
+        if (href.includes("discord.gg") || href.includes("discord.com"))
+          return MessageCircle;
+        if (href.includes("youtube.com")) return Youtube;
+        if (href.includes("medium.com")) return BookOpen;
+        if (href.includes("linkedin.com")) return Linkedin;
+        if (href.includes("github.com")) return Github;
+        if (href.includes("t.me")) return Send;
+      }
+      return Link2;
+  }
+}
 
 function getMainUrl(profile?: GridProfile) {
   const urls = profile?.urls ?? [];
@@ -243,6 +296,14 @@ export function Sponsors() {
   const dataPageUrl = activeSlug
     ? `https://thegrid.id/profiles/${activeSlug}`
     : undefined;
+  const activeQuickLinks = [
+    activeMainUrl ? { label: "Website", url: activeMainUrl } : null,
+    dataPageUrl ? { label: "Data page", url: dataPageUrl } : null,
+    ...activeSocials.map((social) => ({
+      label: social.label,
+      url: social.url,
+    })),
+  ].filter((item): item is { label: string; url: string } => item !== null);
 
   useEffect(() => {
     if (!isModalOpen || !activeSponsor) return;
@@ -434,26 +495,7 @@ export function Sponsors() {
                   <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-accelerate-purple via-accelerate-green to-accelerate-cyan" />
                 </div>
                 <div className="relative max-h-[85vh] space-y-6 overflow-y-auto px-6 py-6 lg:px-10 lg:py-8">
-                  <DialogHeader className="gap-4">
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.32em] text-white/60">
-                      <span className="rounded-full border border-white/10 px-3 py-1">
-                        Grid Profile
-                      </span>
-                      <span
-                        className="rounded-full border border-white/10 px-3 py-1"
-                        style={{ color: activeSponsor?.tier.color }}
-                      >
-                        {activeTierName}
-                      </span>
-                    </div>
-                    <DialogTitle className="text-h2 text-white">
-                      {activeDisplayName}
-                    </DialogTitle>
-                    <DialogDescription className="text-sm text-accelerate-gray-100/70">
-                      {activeProfile?.tagLine ??
-                        "Live sponsor metadata pulled directly from The Grid."}
-                    </DialogDescription>
-                  </DialogHeader>
+                  <DialogHeader className="gap-4"></DialogHeader>
 
                   {!activeSponsor && (
                     <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
@@ -474,160 +516,91 @@ export function Sponsors() {
                   )}
 
                   {activeSponsor && (
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-                      <div className="space-y-6">
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-                          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                            <div className="relative flex h-20 w-36 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/50 p-3">
-                              <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-transparent" />
-                              <img
-                                src={
-                                  activeProfile?.logo ||
-                                  getImagePath(activeSponsor.sponsor.logo)
-                                }
-                                alt={activeDisplayName}
-                                className="relative z-10 max-h-full max-w-full object-contain"
-                              />
-                            </div>
-                            <div className="space-y-3">
-                              <p className="text-2xl font-semibold text-white">
-                                {activeDisplayName}
-                              </p>
-                              {activeProfile?.tagLine && (
-                                <p className="text-sm text-white/70">
-                                  {activeProfile.tagLine}
-                                </p>
-                              )}
-                            </div>
+                    <div className="space-y-6">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+                        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                          <div className="relative flex h-20 w-36 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-neutral-500/20 p-3">
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent" />
+                            <img
+                              src={getImagePath(activeSponsor.sponsor.logo)}
+                              alt={activeDisplayName}
+                              className="relative z-10 max-h-full max-w-full object-contain"
+                            />
                           </div>
-
-                          {activeMeta.length > 0 && (
-                            <div className="mt-5 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.2em] text-white/60">
-                              {activeMeta.map((item) => (
-                                <span
-                                  key={item}
-                                  className="rounded-full border border-white/10 px-3 py-1"
-                                >
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          <div className="space-y-3">
+                            <p className="text-2xl font-semibold text-white">
+                              {activeDisplayName}
+                            </p>
+                            {activeProfile?.tagLine && (
+                              <p className="text-sm text-white/70">
+                                {activeProfile.tagLine}
+                              </p>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
-                          <h4 className="text-xs uppercase tracking-[0.32em] text-white/60">
-                            About
-                          </h4>
-                          <p className="mt-3 text-sm text-white/70">
-                            {activeDescription ??
-                              "No description is available for this profile yet."}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-5">
-                        <div className="rounded-2xl border border-white/10 bg-black/50 p-6">
-                          <h4 className="text-xs uppercase tracking-[0.32em] text-white/60">
-                            Quick Links
-                          </h4>
-                          <div className="mt-4 grid gap-3 text-[11px] uppercase tracking-[0.22em]">
-                            {activeMainUrl && (
-                              <a
-                                href={activeMainUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="group flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-white/75 transition hover:border-accelerate-green/60 hover:text-accelerate-green"
+                        {activeMeta.length > 0 && (
+                          <div className="mt-5 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.2em] text-white/60">
+                            {activeMeta.map((item) => (
+                              <span
+                                key={item}
+                                className="rounded-full border border-white/10 px-3 py-1"
                               >
-                                Website
-                                <span className="text-white/40 transition group-hover:text-accelerate-green">
-                                  -&gt;
-                                </span>
-                              </a>
-                            )}
-                            {dataPageUrl && (
-                              <a
-                                href={dataPageUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="group flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-white/75 transition hover:border-accelerate-green/60 hover:text-accelerate-green"
-                              >
-                                Data page
-                                <span className="text-white/40 transition group-hover:text-accelerate-green">
-                                  -&gt;
-                                </span>
-                              </a>
-                            )}
-                            {activeSocials.map((social) => (
-                              <a
-                                key={social.label}
-                                href={social.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="group flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-white/70 transition hover:border-white/30 hover:text-white"
-                              >
-                                {social.label}
-                                <span className="text-white/30 transition group-hover:text-white">
-                                  -&gt;
-                                </span>
-                              </a>
+                                {item}
+                              </span>
                             ))}
                           </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-white/10 bg-black/50 p-6">
-                          <h4 className="text-xs uppercase tracking-[0.32em] text-white/60">
-                            Profile Data
-                          </h4>
-                          <div className="mt-4 space-y-3 text-sm text-white/70">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] uppercase tracking-[0.22em] text-white/50">
-                                Founded
-                              </span>
-                              <span>
-                                {activeProfile?.foundingDate ?? "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] uppercase tracking-[0.22em] text-white/50">
-                                Status
-                              </span>
-                              <span>
-                                {activeProfile?.profileStatus?.name ?? "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] uppercase tracking-[0.22em] text-white/50">
-                                Sector
-                              </span>
-                              <span>
-                                {activeProfile?.profileSector?.name ?? "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] uppercase tracking-[0.22em] text-white/50">
-                                Type
-                              </span>
-                              <span>
-                                {activeProfile?.profileType?.name ?? "N/A"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {!activeSlug && (
-                          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
-                            No Grid profile is mapped for this sponsor yet.
-                          </div>
                         )}
+                      </div>
 
-                        {isProfileMissing && !isLoading && (
-                          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
-                            Grid profile not returned yet. Use the data page
-                            link to verify the profile.
+                      <div className="flex flex-wrap items-start gap-4">
+                        {activeQuickLinks.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {activeQuickLinks.map((link) => {
+                              const Icon = getQuickLinkIcon(
+                                link.label,
+                                link.url,
+                              );
+                              return (
+                                <a
+                                  key={`${link.label}-${link.url}`}
+                                  href={link.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  aria-label={link.label}
+                                  title={link.label}
+                                  className="group inline-flex size-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/30 hover:text-white"
+                                >
+                                  <Icon className="size-4" />
+                                </a>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
+                        <h4 className="text-xs uppercase tracking-[0.32em] text-white/60">
+                          About
+                        </h4>
+                        <p className="mt-3 text-sm text-white/70">
+                          {activeDescription ??
+                            "No description is available for this profile yet."}
+                        </p>
+                      </div>
+
+                      {!activeSlug && (
+                        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
+                          No Grid profile is mapped for this sponsor yet.
+                        </div>
+                      )}
+
+                      {isProfileMissing && !isLoading && (
+                        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
+                          Grid profile not returned yet. Use the data page link
+                          to verify the profile.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
