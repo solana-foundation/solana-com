@@ -1,0 +1,386 @@
+---
+title: Account Structure
+description:
+  Account addresses, the five fields every Solana account contains -- lamports,
+  data, owner, executable, and rent_epoch -- with interactive code walkthrough.
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+## Account address
+
+Every account address is a 32-byte value, displayed as a base58-encoded string.
+An address can be one of two types:
+
+1. **Public key** -- corresponds to an [Ed25519](https://ed25519.cr.yp.to/) keypair (has a private key)
+2. **Program derived address (PDA)** -- deterministically derived from a program ID and seeds (no private key)
+
+![An account with its base58 encoded public key address](/assets/docs/core/accounts/account-address.svg)
+
+### Public key
+
+A `Keypair` consists of a public key (used as the account address) and a
+private key (used to sign transactions). The following example generates a
+keypair using the Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program derived address
+
+A [program derived address](/docs/core/pda) (PDA) is deterministically derived
+from a program ID and one or more optional seeds. PDAs do not have a
+corresponding private key. The following example derives a PDA using the
+Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## Account fields
+
+Every
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/account/src/lib.rs#L32-L44)
+has a maximum size of
+[`MAX_PERMITTED_DATA_LENGTH`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/system-interface/src/lib.rs#L22)
+(10 MiB) and contains five fields:
+
+<WithMentions>
+
+- [`lamports`](mention:lamports): The account's balance in lamports (1 SOL = 1,000,000,000 lamports). Type: `u64`. Only the `owner` program can debit this field; any program can credit any **writable** account.
+- [`data`](mention:data): Arbitrary byte array storing account state or executable program code. Type: `Vec<u8>`. Only the `owner` program can modify this field. Max size: 10 MiB.
+- [`owner`](mention:owner): The 32-byte `Pubkey` that identifies which program has write access to the `data` and `lamports` fields. Only the current owner can reassign ownership, and only when `data` is zero-initialized.
+- [`executable`](mention:executable): Boolean flag; `true` means this account contains executable program code. Once set to `true`, it cannot be reverted. The account must be rent-exempt before this flag is set.
+- [`rent_epoch`](mention:rent_epoch): Deprecated field; set to `u64::MAX` ([`RENT_EXEMPT_RENT_EPOCH`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L16)) for rent-exempt accounts. Previously tracked when rent was next due.
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// the epoch at which this account will next owe rent
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<Callout type="info">
+  `is_signer` and `is_writable` are **not** stored on the account itself. They
+  are instruction-level properties set per-instruction in the transaction
+  message. This means the same account can be read-only in one instruction and
+  writable in another within the same transaction.
+</Callout>
+
+The runtime also uses
+[`AccountSharedData`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/account/src/lib.rs#L110),
+a copy-on-write variant of `Account` that uses `Arc<Vec<u8>>` for the data
+field. This allows efficient cloning when accounts are loaded but not modified.
+During transaction execution, accounts are stored in a
+[`TransactionAccounts`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L241)
+structure that tracks borrow state, resize deltas, and lamport balance changes.
+
+<ScrollyCoding>
+
+## !!steps Lamports
+
+The `lamports` field holds the account's balance in
+[lamports](/docs/references/terminology#lamport) (1 SOL = 1,000,000,000
+lamports).
+
+Every account must maintain a minimum lamport balance, known as the rent-exempt
+balance, to keep its data stored on-chain. This balance is proportional to the
+account's data size.
+
+<Callout type="info">
+  Although often called "rent," the rent-exempt balance functions as a
+  refundable deposit--the full balance is recovered when the account is closed.
+  The deprecated rent collection mechanism (which once charged periodic fees for
+  under-funded accounts) is separate from this minimum-balance requirement.
+</Callout>
+
+Accounts exist in one of three
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+values:
+
+1. `Uninitialized` -- 0 lamports
+2. `RentPaying` -- above 0 but below the rent-exempt minimum
+3. `RentExempt` -- at or above the rent-exempt minimum
+
+Allowed transitions (enforced by
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126)):
+any state to `Uninitialized` (closing the account) or any state to `RentExempt`
+(funding). `RentPaying` to `RentPaying` is only allowed if the data size stays
+the same and lamports do not increase.
+
+(See
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L104)
+and the rent
+[constants](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/rent/src/lib.rs#L47-L75):
+on mainnet `lamports_per_byte` = 3,480 and `exemption_threshold` = 2.0, so the effective rate is 3,480 * 2 = 6,960 lamports/byte; `ACCOUNT_STORAGE_OVERHEAD` = 128 bytes.)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Data
+
+The `data` field stores an arbitrary byte array. Its contents depend on the
+account type:
+
+- **Program accounts**: Contains executable bytecode or the address of a
+  [program data account](/docs/core/accounts/account-types#program-data-accounts) that stores the bytecode.
+- **Data accounts**: Contains program-defined state data. The owning program
+  defines the serialization format.
+
+Reading account data requires two steps:
+
+1. Fetch the account by its [address](#account-address).
+2. Deserialize the `data` field from raw bytes into the program-defined data
+   structure.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Owner
+
+The `owner` field contains the program ID (public key) of the program that
+owns this account.
+
+The owner program is the only program that can:
+- Modify the account's `data` field
+- Deduct lamports from the account's `lamports` field
+
+Any program can credit (add) lamports to any **writable** account, but only the owner can
+debit them.
+
+For program accounts, the owner is the account's
+[loader program](/docs/core/programs#loader-programs).
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Executable
+
+The `executable` field is a boolean that determines whether the account is a
+[program account](/docs/core/accounts/account-types#program-accounts) or a [data account](/docs/core/accounts/account-types#data-accounts):
+
+- `true` = program account (contains executable code)
+- `false` = data account (stores state)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Rent epoch
+
+**The `rent_epoch` field is deprecated.**
+
+Previously tracked when an account would next owe rent. Since rent collection
+is deprecated, `rent_epoch` is set to `u64::MAX` (18446744073709551615) for all
+rent-exempt accounts.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>
+
+## Rent state machine
+
+Disallowed transitions produce `TransactionError::InsufficientFundsForRent`.
+
+| Pre-state | Post: Uninitialized | Post: RentExempt | Post: RentPaying |
+|---|---|---|---|
+| **Uninitialized** | Allowed | Allowed | **Blocked** |
+| **RentExempt** | Allowed | Allowed | **Blocked** |
+| **RentPaying** | Allowed | Allowed | Only if data size unchanged AND lamports do not increase |
+
+**Example**: A 0-byte data account requires `(0 + 128) * 3480 * 2 = 890,880 lamports` (~0.00089 SOL).

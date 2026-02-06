@@ -1,0 +1,104 @@
+---
+title: Advanced Instructions
+description:
+  Instruction introspection via the Instructions sysvar, account deduplication
+  rules, return data, and the instruction trace.
+---
+
+## Instruction introspection
+
+Programs can inspect all top-level instructions in the current transaction via
+the **Instructions sysvar**
+(`Sysvar1nstructions1111111111111111111111111`). The instructions sysvar is not
+accessed through the normal `Sysvar` trait. Instead, it is accessed through
+free functions in the
+[`solana_instructions_sysvar`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/instructions-sysvar/src/lib.rs)
+crate.
+
+The sysvar data is serialized with a custom binary layout:
+
+| Offset | Size | Description |
+|---|---|---|
+| 0 | 2 | `num_instructions` (u16, little-endian) |
+| 2 | 2 * N | Byte offsets for each instruction (u16 each) |
+| varies | varies | Serialized instruction data |
+| last 2 bytes | 2 | Current instruction index (u16, little-endian) |
+
+Each serialized instruction contains: the number of accounts (u16), the
+accounts as 33-byte entries (1 flag byte + 32-byte pubkey), the program ID
+(32 bytes), the data length (u16), and the raw data bytes.
+
+Key functions:
+
+- [`load_current_index_checked(account_info)`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/instructions-sysvar/src/lib.rs#L162):
+  Returns the index of the currently executing instruction. The runtime
+  [updates](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L356-L359)
+  this value each time a new top-level instruction begins.
+- [`load_instruction_at_checked(index, account_info)`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/instructions-sysvar/src/lib.rs#L251):
+  Deserializes the instruction at the given absolute index.
+- [`get_instruction_relative(offset, account_info)`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/instructions-sysvar/src/lib.rs#L272):
+  Loads an instruction relative to the current one (e.g., `-1` for the
+  previous instruction, `1` for the next).
+
+This enables programs to verify that specific sibling instructions (e.g., a
+signature verification or memo) are present in the same transaction, without
+requiring a CPI.
+
+<Callout type="info">
+  The Instructions sysvar only contains top-level instructions from the
+  transaction message. Inner instructions invoked via CPI are not accessible
+  through this sysvar.
+</Callout>
+
+## Account deduplication
+
+When the same account public key appears multiple times in an instruction's
+`accounts` array, the runtime
+[deduplicates](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)
+them. Each entry in the instruction's account list gets its own
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+struct, but entries that refer to the same transaction-level account point to
+the same underlying data.
+
+The runtime maintains a deduplication map (`dedup_map`) that maps each
+transaction-level account index to the first instruction-level index where that
+account appeared. The
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+method uses this map to determine whether a given instruction account index is
+the first occurrence or a duplicate:
+
+- If the current instruction account index equals the first mapped index,
+  it is **not** a duplicate (returns `None`).
+- Otherwise, it returns `Some(first_index)`, where `first_index` is the
+  index of the first occurrence.
+
+Because all references to the same account share the same underlying
+`AccountSharedData`, modifications through any reference are immediately
+visible through all other references. However, the runtime uses `RefCell`
+borrow tracking, so only one mutable borrow can be held at a time. Attempting
+to borrow the same account mutably through two different instruction account
+indices simultaneously returns
+`InstructionError::AccountBorrowFailed`. Programs must drop one borrow
+before acquiring another on the same underlying account.
+
+## Instruction trace and inner instructions
+
+The runtime records every instruction invoked during transaction processing
+(both top-level and CPI) in an
+[instruction trace](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L41).
+This trace is used to produce the `innerInstructions` field in RPC responses
+(for example, `getTransaction`). The 64-entry limit
+([`MAX_INSTRUCTION_TRACE_LENGTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L41))
+applies to the total count of all entries in the trace, including both
+top-level instructions and nested CPIs.
+
+## Return data
+
+Programs can return data to their caller via the `sol_set_return_data` syscall.
+Return data is stored in a
+[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499)
+struct that holds both the data bytes and the `program_id` of the program that
+set it. The maximum size is 1,024 bytes (`MAX_RETURN_DATA`).
+
+Each CPI overwrites the previous return data. The caller should read return data
+immediately after the CPI that sets it, before invoking any other instructions.

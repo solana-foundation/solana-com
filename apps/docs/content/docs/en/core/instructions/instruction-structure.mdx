@@ -1,0 +1,473 @@
+---
+title: Instruction Structure
+description:
+  The three fields of a Solana instruction (program_id, accounts, data),
+  AccountMeta, compiled instructions, instruction processing, and the SOL
+  transfer example.
+---
+
+{/* TOC: Instruction structure, Account metadata, Data, Compiled instruction, Instruction processing, SOL transfer example */}
+
+<WithMentions>
+
+## Instruction structure
+
+![Diagram depicting a transaction with an instruction, broken up into its 3 components](/assets/docs/core/transactions/instruction.svg)
+
+An
+[`Instruction`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/instruction/src/lib.rs#L93)
+consists of three fields:
+
+- [`program_id`](mention:program-id): The [ID](#program-id) of the program being
+  invoked.
+- [`accounts`](mention:accounts): An array of
+  [account metadata](#account-metadata)
+- [`data`](mention:instruction-data): A byte array with additional [data](#data) to be
+  used by the instruction.
+
+```rust title="Instruction struct"
+pub struct Instruction {
+    /// Pubkey of the program that executes this instruction.
+    // !mention program-id
+    pub program_id: Pubkey,
+    /// Metadata describing accounts that should be passed to the program.
+    // !mention accounts
+    pub accounts: Vec<AccountMeta>,
+    /// Opaque data passed to the program for its own interpretation.
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+### Program ID
+
+The instruction's [`program_id`](/docs/references/terminology#program-id) is the
+public key address of the program that contains the instruction's execution
+logic. The runtime uses this field to route the instruction to the correct
+program for processing. When the instruction is
+[compiled](#compiled-instruction) into a transaction message, the program ID
+becomes an entry in the message's `account_keys` array, and the
+`CompiledInstruction` stores its index rather than the full 32-byte address.
+
+### Account metadata
+
+<WithMentions>
+
+The instruction's `accounts` array is an ordered list of
+[`AccountMeta`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/instruction/src/account_meta.rs#L24)
+structs. Metadata must be provided for each account the instruction interacts
+with. Solana's runtime scheduler uses this metadata to determine which
+transactions can be processed in parallel: transactions that do not overlap on
+writable accounts can execute concurrently. Providing accurate `AccountMeta`
+is what enables this parallelism.
+
+The diagram below depicts a transaction that contains a single instruction. The
+instruction's `accounts` array contains metadata for two accounts.
+
+![A transaction with one instruction. The instruction contains two `AccountMeta` structs in its `accounts` array.](/assets/docs/core/transactions/accountmeta.svg)
+
+Each `AccountMeta` has three fields:
+
+- [pubkey](mention:pubkey): The account's public key address
+- [is_signer](mention:is-signer): Set to `true` if the account must sign the
+  transaction
+- [is_writable](mention:is-writable): Set to `true` if the instruction modifies
+  the account's data
+
+<Callout>
+  To know which accounts an instruction requires, including which must be
+  writable, read-only, or sign the transaction, you must refer to the
+  implementation of the instruction, as defined by the program.
+</Callout>
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// An account's public key.
+    // !mention pubkey
+    pub pubkey: Pubkey,
+    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
+    // !mention is-signer
+    pub is_signer: bool,
+    /// True if the account data or metadata may be mutated during program execution.
+    // !mention is-writable
+    pub is_writable: bool,
+}
+```
+
+</WithMentions>
+
+The `AccountMeta` struct provides two constructors:
+
+- `AccountMeta::new(pubkey, is_signer)` creates a **writable** account
+  reference (`is_writable` defaults to `true`).
+- `AccountMeta::new_readonly(pubkey, is_signer)` creates a **read-only**
+  account reference (`is_writable` is `false`).
+
+Because `new()` defaults to writable, care should be taken to use
+`new_readonly()` when the account does not need to be modified. Marking
+unnecessary accounts as writable reduces the runtime's ability to schedule
+transactions in parallel.
+
+#### Runtime enforcement of AccountMeta flags
+
+The runtime enforces `is_signer` and `is_writable` at instruction boundaries.
+The runtime enforces these constraints within each account mutation method
+([`set_lamports`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782),
+[`can_data_be_changed`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013)):
+
+| Condition | Error |
+|---|---|
+| Lamport changes on a read-only account | `ReadonlyLamportChange` |
+| Data changes on a read-only account | `ReadonlyDataModified` |
+| Lamport decreases on an account not owned by the executing program | `ExternalAccountLamportSpend` |
+| Data changes on an account not owned by the executing program | `ExternalAccountDataModified` |
+
+These checks happen after every instruction, including CPIs. An instruction can
+freely read any account passed to it, but writes are gated by both the
+`is_writable` flag and program ownership.
+
+Any program can _increase_ lamports on any writable account. Only the owning
+program can _decrease_ them.
+
+### Data
+
+The instruction's `data` field is a byte array that tells the program which
+function to invoke and supplies the arguments for that function. The data
+typically begins with a discriminator or index byte(s) that identifies the
+target function, followed by the serialized arguments. The encoding format is
+defined by each program (for example, Borsh serialization or a custom layout).
+
+Common encoding conventions:
+
+- **Native programs** (System, Stake, Vote): Use a 4-byte little-endian `u32`
+  instruction index followed by Bincode-serialized arguments.
+- **Anchor programs**: Use an 8-byte discriminator (the first 8 bytes of the
+  SHA-256 hash of `"global:<function_name>"`) followed by Borsh-serialized
+  arguments.
+- **Custom programs**: Can use any encoding. Borsh is the most common because
+  it has a stable [specification](https://borsh.io/) and implementations in
+  both [Rust](https://docs.rs/borsh) and
+  [JavaScript](https://github.com/near/borsh-js).
+
+The runtime does not interpret the `data` field. It is passed as-is to the
+program's `process_instruction` entrypoint.
+
+## Compiled instruction
+
+When instructions are serialized into a transaction message, they become
+[`CompiledInstruction`](/docs/core/transactions/transaction-structure#instructions)
+structs. This format replaces all public keys with compact integer indices into
+the transaction message's `account_keys` array. See
+[Transaction Structure: Instructions](/docs/core/transactions/transaction-structure#instructions)
+for the full struct definition and encoding details.
+
+## Instruction processing
+
+Instructions execute sequentially during the
+[Execute instructions](/docs/core/transactions/transaction-lifecycle#7-execute-instructions)
+stage of the transaction pipeline. For details on how the runtime processes
+each instruction, see the
+[transaction lifecycle](/docs/core/transactions/transaction-lifecycle#instruction-processing-details).
+
+## SOL transfer example
+
+The diagram below shows how transactions and instructions work together to allow
+users to interact with the network. In this example, SOL is transferred from one
+account to another.
+
+<Callout type="caution">
+  The System Program's `transfer` instruction
+  [requires](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L189-L192)
+  the source account to have zero data bytes. Accounts with data (such as
+  program data accounts) cannot use this instruction to send SOL.
+</Callout>
+
+The sender account's [metadata](#account-metadata) indicates that it must sign
+for the transaction. (This allows the System Program to deduct
+[lamports](/docs/references/terminology#lamport).) Both the sender and recipient
+accounts must be writable, in order for their lamport balance to change. To
+execute this instruction, the sender's wallet sends the transaction containing
+its [signature](/docs/references/terminology#signature) and the message
+containing the SOL transfer instruction.
+
+![SOL transfer diagram](/assets/docs/core/transactions/sol-transfer.svg)
+
+After the transaction is sent, the System Program processes the transfer
+instruction and updates the lamport balance of both accounts.
+
+![SOL transfer process diagram](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+The example below shows the code relevant to the above diagrams. (See the System
+Program's
+[`transfer` function](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210).)
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// !mark(1:6)
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+// Add the transfer instruction to a new transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+// Sign and send the transaction
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+const transferAmount = 0.01; // 0.01 SOL
+
+// !mark(1:6)
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL
+});
+
+// Add the transfer instruction to a new transaction and send
+const transaction = new Transaction().add(transferInstruction);
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender]
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    // Add the transfer instruction to a new transaction and send
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    let blockhash = connection.get_latest_blockhash().await?;
+    transaction.sign(&[&sender], blockhash);
+
+    let transaction_signature = connection
+        .send_and_confirm_transaction(&transaction)
+        .await?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+The examples below show how to manually build the transfer instruction. (The
+`Expanded Instruction` tab is functionally equivalent to the `Instruction` tab.)
+
+<Callout type="info">
+  In practice, you usually don't have to construct an `Instruction` manually.
+  Most programs provide client libraries with helper functions that create the
+  instructions for you. If a library isn't available, you can manually build the
+  instruction.
+</Callout>
+
+<Tabs items={['Kit', 'Legacy', 'Rust']}>
+
+<Tab value="Kit">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const TRANSFER_INSTRUCTION_INDEX = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
+instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
+
+const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
+
+// Manually create the transfer instruction
+const transferInstruction: IInstruction = {
+  programAddress: SYSTEM_PROGRAM_ADDRESS,
+  accounts: [
+    {
+      address: sender.address,
+      role: AccountRole.WRITABLE_SIGNER
+    },
+    {
+      address: recipient.address,
+      role: AccountRole.WRITABLE
+    }
+  ],
+  data: new Uint8Array(instructionData)
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Legacy">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const transferInstructionIndex = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// Manually create a transfer instruction
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Rust">
+
+<CodeTabs>
+
+```rs !! title="Instruction"
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+let transfer_instruction =
+    system_instruction::transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+```
+
+```rs !! title="Expanded Instruction"
+// Instruction index for the System Program's transfer instruction
+let transfer_instruction_index: u32 = 2;
+
+// Define the amount to transfer
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
+let mut instruction_data = Vec::with_capacity(12);
+instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
+instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
+
+// Manually create the transfer instruction
+let transfer_instruction = Instruction {
+    program_id: system_program::id(),
+    accounts: vec![
+        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
+        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
+    ],
+    data: instruction_data,
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+</Tabs>

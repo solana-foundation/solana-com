@@ -1,0 +1,346 @@
+---
+title: PDA Derivation
+description:
+  How Program Derived Addresses are derived using SHA-256, seeds, bump values,
+  and the program ID. Covers the derivation algorithm, canonical bump search,
+  compute costs, and SDK examples.
+---
+
+{/* TOC: Background, Derivation Algorithm, Bump Seed Search, Compute Unit Costs, Derive a PDA */}
+
+## Background
+
+Solana
+[`Keypair`](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/keypair/src/lib.rs#L26)
+values are points on the [Ed25519 curve](https://ed25519.cr.yp.to/). A keypair
+consists of a public key (used as the account address) and a secret key (used to
+produce signatures). Anyone with the secret key can sign transactions for that
+address.
+
+![Two accounts with on-curve addresses](/assets/docs/core/pda/address-on-curve.svg)
+
+A PDA is intentionally derived to fall _off_ the Ed25519 curve. Because it is
+not a valid curve point, no secret key exists, and no external party can produce
+a signature. Only the deriving program can authorize operations on the PDA
+through `invoke_signed`.
+
+![Off Curve Address](/assets/docs/core/pda/address-off-curve.svg)
+
+### PDA vs keypair accounts
+
+| Property | Keypair account | PDA account |
+|---|---|---|
+| Address type | On Ed25519 curve | Off Ed25519 curve |
+| Has private key | Yes | No |
+| Can sign transactions | Yes (with private key) | No |
+| Can sign during CPI | No (unless keypair is provided) | Yes (via `invoke_signed`) |
+| Derivation | Random or from seed phrase | Deterministic from seeds + program ID |
+| Typical use | User wallets, validators | Program-owned data accounts, authority accounts, vault accounts |
+
+## Derivation Algorithm
+
+The PDA derivation is implemented in the SDK's
+[`create_program_address`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/address/src/syscalls.rs#L390-L440)
+function. The on-chain syscall wrapper (`SyscallCreateProgramAddress`) adds its
+own seed count check before delegating to this SDK function. The algorithm works
+as follows:
+
+1. Validate that the number of seeds does not exceed `MAX_SEEDS` (16) and no
+   individual seed exceeds `MAX_SEED_LEN` (32 bytes). If either check fails,
+   return `AddressError::MaxSeedLengthExceeded`.
+2. Initialize a SHA-256 hasher.
+3. Hash each seed sequentially: `hash(seed[0])`, `hash(seed[1])`, ...,
+   `hash(seed[n])`.
+4. Append the program ID bytes (32 bytes) and the domain separator string
+   `"ProgramDerivedAddress"` (21 bytes) to the same hasher via sequential
+   `.update()` calls, matching the actual implementation.
+5. Finalize the hash to produce a 32-byte result.
+6. Check if the result is a valid point on the Ed25519 curve using
+   [`bytes_are_curve_point`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/address/src/lib.rs#L177-L189),
+   which attempts to decompress the bytes as a `CompressedEdwardsY` point. If
+   decompression succeeds, the point is on the curve.
+7. If the result IS on the curve, return `AddressError::InvalidSeeds` (the
+   address would have a corresponding private key, which violates the PDA
+   security property).
+8. If the result is NOT on the curve, return it as the PDA.
+
+```
+create_program_address(seeds, program_id):
+    if len(seeds) > 16:
+        return Error(MaxSeedLengthExceeded)
+    for seed in seeds:
+        if len(seed) > 32:
+            return Error(MaxSeedLengthExceeded)
+
+    hasher = SHA-256()
+    for seed in seeds:
+        hasher.update(seed)
+    hasher.update(program_id)           // 32 bytes
+    hasher.update("ProgramDerivedAddress")  // 21 bytes
+    hash = hasher.finalize()            // 32 bytes
+
+    if is_on_ed25519_curve(hash):
+        return Error(InvalidSeeds)
+    return hash as Address
+```
+
+The `"ProgramDerivedAddress"` suffix is a domain separator that prevents
+collisions between PDAs and regular Ed25519 public keys. It also prevents
+`create_with_seed` (a separate address derivation mechanism, not PDA-related)
+from producing addresses that overlap with PDAs. `create_with_seed` uses
+`SHA-256(base, seed, owner)` -- the domain separator prevents these two
+derivation methods from producing overlapping addresses. The
+[`create_with_seed`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/address/src/lib.rs#L245-L263)
+function explicitly rejects owners whose bytes end with `"ProgramDerivedAddress"`.
+
+## Bump Seed Search
+
+[`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/f2d15de6f7a1715ff806f0c39bba8f64bf6a587d/address/src/syscalls.rs#L298-L341)
+wraps `create_program_address` with a search loop. It appends a single-byte
+"bump seed" to the user-provided seeds and tries values from 255 down to 1:
+
+<Callout type="info">
+  Both the on-chain syscall (`try_find_program_address`) and the off-chain SDK
+  function (`find_program_address`) loop 255 times, trying bumps from 255 down
+  to 1. Bump 0 is never tried by either implementation.
+</Callout>
+
+```
+find_program_address(seeds, program_id):
+    for bump in 255, 254, 253, ..., 2, 1:
+        result = create_program_address([...seeds, [bump]], program_id)
+        if result is Ok:
+            return (result, bump)    // canonical bump found
+    return Error                     // statistically near-impossible
+```
+
+The first bump value that produces an off-curve address is called the
+**canonical bump**. Programs should always use the canonical bump to ensure a
+unique, deterministic mapping from seeds to address. The search starts at 255
+because approximately 50% of random 32-byte values are off the Ed25519 curve, so
+the first attempt almost always succeeds, keeping CU costs minimal.
+
+<Callout type="warn">
+  Always use the canonical bump when deriving PDAs. Using a non-canonical bump
+  creates a second valid address for the same seeds, which can lead to
+  vulnerabilities where an attacker substitutes a different account than
+  expected.
+</Callout>
+
+## Compute Unit Costs
+
+The
+[on-chain syscall](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L798-L834)
+for `create_program_address` charges
+[1,500 CUs](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L200)
+per call.
+
+The
+[`try_find_program_address` syscall](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L836-L886)
+charges 1,500 CUs on entry (before the loop), then an additional 1,500 CUs for
+each failed bump attempt within the loop. If the canonical bump is 255, the
+total cost is 1,500 CUs (entry only). If every bump fails, the worst case is
+1,500 + 255 x 1,500 = 384,000 CUs.
+
+Best practice: derive PDAs off-chain or in a client, store the canonical bump,
+and use `create_program_address` with the known bump on-chain to pay a flat
+1,500 CUs.
+
+![Program Derived Address](/assets/docs/core/pda/pda.svg)
+
+## Derive a PDA
+
+Deriving a PDA computes an address only. It does not create an on-chain account
+at that address. The account must be explicitly created through a separate
+instruction (typically `create_account` via CPI).
+
+The Solana SDKs provide functions for PDA derivation. Each function takes:
+
+- **Program ID**: The address of the program used to derive the PDA. This
+  program can sign on behalf of the PDA.
+- **Optional seeds**: Predefined inputs such as strings, numbers, or other
+  account addresses.
+
+| SDK | Function |
+| --- | --- |
+| `@solana/kit` (TypeScript) | [`getProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L157) |
+| `@solana/web3.js` (TypeScript) | [`findProgramAddressSync`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/publickey.ts#L212) |
+| `solana_sdk` (Rust) | [`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/pubkey/src/lib.rs#L617) |
+
+![PDA Derivation](/assets/docs/core/pda/pda-derivation.svg)
+
+### Iterating All Bumps
+
+The following examples show PDA derivation using all possible bump seeds (255 to
+0), illustrating how `find_program_address` returns the
+[canonical bump](#bump-seed-search):
+
+<Callout type="info">
+  Kit example is not included because the
+  [`createProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L101)
+  function isn't exported.
+</Callout>
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const optionalSeed = "helloWorld";
+
+// Loop through all bump seeds (255 down to 0)
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(optionalSeed), Buffer.from([bump])],
+      programId
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_id = Pubkey::from_str("11111111111111111111111111111111")?;
+    let optional_seed = b"helloWorld";
+
+    // Loop through all bump seeds (255 down to 0)
+    for bump in (0..=255).rev() {
+        match Pubkey::create_program_address(&[optional_seed.as_ref(), &[bump]], &program_id) {
+            Ok(pda) => println!("bump {}: {}", bump, pda),
+            Err(err) => println!("bump {}: {}", bump, err),
+        }
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<CodeTabs>
+
+```sh !! title="Expected TS Output"
+bump 255: Error: Invalid seeds, address must fall off the curve
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Error: Invalid seeds, address must fall off the curve
+...
+// remaining bump outputs
+```
+
+```sh !! title="Expected Rust Output"
+bump 255: Provided seeds do not result in a valid address
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Provided seeds do not result in a valid address
+...
+// remaining bump outputs
+```
+
+</CodeTabs>
+
+In this example, bump 255 produces an on-curve address and fails. The first
+valid bump is 254, making it the canonical bump.
+
+### Examples
+
+The example below derives a PDA using multiple seed types (string + address).
+For simpler cases, use a subset of these seeds. Click **&#9655; Run** to
+execute the code.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:5)
+const optionalSeedString = "helloWorld";
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedString, optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus(1:4)
+const optionalSeedString = "helloWorld";
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
+const [pda, bump] = PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus(1:2)
+    let optional_seed_bytes = b"helloWorld";
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Common Seed Patterns
+
+Seeds are application-specific. Common patterns include:
+
+| Pattern | Seeds | Use case |
+| --- | --- | --- |
+| Global singleton | `["global"]` | Single program-wide config account |
+| Per-user account | `["user", user_pubkey]` | One account per user per program |
+| Per-user-per-entity | `["vault", user_pubkey, mint_pubkey]` | Token vaults, per-user-per-token |
+| Authority PDA | `["authority"]` | Program authority for signing CPIs |
+| Counter / sequential | `["order", user_pubkey, &order_id.to_le_bytes()]` | Sequential records per user |
+
+<Callout type="warn">
+  Seeds are hashed sequentially, so `["ab", "cd"]` and `["abcd"]` produce
+  the same PDA. Use a fixed-length seed or a separator to avoid collisions.
+  For example, using `["ab", "-", "cd"]` is unambiguous.
+</Callout>

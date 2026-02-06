@@ -1,0 +1,217 @@
+---
+title: Program Execution
+description:
+  How Solana compiles and executes programs, including the sBPF VM, compute unit
+  model, program cache, and syscalls.
+---
+
+{/* TOC: Compilation, Write programs, Program execution model, Program cache, Syscalls */}
+
+## Compilation
+
+Solana uses [LLVM](https://llvm.org/) to compile programs into
+[ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) binaries
+containing Solana Bytecode Format (sBPF). The ELF binary is stored on-chain in
+an executable account.
+
+<Callout>
+  sBPF is Solana's custom variant of
+  [eBPF](https://en.wikipedia.org/wiki/EBPF) bytecode, tailored for the Solana
+  runtime. It is not standard eBPF and has Solana-specific modifications.
+</Callout>
+
+## Write programs
+
+Solana programs are primarily written in
+[Rust](https://rust-book.cs.brown.edu/title-page.html) using one of two
+approaches:
+
+- [Anchor](https://www.anchor-lang.com/docs): A framework that uses
+  [Rust macros](https://doc.rust-lang.org/book/ch20-05-macros.html) to reduce
+  boilerplate. Recommended for most developers.
+- [Native Rust](/docs/programs/rust): Direct Rust without frameworks. Offers
+  full control but requires more manual implementation.
+
+Programs can also be written in C or C++, though Rust has the most complete
+tooling and framework support.
+
+## Program execution model
+
+When a transaction is processed, the runtime executes each instruction
+sequentially through [`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15).
+For each instruction, the runtime:
+
+1. **Prepares the instruction context.** Calls
+   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)
+   to map the instruction's account indices, set signer and writable flags, and
+   configure the [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467).
+
+2. **Checks precompiles.** If the program is a
+   [precompile](/docs/core/programs/builtin-programs#precompiled-programs),
+   the runtime calls [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491),
+   which still pushes and pops a stack frame (via `push()` and `pop()`) but
+   bypasses the sBPF VM and program cache lookup, executing native code
+   directly.
+
+3. **Pushes a stack frame.** (Steps 3-6 happen inside
+   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
+   and
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507),
+   called from `process_message()`.) Calls
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
+   on [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184),
+   which increments the instruction stack height and enforces the reentrancy
+   rule: a program may only re-enter itself if the **immediate** caller (the
+   program at the current top of the instruction stack) is the same program.
+   Deep self-recursion (A -> A -> A) is allowed, subject to stack depth limits.
+   Other reentrancy patterns (e.g., A calls B calls A) return
+   `InstructionError::ReentrancyNotAllowed`.
+
+4. **Resolves the program.** The runtime calls
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   which determines the loader. If the program account's owner is the
+   [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517),
+   the program is a builtin and its entrypoint function is looked up directly
+   from the [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706).
+   If the owner is one of the BPF loaders (`bpf_loader_deprecated`,
+   `bpf_loader`, `bpf_loader_upgradeable`, or `loader_v4`), the
+   loader's own builtin entrypoint is invoked instead.
+
+5. **Executes the BPF program.** For BPF programs, the
+   [loader entrypoint](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+   looks up the compiled executable from the program cache. The
+   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)
+   function then:
+   - Serializes account data into a flat parameter buffer
+   - Creates the sBPF VM with stack, heap, and memory regions
+   - Runs the compiled code via JIT on x86_64 or interpretation on other architectures
+   - Deserializes account data from the buffer back into account state
+
+6. **Pops the stack frame.** Calls
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)
+   which verifies that the instruction did not violate the runtime's accounting
+   rules (lamport balances are balanced, readonly accounts were not modified,
+   account data sizes are within limits).
+
+7. **Accumulates compute units.** The compute units consumed by the instruction
+   are added to the transaction total via
+   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53).
+   This accumulated total is used for metrics and reporting. CU enforcement
+   happens during execution: each syscall and instruction deducts from the
+   compute meter via
+   [`InvokeContext::consume_checked()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L610),
+   which returns `ComputationalBudgetExceeded` if the remaining budget is
+   insufficient.
+
+## Program cache
+
+The runtime maintains a global
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)
+that stores verified and compiled programs. It is fork-graph aware and handles
+deployment visibility rules, eviction, and epoch boundary recompilation.
+
+### Cache entry types
+
+Every cached program has a
+[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132)
+that determines its runtime behavior:
+
+| Type | Description |
+|---|---|
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147) | Verified and JIT-compiled program, ready for execution. |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149) | Native program compiled into the validator binary (System, Stake, Vote, etc.). Not stored on-chain. |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145) | Previously verified program whose compiled executable was evicted from memory to free space. Still tracks usage statistics. Can be reloaded without re-verification. |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Tombstone for programs that did not pass the sBPF verifier under the current feature set. May become `Loaded` if feature activations change the verification rules. |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139) | Tombstone for programs that were explicitly closed or never deployed. Also used for accounts (such as buffer accounts) that belong to a loader but do not contain executable code. |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141) | Synthetic tombstone returned by [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) when a `Loaded` entry exists but is not yet effective (its `effective_slot` is in the future). Never stored directly in the cache. |
+
+### Visibility delay
+
+Newly deployed or upgraded programs are not effective immediately. The
+[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
+constant is `1`, meaning a program deployed in slot N becomes effective in slot
+N+1. During the deployment slot, any attempt to invoke the new version returns
+`DelayVisibility`, causing the runtime to report "Program is not deployed."
+
+### Eviction policy
+
+The cache holds up to
+[`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)
+(512) compiled program entries. When the limit is reached, the least-used
+programs are evicted to `Unloaded` state. Usage is tracked by
+[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)
+(incremented each time a transaction references the program) and
+[`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199).
+The [`decayed_usage_counter()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L513)
+method halves the usage counter for every slot since last access, implementing a
+probabilistic LRU-like eviction strategy.
+
+### Epoch boundary recompilation
+
+At epoch boundaries, the
+[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)
+may change if a feature affecting the sBPF runtime was activated. When this
+happens, all `Loaded` programs are re-verified against the new environment. Programs
+that no longer pass verification transition to `FailedVerification`; programs
+that previously failed may transition to `Loaded`.
+
+## Syscalls
+
+Programs interact with the runtime through syscalls registered in
+[`create_program_runtime_environment_v1()`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L282).
+Each syscall deducts compute units from the transaction's compute budget.
+
+### Syscall cost reference
+
+| Syscall | Base cost | Per-unit cost | Source |
+|---|---|---|---|
+| SHA-256 | 85 CU | 1 CU/byte | [`sha256_base_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L202) / [`sha256_byte_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L203) |
+| Keccak-256 | 85 CU | 1 CU/byte | [`Keccak256Hasher`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L256) (reuses sha256 cost fields) |
+| Blake3 | 85 CU | 1 CU/byte | [`Blake3Hasher`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L229) (reuses sha256 cost fields) |
+| secp256k1_recover | 25,000 CU | -- | [`secp256k1_recover_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L207) |
+| create_program_address | 1,500 CU | -- | [`create_program_address_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L200) |
+| invoke / invoke_signed (CPI) | 1,000 CU (946 CU with SIMD-0339) | -- | [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21) |
+| Log (64-bit value) | 100 CU | -- | [`log_64_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L199) |
+| Log (Pubkey) | 100 CU | -- | [`log_pubkey_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L204) |
+| Syscall base (any syscall overhead) | 100 CU | -- | [`syscall_base_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L208) |
+| Get sysvar | 100 CU | -- | [`sysvar_base_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L206) |
+| Memory op (memcpy, memmove, memset, memcmp) | 10 CU | -- | [`mem_op_base_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L222) |
+| Poseidon hash | 61\*n^2 + 542 CU | -- | [`poseidon_cost_coefficient_a`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L229) / [`poseidon_cost_coefficient_c`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L230) |
+| Curve25519 edwards validate point | 159 CU | -- | [`curve25519_edwards_validate_point_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L209) |
+| Curve25519 edwards add | 473 CU | -- | [`curve25519_edwards_add_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L210) |
+| Curve25519 edwards multiply | 2,177 CU | -- | [`curve25519_edwards_multiply_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L212) |
+| Curve25519 edwards MSM | 2,273 + 758\*(n-1) CU | -- | [`curve25519_edwards_msm_base_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L213) |
+| Curve25519 ristretto validate point | 169 CU | -- | [`curve25519_ristretto_validate_point_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L215) |
+| Curve25519 ristretto add | 521 CU | -- | [`curve25519_ristretto_add_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L216) |
+| Curve25519 ristretto multiply | 2,208 CU | -- | [`curve25519_ristretto_multiply_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L218) |
+| Curve25519 ristretto MSM | 2,303 + 788\*(n-1) CU | -- | [`curve25519_ristretto_msm_base_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L219) |
+| alt_bn128 addition | 334 CU | -- | [`alt_bn128_addition_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L223) |
+| alt_bn128 multiplication | 3,840 CU | -- | [`alt_bn128_multiplication_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L224) |
+| alt_bn128 pairing | 36,364 + 12,121\*(n-1) CU | -- | [`alt_bn128_pairing_one_pair_cost_first`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L225) |
+| alt_bn128 G1 compress | 30 CU | -- | [`alt_bn128_g1_compress`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L232) |
+| alt_bn128 G1 decompress | 398 CU | -- | [`alt_bn128_g1_decompress`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L233) |
+| alt_bn128 G2 compress | 86 CU | -- | [`alt_bn128_g2_compress`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L234) |
+| alt_bn128 G2 decompress | 13,610 CU | -- | [`alt_bn128_g2_decompress`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L235) |
+| Big modular exponentiation | 190 + input_len/2 CU | -- | [`big_modular_exponentiation_base_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L227) |
+| Get remaining compute units | 100 CU | -- | [`get_remaining_compute_units_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L231) |
+| Heap allocation (per 32 KiB page) | 8 CU | -- | [`heap_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L221) |
+
+### Available syscalls
+
+The complete set of syscalls available to sBPF programs, as registered in
+[`create_program_runtime_environment_v1()`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L282):
+
+| Category | Syscalls |
+|---|---|
+| **Control flow** | `abort`, `sol_panic_` |
+| **Logging** | `sol_log_`, `sol_log_64_`, `sol_log_pubkey`, `sol_log_compute_units_`, `sol_log_data` |
+| **PDA** | `sol_create_program_address`, `sol_try_find_program_address` |
+| **Hashing** | `sol_sha256`, `sol_keccak256`, `sol_blake3`, `sol_poseidon` |
+| **Cryptography** | `sol_secp256k1_recover`, `sol_curve_validate_point`, `sol_curve_group_op`, `sol_curve_multiscalar_mul`, `sol_alt_bn128_group_op`, `sol_alt_bn128_compression`, `sol_big_mod_exp` |
+| **CPI** | `sol_invoke_signed_rust`, `sol_invoke_signed_c` |
+| **Sysvars** | `sol_get_clock_sysvar`, `sol_get_epoch_schedule_sysvar`, `sol_get_rent_sysvar`, `sol_get_epoch_rewards_sysvar`, `sol_get_last_restart_slot_sysvar`, `sol_get_sysvar` |
+| **Memory** | `sol_memcpy_`, `sol_memmove_`, `sol_memset_`, `sol_memcmp_` |
+| **Program data** | `sol_set_return_data`, `sol_get_return_data`, `sol_get_processed_sibling_instruction`, `sol_get_stack_height` |
+| **Compute** | `sol_remaining_compute_units` |
+| **Epoch stake** | `sol_get_epoch_stake` |
+| **Memory allocation** | `sol_alloc_free_` (legacy, deployment disabled) |

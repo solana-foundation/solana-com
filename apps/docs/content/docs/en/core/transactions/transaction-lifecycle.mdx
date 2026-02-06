@@ -1,0 +1,365 @@
+---
+title: Transaction Lifecycle
+description:
+  How Solana transactions are processed from submission to commit, including the
+  full validation pipeline, durable nonces, reading transaction details from the
+  network, and common validation errors.
+---
+
+{/* TOC: Transaction processing pipeline, Reading transaction data, Durable nonces, Validation failure reference */}
+
+## Transaction processing pipeline
+
+When a transaction arrives at a validator, it passes through a series of
+validation and execution stages. The following describes the full pipeline from
+receipt to commit, with source file references into the
+[agave](https://github.com/anza-xyz/agave/tree/v3.1.8) validator client.
+
+### 1. Receive and deserialize
+
+The validator receives transaction bytes over UDP/QUIC. The raw bytes must fit
+within a single packet (`PACKET_DATA_SIZE` = 1,232 bytes). The bytes are
+deserialized into a `VersionedTransaction`, which contains the signatures array
+and a `VersionedMessage` (either legacy or v0).
+
+### 2. Signature verification (sigverify)
+
+Signatures are verified in the
+[sigverify stage](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs)
+before the transaction enters the banking stage. For each signature at
+index `i`, the verifier checks Ed25519(`signatures[i]`, `account_keys[i]`,
+`message_bytes`). If any signature is invalid, the packet is discarded.
+
+Verification is parallelized: the validator splits packet batches into chunks
+of
+[`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)
+(128) and processes them in parallel using Rayon. When GPU perf-libs are
+available, verification is offloaded to the GPU.
+
+### 3. Sanitize
+
+The deserialized transaction is sanitized to produce a `SanitizedTransaction`
+(or
+[`RuntimeTransaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/runtime_transaction.rs#L31)).
+Sanitization validates structural invariants:
+
+- Number of signatures matches `num_required_signatures` in the header
+- All instruction `program_id_index` and `account_indices` are within bounds
+- No duplicate account keys in the static keys list
+- The fee payer (account index 0) is a writable signer
+
+The `RuntimeTransaction` wrapper caches precomputed metadata from
+[`TransactionMeta`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/transaction_meta.rs#L38-L44):
+the message hash, vote transaction flag, precompile signature counts
+(Ed25519/secp256k1/secp256r1), compute budget instruction details, and total
+instruction data length.
+
+### 4. Check compute budget, age, and status cache
+
+The
+[`check_transactions`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L55-L69)
+method performs several checks per transaction:
+
+**Compute budget**: The transaction's compute budget instructions are parsed
+and validated first. Fee details are calculated from the budget limits and
+prioritization fee. If the compute budget is invalid or conflicting, the
+transaction fails with `InvalidComputeBudget`.
+
+**Blockhash age**: The transaction's `recent_blockhash` is looked up in the
+[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
+If the hash is found and its age is within `MAX_PROCESSING_AGE` (150 slots),
+the transaction proceeds. If not found, the validator checks for a valid
+[durable nonce](#durable-nonces).
+
+**Status cache**: The transaction's message hash is checked against a status
+cache. If found, the transaction is rejected with `AlreadyProcessed`.
+
+### 5. Validate nonce and fee payer
+
+The
+[`validate_transaction_nonce_and_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L580-L620)
+method in the SVM handles two validations:
+
+**Nonce validation** (if applicable): For nonce transactions, the validator
+loads the nonce account and verifies:
+- The account is owned by the System Program
+- It parses as `State::Initialized`
+- The stored durable nonce matches the transaction's `recent_blockhash`
+- The nonce can be advanced (its current durable nonce differs from the
+  next durable nonce, i.e., the nonce has not already been used in the
+  current block)
+- The nonce authority has signed the transaction
+
+If valid, the nonce is advanced to the next durable nonce value. See
+[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729).
+
+**Fee payer validation**: The fee payer account (always index 0) is loaded
+and checked by
+[`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417):
+
+- Account must exist (lamports > 0), otherwise `AccountNotFound`
+- Account must be a system account or nonce account, otherwise
+  `InvalidAccountForFee`
+- Lamports must cover `min_balance + total_fee`, where `min_balance` is 0 for
+  system accounts or `rent.minimum_balance(NonceState::size())` for nonce
+  accounts; otherwise `InsufficientFundsForFee`
+- After fee deduction, the account must remain rent-exempt (cannot transition
+  from rent-exempt to rent-paying)
+
+The fee is deducted from the fee payer at this stage. A snapshot of the
+fee-subtracted fee payer (and advanced nonce, if applicable) is saved as
+`RollbackAccounts` -- these are the accounts that get committed even if
+execution fails.
+
+### 6. Load accounts
+
+[`load_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L419-L455)
+loads all accounts referenced by the transaction. The
+[`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)
+wraps the external account store and maintains a batch-local cache so that
+accounts modified by earlier transactions in the same batch are visible to
+later ones (SIMD-83 ordering).
+
+For each non-fee-payer account, the loader:
+
+1. Fetches the account from the cache or accounts-db
+2. Updates rent-exempt status if needed
+3. Accumulates the account's data size toward the
+   [`loaded_accounts_data_size_limit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (default 64 MiB). Each account incurs a base overhead of
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   (64 bytes) plus its data length
+
+For each program invoked by the transaction's instructions, the loader
+verifies that the program account exists and is owned by a valid loader
+(`NativeLoader` or one of the `PROGRAM_OWNERS`). Invalid programs fail with
+`ProgramAccountNotFound` or `InvalidProgramForExecution`.
+
+LoaderV3 (upgradeable) programs implicitly load their associated programdata
+account, which also counts toward the loaded data size limit.
+
+If account loading fails but the fee payer was successfully validated, the
+transaction becomes a
+[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)
+result: the fee is still collected but no instructions execute.
+
+### 7. Execute instructions
+
+[`execute_loaded_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L847)
+creates a `TransactionContext` with all loaded accounts and invokes
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs).
+Instructions execute sequentially in the order they appear in the message.
+Each instruction invocation creates an `InvokeContext` and calls the target
+program.
+
+#### Instruction processing details
+
+The runtime's
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)
+function iterates through each instruction and calls the target program:
+
+1. For each instruction, the runtime calls
+   [`prepare_next_top_level_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436),
+   which builds the
+   [`InstructionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L519).
+   This context contains references to the instruction's accounts (resolved
+   from the compiled indices), the instruction data, and the program account
+   index.
+2. The runtime checks whether the program is a
+   [precompile](/docs/core/programs#precompile-programs) (Ed25519,
+   Secp256k1, Secp256r1). Precompiles are verified directly without invoking
+   the BPF VM.
+3. For all other programs, the runtime invokes `process_instruction`, which
+   loads the program from the cache and executes it in the BPF virtual machine.
+4. After the instruction completes, the runtime verifies that no read-only
+   accounts were modified and that the total lamport balance across all
+   instruction accounts has not changed
+   ([`UnbalancedInstruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   check).
+5. If any instruction fails, the entire transaction is rolled back. No
+   intermediate state changes are committed.
+
+Each instruction increments the instruction trace. The trace includes both
+top-level instructions and any [CPIs](/docs/core/cpi) they invoke. The total
+trace length (top-level instructions plus all nested CPIs) cannot exceed 64
+(`MAX_INSTRUCTION_TRACE_LENGTH`). Exceeding this limit returns
+`InstructionError::MaxInstructionTraceLengthExceeded`.
+
+After execution, the runtime verifies that:
+- The sum of lamports across all accounts has not changed
+- No account transitioned from rent-exempt to rent-paying
+
+### 8. Commit or rollback
+
+If execution succeeds, the modified account states from the
+`TransactionContext` are written back to the `AccountLoader`'s batch-local
+cache. If execution fails, only the `RollbackAccounts` (fee payer with fee
+deducted and advanced nonce) are written back -- the fee is still collected,
+but all other account changes are discarded.
+
+### Pipeline summary
+
+```
+Receive packet (UDP/QUIC)
+  --> Deserialize into VersionedTransaction
+  --> Sigverify (parallel Ed25519 verification)
+  --> Sanitize (structural validation, metadata extraction)
+  --> Parse compute budget, calculate fees
+  --> Check blockhash age / nonce validity
+  --> Check status cache (dedup)
+  --> Validate fee payer (load, check balance, deduct fee)
+  --> Load all accounts (with data size limits)
+  --> Load programs (verify loaders)
+  --> Execute instructions sequentially
+  --> Verify post-conditions (lamport balance, rent state)
+  --> Commit account changes (or rollback on failure)
+```
+
+## Reading transaction data
+
+After submission, retrieve transaction details using the transaction signature
+and the [getTransaction](/docs/rpc/http/gettransaction) RPC method.
+
+<Callout>
+  You can also find the transaction using [Solana
+  Explorer](https://explorer.solana.com).
+</Callout>
+
+```json title="Transaction Data"
+{
+  "blockTime": 1745196488,
+  "meta": {
+    "computeUnitsConsumed": 150,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success"
+    ],
+    "postBalances": [989995000, 10000000, 1],
+    "postTokenBalances": [],
+    "preBalances": [1000000000, 0, 1],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 13049,
+  "transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "8PLdpLxkuv9Nt8w3XcGXvNa663LXDjSrSNon4EK7QSjQ",
+        "7GLg7bqgLBv1HVWXKgWAm6YoPf1LoWnyWGABbgk487Ma",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "7ZCxc2SDhzV2bYgEQqdxTpweYJkpwshVSDtXuY7uPtjf",
+      "instructions": [
+        {
+          "accounts": [0, 1],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX"
+    ]
+  },
+  "version": "legacy"
+}
+```
+
+## Durable nonces
+
+A durable nonce transaction replaces the recent blockhash with a stored nonce
+value, removing the ~60-second expiry window. This enables offline signing and
+delayed submission.
+
+### How nonce transactions work
+
+A nonce account is a System Program-owned account that stores a
+`State::Initialized` value containing three fields: an **authority** pubkey
+(who can advance the nonce), a **durable nonce** value (a hash derived from a
+recent blockhash), and **lamports per signature** (the fee rate when the nonce
+was last advanced).
+
+To use a durable nonce:
+
+1. Create and initialize a nonce account using `CreateAccount` +
+   `InitializeNonceAccount`
+2. Build the transaction with `AdvanceNonceAccount` as the **first
+   instruction** and the nonce value as the `recent_blockhash`
+3. Sign the transaction (can be done offline, since the nonce does not expire)
+4. Submit when ready
+
+### Nonce detection
+
+The runtime detects nonce transactions by checking whether the first
+instruction (index
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0) is a call to the System Program with the `AdvanceNonceAccount`
+instruction discriminator (`4u32` in little-endian). The nonce account must
+be the first account of that instruction and must be writable. See
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
+
+### Nonce validation flow
+
+When a transaction's `recent_blockhash` is not found in the `BlockhashQueue`,
+the validator checks if it is a valid nonce transaction via
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180):
+
+1. The nonce's stored `durable_nonce` must differ from the next durable nonce
+   (derived from the current blockhash) -- this ensures the nonce has not
+   already been used in this block
+2. The nonce account must be loaded and must parse as `State::Initialized`
+3. The stored `durable_nonce` must match the transaction's `recent_blockhash`
+4. The nonce authority must have signed the `AdvanceNonceAccount` instruction
+
+If all checks pass, the nonce is advanced to the next durable nonce value
+before execution begins. On execution failure, the advanced nonce and the
+fee-deducted fee payer are still committed (preventing replay while collecting
+fees).
+
+### Nonce failure behavior
+
+If a nonce transaction **fails validation** (nonce already used, authority not
+signed, account not found), the entire transaction is dropped -- no fees
+collected, no state changes.
+
+If a nonce transaction **passes validation but execution fails** (an
+instruction returns an error), the nonce is still advanced and fees are still
+collected. This prevents the transaction from being replayed while ensuring the
+validator is compensated.
+
+## Validation failure reference
+
+The following table lists common validation errors and at which stage they
+occur:
+
+| Error | Stage | Cause |
+|---|---|---|
+| `InvalidSignature` | Sigverify | Ed25519 signature does not verify |
+| `BlockhashNotFound` | Age check | Blockhash not in queue and not a valid nonce |
+| `AlreadyProcessed` | Status cache | Transaction was already processed |
+| `AccountNotFound` | Fee payer validation | Fee payer account does not exist |
+| `InvalidAccountForFee` | Fee payer validation | Fee payer is not a system or nonce account |
+| `InsufficientFundsForFee` | Fee payer validation | Fee payer cannot cover fee + rent-exempt minimum |
+| `ProgramAccountNotFound` | Account loading | An invoked program does not exist |
+| `InvalidProgramForExecution` | Account loading | Program is not owned by a valid loader |
+| `MaxLoadedAccountsDataSizeExceeded` | Account loading | Total loaded data exceeds 64 MiB limit |
+| `InvalidComputeBudget` | Compute budget parsing | Invalid or conflicting compute budget instructions |
+| `InvalidRentPayingAccount` | Post-execution check | Account transitioned from rent-exempt to rent-paying |
+| `InsufficientFundsForRent` | Post-execution check | Account does not have enough lamports to cover rent for its data size |
