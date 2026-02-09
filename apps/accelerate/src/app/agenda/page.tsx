@@ -308,7 +308,7 @@ export default function AgendaPage() {
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
               }}
             >
-              February 11, 2026 / Hong Kong
+              11 February 2026 / Hong Kong
             </motion.p>
 
             <motion.h1

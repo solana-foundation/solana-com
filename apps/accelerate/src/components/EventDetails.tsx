@@ -130,7 +130,7 @@ export function EventDetails() {
           <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:gap-[80px]">
             {/* Details list */}
             <div className="order-1 md:order-1">
-              <EventDetailRow label="Date" value="February 11, 2026" />
+              <EventDetailRow label="Date" value="11 February 2026" />
               <EventDetailRow
                 label="Venue"
                 value="Hong Kong Convention and Exhibition Centre"
