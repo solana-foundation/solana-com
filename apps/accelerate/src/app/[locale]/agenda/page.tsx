@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { Agenda } from "@/components/Agenda";
 import { LumaModal } from "@/components/LumaModal";
+import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
 
 const fadeInUp = {
@@ -20,6 +22,7 @@ const navLinkStyle = {
 
 export default function AgendaPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const t = useTranslations("accelerate");
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -51,59 +54,47 @@ export default function AgendaPage() {
 
           {/* Navigation */}
           <nav className="hidden items-center gap-[38px] md:flex">
-            <a
+            <Link
               href="/accelerate#speakers"
               className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: "16px",
-              }}
+              style={navLinkStyle}
             >
-              Speakers
-            </a>
+              {t("nav.speakers")}
+            </Link>
             <Link
               href="/accelerate/agenda"
               className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: "16px",
-              }}
+              style={navLinkStyle}
             >
-              Agenda
+              {t("nav.agenda")}
             </Link>
-            <a
+            <Link
               href="/accelerate#sponsors"
               className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: "16px",
-              }}
+              style={navLinkStyle}
             >
-              Sponsors
-            </a>
-            <a
+              {t("nav.sponsors")}
+            </Link>
+            <Link
               href="/accelerate#faq"
               className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: "16px",
-              }}
+              style={navLinkStyle}
             >
-              FAQ
-            </a>
+              {t("nav.faq")}
+            </Link>
+            <LanguageSelector className="!text-white/60 hover:!text-white" />
             <LumaModal lumaId="sol-accelerate-hk">
               <button
                 className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
                 style={{
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: "16px",
+                  ...navLinkStyle,
                   minWidth: "186px",
                   background:
                     "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
                   border: "1px solid transparent",
                 }}
               >
-                <span>Request to Join</span>
+                <span>{t("nav.requestToJoin")}</span>
                 <svg
                   width="8"
                   height="8"
@@ -126,7 +117,7 @@ export default function AgendaPage() {
           {/* Mobile menu button */}
           <button
             type="button"
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-label={mobileMenuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
             aria-expanded={mobileMenuOpen}
             className="flex h-10 w-10 items-center justify-center text-white md:hidden"
             onClick={() => setMobileMenuOpen(true)}
@@ -166,10 +157,12 @@ export default function AgendaPage() {
               className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-[#0D0D0D] px-6 py-5"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-white/60">Menu</span>
+                <span className="text-sm font-medium text-white/60">
+                  {t("nav.menu")}
+                </span>
                 <button
                   type="button"
-                  aria-label="Close menu"
+                  aria-label={t("nav.closeMenu")}
                   className="flex h-10 w-10 items-center justify-center text-white"
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -186,42 +179,45 @@ export default function AgendaPage() {
                 </button>
               </div>
               <nav className="mt-8 flex flex-col gap-6">
-                <a
+                <Link
                   href="/accelerate#speakers"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Speakers
-                </a>
+                  {t("nav.speakers")}
+                </Link>
                 <Link
                   href="/accelerate/agenda"
                   className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Agenda
+                  {t("nav.agenda")}
                 </Link>
-                <a
+                <Link
                   href="/accelerate#sponsors"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Sponsors
-                </a>
-                <a
+                  {t("nav.sponsors")}
+                </Link>
+                <Link
                   href="/accelerate#faq"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  FAQ
-                </a>
+                  {t("nav.faq")}
+                </Link>
+                <div className="mt-2">
+                  <LanguageSelector className="!text-white/60 hover:!text-white" />
+                </div>
                 <LumaModal lumaId="sol-accelerate-hk">
                   <button
                     type="button"
-                    className="relative mt-2 w-full inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
+                    className="relative mt-2 inline-flex w-full items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
                     style={{
                       ...navLinkStyle,
                       minWidth: "186px",
@@ -230,7 +226,7 @@ export default function AgendaPage() {
                       border: "1px solid transparent",
                     }}
                   >
-                    <span>Request to Join</span>
+                    <span>{t("nav.requestToJoin")}</span>
                     <svg
                       width="8"
                       height="8"
@@ -296,7 +292,7 @@ export default function AgendaPage() {
                     strokeLinejoin="round"
                   />
                 </svg>
-                Back to Accelerate APAC
+                {t("agendaPage.backToAccelerate")}
               </Link>
             </motion.div>
 
@@ -308,7 +304,7 @@ export default function AgendaPage() {
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
               }}
             >
-              11 February 2026 / Hong Kong
+              {t("agendaPage.dateLocation")}
             </motion.p>
 
             <motion.h1
@@ -322,15 +318,17 @@ export default function AgendaPage() {
                 color: "#D2D2D2",
               }}
             >
-              Conference <span className="gradient-text">Agenda</span>
+              {t("agendaPage.conference")}{" "}
+              <span className="gradient-text">
+                {t("agendaPage.agendaHighlight")}
+              </span>
             </motion.h1>
 
             <motion.p
               variants={fadeInUp}
               className="mt-6 max-w-2xl text-lg text-white/60"
             >
-              A full day of keynotes, panels, and lightning talks covering
-              payments, DeFi, tokenization, AI infrastructure, and more.
+              {t("agendaPage.description")}
             </motion.p>
           </motion.div>
         </div>
@@ -358,7 +356,11 @@ export default function AgendaPage() {
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
               }}
             >
-              Ready to <span className="gradient-text">Accelerate</span>?
+              {t("agendaPage.readyTo")}{" "}
+              <span className="gradient-text">
+                {t("agendaPage.accelerateHighlight")}
+              </span>
+              ?
             </motion.h2>
 
             <motion.div variants={fadeInUp}>
@@ -377,7 +379,7 @@ export default function AgendaPage() {
                       fontWeight: 600,
                     }}
                   >
-                    Request to Join
+                    {t("agendaPage.requestToJoin")}
                   </span>
                   <Image
                     src={getImagePath("/images/ticket-icon.svg")}
@@ -395,7 +397,7 @@ export default function AgendaPage() {
         {/* Bottom copyright */}
         <div className="mt-12 text-center">
           <p className="text-xs text-white/30 sm:text-sm">
-            © Solana Foundation 2026
+            {t("agendaPage.copyright")}
           </p>
         </div>
       </section>
