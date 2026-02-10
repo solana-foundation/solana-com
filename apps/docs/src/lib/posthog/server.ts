@@ -10,7 +10,7 @@ type TrackMarkdownRequestInput = {
 };
 
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
-const EVENT_NAME = "docs-markdown-requested";
+const EVENT_NAME = "docs_markdown_requested";
 
 function getPosthogApiKey(): string | undefined {
   return process.env.NEXT_PUBLIC_POSTHOG_KEY;
