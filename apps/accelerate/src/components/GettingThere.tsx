@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -73,6 +74,8 @@ function InfoRow({ label, value, subValue, link }: InfoRowProps) {
 }
 
 export function GettingThere() {
+  const t = useTranslations("accelerate.gettingThere");
+
   return (
     <section id="getting-there" className="bg-black py-12 lg:py-16">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
@@ -91,7 +94,7 @@ export function GettingThere() {
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
-            Getting there
+            {t("heading")}
           </motion.h2>
 
           {/* Divider line */}
@@ -99,22 +102,22 @@ export function GettingThere() {
 
           <div className="mx-auto max-w-4xl">
             <InfoRow
-              label="Nearest Airport"
-              value="Hong Kong International Airport (HKG)"
+              label={t("nearestAirportLabel")}
+              value={t("nearestAirportValue")}
             />
             <InfoRow
-              label="Accommodations"
-              value="Grand Hyatt Hong Kong"
-              subValue="Consensus is offering discounted hotel rates."
+              label={t("accommodationsLabel")}
+              value={t("accommodationsValue")}
+              subValue={t("accommodationsSubValue")}
               link={{
-                text: "View details here.",
+                text: t("viewDetailsHere"),
                 href: "https://consensus-hongkong.coindesk.com/travel/",
               }}
             />
             <InfoRow
               label=""
-              value="Nomadz"
-              subValue="web3-native travel aggregator on Solana. Save up to 60% on hotels and pay in crypto."
+              value={t("nomadzValue")}
+              subValue={t("nomadzSubValue")}
               link={{
                 text: "nomadz.xyz",
                 href: "https://nomadz.xyz",

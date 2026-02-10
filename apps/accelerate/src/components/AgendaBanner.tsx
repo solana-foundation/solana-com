@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { getImagePath } from "@/config";
 
 const fadeInUp = {
@@ -18,13 +19,15 @@ const stagger = {
   },
 };
 
-const highlights = [
-  { count: "45+", label: "Sessions" },
-  { count: "80+", label: "Speakers" },
-  { count: "1", label: "Full Day" },
-];
-
 export function AgendaBanner() {
+  const t = useTranslations("accelerate.agendaBanner");
+
+  const highlights = [
+    { count: t("sessionsCount"), label: t("sessionsLabel") },
+    { count: t("speakersCount"), label: t("speakersLabel") },
+    { count: t("fullDayCount"), label: t("fullDayLabel") },
+  ];
+
   return (
     <section className="relative overflow-hidden bg-black py-16 lg:py-24">
       {/* Background gradient effects */}
@@ -72,7 +75,7 @@ export function AgendaBanner() {
             variants={fadeInUp}
             className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-accelerate-green"
           >
-            Full Day Conference
+            {t("eyebrow")}
           </motion.p>
 
           {/* Heading */}
@@ -85,7 +88,8 @@ export function AgendaBanner() {
               color: "#D2D2D2",
             }}
           >
-            Explore the <span className="gradient-text">Agenda</span>
+            {t("heading")}{" "}
+            <span className="gradient-text">{t("headingHighlight")}</span>
           </motion.h2>
 
           {/* Description */}
@@ -93,9 +97,7 @@ export function AgendaBanner() {
             variants={fadeInUp}
             className="mx-auto mb-10 max-w-2xl text-lg text-white/60"
           >
-            Keynotes, panels, and lightning talks covering payments,
-            institutional finance, DeFi, tokenization, AI infrastructure, and
-            more.
+            {t("description")}
           </motion.p>
 
           {/* Stats */}
@@ -138,7 +140,7 @@ export function AgendaBanner() {
                   fontWeight: 600,
                 }}
               >
-                View Full Agenda
+                {t("viewFullAgenda")}
               </span>
               <svg
                 width="16"

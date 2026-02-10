@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import {
   ArrowUpRight,
   BookOpen,
@@ -251,6 +252,7 @@ export function Sponsors() {
   );
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const t = useTranslations("accelerate.sponsors");
 
   const activeSponsorData = activeSponsor?.sponsor;
   const activeManualProfile = activeSponsorData?.gridProfile ?? null;
@@ -276,14 +278,13 @@ export function Sponsors() {
   );
   const activeDisplayName =
     resolvedProfile?.name ?? activeSponsorData?.name ?? "Sponsor";
-  const activeTierName = activeSponsor?.tier.name ?? "Sponsor Tier";
   const dataPageSlug = activeProfile?.root?.slug;
   const dataPageUrl = dataPageSlug
     ? `https://thegrid.id/profiles/${dataPageSlug}`
     : undefined;
   const activeQuickLinks = [
-    activeMainUrl ? { label: "Website", url: activeMainUrl } : null,
-    dataPageUrl ? { label: "Data page", url: dataPageUrl } : null,
+    activeMainUrl ? { label: t("website"), url: activeMainUrl } : null,
+    dataPageUrl ? { label: t("dataPage"), url: dataPageUrl } : null,
     ...activeSocials.map((social) => ({
       label: social.label,
       url: social.url,
@@ -311,9 +312,7 @@ export function Sponsors() {
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
-        setLoadError(
-          error instanceof Error ? error.message : "Unable to load Grid data.",
-        );
+        setLoadError(error instanceof Error ? error.message : t("loadError"));
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -322,7 +321,7 @@ export function Sponsors() {
       });
 
     return () => controller.abort();
-  }, [activeSponsor, isModalOpen, profilesBySlug, unmatchedSlugs]);
+  }, [activeSponsor, isModalOpen, profilesBySlug, unmatchedSlugs, t]);
 
   function handleOpenSponsor(sponsor: Sponsor, tier: SponsorTier) {
     setActiveSponsor({ sponsor, tier });
@@ -366,7 +365,7 @@ export function Sponsors() {
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 }}
               >
-                Sponsors
+                {t("heading")}
               </h2>
             </div>
             {/* Mobile: Simple link */}
@@ -378,7 +377,7 @@ export function Sponsors() {
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
               }}
             >
-              <span>BECOME A SPONSOR</span>
+              <span>{t("becomeSponsor")}</span>
               <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
                 <path
                   d="M2 9L9 2M9 2H4M9 2V7"
@@ -402,7 +401,7 @@ export function Sponsors() {
                 border: "1px solid transparent",
               }}
             >
-              <span>BECOME A SPONSOR</span>
+              <span>{t("becomeSponsor")}</span>
               <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
                 <path
                   d="M2 9L9 2M9 2H4M9 2V7"
@@ -447,7 +446,7 @@ export function Sponsors() {
                       type="button"
                       onClick={() => handleOpenSponsor(sponsor, tier)}
                       aria-haspopup="dialog"
-                      aria-label={`Open ${sponsor.name} profile`}
+                      aria-label={t("openProfile", { name: sponsor.name })}
                       className={`flex items-center justify-center bg-transparent p-0 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accelerate-purple/60 ${
                         tier.level === "headline"
                           ? "h-[168px] w-[400px]"
@@ -486,15 +485,15 @@ export function Sponsors() {
                     <VisuallyHidden>
                       <DialogTitle>
                         {activeSponsor
-                          ? `${activeDisplayName} sponsor profile`
-                          : "Sponsor profile"}
+                          ? t("sponsorProfileName", { name: activeDisplayName })
+                          : t("sponsorProfile")}
                       </DialogTitle>
                     </VisuallyHidden>
                   </DialogHeader>
 
                   {!activeSponsor && (
                     <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
-                      Select a sponsor logo to view their Grid profile.
+                      {t("selectSponsor")}
                     </div>
                   )}
 
@@ -506,7 +505,7 @@ export function Sponsors() {
 
                   {isLoading && (
                     <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
-                      Loading sponsor profile from The Grid...
+                      {t("loadingProfile")}
                     </div>
                   )}
 
@@ -576,24 +575,22 @@ export function Sponsors() {
 
                       <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
                         <h4 className="text-xs uppercase tracking-[0.32em] text-white/60">
-                          About
+                          {t("about")}
                         </h4>
                         <p className="mt-3 text-sm text-white/70">
-                          {activeDescription ??
-                            "No description is available for this profile yet."}
+                          {activeDescription ?? t("noDescription")}
                         </p>
                       </div>
 
                       {!activeSlug && !resolvedProfile && (
                         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
-                          No Grid profile is mapped for this sponsor yet.
+                          {t("noGridProfile")}
                         </div>
                       )}
 
                       {isProfileMissing && !isLoading && (
                         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-accelerate-gray-100/70">
-                          Grid profile not returned yet. Use the data page link
-                          to verify the profile.
+                          {t("gridProfileNotReturned")}
                         </div>
                       )}
                     </div>

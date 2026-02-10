@@ -7,6 +7,7 @@ import {
   DialogTrigger,
   VisuallyHidden,
 } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 
 interface LumaModalProps {
   lumaId: string;
@@ -14,6 +15,8 @@ interface LumaModalProps {
 }
 
 export function LumaModal({ lumaId, children }: LumaModalProps) {
+  const t = useTranslations("accelerate.lumaModal");
+
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -22,7 +25,7 @@ export function LumaModal({ lumaId, children }: LumaModalProps) {
         showCloseButton={false}
       >
         <VisuallyHidden>
-          <DialogTitle>Get Tickets</DialogTitle>
+          <DialogTitle>{t("getTickets")}</DialogTitle>
         </VisuallyHidden>
         <div className="relative">
           <iframe

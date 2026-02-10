@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { LumaModal } from "./LumaModal";
+import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
 
 const fadeInUp = {
@@ -27,6 +29,7 @@ const navLinkStyle = {
 
 export function Hero() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const t = useTranslations("accelerate");
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -143,9 +146,9 @@ export function Hero() {
               fontSize: "16px",
             }}
           >
-            Speakers
+            {t("nav.speakers")}
           </a>
-          <a
+          <Link
             href="/accelerate/agenda"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
             style={{
@@ -153,8 +156,8 @@ export function Hero() {
               fontSize: "16px",
             }}
           >
-            Agenda
-          </a>
+            {t("nav.agenda")}
+          </Link>
           <a
             href="#sponsors"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
@@ -163,7 +166,7 @@ export function Hero() {
               fontSize: "16px",
             }}
           >
-            Sponsors
+            {t("nav.sponsors")}
           </a>
           <a
             href="#faq"
@@ -173,8 +176,9 @@ export function Hero() {
               fontSize: "16px",
             }}
           >
-            FAQ
+            {t("nav.faq")}
           </a>
+          <LanguageSelector className="!text-white/60 hover:!text-white" />
           <LumaModal lumaId="sol-accelerate-hk">
             <button
               className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
@@ -187,7 +191,7 @@ export function Hero() {
                 border: "1px solid transparent",
               }}
             >
-              <span>Request to Join</span>
+              <span>{t("nav.requestToJoin")}</span>
               <svg
                 width="8"
                 height="8"
@@ -210,7 +214,7 @@ export function Hero() {
         {/* Mobile menu button */}
         <button
           type="button"
-          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-label={mobileMenuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
           aria-expanded={mobileMenuOpen}
           className="flex h-10 w-10 items-center justify-center text-white md:hidden"
           onClick={() => setMobileMenuOpen(true)}
@@ -249,10 +253,12 @@ export function Hero() {
               className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-[#0D0D0D] px-6 py-5"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-white/60">Menu</span>
+                <span className="text-sm font-medium text-white/60">
+                  {t("nav.menu")}
+                </span>
                 <button
                   type="button"
-                  aria-label="Close menu"
+                  aria-label={t("nav.closeMenu")}
                   className="flex h-10 w-10 items-center justify-center text-white"
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -275,23 +281,23 @@ export function Hero() {
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Speakers
+                  {t("nav.speakers")}
                 </a>
-                <a
+                <Link
                   href="/accelerate/agenda"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Agenda
-                </a>
+                  {t("nav.agenda")}
+                </Link>
                 <a
                   href="#sponsors"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Sponsors
+                  {t("nav.sponsors")}
                 </a>
                 <a
                   href="#faq"
@@ -299,8 +305,11 @@ export function Hero() {
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  FAQ
+                  {t("nav.faq")}
                 </a>
+                <div className="mt-2">
+                  <LanguageSelector className="!text-white/60 hover:!text-white" />
+                </div>
                 <LumaModal lumaId="sol-accelerate-hk">
                   <button
                     type="button"
@@ -313,7 +322,7 @@ export function Hero() {
                       border: "1px solid transparent",
                     }}
                   >
-                    <span>Request to Join</span>
+                    <span>{t("nav.requestToJoin")}</span>
                     <svg
                       width="8"
                       height="8"
@@ -357,7 +366,7 @@ export function Hero() {
                 color: "#19FB9B",
               }}
             >
-              February 11 / Hong Kong
+              {t("hero.dateLocation")}
             </motion.p>
 
             <motion.h1
@@ -370,7 +379,7 @@ export function Hero() {
                 color: "#D2D2D2",
               }}
             >
-              Solana Accelerate APAC
+              {t("hero.title")}
             </motion.h1>
           </div>
 
@@ -397,7 +406,7 @@ export function Hero() {
                     letterSpacing: "0.9px",
                   }}
                 >
-                  Request to Join
+                  {t("nav.requestToJoin")}
                 </span>
                 <Image
                   src={getImagePath("/images/ticket-icon.svg")}

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { LumaModal } from "./LumaModal";
 import { getImagePath } from "@/config";
 
@@ -19,6 +20,8 @@ const stagger = {
 };
 
 export function FooterCTA() {
+  const t = useTranslations("accelerate.footerCta");
+
   return (
     <section className="relative overflow-hidden bg-black py-12 lg:py-16">
       {/* Hong Kong Chinese characters background image from Figma - positioned behind text */}
@@ -62,7 +65,7 @@ export function FooterCTA() {
               lineHeight: 1,
             }}
           >
-            Don&apos;t miss
+            {t("dontMiss")}
           </motion.p>
 
           {/* "SOLANA ACCELERATE" heading with gradient */}
@@ -76,8 +79,8 @@ export function FooterCTA() {
               lineHeight: 1,
             }}
           >
-            <span className="text-white">SOLANA </span>
-            <span className="gradient-text">ACCELERATE</span>
+            <span className="text-white">{t("solana")} </span>
+            <span className="gradient-text">{t("accelerate")}</span>
           </motion.h2>
 
           {/* CTA Button */}
@@ -97,7 +100,7 @@ export function FooterCTA() {
                     fontWeight: 600,
                   }}
                 >
-                  Request to join
+                  {t("requestToJoin")}
                 </span>
                 <Image
                   src={getImagePath("/images/ticket-icon.svg")}
@@ -121,16 +124,14 @@ export function FooterCTA() {
               lineHeight: 1.1,
             }}
           >
-            Limited tickets available
+            {t("limitedTickets")}
           </motion.p>
         </motion.div>
       </div>
 
       {/* Bottom copyright */}
       <div className="relative z-10 mt-12 text-center sm:mt-16 md:mt-20">
-        <p className="text-xs text-white/30 sm:text-sm">
-          © Solana Foundation 2026
-        </p>
+        <p className="text-xs text-white/30 sm:text-sm">{t("copyright")}</p>
       </div>
     </section>
   );
