@@ -2,8 +2,12 @@ import {
   createMiddleware,
   routingWithoutDetection,
 } from "@workspace/i18n/middleware";
-import { NextRequest, NextResponse } from "next/server";
+import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
+import {
+  MarkdownRequestSource,
+  trackMarkdownRequest,
+} from "@@/src/lib/posthog/server";
 
 // These are the prefixes that we want to serve as markdown if
 // the Accept header includes "text/markdown" or if
@@ -14,12 +18,37 @@ const MARKDOWN_PREFIXES = [
   "/developers/cookbook",
   "/learn",
 ] as const;
+const MARKDOWN_API_PREFIX = "/api/markdown";
 
 function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
   return MARKDOWN_PREFIXES.some(
     (prefix) =>
       pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`),
+  );
+}
+
+function getRouteFromMarkdownApiPath(pathname: string): string {
+  const route = pathname.slice(MARKDOWN_API_PREFIX.length);
+  if (!route) {
+    return "/";
+  }
+  return route.startsWith("/") ? route : `/${route}`;
+}
+
+function trackMarkdownRequestInBackground(
+  req: NextRequest,
+  event: NextFetchEvent,
+  route: string,
+  source: MarkdownRequestSource,
+) {
+  const normalizedRoute = route.endsWith(".md") ? route.slice(0, -3) : route;
+  event.waitUntil(
+    trackMarkdownRequest({
+      route: normalizedRoute,
+      source,
+      currentUrl: `${req.nextUrl.origin}${normalizedRoute}`,
+    }),
   );
 }
 
@@ -36,8 +65,24 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
   preserveProxiedLocaleCookie: true,
 });
 
-export default async function middleware(req: NextRequest) {
+export default async function middleware(
+  req: NextRequest,
+  event: NextFetchEvent,
+) {
   const { pathname } = req.nextUrl;
+
+  if (
+    pathname === MARKDOWN_API_PREFIX ||
+    pathname.startsWith(`${MARKDOWN_API_PREFIX}/`)
+  ) {
+    trackMarkdownRequestInBackground(
+      req,
+      event,
+      getRouteFromMarkdownApiPath(pathname),
+      "direct-api",
+    );
+    return NextResponse.next();
+  }
 
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
@@ -91,10 +136,22 @@ export default async function middleware(req: NextRequest) {
     !normalizedPath.endsWith(".md") &&
     matchesMarkdownPrefix(normalizedPath)
   ) {
+    trackMarkdownRequestInBackground(
+      req,
+      event,
+      normalizedPath,
+      "accept-header",
+    );
     return rewriteToMarkdownApi(req, normalizedSegments);
   }
 
   if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
+    trackMarkdownRequestInBackground(
+      req,
+      event,
+      normalizedPath,
+      "md-extension",
+    );
     const segments = [...normalizedSegments];
     segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
     return rewriteToMarkdownApi(req, segments);
@@ -108,6 +165,7 @@ export const config = {
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
     "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|docs-assets|.*\\.(?!md$)).*)",
+    "/api/markdown/:path*",
   ],
   runtime: "nodejs",
 };
