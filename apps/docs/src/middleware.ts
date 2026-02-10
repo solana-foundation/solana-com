@@ -19,6 +19,7 @@ const MARKDOWN_PREFIXES = [
   "/learn",
 ] as const;
 const MARKDOWN_API_PREFIX = "/api/markdown";
+const SOLANA_SITE_ORIGIN = "https://solana.com";
 
 function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
@@ -37,7 +38,6 @@ function getRouteFromMarkdownApiPath(pathname: string): string {
 }
 
 function trackMarkdownRequestInBackground(
-  req: NextRequest,
   event: NextFetchEvent,
   route: string,
   source: MarkdownRequestSource,
@@ -47,7 +47,7 @@ function trackMarkdownRequestInBackground(
     trackMarkdownRequest({
       route: normalizedRoute,
       source,
-      currentUrl: `${req.nextUrl.origin}${normalizedRoute}`,
+      currentUrl: `${SOLANA_SITE_ORIGIN}${normalizedRoute}`,
     }),
   );
 }
@@ -76,7 +76,6 @@ export default async function middleware(
     pathname.startsWith(`${MARKDOWN_API_PREFIX}/`)
   ) {
     trackMarkdownRequestInBackground(
-      req,
       event,
       getRouteFromMarkdownApiPath(pathname),
       "direct-api",
@@ -136,22 +135,12 @@ export default async function middleware(
     !normalizedPath.endsWith(".md") &&
     matchesMarkdownPrefix(normalizedPath)
   ) {
-    trackMarkdownRequestInBackground(
-      req,
-      event,
-      normalizedPath,
-      "accept-header",
-    );
+    trackMarkdownRequestInBackground(event, normalizedPath, "accept-header");
     return rewriteToMarkdownApi(req, normalizedSegments);
   }
 
   if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
-    trackMarkdownRequestInBackground(
-      req,
-      event,
-      normalizedPath,
-      "md-extension",
-    );
+    trackMarkdownRequestInBackground(event, normalizedPath, "md-extension");
     const segments = [...normalizedSegments];
     segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
     return rewriteToMarkdownApi(req, segments);
