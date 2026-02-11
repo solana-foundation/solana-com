@@ -10,7 +10,10 @@ export default async function Page(_props: Props) {
 
   const translations = {
     heroTitle: t("graveyardHack.hero.title"),
-    heroSubtitle: t("graveyardHack.hero.subtitle"),
+    heroSubtitle1: t("graveyardHack.hero.subtitle1"),
+    heroSubtitle2: t("graveyardHack.hero.subtitle2"),
+    heroHeading: t("graveyardHack.hero.heroHeading"),
+    heroDescription: t("graveyardHack.hero.heroDescription"),
     heroRegisterButton: t("graveyardHack.hero.registerButton"),
     heroResourcesButton: t("graveyardHack.hero.resourcesButton"),
 

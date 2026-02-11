@@ -6,7 +6,10 @@ import { ArrowUpRight, ArrowDown, Check } from "react-feather";
 interface GraveyardHackPageProps {
   translations: {
     heroTitle: string;
-    heroSubtitle: string;
+    heroSubtitle1: string;
+    heroSubtitle2: string;
+    heroHeading: string;
+    heroDescription: string;
     heroRegisterButton: string;
     heroResourcesButton: string;
     timelineTitle: string;
@@ -170,9 +173,10 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
             />
           </div>
 
-          {/* Subtitle */}
-          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 font-light">
-            {translations.heroSubtitle}
+          {/* Blurb */}
+          <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-6 font-light">
+            {translations.heroSubtitle1}
+            <br className="hidden md:block" /> {translations.heroSubtitle2}
           </p>
 
           {/* CTA Buttons */}
@@ -219,7 +223,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
               {translations.ctaTitle}
             </h2>
-            <p className="text-gray-400">{translations.ctaDescription}</p>
+            <p className="text-gray-400">{translations.heroDescription}</p>
           </div>
         </div>
       </section>
