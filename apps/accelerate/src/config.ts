@@ -39,8 +39,8 @@ const assetBaseUrl = siteUrl.replace(/\/accelerate$/, "");
 export const config = {
   siteMetadata: {
     title: `Solana Accelerate APAC - Hong Kong`,
-    description: `Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.`,
-    shortDescription: `Solana Accelerate APAC - Hong Kong | February 11, 2026`,
+    description: `Join us at Solana Accelerate APAC in Hong Kong on 11 February 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.`,
+    shortDescription: `Solana Accelerate APAC - Hong Kong | 11 February 2026`,
     keywords: [
       "Solana",
       "blockchain",
@@ -72,6 +72,6 @@ export const config = {
     startDate: "2026-02-11",
     endDate: "2026-02-11",
     description:
-      "Join us at Solana Accelerate APAC in Hong Kong on February 11, 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
+      "Join us at Solana Accelerate APAC in Hong Kong on 11 February 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
   },
 };

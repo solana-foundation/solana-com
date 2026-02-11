@@ -12,6 +12,7 @@ export default async function middleware(req: NextRequest) {
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (
+    pathname.startsWith("/accelerate") ||
     pathname.startsWith("/breakpoint") ||
     pathname === "/developers" ||
     pathname.startsWith("/developers/templates") ||
@@ -91,7 +92,7 @@ export const config = {
   matcher: [
     "/SKILL.md",
     "/skill.md",
-    "/((?!api|opengraph|_next|_vercel|breakpoint|docs|learn|news(?!letter)|podcasts|media-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|podcasts|media-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

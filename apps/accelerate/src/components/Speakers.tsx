@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useState, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import speakersData from "../data/speakers.json";
 import { getImagePath } from "@/config";
 
@@ -176,6 +177,7 @@ const MOBILE_INITIAL_COUNT = 10;
 function AllSpeakersSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAllMobile, setShowAllMobile] = useState(false);
+  const t = useTranslations("accelerate.speakers");
 
   // Filter speakers, then sort by SPEAKER_ORDER; any not in the list go at the end
   const filteredSpeakers = useMemo(() => {
@@ -224,7 +226,7 @@ function AllSpeakersSection() {
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
-            Speakers
+            {t("heading")}
           </h2>
           {/* Search and Filter Bar */}
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:justify-end ">
@@ -233,7 +235,7 @@ function AllSpeakersSection() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search speakers, companies, or titles..."
+                placeholder={t("searchPlaceholder")}
                 className="w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-3 pl-11 text-white placeholder:text-white/40 focus:border-accelerate-purple/50 focus:outline-none focus:ring-2 focus:ring-accelerate-purple/30 transition-all sm:min-w-[280px]"
                 style={{
                   fontFamily:
@@ -286,7 +288,7 @@ function AllSpeakersSection() {
                       "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                   }}
                 >
-                  Clear
+                  {t("clear")}
                 </motion.button>
               )}
             </AnimatePresence>
@@ -303,7 +305,7 @@ function AllSpeakersSection() {
               onClick={clearFilters}
               className="text-accelerate-purple hover:text-accelerate-green transition-colors underline"
             >
-              Clear filters
+              {t("clearFilters")}
             </button>
           </motion.div>
         )}
@@ -415,8 +417,8 @@ function AllSpeakersSection() {
                     >
                       <span>
                         {showAllMobile
-                          ? "Show less"
-                          : `See all ${filteredSpeakers.length} speakers`}
+                          ? t("showLess")
+                          : t("seeAll", { count: filteredSpeakers.length })}
                       </span>
                       <motion.svg
                         width="20"
@@ -455,7 +457,7 @@ function AllSpeakersSection() {
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 }}
               >
-                No speakers found
+                {t("noResults")}
               </p>
               <button
                 onClick={clearFilters}
@@ -465,7 +467,7 @@ function AllSpeakersSection() {
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 }}
               >
-                Clear filters to see all speakers
+                {t("clearFiltersToSeeAll")}
               </button>
             </motion.div>
           )}

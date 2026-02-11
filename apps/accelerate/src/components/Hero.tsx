@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { LumaModal } from "./LumaModal";
+import { YoutubeEmbed } from "./YoutubeEmbed";
+import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
 
 const fadeInUp = {
@@ -27,6 +30,7 @@ const navLinkStyle = {
 
 export function Hero() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const t = useTranslations("accelerate");
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -143,9 +147,9 @@ export function Hero() {
               fontSize: "16px",
             }}
           >
-            Speakers
+            {t("nav.speakers")}
           </a>
-          <a
+          <Link
             href="/accelerate/agenda"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
             style={{
@@ -153,8 +157,8 @@ export function Hero() {
               fontSize: "16px",
             }}
           >
-            Agenda
-          </a>
+            {t("nav.agenda")}
+          </Link>
           <a
             href="#sponsors"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
@@ -163,7 +167,7 @@ export function Hero() {
               fontSize: "16px",
             }}
           >
-            Sponsors
+            {t("nav.sponsors")}
           </a>
           <a
             href="#faq"
@@ -173,8 +177,9 @@ export function Hero() {
               fontSize: "16px",
             }}
           >
-            FAQ
+            {t("nav.faq")}
           </a>
+          <LanguageSelector className="!text-white/60 hover:!text-white" />
           <LumaModal lumaId="sol-accelerate-hk">
             <button
               className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
@@ -187,7 +192,7 @@ export function Hero() {
                 border: "1px solid transparent",
               }}
             >
-              <span>Request to Join</span>
+              <span>{t("nav.requestToJoin")}</span>
               <svg
                 width="8"
                 height="8"
@@ -210,7 +215,7 @@ export function Hero() {
         {/* Mobile menu button */}
         <button
           type="button"
-          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-label={mobileMenuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
           aria-expanded={mobileMenuOpen}
           className="flex h-10 w-10 items-center justify-center text-white md:hidden"
           onClick={() => setMobileMenuOpen(true)}
@@ -249,10 +254,12 @@ export function Hero() {
               className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-[#0D0D0D] px-6 py-5"
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-white/60">Menu</span>
+                <span className="text-sm font-medium text-white/60">
+                  {t("nav.menu")}
+                </span>
                 <button
                   type="button"
-                  aria-label="Close menu"
+                  aria-label={t("nav.closeMenu")}
                   className="flex h-10 w-10 items-center justify-center text-white"
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -275,23 +282,23 @@ export function Hero() {
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Speakers
+                  {t("nav.speakers")}
                 </a>
-                <a
+                <Link
                   href="/accelerate/agenda"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Agenda
-                </a>
+                  {t("nav.agenda")}
+                </Link>
                 <a
                   href="#sponsors"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Sponsors
+                  {t("nav.sponsors")}
                 </a>
                 <a
                   href="#faq"
@@ -299,8 +306,11 @@ export function Hero() {
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  FAQ
+                  {t("nav.faq")}
                 </a>
+                <div className="mt-2">
+                  <LanguageSelector className="!text-white/60 hover:!text-white" />
+                </div>
                 <LumaModal lumaId="sol-accelerate-hk">
                   <button
                     type="button"
@@ -313,7 +323,7 @@ export function Hero() {
                       border: "1px solid transparent",
                     }}
                   >
-                    <span>Request to Join</span>
+                    <span>{t("nav.requestToJoin")}</span>
                     <svg
                       width="8"
                       height="8"
@@ -337,77 +347,40 @@ export function Hero() {
         )}
       </AnimatePresence>
 
-      {/* Main Content - positioned at center */}
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center">
+      {/* Main Content - YouTube Live Stream */}
+      <div className="absolute inset-x-0 bottom-0 top-[120px] z-10 flex flex-col items-center justify-center px-4 md:top-[140px] md:px-8 lg:top-[160px]">
         <motion.div
           initial="hidden"
           animate="visible"
           variants={stagger}
-          className="flex flex-col items-center gap-10"
+          className="flex w-full max-w-[960px] flex-col items-center gap-4 md:gap-6"
         >
-          {/* Date/Location and Main Heading */}
-          <div className="flex flex-col items-center gap-5">
-            <motion.p
-              variants={fadeInUp}
-              className="text-xl md:text-2xl lg:text-[32px]"
+          {/* Title row with live indicator */}
+          <motion.div variants={fadeInUp} className="flex items-center gap-3">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#19FB9B] opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#19FB9B]" />
+            </span>
+            <h1
+              className="text-center text-lg font-semibold uppercase tracking-[0.15em] sm:text-xl md:text-2xl"
               style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 400,
-                lineHeight: 1.1,
-                color: "#19FB9B",
-              }}
-            >
-              February 11 / Hong Kong
-            </motion.p>
-
-            <motion.h1
-              variants={fadeInUp}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-[84px]"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 300,
+                fontFamily:
+                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 lineHeight: 1,
                 color: "#D2D2D2",
               }}
             >
-              Solana Accelerate APAC
-            </motion.h1>
-          </div>
+              {t("hero.title")}
+              <span className="ml-2 text-[#19FB9B]">/</span>
+              <span className="ml-2 text-[#19FB9B]">
+                {t("hero.dateLocation")}
+              </span>
+            </h1>
+          </motion.div>
 
-          {/* CTA Button */}
-          <motion.div
-            variants={fadeInUp}
-            className="flex flex-col items-center gap-4"
-          >
-            <LumaModal lumaId="sol-accelerate-hk">
-              <button
-                className="group inline-flex h-[66px] items-center justify-center rounded-[32px] px-7 py-6 text-black transition-all hover:opacity-90"
-                style={{
-                  background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                  width: "480px",
-                  maxWidth: "90vw",
-                }}
-              >
-                <span
-                  className="uppercase"
-                  style={{
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontWeight: 600,
-                    fontSize: "18px",
-                    letterSpacing: "0.9px",
-                  }}
-                >
-                  Request to Join
-                </span>
-                <Image
-                  src={getImagePath("/images/ticket-icon.svg")}
-                  alt="Ticket icon"
-                  width={18}
-                  height={12}
-                  className="ml-2"
-                />
-              </button>
-            </LumaModal>
+          {/* YouTube embed */}
+          <motion.div variants={fadeInUp} className="w-full">
+            <YoutubeEmbed id="j0Y2uZ7Xmbs" title={t("hero.title")} />
           </motion.div>
         </motion.div>
       </div>

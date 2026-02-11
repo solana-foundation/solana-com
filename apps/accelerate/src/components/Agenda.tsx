@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import agendaData from "@/data/agenda.json";
 
 const fadeInUp = {
@@ -43,43 +44,42 @@ interface Session {
   speakers: Speaker[];
 }
 
-function SessionTypeBadge({ type }: { type: Session["type"] }) {
-  const badgeStyles: Record<
-    Session["type"],
-    { bg: string; text: string; label: string }
-  > = {
+function SessionTypeBadge({
+  type,
+  label,
+}: {
+  type: Session["type"];
+  label: string;
+}) {
+  const badgeColors: Record<Session["type"], { bg: string; text: string }> = {
     keynote: {
       bg: "bg-accelerate-purple/20",
       text: "text-accelerate-purple",
-      label: "Keynote",
     },
     panel: {
       bg: "bg-accelerate-green/20",
       text: "text-accelerate-green",
-      label: "Panel",
     },
     fireside: {
       bg: "bg-orange-500/20",
       text: "text-orange-400",
-      label: "Fireside",
     },
     lightning: {
       bg: "bg-accelerate-cyan/20",
       text: "text-accelerate-cyan",
-      label: "Lightning",
     },
-    break: { bg: "bg-white/10", text: "text-white/60", label: "Break" },
-    demo: { bg: "bg-yellow-500/20", text: "text-yellow-400", label: "Demo" },
-    closing: { bg: "bg-white/10", text: "text-white/60", label: "Closing" },
+    break: { bg: "bg-white/10", text: "text-white/60" },
+    demo: { bg: "bg-yellow-500/20", text: "text-yellow-400" },
+    closing: { bg: "bg-white/10", text: "text-white/60" },
   };
 
-  const style = badgeStyles[type];
+  const style = badgeColors[type];
 
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider ${style.bg} ${style.text}`}
     >
-      {style.label}
+      {label}
     </span>
   );
 }
@@ -87,9 +87,11 @@ function SessionTypeBadge({ type }: { type: Session["type"] }) {
 function SpeakerList({
   speakers,
   moderator,
+  moderatorLabel,
 }: {
   speakers: Speaker[];
   moderator?: Speaker;
+  moderatorLabel: string;
 }) {
   if (speakers.length === 0 && !moderator) return null;
 
@@ -111,7 +113,7 @@ function SpeakerList({
     <div className="mt-2 space-y-1">
       {moderator && (
         <p className="text-sm text-accelerate-green">
-          <span className="font-medium">Moderator:</span>{" "}
+          <span className="font-medium">{moderatorLabel}</span>{" "}
           {formatSpeaker(moderator)}
         </p>
       )}
@@ -131,7 +133,15 @@ function SpeakerList({
   );
 }
 
-function SessionCard({ session }: { session: Session }) {
+function SessionCard({
+  session,
+  typeLabels,
+  moderatorLabel,
+}: {
+  session: Session;
+  typeLabels: Record<string, string>;
+  moderatorLabel: string;
+}) {
   const isBreak = session.type === "break" || session.type === "closing";
 
   return (
@@ -154,7 +164,10 @@ function SessionCard({ session }: { session: Session }) {
           {session.time}
         </p>
         <div className="md:hidden">
-          <SessionTypeBadge type={session.type} />
+          <SessionTypeBadge
+            type={session.type}
+            label={typeLabels[session.type] ?? session.type}
+          />
         </div>
       </div>
 
@@ -169,7 +182,10 @@ function SessionCard({ session }: { session: Session }) {
             {session.title}
           </h3>
           <div className="hidden md:block">
-            <SessionTypeBadge type={session.type} />
+            <SessionTypeBadge
+              type={session.type}
+              label={typeLabels[session.type] ?? session.type}
+            />
           </div>
         </div>
         {session.subtitle && (
@@ -183,6 +199,7 @@ function SessionCard({ session }: { session: Session }) {
         <SpeakerList
           speakers={session.speakers}
           moderator={session.moderator}
+          moderatorLabel={moderatorLabel}
         />
       </div>
 
@@ -211,6 +228,10 @@ function FilterBar({
   toggleType,
   clearFilters,
   hasActiveFilters,
+  typeLabels,
+  searchPlaceholder,
+  filterByTypeLabel,
+  clearLabel,
 }: {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -218,52 +239,49 @@ function FilterBar({
   toggleType: (type: Session["type"]) => void;
   clearFilters: () => void;
   hasActiveFilters: boolean;
+  typeLabels: Record<string, string>;
+  searchPlaceholder: string;
+  filterByTypeLabel: string;
+  clearLabel: string;
 }) {
   const badgeStyles: Record<
     Session["type"],
-    { bg: string; text: string; activeBg: string; label: string }
+    { bg: string; text: string; activeBg: string }
   > = {
     keynote: {
       bg: "bg-accelerate-purple/10 hover:bg-accelerate-purple/20",
       activeBg: "bg-accelerate-purple/30 ring-1 ring-accelerate-purple/50",
       text: "text-accelerate-purple",
-      label: "Keynote",
     },
     panel: {
       bg: "bg-accelerate-green/10 hover:bg-accelerate-green/20",
       activeBg: "bg-accelerate-green/30 ring-1 ring-accelerate-green/50",
       text: "text-accelerate-green",
-      label: "Panel",
     },
     fireside: {
       bg: "bg-orange-500/10 hover:bg-orange-500/20",
       activeBg: "bg-orange-500/30 ring-1 ring-orange-500/50",
       text: "text-orange-400",
-      label: "Fireside",
     },
     lightning: {
       bg: "bg-accelerate-cyan/10 hover:bg-accelerate-cyan/20",
       activeBg: "bg-accelerate-cyan/30 ring-1 ring-accelerate-cyan/50",
       text: "text-accelerate-cyan",
-      label: "Lightning",
     },
     demo: {
       bg: "bg-yellow-500/10 hover:bg-yellow-500/20",
       activeBg: "bg-yellow-500/30 ring-1 ring-yellow-500/50",
       text: "text-yellow-400",
-      label: "Demo",
     },
     break: {
       bg: "bg-white/5 hover:bg-white/10",
       activeBg: "bg-white/15 ring-1 ring-white/30",
       text: "text-white/60",
-      label: "Break",
     },
     closing: {
       bg: "bg-white/5 hover:bg-white/10",
       activeBg: "bg-white/15 ring-1 ring-white/30",
       text: "text-white/60",
-      label: "Closing",
     },
   };
 
@@ -274,7 +292,7 @@ function FilterBar({
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
         <input
           type="text"
-          placeholder="Search sessions, speakers, companies..."
+          placeholder={searchPlaceholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full rounded-lg border border-white/10 bg-white/[0.02] py-3 pl-11 pr-10 text-white placeholder-white/40 transition-colors focus:border-accelerate-green/50 focus:outline-none focus:ring-1 focus:ring-accelerate-green/50"
@@ -291,7 +309,7 @@ function FilterBar({
 
       {/* Type Filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-sm text-white/40">Filter by type:</span>
+        <span className="mr-1 text-sm text-white/40">{filterByTypeLabel}</span>
         {SESSION_TYPES.map((type) => {
           const style = badgeStyles[type];
           const isSelected = selectedTypes.includes(type);
@@ -301,7 +319,7 @@ function FilterBar({
               onClick={() => toggleType(type)}
               className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-all ${style.text} ${isSelected ? style.activeBg : style.bg}`}
             >
-              {style.label}
+              {typeLabels[type]}
             </button>
           );
         })}
@@ -311,7 +329,7 @@ function FilterBar({
             className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
           >
             <X className="h-3 w-3" />
-            Clear
+            {clearLabel}
           </button>
         )}
       </div>
@@ -321,9 +339,20 @@ function FilterBar({
 
 export function Agenda() {
   const { event, focusTopics, sessions } = agendaData;
+  const t = useTranslations("accelerate.agenda");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<Session["type"][]>([]);
+
+  const typeLabels: Record<string, string> = {
+    keynote: t("types.keynote"),
+    panel: t("types.panel"),
+    fireside: t("types.fireside"),
+    lightning: t("types.lightning"),
+    break: t("types.break"),
+    demo: t("types.demo"),
+    closing: t("types.closing"),
+  };
 
   const toggleType = (type: Session["type"]) => {
     setSelectedTypes((prev) =>
@@ -387,7 +416,7 @@ export function Agenda() {
           {/* Focus Topics */}
           <motion.div variants={fadeInUp} className="mb-10 lg:mb-14">
             <h2 className="mb-4 font-space-grotesk text-h2 text-white/80">
-              Focus Topics
+              {t("focusTopics")}
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {focusTopics.map((topic) => (
@@ -416,19 +445,23 @@ export function Agenda() {
             toggleType={toggleType}
             clearFilters={clearFilters}
             hasActiveFilters={hasActiveFilters}
+            typeLabels={typeLabels}
+            searchPlaceholder={t("searchPlaceholder")}
+            filterByTypeLabel={t("filterByType")}
+            clearLabel={t("clear")}
           />
 
           {/* Results Count */}
           {hasActiveFilters && (
             <motion.div variants={fadeInUp} className="mb-4">
               <p className="text-sm text-white/50">
-                Showing{" "}
+                {t("showing")}{" "}
                 <span className="font-medium text-white/70">
                   {sessionCount}
                 </span>{" "}
-                of{" "}
+                {t("of")}{" "}
                 <span className="font-medium text-white/70">{totalCount}</span>{" "}
-                sessions
+                {t("sessions")}
               </p>
             </motion.div>
           )}
@@ -439,13 +472,13 @@ export function Agenda() {
             className="mb-6 hidden border-b border-white/10 pb-4 md:grid md:grid-cols-[140px_1fr_100px] lg:grid-cols-[180px_1fr_120px]"
           >
             <p className="text-sm font-medium uppercase tracking-wider text-white/40">
-              Time
+              {t("timeHeader")}
             </p>
             <p className="text-sm font-medium uppercase tracking-wider text-white/40">
-              Session
+              {t("sessionHeader")}
             </p>
             <p className="text-right text-sm font-medium uppercase tracking-wider text-white/40">
-              Location
+              {t("locationHeader")}
             </p>
           </motion.div>
 
@@ -454,7 +487,12 @@ export function Agenda() {
             <AnimatePresence mode="sync">
               {filteredSessions.length > 0 ? (
                 filteredSessions.map((session) => (
-                  <SessionCard key={session.id} session={session} />
+                  <SessionCard
+                    key={session.id}
+                    session={session}
+                    typeLabels={typeLabels}
+                    moderatorLabel={t("moderator")}
+                  />
                 ))
               ) : (
                 <motion.div
@@ -464,12 +502,12 @@ export function Agenda() {
                   exit={{ opacity: 0 }}
                   className="py-12 text-center text-white/50"
                 >
-                  <p className="text-lg">No sessions match your filters</p>
+                  <p className="text-lg">{t("noSessionsMatch")}</p>
                   <button
                     onClick={clearFilters}
                     className="mt-3 text-sm text-accelerate-green transition-colors hover:text-accelerate-green/80"
                   >
-                    Clear all filters
+                    {t("clearAllFilters")}
                   </button>
                 </motion.div>
               )}
@@ -482,7 +520,8 @@ export function Agenda() {
             className="mt-10 border-t border-white/10 pt-6"
           >
             <p className="text-sm text-white/50">
-              <span className="font-medium text-white/70">MC:</span> {event.mc}
+              <span className="font-medium text-white/70">{t("mc")}</span>{" "}
+              {event.mc}
             </p>
           </motion.div>
         </motion.div>

@@ -11,3 +11,4 @@ export {
   DOCS_SIDEBAR_TOGGLE_SLOT_ID,
   DocsSidebarToggleIcon,
 } from "./docs-sidebar-toggle";
+export { LanguageSelector } from "./language-selector";

@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { getImagePath } from "@/config";
 
 const fadeInUp = {
@@ -88,28 +89,13 @@ function FAQAccordionItem({
 
 export function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const t = useTranslations("accelerate.faq");
 
-  // FAQ items matching the Figma design content
-  const faqs: FAQItem[] = [
-    {
-      question: "What is included in my ticket?",
-      answer:
-        "Your ticket includes full access to Accelerate Hong Kong, featuring boundary-pushing talks, workshops, and meaningful connections across the Solana ecosystem and beyond.",
-    },
-    {
-      question: "Does my Consensus ticket also give me access to Accelerate?",
-      answer: "No - Accelerate requires a separate ticket from Consensus.",
-    },
-    {
-      question: "Is there a dress code?",
-      answer:
-        "There's no dress code. Come as you are and wear whatever you're comfortable in.",
-    },
-    {
-      question: "Where should I stay?",
-      answer: "Visit the Getting There section for more information.",
-    },
-  ];
+  const faqKeys = ["q1", "q2", "q3", "q4"] as const;
+  const faqs: FAQItem[] = faqKeys.map((key) => ({
+    question: t(`items.${key}.question`),
+    answer: t(`items.${key}.answer`),
+  }));
 
   return (
     <section id="faq" className="bg-black py-12 lg:py-16">
@@ -129,7 +115,7 @@ export function FAQ() {
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
             }}
           >
-            FAQ
+            {t("heading")}
           </motion.h2>
 
           {/* Divider line */}

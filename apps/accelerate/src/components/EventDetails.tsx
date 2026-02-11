@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -48,6 +49,16 @@ function EventDetailRow({ label, value, subValue }: EventDetailRowProps) {
 }
 
 export function EventDetails() {
+  const t = useTranslations("accelerate.eventDetails");
+
+  const focusTopicKeys = [
+    "payments",
+    "retailAccess",
+    "institutionalFinance",
+    "infrastructure",
+    "sellTheAsset",
+  ] as const;
+
   return (
     <section id="event-details" className="bg-black py-12 lg:py-16">
       <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
@@ -66,35 +77,12 @@ export function EventDetails() {
               variants={fadeInUp}
               className="mb-6 font-space-grotesk text-h4 text-accelerate-gray-100"
             >
-              Join us as we bring together founders, institutions, policymakers,
-              and innovators to amplify the region&apos;s momentum and showcase
-              the future of internet capital markets on Solana.
+              {t("intro")}
             </motion.p>
             <dl className="space-y-0">
-              {[
-                {
-                  title: "Payments",
-                  desc: "Real-world adoption and next-gen payment rails.",
-                },
-                {
-                  title: "Retail Access",
-                  desc: "Empowering the next 100M users in the digital economy.",
-                },
-                {
-                  title: "Institutional Finance",
-                  desc: "Asset managers, banks, and the acceleration of tokenization.",
-                },
-                {
-                  title: "Infrastructure",
-                  desc: "The tech stack powering APAC's digital asset future.",
-                },
-                {
-                  title: "Sell The Asset",
-                  desc: "How SOL Staking ETFs and DATs are unlocking global adoption.",
-                },
-              ].map(({ title, desc }, index) => (
+              {focusTopicKeys.map((key, index) => (
                 <motion.div
-                  key={title}
+                  key={key}
                   variants={listItemVariants}
                   initial="hidden"
                   whileInView="visible"
@@ -107,10 +95,10 @@ export function EventDetails() {
                   className="grid cursor-default grid-cols-1 gap-4 border-b border-white/10 py-6 transition-colors last:border-b-0 sm:grid-cols-[160px_1fr] md:grid-cols-[240px_1fr] lg:grid-cols-[360px_1fr]"
                 >
                   <dt className="gradient-text font-space-grotesk text-h2">
-                    {title}
+                    {t(`focusTopics.${key}.title`)}
                   </dt>
                   <dd className="font-diatype text-p leading-relaxed text-white/50">
-                    {desc}
+                    {t(`focusTopics.${key}.desc`)}
                   </dd>
                 </motion.div>
               ))}
@@ -121,7 +109,7 @@ export function EventDetails() {
             variants={fadeInUp}
             className="text-h1 mb-8 font-space-grotesk text-accelerate-gray-100 lg:mb-12"
           >
-            Event details
+            {t("heading")}
           </motion.h2>
 
           {/* Divider line */}
@@ -130,13 +118,13 @@ export function EventDetails() {
           <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:gap-[80px]">
             {/* Details list */}
             <div className="order-1 md:order-1">
-              <EventDetailRow label="Date" value="February 11, 2026" />
+              <EventDetailRow label={t("dateLabel")} value={t("dateValue")} />
               <EventDetailRow
-                label="Venue"
-                value="Hong Kong Convention and Exhibition Centre"
-                subValue="1號 Expo Dr, Wan Chai, Hong Kong"
+                label={t("venueLabel")}
+                value={t("venueValue")}
+                subValue={t("venueAddress")}
               />
-              <EventDetailRow label="Time" value="9:00 AM GMT+8" />
+              <EventDetailRow label={t("timeLabel")} value={t("timeValue")} />
             </div>
 
             {/* Embedded Map - Hong Kong Convention and Exhibition Centre */}
