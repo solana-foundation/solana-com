@@ -50,12 +50,14 @@ export default async function Page(_props: Props) {
     }>,
     sponsorBountiesTitle: t("graveyardHack.sponsorBounties.title"),
     sponsorBountiesSubtitle: t("graveyardHack.sponsorBounties.subtitle"),
+    sponsorBountiesDisclaimer: t("graveyardHack.sponsorBounties.disclaimer"),
     sponsorBounties: t.raw("graveyardHack.sponsorBounties.items") as Array<{
       sponsor: string;
       title: string;
       description: string;
       prizeAmount: string;
       logo?: string;
+      url?: string;
     }>,
 
     sponsorBannerTitle: t("graveyardHack.sponsorBanner.title"),

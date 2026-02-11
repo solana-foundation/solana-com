@@ -30,12 +30,14 @@ interface GraveyardHackPageProps {
     }>;
     sponsorBountiesTitle: string;
     sponsorBountiesSubtitle: string;
+    sponsorBountiesDisclaimer: string;
     sponsorBounties: Array<{
       sponsor: string;
       title: string;
       description: string;
       prizeAmount: string;
       logo?: string;
+      url?: string;
     }>;
     sponsorBannerTitle: string;
     sponsorLogos: Array<{
@@ -384,11 +386,14 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
           }`}
         >
           <div className="text-center mb-12">
-            <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
               {translations.sponsorBountiesTitle}
-            </h3>
-            <p className="text-gray-400">
+            </h2>
+            <p className="text-lg text-gray-400">
               {translations.sponsorBountiesSubtitle}
+            </p>
+            <p className="text-sm text-gray-500 mt-3 italic">
+              {translations.sponsorBountiesDisclaimer}
             </p>
           </div>
 
@@ -415,12 +420,23 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                 <p className="text-gray-300 text-base mb-6 flex-grow">
                   {bounty.description}
                 </p>
-                <div className="pt-4 border-t border-purple-500/30 mt-auto">
+                <div className="pt-4 border-t border-purple-500/30 mb-4 mt-auto">
                   <span className="text-3xl font-bold text-purple-400 font-mono">
                     {bounty.prizeAmount}
                   </span>
                   <span className="text-gray-400 text-sm ml-2">prize</span>
                 </div>
+                {bounty.url && (
+                  <a
+                    href={bounty.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-auto inline-flex items-center text-purple-400 font-semibold hover:text-purple-300 transition-colors"
+                  >
+                    Learn more about {bounty.sponsor}
+                    <ArrowUpRight size={16} className="ml-1" />
+                  </a>
+                )}
               </div>
             ))}
           </div>
@@ -448,12 +464,23 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                 <p className="text-gray-400 text-sm mb-6 flex-grow">
                   {bounty.description}
                 </p>
-                <div className="pt-4 border-t border-purple-500/20 mt-auto">
+                <div className="pt-4 border-t border-purple-500/20 mb-4 mt-auto">
                   <span className="text-2xl font-bold text-purple-400 font-mono">
                     {bounty.prizeAmount}
                   </span>
                   <span className="text-gray-500 text-sm ml-2">prize</span>
                 </div>
+                {bounty.url && (
+                  <a
+                    href={bounty.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-auto inline-flex items-center text-purple-400 text-sm font-semibold hover:text-purple-300 transition-colors"
+                  >
+                    Learn more about {bounty.sponsor}
+                    <ArrowUpRight size={14} className="ml-1" />
+                  </a>
+                )}
               </div>
             ))}
           </div>
