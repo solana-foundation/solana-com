@@ -21,8 +21,6 @@ export const BLOCK_STYLES = {
       backgroundColor: "rgba(21, 21, 21, 1)",
       borderRadius: "20px",
     },
-    medium: { display: "flex" },
-    small: { display: "flex" },
   },
   [CONTENT_BLOCK_STYLE_KEYS.columnCopy]: {
     large: { paddingTop: "20px", marginTop: "auto", marginBottom: "auto" },
