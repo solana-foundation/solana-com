@@ -64,6 +64,7 @@ export default async function Page(_props: Props) {
     sponsorLogos: t.raw("graveyardHack.sponsorBanner.logos") as Array<{
       name: string;
       src: string;
+      url?: string;
     }>,
 
     resourcesTitle: t("graveyardHack.resources.title"),

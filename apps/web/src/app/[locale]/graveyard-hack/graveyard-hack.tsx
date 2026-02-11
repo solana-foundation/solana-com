@@ -43,6 +43,7 @@ interface GraveyardHackPageProps {
     sponsorLogos: Array<{
       name: string;
       src: string;
+      url?: string;
     }>;
     resourcesTitle: string;
     resourcesDescription: string;
@@ -535,25 +536,39 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
           {/* Sponsor logo grid — wraps on small screens */}
           <div className="max-w-5xl mx-auto">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 justify-items-center items-center gap-y-10 gap-x-6">
-              {translations.sponsorLogos.map((sponsor, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-center w-full h-8 opacity-80 hover:opacity-100 transition-opacity"
-                >
-                  {sponsor.src ? (
-                    <img
-                      src={sponsor.src}
-                      alt={sponsor.name}
-                      className="max-h-8 max-w-[140px] w-auto object-contain"
-                      style={{ filter: "brightness(0) invert(1)" }}
-                    />
-                  ) : (
-                    <span className="text-white text-sm font-semibold tracking-wide whitespace-nowrap">
-                      {sponsor.name}
-                    </span>
-                  )}
-                </div>
-              ))}
+              {translations.sponsorLogos.map((sponsor, index) => {
+                const content = sponsor.src ? (
+                  <img
+                    src={sponsor.src}
+                    alt={sponsor.name}
+                    className="max-h-8 max-w-[140px] w-auto object-contain"
+                    style={{ filter: "brightness(0) invert(1)" }}
+                  />
+                ) : (
+                  <span className="text-white text-sm font-semibold tracking-wide whitespace-nowrap">
+                    {sponsor.name}
+                  </span>
+                );
+
+                return sponsor.url ? (
+                  <a
+                    key={index}
+                    href={sponsor.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-full h-8 opacity-80 hover:opacity-100 transition-opacity no-underline"
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <div
+                    key={index}
+                    className="flex items-center justify-center w-full h-8 opacity-80 hover:opacity-100 transition-opacity"
+                  >
+                    {content}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
