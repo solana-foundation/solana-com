@@ -3,7 +3,11 @@ import styled from "styled-components";
 import { useTranslations } from "next-intl";
 import Button from "../../shared/Button";
 
-const StyledProgressBar = styled.div`
+interface StyledProgressBarProps {
+  $progressPercentage: number;
+}
+
+const StyledProgressBar = styled.div<StyledProgressBarProps>`
   height: 0.25rem;
   margin-top: 0.5rem;
   max-width: 11rem;
@@ -16,12 +20,19 @@ const StyledProgressBar = styled.div`
   }
 `;
 
+interface EventsArchivePaginationProps {
+  initialPageSize: number;
+  totalCount?: number;
+  currentPage?: number;
+  setCurrentPage?: React.Dispatch<React.SetStateAction<number>>;
+}
+
 const EventsArchivePagination = ({
   initialPageSize,
   totalCount = 0,
   currentPage = 0,
   setCurrentPage = () => {},
-}) => {
+}: EventsArchivePaginationProps) => {
   const t = useTranslations();
   const pageLowerBound = currentPage * initialPageSize;
 

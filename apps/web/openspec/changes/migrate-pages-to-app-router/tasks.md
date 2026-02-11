@@ -47,23 +47,23 @@ manual verification in the browser confirms the page works correctly.
 
 ## 2. Community Section
 
-- [ ] 2.1 Migrate `/community/report-2024-newsletter-sign-up` — `pages/[locale]/community/report-2024-newsletter-sign-up.tsx`
-- [ ] 2.2 Verify `/community/report-2024-newsletter-sign-up` renders correctly
+- [x] 2.1 Migrate `/community/report-2024-newsletter-sign-up` — `pages/[locale]/community/report-2024-newsletter-sign-up.tsx`
+- [x] 2.2 Verify `/community/report-2024-newsletter-sign-up` renders correctly
 
 ## 3. Events Section
 
-- [ ] 3.1 Migrate `/events` (index) — `pages/[locale]/events/index.jsx`
-- [ ] 3.2 Verify `/events` renders correctly
-- [ ] 3.3 Migrate `/events/archive` — `pages/[locale]/events/archive.jsx`
-- [ ] 3.4 Verify `/events/archive` renders correctly
-- [ ] 3.5 Run `pnpm build` — confirm no build errors after Phase 3
+- [x] 3.1 Migrate `/events` (index) — `pages/[locale]/events/index.jsx`
+- [x] 3.2 Verify `/events` renders correctly
+- [x] 3.3 Migrate `/events/archive` — `pages/[locale]/events/archive.jsx`
+- [x] 3.4 Verify `/events/archive` renders correctly
+- [x] 3.5 Run `pnpm build` — confirm no build errors after Phase 3
 
 ## 4. Hackathon & NFT Showdown
 
-- [ ] 4.1 Migrate `/hackathon` — `pages/[locale]/hackathon/index.js`
-- [ ] 4.2 Verify `/hackathon` renders correctly
-- [ ] 4.3 Migrate `/nftshowdown` — `pages/[locale]/nftshowdown/index.js`
-- [ ] 4.4 Verify `/nftshowdown` renders correctly
+- [x] 4.1 Migrate `/hackathon` — `pages/[locale]/hackathon/index.js`
+- [x] 4.2 Verify `/hackathon` renders correctly
+- [x] 4.3 Migrate `/nftshowdown` — `pages/[locale]/nftshowdown/index.js`
+- [x] 4.4 Verify `/nftshowdown` renders correctly
 
 ## 5. Developers Section
 

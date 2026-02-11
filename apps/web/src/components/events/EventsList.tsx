@@ -1,7 +1,38 @@
 import EventSingleCard from "./EventsSingleCard";
 import EventsSingleRow from "./EventsSingleRow";
 
-const EventsList = ({ list, isCompact }) => {
+interface EventImage {
+  primary?:
+    | {
+        src?: string;
+        alt?: string;
+      }
+    | string;
+}
+
+interface EventSchedule {
+  from?: string | Date;
+  to?: string | Date;
+  timezone?: string;
+}
+
+interface Event {
+  title: string;
+  platform?: string;
+  key?: string;
+  rsvp?: string;
+  lumaUrl?: string;
+  img?: EventImage;
+  schedule?: EventSchedule;
+  type?: string;
+}
+
+interface EventsListProps {
+  list: Event[];
+  isCompact?: boolean;
+}
+
+const EventsList = ({ list, isCompact }: EventsListProps) => {
   return (
     <div className="my-6">
       <div className="row">
