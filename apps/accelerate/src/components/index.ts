@@ -1,3 +1,4 @@
+export { FlashSaleBanner } from "./FlashSaleBanner";
 export { Hero } from "./Hero";
 export { EventDetails } from "./EventDetails";
 export { AgendaBanner } from "./AgendaBanner";

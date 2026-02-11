@@ -7,6 +7,7 @@ import { getLangDir } from "rtl-detect";
 import { Space_Grotesk } from "next/font/google";
 import { getBaseMetadata } from "../metadata";
 import { config } from "@@/src/config";
+import { FlashSaleBanner } from "@@/src/components/FlashSaleBanner";
 import "@@/src/scss/index.scss";
 import "../globals.css";
 
@@ -138,6 +139,7 @@ export default async function RootLayout({ children, params }: Props) {
         </Script>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
+            <FlashSaleBanner />
             <main className="min-h-screen">{children}</main>
           </ThemeProvider>
         </NextIntlClientProvider>
