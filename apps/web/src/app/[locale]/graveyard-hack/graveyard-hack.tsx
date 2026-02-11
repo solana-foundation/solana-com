@@ -418,7 +418,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                 <h4 className="text-2xl font-bold text-white mb-4">
                   {bounty.title}
                 </h4>
-                <p className="text-gray-300 text-base mb-6 flex-grow">
+                <p className="text-gray-300 text-base mb-6 whitespace-pre-line flex-grow">
                   {bounty.description}
                 </p>
                 <div className="pt-4 border-t border-purple-500/30 mb-4 mt-auto">
@@ -462,7 +462,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                 <h4 className="text-xl font-bold text-white mb-3">
                   {bounty.title}
                 </h4>
-                <p className="text-gray-400 text-sm mb-6 flex-grow">
+                <p className="text-gray-400 text-sm mb-6 whitespace-pre-line flex-grow">
                   {bounty.description}
                 </p>
                 <div className="pt-4 border-t border-purple-500/20 mb-4 mt-auto">
