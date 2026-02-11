@@ -5,45 +5,45 @@ manual verification in the browser confirms the page works correctly.
 
 ## 1. Top-Level Standalone Pages
 
-- [ ] 1.1 Migrate `/2023outlook` — `pages/[locale]/2023outlook.js`
-- [ ] 1.2 Verify `/2023outlook` renders correctly
-- [ ] 1.3 Migrate `/2024outlook` — `pages/[locale]/2024outlook.tsx`
-- [ ] 1.4 Verify `/2024outlook` renders correctly
-- [ ] 1.5 Migrate `/ai` — `pages/[locale]/ai.jsx`
-- [ ] 1.6 Verify `/ai` renders correctly
-- [ ] 1.7 Migrate `/art-basel` — `pages/[locale]/art-basel.tsx`
-- [ ] 1.8 Verify `/art-basel` renders correctly
-- [ ] 1.9 Migrate `/branding` — `pages/[locale]/branding.js`
-- [ ] 1.10 Verify `/branding` renders correctly
-- [ ] 1.11 Migrate `/community` — `pages/[locale]/community.js`
-- [ ] 1.12 Verify `/community` renders correctly
-- [ ] 1.13 Migrate `/newsletter` — `pages/[locale]/newsletter.js`
-- [ ] 1.14 Verify `/newsletter` renders correctly
-- [ ] 1.15 Migrate `/playgg` — `pages/[locale]/playgg.js`
-- [ ] 1.16 Verify `/playgg` renders correctly
-- [ ] 1.17 Migrate `/possible` — `pages/[locale]/possible.js`
-- [ ] 1.18 Verify `/possible` renders correctly
-- [ ] 1.19 Migrate `/privacy-policy` — `pages/[locale]/privacy-policy.tsx`
-- [ ] 1.20 Verify `/privacy-policy` renders correctly
-- [ ] 1.21 Migrate `/pyusd` — `pages/[locale]/pyusd.tsx`
-- [ ] 1.22 Verify `/pyusd` renders correctly
-- [ ] 1.23 Migrate `/research` — `pages/[locale]/research.tsx`
-- [ ] 1.24 Verify `/research` renders correctly
-- [ ] 1.25 Migrate `/rpc` — `pages/[locale]/rpc.tsx`
-- [ ] 1.26 Verify `/rpc` renders correctly
-- [ ] 1.27 Migrate `/solana-wallets` — `pages/[locale]/solana-wallets.js`
-- [ ] 1.28 Verify `/solana-wallets` renders correctly
-- [ ] 1.29 Migrate `/solanaramp` — `pages/[locale]/solanaramp.js`
-- [ ] 1.30 Verify `/solanaramp` renders correctly
-- [ ] 1.31 Migrate `/staking` — `pages/[locale]/staking.tsx`
-- [ ] 1.32 Verify `/staking` renders correctly
-- [ ] 1.33 Migrate `/tokenized-equities` — `pages/[locale]/tokenized-equities.tsx`
-- [ ] 1.34 Verify `/tokenized-equities` renders correctly
-- [ ] 1.35 Migrate `/tos` — `pages/[locale]/tos.tsx`
-- [ ] 1.36 Verify `/tos` renders correctly
-- [ ] 1.37 Migrate `/validators` — `pages/[locale]/validators.js`
-- [ ] 1.38 Verify `/validators` renders correctly
-- [ ] 1.39 Run `pnpm build` — confirm no build errors after Phase 1
+- [x] 1.1 Migrate `/2023outlook` — `pages/[locale]/2023outlook.js`
+- [x] 1.2 Verify `/2023outlook` renders correctly
+- [x] 1.3 Migrate `/2024outlook` — `pages/[locale]/2024outlook.tsx`
+- [x] 1.4 Verify `/2024outlook` renders correctly
+- [x] 1.5 Migrate `/ai` — `pages/[locale]/ai.jsx`
+- [x] 1.6 Verify `/ai` renders correctly
+- [x] 1.7 Migrate `/art-basel` — `pages/[locale]/art-basel.tsx`
+- [x] 1.8 Verify `/art-basel` renders correctly
+- [x] 1.9 Migrate `/branding` — `pages/[locale]/branding.js`
+- [x] 1.10 Verify `/branding` renders correctly
+- [x] 1.11 Migrate `/community` — `pages/[locale]/community.js`
+- [x] 1.12 Verify `/community` renders correctly
+- [x] 1.13 Migrate `/newsletter` — `pages/[locale]/newsletter.js`
+- [x] 1.14 Verify `/newsletter` renders correctly
+- [x] 1.15 Migrate `/playgg` — `pages/[locale]/playgg.js`
+- [x] 1.16 Verify `/playgg` renders correctly
+- [x] 1.17 Migrate `/possible` — `pages/[locale]/possible.js`
+- [x] 1.18 Verify `/possible` renders correctly
+- [x] 1.19 Migrate `/privacy-policy` — `pages/[locale]/privacy-policy.tsx`
+- [x] 1.20 Verify `/privacy-policy` renders correctly
+- [x] 1.21 Migrate `/pyusd` — `pages/[locale]/pyusd.tsx`
+- [x] 1.22 Verify `/pyusd` renders correctly
+- [x] 1.23 Migrate `/research` — `pages/[locale]/research.tsx`
+- [x] 1.24 Verify `/research` renders correctly
+- [x] 1.25 Migrate `/rpc` — `pages/[locale]/rpc.tsx`
+- [x] 1.26 Verify `/rpc` renders correctly
+- [x] 1.27 Migrate `/solana-wallets` — `pages/[locale]/solana-wallets.js`
+- [x] 1.28 Verify `/solana-wallets` renders correctly
+- [x] 1.29 Migrate `/solanaramp` — `pages/[locale]/solanaramp.js`
+- [x] 1.30 Verify `/solanaramp` renders correctly
+- [x] 1.31 Migrate `/staking` — `pages/[locale]/staking.tsx`
+- [x] 1.32 Verify `/staking` renders correctly
+- [x] 1.33 Migrate `/tokenized-equities` — `pages/[locale]/tokenized-equities.tsx`
+- [x] 1.34 Verify `/tokenized-equities` renders correctly
+- [x] 1.35 Migrate `/tos` — `pages/[locale]/tos.tsx`
+- [x] 1.36 Verify `/tos` renders correctly
+- [x] 1.37 Migrate `/validators` — `pages/[locale]/validators.js`
+- [x] 1.38 Verify `/validators` renders correctly
+- [x] 1.39 Run `pnpm build` — confirm no build errors after Phase 1
 
 ## 2. Community Section
 

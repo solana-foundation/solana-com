@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo } from "react";
 import { Link as I18nLink } from "@workspace/i18n/routing";
 import { useRouter, usePathname } from "@workspace/i18n/use-router";

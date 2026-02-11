@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { config } from "@@/src/config";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
@@ -50,7 +51,12 @@ export async function getIndexMetadata({
   descriptionKey,
   locale,
   path,
-}) {
+}: {
+  titleKey: string;
+  descriptionKey: string;
+  locale: string;
+  path: string;
+}): Promise<Metadata> {
   const t = await getTranslations();
   return {
     title: t(titleKey),
