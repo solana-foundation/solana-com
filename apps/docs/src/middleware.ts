@@ -16,6 +16,7 @@ const MARKDOWN_PREFIXES = [
   "/docs",
   "/developers/guides",
   "/developers/cookbook",
+  "/developers/learn",
   "/learn",
 ] as const;
 const MARKDOWN_API_PREFIX = "/api/markdown";

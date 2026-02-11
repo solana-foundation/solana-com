@@ -50,6 +50,14 @@ const learnData = defineDocs({
 export const learn = learnData.docs;
 export const learnMeta = learnData.meta;
 
+const developersLearnData = defineDocs({
+  dir: "content/developers-learn",
+  docs: { schema, async: true },
+});
+
+export const developersLearn = developersLearnData.docs;
+export const developersLearnMeta = developersLearnData.meta;
+
 const chConfig = {
   components: { code: "Code", inlineCode: "InlineCode" },
 };

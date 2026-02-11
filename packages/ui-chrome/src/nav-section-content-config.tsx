@@ -110,6 +110,14 @@ export const buildPrimaryItems: NavItemDefinition[] = [
     icon: SchoolIcon,
     variant: "large",
   },
+  {
+    id: "build-learn",
+    titleKey: "developers.nav.courses",
+    descriptionKey: "developers.courses.description",
+    href: "/developers/learn",
+    icon: SchoolIcon,
+    variant: "large",
+  },
 ];
 
 export const buildTutorialItems: NavItemDefinition[] = [

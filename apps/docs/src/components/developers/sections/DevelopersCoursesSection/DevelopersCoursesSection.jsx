@@ -22,6 +22,12 @@ export default function DevelopersCoursesSection(/* { courses } */) {
   const courses = (
     <>
       <DevelopersCourseItem
+        title="Developers Learn Bootcamp"
+        courseCreator={"Solana Foundation"}
+        url="/developers/learn"
+        image={shapeImg6}
+      />
+      <DevelopersCourseItem
         title="Solana Bootcamp"
         courseCreator={"Solana Foundation"}
         url="https://www.youtube.com/watch?v=amAq-WHAFs8&list=PLilwLeBwGuK7HN8ZnXpGAD9q6i4syhnVc"
@@ -49,7 +55,7 @@ export default function DevelopersCoursesSection(/* { courses } */) {
         title="Solana Learning Track"
         courseCreator={"Hackquest"}
         url="https://www.hackquest.io/en/learning-track/d22e6118-f7f6-4f31-acf2-433d08bc52e8"
-        image={shapeImg6}
+        image={shapeImg2}
       />
     </>
   );

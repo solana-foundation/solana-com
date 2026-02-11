@@ -4,6 +4,7 @@ import { docsSource } from "@@/src/app/sources/docs";
 import { guidesSource } from "@@/src/app/sources/guides";
 import { cookbookSource } from "@@/src/app/sources/cookbook";
 import { learnSource } from "@@/src/app/sources/learn";
+import { developersLearnSource } from "@@/src/app/sources/developers-learn";
 
 export async function GET(
   request: NextRequest,
@@ -19,6 +20,7 @@ export async function GET(
     | ReturnType<typeof guidesSource.getPage>
     | ReturnType<typeof cookbookSource.getPage>
     | ReturnType<typeof learnSource.getPage>
+    | ReturnType<typeof developersLearnSource.getPage>
     | null = null;
 
   if (slug[0] === "docs") {
@@ -34,6 +36,8 @@ export async function GET(
     page = guidesSource.getPage(slug.slice(2), defaultLocale);
   } else if (slug[0] === "developers" && slug[1] === "cookbook") {
     page = cookbookSource.getPage(slug.slice(2), defaultLocale);
+  } else if (slug[0] === "developers" && slug[1] === "learn") {
+    page = developersLearnSource.getPage(slug.slice(2), defaultLocale);
   } else if (slug[0] === "learn") {
     page = learnSource.getPage(slug.slice(1), defaultLocale);
   }
