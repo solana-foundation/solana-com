@@ -38,10 +38,21 @@ export default async function Page(_props: Props) {
 
     prizesTitle: t("graveyardHack.prizes.title"),
     prizesSubtitle: t("graveyardHack.prizes.subtitle"),
-    prizes: t.raw("graveyardHack.prizes.items") as Array<{
-      track: string;
-      sponsor: string;
+    overallPrizesTitle: t("graveyardHack.overallPrizes.title"),
+    overallPrizesSubtitle: t("graveyardHack.overallPrizes.subtitle"),
+    overallPrizes: t.raw("graveyardHack.overallPrizes.items") as Array<{
+      place: string;
       prize: string;
+      sponsor: string;
+    }>,
+    sponsorBountiesTitle: t("graveyardHack.sponsorBounties.title"),
+    sponsorBountiesSubtitle: t("graveyardHack.sponsorBounties.subtitle"),
+    sponsorBounties: t.raw("graveyardHack.sponsorBounties.items") as Array<{
+      sponsor: string;
+      title: string;
+      description: string;
+      prizeAmount: string;
+      logo?: string;
     }>,
 
     sponsorBannerTitle: t("graveyardHack.sponsorBanner.title"),

@@ -18,10 +18,21 @@ interface GraveyardHackPageProps {
     }>;
     prizesTitle: string;
     prizesSubtitle: string;
-    prizes: Array<{
-      track: string;
-      sponsor: string;
+    overallPrizesTitle: string;
+    overallPrizesSubtitle: string;
+    overallPrizes: Array<{
+      place: string;
       prize: string;
+      sponsor: string;
+    }>;
+    sponsorBountiesTitle: string;
+    sponsorBountiesSubtitle: string;
+    sponsorBounties: Array<{
+      sponsor: string;
+      title: string;
+      description: string;
+      prizeAmount: string;
+      logo?: string;
     }>;
     sponsorBannerTitle: string;
     sponsorLogos: Array<{
@@ -105,6 +116,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
   const timelineReveal = useScrollReveal();
   const requirementsReveal = useScrollReveal();
   const prizesReveal = useScrollReveal();
+  const bountiesReveal = useScrollReveal();
   const resourcesReveal = useScrollReveal();
   const sponsorReveal = useScrollReveal();
 
@@ -145,7 +157,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
           {/* Static badge */}
           <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-purple-500/30 bg-black/30 backdrop-blur-sm">
             <span className="text-purple-400 text-sm tracking-wide">
-              Starting February 10, 2026
+              Starting February 11, 2026
             </span>
           </div>
 
@@ -268,7 +280,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
         </div>
       </section>
 
-      {/* Prizes Section */}
+      {/* Overall Prizes Section */}
       <section className="relative py-12 md:py-16">
         <div className="absolute inset-0 opacity-10">
           <div
@@ -298,47 +310,164 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
               {translations.prizesSubtitle}
             </p>
           </div>
-          <div className="max-w-4xl mx-auto">
-            <div className="border border-purple-500/20 rounded-xl overflow-hidden bg-black/50">
-              {/* Table header */}
-              <div className="grid grid-cols-3 border-b border-purple-500/20">
-                <div className="py-3 px-6 text-purple-400 font-mono text-sm uppercase tracking-wider">
-                  Track
+
+          <div className="text-center mb-8">
+            <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
+              {translations.overallPrizesTitle}
+            </h3>
+            <p className="text-gray-400">
+              {translations.overallPrizesSubtitle}
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+            {translations.overallPrizes.map((prize, index) => (
+              <div
+                key={index}
+                className={`bg-black/50 border ${
+                  index === 0
+                    ? "border-2 border-purple-400/40"
+                    : "border-purple-500/20"
+                } rounded-xl p-8 flex flex-col items-center text-center transition-all duration-500 ${
+                  prizesReveal.isVisible
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`}
+                style={{ transitionDelay: `${index * 150 + 200}ms` }}
+              >
+                <div className="text-purple-400 text-xs font-mono uppercase tracking-wider mb-3">
+                  Overall
                 </div>
-                <div className="py-3 px-6 text-purple-400 font-mono text-sm uppercase tracking-wider">
-                  Sponsor
-                </div>
-                <div className="py-3 px-6 text-purple-400 font-mono text-sm uppercase tracking-wider text-right">
-                  Prize
+                <h4
+                  className={`${index === 0 ? "text-2xl" : "text-xl"} font-bold text-white mb-2`}
+                >
+                  {prize.place}
+                </h4>
+                <p className="text-gray-500 text-sm mb-6">{prize.sponsor}</p>
+                <div className="pt-4 border-t border-purple-500/20 mt-auto">
+                  <span
+                    className={`${index === 0 ? "text-3xl" : "text-2xl"} font-bold text-purple-400 font-mono`}
+                  >
+                    {prize.prize}
+                  </span>
                 </div>
               </div>
-              {/* Prize rows */}
-              {translations.prizes.map((prize, index) => {
-                const isTopPrize = index < 3;
-                return (
-                  <div
-                    key={index}
-                    className={`grid grid-cols-3 border-b border-purple-500/10 last:border-b-0 hover:bg-purple-500/5 transition-colors ${
-                      isTopPrize ? "bg-purple-500/5" : ""
-                    }`}
-                  >
-                    <div
-                      className={`py-4 px-6 font-semibold ${isTopPrize ? "text-white" : "text-gray-300"}`}
-                    >
-                      {prize.track}
-                    </div>
-                    <div className="py-4 px-6 text-gray-400">
-                      {prize.sponsor}
-                    </div>
-                    <div
-                      className={`py-4 px-6 font-mono font-bold text-right ${isTopPrize ? "text-purple-400 text-lg" : "text-purple-400/80"}`}
-                    >
-                      {prize.prize}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Sponsor Bounties Section */}
+      <section className="relative py-12 md:py-16">
+        <div className="absolute inset-0 opacity-10">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(168, 85, 247, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(168, 85, 247, 0.05) 1px, transparent 1px)
+              `,
+              backgroundSize: "30px 30px",
+            }}
+          />
+        </div>
+        <div
+          ref={bountiesReveal.ref}
+          className={`container relative z-10 transition-all duration-700 ${
+            bountiesReveal.isVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
+        >
+          <div className="text-center mb-12">
+            <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
+              {translations.sponsorBountiesTitle}
+            </h3>
+            <p className="text-gray-400">
+              {translations.sponsorBountiesSubtitle}
+            </p>
+          </div>
+
+          {/* Featured bounties (top 2) */}
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {translations.sponsorBounties.slice(0, 2).map((bounty, index) => (
+              <div
+                key={index}
+                className={`bg-black/50 border-2 border-purple-400/40 rounded-xl p-8 flex flex-col transition-all duration-500 ${
+                  bountiesReveal.isVisible
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`}
+                style={{ transitionDelay: `${index * 150 + 200}ms` }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  {/* {bounty.logo && (
+                    <img
+                      src={bounty.logo}
+                      alt={bounty.sponsor}
+                      className="h-6 w-auto object-contain"
+                      style={{ filter: "brightness(0) invert(1)" }}
+                    />
+                  )} */}
+                  <span className="text-purple-400 text-sm font-mono uppercase tracking-wider font-bold">
+                    {bounty.sponsor}
+                  </span>
+                </div>
+                <h4 className="text-2xl font-bold text-white mb-4">
+                  {bounty.title}
+                </h4>
+                <p className="text-gray-300 text-base mb-6 flex-grow">
+                  {bounty.description}
+                </p>
+                <div className="pt-4 border-t border-purple-500/30 mt-auto">
+                  <span className="text-3xl font-bold text-purple-400 font-mono">
+                    {bounty.prizeAmount}
+                  </span>
+                  <span className="text-gray-400 text-sm ml-2">prize</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Other bounties */}
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+            {translations.sponsorBounties.slice(2).map((bounty, index) => (
+              <div
+                key={index + 2}
+                className={`bg-black/50 border border-purple-500/20 rounded-xl p-6 flex flex-col transition-all duration-500 ${
+                  bountiesReveal.isVisible
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`}
+                style={{ transitionDelay: `${(index + 2) * 150 + 200}ms` }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  {/* {bounty.logo && (
+                    <img
+                      src={bounty.logo}
+                      alt={bounty.sponsor}
+                      className="h-5 w-auto object-contain"
+                      style={{ filter: "brightness(0) invert(1)" }}
+                    />
+                  )} */}
+                  <span className="text-purple-400 text-xs font-mono uppercase tracking-wider">
+                    {bounty.sponsor}
+                  </span>
+                </div>
+                <h4 className="text-xl font-bold text-white mb-3">
+                  {bounty.title}
+                </h4>
+                <p className="text-gray-400 text-sm mb-6 flex-grow">
+                  {bounty.description}
+                </p>
+                <div className="pt-4 border-t border-purple-500/20 mt-auto">
+                  <span className="text-2xl font-bold text-purple-400 font-mono">
+                    {bounty.prizeAmount}
+                  </span>
+                  <span className="text-gray-500 text-sm ml-2">prize</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -361,7 +490,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                 textShadow: "-1px -1px 0px #00f68b",
               }}
             >
-              10–25 FEB
+              11–26 FEB
             </div>
             <div className="mb-4">
               <img
@@ -383,14 +512,9 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
             </div>
           </div>
 
-          {/* Sponsor logo grid — 2 rows of 5 per Figma design */}
+          {/* Sponsor logo grid — wraps on small screens */}
           <div className="max-w-5xl mx-auto">
-            <div
-              className="grid justify-items-center items-center gap-y-10 gap-x-6"
-              style={{
-                gridTemplateColumns: "repeat(5, 1fr)",
-              }}
-            >
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 justify-items-center items-center gap-y-10 gap-x-6">
               {translations.sponsorLogos.map((sponsor, index) => (
                 <div
                   key={index}
