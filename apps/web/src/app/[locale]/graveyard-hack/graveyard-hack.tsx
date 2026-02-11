@@ -392,9 +392,9 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
             </p>
           </div>
 
-          {/* Featured bounties (top 2) */}
-          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {translations.sponsorBounties.slice(0, 2).map((bounty, index) => (
+          {/* Featured bounty */}
+          <div className="max-w-xl mx-auto mb-8">
+            {translations.sponsorBounties.slice(0, 1).map((bounty, index) => (
               <div
                 key={index}
                 className={`bg-black/50 border-2 border-purple-400/40 rounded-xl p-8 flex flex-col transition-all duration-500 ${
@@ -402,17 +402,9 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-8"
                 }`}
-                style={{ transitionDelay: `${index * 150 + 200}ms` }}
+                style={{ transitionDelay: "200ms" }}
               >
                 <div className="flex items-center gap-3 mb-4">
-                  {/* {bounty.logo && (
-                    <img
-                      src={bounty.logo}
-                      alt={bounty.sponsor}
-                      className="h-6 w-auto object-contain"
-                      style={{ filter: "brightness(0) invert(1)" }}
-                    />
-                  )} */}
                   <span className="text-purple-400 text-sm font-mono uppercase tracking-wider font-bold">
                     {bounty.sponsor}
                   </span>
@@ -433,27 +425,19 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
             ))}
           </div>
 
-          {/* Other bounties */}
+          {/* Remaining bounties — 3x3 grid */}
           <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-            {translations.sponsorBounties.slice(2).map((bounty, index) => (
+            {translations.sponsorBounties.slice(1).map((bounty, index) => (
               <div
-                key={index + 2}
+                key={index + 1}
                 className={`bg-black/50 border border-purple-500/20 rounded-xl p-6 flex flex-col transition-all duration-500 ${
                   bountiesReveal.isVisible
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-8"
                 }`}
-                style={{ transitionDelay: `${(index + 2) * 150 + 200}ms` }}
+                style={{ transitionDelay: `${(index + 1) * 150 + 200}ms` }}
               >
                 <div className="flex items-center gap-2 mb-3">
-                  {/* {bounty.logo && (
-                    <img
-                      src={bounty.logo}
-                      alt={bounty.sponsor}
-                      className="h-5 w-auto object-contain"
-                      style={{ filter: "brightness(0) invert(1)" }}
-                    />
-                  )} */}
                   <span className="text-purple-400 text-xs font-mono uppercase tracking-wider">
                     {bounty.sponsor}
                   </span>
@@ -574,15 +558,15 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
             </p>
           </div>
 
-          <div className="max-w-3xl mx-auto">
-            <div className="flex flex-wrap justify-center gap-6">
+          <div className="max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {translations.resources.map((resource, index) => (
                 <a
                   key={index}
                   href={resource.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`group bg-black/50 border border-purple-500/20 rounded-xl p-6 hover:border-purple-400/50 hover:scale-[1.02] transition-all cursor-pointer w-full md:w-[calc(50%-0.75rem)] ${
+                  className={`group bg-black/50 border border-purple-500/20 rounded-xl p-6 hover:border-purple-400/50 hover:scale-[1.02] transition-all cursor-pointer ${
                     resourcesReveal.isVisible
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-8"
@@ -653,6 +637,9 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
       {/* Bottom Sign Up */}
       <section className="py-16 md:py-24">
         <div className="container text-center">
+          <p className="text-xl md:text-2xl text-gray-400 italic mb-8">
+            &ldquo;Death is just a lack of imagination.&rdquo;
+          </p>
           <a
             href={REGISTRATION_URL}
             target="_blank"

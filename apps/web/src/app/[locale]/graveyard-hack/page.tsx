@@ -80,6 +80,12 @@ export default async function Page(_props: Props) {
         category: t("graveyardHack.resources.items.templates.category"),
         url: "https://solana.com/developers/templates",
       },
+      {
+        title: t("graveyardHack.resources.items.aiTooling.title"),
+        description: t("graveyardHack.resources.items.aiTooling.description"),
+        category: t("graveyardHack.resources.items.aiTooling.category"),
+        url: "https://solana.com/SKILL.md",
+      },
     ],
 
     requirementsTitle: t("graveyardHack.requirements.title"),
