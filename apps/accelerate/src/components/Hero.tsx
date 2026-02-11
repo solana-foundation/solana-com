@@ -347,7 +347,7 @@ export function Hero() {
         )}
       </AnimatePresence>
 
-      {/* Main Content - YouTube Live Stream */}
+      {/* Main Content - YouTube Video */}
       <div className="absolute inset-x-0 bottom-0 top-[120px] z-10 flex flex-col items-center justify-center px-4 md:top-[140px] md:px-8 lg:top-[160px]">
         <motion.div
           initial="hidden"
@@ -355,12 +355,11 @@ export function Hero() {
           variants={stagger}
           className="flex w-full max-w-[960px] flex-col items-center gap-4 md:gap-6"
         >
-          {/* Title row with live indicator */}
-          <motion.div variants={fadeInUp} className="flex items-center gap-3">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#19FB9B] opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#19FB9B]" />
-            </span>
+          {/* Title row */}
+          <motion.div
+            variants={fadeInUp}
+            className="flex items-center justify-center"
+          >
             <h1
               className="text-center text-lg font-semibold uppercase tracking-[0.15em] sm:text-xl md:text-2xl"
               style={{
