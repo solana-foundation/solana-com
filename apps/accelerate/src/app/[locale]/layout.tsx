@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import Script from "next/script";
 import { NextIntlClientProvider, AbstractIntlMessages } from "next-intl";
 import { ThemeProvider } from "@solana-com/ui-chrome";
-import { staticLocales } from "@workspace/i18n/config";
+import { defaultLocale, locales, staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
 import { Space_Grotesk } from "next/font/google";
 import { getBaseMetadata } from "../metadata";
@@ -58,17 +58,23 @@ type Props = {
   params: Promise<{ locale: string }>;
 };
 
+function resolveLocale(input?: string) {
+  return input && locales.includes(input) ? input : defaultLocale;
+}
+
 export async function generateStaticParams() {
   return staticLocales.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({ params }: Props) {
-  const { locale } = await params;
+  const { locale: routeLocale } = await params;
+  const locale = resolveLocale(routeLocale);
   return getBaseMetadata(locale);
 }
 
 export default async function RootLayout({ children, params }: Props) {
-  const { locale = "en" } = await params;
+  const { locale: routeLocale } = await params;
+  const locale = resolveLocale(routeLocale);
   const direction = getLangDir(locale);
   let messages = enMessages;
   if (locale !== "en") {
