@@ -20,7 +20,7 @@ const HeaderList = () => {
   const { asPath } = useRouter();
 
   const isLearnActive =
-    asPath.includes("/learn") ||
+    (asPath.includes("/learn") && !asPath.includes("/developers/learn")) ||
     asPath === "/environment" ||
     asPath.includes("/universities");
   const isSolutionsActive =
