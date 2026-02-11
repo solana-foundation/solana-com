@@ -1,0 +1,94 @@
+import React from "react";
+import { GraveyardHackPage } from "./graveyard-hack";
+import { getTranslations } from "next-intl/server";
+import { getIndexMetadata } from "@/app/metadata";
+
+type Props = { params: Promise<{ locale: string }> };
+
+export default async function Page(_props: Props) {
+  const t = await getTranslations();
+
+  const translations = {
+    heroTitle: t("graveyardHack.hero.title"),
+    heroSubtitle: t("graveyardHack.hero.subtitle"),
+    heroRegisterButton: t("graveyardHack.hero.registerButton"),
+    heroResourcesButton: t("graveyardHack.hero.resourcesButton"),
+
+    timelineTitle: t("graveyardHack.timeline.title"),
+    timelinePhaseHeader: t("graveyardHack.timeline.phaseHeader"),
+    timelineDateHeader: t("graveyardHack.timeline.dateHeader"),
+    timelineEvents: [
+      {
+        phase: t("graveyardHack.timeline.events.kickoff.phase"),
+        date: t("graveyardHack.timeline.events.kickoff.date"),
+      },
+      {
+        phase: t("graveyardHack.timeline.events.building.phase"),
+        date: t("graveyardHack.timeline.events.building.date"),
+      },
+      {
+        phase: t("graveyardHack.timeline.events.submission.phase"),
+        date: t("graveyardHack.timeline.events.submission.date"),
+      },
+      {
+        phase: t("graveyardHack.timeline.events.winners.phase"),
+        date: t("graveyardHack.timeline.events.winners.date"),
+      },
+    ],
+
+    prizesTitle: t("graveyardHack.prizes.title"),
+    prizesSubtitle: t("graveyardHack.prizes.subtitle"),
+    prizes: t.raw("graveyardHack.prizes.items") as Array<{
+      track: string;
+      sponsor: string;
+      prize: string;
+    }>,
+
+    sponsorBannerTitle: t("graveyardHack.sponsorBanner.title"),
+    sponsorLogos: t.raw("graveyardHack.sponsorBanner.logos") as Array<{
+      name: string;
+      src: string;
+    }>,
+
+    resourcesTitle: t("graveyardHack.resources.title"),
+    resourcesDescription: t("graveyardHack.resources.description"),
+    resourcesLearnMore: t("graveyardHack.resources.learnMore"),
+    resources: [
+      {
+        title: t("graveyardHack.resources.items.docs.title"),
+        description: t("graveyardHack.resources.items.docs.description"),
+        category: t("graveyardHack.resources.items.docs.category"),
+        url: "https://solana.com/docs",
+      },
+      {
+        title: t("graveyardHack.resources.items.templates.title"),
+        description: t("graveyardHack.resources.items.templates.description"),
+        category: t("graveyardHack.resources.items.templates.category"),
+        url: "https://solana.com/developers/templates",
+      },
+    ],
+
+    requirementsTitle: t("graveyardHack.requirements.title"),
+    requirementsItems: t.raw("graveyardHack.requirements.items") as string[],
+
+    ctaEyebrow: t("graveyardHack.cta.eyebrow"),
+    ctaTitle: t("graveyardHack.cta.title"),
+    ctaDescription: t("graveyardHack.cta.description"),
+    ctaLabel: t("graveyardHack.cta.label"),
+    ctaUrl: t("graveyardHack.cta.url"),
+
+    telegram: t("graveyardHack.telegram"),
+  };
+
+  return <GraveyardHackPage translations={translations} />;
+}
+
+export async function generateMetadata({ params }: Props) {
+  const { locale } = await params;
+  return await getIndexMetadata({
+    titleKey: "graveyardHack.title",
+    descriptionKey: "graveyardHack.description",
+    path: "/graveyard-hack",
+    locale,
+  });
+}
