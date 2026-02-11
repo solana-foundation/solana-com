@@ -6,8 +6,8 @@ import BezierIcon from "./assets/nav/network/bezier.inline.svg";
 import ExplorerIcon from "./assets/nav/network/explorer.inline.svg";
 import PulseIcon from "./assets/nav/network/pulse.inline.svg";
 import SolScanIcon from "./assets/nav/network/sol-scan.inline.svg";
+import OkxIcon from "./assets/nav/network/okx.inline.svg";
 import OrbIcon from "./assets/nav/network/orb.inline.svg";
-import SolanaFmIcon from "./assets/nav/network/solana-fm.inline.svg";
 import SwitchIcon from "./assets/nav/network/switch.inline.svg";
 
 const HeaderListNetwork = () => {
@@ -86,20 +86,11 @@ const HeaderListNetwork = () => {
             />
           </InlineLink>
           <InlineLink
-            to="https://solana.fm/"
-            className="block no-underline text-inherit group/link"
-          >
-            <HeaderItem
-              title={networkInspectItems[1].title}
-              Icon={SolanaFmIcon}
-            />
-          </InlineLink>
-          <InlineLink
             to="https://explorer.solana.com/"
             className="block no-underline text-inherit group/link"
           >
             <HeaderItem
-              title={networkInspectItems[2].title}
+              title={networkInspectItems[1].title}
               Icon={ExplorerIcon}
             />
           </InlineLink>
@@ -108,8 +99,17 @@ const HeaderListNetwork = () => {
             className="block no-underline text-inherit group/link"
           >
             <HeaderItem
-              title={networkInspectItems[3].title}
+              title={networkInspectItems[2].title}
               Icon={OrbIcon}
+            />
+          </InlineLink>
+          <InlineLink
+            to="https://web3.okx.com/explorer/solana"
+            className="block no-underline text-inherit group/link"
+          >
+            <HeaderItem
+              title={networkInspectItems[3].title}
+              Icon={OkxIcon}
             />
           </InlineLink>
         </div>
