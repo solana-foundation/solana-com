@@ -487,8 +487,13 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                 className="mx-auto w-[260px] md:w-[360px] h-auto"
               />
             </div>
-            <div
-              className="inline-block px-6 py-3 border rounded-lg text-sm font-mono mb-8"
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="inline-block px-6 py-3 border rounded-lg text-sm font-mono mb-8 no-underline"
               style={{
                 borderColor: "#a63eff",
                 color: "#a63eff",
@@ -497,7 +502,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
               }}
             >
               solana.com/graveyard-hack
-            </div>
+            </a>
           </div>
 
           {/* Sponsor logo grid — wraps on small screens */}
