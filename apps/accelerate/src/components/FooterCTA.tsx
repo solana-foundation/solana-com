@@ -85,7 +85,7 @@ export function FooterCTA() {
 
           {/* CTA Button */}
           <motion.div variants={fadeInUp} className="mb-6 sm:mb-8">
-            <LumaModal lumaId="sol-accelerate-hk">
+            <LumaModal lumaId="accelerate-miami">
               <button
                 className="group inline-flex h-[56px] w-full max-w-[480px] items-center justify-center rounded-[32px] px-5 text-black transition-all hover:opacity-90 sm:h-[66px] sm:px-7"
                 style={{

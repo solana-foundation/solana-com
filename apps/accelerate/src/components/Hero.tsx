@@ -180,7 +180,7 @@ export function Hero() {
             {t("nav.faq")}
           </a>
           <LanguageSelector className="!text-white/60 hover:!text-white" />
-          <LumaModal lumaId="sol-accelerate-hk">
+          <LumaModal lumaId="accelerate-miami">
             <button
               className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
               style={{
@@ -311,7 +311,7 @@ export function Hero() {
                 <div className="mt-2">
                   <LanguageSelector className="!text-white/60 hover:!text-white" />
                 </div>
-                <LumaModal lumaId="sol-accelerate-hk">
+                <LumaModal lumaId="accelerate-miami">
                   <button
                     type="button"
                     className="relative mt-2 w-full inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"

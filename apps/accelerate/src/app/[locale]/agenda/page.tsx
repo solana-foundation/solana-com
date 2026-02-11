@@ -83,7 +83,7 @@ export default function AgendaPage() {
               {t("nav.faq")}
             </Link>
             <LanguageSelector className="!text-white/60 hover:!text-white" />
-            <LumaModal lumaId="sol-accelerate-hk">
+            <LumaModal lumaId="accelerate-miami">
               <button
                 className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
                 style={{
@@ -214,7 +214,7 @@ export default function AgendaPage() {
                 <div className="mt-2">
                   <LanguageSelector className="!text-white/60 hover:!text-white" />
                 </div>
-                <LumaModal lumaId="sol-accelerate-hk">
+                <LumaModal lumaId="accelerate-miami">
                   <button
                     type="button"
                     className="relative mt-2 inline-flex w-full items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
@@ -364,7 +364,7 @@ export default function AgendaPage() {
             </motion.h2>
 
             <motion.div variants={fadeInUp}>
-              <LumaModal lumaId="sol-accelerate-hk">
+              <LumaModal lumaId="accelerate-miami">
                 <button
                   className="group inline-flex h-[56px] items-center justify-center rounded-[32px] px-8 text-black transition-all hover:opacity-90 sm:h-[66px]"
                   style={{
