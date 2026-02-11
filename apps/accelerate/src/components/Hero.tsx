@@ -6,6 +6,7 @@ import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { LumaModal } from "./LumaModal";
+import { YoutubeEmbed } from "./YoutubeEmbed";
 import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
 
@@ -346,77 +347,40 @@ export function Hero() {
         )}
       </AnimatePresence>
 
-      {/* Main Content - positioned at center */}
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center">
+      {/* Main Content - YouTube Live Stream */}
+      <div className="absolute inset-x-0 bottom-0 top-[120px] z-10 flex flex-col items-center justify-center px-4 md:top-[140px] md:px-8 lg:top-[160px]">
         <motion.div
           initial="hidden"
           animate="visible"
           variants={stagger}
-          className="flex flex-col items-center gap-10"
+          className="flex w-full max-w-[960px] flex-col items-center gap-4 md:gap-6"
         >
-          {/* Date/Location and Main Heading */}
-          <div className="flex flex-col items-center gap-5">
-            <motion.p
-              variants={fadeInUp}
-              className="text-xl md:text-2xl lg:text-[32px]"
+          {/* Title row with live indicator */}
+          <motion.div variants={fadeInUp} className="flex items-center gap-3">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#19FB9B] opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#19FB9B]" />
+            </span>
+            <h1
+              className="text-center text-lg font-semibold uppercase tracking-[0.15em] sm:text-xl md:text-2xl"
               style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 400,
-                lineHeight: 1.1,
-                color: "#19FB9B",
-              }}
-            >
-              {t("hero.dateLocation")}
-            </motion.p>
-
-            <motion.h1
-              variants={fadeInUp}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-[84px]"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 300,
+                fontFamily:
+                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                 lineHeight: 1,
                 color: "#D2D2D2",
               }}
             >
               {t("hero.title")}
-            </motion.h1>
-          </div>
+              <span className="ml-2 text-[#19FB9B]">/</span>
+              <span className="ml-2 text-[#19FB9B]">
+                {t("hero.dateLocation")}
+              </span>
+            </h1>
+          </motion.div>
 
-          {/* CTA Button */}
-          <motion.div
-            variants={fadeInUp}
-            className="flex flex-col items-center gap-4"
-          >
-            <LumaModal lumaId="sol-accelerate-hk">
-              <button
-                className="group inline-flex h-[66px] items-center justify-center rounded-[32px] px-7 py-6 text-black transition-all hover:opacity-90"
-                style={{
-                  background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                  width: "480px",
-                  maxWidth: "90vw",
-                }}
-              >
-                <span
-                  className="uppercase"
-                  style={{
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontWeight: 600,
-                    fontSize: "18px",
-                    letterSpacing: "0.9px",
-                  }}
-                >
-                  {t("nav.requestToJoin")}
-                </span>
-                <Image
-                  src={getImagePath("/images/ticket-icon.svg")}
-                  alt="Ticket icon"
-                  width={18}
-                  height={12}
-                  className="ml-2"
-                />
-              </button>
-            </LumaModal>
+          {/* YouTube embed */}
+          <motion.div variants={fadeInUp} className="w-full">
+            <YoutubeEmbed id="j0Y2uZ7Xmbs" title={t("hero.title")} />
           </motion.div>
         </motion.div>
       </div>
