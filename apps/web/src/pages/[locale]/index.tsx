@@ -127,13 +127,13 @@ export default function Home({
           ),
         })}
         subtitle={t("index.hero.subtitle")}
-        bannerEyebrow={t("index.hero.bannerEyebrow")}
-        bannerDescription={t("index.hero.bannerDescription")}
-        bannerImgSrc="/src/img/index/agent-hackathon.webp"
+        bannerEyebrow="Graveyard Hack"
+        bannerDescription="Build undead ideas on Solana. Join from February 12-27, 2026 and compete for prizes."
+        bannerImgSrc="/assets/graveyard-hack/background.png"
         // rm bannerHref and bannerLabel to hide banner
-        bannerHref="https://colosseum.com/agent-hackathon/"
-        bannerLabel={t("index.hero.bannerLabel")}
-        bannerExpiryDate="2026-02-28"
+        bannerHref="/graveyard-hack"
+        bannerLabel="Explore Graveyard Hack"
+        bannerExpiryDate="2026-02-27"
         cta={t("index.hero.cta")}
         bgJsonFilePath="/src/img/index/hero-bg.json"
         bgImageSrc="/src/img/index/hero-bg.webp"
