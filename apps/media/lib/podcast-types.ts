@@ -1,4 +1,4 @@
-import { MarkdocDocument } from "./post-types";
+import { ContentDocument } from "./post-types";
 
 // Application Types
 
@@ -11,7 +11,7 @@ export interface PodcastShow {
   id: string;
   title: string;
   slug: string;
-  description: string | MarkdocDocument;
+  description: string | ContentDocument;
   coverImage: string;
   category?: string;
   featured: boolean;

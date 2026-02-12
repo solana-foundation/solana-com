@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { fetchLatestPosts } from "@/lib/keystatic/post-data";
-import { extractPlainText } from "@/lib/markdoc-renderer";
+import { extractPlainText } from "@/lib/content-renderer";
 
 const CACHE_TAG = "posts";
 const REVALIDATE_SECONDS = 300; // 5 minutes
@@ -28,7 +28,7 @@ async function fetchPosts(params: PostConnectionParams) {
     return {
       posts:
         response.posts
-          // Convert Markdoc content to plain text for description
+          // Convert content to plain text for description
           ?.map((post) => ({
             ...post,
             description: extractPlainText(

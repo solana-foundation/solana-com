@@ -1,5 +1,8 @@
-// Markdoc document type for Keystatic content
-export type MarkdocDocument = unknown;
+// Content document type for Keystatic content
+export type ContentDocument = unknown;
+
+// Backwards-compatible alias
+export type MarkdocDocument = ContentDocument;
 
 export type PostItem = {
   id: string;
@@ -8,7 +11,7 @@ export type PostItem = {
   tags: string[];
   categories: string[];
   url: string;
-  description: MarkdocDocument;
+  description: ContentDocument;
   heroImage: string | null | undefined;
   author: {
     name: string;

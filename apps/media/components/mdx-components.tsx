@@ -46,7 +46,7 @@ type GalleryImage = {
   square?: boolean;
 };
 
-// Keystatic DocumentRenderer renderers
+// Keystatic DocumentRenderer renderers for MDX content
 // Using 'as any' to work around complex type constraints in DocumentRendererProps
 // Custom component blocks are added via the 'component' property
 export const components = {
@@ -321,4 +321,150 @@ export const components = {
   },
 } as DocumentRendererProps["renderers"] & {
   block?: Record<string, (props: any) => React.ReactNode>;
+};
+
+// Flat MDX component map for next-mdx-remote rendering
+// Maps JSX tag names to React components
+export const mdxComponents: Record<string, React.ComponentType<any>> = {
+  // Custom content components (from Keystatic component blocks)
+  tweet: (props: { id: string }) => (
+    <div data-theme="dark">
+      <Tweet id={props.id} />
+    </div>
+  ),
+  video: (props: VideoBlockData) => <Video data={props} />,
+  iframe: (props: {
+    src: string;
+    width?: string;
+    height?: string;
+    allow?: string;
+  }) => (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: props.height || 0,
+        paddingBottom: props.height ? 0 : "61.5746%",
+      }}
+    >
+      <iframe
+        src={props.src}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+        }}
+        allow={props.allow || "encrypted-media"}
+        allowFullScreen
+      />
+    </div>
+  ),
+  gallery: (props: { background?: string; images?: GalleryImage[] }) => (
+    <Gallery {...(props as any)} />
+  ),
+  stats: (props: StatsBlockData) => {
+    const statsData = {
+      title: props.title || "",
+      description: props.description || "",
+      stats: props.stats?.map((stat: any) => ({
+        stat: stat?.stat,
+        type: stat?.type,
+      })),
+      background: props.background || "bg-default",
+    };
+    return <Stats data={statsData} />;
+  },
+  blockquote: (props: { children: React.ReactNode; authorName?: string }) => {
+    if (props.authorName) {
+      return (
+        <div>
+          <blockquote className="border-l-4 border-primary pl-4 my-4 italic">
+            {props.children}
+            <footer className="mt-2 font-bold">— {props.authorName}</footer>
+          </blockquote>
+        </div>
+      );
+    }
+    return (
+      <blockquote className="border-l-4 border-primary pl-4 my-4 italic text-muted-foreground">
+        {props.children}
+      </blockquote>
+    );
+  },
+  datetime: (props: { format?: string }) => {
+    const dt = new Date();
+    switch (props.format) {
+      case "iso":
+        return <span>{format(dt, "yyyy-MM-dd")}</span>;
+      case "utc":
+        return <span>{format(dt, "eee, dd MMM yyyy HH:mm:ss OOOO")}</span>;
+      default:
+        return <span>{format(dt, "P")}</span>;
+    }
+  },
+  newslettersignup: (props: {
+    children: React.ReactNode;
+    placeholder?: string;
+    buttonText?: string;
+  }) => (
+    <div className="bg-card">
+      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div>{props.children}</div>
+        <div className="mt-8">
+          <form className="sm:flex">
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              className="w-full px-5 py-3 border border-gray-300 shadow-xs placeholder-gray-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 sm:max-w-xs rounded-md"
+              placeholder={props.placeholder || "Enter your email"}
+            />
+            <div className="mt-3 rounded-md shadow-sm sm:mt-0 sm:ml-3 sm:shrink-0">
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center py-3 px-5 border border-transparent text-base font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700"
+              >
+                {props.buttonText || "Notify Me"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  ),
+  footnotes: () => (
+    <h2 id="footnotes" className="scroll-mt-20">
+      Footnotes
+    </h2>
+  ),
+  sup: (props: { children: React.ReactNode }) => (
+    <sup>
+      <a href="#footnotes">{props.children}</a>
+    </sup>
+  ),
+  // Standard HTML element overrides for styling
+  img: ({ src, alt, ...rest }: any) => {
+    if (!src) return null;
+    return (
+      <span className="block w-full my-6">
+        <span className="block relative w-full">
+          <Image
+            src={src}
+            alt={alt || ""}
+            width={1200}
+            height={800}
+            className="w-full h-auto object-contain"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 896px, 896px"
+          />
+        </span>
+        {alt && (
+          <span className="block text-sm text-muted-foreground mt-2 text-center">
+            {alt}
+          </span>
+        )}
+      </span>
+    );
+  },
 };

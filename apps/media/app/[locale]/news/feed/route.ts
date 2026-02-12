@@ -1,48 +1,9 @@
 import { Feed } from "feed";
 import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
-import { MarkdocDocument } from "@/lib/post-types";
+import { contentDocumentToPlainText } from "@/lib/content-renderer";
 
 export const revalidate = 300;
-
-// Helper function to convert Markdoc content to plain text
-function markdocToPlainText(
-  content: MarkdocDocument | null | undefined
-): string {
-  if (!content) return "";
-
-  if (typeof content === "string") {
-    return content;
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (typeof item === "string") {
-          return item;
-        }
-        if (item && typeof item === "object") {
-          const node = item as Record<string, unknown>;
-          // Handle various markdoc node types
-          if (node.type === "paragraph" && node.children) {
-            return markdocToPlainText(node.children as MarkdocDocument);
-          }
-          if (node.type === "text" && node.text) {
-            return node.text;
-          }
-          if (node.children) {
-            return markdocToPlainText(node.children as MarkdocDocument);
-          }
-        }
-        return "";
-      })
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-  }
-
-  return "";
-}
 
 // Helper function to get image MIME type from file extension
 function getImageMimeType(imageUrl: string): string {
@@ -116,7 +77,7 @@ export async function GET() {
       if (!post) continue;
 
       const postUrl = `${newsUrl}/${postEntry.slug}`;
-      const description = markdocToPlainText(post.description) || "";
+      const description = contentDocumentToPlainText(post.description) || "";
 
       // Resolve author
       let authorName: string | null = null;

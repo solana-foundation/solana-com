@@ -83,10 +83,9 @@ export default config({
         }),
         heroImage: fields.image({
           label: "Hero Image",
-          description: "Required for SEO. Used as og:image and twitter:image",
+          description: "Used as og:image and twitter:image",
           directory: "public/uploads/posts",
           publicPath: "/uploads/posts",
-          validation: { isRequired: true },
         }),
         description: fields.text({
           label: "Description",
@@ -126,7 +125,7 @@ export default config({
             itemLabel: (props) => props.fields.tag.value || "Tag",
           }
         ),
-        body: fields.markdoc({
+        body: fields.mdx({
           label: "Body",
           components: componentBlocks,
         }),
@@ -151,7 +150,7 @@ export default config({
         title: fields.slug({
           name: { label: "Title", validation: { isRequired: true } },
         }),
-        description: fields.markdoc({
+        description: fields.mdx({
           label: "Description",
           options: {
             bold: true,
@@ -253,7 +252,7 @@ export default config({
           directory: "public/uploads/authors",
           publicPath: "/uploads/authors",
         }),
-        bio: fields.markdoc({
+        bio: fields.mdx({
           label: "Bio",
           options: {
             bold: true,
@@ -273,7 +272,7 @@ export default config({
         name: fields.slug({
           name: { label: "Name", validation: { isRequired: true } },
         }),
-        description: fields.markdoc({ label: "Description" }),
+        description: fields.mdx({ label: "Description" }),
       },
     }),
 
@@ -286,7 +285,7 @@ export default config({
         name: fields.slug({
           name: { label: "Name", validation: { isRequired: true } },
         }),
-        description: fields.markdoc({ label: "Description" }),
+        description: fields.mdx({ label: "Description" }),
       },
     }),
 
@@ -317,7 +316,7 @@ export default config({
           { label: "Button" }
         ),
         className: fields.text({ label: "Class Name" }),
-        body: fields.markdoc({
+        body: fields.mdx({
           label: "Body",
           options: {
             bold: true,
@@ -351,7 +350,7 @@ export default config({
         ),
         eyebrow: fields.text({ label: "Eyebrow" }),
         headline: fields.text({ label: "Headline" }),
-        body: fields.markdoc({
+        body: fields.mdx({
           label: "Body",
           options: {
             bold: true,
@@ -403,7 +402,7 @@ export default config({
           defaultValue: "article",
           description: "Type of external content",
         }),
-        description: fields.markdoc({
+        description: fields.mdx({
           label: "Description",
           options: {
             bold: true,

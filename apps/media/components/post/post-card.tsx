@@ -12,36 +12,40 @@ interface PostCardProps {
   variant?: "vertical" | "horizontal";
 }
 
-// Helper function to normalize description to an array for DocumentRenderer
-function normalizeDescription(description: any): any[] {
-  if (!description) return [];
+// Helper: render description as plain text or DocumentRenderer document
+function DescriptionContent({ description }: { description: any }) {
+  if (!description) return null;
 
-  // If it's already an array, return it
-  if (Array.isArray(description)) return description;
-
-  // If it's an object with node.children, use that
-  if (description && typeof description === "object" && "node" in description) {
-    const children = (description as any).node?.children;
-    if (Array.isArray(children)) return children;
+  // Plain string from fields.text()
+  if (typeof description === "string") {
+    return <p>{description}</p>;
   }
 
-  // If it's an object with children directly, use that
-  if (
-    description &&
-    typeof description === "object" &&
-    "children" in description
-  ) {
-    const children = (description as any).children;
-    if (Array.isArray(children)) return children;
+  // Array (DocumentRenderer format)
+  if (Array.isArray(description)) {
+    return <DocumentRenderer document={description} renderers={components} />;
   }
 
-  // Default to empty array
-  return [];
+  // Object with node.children
+  if (typeof description === "object" && "node" in description) {
+    const children = description.node?.children;
+    if (Array.isArray(children)) {
+      return <DocumentRenderer document={children} renderers={components} />;
+    }
+  }
+
+  // Object with children directly
+  if (typeof description === "object" && "children" in description) {
+    const children = description.children;
+    if (Array.isArray(children)) {
+      return <DocumentRenderer document={children} renderers={components} />;
+    }
+  }
+
+  return null;
 }
 
 export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
-  const descriptionDoc = normalizeDescription(post.description);
-
   if (variant === "horizontal") {
     return (
       <Link
@@ -68,10 +72,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
           )}
           <div className="flex flex-col gap-4 grow">
             <div className="text-muted-foreground grow">
-              <DocumentRenderer
-                document={descriptionDoc}
-                renderers={components}
-              />
+              <DescriptionContent description={post.description} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted-foreground">
@@ -126,7 +127,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
         {post.title}
       </h3>
       <div className="text-muted-foreground grow">
-        <DocumentRenderer document={descriptionDoc} renderers={components} />
+        <DescriptionContent description={post.description} />
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
         Read article

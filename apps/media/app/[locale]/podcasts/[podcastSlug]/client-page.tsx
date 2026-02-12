@@ -4,9 +4,7 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft } from "lucide-react";
-import { DocumentRenderer } from "@keystatic/core/renderer";
 import { Section } from "@/components/layout/section";
-import { components } from "@/components/mdx-components";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AudioPlayer } from "@/components/podcast/audio-player";
@@ -130,21 +128,10 @@ export default function PodcastShowClientPage({
             <div className="flex-1 flex flex-col gap-6">
               <div>
                 <h1 className="text-4xl font-bold mb-4">{podcast.title}</h1>
-                {typeof podcast.description === "string" ? (
+                {podcast.description && (
                   <p className="text-lg text-muted-foreground">
-                    {podcast.description}
+                    {String(podcast.description)}
                   </p>
-                ) : (
-                  <div className="text-lg text-muted-foreground prose prose-sm dark:prose-invert">
-                    <DocumentRenderer
-                      document={
-                        (podcast.description as any)?.node?.children ||
-                        podcast.description ||
-                        []
-                      }
-                      renderers={components}
-                    />
-                  </div>
                 )}
               </div>
 

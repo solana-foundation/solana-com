@@ -1,4 +1,4 @@
-import { MarkdocDocument } from "./post-types";
+import { ContentDocument } from "./post-types";
 
 export type LinkType = "article" | "tweet" | "video" | "github" | "other";
 
@@ -7,7 +7,7 @@ export type LinkItem = {
   title: string;
   url: string;
   linkType: LinkType;
-  description?: MarkdocDocument;
+  description?: ContentDocument;
   thumbnailImage?: string | null;
   source?: string;
   publishedAt: string;

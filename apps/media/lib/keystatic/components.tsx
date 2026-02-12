@@ -427,5 +427,5 @@ export const componentBlocks: Record<string, ContentComponent> = {
   iframe,
 };
 
-// Export Markdoc configuration for rendering
+// Export fields for rendering configuration
 export { fields } from "@keystatic/core";

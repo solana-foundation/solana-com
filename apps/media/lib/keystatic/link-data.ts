@@ -68,7 +68,7 @@ async function transformLink(
     title: String(link.title),
     url: link.url,
     linkType: link.linkType as LinkItem["linkType"],
-    description: link.description as any, // Markdoc content type
+    description: link.description as any, // Content document type
     thumbnailImage: link.thumbnailImage || null,
     source: link.source || null,
     publishedAt: formattedDate,

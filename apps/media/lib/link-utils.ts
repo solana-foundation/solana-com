@@ -1,5 +1,5 @@
 import { LinkItem, LinkMetadata, LinkType } from "./link-types";
-import { MarkdocDocument } from "./post-types";
+import { ContentDocument } from "./post-types";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 
@@ -11,7 +11,7 @@ interface LinkData {
   title: string;
   url: string;
   linkType: string;
-  description?: MarkdocDocument;
+  description?: ContentDocument;
   thumbnailImage?: string | null;
   source?: string;
   publishedAt?: string;
@@ -55,7 +55,7 @@ export function transformLink(
 function needsMetadataEnrichment(link: LinkItem): boolean {
   if (!link.description) return true;
 
-  const desc = link.description as MarkdocDocument | string;
+  const desc = link.description as ContentDocument | string;
   const hasDescription =
     typeof desc === "string"
       ? desc.trim().length > 0
@@ -75,22 +75,22 @@ async function enrichLinkWithMetadata(link: LinkItem): Promise<LinkItem> {
   try {
     const metadata = await fetchLinkMetadata(link.url);
 
-    const desc = link.description as MarkdocDocument | string | undefined;
+    const desc = link.description as ContentDocument | string | undefined;
     const hasDescription = desc
       ? typeof desc === "string"
         ? desc.trim().length > 0
         : Array.isArray(desc) && desc.length > 0
       : false;
 
-    let newDescription: MarkdocDocument | undefined = link.description;
+    let newDescription: ContentDocument | undefined = link.description;
     if (!hasDescription && metadata.description) {
-      // Create a simple Markdoc document structure
+      // Create a simple content document structure
       newDescription = [
         {
           type: "paragraph",
           children: [{ type: "text", text: metadata.description }],
         },
-      ] as unknown as MarkdocDocument;
+      ] as unknown as ContentDocument;
     }
 
     return {

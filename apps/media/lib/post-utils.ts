@@ -1,4 +1,4 @@
-import { PostItem, MarkdocDocument } from "./post-types";
+import { PostItem, ContentDocument } from "./post-types";
 import { format } from "date-fns";
 
 // Type for post data from Keystatic reader
@@ -6,7 +6,7 @@ export interface PostData {
   slug: string;
   title: string;
   date: string | null;
-  description: MarkdocDocument;
+  description: ContentDocument;
   heroImage: string | null;
   author: string | null;
   tags: readonly string[] | null;

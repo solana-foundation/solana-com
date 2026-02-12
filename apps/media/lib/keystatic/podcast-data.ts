@@ -3,7 +3,7 @@ import {
   fetchEpisodesFromRSSCached,
   fetchEpisodeByIdFromRSS,
 } from "../podcast-rss";
-import { markdocDocumentToPlainText } from "../markdoc-renderer";
+import { contentDocumentToPlainText } from "../content-renderer";
 import type {
   PodcastShow,
   PodcastEpisode,
@@ -48,8 +48,8 @@ async function transformPodcast(
   // Get tags array (copy to mutable array)
   const tags: string[] = podcast.tags ? [...podcast.tags] : [];
 
-  // Convert Markdoc description to plain text string for serialization
-  const descriptionString = markdocDocumentToPlainText(
+  // Convert description to plain text string for serialization
+  const descriptionString = contentDocumentToPlainText(
     podcast.description as any
   );
 

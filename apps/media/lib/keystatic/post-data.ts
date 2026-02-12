@@ -138,9 +138,8 @@ async function transformPost(
     tags: tagNames,
     categories: categoryNames,
     url: `/news/${slug}`,
-    description: serializedDescription, // Markdoc content type, serialized for RSC
-    heroImage:
-      post.heroImage || "/media-assets/uploads/posts/default-blog.webp",
+    description: serializedDescription, // Content document type, serialized for RSC
+    heroImage: post.heroImage || "/uploads/posts/default-blog.webp",
     author: {
       name: authorName,
       avatar: authorAvatar,
@@ -263,42 +262,69 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
   try {
     const allSlugs = await reader.collections.posts.list();
 
-    // Find posts with "Featured" tag
+    // Collect all posts with "Featured" tag, then pick the most recent
+    const featuredCandidates: Array<{
+      slug: string;
+      date: Date | null;
+      post: Awaited<ReturnType<typeof reader.collections.posts.read>>;
+    }> = [];
+
     for (const slug of allSlugs) {
       try {
         const post = await reader.collections.posts.read(slug);
         if (post?.tags) {
+          let isFeatured = false;
           for (const tagItem of post.tags) {
-            // Handle both string format (new) and object format (legacy)
-            let tagName: string | null = null;
+            let tagSlug: string | null = null;
             if (typeof tagItem === "string") {
-              tagName = tagItem;
+              tagSlug = tagItem;
             } else if (
               tagItem &&
               typeof tagItem === "object" &&
               "tag" in tagItem
             ) {
-              // Legacy format: relationship object
               if (tagItem.tag) {
-                const tagData = await reader.collections.tags.read(tagItem.tag);
-                tagName = tagData?.name ? String(tagData.name) : null;
+                tagSlug = tagItem.tag;
               }
             }
-
-            if (tagName === "Featured") {
-              const transformed = await transformPost(slug, post);
-              return { post: transformed };
+            if (tagSlug === "featured") {
+              isFeatured = true;
+              break;
             }
+          }
+
+          if (isFeatured) {
+            const dateString =
+              typeof post.date === "string"
+                ? post.date
+                : String(post.date || "");
+            featuredCandidates.push({
+              slug,
+              date: dateString ? new Date(dateString) : null,
+              post,
+            });
           }
         }
       } catch (error) {
-        // Log error but continue processing other posts
         console.error(
           `Failed to read post "${slug}" in fetchFeaturedPost:`,
           error
         );
-        // Skip this post and continue with others
       }
+    }
+
+    // Sort by date descending and pick the most recent
+    featuredCandidates.sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return b.date.getTime() - a.date.getTime();
+    });
+
+    if (featuredCandidates.length > 0) {
+      const newest = featuredCandidates[0];
+      const transformed = await transformPost(newest.slug, newest.post);
+      return { post: transformed };
     }
 
     return { post: null };
