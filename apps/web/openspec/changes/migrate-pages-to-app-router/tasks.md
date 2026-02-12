@@ -157,8 +157,8 @@ manual verification in the browser confirms the page works correctly.
 
 ## 7. Cleanup & 404
 
-- [ ] 7.1 Remove `pages/[locale]/404.js` (already handled by `app/[locale]/not-found.tsx`)
-- [ ] 7.2 Verify 404 page still works correctly
+- [x] 7.1 Remove `pages/[locale]/404.js` (already handled by `app/[locale]/not-found.tsx`)
+- [x] 7.2 Verify 404 page still works correctly
 - [ ] 7.3 Remove all `_m_` backup files from `pages/[locale]/`
 
 ## 8. Final Validation
