@@ -1,0 +1,210 @@
+---
+title: 验证工具
+description: 验证收到的稳定币付款，并将其与您的订单进行对账。
+---
+
+一旦交易确认，Tokens 会立即到账您的钱包，无需收款方进行任何操作。Solana 会自动增加接收方的 token
+account 余额，并减少发送方的余额。在本指南中，我们将介绍一些有助于了解您的 token
+account 余额并监控入账付款的实用工具。
+
+## 查询 Token 余额
+
+使用 [`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance)
+RPC 方法检查您的稳定币余额：
+
+```typescript
+import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function getBalance(walletAddress: Address) {
+  // Derive the token account address
+  const [ata] = await findAssociatedTokenPda({
+    mint: USDC_MINT,
+    owner: walletAddress,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Query balance via RPC
+  const { value } = await rpc.getTokenAccountBalance(ata).send();
+
+  return {
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
+  };
+}
+```
+
+## 监听入账转账
+
+通过 `accountNotifications` RPC 方法订阅您的 token account，实时接收付款通知：
+
+```typescript
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
+  const abortController = new AbortController();
+
+  const subscription = await rpcSubscriptions
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
+    .subscribe({ abortSignal: abortController.signal });
+
+  let previousBalance = 0n;
+
+  for await (const notification of subscription) {
+    const [data] = notification.value.data;
+    const dataBytes = getBase64Codec().encode(data);
+    const token = getTokenCodec().decode(dataBytes);
+    if (token.amount > previousBalance) {
+      const received = token.amount - previousBalance;
+      onPayment(received);
+    }
+    previousBalance = token.amount;
+  }
+  abortController.abort();
+}
+```
+
+请注意，这里我们使用的是 RPC 订阅和与 Solana 网络的 websocket 连接。
+
+每条通知都包含一段 base64 编码的 token
+account 数据字符串。由于我们已知该账户为 token account，可以使用 `getTokenCodec`
+方法和 `@solana-program/token` 包进行解码。
+
+请注意，对于生产环境的应用，建议考虑更健壮的流式解决方案。可选方案包括：
+
+- [Alchemy](https://docs.alchemy.com/reference/subscription-api)
+- [Triton](https://docs.triton.one/chains/solana/streaming)
+- [Helius](https://www.helius.dev/docs/data-streaming)
+- [QuickNode](https://www.quicknode.com/docs/solana/subscriptions)
+
+## 解析交易历史
+
+Solana 提供了 RPC 方法，可用于获取账户的交易历史（[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)）以及获取交易详情（[`getTransaction`](/docs/rpc/http/gettransaction)）。解析交易历史时，我们先获取 token
+account 的最新签名，再逐条查询每笔交易的前后 token 余额。通过对比 ATA 在每笔交易前后的余额，可以判断付款金额及方向（入账或出账）。
+
+```typescript
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
+  const payments: ParsedPayment[] = [];
+
+  for (const sig of signatures) {
+    const tx = await rpc
+      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+      .send();
+
+    if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
+
+    // Find our ATA's index in the transaction
+    const accountKeys = tx.transaction.message.accountKeys;
+    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    if (ataIndex === -1) continue;
+
+    // Compare pre/post balances for our ATA
+    const pre = tx.meta.preTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+    const post = tx.meta.postTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+
+    const preAmount = BigInt(pre?.uiTokenAmount.amount ?? "0");
+    const postAmount = BigInt(post?.uiTokenAmount.amount ?? "0");
+    const diff = postAmount - preAmount;
+
+    if (diff !== 0n) {
+      payments.push({
+        signature: sig.signature,
+        timestamp: tx.blockTime,
+        amount: diff > 0n ? diff : -diff,
+        type: diff > 0n ? "incoming" : "outgoing"
+      });
+    }
+  }
+
+  return payments;
+}
+```
+
+要识别交易对手方，可以扫描该交易的代币余额，查找另一个余额发生相反变化的账户——如果你收到了资金，就查找余额减少了相同金额的账户。
+
+由于 SPL 代币转账不仅限于用户之间的支付，这种方法可能会识别出一些并非支付的交易。一个更好的替代方案是使用 Memo。
+
+### 解析前/后余额的局限性
+
+上述方法适用于简单的支付流程。但对于需要大规模处理支付的公司来说，往往需要更细致且实时的数据：
+
+- **按指令拆分：**
+  一笔交易可能包含多次转账。前/后余额只显示净变化，无法反映每一笔转账。
+- **多方交易：**
+  复杂交易（如兑换、批量支付）涉及多个账户。余额差异无法揭示资金的完整流向。
+- **审计需求：** 金融合规通常要求还原精确的转账序列，而不仅仅是最终余额。
+
+对于需要处理大量交易的生产系统，建议使用专门的
+[索引解决方案](/docs/payments/accept-payments/indexing)，解析每条转账指令并提供交易级别的详细信息。
+
+## 使用 Memo 对账
+
+当发送方包含 Memo（如发票 ID、订单号）时，你可以通过 `getTransaction` RPC 方法和
+`jsonParsed` 编码，从交易消息中提取这些信息：
+
+```typescript
+function extractMemos(transaction): string | null {
+  const { instructions } = transaction.transaction.message;
+  let memos = "";
+  for (const instruction of instructions) {
+    if (instruction.program !== "spl-memo") continue;
+    memos += instruction.parsed + "; ";
+  }
+  return memos;
+}
+
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
+  const tx = await rpc
+    .getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      encoding: "jsonParsed"
+    })
+    .send();
+  if (!tx) return null;
+  return extractMemos(tx);
+}
+```
+
+## 风险防护
+
+需要避免的几种失败模式：
+
+- **信任前端。**
+  结账页面显示“支付完成”——但交易真的落链了吗？务必通过 RPC 在服务器端验证。前端确认可能被伪造。
+
+- **依赖“processed”状态。** Solana 交易分为三个阶段：processed → confirmed →
+  finalized。处于“processed”状态的交易在分叉时仍可能被丢弃。发货前请等待“confirmed”（1-2 秒），高价值交易建议等到“finalized”（约 13 秒）。
+
+- **忽略 mint。** 任何人都可以创建名为 "USDC" 的代币。请验证 token
+  account 的 mint 是否与真实稳定币的 mint 地址和 token
+  program 匹配，而不仅仅是代币名称。
+
+- **重复履约。**
+  你的 webhook 被触发后，你发货。网络出现故障，webhook 再次触发。结果你发货两次。请存储已处理的交易签名，并在履约前进行检查。

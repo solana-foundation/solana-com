@@ -132,8 +132,9 @@ export async function getStaticProps({ params }) {
     ...sortInstructions,
   );
 
-  // Set featured event and keep all events in the regular list
-  let featuredEvent = unique[0] || null;
+  // Set featured event: prefer explicitly marked featured, else first by date
+  let featuredEvent =
+    unique.find((e) => e.featured === true) || unique[0] || null;
   let events = [...unique];
 
   return {

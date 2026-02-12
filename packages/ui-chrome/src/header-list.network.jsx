@@ -6,7 +6,8 @@ import BezierIcon from "./assets/nav/network/bezier.inline.svg";
 import ExplorerIcon from "./assets/nav/network/explorer.inline.svg";
 import PulseIcon from "./assets/nav/network/pulse.inline.svg";
 import SolScanIcon from "./assets/nav/network/sol-scan.inline.svg";
-import SolanaFmIcon from "./assets/nav/network/solana-fm.inline.svg";
+import OkxIcon from "./assets/nav/network/okx.inline.svg";
+import OrbIcon from "./assets/nav/network/orb.inline.svg";
 import SwitchIcon from "./assets/nav/network/switch.inline.svg";
 
 const HeaderListNetwork = () => {
@@ -81,20 +82,7 @@ const HeaderListNetwork = () => {
           >
             <HeaderItem
               title={networkInspectItems[0].title}
-              // description={networkInspectItems[0].description}
               Icon={SolScanIcon}
-              // variant="large"
-            />
-          </InlineLink>
-          <InlineLink
-            to="https://solana.fm/"
-            className="block no-underline text-inherit group/link"
-          >
-            <HeaderItem
-              title={networkInspectItems[1].title}
-              // description={networkInspectItems[1].description}
-              Icon={SolanaFmIcon}
-              // variant="large"
             />
           </InlineLink>
           <InlineLink
@@ -102,22 +90,28 @@ const HeaderListNetwork = () => {
             className="block no-underline text-inherit group/link"
           >
             <HeaderItem
-              title={networkInspectItems[2].title}
-              // description={networkInspectItems[2].description}
+              title={networkInspectItems[1].title}
               Icon={ExplorerIcon}
-              // variant="large"
             />
           </InlineLink>
-          {/* <InlineLink
-            to="https://orb.helius.dev/"
+          <InlineLink
+            to="https://orbmarkets.io/"
+            className="block no-underline text-inherit group/link"
+          >
+            <HeaderItem
+              title={networkInspectItems[2].title}
+              Icon={OrbIcon}
+            />
+          </InlineLink>
+          <InlineLink
+            to="https://web3.okx.com/explorer/solana"
             className="block no-underline text-inherit group/link"
           >
             <HeaderItem
               title={networkInspectItems[3].title}
-              // description={networkInspectItems[3].description}
-              // variant="large"
+              Icon={OkxIcon}
             />
-          </InlineLink> */}
+          </InlineLink>
         </div>
       </div>
     </div>

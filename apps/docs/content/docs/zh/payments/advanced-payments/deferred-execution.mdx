@@ -1,0 +1,726 @@
+---
+title: 延迟执行
+description: 现在签署交易，稍后执行——支持审批流程、资金管理和安全签名
+---
+
+每笔 Solana 交易都包含一个最近的区块哈希——这是对网络最新状态的引用，用于证明该交易是在“当前”创建的。网络会拒绝任何区块哈希早于约 150 个区块（约 60-90 秒）的交易，从而防止重放攻击和过期提交。这种机制非常适合实时支付。但对于签名和提交之间需要间隔的流程，则会遇到问题，例如：
+
+| 场景             | 标准交易为何失效                                       |
+| ---------------- | ------------------------------------------------------ |
+| **资金管理操作** | 东京的 CFO 签名，纽约的 Controller 审批——90 秒远远不够 |
+| **合规流程**     | 交易需在执行前经过法律/合规审核                        |
+| **冷存储签名**   | 隔离设备需手动转移已签名交易                           |
+| **批量准备**     | 在工作时间准备工资或付款，夜间执行                     |
+| **多签协调**     | 多位审批人分布在不同时区                               |
+| **定时支付**     | 计划在未来某一日期执行支付                             |
+
+在传统金融中，签过字的支票不会在 90 秒内过期。某些区块链操作也不应如此。**持久随机数（Durable
+nonce）**
+通过用一个存储的、持久的值替代最近区块哈希来解决这个问题，该值只有在你使用时才会更新——让你的交易在你准备好提交前始终有效。
+
+## 工作原理
+
+你可以使用 **nonce 账户**
+来替代最近区块哈希（有效期约为 150 个区块）。nonce 账户是一种特殊账户，存储一个
+_唯一_
+的值，可用来替代区块哈希。每笔使用该 nonce 的交易，必须在第一条指令中“推进”该 nonce。每个 nonce 值只能用于一笔交易。
+
+```mermaid title="Durable Nonce"
+flowchart LR
+    D1[Sign] --> D2[Store] --> D3[Submit]
+    D3 -. "✓ No time limit" .-> D4[Success]
+```
+
+```mermaid title="Standard Blockhash"
+flowchart LR
+    S1[Sign] --> S2[Submit]
+    S2 -. "⏱️ ~90 sec limit" .-> S3[Expires]
+```
+
+<Callout type="info">
+  nonce 账户的租金豁免费用约为 0.0015 SOL。一个 nonce 账户 =
+  一次只能有一笔待处理交易。若需并行处理，请创建多个 nonce 账户。
+</Callout>
+
+### 创建 Nonce 账户
+
+创建 nonce 账户需要在一笔交易中包含两条指令：
+
+1. 使用 System Program 的 `getCreateAccountInstruction` **创建账户**
+2. 使用 `getInitializeNonceAccountInstruction` **初始化为 nonce**
+
+<ScrollyCoding>
+
+## !!steps 生成 Keypair
+
+生成一个新的 keypair 作为 nonce 账户地址，并计算所需空间和租金。
+
+<CodePlaceholder title="Create Nonce Account" />
+
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
+```
+
+## !!steps 创建账户指令
+
+使用 System Program 创建账户，并为租金豁免准备足够的 lamports。
+
+<CodePlaceholder title="Create Nonce Account" />
+
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
+
+// !focus(1:7)
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+```
+
+## !!steps 初始化 Nonce 指令
+
+将账户初始化为 nonce 账户，并设置可推进 nonce 的权限方。
+
+<CodePlaceholder title="Create Nonce Account" />
+
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
+
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// !focus(1:4)
+const initNonceIx = getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: sender.address
+});
+```
+
+## !!steps 构建交易
+
+将两条指令一起构建为一笔交易。
+
+<CodePlaceholder title="Create Nonce Account" />
+
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
+
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+const initNonceIx = getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: sender.address
+});
+
+// !focus(1:7)
+const { value: blockhash } = await rpc.getLatestBlockhash().send();
+const createNonceTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+  (tx) =>
+    appendTransactionMessageInstructions(
+      [createNonceAccountIx, initNonceIx],
+      tx
+    )
+);
+```
+
+## !!steps 签名并发送
+
+签名并发送交易以创建并初始化 nonce 账户。
+
+<CodePlaceholder title="Create Nonce Account" />
+
+```ts !! title="Create Nonce Account"
+const nonceKeypair = await generateKeyPairSigner();
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
+
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+const initNonceIx = getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: sender.address
+});
+
+const { value: blockhash } = await rpc.getLatestBlockhash().send();
+const createNonceTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+  (tx) =>
+    appendTransactionMessageInstructions(
+      [createNonceAccountIx, initNonceIx],
+      tx
+    )
+);
+
+// !focus(1:6)
+const signedCreateNonceTx =
+  await signTransactionMessageWithSigners(createNonceTx);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedCreateNonceTx,
+  { commitment: "confirmed" }
+);
+```
+
+</ScrollyCoding>
+
+### 构建延迟交易
+
+用 nonce 账户的 `blockhash` 替代最近区块哈希，作为交易的有效期。
+
+<ScrollyCoding>
+
+## !!steps 获取 Nonce
+
+从 nonce 账户中获取数据。使用 nonce 账户的 `blockhash` 作为交易的有效期。
+
+```sh title="Example Nonce Account Data"
+{
+  version: 1,
+  state: 1,
+  authority: 'HgjaL8artMtmntaQDVM2UBk3gppsYYERS4PkUhiaLZD1',
+  # !mark
+  blockhash: '5U7seXqfgZx1uh5DFhdH1vyBhr7XGRrKxBAnJJTbbUa',
+  lamportsPerSignature: 5000n
+}
+```
+
+<CodePlaceholder title="Build Deferred Transaction" />
+
+```ts !! title="Build Deferred Transaction"
+// !focus(1:1)
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+```
+
+## !!steps 创建转账指令
+
+为你的支付创建指令。本示例展示了一个代币转账。
+
+<CodePlaceholder title="Build Deferred Transaction" />
+
+```ts !! title="Build Deferred Transaction"
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+
+// !focus(1:6)
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+```
+
+## !!steps 使用持久 Nonce 构建交易
+
+使用
+`setTransactionMessageLifetimeUsingDurableNonce`，将 nonce 设置为 blockhash，并自动在前面添加 advance
+nonce 指令。
+
+<CodePlaceholder title="Build Deferred Transaction" />
+
+```ts !! title="Build Deferred Transaction"
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+// !focus(1:14)
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) =>
+    // !mark(1:8)
+    setTransactionMessageLifetimeUsingDurableNonce(
+      {
+        nonce: nonceData.blockhash as Nonce,
+        nonceAccountAddress: nonceKeypair.address,
+        nonceAuthorityAddress: nonceData.authority
+      },
+      tx
+    ),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+```
+
+## !!steps 签名交易
+
+签名交易。现在它使用持久 nonce 替代了标准 blockhash。
+
+<CodePlaceholder title="Build Deferred Transaction" />
+
+```ts !! title="Build Deferred Transaction"
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) =>
+    setTransactionMessageLifetimeUsingDurableNonce(
+      {
+        nonce: nonceData.blockhash as Nonce,
+        nonceAccountAddress: nonceKeypair.address,
+        nonceAuthorityAddress: nonceData.authority
+      },
+      tx
+    ),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+// !focus(1:2)
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+```
+
+</ScrollyCoding>
+
+### 存储或发送交易
+
+签名后，将交易编码以便存储。准备好后，将其发送到网络。
+
+<ScrollyCoding>
+
+## !!steps 编码以便存储
+
+将已签名的交易编码为 base64。将该值存入数据库。
+
+<CodePlaceholder title="存储与执行" />
+
+```ts !! title="Store and Execute"
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// !focus(1:2)
+const base64EncodedTransaction =
+  getBase64EncodedWireTransaction(signedTransaction);
+
+// Store base64EncodedTransaction in your database
+```
+
+## !!steps 发送交易
+
+准备好后发送已签名的交易。只要 nonce 未被推进，该交易始终有效。
+
+<CodePlaceholder title="存储与执行" />
+
+```ts !! title="Store and Execute"
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+const base64EncodedTransaction =
+  getBase64EncodedWireTransaction(signedTransaction);
+
+// When ready to execute (could be days later):
+// !focus(1:3)
+await rpc
+  .sendTransaction(base64EncodedTransaction, { encoding: "base64" })
+  .send();
+```
+
+</ScrollyCoding>
+
+### 演示
+
+<CodeTabs flags="r">
+
+```ts !! title="Demo"
+// !collapse(1:39) collapsed
+// Click ">" icon on left to expand demo imports
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  assertIsTransactionWithDurableNonceLifetime,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  type Nonce,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  setTransactionMessageLifetimeUsingDurableNonce,
+  signTransactionMessageWithSigners,
+  type KeyPairSigner,
+  getBase64EncodedWireTransaction
+} from "@solana/kit";
+import {
+  fetchNonce,
+  getCreateAccountInstruction,
+  getInitializeNonceAccountInstruction,
+  getNonceSize,
+  SYSTEM_PROGRAM_ADDRESS
+} from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getTransferInstruction
+} from "@solana-program/token-2022";
+
+// Generate keypairs for sender and recipient
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+console.log("Sender Address:", sender.address);
+console.log("Recipient Address:", recipient.address);
+
+// Demo Setup: Create RPC connection, mint, and token accounts
+const { rpc, rpcSubscriptions, mint } = await demoSetup(sender, recipient);
+
+// =============================================================================
+// Step 1: Create a Nonce Account
+// =============================================================================
+
+// !mark
+const nonceKeypair = await generateKeyPairSigner();
+console.log("\nNonce Account Address:", nonceKeypair.address);
+
+// !mark(1:4)
+const nonceSpace = BigInt(getNonceSize());
+const nonceRent = await rpc
+  .getMinimumBalanceForRentExemption(nonceSpace)
+  .send();
+
+// Instruction to create new account for the nonce
+// !mark(1:7)
+const createNonceAccountIx = getCreateAccountInstruction({
+  payer: sender,
+  newAccount: nonceKeypair,
+  lamports: nonceRent,
+  space: nonceSpace,
+  programAddress: SYSTEM_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize the nonce account
+// !mark(1:4)
+const initNonceIx = getInitializeNonceAccountInstruction({
+  nonceAccount: nonceKeypair.address,
+  nonceAuthority: sender.address
+});
+
+// Build and send nonce account creation transaction
+const { value: blockhash } = await rpc.getLatestBlockhash().send();
+const createNonceTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+  (tx) =>
+    appendTransactionMessageInstructions(
+      [createNonceAccountIx, initNonceIx],
+      tx
+    )
+);
+
+const signedCreateNonceTx =
+  await signTransactionMessageWithSigners(createNonceTx);
+assertIsTransactionWithBlockhashLifetime(signedCreateNonceTx);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedCreateNonceTx,
+  { commitment: "confirmed" }
+);
+
+console.log("Nonce Account created.");
+
+// =============================================================================
+// Step 2: Token Payment with Durable Nonce
+// =============================================================================
+
+// Fetch current nonce value from the nonce account
+// !mark
+const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+console.log("Nonce Account data:", nonceData);
+
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+console.log("\nMint Address:", mint.address);
+console.log("Sender Token Account:", senderAta);
+console.log("Recipient Token Account:", recipientAta);
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender.address,
+  amount: 250_000n // 0.25 tokens
+});
+
+// Create transaction message using durable nonce lifetime
+// setTransactionMessageLifetimeUsingDurableNonce automatically prepends
+// the AdvanceNonceAccount instruction
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) =>
+    // !mark(1:8)
+    setTransactionMessageLifetimeUsingDurableNonce(
+      {
+        nonce: nonceData.blockhash as string as Nonce,
+        nonceAccountAddress: nonceKeypair.address,
+        nonceAuthorityAddress: nonceData.authority
+      },
+      tx
+    ),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+assertIsTransactionWithDurableNonceLifetime(signedTransaction);
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+// Encode the transaction to base64, optionally save and send at a later time
+// !mark(1:2)
+const base64EncodedTransaction =
+  getBase64EncodedWireTransaction(signedTransaction);
+console.log("\nBase64 Encoded Transaction:", base64EncodedTransaction);
+
+// Send the encoded transaction, blockhash does not expire
+// !mark(1:6)
+await rpc
+  .sendTransaction(base64EncodedTransaction, {
+    encoding: "base64",
+    skipPreflight: true
+  })
+  .send();
+
+console.log("\n=== Token Payment with Durable Nonce Complete ===");
+console.log("Transaction Signature:", transactionSignature);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a token transfer demo:
+ * - Creates RPC connection
+ * - Airdrops SOL to sender for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token accounts for sender and recipient
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param recipient - The recipient's keypair
+ * @returns RPC connection and mint address
+ */
+async function demoSetup(sender: KeyPairSigner, recipient: KeyPairSigner) {
+  const rpc = createSolanaRpc("http://localhost:8899");
+  const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+  // Fund sender with SOL for transaction fees
+  await airdropFactory({ rpc, rpcSubscriptions })({
+    recipientAddress: sender.address,
+    lamports: lamports(1_000_000_000n),
+    commitment: "confirmed"
+  });
+
+  // Create Mint and Token Accounts
+  const mint = await generateKeyPairSigner();
+
+  const mintSpace = BigInt(getMintSize());
+  const mintRent = await rpc
+    .getMinimumBalanceForRentExemption(mintSpace)
+    .send();
+
+  const createMintAccountIx = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: mintRent,
+    space: mintSpace,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  const initializeMintIx = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  const createSenderAtaIx = await getCreateAssociatedTokenInstructionAsync({
+    payer: sender,
+    mint: mint.address,
+    owner: sender.address
+  });
+
+  const createRecipientAtaIx = await getCreateAssociatedTokenInstructionAsync({
+    payer: sender,
+    mint: mint.address,
+    owner: recipient.address
+  });
+
+  const mintToIx = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
+  });
+
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+  const instructions = [
+    createMintAccountIx,
+    initializeMintIx,
+    createSenderAtaIx,
+    createRecipientAtaIx,
+    mintToIx
+  ];
+
+  const transactionMessage = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions(instructions, tx)
+  );
+
+  const signedTransaction =
+    await signTransactionMessageWithSigners(transactionMessage);
+
+  assertIsTransactionWithBlockhashLifetime(signedTransaction);
+
+  await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+    signedTransaction,
+    { commitment: "confirmed" }
+  );
+
+  return { rpc, rpcSubscriptions, mint };
+}
+```
+
+</CodeTabs>
+
+## 使待处理交易失效
+
+每个 nonce 账户 `blockhash`
+只能使用一次。要使待处理交易失效或让 nonce 账户可复用，请手动推进：
+
+```ts
+import { getAdvanceNonceAccountInstruction } from "@solana-program/system";
+
+// Submit this instruction (with a regular blockhash) to invalidate any pending transaction
+getAdvanceNonceAccountInstruction({
+  nonceAccount: nonceAddress,
+  nonceAuthority
+});
+```
+
+这会生成一个新的 nonce 值，使所有用旧值签名的交易永久失效。
+
+## 多方审批流程
+
+反序列化交易以添加额外签名，然后再次序列化以便存储或提交：
+
+```ts
+import {
+  getBase64Decoder,
+  getTransactionDecoder,
+  getBase64EncodedWireTransaction,
+  partiallySignTransaction
+} from "@solana/kit";
+
+// Deserialize the stored transaction
+const txBytes = getBase64Decoder().decode(serializedString);
+const partiallySignedTx = getTransactionDecoder().decode(txBytes);
+
+// Each approver adds their signature
+const fullySignedTx = await partiallySignTransaction(
+  [newSigner],
+  partiallySignedTx
+);
+
+// Serialize again for storage or submission
+const serialized = getBase64EncodedWireTransaction(fullySignedTx);
+```
+
+交易可以被序列化、存储，并在审批人之间传递。收集到所有必需签名后，提交到网络。
+
+## 生产环境注意事项
+
+**Nonce 账户管理：**
+
+- 创建一组 Nonce 账户，用于并行准备交易
+- 跟踪哪些 Nonce 正在“使用中”（即有待处理的已签名交易）
+- 在交易提交或放弃后，实现 Nonce 的回收利用
+
+**安全性：**
+
+- Nonce 权限方控制交易是否可以作废。建议将 Nonce 权限与交易签名人分离，以实现更高的控制和职责分离
+- _任何人_ 只要拥有序列化后的交易字节，都可以将其提交到网络
+
+## 相关资源
+
+- [耐用 Nonce 入门](https://solana.com/developers/guides/advanced/introduction-to-durable-nonces)

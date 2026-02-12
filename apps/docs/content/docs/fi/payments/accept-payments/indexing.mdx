@@ -1,0 +1,259 @@
+---
+title: Indeksointi
+description:
+  Tuotantotason transaktioiden seuranta suurivolyymisille maksujärjestelmille
+---
+
+RPC-metodit kuten `getSignaturesForAddress` ja `getTransaction` toimivat
+vähäiseen varmistukseen, mutta tuotannon maksujärjestelmät tarvitsevat vahvemman
+infrastruktuurin. Tämä opas kattaa keskeiset työkalut ja mallit reaaliaikaiseen
+transaktioiden suoratoistoon, historiallisen datan käyttöön ja instruction-tason
+jäsentämiseen.
+
+## Miksi indeksointi on tärkeää
+
+Tavallisella RPC:llä on rajoituksia maksujen käsittelyssä mittakaavassa:
+
+- **Nopeusrajoitukset:** Julkisilla ja jopa maksullisilla RPC-päätepisteillä on
+  kyselyrajoituksia
+- **Ei pysyvyyttä:** RPC antaa vain nykyisen tilan, ei historiallista
+  analytiikkaa
+- **Pollauksen ylikuormitus:** Toistuva `getSignaturesForAddress` -kutsujen
+  tekeminen on tehotonta
+- **Karkea tarkkuus:** Pre/post-saldot eivät paljasta yksittäisiä siirtoja
+  monimutkaisissa transaktioissa
+
+Indeksointiratkaisut ratkaisevat nämä ottamalla lohkoketjun datan vastaan
+lähteestä ja tarjoamalla sen tarkoitukseen rakennettujen API:en kautta.
+
+## Raaka vs. jäsennetty transaktiodata
+
+Ennen indeksointitavan valintaa, ymmärrä mitä Solana-transaktiot sisältävät.
+Raaka transaktiodata käyttää kompaktia binäärikoodausta—tilejä viitataaan
+indekseillä, ja instruction data näkyy läpinäkymättöminä Base58-koodattuina
+tavuina:
+
+```typescript
+// Raw: Requires manual decoding
+{ "programIdIndex": 6, "accounts": [2, 3, 4], "data": "3DfbZhE3qCnV" }
+
+// Parsed: Ready for business logic
+{
+  "type": "TRANSFER",
+  "tokenTransfers": [{
+    "fromUserAccount": "8PLd...9Nt8w3",
+    "toUserAccount": "7GLg...k487Ma",
+    "tokenAmount": 100.50,
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  // USDC
+  }]
+}
+```
+
+**Jäsentäminen on välttämätöntä** maksujärjestelmille—tarvitset
+desimaalitarkennetut määrät, ratkaistut lompakkoosoitteet ja poimitut
+memo-kentät.
+
+## Yellowstone gRPC
+
+Geyser on Solanan plugin-rajapinta reaaliaikaisen tilin ja transaktiotiedon
+suoratoistoon suoraan validaattoreilta. Pollauksen sijaan tilaat virran, joka
+työntää päivityksiä niiden käsittelyn yhteydessä—tarjoten **alle 100ms viiveen**
+verrattuna ~200-400ms WebSocket-tilauksiin.
+[Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc) on yksi
+laajimmin käytetyistä Geyser plugin-rajapinnan toteutuksista. Yellowstone on
+reaaliaikainen suoratoisto-ratkaisu:
+
+- Tilin päivityksille
+- Transaktioille
+- Merkinnöille
+- Lohkoilmoituksille
+- Slot-ilmoituksille
+
+Yellowstonen käyttämiseen tarvitset gRPC-päätepisteen RPC-palveluntarjoajalta.
+Vaihtoehtoja ovat muun muassa:
+
+- [Triton](https://docs.triton.one/project-yellowstone/dragons-mouth-grpc-subscriptions)
+- [Helius](https://www.helius.dev/docs/grpc)
+- [QuickNode](https://marketplace.quicknode.com/add-on/yellowstone-grpc-geyser-plugin)
+- [Alchemy](https://www.alchemy.com/docs/reference/yellowstone-grpc-overview)
+
+<CodeTabs>
+
+```rust !! title="Rust"
+use yellowstone_grpc_client::GeyserGrpcClient;
+use yellowstone_grpc_proto::prelude::*;
+
+let mut client = GeyserGrpcClient::build_from_shared("https://grpc-endpoint:10000")?
+    .x_token(Some("YOUR_TOKEN".to_string()))?
+    .connect()
+    .await?;
+
+let (mut tx, mut rx) = client.subscribe().await?;
+
+let mut filter = HashMap::new();
+filter.insert("payments".to_string(), SubscribeRequestFilterTransactions {
+    account_include: vec!["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string()],
+    vote: Some(false),
+    failed: Some(false),
+    ..Default::default()
+});
+
+tx.send(SubscribeRequest {
+    transactions: filter,
+    commitment: Some(CommitmentLevel::Confirmed as i32),
+    ..Default::default()
+}).await?;
+
+while let Some(msg) = rx.next().await {
+    if let Some(UpdateOneof::Transaction(tx)) = msg?.update_oneof {
+        // Raw protobuf data - requires parsing
+        println!("Transaction: {:?}", tx.transaction);
+    }
+}
+```
+
+```typescript !! title="TypeScript"
+import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
+
+const client = new Client("https://grpc-endpoint:10000", "YOUR_TOKEN");
+const stream = await client.subscribe();
+
+stream.write({
+  transactions: {
+    payments: {
+      accountInclude: ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"],
+      vote: false,
+      failed: false
+    }
+  },
+  commitment: CommitmentLevel.CONFIRMED
+});
+
+stream.on("data", (update) => {
+  if (update.transaction) {
+    // Raw protobuf data - requires parsing
+    console.log("Transaction:", update.transaction.transaction.signature);
+  }
+});
+```
+
+</CodeTabs>
+
+<Callout>
+  Yellowstone palauttaa raakaa Protocol Buffer -dataa, ei JSON-muotoista dataa.
+  Sinun täytyy dekoodata binäärinen instruction data käyttämällä ohjelman IDL:iä
+  tai jäsennykseen tarkoitettuja kirjastoja. Tutustutaan joihinkin
+  vaihtoehtoihin Yellowstone-datan jäsentämiseen.
+</Callout>
+
+**Resurssit:**
+
+- [Yellowstone gRPC -repositorio](https://github.com/rpcpool/yellowstone-grpc)
+- [Triton streaming -dokumentaatio](https://docs.triton.one/chains/solana/streaming)
+
+### Carbon
+
+[Carbon](https://github.com/sevenlabs-hq/carbon) on Rust-kehys tuotantotason
+indeksointien rakentamiseen Yellowstone gRPC:n päälle. Sen pipeline-
+arkkitehtuuri yhdistää datalähteet dekoodereihin ja mukautettuihin
+prosessoreihin:
+
+```rust
+use carbon_core::pipeline::Pipeline;
+
+Pipeline::builder()
+    .datasource(yellowstone_grpc_source)
+    .instruction(TokenProgramDecoder, PaymentProcessor)
+    .metrics(Arc::new(PrometheusMetrics::new()))
+    .build()?
+    .run()
+    .await?;
+```
+
+Carbon sisältää **yli 40 valmiiksi rakennettua decoderia** suosituille
+ohjelmille. Maksujärjestelmissä Token Program -dekooderi käsittelee kaikki
+siirtovaihtoehdot, kun taas prosessorisi toteuttaa liiketoimintalogiikan:
+
+```rust
+#[async_trait]
+impl Processor for PaymentProcessor {
+    type InputType = (InstructionMetadata, DecodedInstruction<TokenInstruction>);
+
+    async fn process(
+        &mut self,
+        (meta, ix): Self::InputType,
+        _metrics: Arc<MetricsCollection>,
+    ) -> CarbonResult<()> {
+        if let TokenInstruction::Transfer { amount } = ix.data {
+            let accounts = Transfer::arrange_accounts(&ix.accounts)?;
+            if self.watched_wallets.contains(&accounts.destination) {
+                notify_payment(meta.signature, accounts.destination, amount).await;
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+**Resurssit:**
+
+- [Carbon GitHub](https://github.com/sevenlabs-hq/carbon)
+- [Yellowstone ja Carbon: jäsennä reaaliaikaista Solana-ohjelmadataa](https://www.quicknode.com/guides/solana-development/tooling/geyser/yellowstone-carbon)
+
+### Vixen
+
+[Yellowstone Vixen](https://github.com/rpcpool/yellowstone-vixen) on avoimeen
+lähdekoodiin perustuva Rust-kehys raakadatan muuntamiseen
+Yellowstone-tapahtumista jäsennellyiksi, tyypitetyiksi tiedoiksi. Se käyttää
+**Parser + Handler** -arkkitehtuuria:
+
+- **Parserit** deserialisoivat raakojen Solana-tapahtumien tyypitetyiksi
+  rakenteiksi
+- **Handlerit** suorittavat liiketoimintalogiikkasi jäsennellyllä datalla
+- **Pipelinet** yhdistävät parserit handlereihin konfiguroitavissa virtauksissa
+
+```rust
+use yellowstone_vixen::Runtime;
+use yellowstone_vixen_parser::token_program::{TokenProgramParser, TokenProgramState};
+
+// Build a pipeline that parses Token Program events
+Runtime::<YellowstoneGrpcSource>::builder()
+    .account(Pipeline::new(TokenProgramParser, [PaymentHandler]))
+    .build(config)?
+    .run()
+    .await;
+```
+
+Vixen sisältää sisäänrakennetut parserit **SPL Tokenille** ja
+**Token-2022:lle**, ja tukee parserien generointia mistä tahansa Solana IDL:stä.
+Maksujen seurantaan token-parseri antaa sinulle tyypitetyn pääsyn siirtoihin,
+mintauksiin ja tilitilaan:
+
+```rust
+impl Handler<TokenProgramState> for PaymentHandler {
+    async fn handle(&self, state: &TokenProgramState) -> Result<()> {
+        match state {
+            TokenProgramState::TokenAccount(account) => {
+                if self.watched_wallets.contains(&account.owner) {
+                    process_balance_change(account).await;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+```
+
+**Resurssit:**
+
+- [Yellowstone Vixen GitHub](https://github.com/rpcpool/yellowstone-vixen)
+- [Vixen Streams](https://blog.triton.one/introducing-vixen-streams-real-time-parsed-solana-program-streaming/) -
+  Tritonin isännöity palvelu, joka on rakennettu Vixenin päälle
+
+## Aloittaminen
+
+Useat RPC-palveluntarjoajat tarjoavat isännöityä indeksointiinfrastruktuuria.
+Tarkista [solana.com/rpc](https://solana.com/rpc) saadaksesi ajantasaisen
+luettelon palveluntarjoajista, jotka tarjoavat webhookeja, parannettuja API:eja
+ja gRPC-suoratoistoa.

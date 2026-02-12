@@ -2,8 +2,6 @@ import slugify from "@sindresorhus/slugify";
 import { isExternalLink } from "../utils/isExternalLink";
 import breakpointImg from "@@/assets/events/breakpoint.jpg";
 import shipordieImg from "@@/assets/events/shipordie.jpg";
-import scaleordieImg from "@@/assets/events/scaleordie.jpg";
-import crossroadsImg from "@@/assets/events/crossroads.jpg";
 import solanaEventImg from "@@/assets/events/solana-event.jpg";
 
 export type LumaEvent = {
@@ -46,6 +44,8 @@ export type CalendarEvent = {
   description: string;
   platform?: string;
   rsvp: string;
+  /** When true, this event is shown as the featured event on the events page */
+  featured?: boolean;
   schedule: {
     from: string | null;
     to: string | null;
@@ -86,6 +86,32 @@ const dummyEvent = [
       city_state: "Dummy City, Dummy Region",
       country: "Dummy Country",
       address: "123 Dummy St",
+    },
+  },
+];
+
+/** Static signup form events (e.g. link-in-bio) shown on the events calendar */
+const signupFormEvents: CalendarEvent[] = [
+  {
+    key: "mtndao-signup",
+    title: "MTN DAO",
+    description: "Sign up for MTN DAO.",
+    rsvp: "https://lnk.bio/mtndao",
+    schedule: {
+      from: "2026-02-01T00:00:00-07:00",
+      to: "2026-02-28T23:59:59-07:00",
+      timezone: "America/Denver",
+    },
+    img: {
+      primary: "/images/events/mtndao-hero.webp",
+      alt: "MTN DAO",
+    },
+    venue: {
+      city: "Salt Lake City",
+      region: "UT",
+      city_state: "Salt Lake City, UT",
+      country: "USA",
+      address: null,
     },
   },
 ];
@@ -210,6 +236,9 @@ export async function fetchCalendarEvents(
     }),
   );
 
+  // Append static signup form events before overrides so they can be customized here too
+  allEvents = allEvents.concat(signupFormEvents);
+
   // Add custom img and timezone overrides
   allEvents.forEach((el) => {
     if (el.key === "https://solana.com/breakpoint") {
@@ -220,16 +249,12 @@ export async function fetchCalendarEvents(
       el.img.primary = shipordieImg.src;
       el.schedule.timezone = "America/New_York";
       el.schedule.to = "2025-05-23T23:59:59-04:00";
-    } else if (el.key === "https://solana.com/accelerate/scale-or-die") {
-      el.img.primary = scaleordieImg.src;
-      el.schedule.timezone = "America/New_York";
-      el.schedule.to = "2025-05-20T23:59:59-04:00";
-    } else if (el.key === "https://www.solanacrossroads.com/") {
-      el.img.primary = crossroadsImg.src;
-      el.schedule.timezone = "Europe/Istanbul";
-      el.schedule.to = "2025-04-26T23:59:59+03:00";
-    } else if (el.rsvp === "https://lu.ma/solana-summit-apac-2025") {
-      el.schedule.timezone = "Asia/Ho_Chi_Minh";
+    } else if (
+      el.key === "accelerate-miami" ||
+      el.rsvp === "https://lu.ma/accelerate-miami" ||
+      el.rsvp === "https://luma.com/accelerate-miami"
+    ) {
+      el.featured = true;
       el.schedule.to = "2025-04-26T23:59:59+07:00";
     }
     return el;

@@ -49,7 +49,11 @@ export function CallToAction(props: CallToActionProps) {
 
         <div className="mt-8">
           <Button asChild variant="outline" size="lg">
-            <Link href={props.button.url}>
+            <Link
+              href={props.button.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <span className="text-nowrap">{label}</span>
             </Link>
           </Button>

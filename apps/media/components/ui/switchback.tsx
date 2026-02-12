@@ -61,6 +61,8 @@ const Switchback: React.FC<SwitchbackProps> = ({
                   <a
                     key={index}
                     href={button.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="px-4 py-2 bg-primary text-black rounded hover:bg-primary/80 transition"
                   >
                     {button.label}

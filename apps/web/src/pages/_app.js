@@ -1,8 +1,11 @@
-import { ThemeProvider, InkeepChatButton } from "@solana-com/ui-chrome";
+import {
+  ThemeProvider,
+  InkeepChatButton,
+  SitewideTopAlert,
+} from "@solana-com/ui-chrome";
 import "../app/globals.css";
 import "../scss/index.scss";
 import { NextIntlClientProvider } from "next-intl";
-import SitewideTopAlert from "../components/sharedPageSections/SitewideTopAlert";
 import GTMTrackingSnippet from "../components/GTMTrackingSnippet";
 import CookieConsent from "@/components/CookieConsent/CookieConsent";
 import Script from "next/script";
@@ -14,7 +17,7 @@ const App = ({ Component, pageProps: { messages, ...pageProps } }) => {
       locale={pageProps.locale || "en"}
     >
       <GTMTrackingSnippet />
-      <SitewideTopAlert locale={pageProps.builderLocale || "Default"} />
+      <SitewideTopAlert />
       <CookieConsent />
       <ThemeProvider>
         <Component {...pageProps} key={pageProps.key} />

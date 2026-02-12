@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
 import { MarkdocDocument } from "@/lib/post-types";
 
-export const revalidate = 300; // Revalidate every 5 minutes
+export const revalidate = 300;
 
 // Helper function to convert Markdoc content to plain text
 function markdocToPlainText(

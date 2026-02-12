@@ -3,6 +3,9 @@ import { NextIntlClientProvider } from "next-intl";
 import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
 import { loadMessages } from "@workspace/i18n/load-messages";
 import { getLangDir } from "rtl-detect";
+import { config } from "@/config";
+import { GTMTrackingSnippet } from "@/components/gtm-tracking-snippet";
+import { CookieConsent } from "@/components/cookie-consent";
 import "../scss/index.scss";
 import "./globals.css";
 
@@ -32,6 +35,7 @@ export default async function RootLayout({ children }: Props) {
     ),
   ]);
   const messages = { ...webMessages, ...templatesMessages };
+  const googleTagManagerID = config.siteMetadata.googleTagManagerID;
 
   return (
     <html
@@ -41,8 +45,18 @@ export default async function RootLayout({ children }: Props) {
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          ></iframe>
+        </noscript>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
+            <GTMTrackingSnippet />
+            <CookieConsent />
             <Header showLanguage={false} showDevelopersNav={false} />
             <main className="min-h-screen">{children}</main>
             <Footer />

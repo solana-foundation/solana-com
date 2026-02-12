@@ -7,12 +7,13 @@ import CalendarIcon from "./assets/nav/community/calendar.inline.svg";
 import FistbumpIcon from "./assets/nav/community/fistbump.inline.svg";
 import GlobusIcon from "./assets/nav/community/globus.inline.svg";
 import ScriptIcon from "./assets/nav/community/script.inline.svg";
-import BreakpointLogo from "./assets/nav/community/breakpoint-logo.inline.svg";
 import ApiConnectionIcon from "./assets/nav/community/api-connection.inline.svg";
+import AccelerateLogo from "./assets/nav/community/accelerate-logo.inline.svg";
 
 export const HeaderListCommunity = () => {
   const t = useTranslations();
   const communityInvolvedItems = t.raw("nav.community.involved.items");
+  const communityEvent = t.raw("nav.community.event");
 
   return (
     <div className="xl:w-[800px] max-w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-2">
@@ -104,11 +105,13 @@ export const HeaderListCommunity = () => {
 
       <HeaderBanner
         className="w-[350px] max-w-full"
-        logo={<BreakpointLogo width={158} height={64} />}
-        cta={t("nav.community.event.cta")}
-        ctaHref="/breakpoint/registration"
-        location={t("nav.community.event.location")}
-        date={t("nav.community.event.date")}
+        logo={<AccelerateLogo width={158} height={64} />}
+        title={communityEvent?.title}
+        description={communityEvent?.description}
+        cta={communityEvent?.cta}
+        ctaHref="/accelerate"
+        location={communityEvent?.location}
+        date={communityEvent?.date}
       />
     </div>
   );

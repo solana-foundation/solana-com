@@ -2,9 +2,9 @@ import { useTranslations } from "next-intl";
 import PostCard from "../community/PostCard";
 
 /**
- * Display builder blog posts
+ * Display latest blog posts
  *
- * @param {Array} posts - Array of posts from Builder CMS
+ * @param {Array} posts - Array of latest posts
  * @returns {JSX.Element}
  * @constructor
  */

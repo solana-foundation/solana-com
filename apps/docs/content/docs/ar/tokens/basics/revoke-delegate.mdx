@@ -5,22 +5,22 @@ description: تعلم كيفية إلغاء مفوض حساب الرمز الم�
 
 ## كيفية إلغاء المفوض
 
-تقوم التعليمة
+تعليمة
 [`Revoke`](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/interface/src/instruction.rs#L133C5-L133C11)
-بإزالة جميع أذونات التحويل من المفوض المعتمد حالياً. بعد الإلغاء، لن يتمكن
-المفوض من تحويل أي رموز من حسابك. بالنسبة لبرنامج الرموز (Token Program)، يمكن
-لمالك حساب الرمز فقط إلغاء تفويض المفوض. بالنسبة لبرنامج امتدادات الرموز (Token
-Extension Program)، يمكن لمالك حساب الرمز والمفوض الحالي إلغاء التفويض.
+تزيل جميع أذونات التحويل من المفوض المعتمد حالياً. بعد الإلغاء، لن يتمكن المفوض
+من تحويل أي رموز مميزة من حسابك. بالنسبة لبرنامج Token Program، يمكن لمالك حساب
+الرمز المميز فقط إلغاء المفوض. بالنسبة لبرنامج Token Extension Program، يمكن
+لمالك حساب الرمز المميز والمفوض الحالي إلغاء التفويض.
 
 <Callout type="info">
-  يشترك [برنامج الرمز المميز (Token
-  Program)](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L140)
-  و[برنامج امتداد الرمز المميز (Token Extension
-  Program)](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L182)
-  في تنفيذات متشابهة لتحقيق نفس الوظيفة.
+  يشترك [Token
+  Program](https://github.com/solana-program/token/blob/a7c488ca39ed4cd71a87950ed854929816e9099f/program/src/instruction.rs#L140)
+  و[Token Extension
+  Program](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/instruction.rs#L182)
+  في تطبيقات متشابهة لتحقيق نفس الوظيفة.
 </Callout>
 
-### تايبسكريبت
+### Typescript
 
 <CodeTabs storage="token-ts" flags="r">
 
@@ -490,7 +490,7 @@ console.log("Transaction Signature:", transactionSignature2);
 
 </CodeTabs>
 
-### راست
+### Rust
 
 <CodeTabs storage="token-rs" flags="r">
 
@@ -670,10 +670,157 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-### بايثون
+### Python
 
 <CodeTabs flags="r">
 
-{/_ CODE_PLACEHOLDER_2a9a380a871bc36311b18a4df2b3ec0f _/
+```py !! title="Python"
+#!/usr/bin/env python3
+
+import asyncio
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair
+from solders.transaction import VersionedTransaction
+from solders.message import MessageV0
+from solders.system_program import create_account, CreateAccountParams
+from spl.token.instructions import (
+    initialize_mint, InitializeMintParams,
+    create_associated_token_account,
+    mint_to_checked, MintToCheckedParams,
+    revoke, RevokeParams,
+    get_associated_token_address
+)
+from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+
+# Constants
+DECIMALS = 9
+
+async def setup(rpc, mint_authority, latest_blockhash):
+    """
+    The setup function initializes the mint and associated token accounts,
+    and mints tokens to said associated token account
+    """
+    mint = Keypair()
+
+    space = 82  # getMintSize() equivalent for SPL Token
+
+    # Get minimum balance for rent exemption
+    rent = await rpc.get_minimum_balance_for_rent_exemption(space)
+
+    # Create & initialize mint account
+    create_account_instruction = create_account(
+        CreateAccountParams(
+            from_pubkey=mint_authority.pubkey(),
+            to_pubkey=mint.pubkey(),
+            lamports=rent.value,
+            space=space,
+            owner=TOKEN_PROGRAM_ID
+        )
+    )
+
+    initialize_mint_instruction = initialize_mint(
+        InitializeMintParams(
+            program_id=TOKEN_PROGRAM_ID,
+            mint=mint.pubkey(),
+            decimals=DECIMALS,
+            mint_authority=mint_authority.pubkey(),
+            freeze_authority=None
+        )
+    )
+
+    # Create associated token account
+    authority_ata = get_associated_token_address(
+        owner=mint_authority.pubkey(),
+        mint=mint.pubkey(),
+        token_program_id=TOKEN_PROGRAM_ID
+    )
+
+    create_authority_ata_instruction = create_associated_token_account(
+        payer=mint_authority.pubkey(),
+        owner=mint_authority.pubkey(),
+        mint=mint.pubkey()
+    )
+
+    # Mint to token account
+    mint_to_instruction = mint_to_checked(
+        MintToCheckedParams(
+            program_id=TOKEN_PROGRAM_ID,
+            mint=mint.pubkey(),
+            dest=authority_ata,
+            mint_authority=mint_authority.pubkey(),
+            amount=1_000_000_000_000,  # 1000 tokens
+            decimals=DECIMALS
+        )
+    )
+
+    instructions = [
+        create_account_instruction,
+        initialize_mint_instruction,
+        create_authority_ata_instruction,
+        mint_to_instruction
+    ]
+
+    # Create transaction message
+    transaction_message = MessageV0.try_compile(
+        payer=mint_authority.pubkey(),
+        instructions=instructions,
+        address_lookup_table_accounts=[],
+        recent_blockhash=latest_blockhash.value.blockhash
+    )
+
+    # Create and sign transaction
+    signed_transaction = VersionedTransaction(transaction_message, [mint_authority, mint])
+
+    print("Setup transaction created successfully")
+    print(f"Mint: {mint.pubkey()}")
+    print(f"Authority ATA: {authority_ata}")
+
+    return {
+        "mint": mint.pubkey(),
+        "authority_ata": authority_ata
+    }
+
+async def main():
+    rpc = AsyncClient("http://localhost:8899")
+
+    # Constants
+    mint_authority = Keypair()
+
+    async with rpc:
+        # Get latest blockhash
+        latest_blockhash = await rpc.get_latest_blockhash()
+
+        # Setup mint and associated token accounts
+        setup_result = await setup(rpc, mint_authority, latest_blockhash)
+        authority_ata = setup_result["authority_ata"]
+
+        # Create revoke delegate instruction
+        revoke_delegate_ix = revoke(
+            RevokeParams(
+                program_id=TOKEN_PROGRAM_ID,
+                account=authority_ata,
+                owner=mint_authority.pubkey()
+            )
+        )
+
+        # Create transaction message
+        transaction_message = MessageV0.try_compile(
+            payer=mint_authority.pubkey(),
+            instructions=[revoke_delegate_ix],
+            address_lookup_table_accounts=[],
+            recent_blockhash=latest_blockhash.value.blockhash
+        )
+
+        # Create and sign transaction
+        signed_transaction = VersionedTransaction(transaction_message, [mint_authority])
+
+        print(f"\nRevoke Delegate Transaction:")
+        print(f"Source: {authority_ata}")
+        print(f"Owner: {mint_authority.pubkey()}")
+        print(f"Revoke delegate transaction created successfully")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
 
 </CodeTabs>

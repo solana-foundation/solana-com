@@ -1,0 +1,195 @@
+---
+title: Solana Pay
+description: Tạo URL thanh toán, mã QR và giao dịch
+draft: true
+---
+
+<Callout type="caution">
+  Commerce Kit hiện đang ở phiên bản beta. Các API có thể thay đổi trước khi
+  phát hành phiên bản ổn định. Để biết thêm chi tiết, xem [tài liệu Commerce
+  Kit](https://launch.solana.com/docs/commerce-kit).
+</Callout>
+
+[Solana Pay](https://solanapay.com) là một giao thức tiêu chuẩn để mã hóa các
+yêu cầu thanh toán dưới dạng URL. Các URL này có thể được chia sẻ dưới dạng liên
+kết, mã hóa thành mã QR cho ví di động, hoặc được sử dụng để xây dựng các giao
+dịch thanh toán theo chương trình.
+
+Package `@solana-commerce/solana-pay` cung cấp mã hóa/phân tích cú pháp URL, tạo
+mã QR và xây dựng giao dịch—tương thích với
+[@solana/kit](https://github.com/anza-xyz/kit).
+
+## Cài đặt
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## Tạo URL thanh toán
+
+Sử dụng `encodeURL` để tạo URL giao thức `solana:` mà các ví có thể phân tích cú
+pháp:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL in lamports
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchant...?amount=0.1&label=Coffee%20Shop&message=...
+```
+
+### Tham số URL
+
+| Tham số     | Kiểu        | Mô tả                                                |
+| ----------- | ----------- | ---------------------------------------------------- |
+| `recipient` | `Address`   | Địa chỉ ví của người bán (bắt buộc)                  |
+| `amount`    | `bigint`    | Số lượng tính bằng lamport hoặc đơn vị nhỏ của token |
+| `splToken`  | `Address`   | Địa chỉ mint của SPL token (bỏ qua nếu là SOL)       |
+| `reference` | `Address[]` | (Các) tham chiếu duy nhất để theo dõi thanh toán     |
+| `label`     | `string`    | Tên người bán hiển thị trong ví                      |
+| `message`   | `string`    | Thông báo hiển thị trước khi thanh toán              |
+| `memo`      | `string`    | Ghi chú on-chain đính kèm vào giao dịch              |
+
+### Thanh toán bằng SPL token
+
+Đối với thanh toán bằng stablecoin, chỉ định địa chỉ mint của token:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: USDC_MINT,
+  label: "My Store"
+});
+```
+
+### Theo dõi thanh toán với tham chiếu
+
+Tạo một tham chiếu duy nhất để xác định các khoản thanh toán cụ thể:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`
+});
+
+// Query the blockchain later for transactions containing this reference
+```
+
+## Tạo mã QR
+
+Sử dụng `createQR` để tạo mã QR có thể quét cho ví di động:
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "@solana/kit";
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 100000000n,
+  label: "Coffee Shop"
+});
+
+const qrCode = await createQR(
+  url.toString(),
+  400, // size in pixels
+  "white", // background
+  "black" // foreground
+);
+
+// Use as image source
+document.getElementById("qr").src = qrCode;
+```
+
+### Mã QR tùy chỉnh
+
+Để tạo mã QR có thương hiệu với logo và kiểu dáng tùy chỉnh:
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+
+const qr = await createStyledQRCode(url.toString(), {
+  width: 600,
+  margin: 3,
+  color: {
+    dark: "#9945FF", // Solana purple
+    light: "#FFFFFF"
+  },
+  errorCorrectionLevel: "H",
+  dotStyle: "dots",
+  cornerStyle: "extra-rounded",
+  logo: "/your-logo.png",
+  logoSize: 120
+});
+```
+
+## Xây dựng giao dịch
+
+Sử dụng `createTransfer` để xây dựng một giao dịch hoàn chỉnh để ký:
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 100000000n, // 0.1 SOL
+    memo: "Coffee purchase"
+  }
+);
+```
+
+Đối với token SPL, hãy bao gồm địa chỉ mint:
+
+```typescript
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 25000000n, // 25 USDC
+    splToken: USDC_MINT,
+    reference: [orderReference],
+    memo: "Order #12345"
+  }
+);
+```
+
+## Phân tích URL
+
+Xác thực và trích xuất dữ liệu từ URL Solana Pay:
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL("solana:merchant...?amount=1.5&label=Store");
+
+  console.log(parsed.recipient); // Address
+  console.log(parsed.amount); // 1500000000n (lamports)
+  console.log(parsed.label); // "Store"
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid URL:", error.message);
+  }
+}
+```
