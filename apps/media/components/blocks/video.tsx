@@ -22,7 +22,7 @@ export const Video = ({ data }: { data: VideoBlockData }) => {
   return (
     <Section
       background={data.background!}
-      className={`aspect-video ${data.color}`}
+      className={`aspect-video${data.color ? ` ${data.color}` : ""}`}
     >
       <ReactPlayer
         width="100%"

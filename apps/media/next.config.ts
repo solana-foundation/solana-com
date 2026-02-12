@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
       {
         pathname: "/media-assets/uploads/**",
       },
+      {
+        pathname: "/builder/**",
+      },
     ],
     remotePatterns: [
       {

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { format } from "date-fns";
 import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
-import { mdxComponents } from "@/components/mdx-components";
+import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
 import ErrorBoundary from "@/components/error-boundary";
 import { CallToAction } from "@/components/ui/call-to-action";
 import Switchback from "@/components/ui/switchback";
@@ -103,7 +103,8 @@ export default async function PostPage({
         </div>
 
         {await (async () => {
-          const mdxSource = await post.body();
+          const rawMdxSource = await post.body();
+          const mdxSource = preprocessMDX(rawMdxSource);
 
           if (cta) {
             return (
@@ -157,7 +158,7 @@ export default async function PostPage({
             eyebrow={switchback.eyebrow || undefined}
             body={
               <MDXRemote
-                source={await switchback.body()}
+                source={preprocessMDX(await switchback.body())}
                 components={mdxComponents}
               />
             }
