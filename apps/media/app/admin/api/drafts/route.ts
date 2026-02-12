@@ -5,7 +5,7 @@ import { listDraftBranches } from "@/lib/github";
 
 export async function GET(request: NextRequest) {
   // Skip auth in local mode
-  if (process.env.TINA_PUBLIC_IS_LOCAL !== "true") {
+  if (process.env.KEYSTATIC_LOCAL !== "true") {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 

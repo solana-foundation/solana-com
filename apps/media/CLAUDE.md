@@ -26,7 +26,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Overview
 
-The Solana blog and media site, powered by TinaCMS for content management. Includes blog posts, podcasts, and marketing content with a visual CMS editing experience.
+The Solana blog and media site, powered by Keystatic for content management. Includes blog posts, podcasts, and marketing content with a visual CMS editing experience.
 
 **Package name**: `solana-com-media`
 **Default port**: 3002
@@ -35,7 +35,7 @@ The Solana blog and media site, powered by TinaCMS for content management. Inclu
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router) with next-intl
-- **CMS**: TinaCMS (Git-backed headless CMS)
+- **CMS**: Keystatic (Git-backed headless CMS)
 - **Styling**: Tailwind CSS 4.x (latest), tw-animate-css
 - **Animation**: Motion (formerly Framer Motion)
 - **Code Highlighting**: Shiki
@@ -51,7 +51,8 @@ apps/media/
 │   │   ├── news/              # Blog posts listing
 │   │   ├── podcast/           # Podcast episodes
 │   │   └── [...slug]/         # Dynamic content pages
-│   ├── admin/                 # TinaCMS admin interface
+│   ├── admin/                 # Legacy admin interface
+│   ├── keystatic/             # Keystatic admin interface
 │   └── api/                   # API routes (RSS, etc.)
 ├── components/
 │   ├── blocks/                # Content block components
@@ -61,7 +62,7 @@ apps/media/
 │   ├── ui/                    # UI primitives
 │   ├── magicui/               # Magic UI effects
 │   └── motion-primitives/     # Animation primitives
-├── content/                   # TinaCMS content (MDX/JSON)
+├── content/                   # Keystatic content (MDX/JSON)
 │   ├── authors/               # Author profiles
 │   ├── categories/            # Post categories
 │   ├── ctas/                  # Call-to-action blocks
@@ -71,13 +72,9 @@ apps/media/
 │   ├── posts/                 # Blog posts (MDX)
 │   ├── switchbacks/           # Switchback sections
 │   └── tags/                  # Content tags
-├── tina/
-│   ├── config.tsx             # TinaCMS configuration
-│   ├── collection/            # Content collection schemas
-│   ├── fields/                # Custom field definitions
-│   ├── queries/               # GraphQL queries
-│   └── __generated__/         # Generated types (gitignored)
+├── keystatic.config.tsx       # Keystatic configuration
 ├── lib/                       # Utility libraries
+│   └── keystatic/             # Keystatic component blocks
 ├── i18n/                      # i18n configuration
 ├── scripts/                   # Build scripts
 ├── public/                    # Static files
@@ -88,20 +85,11 @@ apps/media/
 ## Local Development
 
 ```bash
-# Development with TinaCMS (recommended)
+# Development
 pnpm dev
-
-# Development without TinaCMS
-pnpm dev:build && next dev
 
 # Build for production
 pnpm build
-
-# Build with local TinaCMS (no auth)
-pnpm build-local
-
-# Build with public local mode
-pnpm build-public
 
 # Format content files
 pnpm format:content
@@ -110,11 +98,11 @@ pnpm format:content
 pnpm clean
 ```
 
-## TinaCMS Configuration
+## Keystatic Configuration
 
 ### Collections
 
-Defined in `tina/collection/`:
+Defined in `keystatic.config.tsx`:
 
 - **Post** - Blog posts with rich content blocks
 - **Podcast** - Podcast episodes with audio links
@@ -123,33 +111,27 @@ Defined in `tina/collection/`:
 - **Tag** - Content tags
 - **CTA** - Call-to-action blocks
 - **Switchback** - Alternating content sections
-- **Global** - Site-wide settings
 - **Link** - Reusable link collections
 
-### Content Schema
+### Singletons
 
-Each collection has:
-
-- TypeScript schema in `tina/collection/*.ts`
-- Custom fields in `tina/fields/`
-- Generated types in `tina/__generated__/`
+- **Global** - Site-wide settings
 
 ### Admin Interface
 
-Access the CMS at `/admin`:
+Access the CMS at `/keystatic`:
 
 - Visual editing interface
 - Media management (uploads to `public/uploads/`)
-- Branch switcher for content staging
+- GitHub mode for production, local mode for development
 
 ### Environment Variables
 
 ```bash
-NEXT_PUBLIC_TINA_CLIENT_ID  # TinaCMS client ID
-NEXT_PUBLIC_TINA_BRANCH     # Git branch for content
-TINA_TOKEN                  # TinaCMS API token
-TINA_SEARCH_INDEXER_TOKEN   # Search indexing token
-TINA_PUBLIC_IS_LOCAL        # Set "true" for local mode
+KEYSTATIC_LOCAL              # Set "true" for local mode (filesystem storage)
+KEYSTATIC_GITHUB_CLIENT_ID   # GitHub OAuth client ID (production)
+KEYSTATIC_GITHUB_CLIENT_SECRET # GitHub OAuth client secret (production)
+KEYSTATIC_SECRET             # Session signing secret (production)
 ```
 
 ## Content Authoring
@@ -191,7 +173,7 @@ Podcast episodes link to Simplecast:
 
 ## Key Dependencies (App-Specific)
 
-- `tinacms`, `@tinacms/cli` - CMS framework
+- `@keystatic/core`, `@keystatic/next` - CMS framework
 - `shiki` - Code syntax highlighting
 - `react-tweet` - Twitter/X embeds
 - `react-player` - Video playback
@@ -204,15 +186,14 @@ Podcast episodes link to Simplecast:
 ## API Routes
 
 - `/api/rss` - RSS feed generation
-- TinaCMS API routes (auto-generated)
+- Keystatic API routes (auto-generated via `@keystatic/next`)
 
 ## Build Process
 
-The build script (`scripts/build.sh`) handles:
+The build runs:
 
-1. TinaCMS build (generates GraphQL client)
-2. Next.js build
-3. Conditional local vs cloud mode
+1. Next.js build (includes Keystatic)
+2. Conditional local vs GitHub mode based on `KEYSTATIC_LOCAL`
 
 ## Lint-Staged Configuration
 
@@ -226,14 +207,12 @@ Pre-commit formatting:
 
 - Local uploads: `public/uploads/`
 - Remote images allowed from:
-  - `assets.tina.io` (TinaCMS media)
   - `res.cloudinary.com`
   - `*.cloudfront.net`
   - `assets.getriver.io`
 
 ## Gotchas
 
-1. **Generated Files**: Run `pnpm clean` to clear `tina/__generated__/` if types are stale
-2. **Local Mode**: Set `TINA_PUBLIC_IS_LOCAL=true` to bypass authentication
-3. **Branch Content**: TinaCMS uses Git branches for content staging
-4. **Asset Prefix**: All assets served from `/media-assets/` path
+1. **Local Mode**: Set `KEYSTATIC_LOCAL=true` to use filesystem storage (no GitHub auth needed)
+2. **GitHub Mode**: Requires `KEYSTATIC_GITHUB_CLIENT_ID`, `KEYSTATIC_GITHUB_CLIENT_SECRET`, and `KEYSTATIC_SECRET`
+3. **Asset Prefix**: All assets served from `/media-assets/` path

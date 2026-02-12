@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { SignJWT, jwtVerify, JWTPayload } from "jose";
 
-// Auth provider type (replaces TinaCMS AuthProvider)
+// Auth provider type for admin API authorization
 interface AuthProviderType {
   authenticate: () => Promise<{ authenticated: boolean }>;
   isAuthorized: (context: { req: Request }) => Promise<{
@@ -89,7 +89,7 @@ export async function verifySessionToken(
 export const SESSION_COOKIE_NAME = "admin_session";
 
 export const SESSION_COOKIE_OPTIONS = {
-  httpOnly: false, // Must be false for TinaCMS admin UI to read the token
+  httpOnly: false, // Must be false for admin UI to read the token
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   maxAge: 60 * 60 * 24, // 24 hours
@@ -97,7 +97,7 @@ export const SESSION_COOKIE_OPTIONS = {
 };
 
 /**
- * TinaCMS Auth Provider for self-hosted backend (server-side only)
+ * Auth Provider for self-hosted backend (server-side only)
  * Used by the API routes for authorization
  */
 export const AuthProvider: AuthProviderType = {
@@ -165,12 +165,12 @@ export const AuthProvider: AuthProviderType = {
 };
 
 /**
- * Custom TinaCMS Auth Provider class for the admin UI (client-side)
- * This integrates our magic link auth with TinaCMS's expected interface
+ * Custom Auth Provider class for the admin UI (client-side)
+ * Integrates magic link auth with the admin interface
  */
 export class CustomAuthProvider {
   /**
-   * Called by TinaCMS admin to get the session provider component
+   * Get the session provider component
    */
   getSessionProvider() {
     return ({ children }: { children: ReactNode }) => {
@@ -246,7 +246,7 @@ export class CustomAuthProvider {
   }
 
   /**
-   * Fetch with token - used by TinaCMS for API requests
+   * Fetch with token - used for authenticated API requests
    */
   async fetchWithToken(
     url: string,

@@ -14,8 +14,7 @@ const hasGitHubCredentials =
   process.env.KEYSTATIC_GITHUB_CLIENT_SECRET &&
   process.env.KEYSTATIC_SECRET;
 
-const isLocal =
-  process.env.TINA_PUBLIC_IS_LOCAL === "true" || !hasGitHubCredentials;
+const isLocal = process.env.KEYSTATIC_LOCAL === "true" || !hasGitHubCredentials;
 
 // Storage configuration
 const localStorage: LocalConfig["storage"] = {
