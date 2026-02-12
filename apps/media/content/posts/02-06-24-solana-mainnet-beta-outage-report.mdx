@@ -1,0 +1,54 @@
+---
+title: 02-06-24 Solana Mainnet Beta Outage Report
+description: "On 2024-02-06 at 09:53 UTC Solana Mainnet Beta block finalization halted."
+slug: 02-06-24-solana-mainnet-beta-outage-report
+date: "2024-02-09"
+categories:
+  - category: content/categories/upgrades.mdx
+  - category: content/categories/developers.mdx
+heroImage: >-
+  /uploads/builder/02-06-24-solana-mainnet-beta-outage-report/949440bda43c4b71a486a03213041541.jpg
+status: published
+seo:
+  title: 02-06-24 Solana Mainnet Beta Outage Report
+  description: "On 2024-02-06 at 09:53 UTC Solana Mainnet Beta block finalization halted."
+  image: >-
+    /uploads/builder/02-06-24-solana-mainnet-beta-outage-report/949440bda43c4b71a486a03213041541.jpg
+  noIndex: false
+  noFollow: false
+author: content/authors/anza.md
+tags:
+  - tag: content/tags/reports.mdx
+---
+
+_This report was originally published by_ [_Anza._](https://medium.com/@jeff.washington/2024-02-06-solana-mainnet-beta-outage-report-619bd75b3ce0)
+
+## Timeline
+
+On 2024-02-06 at 09:53 UTC Solana Mainnet Beta block finalization halted. Engineers from various ecosystem teams immediately began triaging the situation, determining the cause to be consistent with a bug that had been identified during the investigation of a recent Devnet outage and for which a patch was to be imminently deployed. This patch was slightly modified so that it would take immediate effect upon cluster restart and a v1.17.20 release cut to include this change. Simultaneously, validator operators had been coordinating restart instructions, determining 246,464,040 to be the highest available optimistically confirmed slot from which to start the cluster and preparing appropriate snapshots from that point. v1.17.20 release binaries and finalized restart instructions were published around 12:34 UTC. Consensus progress resumed again at 14:55 UTC, resulting in a total incident duration of approximately five hours.
+
+## Root cause analysis
+
+### Preliminaries
+
+The Solana Labs validator implementation JIT compiles all programs before executing a transaction referencing them. To avoid excess recompilations, the JIT output of frequently used programs is cached.
+
+Historically, this cache had been implemented via `ExecutorsCache`, whose structure was copied to each new block from its parent, duplicating accounting information and costing an additional recompile for the breadth of any forking events. With the v1.16 release branch, `ExecutorsCache` was replaced by a new implementation called `LoadedPrograms`.
+
+The relevant objectives of `LoadedPrograms` were to make the cached programs view global, and fork-aware, reducing accounting information duplication, and allow transaction execution threads to cooperatively load new programs, preventing JIT compilation conflicts that could cause threads to block each other's progress. Part of the fork-awareness implementation is keeping track of the _effective slot height (the slot where the program becomes active)_ for each program deployment to detect when a cache entry is invalidated by the on-chain program data being replaced. The cooperative loading strategy maintains usage statistics for each program that has been referenced by another program, including those whose JIT output has been unloaded due to eviction or invalidation to improve eviction performance.
+
+### The bug
+
+For programs deployed with a modern loader, `LoadedPrograms` is able to use accounting information stored in a program's on-chain account to look up its most recent deployment slot and use this to calculate the effective slot height. However, for programs deployed with legacy loaders, the deployment slot is not retained in the account, so `LoadedPrograms` uses a sentinel _effective slot height_ of zero whenever a legacy loader program is encountered. There is an exception to this rule when an actual deploy instruction is observed, signaling that a program's bytecode has been replaced. In this case, `LoadedPrograms` inserts a corresponding entry into its accounting table with a **true _effective slot height_ regardless of which loader is used to deploy the program.** This entry though, is highly susceptible to eviction since it has never been referenced by a transaction. When this occurs, the JIT output is thrown away and the program's accounting entry is replaced with one denoting its status as unloaded and retaining the _effective slot height_.
+
+The next time a transaction references this program, `LoadedPrograms` rightly requires that it be recompiled due the _unloaded_ status. When compilation is complete, a new accounting entry is inserted at the program's _effective slot height._ On the next iteration through `LoadedPrograms`'s main loop, the newly loaded program is now visible and returned for transaction execution. However in the case of a legacy loader program, the new **JIT output is inserted at the sentinel effective slot height of zero. This makes it effectively invisible** to `LoadedPrograms` as the new entry is placed behind the unloaded entry. So every iteration through the mainloop triggers another recompilation of the same program as it always appears to be unloaded. **This created a classic infinite loop.**
+
+On its own, this would only be sufficient to stall a leader attempting to execute the transaction referencing the affected program. The corresponding block would never be broadcast and the triggering transaction would not be propagated to the rest of the cluster. However, in v1.16 `LoadedPrograms` did not have the cooperative loading feature implemented, so was not vulnerable to the degenerate case. This allows for the triggering transaction to be packed in a block which is then distributed to the rest of the validators, who then hit the infinite loop during replay. Since at the time of the outage, more than 95% of cluster stake was running 1.17, nearly all validators were stalled on this block. Since everyone was stalled in a recompilation loop, no one was voting and as a result, consensus halted irrecoverably.
+
+### The fix
+
+This bug had been previously identified as the cause of a Devnet outage the previous week. Of the two legacy loaders that could trigger the bug, one ("v1") was already deploy-disabled and the other ("v2") was deprecated and scheduled to be deploy-disabled during the v1.18 release cycle. The chosen mitigation was to backport the v2 deploy-disable changes to v1.17, and remove the feature gate, making the “v2” deploy-disabled immediately upon cluster restart. This fix eliminates the ability to create the preconditions required to trigger the bug, which was a simpler resolution. A more complete fix will be included with further improvements to `LoadedPrograms` and allowed to stabilize with the regular release cycle.
+
+## tl;dr
+
+The deploy-evict-request cycle of a legacy loader program triggered an infinite recompile loop in the JIT cache.

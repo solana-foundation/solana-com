@@ -1,0 +1,161 @@
+---
+title: High performance memory management for smart contracts
+description: |
+
+  How smart contracts work on Solana’s Proof of History based blockchain
+slug: high-performance-memory-management-for-smart-contracts
+date: "2018-08-14"
+categories:
+  - category: content/categories/developers.mdx
+heroImage: >-
+  /uploads/builder/high-performance-memory-management-for-smart-contracts/0350fab90d87462184db71c20695bff9.png
+status: published
+seo:
+  title: High performance memory management for smart contracts
+  description: |
+
+    How smart contracts work on Solana’s Proof of History based blockchain
+  image: >-
+    /uploads/builder/high-performance-memory-management-for-smart-contracts/0350fab90d87462184db71c20695bff9.png
+  noIndex: false
+  noFollow: false
+  openGraph:
+    ogTitle: High performance memory management for smart contracts
+    ogUrl: >-
+      https://www.solana.com/blog/high-performance-memory-management-for-smart-contracts
+    ogDescription: |
+
+      How smart contracts work on Solana’s Proof of History based blockchain
+    ogImage: >-
+      https://solana.ghost.io/content/images/downloaded_images/High-performance-memory-management-for-smart-contracts/1-IJugcnD5j7CIkouYXfD0mg.png
+    ogType:
+      - article
+  twitter:
+    twitterTitle: High performance memory management for smart contracts
+    twitterDescription: |
+
+      How smart contracts work on Solana’s Proof of History based blockchain
+    twitterImage: >-
+      https://solana.ghost.io/content/images/downloaded_images/High-performance-memory-management-for-smart-contracts/1-IJugcnD5j7CIkouYXfD0mg.png
+author: content/authors/solana-foundation.md
+tags:
+  - tag: content/tags/developer.mdx
+  - tag: content/tags/smart-contracts.mdx
+---
+
+### **How smart contracts work on** [**Solana**](https://solana.com/?utm_source=medium&utm_campaign=memory_smart_contracts)**’s Proof of History based blockchain**
+
+### **Key Takeaways**
+
+- High performance bytecode designed for fast verification and compilation to native code
+- Memory management that’s designed for fast analysis of data dependencies
+- Execution of smart contracts that is parallelizable in as many cores as the system can provide
+
+Our approach to smart contract execution is based on how operating systems load and execute dynamic code in the kernel.
+
+![](/uploads/builder/high-performance-memory-management-for-smart-contracts/image-1.jpg)
+
+In Figure 1. an untrusted client, or Userspace in Operating Systems terms, creates a program in the front-end language of her choice, (like C/C++/Rust/Lua), and compiles it with LLVM to the Solana Bytecode object. This object file is a standard ELF.
+
+The computationally expensive work of converting frontend languages into programs is done locally by the client.
+
+- Frontend to LLVM takes a user supplied program in a higher level language such as C/C++/Rust/Lua, or is called as a library from JavaScript or any other language
+- LLVM toolchain does the actual work of converting the program to a ELF.
+
+The output is an ELF with a specific bytecode as its target that is designed for quick verification and conversion to the local machine instruction set that Solana is running on.
+
+On the kernel side, the ELF is verified, loaded and executed.
+
+- Verifier checks that the bytecode is valid and safe to execute and converts it to the local machine instruction set.
+- Loader prepares the memory necessary to load the code and mark the segment as executable.
+- The runtime actually calls the program with arguments and manages the changes to the virtual machine.
+
+### **Solana Bytecode**
+
+Most of the focus on performance of smart contracts has been focused on moving to WASM. The bytecode doesn’t matter! While our bytecode is based on [Berkley Packet Filter](https://en.wikipedia.org/wiki/Berkeley_Packet_Filter), we can use anything that is easy to JIT to x86 (or SPIRV!). The reason why we are basing our bytecode on BPF is because what the kernel does with untrusted code overlaps almost exactly with the requirements we have:
+
+1.  Deterministic amount of time to execute the code
+2.  Bytecode that is portable between machine instruction sets
+3.  Verified memory accesses
+4.  **Deterministic and short amount of time** to load the object and verify the bytecode and JIT to local machine instruction set
+
+We want the simplest, fastest and easiest way to verify instruction set.
+
+## **Memory Management is what really matters**
+
+This is the most performance critical part of the engine. If all the contracts that are scheduled have no data dependencies, they can all be executed concurrently. If we succeed, that means that the performance of the engine will scale with the number of cores available to execute the contracts. The throughput will double every 2 years with Moores law.
+
+Memory management starts with the ELF itself. Initially we are constraining contracts to be a single read-only code and data segment. That means it’s composed of read-only executable code and read-only data — no mutable globals or mutable static variables. We can relax this requirement in the future, but for now it provides a simple solution for Requirement 4 from above.
+
+Since smart contracts themselves hold no state, how do you actually manage state for the contract? Our runtime will provide an interface for creating state. This interface is invoked through a transaction just like any other contract method.
+
+![](/uploads/builder/high-performance-memory-management-for-smart-contracts/image-2.jpg)
+
+### **Allocate Memory**
+
+If the page_address public key has no current memory region associated with it, the region is allocated and the allocated memory is set to 0.
+
+If the page_address public key is unassigned, assign it to the contract public key. The only code that can modify the memory that is assigned to this is code that is provided by the contract . Thus, all state transitions in that memory have been done by the contract.
+
+If any of the conditions fail, the call fails. This interface is called with a simple transaction.
+
+## **Execution**
+
+The call structure is our basic transaction. This structure describes the context of the transaction:
+
+![](/uploads/builder/high-performance-memory-management-for-smart-contracts/image-3.jpg)
+
+The two most important parts of this structure for the contract are the keys and the user_data . The runtime translates the keys to the memory locations associated with them with the memory that was created with allocate_memory. The user_data is the random bits of memory that the user has supplied for the call. This is how users can add dynamic external state into the runtime.
+
+Smart contracts can also examine the required_sigs vector to check which of the PublicKeys in call have a valid signature. By the time the Call gets to the contracts method, the signatures have already been verified.
+
+## **Rules**
+
+A contract implements the following interface:
+
+![](/uploads/builder/high-performance-memory-management-for-smart-contracts/image-4.jpg)
+
+With the following definition for a Page:
+
+![](/uploads/builder/high-performance-memory-management-for-smart-contracts/image-5.jpg)
+
+As long as the caller can pay the fee to execute the contract, it will be called. But the runtime will only store the modified Page if the following rules are met:
+
+1.  For pages assigned to the contract, the total sum of all the tokens in these pages cannot increase.
+2.  For pages unassigned to the contract, the individual balance of each page cannot decrease.
+3.  For pages unassigned to the contract, the memory cannot change.
+4.  The total sum of all the tokens in all the pages cannot change.
+
+So a contract can move balances freely around any of the pages that have been assigned to it. It can modify the memory in those pages freely. For pages assigned to other contracts, the contract can add tokens to individual pages, and can read their memory vectors.
+
+## **Signals**
+
+Signals are asynchronous but guaranteed calls. They are created just like pages are allocated and assigned to a contract. The memory that is owned by the signal’s page stores a Call structure that the runtime can examine.
+
+`create_signal(page_address: PublicKey, contract: PublicKey)`
+
+A signal is a way for a contract to schedule itself, or call other contracts in the future. Once a signal becomes set, the runtime guarantees its eventual execution.
+
+A client can call a contract with any number of signals, which can modify the memory of the signal and construct whatever asynchronous method the contract needs to call, including allocate_memory or create_signal
+
+### **Notes**
+
+- A contract cannot allocate memory synchronously. The client first makes a transaction for allocate_memory, and then it calls the contract method with the page that has some memory allocated to it. A contract can schedule a signal to allocate memory and call itself back in the future.
+- The runtime can execute all the non overlapping contract calls in parallel. Our preliminary results show that over 500,000 calls per second is possible — with room for optimization.
+
+### **Future work**
+
+We are just about to merge the nuts and bolts of the memory management portion of the smart contracts engine. What will follow immediately is SDK, signals, JIT, loader, toolchain. But there is so much more! These basic primitives can be used to implement all the regular Operating Systems features.
+
+- allocate_memory can be used to create stack frames for threads, and writable segments for processes elfs with persistent state.
+- Signals can be used as a trampoline from the running process to an OS service that does dynamic memory allocation, creates additional threads, and creates other signals.
+
+This framework can eventually support all the operating system primitives that you enjoy in a modern OS as simple synchronous calls without compromising performance.
+
+If implementing a JIT or a dynamic linker in rust sounds like fun please reach out to me at anatoly@solana.com.
+
+— —
+
+Want to learn more about [Solana](https://solana.com/?utm_source=medium&utm_campaign=memory_smart_contracts)?
+
+Check us out on [Github](https://github.com/solana-labs) and find ways to connect on our [community](https://solana.com/community/?utm_source=medium&utm_campaign=memory_smart_contracts) page.
