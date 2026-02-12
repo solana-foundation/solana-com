@@ -159,15 +159,15 @@ manual verification in the browser confirms the page works correctly.
 
 - [x] 7.1 Remove `pages/[locale]/404.js` (already handled by `app/[locale]/not-found.tsx`)
 - [x] 7.2 Verify 404 page still works correctly
-- [ ] 7.3 Remove all `_m_` backup files from `pages/[locale]/`
+- [x] 7.3 Remove all `_m_` backup files from `pages/[locale]/`
 
 ## 8. Final Validation
 
-- [ ] 8.1 Run `pnpm lint` — no new violations
-- [ ] 8.2 Run `pnpm build` — successful build
-- [ ] 8.3 Run `pnpm test` — tests pass (or document pre-existing failures)
-- [ ] 8.4 Spot-check 5+ migrated pages across different sections in the browser
-- [ ] 8.5 Verify at least one non-English locale loads correctly
+- [x] 8.1 Run `pnpm lint` — no new violations
+- [x] 8.2 Run `pnpm build` — successful build
+- [x] 8.3 Run `pnpm test` — tests pass (or document pre-existing failures)
+- [x] 8.4 Spot-check 5+ migrated pages across different sections in the browser
+- [x] 8.5 Verify at least one non-English locale loads correctly
 
 ## Dependencies
 
