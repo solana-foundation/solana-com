@@ -57,10 +57,10 @@ export default async function PostPage({
   return (
     <ErrorBoundary>
       <Section>
-        <div className="relative w-full py-12 px-4 md:px-6 lg:px-8 pt-8 md:pt-16">
+        <div className="relative w-full py-12 pt-8 md:pt-16">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
 
-          <div className="max-w-6xl mx-auto w-full">
+          <div className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-8">
             <div className="flex flex-col lg:flex-row lg:gap-12 lg:items-start">
               <div className="flex-1 lg:max-w-xl">
                 <h1 className="w-full mb-6 text-5xl md:text-6xl font-bold tracking-tight text-left">
