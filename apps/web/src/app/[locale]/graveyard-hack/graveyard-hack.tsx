@@ -163,7 +163,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
           {/* Static badge */}
           <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-purple-500/30 bg-black/30 backdrop-blur-sm">
             <span className="text-purple-400 text-sm tracking-wide">
-              Starting February 16, 2026
+              Starting February 12, 2026
             </span>
           </div>
 
@@ -506,7 +506,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                 textShadow: "-1px -1px 0px #00f68b",
               }}
             >
-              16–26 FEB
+              12–27 FEB
             </div>
             <div className="mb-4">
               <img
