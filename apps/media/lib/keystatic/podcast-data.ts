@@ -48,10 +48,12 @@ async function transformPodcast(
   // Get tags array (copy to mutable array)
   const tags: string[] = podcast.tags ? [...podcast.tags] : [];
 
-  // Convert description to plain text string for serialization
-  const descriptionString = contentDocumentToPlainText(
-    podcast.description as any
-  );
+  // Resolve description content (Keystatic returns an async function for MDX contentField)
+  let rawDescription = podcast.description;
+  if (typeof rawDescription === "function") {
+    rawDescription = await rawDescription();
+  }
+  const descriptionString = contentDocumentToPlainText(rawDescription as any);
 
   return {
     id: slug,
@@ -84,10 +86,14 @@ export const fetchAllPodcasts = async (): Promise<PodcastShow[]> => {
     const podcasts: PodcastShow[] = [];
 
     for (const slug of allSlugs) {
-      const podcast = await reader.collections.podcasts.read(slug);
-      const transformed = await transformPodcast(slug, podcast);
-      if (transformed) {
-        podcasts.push(transformed);
+      try {
+        const podcast = await reader.collections.podcasts.read(slug);
+        const transformed = await transformPodcast(slug, podcast);
+        if (transformed) {
+          podcasts.push(transformed);
+        }
+      } catch (slugError) {
+        console.error(`Failed to read/transform podcast ${slug}:`, slugError);
       }
     }
 
