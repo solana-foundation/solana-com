@@ -1,14 +1,14 @@
 ---
 title: CPI Execution and Privileges
 description:
-  The 12-step CPI execution flow through the Solana runtime, privilege extension
+  The 11-step CPI execution flow through the Solana runtime, privilege extension
   rules, reentrancy restrictions, and authorized program checks.
 ---
 
 {/* TOC: CPI execution flow, Privilege rules */}
 
 <Callout type="info" title="Summary">
-  CPIs pass through 12 runtime steps including privilege checking, account
+  CPIs pass through 11 runtime steps including privilege checking, account
   translation, and data sync. Max call depth: 5 (9 with SIMD-0268). Privilege
   rules prevent callee from escalating beyond what the caller granted.
 </Callout>
@@ -130,19 +130,20 @@ is called for each translated account, copying lamports, data, and owner. See
 [Account data synchronization](/docs/core/cpi/cpi-cost-model#account-data-synchronization) for the detailed
 field mapping.
 
-### Step 10: Push instruction context and execute callee
+### Step 10: Push instruction context, execute callee, and pop
 
 The runtime calls
 [`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488),
 which:
 
 1. Calls [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265) to add a new frame to the instruction stack. `push()` enforces the [reentrancy rule](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259): a program may only call itself if it is the direct caller (i.e., program A can call A, but A cannot call B which calls A). Violation returns `ReentrancyNotAllowed`.
-2. Calls [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602) which resolves the callee's program entry point and invokes it.
-3. The callee runs with the same shared compute meter. All CU consumption by the callee reduces the caller's remaining budget.
+2. Calls [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602) which resolves the callee's program entry point and invokes it. The callee runs with the same shared compute meter. All CU consumption by the callee reduces the caller's remaining budget.
+3. Calls [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268-L271) to remove the callee's frame from the instruction stack. `pop()` also verifies the lamport balance has not changed ([`UnbalancedInstruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398) check).
 
 ### Step 11: Post-CPI account sync (callee to caller)
 
-After the callee returns, the runtime syncs changes back to the caller via
+After `process_instruction` returns (which includes the pop), the runtime syncs
+changes back to the caller via
 [`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
 for each writable account. Additionally,
 [`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
@@ -150,12 +151,7 @@ updates VM memory region mappings for accounts whose data regions changed. See
 [Account data synchronization](/docs/core/cpi/cpi-cost-model#account-data-synchronization) for the detailed
 field mapping.
 
-### Step 12: Pop instruction context
-
-The runtime calls
-[`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268-L271)
-to remove the callee's frame from the instruction stack. The CPI syscall
-returns `0` (success) to the caller program.
+The CPI syscall returns `0` (success) to the caller program.
 
 ## Privilege rules
 
