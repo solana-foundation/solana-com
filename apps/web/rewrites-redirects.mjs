@@ -534,6 +534,18 @@ export default {
       destination: "/docs/advanced/versions",
     },
     {
+      source: "/docs/core/cpi/cpi-invoke",
+      destination: "/docs/core/cpi/cpi-without-pda",
+    },
+    {
+      source: "/docs/core/cpi/cpi-advanced",
+      destination: "/docs/core/cpi/cpi-execution",
+    },
+    {
+      source: "/docs/core/transactions/transaction-lifecycle",
+      destination: "/docs/core/transactions/transaction-pipeline",
+    },
+    {
       source: "/docs/core/rent",
       destination: "/docs/core/fees",
     },
