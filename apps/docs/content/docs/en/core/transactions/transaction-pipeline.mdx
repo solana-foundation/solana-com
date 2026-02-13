@@ -1,17 +1,15 @@
 ---
-title: Transaction Lifecycle
+title: Transaction Pipeline
 description:
   How Solana transactions are processed from submission to commit, including the
-  full validation pipeline, durable nonces, reading transaction details from the
+  full 8-stage validation pipeline, reading transaction details from the
   network, and common validation errors.
 ---
-
-{/* TOC: Transaction processing pipeline, Reading transaction data, Durable nonces, Validation failure reference */}
 
 <Callout type="info" title="Summary">
   Transactions pass through 8 stages: receive, sigverify, sanitize, budget/age
   checks, fee payer validation, account loading, instruction execution, and
-  commit. Blockhash expires after ~60s; use durable nonces for offline signing.
+  commit. Blockhash expires after ~60s.
 </Callout>
 
 ## Transaction processing pipeline
@@ -77,7 +75,7 @@ transaction fails with compute-budget parsing errors such as
 [`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
 If the hash is found and its age is within `MAX_PROCESSING_AGE` (150 slots),
 the transaction proceeds. If not found, the validator checks for a valid
-[durable nonce](#durable-nonces).
+[durable nonce](/docs/core/transactions/durable-nonces).
 
 **Status cache**: The transaction's message hash is checked against a status
 cache. If found, the transaction is rejected with `AlreadyProcessed`.
@@ -289,68 +287,6 @@ and the [getTransaction](/docs/rpc/http/gettransaction) RPC method.
   "version": "legacy"
 }
 ```
-
-## Durable nonces
-
-A durable nonce transaction replaces the recent blockhash with a stored nonce
-value, removing the ~60-second expiry window. This enables offline signing and
-delayed submission.
-
-### How nonce transactions work
-
-A nonce account is a System Program-owned account that stores a
-`State::Initialized` value containing three fields: an **authority** pubkey
-(who can advance the nonce), a **durable nonce** value (a hash derived from a
-recent blockhash), and **lamports per signature** (the fee rate when the nonce
-was last advanced).
-
-To use a durable nonce:
-
-1. Create and initialize a nonce account using `CreateAccount` +
-   `InitializeNonceAccount`
-2. Build the transaction with `AdvanceNonceAccount` as the **first
-   instruction** and the nonce value as the `recent_blockhash`
-3. Sign the transaction (can be done offline, since the nonce does not expire)
-4. Submit when ready
-
-### Nonce detection
-
-The runtime detects nonce transactions by checking whether the first
-instruction (index
-[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
-= 0) is a call to the System Program with the `AdvanceNonceAccount`
-instruction discriminator (`4u32` in little-endian). The nonce account must
-be the first account of that instruction and must be writable. See
-[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
-
-### Nonce validation flow
-
-When a transaction's `recent_blockhash` is not found in the `BlockhashQueue`,
-the validator checks if it is a valid nonce transaction via
-[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180):
-
-1. The nonce's stored `durable_nonce` must differ from the next durable nonce
-   (derived from the current blockhash) -- this ensures the nonce has not
-   already been used in this block
-2. The nonce account must be loaded and must parse as `State::Initialized`
-3. The stored `durable_nonce` must match the transaction's `recent_blockhash`
-4. The nonce authority must have signed the `AdvanceNonceAccount` instruction
-
-If all checks pass, the nonce is advanced to the next durable nonce value
-before execution begins. On execution failure, the advanced nonce and the
-fee-deducted fee payer are still committed (preventing replay while collecting
-fees).
-
-### Nonce failure behavior
-
-If a nonce transaction **fails validation** (nonce already used, authority not
-signed, account not found), the entire transaction is dropped -- no fees
-collected, no state changes.
-
-If a nonce transaction **passes validation but execution fails** (an
-instruction returns an error), the nonce is still advanced and fees are still
-collected. This prevents the transaction from being replayed while ensuring the
-validator is compensated.
 
 ## Validation failure reference
 
