@@ -7,7 +7,7 @@ import type {
 import LongArrowUp from "./assets/long-arrow-up.svg";
 
 const baseSettings: InkeepBaseSettings = {
-  apiKey: "20556dc0f7d6c26e590fc57f247c63e86fe5f6b992a5b6e4",
+  apiKey: process.env.NEXT_PUBLIC_INKEEP_API_KEY!,
   primaryBrandColor: "#9945ff",
   customIcons: {
     chatSubmit: {
@@ -25,10 +25,10 @@ const baseSettings: InkeepBaseSettings = {
             font-family: "ABC Diatype", Inter, sans-serif;
           }
           .ikp-modal__overlay {
-            backdrop-filter: blur(40px);
+            backdrop-filter: blur(20px);
           }
           [data-theme="dark"] .ikp-modal__overlay {
-            background-color: #000000E5 !important;
+            background-color: rgba(0, 0, 0, 0.90) !important;
           }
           [data-theme="dark"] .ikp-ai-search-results__scroll-area {
             --ikp-color-gray-dark-950: #101010E5 !important;
@@ -78,6 +78,7 @@ const baseSettings: InkeepBaseSettings = {
           .ikp-ai-search-input {
             padding: 0;
             font-size: 18px;
+            caret-color: #CA9FF5;
           }
           .ikp-ai-ask-ai-trigger__indicator-text {
             opacity: 0;
@@ -275,6 +276,7 @@ const baseSettings: InkeepBaseSettings = {
           .ikp-ai-chat-input__fieldset {
             border-radius: 20px;
             font-size: 18px;
+            caret-color: #CA9FF5;
           }
           [data-theme="dark"] .ikp-ai-chat-input__fieldset {
             background: rgba(240, 228, 255, 0.12) !important;
@@ -323,9 +325,23 @@ const baseSettings: InkeepBaseSettings = {
             background-color: #fff !important;
             color: #000 !important;
           }
+          [data-theme="dark"] .ikp-ai-chat-input__send-button.disabled,
+          [data-theme="dark"] .ikp-ai-chat-input__send-button:disabled {
+            background-color: rgba(240, 228, 255, 0.06) !important;
+            color: #ABABBA !important;
+            opacity: 1 !important;
+          }
+          [data-theme="dark"] .ikp-ai-chat-input__send-button.disabled img,
+          [data-theme="dark"] .ikp-ai-chat-input__send-button:disabled img {
+            filter: invert(1);
+            opacity: 0.64 !important;
+          }
           [data-theme="light"] .ikp-ai-chat-input__send-button {
             background-color: rgba(15, 27, 0, 0.20) !important;
             color: #fff !important;
+          }
+          .ikp-ai-chat-message-content + .ikp-ai-chat-disclaimer {
+            display: none !important;
           }
           .ikp-ai-chat-message-loading > div,
           .ikp-ai-chat-message {
@@ -434,6 +450,9 @@ const baseSettings: InkeepBaseSettings = {
           }
             
           @media (max-width: 768px) {
+            .ikp-modal__overlay {
+              backdrop-filter: blur(2px);
+            }
             .ikp-search-bar__icon {
               font-size: 24px;
               color: #f5f6f7;
