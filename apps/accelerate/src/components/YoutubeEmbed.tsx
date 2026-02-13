@@ -61,7 +61,7 @@ export function YoutubeEmbed({ id, title, className }: YoutubeEmbedProps) {
               >
                 <Image
                   src={getYoutubeThumbnailUrl(id)}
-                  alt={title || "Live stream"}
+                  alt={title || "YouTube video"}
                   fill
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 900px"
                   quality={90}
@@ -77,7 +77,7 @@ export function YoutubeEmbed({ id, title, className }: YoutubeEmbedProps) {
                   }}
                 />
 
-                {/* Bottom gradient fade for badge area */}
+                {/* Bottom gradient fade */}
                 <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />
 
                 {/* Play button — centered */}
@@ -105,23 +105,6 @@ export function YoutubeEmbed({ id, title, className }: YoutubeEmbedProps) {
                     </svg>
                   </motion.div>
                 </div>
-
-                {/* Live badge — top left */}
-                <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-md">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#19FB9B] opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#19FB9B]" />
-                  </span>
-                  <span
-                    className="text-xs font-bold uppercase tracking-[0.15em] text-white"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    }}
-                  >
-                    Live
-                  </span>
-                </div>
               </motion.div>
             ) : (
               <motion.div
@@ -133,7 +116,7 @@ export function YoutubeEmbed({ id, title, className }: YoutubeEmbedProps) {
               >
                 <iframe
                   src={getYoutubeEmbedUrl(id)}
-                  title={title || "Live stream"}
+                  title={title || "YouTube video"}
                   className="absolute inset-0 h-full w-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
