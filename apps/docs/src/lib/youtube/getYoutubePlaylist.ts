@@ -56,6 +56,7 @@ async function getYoutubePlaylist(
         accept: "application/json",
       },
       signal: AbortSignal.timeout(30000),
+      next: { revalidate: 3600 },
     });
 
     if (!response.ok) {
