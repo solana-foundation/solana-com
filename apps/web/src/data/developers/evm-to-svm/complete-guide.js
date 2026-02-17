@@ -28,8 +28,6 @@ export const BLOCK_STYLES = {
       backgroundColor: "rgba(21, 21, 21, 1)",
       borderRadius: "20px",
     },
-    medium: { display: "flex" },
-    small: { display: "flex" },
   },
   [CONTENT_BLOCK_STYLE_KEYS.columnImage]: {
     large: {

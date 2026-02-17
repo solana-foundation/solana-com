@@ -2,11 +2,8 @@
 
 Translations are generated during CI/CD via `.github/workflows/i18n.yml` using
 [Lingo](https://lingo.dev). Note that `src/app` uses
-[app-router](https://next-intl.dev/docs/getting-started/app-router/with-i18n-routing)
-while the rest of the app in `src/pages` uses
-[pages router](https://next-intl.dev/docs/getting-started/pages-router). Config
-is customised to this setup where `src/i18n` routes for app-router and pages
-router uses `getStaticProps`.
+[app-router](https://next-intl.dev/docs/getting-started/app-router/with-i18n-routing).
+Config is customised to this setup where `src/i18n` routes for app-router.
 
 ## Manual gen i18n
 

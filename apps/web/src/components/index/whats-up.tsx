@@ -216,7 +216,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                     isIntersecting ? { animationDelay: `0s` } : { opacity: 0 }
                   }
                 >
-                  <span className="font-brand-mono text-[14px] leading-[1.14] font-bold uppercase">
+                  <span className="font-brand-mono text-[14px] leading-[1.14] font-bold uppercase flex items-center">
                     <SolanaMono className={cn("w-3 h-3 -mt-0.5 mr-[7px]")} />
                     TERMINAL
                   </span>

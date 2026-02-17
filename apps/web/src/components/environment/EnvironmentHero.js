@@ -1,3 +1,5 @@
+"use client";
+
 import classNames from "classnames";
 import { useTranslations } from "next-intl";
 import styles from "./EnvironmentHero.module.scss";

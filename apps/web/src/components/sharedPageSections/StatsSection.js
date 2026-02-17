@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
 import { useTranslations } from "next-intl";
 import Divider from "../shared/Divider";

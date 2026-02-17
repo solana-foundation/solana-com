@@ -33,7 +33,7 @@ const PossibleInnovation = () => {
             <InnovationAccordion
               ref={refs[0]}
               index={0}
-              image={compressNFTImage}
+              image={compressNFTImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864508527/rendition/360p/file.mp4?loc=external&signature=5feb0751138c0f6136f1c44152011a42ff5c5f53b40a8dd46bfdae04823909ae"
               }
@@ -60,7 +60,7 @@ const PossibleInnovation = () => {
             <InnovationAccordion
               ref={refs[1]}
               index={1}
-              image={scalableImage}
+              image={scalableImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864519842/rendition/360p/file.mp4?loc=external&signature=eace99a0edcd8889feba26bfb91a5c80b46ff9660f2eb690c219b58a5cef338b"
               }
@@ -112,7 +112,7 @@ const PossibleInnovation = () => {
             <InnovationAccordion
               ref={refs[2]}
               index={2}
-              image={lowcarbonImage}
+              image={lowcarbonImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864519832/rendition/360p/file.mp4?loc=external&signature=568925fd9fee65dc791fd69c0abf8a0ac670f49bb8e41575d653df5a83ae099e"
               }
@@ -148,7 +148,7 @@ const PossibleInnovation = () => {
             <InnovationAccordion
               ref={refs[3]}
               index={3}
-              image={concensusImage}
+              image={concensusImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864508546/rendition/360p/file.mp4?loc=external&signature=fb9b841e28c0665848f84f11e306d3f2de6d872b6aaa79d3d008f13a91b94fb0"
               }
@@ -184,7 +184,7 @@ const PossibleInnovation = () => {
             <InnovationAccordion
               ref={refs[4]}
               index={4}
-              image={sagaImage}
+              image={sagaImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864508562/rendition/360p/file.mp4?loc=external&signature=71c5045ecdf9c5dd57a32dd758d6da6b738a89d557c8cbdc6c107360899d15da"
               }

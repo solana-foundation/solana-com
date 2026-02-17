@@ -1,3 +1,5 @@
+"use client";
+
 import classNames from "classnames";
 import Image from "next/image";
 import { Button } from "@solana-foundation/solana-lib";

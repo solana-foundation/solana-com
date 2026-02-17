@@ -1,3 +1,5 @@
+"use client";
+
 import {
   useEffect,
   useState,
@@ -6,7 +8,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { Modal, CloseButton } from "react-bootstrap";
 import ArtistsAndCreatorsNewsletter from "../newsletter/artistsAndCreators";
 
@@ -44,7 +46,6 @@ const ModalLauncher = () => {
         pathname: currentPath,
         query: currentQuery,
       },
-      undefined,
       { shallow: true },
     );
   }, [modalLaunchId, router]);

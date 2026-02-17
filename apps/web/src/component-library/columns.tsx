@@ -25,8 +25,6 @@ export const Columns: React.FC<ColumnsProps> = ({
   reverseColumnsWhenStacked = false,
   className,
 }) => {
-  const gapClass = space > 0 ? `gap-[${space}px]` : "";
-
   const baseClasses = "flex [&>*]:flex-1 items-center";
 
   const directionClasses = stackColumnsAt
@@ -38,7 +36,8 @@ export const Columns: React.FC<ColumnsProps> = ({
 
   return (
     <div
-      className={twMerge(baseClasses, gapClass, directionClasses, className)}
+      className={twMerge(baseClasses, directionClasses, className)}
+      style={{ gap: `${space}px` }}
     >
       {children}
     </div>
