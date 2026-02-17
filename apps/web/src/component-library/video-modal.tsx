@@ -54,6 +54,8 @@ export interface VideoTriggerProps {
   className?: string;
   iconClassName?: string;
   autoplay?: boolean;
+  mode?: "icon" | "button" | "icon-cover";
+  children?: React.ReactNode;
 }
 
 export const VideoTrigger = React.forwardRef<
@@ -69,24 +71,65 @@ export const VideoTrigger = React.forwardRef<
       className,
       iconClassName,
       autoplay = true,
+      mode = "icon",
+      children,
     },
     ref,
-  ) => (
-    <button
-      ref={ref}
-      type="button"
-      onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
-      aria-label={title}
-      tabIndex={0}
-      className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
-    >
-      <Play
-        fill="white"
-        strokeWidth={0}
-        className={`w-8 h-8 ${iconClassName ?? ""}`}
-      />
-    </button>
-  ),
+  ) => {
+    if (mode === "button") {
+      return (
+        <button
+          ref={ref}
+          type="button"
+          aria-label={title}
+          tabIndex={0}
+          className={`${className ?? ""} border-none bg-none z-10 cursor-pointer`}
+          onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
+        >
+          {children}
+        </button>
+      );
+    }
+    if (mode === "icon-cover") {
+      return (
+        <div
+          className="absolute inset-0 z-10 group cursor-pointer"
+          role="button"
+          onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
+        >
+          <button
+            ref={ref}
+            type="button"
+            aria-label={title}
+            tabIndex={0}
+            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110`}
+          >
+            <Play
+              fill="white"
+              strokeWidth={0}
+              className={`w-8 h-8 ${iconClassName ?? ""}`}
+            />
+          </button>
+        </div>
+      );
+    }
+    return (
+      <button
+        ref={ref}
+        type="button"
+        onClick={() => openVideoPlayer({ platform, id, title, autoplay })}
+        aria-label={title}
+        tabIndex={0}
+        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
+      >
+        <Play
+          fill="white"
+          strokeWidth={0}
+          className={`w-8 h-8 ${iconClassName ?? ""}`}
+        />
+      </button>
+    );
+  },
 );
 VideoTrigger.displayName = "VideoTrigger";
 

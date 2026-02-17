@@ -1,20 +1,28 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Accordion } from "react-bootstrap";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@workspace/ui";
 import slugify from "@sindresorhus/slugify";
-import styles from "./HashAccordion.module.scss";
 
 const HashAccordionItem = ({ question, answer }) => {
   const id = slugify(question);
   return (
-    <Accordion.Item
+    <AccordionItem
       data-id={id}
-      eventKey={id}
-      className={styles["accordion-item"]}
+      value={id}
+      className={`[&>h3]:mb-0 border-b border-white/20 xl:py-4`}
     >
-      <Accordion.Header>{question}</Accordion.Header>
-      <Accordion.Body>{answer}</Accordion.Body>
-    </Accordion.Item>
+      <AccordionTrigger
+        className={`h6 [&>svg]:self-center [&>svg]:size-6 [&[data-state="open"]>svg]:rotate-180 mb-0 px-5`}
+      >
+        {question}
+      </AccordionTrigger>
+      <AccordionContent className="text-xl px-5">{answer}</AccordionContent>
+    </AccordionItem>
   );
 };
 
@@ -49,9 +57,10 @@ export default function HashAccordion({ prefix, children }) {
 
   return (
     <Accordion
-      activeKey={activeKey}
-      onSelect={handleSelect}
-      className={styles["accordion"]}
+      type="single"
+      value={activeKey}
+      onValueChange={handleSelect}
+      collapsible
     >
       {children}
     </Accordion>

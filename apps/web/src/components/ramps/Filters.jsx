@@ -1,8 +1,8 @@
 import React from "react";
 import styles from "./Filters.module.scss";
 import RampFilter from "./RampFilter";
-import { CloseButton } from "react-bootstrap";
 import { useTranslations } from "next-intl";
+import { XIcon } from "lucide-react";
 
 const Filters = ({
   filtersActive,
@@ -37,11 +37,13 @@ const Filters = ({
             {t("on-off-ramp.filters.clear-button.title")}
           </button>
         </div>
-        <CloseButton
-          className="ramp-filters__close"
+        <button
+          className="box-content w-[1em] h-[1em] p-[0.25em] text-[#232323] border-0 ramp-filters__close"
           aria-label={t("on-off-ramp.filters.close-button.aria-label")}
           onClick={toggleFiltersActive}
-        ></CloseButton>
+        >
+          <XIcon className="block" size={21} />
+        </button>
       </div>
       <div className="ramp-filters__list">
         {/*<RampFilter

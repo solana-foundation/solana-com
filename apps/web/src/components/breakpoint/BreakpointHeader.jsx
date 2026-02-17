@@ -1,21 +1,19 @@
-import Navbar from "react-bootstrap/Navbar";
+import { useState } from "react";
 import { Link } from "@/utils/Link";
 import { useTranslations } from "next-intl";
 import SolanaLogo from "../../../public/src/img/logos-solana/logotype.inline.svg";
 
 const Header = () => {
   const t = useTranslations();
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     // 1020 is a z-index value similar to main Header's one
     // that prevents stacking issues as e.g. modal underneath the main menu
     <>
-      <Navbar
-        sticky="top"
+      <nav
         id="navbar"
-        expand="lg"
-        variant=""
-        className="navbar-dark"
+        className="navbar navbar-dark sticky-top"
         style={{ zIndex: 1020 }}
       >
         <div className="container-xl">
@@ -27,16 +25,21 @@ const Header = () => {
             />
           </Link>
 
-          <Navbar.Toggle
+          <button
             aria-controls="navbarCollapse"
-            as="button"
+            aria-expanded={isOpen}
             type="button"
+            className="navbar-toggler"
+            onClick={() => setIsOpen((prev) => !prev)}
           >
             <span className="bar"></span>
             <span className="bar"></span>
             <span className="bar"></span>
-          </Navbar.Toggle>
-          <Navbar.Collapse id="navbarCollapse">
+          </button>
+          <div
+            id="navbarCollapse"
+            className={`navbar-collapse${isOpen ? " show" : ""}`}
+          >
             <ul className="navbar-nav align-items-lg-center ms-auto">
               <li className="nav-item">
                 <Link
@@ -84,9 +87,9 @@ const Header = () => {
                 </Link>
               </li>
             </ul>
-          </Navbar.Collapse>
+          </div>
         </div>
-      </Navbar>
+      </nav>
     </>
   );
 };

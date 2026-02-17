@@ -8,6 +8,7 @@ import PossibleVisionaries from "@/components/possible/PossibleVisionaries";
 import PossibleCaseStudies from "@/components/possible/PossibleCaseStudies";
 import PossibleInnovation from "@/components/possible/PossibleInnovations";
 import dynamic from "next/dynamic";
+import { VideoPlayerModal } from "@/component-library/video-modal";
 
 const PossibleStartBuilding = dynamic(
   () => import("@/components/possible/PossibleStartBuilding"),
@@ -75,6 +76,7 @@ export function PossiblePage() {
           <div className="min-vh-100 w-100" />
         )}
       </div>
+      <VideoPlayerModal />
     </div>
   );
 }

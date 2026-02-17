@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import styles from "./CategorySelection.module.scss";
 import classNames from "classnames";
 import { SwitcherButtons } from "@solana-foundation/solana-lib";
-import Dropdown from "react-bootstrap/Dropdown";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 const CategorySelection = ({
   categories,
@@ -11,7 +11,6 @@ const CategorySelection = ({
   moreCategoriesLabel,
 }) => {
   const categoryContainer = useRef(null);
-  const dropdownButtonRef = useRef(null);
   const maxDisplayItems = useRef(0);
   const [displayCategories, setDisplayCategories] = useState([]);
   const [moreCategories, setMoreCategories] = useState([]);
@@ -71,36 +70,37 @@ const CategorySelection = ({
   return (
     <>
       {/* Mobile dropdown */}
-      <Dropdown ref={dropdownButtonRef} className={`d-block w-100 d-md-none`}>
-        <Dropdown.Toggle
-          variant="success"
-          className={classNames(
-            "text-uppercase lead opacity-100 text-white text-center w-100 rounded-pill border mb-3 py-3",
-            styles["category-dropdown"],
-          )}
-        >
-          {moreCategoriesLabel} +
-        </Dropdown.Toggle>
-        <Dropdown.Menu className={styles["category-dropdown-menu"]}>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button
+            className={classNames(
+              "d-block w-100 d-md-none text-uppercase lead opacity-100 text-white text-center w-100 rounded-pill border mb-3 py-3",
+              styles["category-dropdown"],
+            )}
+          >
+            {moreCategoriesLabel} +
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content className={styles["category-dropdown-menu"]}>
           {categories.map((item, index) => {
             return (
-              <Dropdown.Item
+              <DropdownMenu.Item
                 key={index}
                 className={classNames(
                   styles["category-dropdown-item"],
                   "tw-brightness-125",
                   activeCategoryFilter === item.value && "active",
                 )}
-                onClick={() => {
+                onSelect={() => {
                   setCategoryFilter(item.value);
                 }}
               >
                 {item.category}
-              </Dropdown.Item>
+              </DropdownMenu.Item>
             );
           })}
-        </Dropdown.Menu>
-      </Dropdown>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
 
       {/* Tablet/Desktop UI */}
       <div
@@ -117,36 +117,39 @@ const CategorySelection = ({
         </div>
         {moreCategories.length > 0 && (
           <div className="col flex-grow-0 justify-self-end">
-            <Dropdown ref={dropdownButtonRef}>
-              <Dropdown.Toggle
-                variant="success"
-                className={classNames(
-                  "text-uppercase flex-fill flex-md-grow-0 lead opacity-100 text-white",
-                  styles["category-dropdown"],
-                )}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  className={classNames(
+                    "text-uppercase flex-fill flex-md-grow-0 lead opacity-100 text-white",
+                    styles["category-dropdown"],
+                  )}
+                >
+                  {moreCategoriesLabel} +
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content
+                className={styles["category-dropdown-menu"]}
               >
-                {moreCategoriesLabel} +
-              </Dropdown.Toggle>
-              <Dropdown.Menu className={styles["category-dropdown-menu"]}>
                 {moreCategories.map((item, index) => {
                   return (
-                    <Dropdown.Item
+                    <DropdownMenu.Item
                       key={index}
                       className={classNames(
                         styles["category-dropdown-item"],
                         "tw-brightness-125",
                         activeCategoryFilter === item.value && "active",
                       )}
-                      onClick={() => {
+                      onSelect={() => {
                         setCategoryFilter(item.value);
                       }}
                     >
                       {item.category}
-                    </Dropdown.Item>
+                    </DropdownMenu.Item>
                   );
                 })}
-              </Dropdown.Menu>
-            </Dropdown>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
           </div>
         )}
       </div>
