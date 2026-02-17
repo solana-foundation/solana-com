@@ -20,7 +20,7 @@ export default async function middleware(req: NextRequest) {
     pathname.startsWith("/developers/guides") ||
     pathname.startsWith("/docs") ||
     pathname.startsWith("/learn") ||
-    pathname.startsWith("/news") ||
+    (pathname.startsWith("/news") && !pathname.startsWith("/newsletter")) ||
     pathname.startsWith("/podcasts") ||
     pathname.startsWith("/media-assets") ||
     pathname.startsWith("/opengraph")
@@ -77,7 +77,13 @@ export default async function middleware(req: NextRequest) {
     req.nextUrl.searchParams.delete("slug");
   }
 
-  return handleI18nRouting(req);
+  const response = await handleI18nRouting(req);
+
+  if (pathname.includes("/playgg")) {
+    response.headers.set("x-custom-layout", "true");
+  }
+
+  return response;
 }
 
 export const config = {
@@ -86,7 +92,7 @@ export const config = {
   matcher: [
     "/SKILL.md",
     "/skill.md",
-    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news|podcasts|media-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|podcasts|media-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

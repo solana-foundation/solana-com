@@ -42,7 +42,7 @@ export const GetStarted: React.FC<GetStartedProps> = (props) => {
         closeClassName="w-8 md:w-14 h-8 md:h-14 top-4 md:top-12 right-4 md:right-12 [&>svg]:size-4 md:[&>svg]:size-6 !bg-nd-border-light hover:!bg-nd-border-prominent hover:!text-nd-cta rounded-full"
       >
         <div className="p-twd-4 md:p-twd-12 ">
-          <h2 className="nd-heading-l">
+          <h2 className="nd-heading-l flex items-center">
             <SolanaMono className="size-7 md:size-14 mr-twd-2.5 md:mr-twd-6 mt-[-4px]" />
             {title}
           </h2>

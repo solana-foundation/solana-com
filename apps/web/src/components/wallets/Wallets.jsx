@@ -20,7 +20,7 @@ const Wallets = ({ walletData, resetWalletsAndFilters }) => {
                   walletImage={wallet.icon.src}
                   body={wallet.body}
                   websiteUrl={wallet.website}
-                  key={key}
+                  key={wallet.name}
                 />
               );
             })

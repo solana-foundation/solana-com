@@ -17,7 +17,7 @@ export const Badge: React.FC<BadgeProps> = ({ className, title, LeftIcon }) => {
   return (
     <div
       className={cn(
-        "h-[28px] md:h-[32px] px-twd-1.5 py-twd-1 text-nd-primary bg-nd-border-light rounded-sm font-medium nd-body-s inline-block !leading-[17px] md:!leading-[21px]",
+        "h-[28px] md:h-[32px] px-twd-1.5 py-twd-1 text-nd-primary bg-nd-border-light rounded-sm font-medium nd-body-s inline-flex items-center flex-row !leading-[17px] md:!leading-[21px]",
         className,
       )}
     >

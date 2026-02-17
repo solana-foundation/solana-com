@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import styled from "styled-components";
 import SharedModal from "./SharedModal";
 import { createWidget } from "@typeform/embed";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 
 const StyledTypeform = styled.div`
   width: 100%;
