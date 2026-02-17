@@ -65,7 +65,7 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
   const [menu, setMenu] = React.useState<string | null>(null);
 
   const isLearnActive =
-    asPath.includes("/learn") ||
+    (asPath.includes("/learn") && !asPath.includes("/developers/learn")) ||
     asPath === "/environment" ||
     asPath.includes("/universities");
   const isSolutionsActive =

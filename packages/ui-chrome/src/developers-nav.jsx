@@ -2,6 +2,7 @@ import { Link } from "./link";
 import DocsIcon from "./assets/developers/docs.inline.svg";
 import RpcApiIcon from "./assets/developers/api.inline.svg";
 import CookbookIcon from "./assets/developers/cookbook.inline.svg";
+import CoursesIcon from "./assets/developers/courses.inline.svg";
 import WalletIcon from "./assets/developers/wallet.inline.svg";
 import StackExchangeIcon from "./assets/developers/stackexchange.inline.svg";
 import { useTranslations } from "next-intl";
@@ -79,6 +80,18 @@ export function DevelopersNav({ containerClassName }) {
                 <span className="align-middle">
                   {t("developers.nav.cookbook")}
                 </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/developers/learn"
+                activeClassName="!text-white light:!text-gray-900 bg-[rgba(204,204,204,0.1)] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <CoursesIcon
+                  height="16"
+                  width="16"
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">{t("developers.nav.courses")}</span>
               </NavLink>
               <NavLink
                 partiallyActive

@@ -16,8 +16,8 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME;
  * Routes not matching will use <a> tags for full page load.
  */
 const APP_INTERNAL_ROUTES: Record<string, RegExp> = {
-  // docs app handles: /docs/*, /learn/*, /developers, /developers/cookbook/*, /developers/guides/*
-  docs: /^\/(?:docs|learn)(?:\/|$)|^\/developers(?:$|\/(?:cookbook|guides)(?:\/|$))/,
+  // docs app handles: /docs/*, /learn/*, /developers, /developers/cookbook/*, /developers/guides/*, /developers/learn/*
+  docs: /^\/(?:docs|learn)(?:\/|$)|^\/developers(?:$|\/(?:cookbook|guides|learn)(?:\/|$))/,
   media: /^\/(?:news|podcasts)(?:\/|$)/,
   // templates app handles: /developers/templates/*
   templates: /^\/developers\/templates(?:\/|$)/,

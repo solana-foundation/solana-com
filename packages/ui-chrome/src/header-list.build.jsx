@@ -67,6 +67,18 @@ const HeaderListBuild = () => {
               variant="large"
             />
           </Link>
+          <Link
+            to="/developers/learn"
+            className="block no-underline text-inherit group/link"
+            activeClassName="active"
+          >
+            <HeaderItem
+              title={t("developers.nav.courses")}
+              description={t("developers.courses.description")}
+              Icon={SchoolIcon}
+              variant="large"
+            />
+          </Link>
         </div>
       </div>
       <div className="px-3 grow">
