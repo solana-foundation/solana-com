@@ -27,6 +27,8 @@ const githubStorage: GitHubConfig["storage"] = {
     owner: process.env.GITHUB_OWNER || process.env.VERCEL_GIT_REPO_OWNER || "",
     name: process.env.GITHUB_REPO || process.env.VERCEL_GIT_REPO_SLUG || "",
   },
+  branchPrefix: "keystatic-",
+  pathPrefix: "apps/media",
 };
 
 // Background options for section blocks (exported for use in components)
