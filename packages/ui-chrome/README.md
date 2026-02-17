@@ -1,47 +1,127 @@
 # @solana-com/ui-chrome
 
-Shared UI chrome components for the Solana.com monorepo, including Header,
-Footer, ThemeProvider, and site-wide alerts.
+Shared UI chrome for the Solana.com monorepo: Header, Footer, ThemeProvider,
+site-wide alerts, Inkeep search/chat, Link with cross-app navigation, and
+supporting components.
 
 ## Installation
 
-This package is included in the monorepo workspace. Apps can import it via:
+This package is part of the monorepo workspace. Apps depend on it via the
+workspace and import from the main entry or subpaths:
 
 ```ts
-import { Header, Footer, ThemeProvider, SitewideTopAlert } from "@solana-com/ui-chrome";
+// Main entry – chrome components and config
+import {
+  Header,
+  Footer,
+  ThemeProvider,
+  SitewideTopAlert,
+  InkeepChatButton,
+  InkeepSearchBar,
+  NewsletterModal,
+  DocsSidebarToggleIcon,
+  DOCS_SIDEBAR_TOGGLE_SLOT_ID,
+  LanguageSelector,
+  sitewideTopAlertConfig,
+} from "@solana-com/ui-chrome";
+import type { SitewideTopAlertConfig } from "@solana-com/ui-chrome";
+
+// Subpath – Link and InlineLink (cross-app aware)
+import { Link, InlineLink } from "@solana-com/ui-chrome/link";
+
+// Subpath – URL routing helper for cross-app links
+import { shouldUseNextLink } from "@solana-com/ui-chrome/url-config";
 ```
 
 ## Components
 
 ### Header
 
-The main site navigation header.
+Main site navigation header.
 
 ### Footer
 
-The site footer with links and branding.
+Site footer with links and branding.
 
 ### ThemeProvider
 
-Provides dark/light theme context to the application.
+Provides dark/light theme context to the app.
 
 ### SitewideTopAlert
 
-Displays an announcement banner at the top of all pages across all apps in the
-monorepo.
+Announcement banner at the top of the page. Configurable via
+`sitewideTopAlertConfig` (see [Site-Wide Alerts](#site-wide-alerts)).
+
+### InkeepChatButton
+
+Floating or inline button that opens the Inkeep AI search + chat modal. Requires
+`NEXT_PUBLIC_INKEEP_API_KEY`. Supports `variant`: `"fixed"` (default) or
+`"inline"`.
+
+### InkeepSearchBar
+
+Search bar that opens the same Inkeep modal. Used in docs hero and elsewhere.
+Optional `expanded` prop for always-expanded styling.
+
+### NewsletterModal
+
+Modal for newsletter sign-up (e.g. Iterable). Props: `formId`, `children`
+(trigger).
+
+### DocsSidebarToggleIcon / DOCS_SIDEBAR_TOGGLE_SLOT_ID
+
+Icon component and slot ID for the docs sidebar toggle. Used by the docs app to
+portal the toggle into the header.
+
+### LanguageSelector
+
+Dropdown for switching locale (uses `@workspace/i18n` and next-intl).
+
+## Subpath exports
+
+### `@solana-com/ui-chrome/link`
+
+- **Link** – Anchor that uses Next.js `Link` for in-app routes and `<a>` for
+  cross-app routes (based on `url-config`). Supports `to`/`href`,
+  `activeClassName`, `partiallyActive`, `partiallyActiveIgnore`, `scroll`,
+  `prefetch`, and standard anchor props.
+- **InlineLink** – Simple external-style link (e.g. `target="_blank"`,
+  `rel="noopener noreferrer"`). Props: `to`, `children`, plus anchor props.
+
+Apps often re-export these from their own `utils/Link` (e.g. `apps/web`,
+`apps/docs`).
+
+### `@solana-com/ui-chrome/url-config`
+
+- **shouldUseNextLink(href)** – Returns whether `href` should use Next.js
+  `Link` (client navigation) or a plain `<a>` (full page load). All apps are
+  served under solana.com via rewrites; this keeps cross-app navigation as full
+  loads and in-app as client nav. Depends on `NEXT_PUBLIC_APP_NAME` in
+  non-web apps.
+
+## Inkeep (AI search & chat)
+
+Inkeep is wired in `src/inkeep-config.ts` and used by `InkeepChatButton` and
+`InkeepSearchBar`. The modal is themed for Solana (dark/light) and uses
+`@inkeep/cxkit-react`.
+
+- **Env**: Set `NEXT_PUBLIC_INKEEP_API_KEY` in apps that use Inkeep (e.g. web,
+  docs).
+- **Components**: Use `InkeepChatButton` and/or `InkeepSearchBar`; no extra
+  setup in app code beyond env and layout placement.
 
 ## Site-Wide Alerts
 
-The `SitewideTopAlert` component displays a gradient banner at the top of the
-page for important announcements (e.g., conferences, product launches, etc.).
+`SitewideTopAlert` shows a gradient banner at the top of the page for
+announcements (e.g. conferences, launches).
 
-### Enabling an Alert
+### Enabling an alert
 
 Edit `packages/ui-chrome/src/sitewide-top-alert-config.ts`:
 
 ```ts
 export const sitewideTopAlertConfig: SitewideTopAlertConfig = {
-  enabled: true, // Set to true to show the alert
+  enabled: true,
   text: "Join us at Breakpoint 2025!",
   cta: {
     label: "Get Tickets",
@@ -52,53 +132,49 @@ export const sitewideTopAlertConfig: SitewideTopAlertConfig = {
 };
 ```
 
-### Configuration Options
+### Configuration options
 
 | Option          | Type                  | Description                                                                 |
 | --------------- | --------------------- | --------------------------------------------------------------------------- |
 | `enabled`       | `boolean`             | Set to `true` to display the alert site-wide                                |
-| `text`          | `string`              | The main announcement message                                               |
+| `text`          | `string`              | Main announcement message                                                   |
 | `cta.label`     | `string`              | Call-to-action button text                                                  |
-| `cta.url`       | `string`              | URL the CTA links to (pages matching this URL won't show the alert)         |
-| `color`         | `"green" \| "purple"` | Color theme - green uses the Solana gradient, purple uses an alt gradient   |
-| `excludedPaths` | `string[]`            | Additional paths where the alert should not appear                          |
+| `cta.url`       | `string`              | URL the CTA links to (pages matching this URL do not show the alert)       |
+| `color`         | `"green" \| "purple"` | Theme: green = Solana gradient, purple = alt gradient                       |
+| `excludedPaths` | `string[]`            | Extra paths where the alert is hidden                                       |
 
-### Color Themes
+### Color themes
 
-- **green**: Gradient from teal (#00d18c) through green (#14f195) to purple
-  (#9945ff) with black text
-- **purple**: Gradient from purple (#9945ff) to green (#14f195) with white text
+- **green**: Gradient teal (#00d18c) → green (#14f195) → purple (#9945ff), black
+  text.
+- **purple**: Gradient purple (#9945ff) → green (#14f195), white text.
 
 ### Behavior
 
-- The alert automatically hides on pages that match the CTA URL (to avoid
-  showing "Get Tickets" on the tickets page itself)
-- Additional pages can be excluded via the `excludedPaths` array
-- The alert animates in with a slide-down effect on page load
+- Alert is hidden on the CTA URL and on any `excludedPaths`.
+- Slide-down animation on load.
 
-### Disabling the Alert
+### Disabling the alert
 
-Set `enabled: false` in the config file:
+Set `enabled: false` in the config file.
 
-```ts
-export const sitewideTopAlertConfig: SitewideTopAlertConfig = {
-  enabled: false,
-  // ... rest of config
-};
-```
+## Usage in apps
 
-## Usage in Apps
+The alert is integrated in the root layouts of:
 
-The alert is already integrated into the root layouts of:
+- `apps/web`
+- `apps/docs`
 
-- `apps/web` (main website)
-- `apps/docs` (documentation)
-
-It's imported from `@solana-com/ui-chrome` and rendered at the top of the page,
-above the Header:
+Example layout with chrome and alert:
 
 ```tsx
-import { Header, Footer, ThemeProvider, SitewideTopAlert } from "@solana-com/ui-chrome";
+import {
+  Header,
+  Footer,
+  ThemeProvider,
+  SitewideTopAlert,
+  InkeepChatButton,
+} from "@solana-com/ui-chrome";
 
 export default function RootLayout({ children }) {
   return (
@@ -107,9 +183,13 @@ export default function RootLayout({ children }) {
       <Header />
       {children}
       <Footer />
+      <InkeepChatButton />
     </ThemeProvider>
   );
 }
 ```
 
-<!-- build -->
+## Dependencies
+
+- **Peer**: `@workspace/i18n`, `next`, `next-intl`, `react`, `react-dom`
+- **Inkeep**: `@inkeep/cxkit-react`; set `NEXT_PUBLIC_INKEEP_API_KEY` where used
