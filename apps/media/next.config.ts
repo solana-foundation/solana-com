@@ -121,6 +121,10 @@ const nextConfig: NextConfig = {
     };
   },
 
+  outputFileTracingIncludes: {
+    "/*": ["./content/**/*", "./keystatic.config.tsx"],
+  },
+
   experimental: {
     scrollRestoration: true,
     externalDir: true,
