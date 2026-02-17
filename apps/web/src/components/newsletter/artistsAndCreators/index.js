@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect } from "react";
 import { Input, Button, sendFormRequest } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
+import { DialogTitle, DialogDescription } from "@radix-ui/react-dialog";
 
 const ArtistsAndCreatorsNewsletter = ({
   modalCloseHandler = null,
@@ -139,12 +140,16 @@ const ArtistsAndCreatorsNewsletter = ({
           <>
             <div className={`row flex justify-content-center`}>
               <div className={`col col-lg-8`}>
-                <h3 className={`h3 fw-normal mb-0 text-center mb-5`}>
-                  {t("artistsAndCreatorsNewsletter.form.success.title")}
-                </h3>
-                <p className={`lead text-center mb-7`}>
-                  {t("artistsAndCreatorsNewsletter.form.success.description")}
-                </p>
+                <DialogTitle asChild>
+                  <h3 className={`h3 fw-normal text-center mb-5`}>
+                    {t("artistsAndCreatorsNewsletter.form.success.title")}
+                  </h3>
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <p className={`lead text-center mb-7`}>
+                    {t("artistsAndCreatorsNewsletter.form.success.description")}
+                  </p>
+                </DialogDescription>
                 <Button
                   size={`md`}
                   hierarchy={"secondary"}
@@ -160,12 +165,16 @@ const ArtistsAndCreatorsNewsletter = ({
           <>
             <div className={`row flex justify-content-center`}>
               <div className={`col col-lg-8 mb-md-5`}>
-                <h2 className={`h3 fw-normal mb-0 text-center mb-5`}>
-                  {t("artistsAndCreatorsNewsletter.title")}
-                </h2>
-                <p className={`lead text-center mb-8`}>
-                  {t("artistsAndCreatorsNewsletter.description")}
-                </p>
+                <DialogTitle asChild>
+                  <h3 className={`h3 fw-normal mb-5 text-center`}>
+                    {t("artistsAndCreatorsNewsletter.title")}
+                  </h3>
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <p className={`lead text-center mb-8`}>
+                    {t("artistsAndCreatorsNewsletter.description")}
+                  </p>
+                </DialogDescription>
               </div>
             </div>
             <div className={`row flex justify-content-center`}>

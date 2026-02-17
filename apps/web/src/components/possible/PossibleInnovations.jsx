@@ -1,5 +1,5 @@
 import { createRef } from "react";
-import Accordion from "react-bootstrap/Accordion";
+import { Accordion } from "@workspace/ui";
 import Link from "@/utils/Link";
 import compressNFTImage from "../../../assets/possible/innovation-compressed-nft.png";
 import scalableImage from "../../../assets/possible/innovation-scalable.png";
@@ -15,7 +15,7 @@ const PossibleInnovation = () => {
   const t = useTranslations();
 
   return (
-    <Accordion alwaysOpen>
+    <Accordion type="multiple">
       <section
         id={`possible-innovation`}
         className="container pt-12 pb-8 pt-md-6 pb-md-0 position-relative z-3"

@@ -3,22 +3,20 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 import classNames from "classnames";
 import styles from "./PossibleVisionaries.module.scss";
-import VideoModal from "../shared/VideoModal";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
-import Dropdown from "react-bootstrap/Dropdown";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDown } from "react-feather";
 import PossibleGlow from "./PossibleGlow";
 import PlayButton from "assets/possible/visionaries/play-button.png";
 import { PossibleVisionariesData } from "./PossibleVisionariesData";
+import { VideoTrigger } from "@/component-library/video-modal";
 
 const PossibleVisionaries = () => {
   const t = useTranslations();
   const sliderRef = useRef(null);
   const [currentEpisode, setCurrentEpisode] = useState(0);
-  const [showVideoModal, setShowVideoModal] = useState(false);
-  const [videoId, setVideoId] = useState(0);
 
   const handleAfterChange = (current) => {
     setCurrentEpisode(current);
@@ -82,8 +80,6 @@ const PossibleVisionaries = () => {
                   <div className={`row d-md-flex flex-md-row-reverse pb-8`}>
                     <div className={`col-12 col-md-6 px-0 mb-9 mb-md-0`}>
                       <VideoModalButton
-                        setVideoId={setVideoId}
-                        setShowVideoModal={setShowVideoModal}
                         poster={item.poster}
                         index={index}
                         title={item.title}
@@ -114,12 +110,12 @@ const PossibleVisionaries = () => {
                         {item.title}
                       </h2>
                       <p className="mb-5 copy text-white">{item.description}</p>
-                      <button
-                        onClick={() => {
-                          setVideoId(index);
-                          setShowVideoModal(true);
-                        }}
+                      <VideoTrigger
+                        platform="vimeo"
+                        id={index}
+                        title={item.title}
                         className="copy text-white text-uppercase fw-normal d-flex align-items-center"
+                        mode="button"
                       >
                         <Image
                           src={PlayButton.src}
@@ -129,7 +125,7 @@ const PossibleVisionaries = () => {
                           className={`d-inline-block me-2`}
                         />
                         {t("possible.visionaries.watch")}
-                      </button>
+                      </VideoTrigger>
                     </div>
                   </div>
                 </div>
@@ -138,13 +134,6 @@ const PossibleVisionaries = () => {
           </div>
         </div>
       </div>
-      <VideoModal
-        type={"vimeo"}
-        urlId={data[videoId].vimeoId}
-        showVideoModal={showVideoModal}
-        setShowVideoModal={setShowVideoModal}
-        autoplay={true}
-      />
     </section>
   );
 };
@@ -201,25 +190,25 @@ const PossibleEpisodeSelection = ({
               </button>
             ))}
           </div>
-          <Dropdown>
-            <Dropdown.Toggle
-              variant="success"
-              className={classNames(
-                "btn btn-lg text-uppercase w-100 w-md-auto",
-                styles[`visionaries-episodeSelectionBtn--possible`],
-              )}
-            >
-              {t("possible.visionaries.seeAll")}
-              <span className="d-inline-block position-relative me-n3 ms-1">
-                <ChevronDown />
-              </span>
-            </Dropdown.Toggle>
-
-            <Dropdown.Menu className={`pb-0`}>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button
+                className={classNames(
+                  "uppercase whitespace-nowrap !mr-0",
+                  styles[`visionaries-episodeSelectionBtn--possible`],
+                )}
+              >
+                {t("possible.visionaries.seeAll")}
+                <span className="d-inline-block position-relative me-n3 ms-1">
+                  <ChevronDown />
+                </span>
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content className="pb-0 z-10">
               {episodeData.map((item, index) => (
-                <Dropdown.Item
+                <DropdownMenu.Item
                   key={index}
-                  onClick={() => selectEpisode(index)}
+                  onSelect={() => selectEpisode(index)}
                   className={classNames(
                     currentEpisode === index && "active",
                     styles[`visionaries-episodeDropdownBtn--possible`],
@@ -232,32 +221,19 @@ const PossibleEpisodeSelection = ({
                   ) : (
                     item.name
                   )}
-                </Dropdown.Item>
+                </DropdownMenu.Item>
               ))}
-            </Dropdown.Menu>
-          </Dropdown>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </div>
       </div>
     </div>
   );
 };
 
-const VideoModalButton = ({
-  setVideoId,
-  setShowVideoModal,
-  poster,
-  index,
-  title,
-  watchText,
-}) => {
+const VideoModalButton = ({ poster, index, title }) => {
   return (
-    <button
-      onClick={() => {
-        setVideoId(index);
-        setShowVideoModal(true);
-      }}
-      className={`position-relative d-block mx-auto w-100 h-auto`}
-    >
+    <div className={`position-relative d-block mx-auto w-100 h-auto`}>
       <Image
         className={`video-thumbnail poster w-100 h-auto`}
         src={poster}
@@ -265,14 +241,18 @@ const VideoModalButton = ({
         width={400}
         height={160}
       />
-      <Image
-        className={`position-absolute top-50 start-50 translate-middle play-button `}
-        src={PlayButton.src}
-        alt={`${watchText} ${title}`}
-        width={74}
-        height={74}
+      <VideoTrigger
+        platform="vimeo"
+        id={index}
+        title={title}
+        bgColorClass="!bg-black/70"
+        className={
+          "max-md:w-10 max-md:h-10 md:w-12 md:h-12 xl:w-[72px] xl:h-[72px] border-2"
+        }
+        iconClassName="max-md:!w-4 max-md:!h-4 md:!w-5 md:!h-5 xl:!w-6 xl:!h-6"
+        mode="icon-cover"
       />
-    </button>
+    </div>
   );
 };
 

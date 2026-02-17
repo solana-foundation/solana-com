@@ -1,5 +1,4 @@
 import { FormattedNumber } from "../SolFormattedMessage";
-import { Badge } from "react-bootstrap";
 import Telegram from "../../../public/src/img/community/socials-telegram.inline.svg";
 import Twitter from "../../../public/src/img/community/socials-twitter.inline.svg";
 import Youtube from "../../../public/src/img/community/socials-youtube.inline.svg";
@@ -11,6 +10,7 @@ import Mail from "../../../public/src/img/community/socials-mail.inline.svg";
 import Reddit from "../../../public/src/img/community/socials-reddit.inline.svg";
 import News from "../../../public/src/img/community/socials-news.inline.svg";
 import { useTranslations } from "next-intl";
+import { Badge } from "@/component-library/badge";
 
 /**
  * Display social network cards
@@ -126,7 +126,7 @@ const CommunitySocial = ({ data }) => {
         {socialAccounts.map((item) => (
           <div className="col-12 col-sm-6 col-md-3" key={item.nameId}>
             <a href={item.link} className="community-socials-item">
-              <Badge className="bg-black fw-light">{item.category}</Badge>
+              <Badge className="bg-black fw-light" title={item.category} />
               <div className="community-socials-icon">{item.renderIcon()}</div>
               <p className="fw-bold w-100 mb-6">{t(item.nameId)}</p>
               <p className="community-socials-amount">

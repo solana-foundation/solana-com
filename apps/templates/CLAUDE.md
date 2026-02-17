@@ -129,7 +129,6 @@ Combines multiple styling approaches:
 - Tailwind CSS for utility classes
 - SCSS for custom styles
 - styled-components for component styles
-- Bootstrap utilities via react-bootstrap
 
 ## Conventions
 

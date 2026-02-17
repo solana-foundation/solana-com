@@ -4,9 +4,13 @@ import RampsCard from "./RampsCard";
 import SharedModal from "../shared/SharedModal";
 import Image from "next/image";
 import Button from "../shared/Button";
-import { Accordion } from "react-bootstrap";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@workspace/ui";
 import CommonMarkdown from "../sharedPageSections/CommonMarkdown";
-import ChevronDown from "../../../public/src/img/icons/Angle-down.inline.svg";
 import { useTranslations } from "next-intl";
 
 const Ramps = ({
@@ -132,26 +136,22 @@ const Ramps = ({
             </Button>
           </div>
           <div className="mt-5">
-            <Accordion defaultActiveKey={["0"]} alwaysOpen>
+            <Accordion type="multiple">
               {modalData.map((itemData, index) => (
-                <Accordion.Item
+                <AccordionItem
                   key={index}
-                  bsPrefix="custom-accordion-item"
                   className={styles["custom-accordion-item"]}
-                  eventKey={index}
+                  value={String(index)}
                 >
-                  <Accordion.Header
-                    as="h6"
-                    bsPrefix="custom-accordion-header"
-                    className={styles["custom-accordion-header"]}
+                  <AccordionTrigger
+                    className={`${styles["custom-accordion-header"]} [&>svg]:self-center [&>svg]:size-5 [&[data-state="open"]>svg]:rotate-180`}
                   >
-                    {itemData.title}
-                    <ChevronDown className="collapse-chevron" />
-                  </Accordion.Header>
-                  <Accordion.Body>
+                    <h6 className="m-0">{itemData.title}</h6>
+                  </AccordionTrigger>
+                  <AccordionContent className="pl-5 pr-5">
                     <CommonMarkdown>{itemData.content}</CommonMarkdown>
-                  </Accordion.Body>
-                </Accordion.Item>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
             </Accordion>
           </div>

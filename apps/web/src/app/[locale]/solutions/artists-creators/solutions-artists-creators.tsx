@@ -22,6 +22,7 @@ import {
   CARDS_SHOWCASE_URLS,
   CARDS_CONNECT_URLS,
 } from "@/data/solutions/artists-creators";
+import ModalLauncher from "@/components/ModalLauncher/ModalLauncher";
 
 export function SolutionsArtistsCreatorsPage() {
   const t = useTranslations("artists-creators-solution");
@@ -313,6 +314,8 @@ export function SolutionsArtistsCreatorsPage() {
         ]}
         body={t("conversionPanel.body")}
       />
+
+      <ModalLauncher />
     </>
   );
 }
