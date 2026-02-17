@@ -97,13 +97,20 @@ export const fetchLatestLinks = async (
     }> = [];
 
     for (const slug of allSlugs) {
-      const link = await reader.collections.links.read(slug);
-      if (link) {
-        linksWithDates.push({
-          slug,
-          date: link.publishedAt ? new Date(link.publishedAt) : null,
-          link,
-        });
+      try {
+        const link = await reader.collections.links.read(slug);
+        if (link) {
+          linksWithDates.push({
+            slug,
+            date: link.publishedAt ? new Date(link.publishedAt) : null,
+            link,
+          });
+        }
+      } catch (e) {
+        console.warn(
+          `Skipping invalid link entry "${slug}":`,
+          e instanceof Error ? e.message : e
+        );
       }
     }
 
