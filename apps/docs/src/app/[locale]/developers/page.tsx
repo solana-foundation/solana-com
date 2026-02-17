@@ -6,6 +6,8 @@ import { getIndexMetadata } from "@@/src/app/metadata";
 
 type Props = { params: Promise<{ locale: string }> };
 
+export const revalidate = 3600;
+
 export default async function Page(props: Props) {
   const { locale } = await props.params;
   const latestChangelogVideo = await getLatestChangelogVideo();
