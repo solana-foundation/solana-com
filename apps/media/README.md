@@ -1,13 +1,13 @@
 # Solana Media
 
-Solana Media is a Next.js application for publishing news articles and podcasts about Solana. It uses TinaCMS for content management and is part of the Solana.com monorepo.
+Solana Media is a Next.js application for publishing news articles and podcasts about Solana. It uses Keystatic for content management and is part of the Solana.com monorepo.
 
 ## Features
 
 - **News Articles**: Read the latest Solana news and updates at `/news`
 - **Podcasts**: Listen to Solana podcasts at `/podcasts`
 - **Multi-language Support**: Full i18n support via `@workspace/i18n`
-- **Content Management**: TinaCMS-powered content editing at `/admin`
+- **Content Management**: Keystatic-powered content editing at `/keystatic`
 - **Shared UI**: Uses `@solana-com/ui-chrome` for consistent header/footer
 
 ## Development
@@ -22,14 +22,13 @@ Solana Media is a Next.js application for publishing news articles and podcasts 
 Create a `.env` file in the root of the media app (see `.env.example` for reference):
 
 ```bash
-# TinaCMS Cloud (optional - use local mode if not set)
-NEXT_PUBLIC_TINA_CLIENT_ID=your_client_id
-TINA_TOKEN=your_token
-NEXT_PUBLIC_TINA_BRANCH=main
-TINA_SEARCH_INDEXER_TOKEN=your_indexer_token
+# Keystatic local mode (uses filesystem storage, no GitHub auth needed)
+KEYSTATIC_LOCAL=true
 
-# Or use local mode (no cloud)
-TINA_PUBLIC_IS_LOCAL=true
+# Or use GitHub mode (production)
+KEYSTATIC_GITHUB_CLIENT_ID=your_client_id
+KEYSTATIC_GITHUB_CLIENT_SECRET=your_client_secret
+KEYSTATIC_SECRET=your_random_secret
 ```
 
 ### Running Locally
@@ -53,19 +52,13 @@ pnpm dev
 The app will be available at:
 
 - Frontend: http://localhost:3002
-- TinaCMS Admin: http://localhost:3002/admin
+- Keystatic Admin: http://localhost:3002/keystatic
 
 ### Building
 
 ```bash
 # Build for production
 pnpm build
-
-# Build in local mode (no TinaCMS cloud)
-pnpm build-local
-
-# Build for public deployment (local mode)
-pnpm build-public
 ```
 
 ## Content Structure
@@ -90,13 +83,13 @@ All routes are prefixed with locale:
 - `/<locale>/podcasts` - Podcasts listing
 - `/<locale>/podcasts/:podcast` - Podcast show page
 - `/<locale>/podcasts/:podcast/episodes/:id` - Individual episode
-- `/admin` - TinaCMS admin panel (no locale prefix)
+- `/keystatic` - Keystatic admin panel (no locale prefix)
 
 ## Architecture
 
 - **Framework**: Next.js 15 with App Router
 - **Styling**: Tailwind CSS v4
-- **Content**: TinaCMS + MDX
+- **Content**: Keystatic + MDX
 - **i18n**: next-intl via `@workspace/i18n`
 - **UI Components**: Radix UI + `@solana-com/ui-chrome`
 - **Fonts**: ABC Diatype (custom web fonts)
@@ -114,7 +107,7 @@ See `packages/ui-chrome/src/url-config.ts` for the routing logic.
 
 ## Scripts
 
-- `pnpm dev` - Start development server with TinaCMS
+- `pnpm dev` - Start development server
 - `pnpm build` - Build for production
 - `pnpm start` - Start production server
 - `pnpm lint` - Run ESLint

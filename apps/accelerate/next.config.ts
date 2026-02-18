@@ -65,10 +65,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "assets.tina.io",
-      },
-      {
-        protocol: "https",
         hostname: "placehold.co",
       },
       {

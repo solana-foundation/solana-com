@@ -8,7 +8,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLangDir } from "rtl-detect";
 import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
 import { LayoutProvider } from "@/components/layout/layout-context";
-import client from "@/tina/__generated__/client";
+import { reader } from "@/lib/reader";
 import { staticLocales } from "@workspace/i18n/config";
 import { GTMTrackingSnippet } from "@/components/GTMTrackingSnippet";
 import { CookieConsent } from "@/components/CookieConsent/CookieConsent";
@@ -201,18 +201,17 @@ export default async function LocaleLayout({ children, params }: Props) {
   );
 
   // Fetch global data for LayoutProvider
-  const { data: globalData } = await client.queries.global(
-    {
-      relativePath: "index.json",
-    },
-    {
-      fetchOptions: {
-        next: {
-          revalidate: 60,
-        },
-      },
-    }
-  );
+  const globalSettings = await reader.singletons.global.read();
+  const globalData = {
+    global: globalSettings
+      ? {
+          theme: {
+            color: globalSettings.theme?.color || null,
+            darkMode: globalSettings.theme?.darkMode || "system",
+          },
+        }
+      : null,
+  };
 
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
 

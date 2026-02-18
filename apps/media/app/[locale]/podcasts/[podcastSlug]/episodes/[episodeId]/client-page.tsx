@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { AudioPlayer } from "@/components/podcast/audio-player";
 import { EpisodeCard } from "@/components/podcast/episode-card";
 import { SocialShare } from "@/components/ui/social-share";
-import { formatDuration, formatEpisodeDate } from "@/lib/podcast-data";
+import { formatDuration, formatEpisodeDate } from "@/lib/podcast-utils";
 import type { PodcastShow, PodcastEpisode } from "@/lib/podcast-types";
 import ErrorBoundary from "@/components/error-boundary";
 

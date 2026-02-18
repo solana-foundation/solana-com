@@ -15,12 +15,9 @@ export interface FetchLatestPostsResponse {
  * - Server-side (getStaticProps): use MEDIA_APP_URL directly since rewrites don't work during build
  */
 function getBaseUrl(): string {
-  // Check if we're in a server environment (getStaticProps, etc.)
   if (typeof window === "undefined") {
-    // Server-side: use MEDIA_APP_URL directly
     return MEDIA_APP_URL;
   }
-  // Client-side: use relative URL that goes through rewrite
   return "";
 }
 
