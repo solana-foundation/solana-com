@@ -123,6 +123,15 @@ export default {
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
+      // Proxy /_next/image requests for /uploads/* to the media app's image
+      // optimizer. The web app's /_next/image reads from its own filesystem,
+      // but /uploads/ files live in the media app's deployment.
+      {
+        source: "/_next/image",
+        has: [{ type: "query", key: "url", value: "/uploads/(.*)" }],
+        destination: `${MEDIA_APP_URL}/media-assets/_next/image`,
+        locale: false,
+      },
       // Media app assets (required for static assets with assetPrefix: "/media-assets")
       {
         source: "/media-assets/uploads/:path+",

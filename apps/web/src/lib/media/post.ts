@@ -22,20 +22,6 @@ function getBaseUrl(): string {
 }
 
 /**
- * On Vercel preview deployments, the cross-app rewrite chain for image
- * optimization can fail. Convert relative image URLs to absolute so
- * next/image fetches directly from the media app. On production (solana.com)
- * and localhost, keep relative URLs so they go through the normal rewrites.
- */
-function resolveImageUrl(url: string | null | undefined): typeof url {
-  if (!url || url.startsWith("http")) return url;
-  if (process.env.VERCEL_ENV === "preview") {
-    return `${MEDIA_APP_URL}${url}`;
-  }
-  return url;
-}
-
-/**
  * Fetch latest posts from the media app API
  */
 export const fetchLatestPosts = async (
@@ -60,10 +46,7 @@ export const fetchLatestPosts = async (
     const data = await response.json();
 
     return {
-      posts: ((data.posts || []) as PostItem[]).map((post) => ({
-        ...post,
-        heroImage: resolveImageUrl(post.heroImage),
-      })),
+      posts: (data.posts || []) as PostItem[],
     };
   } catch (error) {
     console.error("Failed to fetch latest posts:", error);
