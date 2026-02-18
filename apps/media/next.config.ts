@@ -11,18 +11,9 @@ const nextConfig: NextConfig = {
 
   env: {
     NEXT_PUBLIC_APP_NAME: "media",
-    // Expose Vercel env vars to the client for the custom image loader.
-    // On preview deployments, the loader uses absolute URLs to bypass
-    // cross-app rewrite issues. On production, relative URLs are used.
-    NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV || "",
-    NEXT_PUBLIC_MEDIA_ORIGIN: process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "",
   },
 
   images: {
-    loader: "custom",
-    loaderFile: "./lib/image-loader.ts",
     localPatterns: [
       {
         pathname: "/uploads/**",

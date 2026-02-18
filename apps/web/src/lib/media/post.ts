@@ -15,36 +15,24 @@ export interface FetchLatestPostsResponse {
  * - Server-side (getStaticProps): use MEDIA_APP_URL directly since rewrites don't work during build
  */
 function getBaseUrl(): string {
-  // Check if we're in a server environment (getStaticProps, etc.)
   if (typeof window === "undefined") {
-    // Server-side: use MEDIA_APP_URL directly
     return MEDIA_APP_URL;
   }
-  // Client-side: use relative URL that goes through rewrite
   return "";
 }
 
 /**
- * On Vercel preview deployments, convert relative media image URLs to absolute
- * URLs pointing to the media app. This bypasses the cross-app rewrite chain
- * which can fail on preview deployments. On production, relative URLs are kept
- * so images are served through the standard rewrite chain on solana.com.
+ * On Vercel preview deployments, the cross-app rewrite chain for image
+ * optimization can fail. Convert relative image URLs to absolute so
+ * next/image fetches directly from the media app. On production (solana.com)
+ * and localhost, keep relative URLs so they go through the normal rewrites.
  */
-function resolveMediaImageUrl(
-  imageUrl: string | null | undefined,
-): string | null | undefined {
-  if (!imageUrl) return imageUrl;
-  if (imageUrl.startsWith("http")) return imageUrl;
-
-  const isPreview =
-    process.env.VERCEL_ENV === "preview" ||
-    process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
-
-  if (isPreview) {
-    return `${MEDIA_APP_URL}${imageUrl}`;
+function resolveImageUrl(url: string | null | undefined): typeof url {
+  if (!url || url.startsWith("http")) return url;
+  if (process.env.VERCEL_ENV === "preview") {
+    return `${MEDIA_APP_URL}${url}`;
   }
-
-  return imageUrl;
+  return url;
 }
 
 /**
@@ -74,7 +62,7 @@ export const fetchLatestPosts = async (
     return {
       posts: ((data.posts || []) as PostItem[]).map((post) => ({
         ...post,
-        heroImage: resolveMediaImageUrl(post.heroImage),
+        heroImage: resolveImageUrl(post.heroImage),
       })),
     };
   } catch (error) {
