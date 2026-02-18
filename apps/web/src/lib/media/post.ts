@@ -25,16 +25,26 @@ function getBaseUrl(): string {
 }
 
 /**
- * Convert a relative media image URL to an absolute URL pointing to the media app.
- * This ensures next/image can fetch the image directly from the media app,
- * bypassing the cross-app rewrite chain which can fail on preview deployments.
+ * On Vercel preview deployments, convert relative media image URLs to absolute
+ * URLs pointing to the media app. This bypasses the cross-app rewrite chain
+ * which can fail on preview deployments. On production, relative URLs are kept
+ * so images are served through the standard rewrite chain on solana.com.
  */
 function resolveMediaImageUrl(
   imageUrl: string | null | undefined,
 ): string | null | undefined {
   if (!imageUrl) return imageUrl;
   if (imageUrl.startsWith("http")) return imageUrl;
-  return `${MEDIA_APP_URL}${imageUrl}`;
+
+  const isPreview =
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
+
+  if (isPreview) {
+    return `${MEDIA_APP_URL}${imageUrl}`;
+  }
+
+  return imageUrl;
 }
 
 /**
