@@ -25,6 +25,19 @@ function getBaseUrl(): string {
 }
 
 /**
+ * Convert a relative media image URL to an absolute URL pointing to the media app.
+ * This ensures next/image can fetch the image directly from the media app,
+ * bypassing the cross-app rewrite chain which can fail on preview deployments.
+ */
+function resolveMediaImageUrl(
+  imageUrl: string | null | undefined,
+): string | null | undefined {
+  if (!imageUrl) return imageUrl;
+  if (imageUrl.startsWith("http")) return imageUrl;
+  return `${MEDIA_APP_URL}${imageUrl}`;
+}
+
+/**
  * Fetch latest posts from the media app API
  */
 export const fetchLatestPosts = async (
@@ -49,7 +62,10 @@ export const fetchLatestPosts = async (
     const data = await response.json();
 
     return {
-      posts: (data.posts || []) as PostItem[],
+      posts: ((data.posts || []) as PostItem[]).map((post) => ({
+        ...post,
+        heroImage: resolveMediaImageUrl(post.heroImage),
+      })),
     };
   } catch (error) {
     console.error("Failed to fetch latest posts:", error);
