@@ -379,7 +379,7 @@ export function Hero() {
 
           {/* YouTube embed */}
           <motion.div variants={fadeInUp} className="w-full">
-            <YoutubeEmbed id="j0Y2uZ7Xmbs" title={t("hero.title")} />
+            <YoutubeEmbed id="eVWYtSuKtmw" title={t("hero.title")} />
           </motion.div>
         </motion.div>
       </div>
