@@ -377,6 +377,11 @@ export default {
       source: "/skyline",
       destination: "https://lu.ma/solana-nyc",
     },
+    {
+      source: "/solana_token_extensions_paper",
+      destination:
+        "https://drive.google.com/file/d/13u20-ItOcNXQpqlO3JHrC1eYhtz1PilE/view?usp=sharing",
+    },
     { source: "/blog", destination: "/news" },
     { source: "/rss.xml", destination: "/news/rss.xml" },
     { source: "/news/tag/:path*", destination: "/news" },

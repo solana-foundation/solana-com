@@ -9,6 +9,7 @@ import circleIcon from "../../../assets/wallets/icons/circle.png";
 import coinbaseIcon from "../../../assets/wallets/icons/coinbase.png";
 import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
 import crossmintIcon from "../../../assets/wallets/icons/crossmint.png";
+import cypherockIcon from "../../../assets/wallets/icons/cypherock.png";
 import decafIcon from "../../../assets/wallets/icons/decaf.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
@@ -1073,6 +1074,29 @@ export const walletData = [
     open_source: false,
     hardware: false,
     private_key_infrastructure: true,
+  },
+  {
+    name: "Cypherock",
+    body: "Cypherock X1 is the World's safest hardware wallet with non-custodial inheritance, audited by Keylabs",
+    website: "https://www.cypherock.com/",
+    additionalInfo: "Hardware • Non-Custodial/Self Custodial • Open Source",
+    icon: cypherockIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: false,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: true,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
+    hardware: true,
+    private_key_infrastructure: false,
   },
   // {
   //   name: "Passkeys.Foundation",
