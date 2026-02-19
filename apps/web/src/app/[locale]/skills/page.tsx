@@ -12,7 +12,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   return {
     title: "Developer Skills | AI Agent Skills for Solana Development",
-    description: "Equip your AI assistant with specialized knowledge for Solana development. Curated skills covering frontend, smart contracts, testing, security, and more.",
+    description:
+      "Equip your AI assistant with specialized knowledge for Solana development. Curated skills covering frontend, smart contracts, testing, security, and more.",
     alternates: getAlternates("/skills", locale),
   };
 }
