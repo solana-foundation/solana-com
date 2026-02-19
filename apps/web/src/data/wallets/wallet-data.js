@@ -1053,7 +1053,7 @@ export const walletData = [
   {
     name: "Infinex",
     body: "The Crypto Super App. Manage your crypto across multiple chains with no seed phrases and no KYC.",
-    website: "https://infinex.xyz/",
+    website: "https://infinex.xyz/?ref=solwf",
     additionalInfo:
       "Non-Custodial/Self Custodial • Hold NFTs • Social Recovery • Staking",
     icon: infinexIcon,
