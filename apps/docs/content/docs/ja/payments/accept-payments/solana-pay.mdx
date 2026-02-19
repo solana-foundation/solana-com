@@ -1,0 +1,189 @@
+---
+title: Solana Pay
+description: 支払いURL、QRコード、トランザクションを生成
+draft: true
+---
+
+<Callout type="caution">
+  Commerce
+  Kitは現在ベータ版です。安定版リリース前にAPIが変更される可能性があります。詳細については、[Commerce
+  Kitドキュメント](https://launch.solana.com/docs/commerce-kit)を参照してください。
+</Callout>
+
+[Solana Pay](https://solanapay.com)は、支払いリクエストをURLとしてエンコードするための標準プロトコルです。これらのURLは、リンクとして共有したり、モバイルウォレット用のQRコードとしてエンコードしたり、プログラムで支払いトランザクションを構築するために使用できます。
+
+`@solana-commerce/solana-pay`パッケージは、URLのエンコード/パース、QRコード生成、トランザクション構築を提供し、[@solana/kit](https://github.com/anza-xyz/kit)と互換性があります。
+
+## インストール
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## 支払いURLの作成
+
+`encodeURL`を使用して、ウォレットがパースできる`solana:`プロトコルURLを作成します:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL in lamports
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchant...?amount=0.1&label=Coffee%20Shop&message=...
+```
+
+### URLパラメータ
+
+| パラメータ  | 型          | 説明                                         |
+| ----------- | ----------- | -------------------------------------------- |
+| `recipient` | `Address`   | マーチャントウォレットアドレス(必須)         |
+| `amount`    | `bigint`    | lamportsまたはトークンの最小単位での金額     |
+| `splToken`  | `Address`   | SPLトークンのmintアドレス(SOLの場合は省略)   |
+| `reference` | `Address[]` | 支払い追跡用の一意の参照                     |
+| `label`     | `string`    | ウォレットに表示されるマーチャント名         |
+| `message`   | `string`    | 支払い前に表示されるメッセージ               |
+| `memo`      | `string`    | トランザクションに添付されるオンチェーンメモ |
+
+### SPLトークン支払い
+
+ステーブルコイン支払いの場合は、トークンのmintを指定します:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: USDC_MINT,
+  label: "My Store"
+});
+```
+
+### 参照による支払い追跡
+
+特定の支払いを識別するための一意の参照を生成します：
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`
+});
+
+// Query the blockchain later for transactions containing this reference
+```
+
+## QRコードの生成
+
+`createQR`を使用して、モバイルウォレット用のスキャン可能なQRコードを生成します：
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "@solana/kit";
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 100000000n,
+  label: "Coffee Shop"
+});
+
+const qrCode = await createQR(
+  url.toString(),
+  400, // size in pixels
+  "white", // background
+  "black" // foreground
+);
+
+// Use as image source
+document.getElementById("qr").src = qrCode;
+```
+
+### スタイル付きQRコード
+
+ロゴとカスタムスタイリングを含むブランド化されたQRコードの場合：
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+
+const qr = await createStyledQRCode(url.toString(), {
+  width: 600,
+  margin: 3,
+  color: {
+    dark: "#9945FF", // Solana purple
+    light: "#FFFFFF"
+  },
+  errorCorrectionLevel: "H",
+  dotStyle: "dots",
+  cornerStyle: "extra-rounded",
+  logo: "/your-logo.png",
+  logoSize: 120
+});
+```
+
+## トランザクションの構築
+
+`createTransfer`を使用して、署名用の完全なトランザクションを構築します：
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 100000000n, // 0.1 SOL
+    memo: "Coffee purchase"
+  }
+);
+```
+
+SPLトークンの場合は、ミントアドレスを含めます：
+
+```typescript
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 25000000n, // 25 USDC
+    splToken: USDC_MINT,
+    reference: [orderReference],
+    memo: "Order #12345"
+  }
+);
+```
+
+## URLの解析
+
+Solana Pay URLからデータを検証して抽出します：
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL("solana:merchant...?amount=1.5&label=Store");
+
+  console.log(parsed.recipient); // Address
+  console.log(parsed.amount); // 1500000000n (lamports)
+  console.log(parsed.label); // "Store"
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid URL:", error.message);
+  }
+}
+```

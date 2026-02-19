@@ -14,8 +14,7 @@ export default async function Layout({
   const tree = docsSource.pageTree[locale];
   const rpcFolder = tree.children.find(
     (child) =>
-      typeof child.name === "string" &&
-      child.name.startsWith("Solana RPC Methods"),
+      child.type === "folder" && child.index?.url?.includes("/docs/rpc"),
   );
   const pageTree = { ...tree, children: [rpcFolder] };
   return (

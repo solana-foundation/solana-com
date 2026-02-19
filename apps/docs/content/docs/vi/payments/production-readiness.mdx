@@ -1,0 +1,528 @@
+---
+title: Sẵn sàng cho môi trường production
+description: Chuyển từ thử nghiệm devnet sang triển khai mainnet
+---
+
+Xây dựng cục bộ và thử nghiệm trên devnet là những cách tuyệt vời để bắt đầu với
+thanh toán Solana. Tuy nhiên, khi bạn sẵn sàng triển khai lên Mainnet, bạn cần
+nhận thức được những điểm đặc thù của mainnet. Devnet tha thứ cho sai lầm.
+Mainnet thì không. Hướng dẫn này đề cập đến những khác biệt quan trọng để đảm
+bảo người dùng của bạn có trải nghiệm mượt mà.
+
+| Devnet                               | Mainnet                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| SOL miễn phí từ faucet               | [Mua SOL thật](https://solana.com/ecosystem/explore?categories=exchange) để trả phí |
+| Cạnh tranh thấp cho không gian block | Phí ưu tiên quan trọng                                                              |
+| Giao dịch được xử lý dễ dàng         | Cấu hình giao dịch rất quan trọng                                                   |
+| RPC công khai là đủ                  | Yêu cầu RPC production                                                              |
+| Keypair và mint của devnet           | Khóa và token mint khác nhau—cập nhật cấu hình của bạn                              |
+
+## Hạ tầng RPC
+
+[Endpoint công khai](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet-beta.solana.com`) bị giới hạn tốc độ và không có SLA. Chúng phù
+hợp cho phát triển nhưng sẽ làm thất bại các luồng thanh toán production—giống
+như cố gắng chạy một bộ xử lý thanh toán thông qua API dùng chung mà không có
+đảm bảo uptime.
+
+<Callout
+  type="caution"
+  title="Không bao giờ sử dụng RPC công khai cho production"
+>
+  Sử dụng [nhà cung cấp RPC riêng](https://solana.com/rpc) để có quyền truy cập
+  đáng tin cậy, độ trễ thấp.
+</Callout>
+
+Khi chọn nhà cung cấp RPC, hãy tìm:
+
+- **Độ tin cậy**: SLA với đảm bảo uptime (99.9%+)
+- **Độ trễ**: Gần về mặt địa lý với người dùng của bạn
+- **Tính năng**: Tính năng landing giao dịch, indexing, API phí ưu tiên
+
+Để xem danh sách đầy đủ các nhà cung cấp RPC, hãy xem hướng dẫn
+[Nhà cung cấp hạ tầng RPC](https://solana.com/rpc).
+
+### Cấu hình RPC dự phòng
+
+Giống như bất kỳ nhà cung cấp dịch vụ mạng nào, các nhà cung cấp RPC có thể gặp
+downtime hoặc giai đoạn hiệu suất giảm sút. Để đảm bảo ứng dụng của bạn có khả
+năng phục hồi, bạn nên cấu hình ứng dụng của mình để sử dụng nhiều nhà cung cấp
+RPC.
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+cung cấp thư viện để tùy chỉnh các phương thức truyền tải RPC, cho phép bạn xây
+dựng client RPC dự phòng của riêng mình. Dưới đây là ví dụ về cách bạn có thể sử
+dụng nó để xây dựng một client RPC dự phòng:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Nếu bạn không muốn tự xây dựng công cụ định tuyến, bạn có thể tận dụng dịch vụ
+bên thứ ba như [Iron Forge](https://www.ironforge.sanctum.so/) để xử lý việc
+định tuyến cho bạn.
+
+## Xác nhận giao dịch
+
+Trên Devnet, các giao dịch được xác nhận khá dễ dàng. Trên Mainnet, bạn đang
+cạnh tranh cho không gian block. Để tăng khả năng giao dịch của bạn được đưa vào
+một block, bạn nên đảm bảo rằng bạn đã lắp ráp giao dịch đúng cách. Điều này có
+nghĩa là:
+
+- bao gồm blockhash mới trước khi gửi giao dịch
+- bao gồm chỉ thị phí ưu tiên trong giao dịch với mức phí ưu tiên cạnh tranh
+- bao gồm chỉ thị giới hạn đơn vị tính toán trong giao dịch với giới hạn đơn vị
+  tính toán dựa trên ước tính đơn vị tính toán cần thiết cho giao dịch
+
+Ngoài ra, bạn nên xem xét các công cụ khác như Jito Bundles để tăng khả năng
+giao dịch của bạn được đưa vào một block. Hãy cùng khám phá các công cụ này chi
+tiết hơn.
+
+### Cấu hình gửi giao dịch
+
+Khi gửi giao dịch trên Mainnet, hãy cấu hình các tham số này để đạt tỷ lệ xác
+nhận tối ưu:
+
+**Quản lý blockhash:**
+
+- Lấy với cam kết `confirmed`
+- Lưu trữ `lastValidBlockHeight` được trả về bởi `getLatestBlockhash`—điều này
+  cho bạn biết khi nào giao dịch của bạn hết hạn
+- Blockhash hết hạn sau ~150 block (~60-90 giây)
+
+**Tùy chọn gửi:**
+
+- `maxRetries: 0` — Vô hiệu hóa thử lại RPC tự động. Tự xử lý việc thử lại để
+  bạn có thể làm mới blockhash khi cần thiết.
+- `skipPreflight: true` — Bỏ qua mô phỏng trước khi gửi. Sử dụng tùy chọn này
+  khi bạn đã xác thực giao dịch và muốn độ trễ thấp nhất. Giữ nó ở `false` trong
+  quá trình phát triển để phát hiện lỗi sớm.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Sử dụng phí ưu tiên
+
+Mọi giao dịch Solana đều yêu cầu phí giao dịch, được thanh toán bằng SOL. Phí
+giao dịch được chia thành hai phần: phí cơ bản và phí ưu tiên. Phí cơ bản bù đắp
+cho các validator khi xử lý giao dịch. Phí ưu tiên là khoản phí tùy chọn, nhằm
+tăng khả năng leader hiện tại sẽ xử lý giao dịch của bạn. Hãy nghĩ về nó như
+dịch vụ giao hàng nhanh: bạn trả nhiều hơn để được giao hàng nhanh hơn và đáng
+tin cậy hơn.
+
+**Cách thức hoạt động của phí:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**Chi phí thực tế:**
+
+- Chuyển USDC đơn giản: ~$0.001-0.005 trong điều kiện bình thường
+- Trong thời gian tắc nghẽn: ~$0.01-0.05
+- Tắc nghẽn cao điểm: Có thể tăng cao hơn
+
+**Ví dụ triển khai:**
+
+Gói
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+cung cấp hàm trợ giúp để dễ dàng cập nhật hoặc thêm chỉ thị giá đơn vị tính toán
+(tính bằng micro-lamport) vào giao dịch.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Lấy ước tính phí:** Hầu hết các nhà cung cấp RPC đều cung cấp API phí ưu tiên:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Để biết đầy đủ cơ chế phí, xem [Phí giao dịch](/docs/core/fees) và hướng dẫn của
+chúng tôi:
+[Cách thêm phí ưu tiên vào giao dịch](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Tối ưu hóa đơn vị tính toán
+
+Tính toán trên Solana thực chất là thước đo lượng công việc mà chương trình đang
+thực hiện. Có giới hạn về lượng tính toán có thể được sử dụng trong một giao
+dịch (hiện tại là 1,4 triệu đơn vị tính toán), và giới hạn về lượng tính toán có
+thể được sử dụng cho mỗi tài khoản trên mỗi block (hiện tại là 100 triệu đơn vị
+tính toán).
+
+Khi bạn gửi giao dịch, bạn cần ước tính lượng tính toán sẽ được sử dụng và đặt
+giới hạn đơn vị tính toán cho phù hợp - đây thực chất là yêu cầu về lượng công
+suất tổng thể cần được dành riêng cho giao dịch của bạn. Trên thực tế, điều này
+có nghĩa là việc ước tính chính xác các đơn vị tính toán cần thiết cho giao dịch
+của bạn là rất quan trọng để giao dịch được đưa vào block (và quan trọng cho
+việc quản lý phí ưu tiên của bạn).
+
+Solana JSON RPC API có phương thức
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction) có thể được sử dụng
+để ước tính các đơn vị tính toán cần thiết cho một giao dịch, bao gồm cả ước
+tính các đơn vị tính toán sẽ được sử dụng. Package
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+cung cấp một hàm trợ giúp để dễ dàng ước tính các đơn vị tính toán cần thiết cho
+một giao dịch (sử dụng phương thức `simulatetransaction` bên dưới).
+
+```ts
+import {
+  estimateComputeUnitLimitFactory,
+  updateOrAppendSetComputeUnitLimitInstruction
+} from "@solana-program/compute-budget";
+
+const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
+const computeUnitLimit = await estimateComputeUnitLimit(tx);
+const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
+  computeUnitLimit,
+  tx
+);
+```
+
+Trong môi trường production, nếu bạn lặp lại cùng một loại giao dịch nhiều lần,
+bạn nên cân nhắc cache ước tính compute cho loại giao dịch đó để tránh chi phí
+ước tính các đơn vị tính toán mỗi lần.
+
+### Jito bundles
+
+Jito bundles là công cụ để quản lý việc thực thi nguyên tử của nhiều giao dịch.
+Điều này đạt được bằng cách gửi nhiều giao dịch đến mạng Jito kèm theo tip. Tip
+có thể được sử dụng để khuyến khích mạng Jito đưa các giao dịch của bạn vào một
+block.
+
+**Tài nguyên:**
+
+- [Tài liệu Jito](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Video: Jito bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [Hướng dẫn QuickNode về Jito bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Chiến lược retry
+
+Giao dịch có thể thất bại vì nhiều lý do. Không giống như các API thanh toán
+truyền thống trả về thành công/thất bại ngay lập tức, các giao dịch blockchain
+yêu cầu theo dõi xác nhận.
+
+**Các khái niệm chính:**
+
+- **Hết hạn blockhash**: Giao dịch có hiệu lực trong ~150 block (~60-90 giây)
+- **Idempotency**: Cùng một giao dịch đã ký luôn tạo ra cùng một chữ ký—gửi lại
+  là an toàn
+- **Exponential backoff**: Tránh làm quá tải mạng với các lần retry nhanh
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`sendAndConfirmTransactionFactory` từ `@solana/kit` xử lý việc polling xác nhận
+và theo dõi block height tự động. Nó throw `SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED`
+khi blockhash của giao dịch hết hạn, báo hiệu rằng bạn cần xây dựng lại giao
+dịch với blockhash mới.
+
+### Tài nguyên bổ sung
+
+- [Hướng dẫn: Xác nhận và hết hạn giao dịch](https://solana.com/developers/guides/advanced/confirmation)
+- [Helius: Cách thực hiện giao dịch trên Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Chiến lược tối ưu hóa giao dịch Solana](https://www.quicknode.com/docs/solana/transactions)
+
+## Hiểu về các cấp độ xác nhận
+
+Solana cung cấp ba cấp độ xác nhận. Theo thuật ngữ tài chính truyền thống:
+
+| Cấp độ      | Định nghĩa Solana               | Tương đương truyền thống | Trường hợp sử dụng         |
+| ----------- | ------------------------------- | ------------------------ | -------------------------- |
+| `processed` | Trong block, chưa được bỏ phiếu | Đang chờ ủy quyền        | Cập nhật UI thời gian thực |
+| `confirmed` | Đa số tuyệt đối đã bỏ phiếu     | Tiền đã xác nhận         | **Hầu hết thanh toán**     |
+| `finalized` | Đã root, không thể đảo ngược    | Tiền đã thanh toán       | Giá trị cao, tuân thủ      |
+
+**Khi nào sử dụng từng loại:**
+
+- **Cập nhật UI**: Hiển thị `processed` để phản hồi ngay lập tức ("Đã gửi thanh
+  toán")
+- **Ghi có tài khoản người dùng**: Chờ `confirmed` (an toàn cho hầu hết giao
+  dịch)
+- **Giao hàng vật lý**: Chờ `finalized`
+- **Rút tiền lớn**: Chờ `finalized`
+- **Tuân thủ/kiểm toán**: Luôn ghi lại trạng thái `finalized`
+
+Để biết thêm về kiểm tra trạng thái giao dịch, xem
+[Tương tác với Solana](/docs/payments/interacting-with-solana).
+
+## Xử lý lỗi
+
+Solana Kit cung cấp các lỗi có kiểu thông qua `isSolanaError()`. Sử dụng mã lỗi
+cụ thể thay vì so khớp chuỗi:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Mã lỗi phổ biến:**
+
+| Mã lỗi                       | Nguyên nhân              | Khắc phục                                                                                                                     |
+| ---------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash đã hết hạn     | Xây dựng lại với blockhash mới                                                                                                |
+| `BLOCKHASH_NOT_FOUND`        | Không tìm thấy blockhash | Xây dựng lại với blockhash mới                                                                                                |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | Không đủ SOL             | Nạp tiền cho người trả phí hoặc sử dụng [trừu tượng hóa phí](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Không đủ token           | Người dùng cần thêm số dư                                                                                                     |
+| `ACCOUNT_NOT_FOUND`          | Thiếu token account      | Tạo ATA trong giao dịch                                                                                                       |
+
+## Giao dịch không phí gas
+
+Người dùng mong đợi thanh toán bằng stablecoin, không phải mua SOL để trả phí
+mạng. Giao dịch không phí gas giải quyết vấn đề này—tương tự như cách người dùng
+Venmo không cần nghĩ về phí ACH. Xem
+[Trừu tượng hóa phí](/docs/payments/send-payments/payment-processing/fee-abstraction)
+để biết cách triển khai đầy đủ.
+
+## Bảo mật
+
+### Quản lý khóa
+
+- **Không bao giờ để lộ khóa riêng tư trong mã frontend.** Sử dụng ký backend,
+  ví phần cứng, ví đa chữ ký hoặc dịch vụ quản lý khóa.
+- **Tách biệt ví nóng và ví lạnh.** Ví nóng cho hoạt động, ví lạnh cho kho bạc.
+- **Sao lưu tất cả khóa production.** Lưu trữ bản sao lưu được mã hóa ở nhiều vị
+  trí an toàn. Mất khóa đồng nghĩa với việc mất quyền truy cập vĩnh viễn.
+- **Sử dụng khóa khác nhau cho devnet và mainnet.** Khóa devnet của bạn không
+  nên là khóa mainnet. Sử dụng cấu hình dựa trên môi trường để đảm bảo tải đúng
+  khóa cho từng mạng.
+
+### Bảo mật RPC
+
+Xử lý các endpoint RPC như khóa API—không để lộ chúng trong mã frontend nơi
+chúng có thể bị trích xuất và lạm dụng. Sử dụng proxy backend hoặc biến môi
+trường không được đóng gói vào mã client.
+
+- [QuickNode: Endpoint Security Best Practices](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius: Protect Your Solana API Keys: Security Best Practices](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### Giám sát
+
+Theo dõi các chỉ số này trong production:
+
+| Chỉ số                     | Lý do                    |
+| -------------------------- | ------------------------ |
+| Tỷ lệ giao dịch thành công | Phát hiện sớm vấn đề     |
+| Độ trễ xác nhận            | Giám sát tình trạng mạng |
+| Chi phí phí ưu tiên        | Quản lý chi phí          |
+| Tỷ lệ lỗi RPC              | Tình trạng nhà cung cấp  |
+
+Thiết lập cảnh báo cho:
+
+- Chuyển khoản vượt ngưỡng từ kho bạc
+- Tăng đột biến tỷ lệ giao dịch thất bại
+- Mẫu người nhận bất thường
+- Tăng tỷ lệ lỗi RPC
+
+Để giám sát giao dịch theo thời gian thực ở quy mô lớn, xem
+[Hướng dẫn lập chỉ mục](/docs/payments/accept-payments/indexing) của chúng tôi.
+
+### Xác minh địa chỉ
+
+Mỗi token và chương trình có chính xác một địa chỉ đúng trên mainnet. Các token
+giả mạo bắt chước USDC hoặc các stablecoin khác rất phổ biến—chúng sẽ có cùng
+tên và ký hiệu nhưng mint khác. Ứng dụng của bạn nên hardcode hoặc đưa vào danh
+sách cho phép các địa chỉ mint (dựa trên yêu cầu của bạn), không bao giờ chấp
+nhận chúng một cách động từ các nguồn không đáng tin cậy.
+
+**Cấu hình dựa trên môi trường:** Devnet và Mainnet thường sử dụng các token
+mint hoàn toàn khác nhau. Thiết lập cấu hình ứng dụng của bạn để tải các địa chỉ
+chính xác cho từng môi trường—đừng hardcode địa chỉ mainnet và quên thay đổi
+chúng trong quá trình kiểm thử, hoặc tệ hơn, triển khai địa chỉ devnet lên
+production.
+
+Một số mint stablecoin phổ biến là:
+
+| Token | Nhà phát hành | Địa chỉ mint                                   |
+| ----- | ------------- | ---------------------------------------------- |
+| USDC  | Circle        | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether        | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal        | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos         | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+Địa chỉ chương trình cũng quan trọng. Gửi lệnh đến chương trình sai sẽ thất
+bại—hoặc tệ hơn, dẫn đến mất tiền không thể khôi phục. Các địa chỉ Token Program
+là:
+
+| Chương trình       | Địa chỉ                                       |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+## Danh sách kiểm tra trước khi ra mắt
+
+- [ ] Đã có SOL trên mainnet cho phí và rent
+- [ ] Đã cấu hình RPC production (không phải endpoint công khai)
+- [ ] Đã cấu hình endpoint RPC dự phòng
+- [ ] Đã triển khai priority fees với định giá động
+- [ ] Logic thử lại xử lý hết hạn blockhash
+- [ ] Mức xác nhận phù hợp với trường hợp sử dụng
+- [ ] Tất cả lỗi phổ biến được xử lý một cách mượt mà
+- [ ] Đã cấu hình gasless (nếu có)
+- [ ] Đã xác minh địa chỉ token trên mainnet (không phải mint devnet)
+- [ ] Tất cả key đã được sao lưu an toàn
+- [ ] Đã xem xét quản lý key (không có key ở frontend)
+- [ ] Giám sát và cảnh báo giao dịch đang hoạt động
+- [ ] Đã kiểm tra tải ở khối lượng dự kiến
+
+## Triển khai chương trình
+
+Nếu bạn đang triển khai một chương trình Solana tùy chỉnh như một phần của cơ sở
+hạ tầng thanh toán, có một số cân nhắc bổ sung.
+
+### Trước khi triển khai
+
+- **Phiên bản Solana CLI:** Đảm bảo bạn đang sử dụng phiên bản mới nhất của
+  [Solana CLI](https://solana.com/docs/intro/installation).
+- **Keypair chương trình:** Chương trình của bạn sẽ có địa chỉ khác trên mainnet
+  so với devnet (trừ khi bạn sử dụng lại cùng một keypair). Cập nhật tất cả các
+  tham chiếu trong cấu hình ứng dụng của bạn. Lưu trữ keypair chương trình của
+  bạn ở một vị trí an toàn (lưu ý rằng việc chạy `cargo clean` có thể sẽ xóa
+  keypair chương trình của bạn).
+- **Khởi tạo tài khoản:** Nếu chương trình của bạn yêu cầu tài khoản quản trị,
+  PDA hoặc các tài khoản trạng thái khác, hãy đảm bảo chúng được tạo trên
+  mainnet trước khi người dùng tương tác với ứng dụng của bạn. Tương tự cho bất
+  kỳ Associated Token Account (ATA) nào mà chương trình của bạn cần.
+
+### Quy trình triển khai
+
+- **Tài khoản buffer:** Các chương trình lớn triển khai thông qua tài khoản
+  buffer. Lệnh `solana program deploy` xử lý điều này tự động, nhưng hãy hiểu
+  rằng việc triển khai không phải là nguyên tử—nếu bị gián đoạn, bạn có thể cần
+  khôi phục hoặc đóng các tài khoản buffer. Xem
+  [Deploying Programs](https://solana.com/docs/programs/deploying).
+- **Quyền nâng cấp:** Quyết định xem chương trình của bạn có nên được nâng cấp
+  sau khi ra mắt hay không. Để đảm bảo tính bất biến, hãy thu hồi quyền nâng cấp
+  sau khi triển khai. Để linh hoạt, hãy bảo mật khóa quyền nâng cấp một cách
+  thích hợp.
+- **Rent:** Đảm bảo ví triển khai của bạn có đủ SOL để chi trả mức tối thiểu
+  miễn rent cho tất cả các tài khoản chương trình.
+- **Xác minh:** [Xác minh](https://solana.com/docs/programs/verified-builds)
+  chương trình của bạn để đảm bảo rằng chương trình thực thi mà bạn triển khai
+  lên mạng Solana khớp với mã nguồn trong kho lưu trữ của bạn
+
+Để có hướng dẫn đầy đủ về triển khai chương trình, xem
+[Deploying Programs](https://solana.com/docs/programs/deploying).

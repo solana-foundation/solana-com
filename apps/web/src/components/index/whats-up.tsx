@@ -216,7 +216,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                     isIntersecting ? { animationDelay: `0s` } : { opacity: 0 }
                   }
                 >
-                  <span className="font-brand-mono text-[14px] leading-[1.14] font-bold uppercase">
+                  <span className="font-brand-mono text-[14px] leading-[1.14] font-bold uppercase flex items-center">
                     <SolanaMono className={cn("w-3 h-3 -mt-0.5 mr-[7px]")} />
                     TERMINAL
                   </span>
@@ -364,6 +364,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                               {t(`terminal.categories.${item.categoryId}`)}
                             </span>
                           </div>
+                          {/* Date temporarily removed
                           <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[160px]">
                             <span className="font-brand-mono font-medium text-nd-mid-em-text text-[14px] leading-[1.42] uppercase">
                               {item.date &&
@@ -372,6 +373,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                                   .format("MMM D YYYY")}
                             </span>
                           </div>
+                          */}
                         </>
                       );
 

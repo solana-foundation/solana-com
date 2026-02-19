@@ -2,13 +2,47 @@ import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { PostItem } from "@/lib/post-types";
-import { TinaMarkdown } from "tinacms/dist/rich-text";
+import { DocumentRenderer } from "@keystatic/core/renderer";
+import { components } from "@/components/mdx-components";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PostCardProps {
   post: PostItem;
   variant?: "vertical" | "horizontal";
+}
+
+// Helper: render description as plain text or DocumentRenderer document
+function DescriptionContent({ description }: { description: any }) {
+  if (!description) return null;
+
+  // Plain string from fields.text()
+  if (typeof description === "string") {
+    return <p>{description}</p>;
+  }
+
+  // Array (DocumentRenderer format)
+  if (Array.isArray(description)) {
+    return <DocumentRenderer document={description} renderers={components} />;
+  }
+
+  // Object with node.children
+  if (typeof description === "object" && "node" in description) {
+    const children = description.node?.children;
+    if (Array.isArray(children)) {
+      return <DocumentRenderer document={children} renderers={components} />;
+    }
+  }
+
+  // Object with children directly
+  if (typeof description === "object" && "children" in description) {
+    const children = description.children;
+    if (Array.isArray(children)) {
+      return <DocumentRenderer document={children} renderers={components} />;
+    }
+  }
+
+  return null;
 }
 
 export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
@@ -38,7 +72,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
           )}
           <div className="flex flex-col gap-4 grow">
             <div className="text-muted-foreground grow">
-              <TinaMarkdown content={post.description} />
+              <DescriptionContent description={post.description} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted-foreground">
@@ -93,7 +127,7 @@ export const PostCard = ({ post, variant = "vertical" }: PostCardProps) => {
         {post.title}
       </h3>
       <div className="text-muted-foreground grow">
-        <TinaMarkdown content={post.description} />
+        <DescriptionContent description={post.description} />
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
         Read article

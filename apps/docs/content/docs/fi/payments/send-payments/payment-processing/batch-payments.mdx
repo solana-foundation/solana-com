@@ -1,0 +1,495 @@
+---
+title: Eräsiirrot
+description: Opi maksamaan useille vastaanottajille yhdessä transaktiossa.
+---
+
+Solana-transaktio on säiliö, joka sisältää yhden tai useamman ohjeen. Jokainen
+ohje on operaatio – siirrä tokeneita, luo tili, kutsu ohjelmaa. Verkko suorittaa
+kaikki transaktion ohjeet peräkkäin ja atomisesti: joko jokainen ohje onnistuu,
+tai koko transaktio epäonnistuu ja palautuu.
+
+Tämä tarkoittaa, että voit pakata useita siirtoja yhteen transaktioon. Sen
+sijaan, että lähettäisit kolme erillistä transaktiota maksaaksesi kolmelle
+vastaanottajalle, lähetät yhden transaktion, jossa on kolme siirto-ohjetta. Tämä
+on nopeampaa (yksi vahvistus kolmen sijaan) ja halvempaa (yksi perusmaksu kolmen
+sijaan). Tässä on havainnollistava esimerkki siitä, miten maksut (joihin
+viitataan tässä kuvassa nimellä "drops") eräännetään yhteen transaktioon ja
+useita transaktioita lähetetään käsittelemään suurempi erä.
+
+![Eräsiirtojen kaavio](/assets/docs/payments/qn-bulk-send.png)
+
+_Lähde:
+[QuickNode - How to Send Bulk Transactions on Solana](https://www.quicknode.com/guides/solana-development/transactions/how-to-send-bulk-transactions-on-solana)_
+
+Lisätietoja transaktioista ja ohjeista löydät
+[Transaktiot](/docs/core/transactions)- ja
+[Ohjeet](/docs/core/instructions)-oppaista.
+
+Alla oleva läpikäynti näyttää, miten useita siirto-ohjeita ladataan yhteen
+transaktioon eräsiirtoja varten.
+
+## Ohjeiden eräännys yhteen transaktioon
+
+Solana-transaktio voi sisältää useita siirtoja eri vastaanottajille.
+Allekirjoitat kerran, maksat yhden transaktiomaksun, ja kaikki siirrot
+toteutuvat yhdessä. Jos jokin siirto epäonnistuu, koko transaktio hylätään.
+
+<Callout>
+  Katso [How Payments Work on Solana](/docs/payments/how-payments-work) maksun
+  peruskäsitteistä.
+</Callout>
+
+Useiden siirtojen eräännys edellyttää jokaisen ohjeen rakentamista erikseen ja
+niiden yhdistämistä yhteen transaktioon.
+
+Alla olevat vaiheet näyttävät peruskulun. Katso täydellinen ajettava koodi
+[Demosta](#demo).
+
+<ScrollyCoding>
+
+## !!steps Johda token-tilit
+
+Ensin johda lähettäjän ja kunkin vastaanottajan associated token account (ATA)
+-osoitteet. ATA:t ovat deterministisiä osoitteita, jotka perustuvat lompakkoon
+ja minttiin.
+
+<CodePlaceholder title="Eräsiirrot" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## !!steps Luo siirto-ohjeet
+
+Luo erillinen siirto-ohje jokaiselle vastaanottajalle. Jokainen ohje määrittää:
+
+- lähde-token accountin osoitteen
+- kohde-token accountin osoitteen
+- valtuutuksen (lähde-token accountin omistajan osoite)
+- määrän perusyksiköissä (mukautettuna mintin desimaaleihin)
+
+<CodePlaceholder title="Eräsiirrot" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !focus(1:12)
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+```
+
+## !!steps Lähetä yhtenä transaktiona
+
+Lisää kaikki siirto-ohjeet yhteen transaktioon. Tämä suorittaa kaikki siirrot
+atomaarisesti – joko kaikki siirrot onnistuvat tai koko transaktio epäonnistuu.
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+// !focus(1:5)
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  // !mark
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+```
+
+## !!steps Tarkista saldot
+
+Eräsiirron jälkeen tarkista kaikkien osapuolten token-saldot käyttämällä
+`splToken` -apufunktiota.
+
+<CodePlaceholder title="Eräsiirrot" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+
+// !focus(1:8)
+const splToken = client.splToken({
+  mint: mint.address,
+  tokenProgram: "auto"
+});
+
+const senderBalance = await splToken.fetchBalance(sender.address);
+const recipient1Balance = await splToken.fetchBalance(recipient1.address);
+const recipient2Balance = await splToken.fetchBalance(recipient2.address);
+```
+
+</ScrollyCoding>
+
+### Demo
+
+<CodeTabs flags="r">
+
+```ts !! title="Demo"
+// !collapse(1:14) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getTransferInstruction
+} from "@solana-program/token-2022";
+
+// Generate keypairs for sender and two recipients
+const sender = (await generateKeypair()).signer;
+const recipient1 = (await generateKeypair()).signer;
+const recipient2 = (await generateKeypair()).signer;
+
+console.log("Sender Address:", sender.address);
+console.log("Recipient 1 Address:", recipient1.address);
+console.log("Recipient 2 Address:", recipient2.address);
+
+// Demo Setup: Create client, mint account, token accounts, and fund with initial tokens
+const { client, mint } = await demoSetup(sender, recipient1, recipient2);
+
+console.log("\nMint Address:", mint.address);
+
+// Derive the Associated Token Accounts addresses (ATAs) for sender and recipients
+// !mark(1:5)
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !mark(1:5)
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !mark(1:5)
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+console.log("Sender Token Account:", senderAta.toString());
+console.log("Recipient 1 Token Account:", recipient1Ata.toString());
+console.log("Recipient 2 Token Account:", recipient2Ata.toString());
+
+// =============================================================================
+// Batch Token Payment Demo
+// =============================================================================
+
+// Create instructions to transfer tokens from sender to both recipients
+// Transferring 250,000 base units = 0.25 tokens (with 6 decimals) to each
+// !mark(1:6)
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n // 0.25 tokens
+});
+
+// !mark(1:6)
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n // 0.25 tokens
+});
+
+// Prepare and send both transfers in a single transaction using @solana/client
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  // !mark
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+
+console.log("\n=== Batch Token Payment Complete ===");
+console.log("Transaction Signature:", signature.toString());
+
+// Fetch final token account balances using @solana/client SPL token helper
+const splToken = client.splToken({
+  mint: mint.address,
+  tokenProgram: "auto"
+});
+
+const senderBalance = await splToken.fetchBalance(sender.address);
+const recipient1Balance = await splToken.fetchBalance(recipient1.address);
+const recipient2Balance = await splToken.fetchBalance(recipient2.address);
+
+console.log("\nSender Token Account Balance:", senderBalance);
+console.log("Recipient 1 Token Account Balance:", recipient1Balance);
+console.log("Recipient 2 Token Account Balance:", recipient2Balance);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a batch token transfer demo:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to sender for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token accounts for sender and both recipients
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param recipient1 - The first recipient's keypair
+ * @param recipient2 - The second recipient's keypair
+ * @returns Returns client instance and mint address
+ */
+async function demoSetup(
+  sender: ServerKeypair["signer"],
+  recipient1: ServerKeypair["signer"],
+  recipient2: ServerKeypair["signer"]
+) {
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund sender with SOL for transaction fees using @solana/client actions
+  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token 2022 program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction for recipient 1's ATA
+  const createRecipient1AtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient1.address
+    });
+
+  // Create instruction for recipient 2's ATA
+  const createRecipient2AtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient2.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
+  });
+
+  // Combine all instructions and send using @solana/client transaction helper
+  const setupInstructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    createRecipient1AtaInstruction, // Create recipient 1's ATA
+    createRecipient2AtaInstruction, // Create recipient 2's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Prepare and send transaction using @solana/client
+  await client.transaction.prepareAndSend({
+    authority: sender,
+    instructions: setupInstructions,
+    version: 0
+  });
+
+  return {
+    client,
+    mint
+  };
+}
+```
+
+</CodeTabs>
+
+## Skaalaus transaktiosuunnittelulla
+
+Yhdellä transaktiolla on kokorajoituksia – noin 1232 tavua. Suurissa
+eräoperaatioissa (palkanlaskenta sadoille työntekijöille, massiiviset airdropit)
+ylität tämän rajan ja sinun on jaettava työ useisiin transaktioihin.
+
+Vaikka voit vapaasti luoda oman transaktioiden jakelun logiikkasi,
+[`@solana/instruction-plans`](https://www.solanakit.com/docs/concepts/instruction-plans)-paketti
+(osa Solana Kitiä) käsittelee tämän kahdella tasolla:
+
+**Käskysuunnitelmat** määrittelevät operaatiosi ja niiden järjestysrajoitteet:
+
+- **Peräkkäiset** — käskyt, jotka on suoritettava järjestyksessä
+- **Rinnakkaiset** — käskyt, jotka voidaan suorittaa missä tahansa
+  järjestyksessä
+- **Jakamattomat** — käskyt, joiden on pysyttävä yhdessä samassa transaktiossa
+
+**Transaktiosuunnitelmat** luodaan käskysuunnitelmista. Suunnittelija pakkaa
+älykkäästi käskyt optimaalisesti mitoitettuihin transaktioihin kunnioittaen
+järjestysrajoitteitasi. Tuloksena oleva transaktiosuunnitelma voidaan sitten:
+
+- **Suorittaa** — allekirjoittaa ja lähettää verkkoon, rinnakkaiset transaktiot
+  lähetetään samanaikaisesti
+- **Simuloida** — testata verkkoa vasten ennen lähettämistä
+- **Sarjallistaa** — kääntää base64-muotoon ulkoisia allekirjoituspalveluita tai
+  moniosapuolisia työnkulkuja varten
+
+Tämä kaksitasoinen lähestymistapa antaa sinun ajatella operaatioiden kannalta
+("siirrä Alicelle, sitten siirrä Bobille"), kun taas kirjasto käsittelee
+transaktioiden mitoituksen, pakkaamisen ja rinnakkaisen suorituksen mekaniikan.

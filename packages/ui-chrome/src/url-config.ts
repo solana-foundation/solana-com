@@ -21,6 +21,8 @@ const APP_INTERNAL_ROUTES: Record<string, RegExp> = {
   media: /^\/(?:news|podcasts)(?:\/|$)/,
   // templates app handles: /developers/templates/*
   templates: /^\/developers\/templates(?:\/|$)/,
+  // accelerate app handles: /accelerate/*
+  accelerate: /^\/accelerate(?:\/|$)/,
 };
 
 const INTERNAL_PATTERN = APP_NAME ? APP_INTERNAL_ROUTES[APP_NAME] : null;

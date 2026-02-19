@@ -1,8 +1,9 @@
-import createMiddleware from "next-intl/middleware";
-import { routing } from "@workspace/i18n/routing";
+import { createMiddleware, routing } from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 
+// The main web app uses routing with locale detection enabled
+// and doesn't need preserveProxiedLocaleCookie since it's the source of truth
 const handleI18nRouting = createMiddleware(routing);
 
 export default async function middleware(req: NextRequest) {
@@ -11,6 +12,7 @@ export default async function middleware(req: NextRequest) {
   // Skip i18n for paths that are proxied to other Vercel apps via rewrites
   // These paths are handled by their respective app's middleware
   if (
+    pathname.startsWith("/accelerate") ||
     pathname.startsWith("/breakpoint") ||
     pathname === "/developers" ||
     pathname.startsWith("/developers/templates") ||
@@ -18,11 +20,23 @@ export default async function middleware(req: NextRequest) {
     pathname.startsWith("/developers/guides") ||
     pathname.startsWith("/docs") ||
     pathname.startsWith("/learn") ||
-    pathname.startsWith("/news") ||
+    (pathname.startsWith("/news") && !pathname.startsWith("/newsletter")) ||
     pathname.startsWith("/podcasts") ||
     pathname.startsWith("/media-assets") ||
     pathname.startsWith("/opengraph")
   ) {
+    return NextResponse.next();
+  }
+
+  const canonicalSkillPath = "/SKILL.md";
+  if (pathname.toLowerCase() === "/skill.md") {
+    if (pathname !== canonicalSkillPath) {
+      return NextResponse.redirect(
+        `${req.nextUrl.origin}${canonicalSkillPath}`,
+        308,
+      );
+    }
+
     return NextResponse.next();
   }
 
@@ -63,14 +77,22 @@ export default async function middleware(req: NextRequest) {
     req.nextUrl.searchParams.delete("slug");
   }
 
-  return handleI18nRouting(req);
+  const response = await handleI18nRouting(req);
+
+  if (pathname.includes("/playgg")) {
+    response.headers.set("x-custom-layout", "true");
+  }
+
+  return response;
 }
 
 export const config = {
   // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
-    "/((?!api|opengraph|_next|_vercel|breakpoint|docs|learn|news|podcasts|media-assets|.*\\..*).*)",
+    "/SKILL.md",
+    "/skill.md",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|podcasts|media-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

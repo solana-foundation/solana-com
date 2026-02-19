@@ -1,12 +1,87 @@
-import createMiddleware from "next-intl/middleware";
-import { routing } from "@workspace/i18n/routing";
-import { NextRequest, NextResponse } from "next/server";
+import {
+  createMiddleware,
+  routingWithoutDetection,
+} from "@workspace/i18n/middleware";
+import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
+import {
+  MarkdownRequestSource,
+  trackMarkdownRequest,
+} from "@@/src/lib/posthog/server";
 
-const handleI18nRouting = createMiddleware(routing);
+// These are the prefixes that we want to serve as markdown if
+// the Accept header includes "text/markdown" or if
+// the pathname ends with ".md"
+const MARKDOWN_PREFIXES = [
+  "/docs",
+  "/developers/guides",
+  "/developers/cookbook",
+  "/learn",
+] as const;
+const MARKDOWN_API_PREFIX = "/api/markdown";
+const SOLANA_SITE_ORIGIN = "https://solana.com";
 
-export default async function middleware(req: NextRequest) {
+function matchesMarkdownPrefix(path: string): boolean {
+  const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
+  return MARKDOWN_PREFIXES.some(
+    (prefix) =>
+      pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`),
+  );
+}
+
+function getRouteFromMarkdownApiPath(pathname: string): string {
+  const route = pathname.slice(MARKDOWN_API_PREFIX.length);
+  if (!route) {
+    return "/";
+  }
+  return route.startsWith("/") ? route : `/${route}`;
+}
+
+function trackMarkdownRequestInBackground(
+  event: NextFetchEvent,
+  route: string,
+  source: MarkdownRequestSource,
+) {
+  const normalizedRoute = route.endsWith(".md") ? route.slice(0, -3) : route;
+  event.waitUntil(
+    trackMarkdownRequest({
+      route: normalizedRoute,
+      source,
+      currentUrl: `${SOLANA_SITE_ORIGIN}${normalizedRoute}`,
+    }),
+  );
+}
+
+function rewriteToMarkdownApi(req: NextRequest, segments: string[]) {
+  const url = req.nextUrl.clone();
+  url.pathname = `/api/markdown/${segments.join("/")}`;
+  return NextResponse.rewrite(url);
+}
+
+// routingWithoutDetection: prevents redirects based on Accept-Language that would leak Vercel URL
+// preserveProxiedLocaleCookie: prevents overwriting the main app's NEXT_LOCALE cookie
+// when requests come through the web app's rewrite (fixes "random language" bug)
+const handleI18nRouting = createMiddleware(routingWithoutDetection, {
+  preserveProxiedLocaleCookie: true,
+});
+
+export default async function middleware(
+  req: NextRequest,
+  event: NextFetchEvent,
+) {
   const { pathname } = req.nextUrl;
+
+  if (
+    pathname === MARKDOWN_API_PREFIX ||
+    pathname.startsWith(`${MARKDOWN_API_PREFIX}/`)
+  ) {
+    trackMarkdownRequestInBackground(
+      event,
+      getRouteFromMarkdownApiPath(pathname),
+      "direct-api",
+    );
+    return NextResponse.next();
+  }
 
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(
@@ -45,46 +120,41 @@ export default async function middleware(req: NextRequest) {
     req.nextUrl.searchParams.delete("slug");
   }
 
-  const response = handleI18nRouting(req);
+  const hasLocalePrefix = locales.includes(pathSegments[0]);
+  const normalizedSegments = hasLocalePrefix
+    ? pathSegments.slice(1)
+    : pathSegments;
+  const normalizedPath = `/${normalizedSegments.join("/")}`;
 
-  // Fix redirect URLs when request came through a proxy (web app).
-  // When a user visits solana.com/docs/rpc with locale cookie "es":
-  // 1. Web app rewrites to docs app: solana-com-docs.vercel.app/docs/rpc
-  // 2. Docs middleware detects locale cookie and redirects to /es/docs/rpc
-  // 3. BUT the redirect URL uses the docs app host: solana-com-docs.vercel.app/es/docs/rpc
-  // 4. Browser follows redirect and ends up on the docs app domain directly!
-  // Fix: Replace the docs app host with the original host (from x-forwarded-host)
-  // so the redirect goes to solana.com/es/docs/rpc instead.
-  if (response instanceof Response) {
-    const forwardedHost = req.headers.get("x-forwarded-host");
-    const currentHost = req.headers.get("host");
-    const location = response.headers.get("location");
+  // Accept header content negotiation for markdown
+  const acceptHeader = req.headers.get("accept") || "";
+  const wantsMarkdown = acceptHeader.includes("text/markdown");
 
-    if (
-      forwardedHost &&
-      currentHost &&
-      forwardedHost !== currentHost &&
-      location
-    ) {
-      const fixedLocation = location.replace(currentHost, forwardedHost);
-      const fixedResponse = new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: new Headers(response.headers),
-      });
-      fixedResponse.headers.set("location", fixedLocation);
-      return fixedResponse;
-    }
+  if (
+    wantsMarkdown &&
+    !normalizedPath.endsWith(".md") &&
+    matchesMarkdownPrefix(normalizedPath)
+  ) {
+    trackMarkdownRequestInBackground(event, normalizedPath, "accept-header");
+    return rewriteToMarkdownApi(req, normalizedSegments);
   }
 
-  return response;
+  if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
+    trackMarkdownRequestInBackground(event, normalizedPath, "md-extension");
+    const segments = [...normalizedSegments];
+    segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
+    return rewriteToMarkdownApi(req, segments);
+  }
+
+  return handleI18nRouting(req);
 }
 
 export const config = {
   // Exclude paths that are proxied to other Vercel apps (handled by their own middleware)
   // Also exclude api routes, static files, and Next.js internals
   matcher: [
-    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|docs-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|breakpoint|news|podcasts|docs-assets|.*\\.(?!md$)).*)",
+    "/api/markdown/:path*",
   ],
   runtime: "nodejs",
 };

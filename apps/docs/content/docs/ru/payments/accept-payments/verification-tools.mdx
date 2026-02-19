@@ -1,0 +1,244 @@
+---
+title: Инструменты верификации
+description:
+  Проверяйте поступающие платежи в стейблкоинах и сверяйте их со своими
+  заказами.
+---
+
+Токены поступают в ваш кошелёк сразу после подтверждения транзакции. Получателю
+не требуется никаких действий. Solana атомарно увеличивает баланс токенов в
+аккаунте получателя и уменьшает баланс отправителя. В этом руководстве мы
+рассмотрим полезные инструменты для отслеживания баланса вашего token account и
+мониторинга входящих платежей.
+
+## Запрос баланса токенов
+
+Проверьте свой баланс стейблкоинов с помощью метода RPC
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance):
+
+```typescript
+import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function getBalance(walletAddress: Address) {
+  // Derive the token account address
+  const [ata] = await findAssociatedTokenPda({
+    mint: USDC_MINT,
+    owner: walletAddress,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Query balance via RPC
+  const { value } = await rpc.getTokenAccountBalance(ata).send();
+
+  return {
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
+  };
+}
+```
+
+## Отслеживание входящих переводов
+
+Подпишитесь на свой token account для получения уведомлений о платежах в
+реальном времени с помощью метода RPC `accountNotifications`:
+
+```typescript
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
+  const abortController = new AbortController();
+
+  const subscription = await rpcSubscriptions
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
+    .subscribe({ abortSignal: abortController.signal });
+
+  let previousBalance = 0n;
+
+  for await (const notification of subscription) {
+    const [data] = notification.value.data;
+    const dataBytes = getBase64Codec().encode(data);
+    const token = getTokenCodec().decode(dataBytes);
+    if (token.amount > previousBalance) {
+      const received = token.amount - previousBalance;
+      onPayment(received);
+    }
+    previousBalance = token.amount;
+  }
+  abortController.abort();
+}
+```
+
+Обратите внимание, что здесь используются RPC-подписки и websocket-подключение к
+сети Solana.
+
+Каждое уведомление содержит строку с данными token account, закодированную в
+base64. Поскольку мы знаем, что рассматриваемый аккаунт — это token account, мы
+можем декодировать данные с помощью метода `getTokenCodec` из пакета
+`@solana-program/token`.
+
+Для production-приложений стоит рассмотреть более надёжные стриминговые решения.
+Некоторые варианты:
+
+- [Alchemy](https://docs.alchemy.com/reference/subscription-api)
+- [Triton](https://docs.triton.one/chains/solana/streaming)
+- [Helius](https://www.helius.dev/docs/data-streaming)
+- [QuickNode](https://www.quicknode.com/docs/solana/subscriptions)
+
+## Разбор истории транзакций
+
+В Solana есть RPC-методы, позволяющие получить историю транзакций аккаунта
+([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) и детали
+транзакции ([`getTransaction`](/docs/rpc/http/gettransaction)). Для разбора
+истории транзакций мы получаем последние подписи для нашего token account, затем
+извлекаем pre/post балансы токенов каждой транзакции. Сравнивая баланс нашего
+ATA до и после каждой транзакции, можно определить сумму и направление платежа
+(входящий или исходящий).
+
+```typescript
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
+  const payments: ParsedPayment[] = [];
+
+  for (const sig of signatures) {
+    const tx = await rpc
+      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+      .send();
+
+    if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
+
+    // Find our ATA's index in the transaction
+    const accountKeys = tx.transaction.message.accountKeys;
+    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    if (ataIndex === -1) continue;
+
+    // Compare pre/post balances for our ATA
+    const pre = tx.meta.preTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+    const post = tx.meta.postTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+
+    const preAmount = BigInt(pre?.uiTokenAmount.amount ?? "0");
+    const postAmount = BigInt(post?.uiTokenAmount.amount ?? "0");
+    const diff = postAmount - preAmount;
+
+    if (diff !== 0n) {
+      payments.push({
+        signature: sig.signature,
+        timestamp: tx.blockTime,
+        amount: diff > 0n ? diff : -diff,
+        type: diff > 0n ? "incoming" : "outgoing"
+      });
+    }
+  }
+
+  return payments;
+}
+```
+
+Чтобы определить контрагента, вы можете просканировать балансы токенов в
+транзакции и найти другой аккаунт, у которого баланс изменился в противоположном
+направлении — если вы получили средства, ищите аккаунт, у которого баланс
+уменьшился на ту же сумму.
+
+Поскольку переводы SPL-токенов могут использоваться не только для платежей между
+пользователями, такой подход может выявить транзакции, которые не являются
+платежами. Хорошей альтернативой здесь будет использование Memo.
+
+### Ограничения парсинга балансов до/после транзакции
+
+Описанный выше подход хорошо работает для простых платежных сценариев. Однако
+компаниям, обрабатывающим платежи в больших объемах, часто требуется более
+детализированные и оперативные данные:
+
+- **Разделение по инструкциям:** Одна транзакция может содержать несколько
+  переводов. Балансы до/после показывают только итоговое изменение, а не
+  отдельные переводы.
+- **Многопользовательские транзакции:** Сложные транзакции (свопы, массовые
+  выплаты) включают несколько аккаунтов. Разница балансов не раскрывает полный
+  поток средств.
+- **Аудиторские требования:** Для финансового комплаенса часто требуется
+  восстановить точную последовательность переводов, а не только финальные
+  балансы.
+
+Для продакшн-систем с большим объемом операций рассмотрите использование
+специализированных
+[индексирующих решений](/docs/payments/accept-payments/indexing), которые
+разбирают отдельные инструкции перевода и предоставляют детальную информацию по
+каждой транзакции.
+
+## Сверка платежей с помощью Memo
+
+Когда отправители добавляют memo (ID счета, номера заказов), вы можете извлечь
+их из сообщения транзакции с помощью метода RPC `getTransaction` и кодировки
+`jsonParsed`:
+
+```typescript
+function extractMemos(transaction): string | null {
+  const { instructions } = transaction.transaction.message;
+  let memos = "";
+  for (const instruction of instructions) {
+    if (instruction.program !== "spl-memo") continue;
+    memos += instruction.parsed + "; ";
+  }
+  return memos;
+}
+
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
+  const tx = await rpc
+    .getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      encoding: "jsonParsed"
+    })
+    .send();
+  if (!tx) return null;
+  return extractMemos(tx);
+}
+```
+
+## Защита
+
+Несколько сценариев, которых стоит избегать:
+
+- **Доверие фронтенду.** Страница оплаты сообщает: «платеж завершён», но
+  действительно ли транзакция прошла? Всегда проверяйте на сервере, делая запрос
+  к RPC. Подтверждения на фронтенде можно подделать.
+
+- **Действия по статусу "processed".** Транзакции Solana проходят три стадии:
+  processed → confirmed → finalized. Транзакция со статусом "processed" всё ещё
+  может быть отклонена во время форка. Дождитесь статуса "confirmed" (1–2
+  секунды) перед отправкой заказа или "finalized" (~13 секунд) для крупных
+  транзакций.
+
+- **Игнорирование mint.** Любой может создать токен с названием "USDC".
+  Проверяйте, что mint в token account совпадает с настоящим адресом mint
+  стейблкоина и программой токенов, а не только с именем токена.
+
+- **Двойное выполнение.** Ваш webhook срабатывает, вы отправляете заказ.
+  Происходит сбой в сети — webhook срабатывает снова. Теперь вы отправили заказ
+  дважды. Храните обработанные подписи транзакций и проверяйте их перед
+  выполнением заказа.

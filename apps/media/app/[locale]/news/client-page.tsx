@@ -2,16 +2,14 @@
 import React, { useCallback, useMemo, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { PageInfo } from "@/tina/__generated__/types";
 import ErrorBoundary from "@/components/error-boundary";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRight } from "lucide-react";
 import { SocialShare } from "@/components/ui/social-share";
-import { PostItem } from "@/lib/post-types";
+import { PostItem, PageInfo } from "@/lib/post-types";
 import { PostCard } from "@/components/post/post-card";
 import LoadMoreStatus from "@/components/ui/load-more-status";
-import { fetchLatestPosts } from "@/lib/post-data";
 import uniqBy from "lodash/uniqBy";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
@@ -40,18 +38,21 @@ export default function PostsClientPage(props: PostsClientPageProps) {
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
-  // Load more posts
+  // Load more posts via API
   const handleLoadMore = useCallback(async () => {
-    if (!pageInfo?.hasPreviousPage || isLoadingMore) return;
+    if (!pageInfo?.hasNextPage || isLoadingMore) return;
 
     setIsLoadingMore(true);
 
     try {
-      const response = await fetchLatestPosts({
-        limit: 13,
-        cursor: currentCursor || pageInfo.startCursor || undefined,
-      });
+      const cursor = currentCursor || pageInfo.endCursor;
+      const params = new URLSearchParams({ limit: "13" });
+      if (cursor) params.set("cursor", cursor);
 
+      const res = await fetch(`/api/posts/latest?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch posts");
+
+      const response = await res.json();
       const newPosts = response.posts;
 
       if (newPosts.length > 0) {
@@ -72,12 +73,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [
-    pageInfo.hasPreviousPage,
-    pageInfo.startCursor,
-    isLoadingMore,
-    currentCursor,
-  ]);
+  }, [pageInfo.hasNextPage, pageInfo.endCursor, isLoadingMore, currentCursor]);
 
   // Extract regular posts from postsData
   useEffect(() => {
@@ -244,13 +240,16 @@ export default function PostsClientPage(props: PostsClientPageProps) {
               </div>
             )}
 
-            <LoadMoreStatus
-              isLoading={isLoadingMore}
-              hasMore={pageInfo.hasPreviousPage}
-              onLoadMore={handleLoadMore}
-              loadingText="Loading more posts..."
-              noMoreText="No more posts to load"
-            />
+            {/* Only show LoadMoreStatus when there are posts and no category filter is active */}
+            {posts.length > 0 && !selectedCategory && (
+              <LoadMoreStatus
+                isLoading={isLoadingMore}
+                hasMore={pageInfo.hasNextPage}
+                onLoadMore={handleLoadMore}
+                loadingText="Loading more posts..."
+                noMoreText="No more posts to load"
+              />
+            )}
           </div>
         </div>
       </Section>

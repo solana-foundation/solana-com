@@ -1,0 +1,534 @@
+---
+title: Productierijpheid
+description: Van devnet-testen naar mainnet-implementatie
+---
+
+Lokaal bouwen en testen op devnet zijn uitstekende manieren om te beginnen met
+Solana-betalingen. Wanneer je echter klaar bent om naar mainnet te
+implementeren, moet je je bewust zijn van de nuances van het mainnet. Devnet
+vergeeft fouten. Mainnet niet. Deze gids behandelt de verschillen die ertoe doen
+om ervoor te zorgen dat je gebruikers een soepele ervaring hebben.
+
+| Devnet                            | Mainnet                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------ |
+| Gratis SOL van faucets            | [Verkrijg echte SOL](https://solana.com/ecosystem/explore?categories=exchange) voor kosten |
+| Lage concurrentie voor blokruimte | Prioriteitskosten zijn belangrijk                                                          |
+| Transacties landen gemakkelijk    | Transactieconfiguratie is cruciaal                                                         |
+| Publieke RPC is prima             | Productie-RPC vereist                                                                      |
+| Devnet-keypairs en mints          | Verschillende sleutels en token-mints—werk je configuratie bij                             |
+
+## RPC-infrastructuur
+
+[Publieke endpoints](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet-beta.solana.com`) zijn rate-limited zonder SLA. Ze zijn prima voor
+ontwikkeling maar zullen productiebetalingsstromen laten mislukken—alsof je een
+betalingsverwerker probeert te draaien via een gedeelde API zonder
+uptime-garantie.
+
+<Callout type="caution" title="Gebruik nooit publieke RPC voor productie">
+  Gebruik een [private RPC-provider](https://solana.com/rpc) voor betrouwbare,
+  lage-latency toegang.
+</Callout>
+
+Bij het kiezen van een RPC-provider, let op:
+
+- **Betrouwbaarheid**: SLA's met uptime-garanties (99,9%+)
+- **Latency**: Geografische nabijheid tot je gebruikers
+- **Functies**: Transactielandingsfuncties, indexering, prioriteitskost-API's
+
+Voor een volledige lijst van RPC-providers, zie de
+[RPC Infrastructure Providers](https://solana.com/rpc)-gids.
+
+### Redundante RPC-configuratie
+
+Zoals elke netwerkserviceprovider kunnen RPC-providers downtime of periodes van
+verminderde prestaties ervaren. Om ervoor te zorgen dat je applicatie
+veerkrachtig is, moet je je applicatie configureren om meerdere RPC-providers te
+gebruiken.
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+biedt een bibliotheek voor het aanpassen van RPC-transporten waarmee je je eigen
+redundante RPC-client kunt bouwen. Hier is een voorbeeld van hoe je het kunt
+gebruiken om een redundante RPC-client te bouwen:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Als je liever geen eigen routingtools bouwt, kun je gebruikmaken van een derde
+partij service zoals [Iron Forge](https://www.ironforge.sanctum.so/) om de
+routing voor je af te handelen.
+
+## Transaction landing
+
+Op Devnet landen transacties vrij gemakkelijk. Op Mainnet concurreer je voor
+blokruimte. Om de kans te vergroten dat je transactie in een blok wordt
+opgenomen, moet je ervoor zorgen dat je transactie correct is samengesteld. Dit
+betekent:
+
+- het opnemen van een verse blockhash voordat je de transactie verstuurt
+- het opnemen van een priority fee instructie in de transactie met een
+  competitieve priority fee
+- het opnemen van een compute unit limit instructie in de transactie met een
+  compute unit limit gebaseerd op de geschatte compute units die nodig zijn voor
+  de transactie
+
+Daarnaast moet je andere tools zoals Jito Bundles overwegen om de kans te
+vergroten dat je transactie in een blok wordt opgenomen. Laten we deze tools in
+meer detail verkennen.
+
+### Configuratie voor het versturen van transacties
+
+Bij het versturen van transacties op Mainnet, configureer je deze parameters
+voor optimale landingspercentages:
+
+**Blockhash-beheer:**
+
+- Ophalen met `confirmed` commitment
+- Bewaar de `lastValidBlockHeight` die wordt geretourneerd door
+  `getLatestBlockhash`—dit vertelt je wanneer je transactie verloopt
+- Blockhashes verlopen na ~150 blokken (~60-90 seconden)
+
+**Verzendopties:**
+
+- `maxRetries: 0` — Schakel automatische RPC-retries uit. Handel retries zelf af
+  zodat je de blockhash kunt verversen wanneer nodig.
+- `skipPreflight: true` — Omzeil simulatie voordat je verstuurt. Gebruik dit
+  wanneer je de transactie al hebt gevalideerd en de laagste latentie wilt. Houd
+  het op `false` tijdens ontwikkeling om fouten vroegtijdig op te vangen.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Gebruik prioriteitskosten
+
+Elke Solana-transactie vereist transactiekosten, betaald in SOL.
+Transactiekosten zijn opgesplitst in twee delen: de basiskosten en de
+prioriteitskosten. De basiskosten compenseren validators voor het verwerken van
+de transactie. De prioriteitskosten zijn optionele kosten om de kans te
+vergroten dat de huidige leider je transactie verwerkt. Zie het als
+expresverzending: je betaalt meer voor snellere, betrouwbaardere levering.
+
+**Hoe kosten werken:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**Kosten in de praktijk:**
+
+- Eenvoudige USDC-overdracht: ~$0,001-0,005 onder normale omstandigheden
+- Tijdens congestie: ~$0,01-0,05
+- Piekcongestie: kan hoger uitvallen
+
+**Voorbeeldimplementatie:**
+
+Het
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)-pakket
+biedt een hulpfunctie om eenvoudig de compute unit price (in micro-lamports)
+instructie bij te werken of toe te voegen aan een transactie.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Kostenramingen verkrijgen:** De meeste RPC-providers bieden
+prioriteitskost-API's aan:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Voor de volledige kostenmechanica, zie [Transactiekosten](/docs/core/fees) en
+onze handleiding:
+[Hoe prioriteitskosten toevoegen aan een transactie](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Optimaliseer compute units
+
+Compute op Solana is in feite een maat voor de hoeveelheid werk die het
+programma verricht. Er is een limiet aan de hoeveelheid compute die kan worden
+gebruikt in een transactie (momenteel 1,4 miljoen compute units), en een limiet
+aan de hoeveelheid compute die per account per blok kan worden gebruikt
+(momenteel 100 miljoen compute units).
+
+Wanneer je een transactie indient, moet je de hoeveelheid compute schatten die
+zal worden gebruikt, en de compute unit-limiet dienovereenkomstig instellen -
+dit is in feite een verzoek voor hoeveel van de totale capaciteit moet worden
+gereserveerd voor jouw transactie. In de praktijk betekent dit dat het correct
+inschatten van de compute units die nodig zijn voor je transactie cruciaal is om
+je transactie in een blok opgenomen te krijgen (en belangrijk is voor het
+beheren van je prioriteitskosten).
+
+De Solana JSON RPC API heeft een
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction) methode die kan
+worden gebruikt om de benodigde compute units voor een transactie te schatten,
+inclusief een schatting van de compute units die zullen worden gebruikt. Het
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+pakket biedt een hulpfunctie om eenvoudig de benodigde compute units voor een
+transactie te schatten (die onder de motorkap de `simulatetransaction` methode
+gebruikt).
+
+```ts
+import {
+  estimateComputeUnitLimitFactory,
+  updateOrAppendSetComputeUnitLimitInstruction
+} from "@solana-program/compute-budget";
+
+const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
+const computeUnitLimit = await estimateComputeUnitLimit(tx);
+const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
+  computeUnitLimit,
+  tx
+);
+```
+
+In productie, als je hetzelfde type transactie meerdere keren herhaalt, moet je
+overwegen om de compute-schatting voor het transactietype te cachen om de
+overhead van het schatten van de compute units elke keer te vermijden.
+
+### Jito bundles
+
+Jito bundles zijn een hulpmiddel voor het beheren van atomische uitvoering van
+meerdere transacties. Dit wordt bereikt door meerdere transacties naar het
+Jito-netwerk te sturen met een fooi. Fooien kunnen worden gebruikt om het
+Jito-netwerk te stimuleren om jouw transacties in een blok op te nemen.
+
+**Bronnen:**
+
+- [Jito documentatie](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Video: Jito bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [QuickNode gids over Jito bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Retry-strategieën
+
+Transacties kunnen om vele redenen mislukken. In tegenstelling tot traditionele
+betaal-API's die onmiddellijk succes/falen retourneren, vereisen
+blockchain-transacties bevestigings- tracking.
+
+**Belangrijke concepten:**
+
+- **Blockhash-vervaldatum**: transacties zijn geldig voor ~150 blokken (~60-90
+  seconden)
+- **Idempotentie**: dezelfde ondertekende transactie produceert altijd dezelfde
+  handtekening—opnieuw indienen is veilig
+- **Exponentiële backoff**: vermijd het overbelasten van het netwerk met snelle
+  retries
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+De `sendAndConfirmTransactionFactory` van `@solana/kit` handelt bevestigings-
+polling en blokhoogte-tracking automatisch af. Het gooit
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` wanneer de blockhash van de transactie
+verloopt, wat aangeeft dat je de transactie opnieuw moet opbouwen met een nieuwe
+blockhash.
+
+### Aanvullende bronnen
+
+- [Gids: Transactiebevestiging & vervaldatum](https://solana.com/developers/guides/advanced/confirmation)
+- [Helius: Hoe transacties op Solana te laten slagen](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Strategieën om Solana-transacties te optimaliseren](https://www.quicknode.com/docs/solana/transactions)
+
+## Bevestigingsniveaus begrijpen
+
+Solana biedt drie bevestigingsniveaus. In traditionele financiële termen:
+
+| Niveau      | Solana-definitie               | Traditioneel equivalent    | Gebruikssituatie        |
+| ----------- | ------------------------------ | -------------------------- | ----------------------- |
+| `processed` | In een blok, nog niet gestemd  | Autorisatie in behandeling | Real-time UI-updates    |
+| `confirmed` | Supermeerderheid heeft gestemd | Vrijgegeven middelen       | **Meeste betalingen**   |
+| `finalized` | Geworteld, onomkeerbaar        | Afgewikkelde middelen      | Hoge waarde, compliance |
+
+**Wanneer elk niveau te gebruiken:**
+
+- **UI-updates**: Toon `processed` voor directe feedback ("Betaling verzonden")
+- **Gebruikersaccount crediteren**: Wacht op `confirmed` (veilig voor de meeste
+  transacties)
+- **Fysieke goederen verzenden**: Wacht op `finalized`
+- **Grote opnames**: Wacht op `finalized`
+- **Compliance/audit**: Registreer altijd `finalized` status
+
+Voor meer informatie over het controleren van de transactiestatus, zie
+[Interactie met Solana](/docs/payments/interacting-with-solana).
+
+## Foutafhandeling
+
+Solana Kit biedt getypeerde fouten via `isSolanaError()`. Gebruik specifieke
+foutcodes in plaats van tekenreeksvergelijking:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Veelvoorkomende foutcodes:**
+
+| Foutcode                     | Oorzaak                 | Herstel                                                                                                          |
+| ---------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash verlopen      | Herbouw met nieuwe blockhash                                                                                     |
+| `BLOCKHASH_NOT_FOUND`        | Blockhash niet gevonden | Herbouw met nieuwe blockhash                                                                                     |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | Niet genoeg SOL         | Financier fee payer of gebruik [fee-abstractie](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Niet genoeg tokens      | Gebruiker heeft meer saldo nodig                                                                                 |
+| `ACCOUNT_NOT_FOUND`          | Token account ontbreekt | Maak ATA aan in transactie                                                                                       |
+
+## Transacties zonder gas
+
+Gebruikers verwachten te betalen in stablecoins, niet om SOL te verwerven voor
+netwerkkosten. Transacties zonder gas lossen dit op—vergelijkbaar met hoe
+Venmo-gebruikers niet nadenken over ACH-kosten. Zie
+[Fee Abstraction](/docs/payments/send-payments/payment-processing/fee-abstraction)
+voor volledige implementatie.
+
+## Beveiliging
+
+### Sleutelbeheer
+
+- **Stel nooit private keys bloot in frontend-code.** Gebruik
+  backend-ondertekening, hardware wallets, multisignature wallets of
+  sleutelbeheerservices.
+- **Scheid hot en cold wallets.** Hot wallet voor operaties, cold voor treasury.
+- **Maak back-ups van alle productie-sleutels.** Bewaar versleutelde back-ups op
+  meerdere veilige locaties. Een sleutel verliezen betekent permanent toegang
+  verliezen.
+- **Gebruik verschillende sleutels voor devnet en mainnet.** Je devnet-sleutels
+  mogen niet je mainnet-sleutels zijn. Gebruik omgevingsgebaseerde configuratie
+  om ervoor te zorgen dat de juiste sleutels worden geladen voor elk netwerk.
+
+### RPC-beveiliging
+
+Behandel RPC-endpoints zoals API-sleutels—stel ze niet bloot in frontend-code
+waar ze kunnen worden geëxtraheerd en misbruikt. Gebruik een backend-proxy of
+omgevingsvariabelen die niet worden gebundeld in client-code.
+
+- [QuickNode: Endpoint Security Best Practices](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius: Protect Your Solana API Keys: Security Best Practices](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### Monitoring
+
+Volg deze metrics in productie:
+
+| Metric                     | Waarom                      |
+| -------------------------- | --------------------------- |
+| Transactiesuccespercentage | Problemen vroeg detecteren  |
+| Bevestigingslatentie       | Netwerkgezondheid monitoren |
+| Priority fee-uitgaven      | Kostenbeheer                |
+| RPC-foutpercentage         | Providergezondheid          |
+
+Stel waarschuwingen in voor:
+
+- Overboekingen boven drempelwaarde vanuit treasury
+- Pieken in mislukte transacties
+- Ongebruikelijke ontvangerpatronen
+- Stijgingen in RPC-foutpercentage
+
+Voor realtime transactiemonitoring op schaal, zie onze
+[Indexing Guide](/docs/payments/accept-payments/indexing).
+
+### Verifieer adressen
+
+Elke token en elk programma heeft precies één correct adres op mainnet.
+Vervalste tokens die USDC of andere stablecoins nabootsen komen vaak voor—ze
+hebben dezelfde naam en hetzelfde symbool maar een andere mint. Je applicatie
+moet de mint-adressen hardcoden of op een allowlist zetten (afhankelijk van je
+vereisten), accepteer ze nooit dynamisch van niet-vertrouwde bronnen.
+
+**Omgevingsgebaseerde configuratie:** Devnet en Mainnet gebruiken vaak compleet
+verschillende token mints. Stel de configuratie van je applicatie in om de
+juiste adressen per omgeving te laden—hardcode geen mainnet-adressen en vergeet
+ze niet te wisselen tijdens het testen, of erger nog, lever geen devnet-adressen
+aan productie.
+
+Enkele veelvoorkomende stablecoin mints zijn:
+
+| Token | Uitgever | Mint-adres                                     |
+| ----- | -------- | ---------------------------------------------- |
+| USDC  | Circle   | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether   | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal   | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos    | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+Programma-adressen zijn ook belangrijk. Het verzenden van instructies naar het
+verkeerde programma zal mislukken—of erger, resulteren in onomkeerbaar verlies
+van fondsen. De Token Program-adressen zijn:
+
+| Programma          | Adres                                         |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+## Checklist voor lancering
+
+- [ ] Mainnet SOL verkregen voor kosten en rent
+- [ ] Productie-RPC geconfigureerd (niet publiek endpoint)
+- [ ] Fallback RPC-endpoint geconfigureerd
+- [ ] Prioriteitskosten geïmplementeerd met dynamische prijsstelling
+- [ ] Retry-logica handelt blockhash-vervaldatum af
+- [ ] Bevestigingsniveau geschikt voor use case
+- [ ] Alle veelvoorkomende fouten worden netjes afgehandeld
+- [ ] Gasless geconfigureerd (indien van toepassing)
+- [ ] Mainnet token-adressen geverifieerd (geen devnet mints)
+- [ ] Alle sleutels veilig geback-upt
+- [ ] Sleutelbeheer gecontroleerd (geen sleutels in frontend)
+- [ ] Transactiemonitoring en waarschuwingen actief
+- [ ] Belastingstest uitgevoerd op verwacht volume
+
+## Programma's implementeren
+
+Als je een aangepast Solana-programma implementeert als onderdeel van je
+betalingsinfrastructuur, zijn er aanvullende overwegingen.
+
+### Voor de implementatie
+
+- **Solana CLI-versie:** Zorg ervoor dat je de nieuwste versie van de
+  [Solana CLI](https://solana.com/docs/intro/installation) gebruikt.
+- **Programma-keypair:** Je programma heeft een ander adres op mainnet dan op
+  devnet (tenzij je hetzelfde keypair hergebruikt). Werk alle verwijzingen in je
+  applicatieconfiguratie bij. Bewaar je programma-keypair op een veilige locatie
+  (let op dat het uitvoeren van `cargo clean` waarschijnlijk je
+  programma-keypair zal verwijderen).
+- **Accounts initialiseren:** Als je programma admin-accounts, PDA's of andere
+  state-accounts vereist, zorg er dan voor dat deze op mainnet worden aangemaakt
+  voordat gebruikers met je applicatie interacteren. Hetzelfde geldt voor
+  eventuele Associated Token Accounts (ATA's) die je programma nodig heeft.
+
+### Implementatieproces
+
+- **Buffer-accounts:** Grote programma's worden geïmplementeerd via
+  buffer-accounts. Het commando `solana program deploy` regelt dit automatisch,
+  maar begrijp dat implementatie niet atomair is—als het wordt onderbroken, moet
+  je mogelijk buffer-accounts herstellen of sluiten. Zie
+  [Deploying Programs](https://solana.com/docs/programs/deploying).
+- **Upgrade-autoriteit:** Beslis of je programma na de lancering upgradebaar
+  moet zijn. Voor onveranderlijkheid, trek de upgrade-autoriteit in na
+  implementatie. Voor flexibiliteit, beveilig de upgrade-autoriteitssleutel op
+  de juiste manier.
+- **Huur:** Zorg ervoor dat je implementatiewallet genoeg SOL heeft om de
+  huurvrije minimums voor alle programma-accounts te dekken.
+- **Verificatie:** [Verifieer](https://solana.com/docs/programs/verified-builds)
+  je programma om ervoor te zorgen dat het uitvoerbare programma dat je naar het
+  Solana-netwerk implementeert overeenkomt met de broncode in je repository
+
+Voor volledige begeleiding bij programma-implementatie, zie
+[Deploying Programs](https://solana.com/docs/programs/deploying).

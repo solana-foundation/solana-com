@@ -16,6 +16,7 @@ const config: Config = {
     "@solana-com/ui-chrome": "<rootDir>/../../packages/ui-chrome/src/$1",
   },
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
+  testPathIgnorePatterns: ["/node_modules/", "/e2e/"],
 };
 
 export default createJestConfig(config);

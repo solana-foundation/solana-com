@@ -1,0 +1,214 @@
+---
+title: 与 Solana 交互
+description: 连接到网络并探索区块链数据
+---
+
+在构建支付流程之前，你需要先连接到 Solana，并了解如何查询网络数据。本指南将介绍基础内容：如何建立连接，以及如何使用你在支付场景中需要的 RPC 方法，配合
+[@solana/kit](https://www.npmjs.com/package/@solana/kit) TypeScript SDK 和
+[Solana CLI](https://solana.com/docs/intro/installation)。此外，我们还会介绍如何使用
+[Solana Explorer](https://explorer.solana.com)
+手动验证支付、检查账户和排查问题。
+
+## 连接 Solana
+
+Solana 的 RPC API 是以编程方式与网络交互的主要方式。你的 RPC
+URL 实际上就是你访问网络的 API 密钥。
+
+<Callout type="caution" title="请勿在生产环境中使用公共 RPC">
+  公共端点（`api.mainnet-beta.solana.com`，`api.devnet.solana.com`）
+  有速率限制，没有 SLA，不适合用于生产支付流程。请使用 [RPC
+  provider](https://solana.com/rpc) 获取专属的私有 RPC 端点以部署生产环境。
+</Callout>
+
+在开发和测试阶段，你可以使用有速率限制的公共端点。
+
+创建 RPC 客户端以与网络交互：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+```
+
+```bash !! title="CLI"
+solana config set --url https://api.mainnet-beta.solana.com
+solana config get # to verify the connection
+```
+
+</CodeTabs>
+
+<Callout>
+  开发时建议使用 devnet（`https://api.devnet.solana.com`）或本地 validator，例如
+  [Surfpool](/docs/intro/installation/surfpool-cli-basics)。
+</Callout>
+
+## 常用 RPC 方法
+
+Solana 的 [JSON-RPC API](/docs/rpc)
+提供了查询网络的方法。以下是你在支付流程中最常用的方法。
+
+### 获取账户信息
+
+Solana 上所有账户都可以通过其公钥进行寻址。使用
+[`getAccountInfo`](/docs/rpc/http/getaccountinfo)
+RPC 方法可以获取任意账户的信息。`getAccountInfo` 方法会返回一个 `AccountInfo`
+对象，其中包含账户的公钥、SOL 余额、数据和其他元数据。
+
+`data` 字段是账户数据的 base64 编码字符串。你可以使用 `getBase64Codec`
+方法（来自 `@solana/kit`
+包）将其解码为字节，然后再用对应的编解码器（如果已知）将其解码为可读对象，例如
+`getTokenCodec` 用于 token account 的数据。
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const accountInfo = await rpc
+  .getAccountInfo(address("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"), {
+    encoding: "base64"
+  })
+  .send();
+const dataBytes = getBase64Codec().encode(accountInfo.value.data);
+const parsedTokenData = getTokenCodec().decode(dataBytes);
+
+console.log(parsedTokenData);
+```
+
+```bash !! title="CLI"
+solana account 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+```
+
+</CodeTabs>
+
+### 获取 Token 余额
+
+使用 [`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance)
+RPC 方法检查 token account 的余额：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const balance = await rpc.getTokenAccountBalance(tokenAccountAddress).send();
+
+console.log(balance.value.uiAmount); // Human-readable (e.g., 100.50)
+console.log(balance.value.amount); // Base units (e.g., "100500000")
+```
+
+```bash !! title="CLI"
+spl-token balance --address 7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St
+```
+
+</CodeTabs>
+
+### 构建交易
+
+每笔交易都需要一个最新的 blockhash 以确保其有效（且不是过期的）。在创建支付交易前，使用
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash)
+RPC 方法获取一个 blockhash：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+```
+
+```bash !! title="CLI"
+solana block-height
+```
+
+</CodeTabs>
+
+> Blockhash 大约每 60 秒过期一次。请在签名和发送前立即获取最新的 blockhash。
+
+### 检查交易状态
+
+使用 [`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses)
+RPC 方法验证交易是否已结算：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const status = await rpc.getSignatureStatuses([signature]).send();
+
+const result = status.value[0];
+// result.confirmationStatus: "processed" | "confirmed" | "finalized"
+```
+
+```bash !! title="CLI"
+solana confirm <SIGNATURE>
+# For more details:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### 获取交易详情
+
+使用 [`getTransaction`](/docs/rpc/http/gettransaction)
+RPC 方法获取已确认交易的完整详情：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const transaction = await rpc
+  .getTransaction(signature, { maxSupportedTransactionVersion: 0 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 1 -v
+# Or decode a specific transaction:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### 交易历史
+
+使用 [`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)
+RPC 方法获取某地址的近期交易：
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const signatures = await rpc
+  .getSignaturesForAddress(walletAddress, { limit: 10 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 10
+```
+
+</CodeTabs>
+
+> 如需全面的支付监控，请参阅
+> [接受支付](/docs/payments/accept-payments)，其中涵盖了 webhook 和实时交易检测。
+
+## 探索公开数据
+
+Solana 的公开账本意味着每一笔交易、token
+account 和铸造信息都可以完全审计。区块浏览器让你无需编写代码即可手动验证支付、检查账户和排查问题。
+
+**你可以查询的内容：**
+
+- 验证支付是否结算
+- 查看 token account 余额
+- 调试失败的交易
+- 查询铸造详情（供应量、小数位、权限）
+
+**常用区块浏览器：**
+[Solana Explorer](https://explorer.solana.com)、[SolanaFM](https://solana.fm)、[Solscan](https://solscan.io)、[Orb](https://www.orbmarkets.io/)
+
+**示例链接：**
+
+- [USDC Token Mint](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+  — USDC 的供应、市场、持有者和交易
+- [USDC Token Transfer](https://explorer.solana.com/tx/3d2mQChCbqM5iogAN5PZw7KGZuVtQq3LbwU8hk55u4iUvYH1XJ7SQVQpWwoZj43MtthBqGBoqGBe9fn4Bo1VznjG)
+  — USDC 支付交易详情
+- [USDG Token Account](https://explorer.solana.com/address/7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St)
+  — 用户的 USDG 余额和交易历史

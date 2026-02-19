@@ -1,0 +1,451 @@
+---
+title: 生产环境准备
+description: 从 devnet 测试到主网部署
+---
+
+在本地构建并在 devnet 上测试是开始使用 Solana 支付的好方法。然而，当你准备部署到主网时，需要注意主网的一些细节。devnet 可以容忍错误，而主网则不行。本指南将介绍关键差异，帮助你的用户获得流畅的体验。
+
+| Devnet                     | Mainnet                                                                                 |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| 可以通过水龙头免费获取 SOL | [获取真实 SOL](https://solana.com/ecosystem/explore?categories=exchange) 用于支付手续费 |
+| 区块空间竞争小             | 优先费很重要                                                                            |
+| 交易容易确认               | 交易配置至关重要                                                                        |
+| 公共 RPC 可用              | 生产环境需使用专用 RPC                                                                  |
+| Devnet 密钥对和代币铸造    | 主网需使用不同的密钥和代币铸造——请更新你的配置                                          |
+
+## RPC 基础设施
+
+[公共端点](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+（`api.mainnet-beta.solana.com`）有速率限制且无 SLA。它们适合开发，但在生产支付流程中会失败——就像试图通过没有可用性保障的共享 API 运行支付处理器一样。
+
+<Callout type="caution" title="切勿在生产环境中使用公共 RPC">
+  请使用 [专用 RPC 服务商](https://solana.com/rpc) 以获得可靠、低延迟的访问。
+</Callout>
+
+选择 RPC 服务商时，请关注：
+
+- **可靠性**：具备高可用性 SLA（99.9% 及以上）
+- **延迟**：靠近用户的地理位置
+- **功能**：交易落地、索引、优先费 API 等功能
+
+完整的 RPC 服务商列表请参见 [RPC 基础设施服务商](https://solana.com/rpc) 指南。
+
+### 冗余 RPC 配置
+
+和其他网络服务商一样，RPC 服务商也可能出现宕机或性能下降。为了确保你的应用具备弹性，建议配置多个 RPC 服务商。
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+提供了一个用于自定义 RPC 传输的库，可以让你构建自己的冗余 RPC 客户端。以下是一个使用该库构建冗余 RPC 客户端的示例：
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+如果你不想自己构建路由工具，可以利用第三方服务，例如
+[Iron Forge](https://www.ironforge.sanctum.so/)，来为你处理路由。
+
+## 交易落地
+
+在 Devnet 上，交易通常可以较容易地落地。而在 Mainnet 上，你需要与他人竞争区块空间。为了提高你的交易被包含进区块的概率，你应确保正确组装交易，包括：
+
+- 在发送交易前包含一个新的 blockhash
+- 在交易中加入带有有竞争力优先费用的优先费用指令
+- 在交易中加入基于预估计算单元需求的计算单元限制指令
+
+此外，你还可以考虑使用 Jito
+Bundles 等其他工具，以进一步提升交易被包含进区块的概率。我们接下来将更详细地介绍这些工具。
+
+### 交易发送配置
+
+在 Mainnet 上发送交易时，配置以下参数以获得最佳落地率：
+
+**Blockhash 管理：**
+
+- 使用 `confirmed` commitment 获取
+- 存储 `lastValidBlockHeight`，该值由 `getLatestBlockhash`
+  返回——它会告诉你交易何时过期
+- blockhash 大约在 150 个区块后（约 60-90 秒）过期
+
+**发送选项：**
+
+- `maxRetries: 0`
+  — 禁用自动 RPC 重试。请自行处理重试，以便在需要时刷新 blockhash。
+- `skipPreflight: true`
+  — 发送前跳过模拟。当你已验证交易并希望获得最低延迟时使用。在开发阶段，保持
+  `false` 以便及早发现错误。
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### 使用优先费用
+
+每笔 Solana 交易都需要支付交易手续费，费用以 SOL 结算。交易手续费分为两部分：基础费用和优先费用。基础费用用于补偿验证者处理交易。优先费用是可选的，支付后可以提高当前 leader 处理你交易的概率。你可以把它理解为“加急快递”：支付更多费用，获得更快、更可靠的处理。
+
+**费用运作方式：**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**实际费用示例：**
+
+- 简单的 USDC 转账：正常情况下约 $0.001-0.005
+- 拥堵时：约 $0.01-0.05
+- 高峰拥堵：可能更高
+
+**示例实现：**
+
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+包提供了一个辅助函数，可以轻松地为交易更新或添加计算单元价格（以微 lamports 计）的指令。
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**获取费用估算：** 大多数 RPC 服务商都提供优先费用 API：
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+完整的费用机制请参见 [Transaction Fees](/docs/core/fees)
+以及我们的指南：[如何为交易添加优先费用](https://solana.com/developers/cookbook/transactions/add-priority-fees)。
+
+### 优化计算单元
+
+在 Solana 上，计算量实际上衡量的是程序执行的工作量。每笔交易都有计算单元的上限（目前为 140 万计算单元），每个账户每个区块也有计算单元的上限（目前为 1 亿计算单元）。
+
+提交交易时，你需要预估将会用到的计算单元数量，并相应设置计算单元上限——这实际上是请求为你的交易预留多少总容量。实际操作中，准确预估交易所需的计算单元对于交易能否被打包进区块至关重要（同时也影响优先费用的管理）。
+
+Solana JSON RPC API 提供了一个
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction)
+方法，可用于估算一笔交易所需的计算单元数，其中包括对实际将要使用的计算单元的预估。[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+包提供了一个辅助函数，可以方便地估算一笔交易所需的计算单元数（该函数底层会调用
+`simulatetransaction` 方法）。
+
+```ts
+import {
+  estimateComputeUnitLimitFactory,
+  updateOrAppendSetComputeUnitLimitInstruction
+} from "@solana-program/compute-budget";
+
+const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
+const computeUnitLimit = await estimateComputeUnitLimit(tx);
+const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
+  computeUnitLimit,
+  tx
+);
+```
+
+在生产环境中，如果你需要多次重复同类型的交易，建议缓存该类型交易的计算单元预估值，以避免每次都重新估算带来的额外开销。
+
+### Jito Bundles
+
+Jito
+bundle 是用于管理多笔交易原子性执行的工具。其实现方式是将多笔交易与 tip 一起发送到 Jito 网络。tip 可用于激励 Jito 网络将你的交易包含进区块。
+
+**资源：**
+
+- [Jito 文档](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 视频：Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [QuickNode 关于 Jito bundle 的指南](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### 重试策略
+
+交易可能因多种原因失败。与传统支付 API 能立即返回成功/失败不同，区块链交易需要进行确认追踪。
+
+**关键概念：**
+
+- **区块哈希过期**：交易在约 150 个区块（约 60-90 秒）内有效
+- **幂等性**：同一笔已签名交易总会产生相同的签名——可安全重复提交
+- **指数退避**：避免因频繁重试而给网络带来压力
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+来自 `@solana/kit` 的 `sendAndConfirmTransactionFactory`
+会自动处理确认轮询和区块高度追踪。当交易的区块哈希过期时，它会抛出
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED`，提示你需要用新的区块哈希重新构建交易。
+
+### 其他资源
+
+- [指南：交易确认与过期](https://solana.com/developers/guides/advanced/confirmation)
+- [Helius：如何在 Solana 上落地交易](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode：优化 Solana 交易的策略](https://www.quicknode.com/docs/solana/transactions)
+
+## 理解确认级别
+
+Solana 提供三种确认级别。用传统金融术语来说：
+
+| 级别        | Solana 定义          | 传统等价物 | 使用场景         |
+| ----------- | -------------------- | ---------- | ---------------- |
+| `processed` | 已在区块中，尚未投票 | 等待授权   | 实时 UI 更新     |
+| `confirmed` | 超级多数已投票       | 资金已清算 | **大多数支付**   |
+| `finalized` | 已根定、不可逆       | 资金已结算 | 高价值、合规场景 |
+
+**各级别的使用场景：**
+
+- **UI 更新**：显示 `processed`，用于即时反馈（“支付已提交”）
+- **用户账户入账**：等待 `confirmed`（适用于大多数交易）
+- **发货实物商品**：等待 `finalized`
+- **大额提现**：等待 `finalized`
+- **合规/审计**：始终记录 `finalized` 状态
+
+如需了解更多交易状态检查方法，请参阅
+[与 Solana 交互](/docs/payments/interacting-with-solana)。
+
+## 错误处理
+
+Solana Kit 通过 `isSolanaError()`
+提供类型化错误。请使用具体的错误码而不是字符串匹配：
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**常见错误码：**
+
+| 错误码                       | 原因               | 恢复方法                                                                                               |
+| ---------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `BLOCK_HEIGHT_EXCEEDED`      | 区块哈希已过期     | 使用新的区块哈希重新构建                                                                               |
+| `BLOCKHASH_NOT_FOUND`        | 未找到区块哈希     | 使用新的区块哈希重新构建                                                                               |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOL 不足           | 为手续费支付者充值或使用 [手续费抽象](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | 代币不足           | 用户需要增加余额                                                                                       |
+| `ACCOUNT_NOT_FOUND`          | 缺少 token account | 在交易中创建 ATA                                                                                       |
+
+## 零 Gas 交易
+
+用户希望用稳定币支付，而不是为了网络手续费去获取 SOL。零 Gas 交易正好解决了这个问题——就像 Venmo 用户不会关心 ACH 手续费一样。完整实现方式请参见
+[手续费抽象](/docs/payments/send-payments/payment-processing/fee-abstraction)。
+
+## 安全性
+
+### 密钥管理
+
+- **切勿在前端代码中暴露私钥。**
+  请使用后端签名、硬件钱包、多重签名钱包或密钥管理服务。
+- **区分热钱包和冷钱包。** 热钱包用于日常操作，冷钱包用于资金储备。
+- **备份所有生产环境密钥。**
+  将加密备份存储在多个安全位置。丢失密钥将导致永久失去访问权限。
+- **开发网和主网请使用不同的密钥。**
+  开发网密钥不应与主网密钥相同。请使用基于环境的配置，确保每个网络加载正确的密钥。
+
+### RPC 安全
+
+将 RPC 端点视为 API 密钥——不要在前端代码中暴露，否则容易被提取和滥用。请使用后端代理或不会被打包进客户端代码的环境变量。
+
+- [QuickNode：端点安全最佳实践](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius：保护您的 Solana API 密钥：安全最佳实践](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### 监控
+
+在生产环境中请跟踪以下指标：
+
+| 指标       | 作用           |
+| ---------- | -------------- |
+| 交易成功率 | 及早发现问题   |
+| 确认延迟   | 监控网络健康   |
+| 优先费支出 | 成本管理       |
+| RPC 错误率 | 服务商健康状况 |
+
+请为以下情况设置告警：
+
+- 金库转账超出阈值
+- 交易失败率激增
+- 异常收款方模式
+- RPC 错误率上升
+
+如需大规模实时交易监控，请参见我们的
+[索引指南](/docs/payments/accept-payments/indexing)。
+
+### 验证地址
+
+每个代币和程序在主网（ mainnet ）上都有且只有一个正确的地址。伪造的代币（如冒充 USDC 或其他稳定币）很常见——它们可能有相同的名称和符号，但铸造地址（ mint ）不同。你的应用应当将铸造地址硬编码或加入白名单（根据你的需求），切勿从不受信任的来源动态接收。
+
+**基于环境的配置：**
+Devnet 和 Mainnet 通常使用完全不同的代币铸造地址。请配置你的应用，使其能根据不同环境加载正确的地址——不要只硬编码主网地址而忘记在测试时切换，更不要把 devnet 地址部署到生产环境。
+
+一些常见的稳定币铸造地址有：
+
+| 代币  | 发行方 | 铸造地址                                       |
+| ----- | ------ | ---------------------------------------------- |
+| USDC  | Circle | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos  | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+程序地址同样重要。向错误的程序发送指令会导致失败，甚至可能造成资金不可逆的损失。Token
+Program 的地址如下：
+
+| 程序               | 地址                                          |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+## 上线前检查清单
+
+- [ ] 已获取主网 SOL 用于手续费和 rent
+- [ ] 已配置生产环境 RPC（非公共节点）
+- [ ] 已配置备用 RPC 节点
+- [ ] 已实现动态定价的优先费机制
+- [ ] 重试逻辑能处理区块哈希过期
+- [ ] 确认级别符合实际需求
+- [ ] 所有常见错误均有优雅处理
+- [ ] 已配置 Gasless（如适用）
+- [ ] 已验证主网代币地址（非 devnet 铸造地址）
+- [ ] 所有密钥已安全备份
+- [ ] 已审核密钥管理（前端无密钥）
+- [ ] 交易监控与告警已启用
+- [ ] 已按预期流量完成压力测试
+
+## 部署程序
+
+如果你在支付基础设施中部署自定义 Solana 程序，还需要注意一些额外事项。
+
+### 部署前准备
+
+- **Solana CLI 版本：** 请确保你使用的是最新版本的
+  [Solana CLI](https://solana.com/docs/intro/installation)。
+- **Program keypair：**
+  你的程序在主网和 devnet 上的地址会不同（除非你复用同一个 keypair）。请在应用配置中更新所有相关引用，并将 program
+  keypair 安全存储（注意，运行 `cargo clean` 可能会删除你的 program keypair）。
+- **初始化账户：**
+  如果你的程序需要管理员账户、PDA 或其他状态账户，请确保这些账户已在主网上创建，用户才能正常使用你的应用。对于程序需要的任何关联代币账户（ATA），同样需要提前创建。
+
+### 部署流程
+
+- **Buffer 账户：** 大型程序通过 buffer 账户进行部署。`solana program deploy`
+  命令会自动处理，但请注意部署过程不是原子的——如果中断，可能需要恢复或关闭 buffer 账户。详见
+  [部署程序](https://solana.com/docs/programs/deploying)。
+- **升级权限：**
+  请决定你的程序上线后是否需要可升级性。若需不可变性，部署后请撤销升级权限。若需灵活性，请妥善保管升级权限密钥。
+- **租金：**
+  请确保你的部署钱包中有足够的 SOL 以满足所有程序账户的免租金最低要求。
+- **验证：** [验证](https://solana.com/docs/programs/verified-builds)
+  你的程序，确保你部署到 Solana 网络的可执行程序与代码仓库中的源代码一致。
+
+完整的程序部署指南请参见
+[部署程序](https://solana.com/docs/programs/deploying)。

@@ -1,4 +1,4 @@
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Accordion } from "react-bootstrap";
 import slugify from "@sindresorhus/slugify";
@@ -42,14 +42,9 @@ export default function HashAccordion({ prefix, children }) {
 
   const handleSelect = (eventKey) => {
     setActiveKey(eventKey);
-    router.push(
-      eventKey ? `#${eventKey}` : router.asPath.split("#")[0],
-      undefined,
-      {
-        scroll: false,
-        shallow: true,
-      },
-    );
+    router.push(eventKey ? `#${eventKey}` : router.asPath.split("#")[0], {
+      scroll: false,
+    });
   };
 
   return (

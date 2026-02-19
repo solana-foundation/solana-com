@@ -13,6 +13,7 @@ const DEFAULT_TEMPLATE_NAMES = [
   "phantom-embedded-react", // Phantom Embedded Wallet (Next.js)
   "phantom-embedded-react-native-starter", // Phantom Embedded (React Native)
   "phantom-embedded-js", // Phantom Embedded (Vite + JS)
+  "pinocchio-counter", // Pinocchio Counter
 ];
 
 export function filterTemplates({

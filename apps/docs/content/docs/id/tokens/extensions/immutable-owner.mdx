@@ -1,9 +1,9 @@
 ---
-title: Pemilik Tidak Dapat Diubah
-description: Pelajari cara mengaktifkan Ekstensi ImmutableOwner.
+title: Immutable owner
+description: Pelajari cara mengaktifkan ekstensi ImmutableOwner.
 ---
 
-## Cara mengaktifkan Ekstensi ImmutableOwner
+## Cara mengaktifkan ekstensi ImmutableOwner
 
 Ekstensi
 [`ImmutableOwner`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L511)
@@ -330,6 +330,177 @@ console.log("Transaction Signature:", transactionSignature);
 
 <CodeTabs storage="token-rs" flags="r">
 
-{/_ CODE_PLACEHOLDER_59e331a826b784f902ff1a07aa958368 _/
+```rust !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_token_2022_interface::{
+    extension::{
+        immutable_owner::ImmutableOwner, BaseStateWithExtensions, ExtensionType,
+        StateWithExtensions,
+    },
+    instruction::{
+        initialize_account, initialize_immutable_owner, initialize_mint, set_authority,
+        AuthorityType,
+    },
+    state::{Account, Mint},
+    ID as TOKEN_2022_PROGRAM_ID,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let latest_blockhash = client.get_latest_blockhash().await?;
+
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
+
+    // Airdrop 5 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+
+    // Get default mint account size (in bytes), no extensions enabled
+    let mint_space = Mint::LEN;
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_space)
+        .await?;
+
+    // Instruction to create new account for mint (token22)
+    let create_mint_account_instruction = create_account(
+        &fee_payer.pubkey(),    // payer
+        &mint.pubkey(),         // new account (mint)
+        mint_rent,              // lamports
+        mint_space as u64,      // space
+        &TOKEN_2022_PROGRAM_ID, // program id
+    );
+
+    // Instruction to initialize mint account data
+    let initialize_mint_instruction = initialize_mint(
+        &TOKEN_2022_PROGRAM_ID,    // program id
+        &mint.pubkey(),            // mint
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
+
+    // Generate keypair to use as address of token account
+    let token_account = Keypair::new();
+
+    // Get default token account size (in bytes),
+    //  immutable owner extension enabled
+    let token_account_space =
+        ExtensionType::try_calculate_account_len::<Account>(&[ExtensionType::ImmutableOwner])?;
+
+    let token_account_rent = client
+        .get_minimum_balance_for_rent_exemption(token_account_space)
+        .await?;
+
+    // Instruction to create new account for token account (token22)
+    let create_token_account_instruction = create_account(
+        &fee_payer.pubkey(),        // payer
+        &token_account.pubkey(),    // new account (token account)
+        token_account_rent,         // rent
+        token_account_space as u64, // space
+        &TOKEN_2022_PROGRAM_ID,     // program id
+    );
+
+    // initialize token account
+    let initialize_token_account = initialize_account(
+        &TOKEN_2022_PROGRAM_ID,  // program_id
+        &token_account.pubkey(), // token account
+        &mint.pubkey(),          //  mint
+        &fee_payer.pubkey(),     // authority
+    )?;
+
+    let init_immutable_owner_instruction =
+        initialize_immutable_owner(&TOKEN_2022_PROGRAM_ID, &token_account.pubkey())?;
+
+    // Construct transaction with previous instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[
+            create_mint_account_instruction,
+            initialize_mint_instruction,
+            create_token_account_instruction,
+            init_immutable_owner_instruction,
+            initialize_token_account,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint, &token_account],
+        latest_blockhash,
+    );
+
+    client.send_and_confirm_transaction(&transaction).await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!(
+        "Token account with immutable owner enabled: {}",
+        token_account.pubkey()
+    );
+
+    // Fetch token account
+    let token_account_data = client.get_account(&token_account.pubkey()).await?;
+    // Deserialize the token account with extensions
+    let token_account_state = StateWithExtensions::<Account>::unpack(&token_account_data.data)?;
+
+    // Get all extension types enabled on this token account
+    let extension_types = token_account_state.get_extension_types()?;
+    println!("\nExtensions enabled: {:?}", extension_types);
+
+    // Deserialize the ImmutableOwner extension data
+    let immutable_owner = token_account_state.get_extension::<ImmutableOwner>()?;
+    println!("\n{:#?}", immutable_owner);
+
+    // Attempt to change the owner (should fail with immutable owner error)
+    println!("\nAttempting to change owner of token account with immutable owner extension...");
+
+    let new_owner = Keypair::new();
+    let set_authority_instruction = set_authority(
+        &TOKEN_2022_PROGRAM_ID,
+        &token_account.pubkey(),
+        Some(&new_owner.pubkey()),
+        AuthorityType::AccountOwner,
+        &fee_payer.pubkey(),
+        &[],
+    )?;
+
+    let set_authority_transaction = Transaction::new_signed_with_payer(
+        &[set_authority_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    match client
+        .send_and_confirm_transaction(&set_authority_transaction)
+        .await
+    {
+        Ok(sig) => println!("Set authority succeeded unexpectedly: {}", sig),
+        Err(e) => println!("Set authority failed as expected:\n{:#?}", e),
+    }
+
+    Ok(())
+}
+```
 
 </CodeTabs>

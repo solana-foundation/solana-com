@@ -33,6 +33,7 @@ export const Performance: React.FC<PerformanceProps> = ({
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
       {bgJsonFilePath && (
         <UnicornScene
+          projectId="performance"
           className="!absolute inset-0 z-0"
           jsonFilePath={bgJsonFilePath}
           width="100%"

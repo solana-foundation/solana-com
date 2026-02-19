@@ -4,7 +4,6 @@ import rewritesAndRedirectsJson from "./rewrites-redirects.mjs";
 import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
-import { builder } from "@builder.io/sdk";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders: Array<{ key: string; value: string }> = [
@@ -22,8 +21,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value:
-      "frame-ancestors https://*.builder.io https://builder.io http://localhost:1234",
+    value: "frame-ancestors 'self'",
   },
 ];
 
@@ -85,53 +83,7 @@ const nextConfig: NextConfig = {
       })),
     ];
 
-    try {
-      return builder
-        .getAll("url-redirects", {
-          apiKey:
-            process.env.NEXT_PUBLIC_BUILDER_API_KEY ||
-            "ce0c7323a97a4d91bd0baa7490ec9139",
-          options: { noTargeting: true },
-          cachebust: true,
-        })
-        .then((results) => {
-          try {
-            return [
-              ...existingRedirects,
-              ...results
-                .filter((content) => {
-                  const data = (content || {}).data || {};
-                  const isValid = !!(
-                    data.sourceUrl &&
-                    data.destinationUrl &&
-                    data.sourceUrl.startsWith("/")
-                  );
-                  if (!isValid && data.sourceUrl) {
-                    console.warn(
-                      `Ignoring invalid redirect from Builder.io: ${data.sourceUrl}`,
-                    );
-                  }
-                  return isValid;
-                })
-                .map(({ data }) => ({
-                  source: data.sourceUrl,
-                  destination: data.destinationUrl,
-                  permanent: !!data.permanentRedirect,
-                })),
-            ];
-          } catch (error) {
-            console.log("Error processing redirects", error);
-            return existingRedirects;
-          }
-        })
-        .catch((error) => {
-          console.log("Error setting up redirects", error);
-          return existingRedirects;
-        });
-    } catch (error) {
-      console.log("Error fetching redirects from Builder:", error);
-      return existingRedirects;
-    }
+    return existingRedirects;
   },
 
   webpack(config) {
@@ -190,10 +142,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "cdn.builder.io",
-      },
-      {
-        protocol: "https",
         hostname: "solana-developer-content.vercel.app",
       },
       {
@@ -212,10 +160,6 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "raw.githubusercontent.com",
         pathname: "/solana-foundation/templates/**",
-      },
-      {
-        protocol: "https",
-        hostname: "assets.tina.io",
       },
       {
         protocol: "https",
@@ -243,6 +187,15 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
+      {
+        source: "/:path*.md",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "text/markdown; charset=utf-8",
+          },
+        ],
+      },
       {
         source: "/:path*",
         headers: securityHeaders,

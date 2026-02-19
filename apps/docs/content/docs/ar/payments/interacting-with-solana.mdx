@@ -1,0 +1,221 @@
+---
+title: التفاعل مع سولانا
+description: الاتصال بالشبكة واستكشاف بيانات البلوكشين
+---
+
+قبل بناء تدفقات الدفع، تحتاج إلى الاتصال بسولانا وفهم كيفية الاستعلام عن بيانات
+الشبكة. يغطي هذا الدليل الأساسيات: إنشاء اتصال واستخدام طرق RPC التي ستحتاجها
+للمدفوعات باستخدام [@solana/kit](https://www.npmjs.com/package/@solana/kit)
+TypeScript SDK و [Solana CLI](https://solana.com/docs/intro/installation).
+بالإضافة إلى ذلك، سنغطي أساسيات استخدام
+[Solana Explorer](https://explorer.solana.com) للتحقق يدويًا من المدفوعات، وفحص
+الحسابات، وتصحيح المشكلات.
+
+## الاتصال بسولانا
+
+يعد RPC API الخاص بسولانا الطريقة الأساسية للتفاعل برمجيًا مع الشبكة. يعمل عنوان
+RPC URL الخاص بك بشكل فعال كمفتاح API للشبكة.
+
+<Callout type="caution" title="لا تستخدم RPC العام للإنتاج">
+  نقاط النهاية العامة (`api.mainnet-beta.solana.com`، `api.devnet.solana.com`)
+  محدودة المعدل، وليس لها SLA، وغير مناسبة لتدفقات الدفع في الإنتاج. استخدم
+  [مزود RPC](https://solana.com/rpc) لتأمين نقطة نهاية RPC خاصة لعمليات النشر في
+  الإنتاج.
+</Callout>
+
+للتطوير والاختبار، يمكنك استخدام نقاط النهاية العامة محدودة المعدل.
+
+أنشئ عميل RPC للتفاعل مع الشبكة:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+```
+
+```bash !! title="CLI"
+solana config set --url https://api.mainnet-beta.solana.com
+solana config get # to verify the connection
+```
+
+</CodeTabs>
+
+<Callout>
+  للتطوير، استخدم devnet (`https://api.devnet.solana.com`) أو validator محلي مثل
+  [Surfpool](/docs/intro/installation/surfpool-cli-basics).
+</Callout>
+
+## طرق RPC الشائعة
+
+يعرض [JSON-RPC API](/docs/rpc) الخاص بسولانا طرقًا للاستعلام عن الشبكة. فيما يلي
+الطرق التي ستستخدمها أكثر لتدفقات الدفع.
+
+### الحصول على معلومات الحساب
+
+جميع الحسابات على سولانا قابلة للعنونة بواسطة مفتاحها العام. استخدم طريقة
+[`getAccountInfo`](/docs/rpc/http/getaccountinfo) RPC لجلب معلومات حول أي حساب.
+تُرجع طريقة `getAccountInfo` كائن `AccountInfo`، والذي يحتوي على المفتاح العام
+للحساب، ورصيد SOL، والبيانات، وبعض البيانات الوصفية الأخرى.
+
+حقل `data` هو سلسلة نصية مشفرة بصيغة base64 لبيانات الحساب. يمكنك تشفيرها إلى
+بايتات باستخدام طريقة `getBase64Codec` من حزمة `@solana/kit` ثم فك تشفيرها إلى
+كائن قابل للقراءة باستخدام برنامج الترميز المتوقع (إذا كان معروفاً) لبيانات
+الحساب (مثل `getTokenCodec` لحسابات الرموز).
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const accountInfo = await rpc
+  .getAccountInfo(address("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"), {
+    encoding: "base64"
+  })
+  .send();
+const dataBytes = getBase64Codec().encode(accountInfo.value.data);
+const parsedTokenData = getTokenCodec().decode(dataBytes);
+
+console.log(parsedTokenData);
+```
+
+```bash !! title="CLI"
+solana account 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+```
+
+</CodeTabs>
+
+### الحصول على أرصدة الرموز
+
+تحقق من رصيد حساب الرموز باستخدام طريقة RPC
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const balance = await rpc.getTokenAccountBalance(tokenAccountAddress).send();
+
+console.log(balance.value.uiAmount); // Human-readable (e.g., 100.50)
+console.log(balance.value.amount); // Base units (e.g., "100500000")
+```
+
+```bash !! title="CLI"
+spl-token balance --address 7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St
+```
+
+</CodeTabs>
+
+### بناء المعاملات
+
+تحتاج كل معاملة إلى blockhash حديث للتأكد من صحتها (وأنها ليست قديمة). احصل على
+واحد قبل إنشاء معاملة دفع باستخدام طريقة RPC
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+```
+
+```bash !! title="CLI"
+solana block-height
+```
+
+</CodeTabs>
+
+> تنتهي صلاحية Blockhashes بعد ~60 ثانية. احصل على واحد جديد مباشرة قبل التوقيع
+> والإرسال.
+
+### التحقق من حالة المعاملة
+
+تحقق من تسوية المعاملة باستخدام طريقة RPC
+[`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const status = await rpc.getSignatureStatuses([signature]).send();
+
+const result = status.value[0];
+// result.confirmationStatus: "processed" | "confirmed" | "finalized"
+```
+
+```bash !! title="CLI"
+solana confirm <SIGNATURE>
+# For more details:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### الحصول على تفاصيل المعاملة
+
+احصل على التفاصيل الكاملة لمعاملة مؤكدة باستخدام طريقة RPC
+[`getTransaction`](/docs/rpc/http/gettransaction):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const transaction = await rpc
+  .getTransaction(signature, { maxSupportedTransactionVersion: 0 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 1 -v
+# Or decode a specific transaction:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### سجل المعاملات
+
+احصل على المعاملات الأخيرة لعنوان معين باستخدام طريقة RPC
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const signatures = await rpc
+  .getSignaturesForAddress(walletAddress, { limit: 10 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 10
+```
+
+</CodeTabs>
+
+> للحصول على مراقبة شاملة للمدفوعات، راجع
+> [قبول المدفوعات](/docs/payments/accept-payments) الذي يغطي webhooks والكشف
+> الفوري عن المعاملات.
+
+## استكشاف البيانات العامة
+
+يعني دفتر الأستاذ العام لسولانا أن كل معاملة وحساب رمزي وعملية سك قابلة للمراجعة
+بالكامل. تتيح لك متصفحات البلوكشين التحقق يدوياً من المدفوعات وفحص الحسابات
+وتصحيح المشكلات دون كتابة أي كود.
+
+**ما يمكنك البحث عنه:**
+
+- التحقق من تسوية الدفعة
+- فحص أرصدة الحسابات الرمزية
+- تصحيح المعاملات الفاشلة
+- البحث عن تفاصيل السك (العرض، الكسور العشرية، السلطة)
+
+**المتصفحات الشائعة:** [Solana Explorer](https://explorer.solana.com)،
+[SolanaFM](https://solana.fm)، [Solscan](https://solscan.io)،
+[Orb](https://www.orbmarkets.io/)
+
+**أمثلة على الروابط:**
+
+- [رمز USDC المسكوك](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+  — العرض والأسواق والحاملون والمعاملات الخاصة بـ USDC
+- [تحويل رمز USDC](https://explorer.solana.com/tx/3d2mQChCbqM5iogAN5PZw7KGZuVtQq3LbwU8hk55u4iUvYH1XJ7SQVQpWwoZj43MtthBqGBoqGBe9fn4Bo1VznjG)
+  — تفاصيل معاملة دفع USDC
+- [حساب رمز USDG](https://explorer.solana.com/address/7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St)
+  — رصيد USDG للمستخدم وسجل المعاملات

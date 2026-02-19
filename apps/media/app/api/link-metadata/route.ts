@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 3600; // Cache for 1 hour
 
 const requestSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
 });
 
 interface LinkMetadata {

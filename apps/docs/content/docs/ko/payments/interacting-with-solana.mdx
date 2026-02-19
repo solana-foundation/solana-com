@@ -1,0 +1,222 @@
+---
+title: Solana와 상호작용하기
+description: 네트워크에 연결하고 블록체인 데이터 탐색하기
+---
+
+결제 플로우를 구축하기 전에 Solana에 연결하고 네트워크 데이터를 쿼리하는 방법을
+이해해야 합니다. 이 가이드는 기본 사항을 다룹니다:
+[@solana/kit](https://www.npmjs.com/package/@solana/kit) TypeScript SDK와
+[Solana CLI](https://solana.com/docs/intro/installation)를 사용하여 연결을
+설정하고 결제에 필요한 RPC 메서드를 사용하는 방법입니다. 또한
+[Solana Explorer](https://explorer.solana.com)를 사용하여 수동으로 결제를
+확인하고, 계정을 검사하며, 문제를 디버깅하는 기본 사항을 다룹니다.
+
+## Solana에 연결하기
+
+Solana의 RPC API는 네트워크와 프로그래밍 방식으로 상호작용하는 주요 방법입니다.
+RPC URL은 사실상 네트워크에 대한 API 키입니다.
+
+<Callout type="caution" title="프로덕션에서는 공개 RPC를 사용하지 마세요">
+  공개 엔드포인트(`api.mainnet-beta.solana.com`, `api.devnet.solana.com`)는 속도
+  제한이 있고, SLA가 없으며, 프로덕션 결제 플로우에 적합하지 않습니다. 프로덕션
+  배포를 위해 비공개 RPC 엔드포인트를 확보하려면 [RPC
+  제공업체](https://solana.com/rpc)를 사용하세요.
+</Callout>
+
+개발 및 테스트를 위해서는 속도 제한이 있는 공개 엔드포인트를 사용할 수 있습니다.
+
+네트워크와 상호작용하기 위한 RPC 클라이언트를 생성하세요:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+```
+
+```bash !! title="CLI"
+solana config set --url https://api.mainnet-beta.solana.com
+solana config get # to verify the connection
+```
+
+</CodeTabs>
+
+<Callout>
+  개발을 위해서는 devnet(`https://api.devnet.solana.com`) 또는
+  [Surfpool](/docs/intro/installation/surfpool-cli-basics)과 같은 로컬
+  validator를 사용하세요.
+</Callout>
+
+## 일반적인 RPC 메서드
+
+Solana의 [JSON-RPC API](/docs/rpc)는 네트워크를 쿼리하는 메서드를 제공합니다.
+다음은 결제 플로우에서 가장 많이 사용할 메서드입니다.
+
+### 계정 정보 가져오기
+
+Solana의 모든 계정은 공개 키로 주소를 지정할 수 있습니다.
+[`getAccountInfo`](/docs/rpc/http/getaccountinfo) RPC 메서드를 사용하여 모든
+계정에 대한 정보를 가져오세요. `getAccountInfo` 메서드는 계정의 공개 키, SOL
+잔액, 데이터 및 기타 메타데이터를 포함하는 `AccountInfo` 객체를 반환합니다.
+
+`data` 필드는 계정 데이터의 base64 인코딩된 문자열입니다. `@solana/kit` 패키지의
+`getBase64Codec` 메서드를 사용하여 바이트로 인코딩한 다음, 계정 데이터에 대해
+예상되는 코덱(알려진 경우)을 사용하여 읽을 수 있는 객체로 디코딩할 수
+있습니다(예: 토큰 계정의 경우 `getTokenCodec`).
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const accountInfo = await rpc
+  .getAccountInfo(address("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"), {
+    encoding: "base64"
+  })
+  .send();
+const dataBytes = getBase64Codec().encode(accountInfo.value.data);
+const parsedTokenData = getTokenCodec().decode(dataBytes);
+
+console.log(parsedTokenData);
+```
+
+```bash !! title="CLI"
+solana account 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+```
+
+</CodeTabs>
+
+### 토큰 잔액 조회하기
+
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) RPC 메서드를
+사용하여 토큰 계정의 잔액을 확인하세요:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const balance = await rpc.getTokenAccountBalance(tokenAccountAddress).send();
+
+console.log(balance.value.uiAmount); // Human-readable (e.g., 100.50)
+console.log(balance.value.amount); // Base units (e.g., "100500000")
+```
+
+```bash !! title="CLI"
+spl-token balance --address 7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St
+```
+
+</CodeTabs>
+
+### 트랜잭션 구성하기
+
+모든 트랜잭션은 유효성을 보장하기 위해(그리고 오래되지 않았음을 확인하기 위해)
+최근 블록해시가 필요합니다.
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC 메서드를 사용하여
+결제 트랜잭션을 생성하기 전에 블록해시를 가져오세요:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+```
+
+```bash !! title="CLI"
+solana block-height
+```
+
+</CodeTabs>
+
+> 블록해시는 약 60초 후에 만료됩니다. 서명하고 전송하기 직전에 새로운 블록해시를
+> 가져오세요.
+
+### 트랜잭션 상태 확인하기
+
+[`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses) RPC 메서드를
+사용하여 트랜잭션이 정산되었는지 확인하세요:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const status = await rpc.getSignatureStatuses([signature]).send();
+
+const result = status.value[0];
+// result.confirmationStatus: "processed" | "confirmed" | "finalized"
+```
+
+```bash !! title="CLI"
+solana confirm <SIGNATURE>
+# For more details:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### 트랜잭션 세부 정보 조회하기
+
+[`getTransaction`](/docs/rpc/http/gettransaction) RPC 메서드를 사용하여 확인된
+트랜잭션의 전체 세부 정보를 가져옵니다:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const transaction = await rpc
+  .getTransaction(signature, { maxSupportedTransactionVersion: 0 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 1 -v
+# Or decode a specific transaction:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### 트랜잭션 기록
+
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) RPC 메서드를
+사용하여 주소의 최근 트랜잭션을 가져옵니다:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const signatures = await rpc
+  .getSignaturesForAddress(walletAddress, { limit: 10 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 10
+```
+
+</CodeTabs>
+
+> 포괄적인 결제 모니터링에 대해서는 웹훅과 실시간 트랜잭션 감지를 다루는
+> [결제 수락](/docs/payments/accept-payments)을 참조하세요.
+
+## 공개 데이터 탐색
+
+Solana의 공개 원장은 모든 트랜잭션, 토큰 계정, 민트가 완전히 감사 가능함을
+의미합니다. 블록 탐색기를 사용하면 코드를 작성하지 않고도 결제를 수동으로
+확인하고, 계정을 검사하며, 문제를 디버그할 수 있습니다.
+
+**조회 가능한 항목:**
+
+- 결제 정산 확인
+- 토큰 계정 잔액 검사
+- 실패한 트랜잭션 디버그
+- 민트 세부 정보 조회(공급량, 소수점 자릿수, 권한)
+
+**주요 탐색기:** [Solana Explorer](https://explorer.solana.com),
+[SolanaFM](https://solana.fm), [Solscan](https://solscan.io),
+[Orb](https://www.orbmarkets.io/)
+
+**예시 링크:**
+
+- [USDC 토큰 민트](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+  — USDC의 공급량, 시장, 보유자 및 트랜잭션
+- [USDC 토큰 전송](https://explorer.solana.com/tx/3d2mQChCbqM5iogAN5PZw7KGZuVtQq3LbwU8hk55u4iUvYH1XJ7SQVQpWwoZj43MtthBqGBoqGBe9fn4Bo1VznjG)
+  — USDC 결제 트랜잭션의 세부 정보
+- [USDG 토큰 계정](https://explorer.solana.com/address/7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St)
+  — 사용자의 USDG 잔액 및 트랜잭션 기록

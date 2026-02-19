@@ -1,0 +1,226 @@
+---
+title: Interacción con Solana
+description: Conéctate a la red y explora datos de blockchain
+---
+
+Antes de construir flujos de pago, necesitas conectarte a Solana y comprender
+cómo consultar datos de la red. Esta guía cubre los conceptos básicos:
+establecer una conexión y usar los métodos RPC que necesitarás para pagos
+utilizando el SDK de TypeScript
+[@solana/kit](https://www.npmjs.com/package/@solana/kit) y
+[Solana CLI](https://solana.com/docs/intro/installation). Además, cubriremos los
+conceptos básicos del uso del [Solana Explorer](https://explorer.solana.com)
+para verificar pagos manualmente, inspeccionar cuentas y depurar problemas.
+
+## Conexión a Solana
+
+La API RPC de Solana es la forma principal de interactuar programáticamente con
+la red. Tu URL de RPC es efectivamente una clave API para la red.
+
+<Callout type="caution" title="No uses RPC público para producción">
+  Los endpoints públicos (`api.mainnet-beta.solana.com`,
+  `api.devnet.solana.com`) tienen límites de tasa, no tienen SLA y no son
+  adecuados para flujos de pago en producción. Usa un [proveedor de
+  RPC](https://solana.com/rpc) para asegurar un endpoint RPC privado para
+  despliegues en producción.
+</Callout>
+
+Para desarrollo y pruebas, puedes usar endpoints públicos con límites de tasa.
+
+Crea un cliente RPC para interactuar con la red:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+```
+
+```bash !! title="CLI"
+solana config set --url https://api.mainnet-beta.solana.com
+solana config get # to verify the connection
+```
+
+</CodeTabs>
+
+<Callout>
+  Para desarrollo, usa devnet (`https://api.devnet.solana.com`) o un validator
+  local como [Surfpool](/docs/intro/installation/surfpool-cli-basics).
+</Callout>
+
+## Métodos RPC comunes
+
+La [API JSON-RPC](/docs/rpc) de Solana expone métodos para consultar la red.
+Aquí están los que usarás más para flujos de pago.
+
+### Obtener información de cuenta
+
+Todas las cuentas en Solana son direccionables por su clave pública. Usa el
+método RPC [`getAccountInfo`](/docs/rpc/http/getaccountinfo) para obtener
+información sobre cualquier cuenta. El método `getAccountInfo` devuelve un
+objeto `AccountInfo`, que contiene la clave pública de la cuenta, saldo de SOL,
+datos y algunos otros metadatos.
+
+El campo `data` es una cadena codificada en base64 de los datos de la cuenta.
+Puedes codificarlo a bytes usando el método `getBase64Codec` del paquete
+`@solana/kit` y luego decodificarlo a un objeto legible usando el códec esperado
+(si se conoce) para los datos de la cuenta (por ejemplo, `getTokenCodec` para
+token accounts).
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const accountInfo = await rpc
+  .getAccountInfo(address("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"), {
+    encoding: "base64"
+  })
+  .send();
+const dataBytes = getBase64Codec().encode(accountInfo.value.data);
+const parsedTokenData = getTokenCodec().decode(dataBytes);
+
+console.log(parsedTokenData);
+```
+
+```bash !! title="CLI"
+solana account 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+```
+
+</CodeTabs>
+
+### Obtener saldos de tokens
+
+Consulta el saldo de un token account usando el método RPC
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const balance = await rpc.getTokenAccountBalance(tokenAccountAddress).send();
+
+console.log(balance.value.uiAmount); // Human-readable (e.g., 100.50)
+console.log(balance.value.amount); // Base units (e.g., "100500000")
+```
+
+```bash !! title="CLI"
+spl-token balance --address 7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St
+```
+
+</CodeTabs>
+
+### Construir transacciones
+
+Cada transacción necesita un blockhash reciente para asegurar que sea válida (y
+no obsoleta). Obtén uno antes de crear una transacción de pago usando el método
+RPC [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+```
+
+```bash !! title="CLI"
+solana block-height
+```
+
+</CodeTabs>
+
+> Los blockhashes expiran después de ~60 segundos. Obtén uno nuevo
+> inmediatamente antes de firmar y enviar.
+
+### Verificar el estado de la transacción
+
+Verifica que una transacción se haya liquidado usando el método RPC
+[`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const status = await rpc.getSignatureStatuses([signature]).send();
+
+const result = status.value[0];
+// result.confirmationStatus: "processed" | "confirmed" | "finalized"
+```
+
+```bash !! title="CLI"
+solana confirm <SIGNATURE>
+# For more details:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### Obtener detalles de la transacción
+
+Obtén los detalles completos de una transacción confirmada usando el método RPC
+[`getTransaction`](/docs/rpc/http/gettransaction):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const transaction = await rpc
+  .getTransaction(signature, { maxSupportedTransactionVersion: 0 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 1 -v
+# Or decode a specific transaction:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### Historial de transacciones
+
+Obtén las transacciones recientes de una dirección usando el método RPC
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const signatures = await rpc
+  .getSignaturesForAddress(walletAddress, { limit: 10 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 10
+```
+
+</CodeTabs>
+
+> Para un monitoreo integral de pagos, consulta
+> [Aceptar pagos](/docs/payments/accept-payments) que cubre webhooks y detección
+> de transacciones en tiempo real.
+
+## Explorar datos públicos
+
+El libro mayor público de Solana significa que cada transacción, token account y
+mint es completamente auditable. Los exploradores de bloques te permiten
+verificar pagos manualmente, inspeccionar cuentas y depurar problemas sin
+escribir código.
+
+**Lo que puedes consultar:**
+
+- Verificar que un pago se liquidó
+- Inspeccionar saldos de token accounts
+- Depurar transacciones fallidas
+- Consultar detalles de mint (suministro, decimales, autoridad)
+
+**Exploradores comunes:** [Solana Explorer](https://explorer.solana.com),
+[SolanaFM](https://solana.fm), [Solscan](https://solscan.io),
+[Orb](https://www.orbmarkets.io/)
+
+**Enlaces de ejemplo:**
+
+- [USDC Token Mint](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+  — Suministro, mercados, tenedores y transacciones de USDC
+- [Transferencia de token USDC](https://explorer.solana.com/tx/3d2mQChCbqM5iogAN5PZw7KGZuVtQq3LbwU8hk55u4iUvYH1XJ7SQVQpWwoZj43MtthBqGBoqGBe9fn4Bo1VznjG)
+  — Detalles de una transacción de pago en USDC
+- [USDG Token Account](https://explorer.solana.com/address/7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St)
+  — Saldo de USDG de un usuario e historial de transacciones

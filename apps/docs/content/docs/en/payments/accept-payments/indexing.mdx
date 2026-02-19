@@ -1,0 +1,249 @@
+---
+title: Indexing
+description:
+  Production-grade transaction monitoring for high-volume payment systems
+---
+
+RPC methods like `getSignaturesForAddress` and `getTransaction` work for
+low-volume verification, but production payment systems need more robust
+infrastructure. This guide covers the core tools and patterns for real-time
+transaction streaming, historical data access, and instruction-level parsing.
+
+## Why Indexing Matters
+
+Standard RPC has limitations for payment processing at scale:
+
+- **Rate limits:** Public and even paid RPC endpoints have query limits
+- **No persistence:** RPC only gives you current state, not historical analytics
+- **Polling overhead:** Repeatedly calling `getSignaturesForAddress` is
+  inefficient
+- **Coarse granularity:** Pre/post balances don't reveal individual transfers
+  within complex transactions
+
+Indexing solutions solve these by ingesting blockchain data at the source and
+exposing it through purpose-built APIs.
+
+## Raw vs Parsed Transaction Data
+
+Before choosing an indexing approach, understand what Solana transactions
+contain. Raw transaction data uses compact binary encoding—accounts are
+referenced by indices, and instruction data appears as opaque Base58-encoded
+bytes:
+
+```typescript
+// Raw: Requires manual decoding
+{ "programIdIndex": 6, "accounts": [2, 3, 4], "data": "3DfbZhE3qCnV" }
+
+// Parsed: Ready for business logic
+{
+  "type": "TRANSFER",
+  "tokenTransfers": [{
+    "fromUserAccount": "8PLd...9Nt8w3",
+    "toUserAccount": "7GLg...k487Ma",
+    "tokenAmount": 100.50,
+    "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  // USDC
+  }]
+}
+```
+
+**Parsing is essential** for payment systems—you need decimal-adjusted amounts,
+resolved wallet addresses, and extracted memo fields.
+
+## Yellowstone gRPC
+
+Geyser is Solana's plugin interface for streaming real-time account and
+transaction data directly from validators. Instead of polling RPC, you subscribe
+to a stream that pushes updates as they're processed—providing **sub-100ms
+latency** compared to ~200-400ms for WebSocket subscriptions.
+[Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc) is one of the
+most widely used implementations of the Geyser plugin interface. Yellowstone is
+a real-time streaming solution for:
+
+- Account updates
+- Transactions
+- Entries
+- Block notifications
+- Slot notifications
+
+To use Yellowstone, you will need a gRPC endpoint from an RPC service provider.
+Some options include:
+
+- [Triton](https://docs.triton.one/project-yellowstone/dragons-mouth-grpc-subscriptions)
+- [Helius](https://www.helius.dev/docs/grpc)
+- [QuickNode](https://marketplace.quicknode.com/add-on/yellowstone-grpc-geyser-plugin)
+- [Alchemy](https://www.alchemy.com/docs/reference/yellowstone-grpc-overview)
+
+<CodeTabs>
+
+```rust !! title="Rust"
+use yellowstone_grpc_client::GeyserGrpcClient;
+use yellowstone_grpc_proto::prelude::*;
+
+let mut client = GeyserGrpcClient::build_from_shared("https://grpc-endpoint:10000")?
+    .x_token(Some("YOUR_TOKEN".to_string()))?
+    .connect()
+    .await?;
+
+let (mut tx, mut rx) = client.subscribe().await?;
+
+let mut filter = HashMap::new();
+filter.insert("payments".to_string(), SubscribeRequestFilterTransactions {
+    account_include: vec!["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string()],
+    vote: Some(false),
+    failed: Some(false),
+    ..Default::default()
+});
+
+tx.send(SubscribeRequest {
+    transactions: filter,
+    commitment: Some(CommitmentLevel::Confirmed as i32),
+    ..Default::default()
+}).await?;
+
+while let Some(msg) = rx.next().await {
+    if let Some(UpdateOneof::Transaction(tx)) = msg?.update_oneof {
+        // Raw protobuf data - requires parsing
+        println!("Transaction: {:?}", tx.transaction);
+    }
+}
+```
+
+```typescript !! title="TypeScript"
+import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
+
+const client = new Client("https://grpc-endpoint:10000", "YOUR_TOKEN");
+const stream = await client.subscribe();
+
+stream.write({
+  transactions: {
+    payments: {
+      accountInclude: ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"],
+      vote: false,
+      failed: false
+    }
+  },
+  commitment: CommitmentLevel.CONFIRMED
+});
+
+stream.on("data", (update) => {
+  if (update.transaction) {
+    // Raw protobuf data - requires parsing
+    console.log("Transaction:", update.transaction.transaction.signature);
+  }
+});
+```
+
+</CodeTabs>
+
+<Callout>
+  Yellowstone returns raw Protocol Buffer data, not JSON. You'll need to decode
+  binary instruction data using program IDLs or parsing libraries. Let's explore
+  some options for parsing Yellowstone data.
+</Callout>
+
+**Resources:**
+
+- [Yellowstone gRPC repository](https://github.com/rpcpool/yellowstone-grpc)
+- [Triton streaming docs](https://docs.triton.one/chains/solana/streaming)
+
+### Carbon
+
+[Carbon](https://github.com/sevenlabs-hq/carbon) is a Rust framework for
+building production indexers built on top of Yellowstone gRPC. Its pipeline
+architecture connects data sources to decoders to custom processors:
+
+```rust
+use carbon_core::pipeline::Pipeline;
+
+Pipeline::builder()
+    .datasource(yellowstone_grpc_source)
+    .instruction(TokenProgramDecoder, PaymentProcessor)
+    .metrics(Arc::new(PrometheusMetrics::new()))
+    .build()?
+    .run()
+    .await?;
+```
+
+Carbon includes **40+ pre-built decoders** for popular programs. For payment
+systems, the Token Program decoder handles all transfer variants while your
+processor implements business logic:
+
+```rust
+#[async_trait]
+impl Processor for PaymentProcessor {
+    type InputType = (InstructionMetadata, DecodedInstruction<TokenInstruction>);
+
+    async fn process(
+        &mut self,
+        (meta, ix): Self::InputType,
+        _metrics: Arc<MetricsCollection>,
+    ) -> CarbonResult<()> {
+        if let TokenInstruction::Transfer { amount } = ix.data {
+            let accounts = Transfer::arrange_accounts(&ix.accounts)?;
+            if self.watched_wallets.contains(&accounts.destination) {
+                notify_payment(meta.signature, accounts.destination, amount).await;
+            }
+        }
+        Ok(())
+    }
+}
+```
+
+**Resources:**
+
+- [Carbon GitHub](https://github.com/sevenlabs-hq/carbon)
+- [Yellowstone and Carbon: Parse Real-time Solana Program Data](https://www.quicknode.com/guides/solana-development/tooling/geyser/yellowstone-carbon)
+
+### Vixen
+
+[Yellowstone Vixen](https://github.com/rpcpool/yellowstone-vixen) is an
+open-source Rust framework for transforming raw Yellowstone events into
+structured, typed data. It uses a **Parser + Handler** architecture:
+
+- **Parsers** deserialize raw Solana events into typed structures
+- **Handlers** execute your business logic on parsed data
+- **Pipelines** connect parsers to handlers in configurable flows
+
+```rust
+use yellowstone_vixen::Runtime;
+use yellowstone_vixen_parser::token_program::{TokenProgramParser, TokenProgramState};
+
+// Build a pipeline that parses Token Program events
+Runtime::<YellowstoneGrpcSource>::builder()
+    .account(Pipeline::new(TokenProgramParser, [PaymentHandler]))
+    .build(config)?
+    .run()
+    .await;
+```
+
+Vixen includes built-in parsers for **SPL Token** and **Token-2022**, with
+support for generating parsers from any Solana IDL. For payment monitoring, the
+token parser gives you typed access to transfers, mints, and account states:
+
+```rust
+impl Handler<TokenProgramState> for PaymentHandler {
+    async fn handle(&self, state: &TokenProgramState) -> Result<()> {
+        match state {
+            TokenProgramState::TokenAccount(account) => {
+                if self.watched_wallets.contains(&account.owner) {
+                    process_balance_change(account).await;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+```
+
+**Resources:**
+
+- [Yellowstone Vixen GitHub](https://github.com/rpcpool/yellowstone-vixen)
+- [Vixen Streams](https://blog.triton.one/introducing-vixen-streams-real-time-parsed-solana-program-streaming/) -
+  Triton's hosted service built on Vixen
+
+## Getting Started
+
+Several RPC providers offer hosted indexing infrastructure. Check
+[solana.com/rpc](https://solana.com/rpc) for a current list of providers
+offering webhooks, enhanced APIs, and gRPC streaming.

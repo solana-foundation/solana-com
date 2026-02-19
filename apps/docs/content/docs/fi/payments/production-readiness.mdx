@@ -1,0 +1,533 @@
+---
+title: Tuotantovalmius
+description: Siirtyminen devnet-testauksesta mainnet-käyttöönottoon
+---
+
+Paikallinen kehitys ja testaus devnetissä ovat loistavia tapoja aloittaa
+Solana-maksujen käyttö. Kun olet kuitenkin valmis ottamaan sovelluksen käyttöön
+mainnetissä, sinun on oltava tietoinen mainnetin erityispiirteistä. Devnet antaa
+virheet anteeksi. Mainnet ei. Tämä opas käsittelee merkittävät erot
+varmistaaksesi käyttäjillesi sujuvan käyttökokemuksen.
+
+| Devnet                          | Mainnet                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| Ilmainen SOL fauceteista        | [Hanki oikea SOL](https://solana.com/ecosystem/explore?categories=exchange) maksuihin |
+| Vähän kilpailua lohkotilasta    | Prioriteettimaksut ovat tärkeitä                                                      |
+| Transaktiot onnistuvat helposti | Transaktioiden konfigurointi on kriittistä                                            |
+| Julkinen RPC riittää            | Tuotanto-RPC vaaditaan                                                                |
+| Devnet-avainparit ja mintit     | Eri avaimet ja token-mintit—päivitä konfiguraatiosi                                   |
+
+## RPC-infrastruktuuri
+
+[Julkiset endpointit](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet-beta.solana.com`) ovat nopeusrajoitettuja ilman SLA:ta. Ne sopivat
+kehitykseen, mutta epäonnistuvat tuotannon maksuvirroissa—kuin yrittäisit ajaa
+maksuprosessoria jaetun API:n kautta ilman käytettävyystakuuta.
+
+<Callout type="caution" title="Älä koskaan käytä julkista RPC:tä tuotannossa">
+  Käytä [yksityistä RPC-palveluntarjoajaa](https://solana.com/rpc) luotettavaan,
+  matalan viiveen käyttöön.
+</Callout>
+
+Kun valitset RPC-palveluntarjoajaa, etsi:
+
+- **Luotettavuus**: SLA:t käytettävyystakuilla (99,9 %+)
+- **Viive**: Maantieteellinen läheisyys käyttäjiisi
+- **Ominaisuudet**: Transaktioiden laskeutumisominaisuudet, indeksointi,
+  prioriteettimaksu-API:t
+
+Täydellinen luettelo RPC-palveluntarjoajista löytyy
+[RPC-infrastruktuurin palveluntarjoajat](https://solana.com/rpc) -oppaasta.
+
+### Redundantti RPC-konfiguraatio
+
+Kuten mikä tahansa verkkopalveluntarjoaja, RPC-palveluntarjoajat voivat kokea
+käyttökatkoja tai heikentyneen suorituskyvyn jaksoja. Varmistaaksesi
+sovelluksesi kestävyyden sinun tulisi konfiguroida sovelluksesi käyttämään
+useita RPC-palveluntarjoajia.
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+tarjoaa kirjaston RPC-siirtojen mukauttamiseen, jonka avulla voit rakentaa oman
+redundantin RPC-asiakkaasi. Tässä on esimerkki siitä, miten voit käyttää sitä
+redundantin RPC-asiakkaan rakentamiseen:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Jos et halua rakentaa omia reititystyökalujasi, voit hyödyntää kolmannen
+osapuolen palvelua, kuten [Iron Forge](https://www.ironforge.sanctum.so/), joka
+hoitaa reitityksen puolestasi.
+
+## Transaktion laskeutuminen
+
+Devnetissä transaktiot laskeutuvat melko helposti. Mainnetissä kilpailet
+lohkotilasta. Lisätäksesi mahdollisuuksia transaktiosi sisällyttämiseen lohkoon,
+sinun tulee varmistaa, että olet koonnut transaktiosi oikein. Tämä tarkoittaa:
+
+- tuoreen blockhash-arvon sisällyttämistä ennen transaktion lähettämistä
+- prioriteettipalkkio-ohjeen sisällyttämistä transaktioon kilpailukykyisellä
+  prioriteettipalkkiolla
+- laskentayksikkörajoitusohjeen sisällyttämistä transaktioon
+  laskentayksikkörajoituksella, joka perustuu transaktion vaatimien
+  laskentayksiköiden arvioon
+
+Lisäksi sinun kannattaa harkita muita työkaluja, kuten Jito Bundles, lisätäksesi
+mahdollisuuksia transaktiosi sisällyttämiseen lohkoon. Tutkitaan näitä työkaluja
+tarkemmin.
+
+### Transaktion lähetyskonfiguraatio
+
+Kun lähetät transaktioita Mainnetissä, määritä nämä parametrit optimaalisten
+laskeutumisprosenttien saavuttamiseksi:
+
+**Blockhash-hallinta:**
+
+- Hae `confirmed` -sitoutumisella
+- Tallenna `lastValidBlockHeight`, jonka `getLatestBlockhash` palauttaa – tämä
+  kertoo, milloin transaktiosi vanhenee
+- Blockhash-arvot vanhenevat ~150 lohkon jälkeen (~60–90 sekuntia)
+
+**Lähetysasetukset:**
+
+- `maxRetries: 0` — Poista automaattiset RPC-uudelleenyritykset käytöstä.
+  Käsittele uudelleenyritykset itse, jotta voit päivittää blockhash-arvon
+  tarvittaessa.
+- `skipPreflight: true` — Ohita simulointi ennen lähettämistä. Käytä tätä, kun
+  olet jo validoinut transaktion ja haluat pienimmän viiveen. Pidä se `false`
+  -tilassa kehityksen aikana virheiden havaitsemiseksi varhaisessa vaiheessa.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Käytä prioriteettimaksuja
+
+Jokainen Solana-transaktio vaatii transaktiomaksun, joka maksetaan SOL:ssa.
+Transaktiomaksut jakautuvat kahteen osaan: perusmaksuun ja prioriteettimaksuun.
+Perusmaksu korvaa validaattoreille transaktion käsittelystä. Prioriteettimaksu
+on valinnainen maksu, joka lisää todennäköisyyttä, että nykyinen johtaja
+käsittelee transaktiosi. Ajattele sitä kuin pikatoimitusta: maksat enemmän
+nopeammasta ja luotettavammasta toimituksesta.
+
+**Miten maksut toimivat:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**Todelliset kustannukset:**
+
+- Yksinkertainen USDC-siirto: ~0,001–0,005 $ normaaleissa olosuhteissa
+- Ruuhkan aikana: ~0,01–0,05 $
+- Huippuruuhkassa: voi nousta korkeammaksi
+
+**Esimerkkitoteutus:**
+
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)-paketti
+tarjoaa apufunktion, jolla voit helposti päivittää tai liittää laskentayksikön
+hinnan (mikrolamporteissa) -ohjeen transaktioon.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Maksuarvioiden hakeminen:** Useimmat RPC-palveluntarjoajat tarjoavat
+prioriteettimaksu-API:t:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Täydelliset maksumekaniikan tiedot löydät kohdasta
+[Transaktiomaksut](/docs/core/fees) ja oppaastamme:
+[Miten lisätä prioriteettimaksuja transaktioon](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Optimoi laskentayksiköt
+
+Laskenta Solanassa on käytännössä mitta siitä, kuinka paljon työtä ohjelma
+tekee. Transaktiossa käytettävän laskennan määrälle on raja (tällä hetkellä 1,4
+miljoonaa laskentayksikköä), ja tilin lohkoa kohden käytettävän laskennan
+määrälle on raja (tällä hetkellä 100 miljoonaa laskentayksikköä).
+
+Kun lähetät transaktion, sinun on arvioitava käytettävän laskennan määrä ja
+asetettava laskentayksikön raja vastaavasti – tämä on käytännössä pyyntö siitä,
+kuinka suuri osa kokonaiskapasiteetista tulisi varata transaktiollesi.
+Käytännössä tämä tarkoittaa, että transaktiosi vaatimien laskentayksiköiden
+oikea arviointi on kriittistä transaktiosi sisällyttämiseksi lohkoon (ja tärkeää
+prioriteettimaksujesi hallinnassa).
+
+Solana JSON RPC API:ssa on
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction) -metodi, jota
+voidaan käyttää transaktion vaatimien laskentayksiköiden arvioimiseen, mikä
+sisältää arvion käytettävistä laskentayksiköistä.
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+-paketti tarjoaa apufunktion, jolla voidaan helposti arvioida transaktion
+vaatimat laskentayksiköt (joka käyttää `simulatetransaction` -metodia
+taustalla).
+
+```ts
+import {
+  estimateComputeUnitLimitFactory,
+  updateOrAppendSetComputeUnitLimitInstruction
+} from "@solana-program/compute-budget";
+
+const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
+const computeUnitLimit = await estimateComputeUnitLimit(tx);
+const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
+  computeUnitLimit,
+  tx
+);
+```
+
+Tuotannossa, jos toistat samantyyppistä transaktiota useita kertoja, sinun
+kannattaa harkita laskenta-arvion tallentamista välimuistiin transaktiotyypille
+välttääksesi laskentayksiköiden arvioinnin ylimääräisen kuormituksen joka kerta.
+
+### Jito-niput
+
+Jito-niput ovat työkalu useiden transaktioiden atomisen suorituksen hallintaan.
+Tämä saavutetaan lähettämällä useita transaktioita Jito-verkkoon tipillä.
+Tippejä voidaan käyttää kannustamaan Jito-verkkoa sisällyttämään transaktiosi
+lohkoon.
+
+**Resurssit:**
+
+- [Jito-dokumentaatio](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Video: Jito-niput](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [QuickNode-opas Jito-nippuihin](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Uudelleenyritysstrategiat
+
+Transaktiot voivat epäonnistua monista syistä. Toisin kuin perinteiset
+maksu-API:t, jotka palauttavat onnistumisen/epäonnistumisen välittömästi,
+lohkoketjutransaktiot vaativat vahvistuksen seurantaa.
+
+**Keskeiset käsitteet:**
+
+- **Blockhash-vanheneminen**: Transaktiot ovat voimassa ~150 lohkoa (~60-90
+  sekuntia)
+- **Idempotenssi**: Sama allekirjoitettu transaktio tuottaa aina saman
+  allekirjoituksen—uudelleenlähettäminen on turvallista
+- **Eksponentiaalinen takaisinottoaika**: Vältä verkon ylikuormittamista
+  nopeilla uudelleenyrityksillä
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`sendAndConfirmTransactionFactory` `@solana/kit`:sta käsittelee vahvistuksen
+kyselyn ja lohkokorkeuden seurannan automaattisesti. Se heittää
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` -poikkeuksen, kun transaktion blockhash
+vanhenee, mikä ilmaisee, että sinun täytyy rakentaa transaktio uudelleen
+tuoreella blockhashilla.
+
+### Lisäresurssit
+
+- [Opas: Tapahtuman vahvistus ja vanheneminen](https://solana.com/developers/guides/advanced/confirmation)
+- [Helius: Kuinka saada tapahtumat läpi Solanassa](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Strategiat Solana-tapahtumien optimointiin](https://www.quicknode.com/docs/solana/transactions)
+
+## Vahvistustasojen ymmärtäminen
+
+Solana tarjoaa kolme vahvistustasoa. Perinteisen rahoituksen termein:
+
+| Taso        | Solanan määritelmä                | Perinteinen vastine | Käyttötapaus                             |
+| ----------- | --------------------------------- | ------------------- | ---------------------------------------- |
+| `processed` | Lohkossa, ei vielä äänestetty     | Odottaa valtuutusta | Reaaliaikaiset käyttöliittymäpäivitykset |
+| `confirmed` | Ylivoimainen enemmistö äänestänyt | Selvitetyt varat    | **Useimmat maksut**                      |
+| `finalized` | Juurrutettu, peruuttamaton        | Maksetut varat      | Arvokkaat, vaatimustenmukaisuus          |
+
+**Milloin käyttää kutakin:**
+
+- **Käyttöliittymäpäivitykset**: Näytä `processed` välittömään palautteeseen
+  ("Maksu lähetetty")
+- **Hyvitä käyttäjätili**: Odota `confirmed` (turvallinen useimmille
+  tapahtumille)
+- **Lähetä fyysiset tuotteet**: Odota `finalized`
+- **Suuret nostot**: Odota `finalized`
+- **Vaatimustenmukaisuus/tarkastus**: Tallenna aina `finalized` -tila
+
+Lisätietoja tapahtuman tilan tarkistamisesta löytyy kohdasta
+[Vuorovaikutus Solanan kanssa](/docs/payments/interacting-with-solana).
+
+## Virheiden käsittely
+
+Solana Kit tarjoaa tyypitetyt virheet `isSolanaError()` -kautta. Käytä tiettyjä
+virhekoodeja merkkijonojen vertailun sijaan:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Yleisimmät virhekoodit:**
+
+| Virhekoodi                   | Syy                    | Palautuminen                                                                                                              |
+| ---------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash vanhentunut  | Rakenna uudelleen tuoreella blockhashilla                                                                                 |
+| `BLOCKHASH_NOT_FOUND`        | Blockhashia ei löydy   | Rakenna uudelleen tuoreella blockhashilla                                                                                 |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | Ei tarpeeksi SOL:ia    | Rahoita maksun maksaja tai käytä [maksun abstraktointia](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Ei tarpeeksi tokeneita | Käyttäjä tarvitsee lisää saldoa                                                                                           |
+| `ACCOUNT_NOT_FOUND`          | Token account puuttuu  | Luo ATA tapahtumassa                                                                                                      |
+
+## Kaasuttomat transaktiot
+
+Käyttäjät odottavat maksavansa stablecoineilla, eivätkä hankkivansa
+SOL-tokeneita verkkomaksuja varten. Kaasuttomat transaktiot ratkaisevat tämän –
+samalla tavalla kuin Venmon käyttäjät eivät mieti ACH-maksuja. Katso
+[maksun abstrahointi](/docs/payments/send-payments/payment-processing/fee-abstraction)
+täydellisen toteutuksen osalta.
+
+## Turvallisuus
+
+### Avainten hallinta
+
+- **Älä koskaan paljasta yksityisiä avaimia frontend-koodissa.** Käytä
+  backend-allekirjoitusta, laitteistolompakoita, moniallekirjoituslompakoita tai
+  avainten hallintapalveluita.
+- **Erota kuumat ja kylmät lompakot.** Kuuma lompakko operaatioille, kylmä
+  kassalle.
+- **Varmuuskopioi kaikki tuotantoavaimet.** Tallenna salatut varmuuskopiot
+  useisiin turvallisiin sijainteihin. Avaimen menettäminen tarkoittaa pääsyn
+  menettämistä pysyvästi.
+- **Käytä eri avaimia devnetille ja mainnetille.** Devnet-avaintesi eivät saisi
+  olla mainnet-avaimesi. Käytä ympäristöpohjaista konfiguraatiota
+  varmistaaksesi, että oikeat avaimet latautuvat kullekin verkolle.
+
+### RPC-turvallisuus
+
+Kohtele RPC-päätepisteitä kuin API-avaimia – älä paljasta niitä
+frontend-koodissa, josta ne voidaan poimia ja väärinkäyttää. Käytä
+backend-välityspalvelinta tai ympäristömuuttujia, joita ei upoteta
+asiakaskoodiin.
+
+- [QuickNode: Endpoint Security Best Practices](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius: Protect Your Solana API Keys: Security Best Practices](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### Seuranta
+
+Seuraa näitä mittareita tuotannossa:
+
+| Mittari                            | Miksi                     |
+| ---------------------------------- | ------------------------- |
+| Transaktioiden onnistumisprosentti | Havaitse ongelmat varhain |
+| Vahvistuksen viive                 | Seuraa verkon terveyttä   |
+| Prioriteettimaksun kulutus         | Kustannusten hallinta     |
+| RPC-virheiden määrä                | Palveluntarjoajan terveys |
+
+Aseta hälytykset seuraaville:
+
+- Kassasta lähtevät siirrot kynnysarvon ylittäessä
+- Epäonnistuneiden transaktioiden määrän piikit
+- Epätavalliset vastaanottajamallit
+- RPC-virheiden määrän kasvu
+
+Reaaliaikaista transaktioseurantaa laajassa mittakaavassa varten katso
+[indeksointiopas](/docs/payments/accept-payments/indexing).
+
+### Vahvista osoitteet
+
+Jokaisella tokenilla ja ohjelmalla on täsmälleen yksi oikea osoite mainnetissä.
+Väärennetyt tokenit, jotka jäljittelevät USDC:tä tai muita vakaavaluttoja, ovat
+yleisiä – niillä on sama nimi ja symboli, mutta eri mint-osoite. Sovelluksesi
+tulisi kovakoodata tai sallittujen listalle lisätä mint-osoitteet (vaatimustesi
+mukaan), älä koskaan hyväksy niitä dynaamisesti epäluotettavista lähteistä.
+
+**Ympäristöpohjainen konfiguraatio:** Devnet ja Mainnet käyttävät usein täysin
+erilaisia token mint -osoitteita. Määritä sovelluksesi konfiguraatio lataamaan
+oikeat osoitteet ympäristökohtaisesti – älä kovakoodaa mainnet-osoitteita ja
+unohda vaihtaa niitä testauksen aikana, tai vielä pahempaa, toimita
+devnet-osoitteita tuotantoon.
+
+Joitakin yleisiä vakaavaluttojen mint-osoitteita ovat:
+
+| Token | Liikkeeseenlaskija | Mint-osoite                                    |
+| ----- | ------------------ | ---------------------------------------------- |
+| USDC  | Circle             | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether             | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal             | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos              | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+Myös ohjelma-osoitteilla on merkitystä. Ohjeiden lähettäminen väärään ohjelmaan
+epäonnistuu – tai pahimmassa tapauksessa johtaa peruuttamattomaan varojen
+menetykseen. Token Program -osoitteet ovat:
+
+| Ohjelma            | Osoite                                        |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+## Julkaisua edeltävä tarkistuslista
+
+- [ ] Mainnet SOL hankittu maksuille ja rentille
+- [ ] Tuotannon RPC konfiguroitu (ei julkinen päätepiste)
+- [ ] Vaihtoehtoinen RPC-päätepiste konfiguroitu
+- [ ] Prioriteettimaksut toteutettu dynaamisella hinnoittelulla
+- [ ] Uudelleenyrityslogiikka käsittelee blockhash-vanhentumisen
+- [ ] Vahvistustaso sopiva käyttötapaukseen
+- [ ] Kaikki yleiset virheet käsitelty sujuvasti
+- [ ] Gasless konfiguroitu (jos sovellettavissa)
+- [ ] Mainnet-token-osoitteet vahvistettu (ei devnet-mintit)
+- [ ] Kaikki avaimet varmuuskopioitu turvallisesti
+- [ ] Avainten hallinta tarkistettu (ei avaimia frontendissä)
+- [ ] Transaktioiden seuranta ja hälytykset aktiivisina
+- [ ] Kuormitustestattu odotetulla volyymilla
+
+## Ohjelmien käyttöönotto
+
+Jos otat käyttöön mukautetun Solana-ohjelman osana maksuinfrastruktuuriasi, on
+otettava huomioon lisänäkökohtia.
+
+### Ennen käyttöönottoa
+
+- **Solana CLI -versio:** Varmista, että käytät uusinta versiota
+  [Solana CLI:stä](https://solana.com/docs/intro/installation).
+- **Ohjelman keypair:** Ohjelmallasi on eri osoite mainnetissä kuin devnetissä
+  (ellet käytä samaa keypairia uudelleen). Päivitä kaikki viittaukset
+  sovelluksesi konfiguraatiossa. Tallenna ohjelmasi keypair turvalliseen
+  paikkaan (huomaa, että `cargo clean` -komennon suorittaminen todennäköisesti
+  poistaa ohjelmasi keypair-avaimen).
+- **Alusta tilit:** Jos ohjelmasi vaatii ylläpitotilejä, PDA:ita tai muita
+  tilatilejä, varmista, että ne on luotu mainnetiin ennen kuin käyttäjät ovat
+  vuorovaikutuksessa sovelluksesi kanssa. Sama koskee kaikkia Associated Token
+  Accounts (ATA) -tilejä, joita ohjelmasi tarvitsee.
+
+### Käyttöönottoprosessi
+
+- **Puskuritilit:** Suuret ohjelmat otetaan käyttöön puskuritilien kautta.
+  `solana program deploy` -komento käsittelee tämän automaattisesti, mutta
+  ymmärrä, että käyttöönotto ei ole atominen – jos se keskeytyy, saatat joutua
+  palauttamaan tai sulkemaan puskuritilejä. Katso
+  [Deploying Programs](https://solana.com/docs/programs/deploying).
+- **Päivitysoikeus:** Päätä, pitäisikö ohjelmasi olla päivitettävissä julkaisun
+  jälkeen. Muuttumattomuuden saavuttamiseksi kumoa päivitysoikeus käyttöönoton
+  jälkeen. Joustavuuden takaamiseksi suojaa päivitysoikeusavain asianmukaisesti.
+- **Vuokra:** Varmista, että käyttöönottolompakossasi on tarpeeksi SOL:ia
+  kattamaan vuokravapaat vähimmäismäärät kaikille ohjelman tileille.
+- **Varmennus:** [Varmenna](https://solana.com/docs/programs/verified-builds)
+  ohjelmasi varmistaaksesi, että Solanan verkkoon käyttöönottamasi suoritettava
+  ohjelma vastaa repositoriosi lähdekoodia
+
+Täydelliset ohjeet ohjelman käyttöönottoon löydät kohdasta
+[Deploying Programs](https://solana.com/docs/programs/deploying).

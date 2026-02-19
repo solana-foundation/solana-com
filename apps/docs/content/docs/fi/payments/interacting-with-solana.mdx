@@ -1,0 +1,226 @@
+---
+title: Vuorovaikutus Solanan kanssa
+description: Yhdistä verkkoon ja tutki lohkoketjun dataa
+---
+
+Ennen maksuvirtojen rakentamista sinun täytyy yhdistää Solanaan ja ymmärtää,
+miten verkkodata kyselyjä tehdään. Tämä opas kattaa perusteet: yhteyden
+muodostamisen ja RPC-metodien käytön, joita tarvitset maksuihin käyttäen
+[@solana/kit](https://www.npmjs.com/package/@solana/kit) TypeScript SDK:ta ja
+[Solana CLI:tä](https://solana.com/docs/intro/installation). Lisäksi
+käsittelemme [Solana Explorerin](https://explorer.solana.com) käytön perusteita
+maksujen manuaaliseen vahvistamiseen, tilien tarkasteluun ja ongelmien
+korjaamiseen.
+
+## Yhdistäminen Solanaan
+
+Solanan RPC API on ensisijainen tapa olla ohjelmallisesti vuorovaikutuksessa
+verkon kanssa. RPC URL -osoitteesi on käytännössä API-avain verkkoon.
+
+<Callout type="caution" title="Älä käytä julkista RPC:tä tuotannossa">
+  Julkiset päätepisteet (`api.mainnet-beta.solana.com`, `api.devnet.solana.com`)
+  ovat nopeusrajoitettuja, niillä ei ole SLA:ta, eivätkä ne sovellu tuotannon
+  maksuvirtoihin. Käytä [RPC-palveluntarjoajaa](https://solana.com/rpc)
+  varmistaaksesi yksityisen RPC-päätepisteen tuotantokäyttöönotoille.
+</Callout>
+
+Kehitystä ja testausta varten voit käyttää nopeusrajoitettuja julkisia
+päätepisteitä.
+
+Luo RPC-asiakas vuorovaikutukseen verkon kanssa:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+```
+
+```bash !! title="CLI"
+solana config set --url https://api.mainnet-beta.solana.com
+solana config get # to verify the connection
+```
+
+</CodeTabs>
+
+<Callout>
+  Kehityksessä käytä devnetiä (`https://api.devnet.solana.com`) tai paikallista
+  validaattoria kuten [Surfpool](/docs/intro/installation/surfpool-cli-basics).
+</Callout>
+
+## Yleiset RPC-metodit
+
+Solanan [JSON-RPC API](/docs/rpc) tarjoaa metodeja verkon kyselyyn. Tässä ovat
+ne, joita käytät eniten maksuvirroissa.
+
+### Tilin tietojen hakeminen
+
+Kaikki Solanan tilit ovat osoitettavissa niiden julkisella avaimella. Käytä
+[`getAccountInfo`](/docs/rpc/http/getaccountinfo) RPC-metodia hakeaksesi tietoja
+mistä tahansa tilistä. `getAccountInfo` -metodi palauttaa `AccountInfo` -olion,
+joka sisältää tilin julkisen avaimen, SOL-saldon, datan ja joitakin muita
+metatietoja.
+
+`data`-kenttä on base64-koodattu merkkijono tilin tiedoista. Voit koodata sen
+tavuiksi käyttämällä `getBase64Codec`-metodia `@solana/kit`-paketista ja sitten
+dekoodata sen luettavaksi objektiksi käyttämällä odotettua koodekia (jos
+tiedossa) tilin tiedoille (esim. `getTokenCodec` token-tileille).
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const accountInfo = await rpc
+  .getAccountInfo(address("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"), {
+    encoding: "base64"
+  })
+  .send();
+const dataBytes = getBase64Codec().encode(accountInfo.value.data);
+const parsedTokenData = getTokenCodec().decode(dataBytes);
+
+console.log(parsedTokenData);
+```
+
+```bash !! title="CLI"
+solana account 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+```
+
+</CodeTabs>
+
+### Token-saldojen tarkistaminen
+
+Tarkista token-tilin saldo käyttämällä
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) RPC-metodia:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const balance = await rpc.getTokenAccountBalance(tokenAccountAddress).send();
+
+console.log(balance.value.uiAmount); // Human-readable (e.g., 100.50)
+console.log(balance.value.amount); // Base units (e.g., "100500000")
+```
+
+```bash !! title="CLI"
+spl-token balance --address 7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St
+```
+
+</CodeTabs>
+
+### Transaktioiden rakentaminen
+
+Jokainen transaktio tarvitsee viimeaikaisen lohkohashin varmistaakseen, että se
+on voimassa (eikä vanhentunut). Hae sellainen ennen maksutransaktion luomista
+käyttämällä [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash)
+RPC-metodia:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+```
+
+```bash !! title="CLI"
+solana block-height
+```
+
+</CodeTabs>
+
+> Lohkohashit vanhenevat ~60 sekunnin kuluttua. Hae uusi välittömästi ennen
+> allekirjoittamista ja lähettämistä.
+
+### Transaktion tilan tarkistaminen
+
+Varmista, että transaktio on selvitetty käyttämällä
+[`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses) RPC-metodia:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const status = await rpc.getSignatureStatuses([signature]).send();
+
+const result = status.value[0];
+// result.confirmationStatus: "processed" | "confirmed" | "finalized"
+```
+
+```bash !! title="CLI"
+solana confirm <SIGNATURE>
+# For more details:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### Transaktion tietojen hakeminen
+
+Hae vahvistetun tapahtuman täydelliset tiedot käyttämällä
+[`getTransaction`](/docs/rpc/http/gettransaction) RPC-metodia:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const transaction = await rpc
+  .getTransaction(signature, { maxSupportedTransactionVersion: 0 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 1 -v
+# Or decode a specific transaction:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### Tapahtumahistoria
+
+Hae osoitteen viimeaikaiset tapahtumat käyttämällä
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) RPC-metodia:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const signatures = await rpc
+  .getSignaturesForAddress(walletAddress, { limit: 10 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 10
+```
+
+</CodeTabs>
+
+> Kattavaa maksujen seurantaa varten katso
+> [Maksujen vastaanottaminen](/docs/payments/accept-payments), joka käsittelee
+> webhookit ja reaaliaikaisen tapahtumien tunnistuksen.
+
+## Julkisen datan tutkiminen
+
+Solanan julkinen kirjanpito tarkoittaa, että jokainen tapahtuma, token account
+ja mint on täysin tarkastettavissa. Lohkoselaimet mahdollistavat maksujen
+manuaalisen vahvistamisen, tilien tarkastelun ja ongelmien debuggauksen ilman
+koodin kirjoittamista.
+
+**Mitä voit etsiä:**
+
+- Vahvista maksun toteutuminen
+- Tarkastele token accountien saldoja
+- Debuggaa epäonnistuneita tapahtumia
+- Etsi mintin tiedot (tarjonta, desimaalit, valtuutus)
+
+**Yleisiä selaimia:** [Solana Explorer](https://explorer.solana.com),
+[SolanaFM](https://solana.fm), [Solscan](https://solscan.io),
+[Orb](https://www.orbmarkets.io/)
+
+**Esimerkkejä linkeistä:**
+
+- [USDC Token Mint](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+  — USDC:n tarjonta, markkinat, haltijat ja tapahtumat
+- [USDC Token Transfer](https://explorer.solana.com/tx/3d2mQChCbqM5iogAN5PZw7KGZuVtQq3LbwU8hk55u4iUvYH1XJ7SQVQpWwoZj43MtthBqGBoqGBe9fn4Bo1VznjG)
+  — USDC-maksutapahtuman tiedot
+- [USDG Token Account](https://explorer.solana.com/address/7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St)
+  — Käyttäjän USDG-saldo ja tapahtumahistoria

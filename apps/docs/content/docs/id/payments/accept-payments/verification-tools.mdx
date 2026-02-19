@@ -1,0 +1,239 @@
+---
+title: Alat verifikasi
+description:
+  Verifikasi pembayaran stablecoin yang masuk dan rekonsiliasi dengan pesanan
+  Anda.
+---
+
+Token masuk ke dompet Anda saat transaksi dikonfirmasi. Tidak ada tindakan yang
+diperlukan oleh penerima. Solana secara atomik menambah saldo akun token
+penerima dan mengurangi saldo pengirim. Dalam panduan ini, kami membahas
+beberapa alat yang berguna untuk memahami saldo akun token Anda dan memantau
+pembayaran yang masuk.
+
+## Query saldo token
+
+Periksa saldo stablecoin Anda menggunakan metode RPC
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance):
+
+```typescript
+import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function getBalance(walletAddress: Address) {
+  // Derive the token account address
+  const [ata] = await findAssociatedTokenPda({
+    mint: USDC_MINT,
+    owner: walletAddress,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Query balance via RPC
+  const { value } = await rpc.getTokenAccountBalance(ata).send();
+
+  return {
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
+  };
+}
+```
+
+## Pantau transfer yang masuk
+
+Berlangganan akun token Anda untuk notifikasi pembayaran real-time menggunakan
+metode RPC `accountNotifications`:
+
+```typescript
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
+  const abortController = new AbortController();
+
+  const subscription = await rpcSubscriptions
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
+    .subscribe({ abortSignal: abortController.signal });
+
+  let previousBalance = 0n;
+
+  for await (const notification of subscription) {
+    const [data] = notification.value.data;
+    const dataBytes = getBase64Codec().encode(data);
+    const token = getTokenCodec().decode(dataBytes);
+    if (token.amount > previousBalance) {
+      const received = token.amount - previousBalance;
+      onPayment(received);
+    }
+    previousBalance = token.amount;
+  }
+  abortController.abort();
+}
+```
+
+Perhatikan di sini bahwa kami menggunakan RPC Subscriptions dan koneksi
+websocket ke jaringan Solana.
+
+Setiap notifikasi berisi string yang dikodekan base64 dari data akun token.
+Karena kami tahu akun yang kami lihat adalah akun token, kami dapat mendekode
+data menggunakan metode `getTokenCodec` dari paket `@solana-program/token`.
+
+Perhatikan bahwa untuk aplikasi produksi, Anda harus mempertimbangkan solusi
+streaming yang lebih robust. Beberapa opsi meliputi:
+
+- [Alchemy](https://docs.alchemy.com/reference/subscription-api)
+- [Triton](https://docs.triton.one/chains/solana/streaming)
+- [Helius](https://www.helius.dev/docs/data-streaming)
+- [QuickNode](https://www.quicknode.com/docs/solana/subscriptions)
+
+## Parsing riwayat transaksi
+
+Solana memiliki metode RPC yang memungkinkan Anda mengambil riwayat transaksi
+akun ([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) dan
+mendapatkan detail transaksi
+([`getTransaction`](/docs/rpc/http/gettransaction)). Untuk mem-parsing riwayat
+transaksi, kami mengambil signature terbaru untuk akun token kami, kemudian
+mengambil saldo token sebelum/sesudah setiap transaksi. Dengan membandingkan
+saldo ATA kami sebelum dan sesudah setiap transaksi, kami dapat menentukan
+jumlah pembayaran dan arah (masuk vs keluar).
+
+```typescript
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
+  const payments: ParsedPayment[] = [];
+
+  for (const sig of signatures) {
+    const tx = await rpc
+      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+      .send();
+
+    if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
+
+    // Find our ATA's index in the transaction
+    const accountKeys = tx.transaction.message.accountKeys;
+    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    if (ataIndex === -1) continue;
+
+    // Compare pre/post balances for our ATA
+    const pre = tx.meta.preTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+    const post = tx.meta.postTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+
+    const preAmount = BigInt(pre?.uiTokenAmount.amount ?? "0");
+    const postAmount = BigInt(post?.uiTokenAmount.amount ?? "0");
+    const diff = postAmount - preAmount;
+
+    if (diff !== 0n) {
+      payments.push({
+        signature: sig.signature,
+        timestamp: tx.blockTime,
+        amount: diff > 0n ? diff : -diff,
+        type: diff > 0n ? "incoming" : "outgoing"
+      });
+    }
+  }
+
+  return payments;
+}
+```
+
+Untuk mengidentifikasi pihak lawan, Anda dapat memindai saldo token transaksi
+untuk akun lain yang saldonya berubah ke arah berlawanan—jika Anda menerima
+dana, cari akun yang saldonya berkurang dengan jumlah yang sama.
+
+Karena transfer token SPL dapat terjadi di luar pembayaran antar pengguna,
+pendekatan ini mungkin menghasilkan beberapa transaksi yang bukan pembayaran.
+Alternatif yang baik di sini adalah menggunakan Memo.
+
+### Keterbatasan parsing saldo sebelum/sesudah
+
+Pendekatan di atas bekerja dengan baik untuk alur pembayaran sederhana. Namun,
+perusahaan yang memproses pembayaran dalam skala besar sering memerlukan data
+yang lebih terperinci dan real-time:
+
+- **Rincian per instruksi:** Satu transaksi dapat berisi beberapa transfer.
+  Saldo sebelum/sesudah hanya menunjukkan perubahan bersih, bukan transfer
+  individual.
+- **Transaksi multi-pihak:** Transaksi kompleks (swap, pembayaran batch)
+  melibatkan beberapa akun. Perbedaan saldo tidak mengungkapkan aliran dana yang
+  lengkap.
+- **Persyaratan audit:** Kepatuhan keuangan sering memerlukan rekonstruksi
+  urutan transfer yang tepat, bukan hanya saldo akhir.
+
+Untuk sistem produksi yang menangani volume tinggi, pertimbangkan
+[solusi pengindeksan](/docs/payments/accept-payments/indexing) khusus yang
+mengurai instruksi transfer individual dan menyediakan detail tingkat transaksi.
+
+## Rekonsiliasi pembayaran dengan Memo
+
+Ketika pengirim menyertakan memo (ID faktur, nomor pesanan), Anda dapat
+mengekstraknya dari pesan transaksi menggunakan metode RPC `getTransaction` dan
+encoding `jsonParsed`:
+
+```typescript
+function extractMemos(transaction): string | null {
+  const { instructions } = transaction.transaction.message;
+  let memos = "";
+  for (const instruction of instructions) {
+    if (instruction.program !== "spl-memo") continue;
+    memos += instruction.parsed + "; ";
+  }
+  return memos;
+}
+
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
+  const tx = await rpc
+    .getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      encoding: "jsonParsed"
+    })
+    .send();
+  if (!tx) return null;
+  return extractMemos(tx);
+}
+```
+
+## Perlindungan
+
+Beberapa mode kegagalan yang harus dihindari:
+
+- **Mempercayai frontend.** Halaman checkout mengatakan "pembayaran
+  selesai"—tetapi apakah transaksi benar-benar berhasil? Selalu verifikasi di
+  sisi server dengan melakukan query RPC. Konfirmasi frontend dapat dipalsukan.
+
+- **Bertindak berdasarkan status "processed".** Transaksi Solana melalui tiga
+  tahap: processed → confirmed → finalized. Transaksi "processed" masih dapat
+  dibatalkan selama fork. Tunggu status "confirmed" (1-2 detik) sebelum mengirim
+  pesanan, atau "finalized" (~13 detik) untuk transaksi bernilai tinggi.
+
+- **Mengabaikan mint.** Siapa pun dapat membuat token bernama "USDC". Validasi
+  bahwa mint dari token account sesuai dengan alamat mint stablecoin yang
+  sebenarnya dan program token, bukan hanya nama tokennya.
+
+- **Pemenuhan ganda.** Webhook Anda aktif, Anda mengirim pesanan. Gangguan
+  jaringan, webhook aktif lagi. Sekarang Anda telah mengirim dua kali. Simpan
+  tanda tangan transaksi yang telah diproses dan periksa sebelum memenuhi
+  pesanan.

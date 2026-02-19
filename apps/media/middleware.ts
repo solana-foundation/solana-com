@@ -1,20 +1,19 @@
-import createMiddleware from "next-intl/middleware";
-import { routing } from "@workspace/i18n/routing";
+import {
+  createMiddleware,
+  routingWithoutDetection,
+} from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 
-// localeDetection: false prevents redirects that leak the Vercel URL
-// When accessed via rewrite from solana.com, next-intl would redirect to
-// solana-com-media.vercel.app/ru/... because req.url is the rewrite destination
-const handleI18nRouting = createMiddleware({
-  ...routing,
-  localeDetection: false,
+const handleI18nRouting = createMiddleware(routingWithoutDetection, {
+  preserveProxiedLocaleCookie: true,
 });
 
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
-  // Skip i18n for /admin path (TinaCMS admin panel)
-  if (pathname.startsWith("/admin")) {
+  // Handle Keystatic admin routes
+  // Keystatic uses GitHub OAuth for authentication
+  if (pathname.startsWith("/keystatic")) {
     return NextResponse.next();
   }
 
@@ -35,8 +34,8 @@ export default async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all paths except static files and Next.js internals
-    "/((?!api|admin|_next|_vercel|uploads|video|favicon|.*\\..*).*)",
+    // Match all paths except static files and API routes
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*|uploads).*)",
   ],
   runtime: "nodejs",
 };
