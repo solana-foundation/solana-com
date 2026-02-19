@@ -36,7 +36,7 @@ export function X402Page({ translations }: X402PageProps) {
             subtitle={translations.heroSubtitle}
             extraCta={translations.extraCta}
             extraCtaHref={translations.extraCtaHref}
-            stats={undefined}
+            stats={translations.stats}
             bgJsonFilePath="/src/img/solutions/defi/hero-bg.json"
           />
         </div>
