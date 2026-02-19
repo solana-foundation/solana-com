@@ -39,6 +39,7 @@ import web3authIcon from "../../../assets/wallets/icons/web3auth.png";
 import atomicwalletIcon from "../../../assets/wallets/icons/atomicwallet.png";
 import jupiterIcon from "../../../assets/wallets/icons/jupiter.png";
 import openfortIcon from "../../../assets/wallets/icons/openfort.png";
+import infinexIcon from "../../../assets/wallets/icons/infinex.png";
 import opensignerIcon from "../../../assets/wallets/icons/opensigner.png";
 
 export const walletData = [
@@ -1048,6 +1049,30 @@ export const walletData = [
     open_source: false,
     hardware: false,
     private_key_infrastructure: false,
+  },
+  {
+    name: "Infinex",
+    body: "The Crypto Super App. Manage your crypto across multiple chains with no seed phrases and no KYC.",
+    website: "https://infinex.xyz/",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Hold NFTs • Social Recovery • Staking",
+    icon: infinexIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: false,
+    sell_crypto: false,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: true,
+    social_recovery: true,
+    staking: true,
+    spending_limits: false,
+    open_source: false,
+    hardware: false,
+    private_key_infrastructure: true,
   },
   // {
   //   name: "Passkeys.Foundation",
