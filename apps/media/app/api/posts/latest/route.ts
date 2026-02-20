@@ -1,9 +1,7 @@
-import client from "@/tina/__generated__/client";
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import { PostConnectionEdges } from "@/tina/__generated__/types";
-import { extractPlainText } from "@/lib/utils";
-import { transformPost } from "@/lib/post-utils";
+import { fetchLatestPosts } from "@/lib/keystatic/post-data";
+import { extractPlainText } from "@/lib/content-renderer";
 
 const CACHE_TAG = "posts";
 const REVALIDATE_SECONDS = 300; // 5 minutes
@@ -12,27 +10,32 @@ const MAX_LIMIT = 50;
 
 interface PostConnectionParams {
   limit?: number;
+  cursor?: string;
+  category?: string;
 }
 
 /**
- * Cached function to fetch posts from TinaCMS
+ * Cached function to fetch posts from Keystatic
  */
 async function fetchPosts(params: PostConnectionParams) {
   try {
-    const posts = await client.queries.postConnection({
-      last: params.limit ?? DEFAULT_LIMIT,
-      sort: "date",
+    const response = await fetchLatestPosts({
+      limit: params.limit ?? DEFAULT_LIMIT,
+      cursor: params.cursor,
+      category: params.category,
     });
 
     return {
       posts:
-        posts.data.postConnection.edges
-          ?.map((edge) => transformPost(edge as PostConnectionEdges))
-          // Convert TinaMarkdownContent to a plain text
+        response.posts
+          // Convert content to plain text for description
           ?.map((post) => ({
             ...post,
-            description: extractPlainText(post.description),
+            description: extractPlainText(
+              post.description ? String(post.description) : ""
+            ),
           })) || [],
+      pageInfo: response.pageInfo,
     };
   } catch (error) {
     console.error("Failed to fetch posts:", error);
@@ -54,6 +57,16 @@ function parseQueryParams(searchParams: URLSearchParams): PostConnectionParams {
     }
   }
 
+  const cursorParam = searchParams.get("cursor");
+  if (cursorParam) {
+    params.cursor = cursorParam;
+  }
+
+  const categoryParam = searchParams.get("category");
+  if (categoryParam) {
+    params.category = categoryParam;
+  }
+
   return params;
 }
 
@@ -63,7 +76,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `posts-${params.limit ?? DEFAULT_LIMIT}`;
+    const cacheKey = `posts-${params.limit ?? DEFAULT_LIMIT}-${params.cursor || "start"}-${params.category || "all"}`;
     const data = await unstable_cache(() => fetchPosts(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,

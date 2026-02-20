@@ -7,11 +7,6 @@ labels: "Status: Unconfirmed"
 
 ## Steps To Reproduce
 
-
-
 ## The current behavior
 
-
-
 ## The expected behavior
-

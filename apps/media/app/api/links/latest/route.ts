@@ -54,11 +54,11 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
 }
 
 /**
- * Cached function to fetch links from TinaCMS
+ * Cached function to fetch links from Keystatic
  */
 async function fetchLinks(params: LinkConnectionParams) {
   try {
-    // Map category ID back to category name for TinaCMS query
+    // Map category ID back to category name for Keystatic query
     const categoryName = params.category
       ? Object.entries(CATEGORY_NAME_TO_ID).find(
           ([, id]) => id === params.category

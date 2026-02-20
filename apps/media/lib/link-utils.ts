@@ -1,60 +1,51 @@
 import { LinkItem, LinkMetadata, LinkType } from "./link-types";
+import { ContentDocument } from "./post-types";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { TinaMarkdownContent } from "tinacms/dist/rich-text";
 
 dayjs.extend(utc);
 
-// Type for the TinaCMS link connection edge
-interface LinkConnectionEdge {
-  cursor?: string;
-  node?: {
-    id: string;
-    title: string;
-    url: string;
-    linkType: string;
-    description?: any;
-    thumbnailImage?: string | null;
-    source?: string;
-    publishedAt?: string;
-    featured?: boolean;
-    categories?: Array<{ category?: { name?: string } }>;
-    tags?: Array<{ tag?: { name?: string } }>;
-    _sys?: { breadcrumbs?: string[] };
-  };
+// Type for link data from Keystatic
+interface LinkData {
+  slug: string;
+  title: string;
+  url: string;
+  linkType: string;
+  description?: ContentDocument;
+  thumbnailImage?: string | null;
+  source?: string;
+  publishedAt?: string;
+  featured?: boolean;
+  categories?: string[];
+  tags?: string[];
 }
 
 /**
- * Transform TinaCMS link data to LinkItem
+ * Transform Keystatic link data to LinkItem
  */
-export function transformLink(linkData: LinkConnectionEdge): LinkItem | null {
-  const link = linkData?.node;
-  if (!link) return null;
-
+export function transformLink(
+  linkData: LinkData,
+  resolvedCategories?: string[],
+  resolvedTags?: string[]
+): LinkItem {
   // Format date in UTC to avoid timezone conversion issues
-  const formattedDate = link.publishedAt
-    ? dayjs.utc(link.publishedAt).format("DD MMM YYYY")
+  const formattedDate = linkData.publishedAt
+    ? dayjs.utc(linkData.publishedAt).format("DD MMM YYYY")
     : "";
 
   return {
-    id: link.id,
-    title: link.title,
-    url: link.url,
-    linkType: (link.linkType as LinkType) || "other",
-    description: link.description,
-    thumbnailImage: link.thumbnailImage,
-    source: link.source || getSourceFromUrl(link.url),
+    id: linkData.slug,
+    title: linkData.title,
+    url: linkData.url,
+    linkType: (linkData.linkType as LinkType) || "other",
+    description: linkData.description,
+    thumbnailImage: linkData.thumbnailImage,
+    source: linkData.source || getSourceFromUrl(linkData.url),
     publishedAt: formattedDate,
-    categories:
-      link.categories
-        ?.map((category) => category?.category?.name)
-        .filter((name): name is string => name !== undefined) || [],
-    tags:
-      link.tags
-        ?.map((tag) => tag?.tag?.name)
-        .filter((name): name is string => name !== undefined) || [],
-    featured: link.featured || false,
-    cursor: linkData.cursor,
+    categories: resolvedCategories || [],
+    tags: resolvedTags || [],
+    featured: linkData.featured || false,
+    cursor: linkData.slug,
   };
 }
 
@@ -62,13 +53,13 @@ export function transformLink(linkData: LinkConnectionEdge): LinkItem | null {
  * Check if a link needs metadata enrichment
  */
 function needsMetadataEnrichment(link: LinkItem): boolean {
-  if (!link.description) return false;
+  if (!link.description) return true;
 
-  const desc = link.description as TinaMarkdownContent | string;
+  const desc = link.description as ContentDocument | string;
   const hasDescription =
     typeof desc === "string"
       ? desc.trim().length > 0
-      : (desc as TinaMarkdownContent).children?.length > 0;
+      : Array.isArray(desc) && desc.length > 0;
 
   return !link.thumbnailImage || !hasDescription;
 }
@@ -84,24 +75,22 @@ async function enrichLinkWithMetadata(link: LinkItem): Promise<LinkItem> {
   try {
     const metadata = await fetchLinkMetadata(link.url);
 
-    const desc = link.description as TinaMarkdownContent | string | undefined;
+    const desc = link.description as ContentDocument | string | undefined;
     const hasDescription = desc
       ? typeof desc === "string"
         ? desc.trim().length > 0
-        : (desc as TinaMarkdownContent).children?.length > 0
+        : Array.isArray(desc) && desc.length > 0
       : false;
 
-    let newDescription: TinaMarkdownContent | undefined = link.description;
+    let newDescription: ContentDocument | undefined = link.description;
     if (!hasDescription && metadata.description) {
-      newDescription = {
-        type: "root",
-        children: [
-          {
-            type: "p",
-            children: [{ type: "text", text: metadata.description }],
-          },
-        ],
-      } as unknown as TinaMarkdownContent;
+      // Create a simple content document structure
+      newDescription = [
+        {
+          type: "paragraph",
+          children: [{ type: "text", text: metadata.description }],
+        },
+      ] as unknown as ContentDocument;
     }
 
     return {

@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { LinkItem } from "@/lib/link-types";
-import { TinaMarkdown } from "tinacms/dist/rich-text";
 import {
   ArrowUpRight,
   FileText,
@@ -93,7 +92,11 @@ export const LinkCard = ({ link }: LinkCardProps) => {
       </h3>
       {link.description && (
         <div className="text-muted-foreground grow line-clamp-3">
-          <TinaMarkdown content={link.description} />
+          {typeof link.description === "string" ? (
+            <p>{link.description}</p>
+          ) : (
+            <p>{String(link.description)}</p>
+          )}
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">

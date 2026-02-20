@@ -21,13 +21,11 @@ const nextConfig: NextConfig = {
       {
         pathname: "/media-assets/uploads/**",
       },
+      {
+        pathname: "/builder/**",
+      },
     ],
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "assets.tina.io",
-        port: "",
-      },
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
@@ -121,6 +119,10 @@ const nextConfig: NextConfig = {
         },
       ],
     };
+  },
+
+  outputFileTracingIncludes: {
+    "/*": ["./content/**/*", "./keystatic.config.tsx"],
   },
 
   experimental: {

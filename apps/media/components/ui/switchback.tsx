@@ -1,5 +1,4 @@
 import React from "react";
-import { TinaMarkdown } from "tinacms/dist/rich-text";
 
 interface SwitchbackProps {
   title: string;
@@ -8,7 +7,7 @@ interface SwitchbackProps {
     alt: string;
   };
   eyebrow?: string;
-  body: any;
+  body: React.ReactNode;
   buttons?: {
     label: string;
     url: string;
@@ -48,9 +47,7 @@ const Switchback: React.FC<SwitchbackProps> = ({
               </p>
             )}
             <h2 className="text-3xl font-bold mb-4">{title}</h2>
-            <div className="prose mb-6">
-              <TinaMarkdown content={body} />
-            </div>
+            <div className="prose mb-6">{body}</div>
             {buttons && buttons.length > 0 && (
               <div className="flex gap-4">
                 {buttons.map((button, index) => (

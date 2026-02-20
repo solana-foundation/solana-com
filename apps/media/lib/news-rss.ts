@@ -1,7 +1,7 @@
 import { Feed } from "feed";
 import { NextResponse } from "next/server";
-import client from "@/tina/__generated__/client";
-import type { TinaMarkdownContent } from "tinacms/dist/rich-text";
+import { reader } from "@/lib/reader";
+import { contentDocumentToPlainText } from "@/lib/content-renderer";
 
 const BASE_URL = "https://solana.com";
 const NEWS_URL = `${BASE_URL}/news`;
@@ -11,44 +11,6 @@ export const NEWS_RSS_CANONICAL_URL = `${BASE_URL}${RSS_CANONICAL_PATH}`;
 
 const RSS_CONTENT_TYPE = "application/rss+xml; charset=utf-8";
 const RSS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=600";
-
-// Helper function to convert TinaMarkdown content to plain text
-function markdownToPlainText(
-  content: TinaMarkdownContent | null | undefined
-): string {
-  if (!content) return "";
-
-  if (typeof content === "string") {
-    return content;
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .map((item) => {
-        if (typeof item === "string") {
-          return item;
-        }
-        if (item && typeof item === "object") {
-          // Handle various markdown node types
-          if (item.type === "p" && item.children) {
-            return markdownToPlainText(item.children);
-          }
-          if (item.type === "text" && item.text) {
-            return item.text;
-          }
-          if (item.children) {
-            return markdownToPlainText(item.children);
-          }
-        }
-        return "";
-      })
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-  }
-
-  return "";
-}
 
 // Helper function to get image MIME type from file extension
 function getImageMimeType(imageUrl: string): string {
@@ -63,19 +25,39 @@ function getImageMimeType(imageUrl: string): string {
     avif: "image/avif",
     ico: "image/x-icon",
   };
-  return mimeTypes[extension || ""] || "image/webp"; // Default to webp if unknown
+  return mimeTypes[extension || ""] || "image/webp";
 }
 
 async function buildNewsFeed(feedUrl: string) {
-  // Fetch posts (limit to 20 most recent)
-  const postsResponse = await client.queries.postConnection({
-    last: 20,
-    sort: "date",
+  const allSlugs = await reader.collections.posts.list();
+
+  const postsWithDates: Array<{
+    slug: string;
+    date: Date | null;
+    post: Awaited<ReturnType<typeof reader.collections.posts.read>>;
+  }> = [];
+
+  for (const slug of allSlugs) {
+    const post = await reader.collections.posts.read(slug);
+    if (post) {
+      postsWithDates.push({
+        slug,
+        date: post.date ? new Date(post.date) : null,
+        post,
+      });
+    }
+  }
+
+  // Sort by date descending and take top 20
+  postsWithDates.sort((a, b) => {
+    if (!a.date && !b.date) return 0;
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return b.date.getTime() - a.date.getTime();
   });
 
-  const posts = postsResponse.data.postConnection.edges || [];
+  const posts = postsWithDates.slice(0, 20);
 
-  // Create feed instance
   const feed = new Feed({
     title: "Solana News Feed",
     description: "Stay up to date with the latest Solana News",
@@ -85,51 +67,47 @@ async function buildNewsFeed(feedUrl: string) {
     image: `${BASE_URL}/favicon.png`,
     favicon: `${BASE_URL}/favicon.png`,
     copyright: `© ${new Date().getFullYear()} Solana Foundation. All rights reserved.`,
-    updated:
-      posts.length > 0 && posts[0]?.node?.date
-        ? new Date(posts[0].node.date)
-        : new Date(),
+    updated: posts.length > 0 && posts[0]?.date ? posts[0].date : new Date(),
     feedLinks: {
       rss: feedUrl,
     },
   });
 
-  // Add posts to feed
-  posts.forEach((postEdge) => {
-    const post = postEdge?.node;
-    if (!post) return;
+  for (const postEntry of posts) {
+    const post = postEntry?.post;
+    if (!post) continue;
 
-    const postUrl = `${NEWS_URL}/${post._sys.breadcrumbs.join("/")}`;
-    const description = markdownToPlainText(post.description) || "";
+    const postUrl = `${NEWS_URL}/${postEntry.slug}`;
+    const description = contentDocumentToPlainText(post.description) || "";
 
-    // Build feed item
-    const feedItem: {
-      title: string;
-      id: string;
-      link: string;
-      description: string;
-      date: Date;
-      author?: { name: string; link?: string }[];
-      image?: { url: string; type: string };
-    } = {
-      title: post.title || "Untitled",
-      id: post.id || postUrl,
+    // Resolve author
+    let authorName: string | null = null;
+    let authorAvatar: string | null = null;
+    if (post.author) {
+      const author = await reader.collections.authors.read(post.author);
+      if (author) {
+        authorName = String(author.name);
+        authorAvatar = author.avatar || null;
+      }
+    }
+
+    const feedItem: Parameters<typeof feed.addItem>[0] = {
+      title: String(post.title) || "Untitled",
+      id: postEntry.slug,
       link: postUrl,
       description,
-      date: post.date ? new Date(post.date) : new Date(),
+      date: postEntry.date || new Date(),
     };
 
-    // Add author if available
-    if (post.author?.name) {
+    if (authorName) {
       feedItem.author = [
         {
-          name: post.author.name,
-          ...(post.author.avatar && { link: post.author.avatar }),
+          name: authorName,
+          ...(authorAvatar && { link: authorAvatar }),
         },
       ];
     }
 
-    // Add image if available
     if (post.heroImage) {
       const imageUrl = post.heroImage.startsWith("http")
         ? post.heroImage
@@ -141,7 +119,7 @@ async function buildNewsFeed(feedUrl: string) {
     }
 
     feed.addItem(feedItem);
-  });
+  }
 
   return feed;
 }
@@ -151,11 +129,8 @@ export async function getNewsRssResponse(
 ) {
   try {
     const feed = await buildNewsFeed(feedUrl);
-
-    // Generate RSS XML
     const rss = feed.rss2();
 
-    // Return RSS feed with proper content type
     return new NextResponse(rss, {
       status: 200,
       headers: {

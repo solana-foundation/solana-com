@@ -9,6 +9,7 @@ import circleIcon from "../../../assets/wallets/icons/circle.png";
 import coinbaseIcon from "../../../assets/wallets/icons/coinbase.png";
 import coinwalletIcon from "../../../assets/wallets/icons/coinwallet.png";
 import crossmintIcon from "../../../assets/wallets/icons/crossmint.png";
+import cypherockIcon from "../../../assets/wallets/icons/cypherock.png";
 import decafIcon from "../../../assets/wallets/icons/decaf.png";
 import dynamicIcon from "../../../assets/wallets/icons/dynamic.png";
 import enkryptIcon from "../../../assets/wallets/icons/enkrypt.png";
@@ -39,6 +40,7 @@ import web3authIcon from "../../../assets/wallets/icons/web3auth.png";
 import atomicwalletIcon from "../../../assets/wallets/icons/atomicwallet.png";
 import jupiterIcon from "../../../assets/wallets/icons/jupiter.png";
 import openfortIcon from "../../../assets/wallets/icons/openfort.png";
+import infinexIcon from "../../../assets/wallets/icons/infinex.png";
 import opensignerIcon from "../../../assets/wallets/icons/opensigner.png";
 
 export const walletData = [
@@ -1047,6 +1049,53 @@ export const walletData = [
     spending_limits: false,
     open_source: false,
     hardware: false,
+    private_key_infrastructure: false,
+  },
+  {
+    name: "Infinex",
+    body: "The Crypto Super App. Manage your crypto across multiple chains with no seed phrases and no KYC.",
+    website: "https://infinex.xyz/?ref=solwf",
+    additionalInfo:
+      "Non-Custodial/Self Custodial • Hold NFTs • Social Recovery • Staking",
+    icon: infinexIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: false,
+    sell_crypto: false,
+    hold_nfts: true,
+    mpc: false,
+    gas_abstraction: true,
+    social_recovery: true,
+    staking: true,
+    spending_limits: false,
+    open_source: false,
+    hardware: false,
+    private_key_infrastructure: true,
+  },
+  {
+    name: "Cypherock",
+    body: "Cypherock X1 is the World's safest hardware wallet with non-custodial inheritance, audited by Keylabs",
+    website: "https://www.cypherock.com/",
+    additionalInfo: "Hardware • Non-Custodial/Self Custodial • Open Source",
+    icon: cypherockIcon,
+    custodial: false,
+    non_custodial: true,
+    te: false,
+    blinks_and_actions: false,
+    solana_pay: false,
+    buy_crypto: true,
+    sell_crypto: true,
+    hold_nfts: false,
+    mpc: false,
+    gas_abstraction: false,
+    social_recovery: true,
+    staking: false,
+    spending_limits: false,
+    open_source: true,
+    hardware: true,
     private_key_infrastructure: false,
   },
   // {

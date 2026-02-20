@@ -1,15 +1,22 @@
 "use client";
 import React, { useState, useContext } from "react";
-import { GlobalQuery } from "../../tina/__generated__/types";
+
+// Global settings type (replaces TinaCMS GlobalQuery)
+interface GlobalSettings {
+  theme: {
+    color?: string | null;
+    darkMode?: "system" | "light" | "dark" | null;
+  };
+}
 
 interface LayoutState {
-  globalSettings: GlobalQuery["global"];
+  globalSettings: GlobalSettings | undefined;
   setGlobalSettings: React.Dispatch<
-    React.SetStateAction<GlobalQuery["global"]>
+    React.SetStateAction<GlobalSettings | undefined>
   >;
-  pageData: {};
-  setPageData: React.Dispatch<React.SetStateAction<{}>>;
-  theme: GlobalQuery["global"]["theme"];
+  pageData: Record<string, unknown>;
+  setPageData: React.Dispatch<React.SetStateAction<Record<string, unknown>>>;
+  theme: GlobalSettings["theme"];
 }
 
 const LayoutContext = React.createContext<LayoutState | undefined>(undefined);
@@ -20,7 +27,7 @@ export const useLayout = () => {
     context || {
       theme: {
         color: "blue",
-        darkMode: "default",
+        darkMode: "system",
       },
       globalSettings: undefined,
       pageData: undefined,
@@ -30,8 +37,8 @@ export const useLayout = () => {
 
 interface LayoutProviderProps {
   children: React.ReactNode;
-  globalSettings: GlobalQuery["global"];
-  pageData: {};
+  globalSettings?: GlobalSettings;
+  pageData?: Record<string, unknown>;
 }
 
 export const LayoutProvider: React.FC<LayoutProviderProps> = ({
@@ -39,12 +46,14 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({
   globalSettings: initialGlobalSettings,
   pageData: initialPageData,
 }) => {
-  const [globalSettings, setGlobalSettings] = useState<GlobalQuery["global"]>(
-    initialGlobalSettings
+  const [globalSettings, setGlobalSettings] = useState<
+    GlobalSettings | undefined
+  >(initialGlobalSettings);
+  const [pageData, setPageData] = useState<Record<string, unknown>>(
+    initialPageData || {}
   );
-  const [pageData, setPageData] = useState<{}>(initialPageData);
 
-  const theme = globalSettings.theme;
+  const theme = globalSettings?.theme || { color: "blue", darkMode: "system" };
 
   return (
     <LayoutContext.Provider

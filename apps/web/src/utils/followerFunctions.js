@@ -1,10 +1,10 @@
 import * as cheerio from "cheerio";
-import fetch from "node-fetch-cache";
+import cachedFetch from "node-fetch-cache";
 
 const ytBaseURL = "https://www.googleapis.com/youtube/v3/";
 
 const scrapeUrlForTag = async (url, tagName) => {
-  const siteData = await fetch(url)
+  const siteData = await cachedFetch(url)
     .then((res) => res.text())
     .catch((err) => {
       console.log(err);
@@ -36,6 +36,7 @@ const getYoutubeSubscriberCount = async () => {
   try {
     const response = await fetch(
       `${ytBaseURL}channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`,
+      { next: { revalidate: 3600 } },
     );
 
     if (!response.ok) {
@@ -60,7 +61,7 @@ const getStableCoins = async () => {
   const options = { method: "GET", headers: { Accept: "application/json" } };
 
   try {
-    const jsonData = await fetch(url, options);
+    const jsonData = await cachedFetch(url, options);
     const stableCoins = await jsonData.json();
     const chainData = stableCoins.data[0].chains;
     let solAmount = 0;
@@ -77,7 +78,7 @@ const getStableCoins = async () => {
 };
 
 const getGHStargazers = async () => {
-  const res = await fetch(
+  const res = await cachedFetch(
     "https://api.github.com/repos/solana-foundation/solana-com",
     {
       method: "GET",
@@ -126,11 +127,13 @@ const getYTVideos = async (
   if (playlistId) {
     videoResp = await fetch(
       `${ytBaseURL}playlistItems?part=snippet%2CcontentDetails%2Cstatus&maxResults=${pageSize}&playlistId=${playlistId}&key=${apiKey}`,
+      { next: { revalidate: 3600 } },
     );
     // Channel videos
   } else {
     const channelResp = await fetch(
       `${ytBaseURL}channels?part=contentDetails&id=${channelId}&key=${apiKey}`,
+      { next: { revalidate: 3600 } },
     );
 
     const channelData = await channelResp.json();
@@ -141,14 +144,9 @@ const getYTVideos = async (
 
       videoResp = await fetch(
         `${ytBaseURL}playlistItems?part=snippet%2CcontentDetails%2Cstatus&maxResults=${pageSize}&playlistId=${uploadsId}&key=${apiKey}`,
+        { next: { revalidate: 3600 } },
       );
     }
-  }
-
-  if (videoResp?.fromCache) {
-    console.log(`Got YouTube videos from Cache.`);
-  } else {
-    console.log(`Fetched YouTube videos from API.`);
   }
 
   const videosData = await videoResp.json();

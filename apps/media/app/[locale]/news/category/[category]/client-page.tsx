@@ -1,16 +1,14 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { PageInfo } from "@/tina/__generated__/types";
 import ErrorBoundary from "@/components/error-boundary";
 import { Section } from "@/components/layout/section";
-import { PostItem } from "@/lib/post-types";
+import { PostItem, PageInfo } from "@/lib/post-types";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { PostCard } from "@/components/post/post-card";
 import LoadMoreStatus from "@/components/ui/load-more-status";
 import uniqBy from "lodash/uniqBy";
-import { fetchLatestPosts } from "@/lib/post-data";
 
 interface CategoryPostsClientPageProps {
   category: string;
@@ -34,19 +32,22 @@ export default function CategoryPostsClientPage(
   );
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
-  // Load more posts
+  // Load more posts via API
   const handleLoadMore = useCallback(async () => {
-    if (!pageInfo.hasPreviousPage || isLoadingMore) return;
+    if (!pageInfo.hasNextPage || isLoadingMore) return;
 
     setIsLoadingMore(true);
 
     try {
-      const response = await fetchLatestPosts({
-        limit: 13,
-        cursor: currentCursor || pageInfo.startCursor || undefined,
-        category: category,
-      });
+      const cursor = currentCursor || pageInfo.endCursor;
+      const params = new URLSearchParams({ limit: "13" });
+      if (cursor) params.set("cursor", cursor);
+      params.set("category", category);
 
+      const res = await fetch(`/api/posts/latest?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch posts");
+
+      const response = await res.json();
       const newPosts = response.posts;
 
       if (newPosts.length > 0) {
@@ -61,15 +62,22 @@ export default function CategoryPostsClientPage(
       }
 
       // Always update pageInfo to track pagination state
-      setPageInfo(response.pageInfo);
+      if (response.pageInfo) {
+        setPageInfo({
+          hasPreviousPage: response.pageInfo.hasPreviousPage,
+          hasNextPage: response.pageInfo.hasNextPage,
+          startCursor: response.pageInfo.startCursor ?? null,
+          endCursor: response.pageInfo.endCursor ?? null,
+        });
+      }
     } catch (error) {
       console.error("Failed to load more posts:", error);
     } finally {
       setIsLoadingMore(false);
     }
   }, [
-    pageInfo.hasPreviousPage,
-    pageInfo.startCursor,
+    pageInfo.hasNextPage,
+    pageInfo.endCursor,
     isLoadingMore,
     currentCursor,
     category,
@@ -125,7 +133,7 @@ export default function CategoryPostsClientPage(
             {/* Load More */}
             <LoadMoreStatus
               isLoading={isLoadingMore}
-              hasMore={pageInfo.hasPreviousPage}
+              hasMore={pageInfo.hasNextPage}
               onLoadMore={handleLoadMore}
               loadingText="Loading more posts..."
               noMoreText="No more posts to load"

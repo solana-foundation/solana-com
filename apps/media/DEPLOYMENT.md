@@ -64,14 +64,13 @@ When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrite
    Add these in Vercel dashboard → Settings → Environment Variables:
 
    ```bash
-   # TinaCMS Configuration
-   NEXT_PUBLIC_TINA_CLIENT_ID=your_client_id
-   TINA_TOKEN=your_token
-   NEXT_PUBLIC_TINA_BRANCH=main
-   TINA_SEARCH_INDEXER_TOKEN=your_indexer_token
+   # Keystatic Configuration
+   KEYSTATIC_GITHUB_CLIENT_ID=your_client_id
+   KEYSTATIC_GITHUB_CLIENT_SECRET=your_client_secret
+   KEYSTATIC_SECRET=your_random_secret
 
    # Or use local mode
-   TINA_PUBLIC_IS_LOCAL=true
+   KEYSTATIC_LOCAL=true
 
    # Vercel (auto-set)
    VERCEL_ENV=production
