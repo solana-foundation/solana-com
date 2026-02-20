@@ -16,7 +16,7 @@ const InnovationAccordion = forwardRef(
         <div
           className={classNames(
             styles["accordion__image--possible"],
-            "w-100 h-auto mx-auto mb-7 mt-7 d-block d-md-none",
+            "w-full h-auto mx-auto mb-10 mt-10 block md:hidden",
           )}
         >
           <PossibleAnimatedIcons
@@ -28,21 +28,21 @@ const InnovationAccordion = forwardRef(
         <Accordion onValueChange={() => setIsExpanded((state) => !state)}>
           <AccordionItem
             value={String(index)}
-            className={[styles["accordion-item"], `pb-4 pb-md-10`].join(" ")}
+            className={[styles["accordion-item"], "pb-4 md:pb-20"].join(" ")}
             style={{ "--accordion-color": color, background: "transparent" }}
           >
             <div
               className={classNames(
                 styles["accordion__divider--possible"],
-                `mb-4 mb-md-7 ${isExpanded ? "open" : null}`,
+                `mb-4 md:mb-10 ${isExpanded ? "open" : null}`,
               )}
             />
-            <div className={`d-md-flex`}>
-              <div className={`col-3`}>
+            <div className="md:flex">
+              <div className="w-full md:w-1/4">
                 <div
                   className={classNames(
                     styles["accordion__image--possible"],
-                    "w-100 h-auto ms-md-n3 mb-4 d-none d-md-block",
+                    "w-full h-auto md:-ml-3 mb-4 hidden md:block",
                   )}
                 >
                   <PossibleAnimatedIcons
@@ -53,21 +53,19 @@ const InnovationAccordion = forwardRef(
                 </div>
               </div>
               <div
-                className="accordion-header col-12 col-sm-9 ps-md-6"
+                className="accordion-header w-full sm:w-3/4 md:pl-8"
                 id={`panelsStayOpen-heading${index}`}
               >
-                <h2 className="h6 fw-semibold mb-3 mb-md-4 text-white">
+                <h2 className="h6 font-semibold mb-3 md:mb-4 text-white">
                   {title}
                 </h2>
                 {!isExpanded && (
                   <>
                     <p className={`truncated copy mb-0`}>{children}</p>
                     <AccordionTrigger asChild>
-                      <button
-                        className={`bg-transparent p-4 ms-n4 border-0 pb-md-6`}
-                      >
+                      <button className="bg-transparent p-4 -ml-4 border-0 md:pb-8">
                         <p
-                          className={"copy text-decoration-underline mb-0"}
+                          className="copy underline mb-0"
                           style={{ WebkitFontSmoothing: "antialiased" }}
                         >
                           {t("possible.readMore")}
@@ -77,7 +75,7 @@ const InnovationAccordion = forwardRef(
                   </>
                 )}
                 <AccordionContent>
-                  <p className={"copy mb-0 pb-md-8"}>{children}</p>
+                  <p className="copy mb-0 md:pb-12">{children}</p>
                 </AccordionContent>
               </div>
             </div>

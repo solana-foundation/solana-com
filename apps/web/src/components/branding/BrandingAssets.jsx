@@ -34,7 +34,7 @@ const BrandingAssets = () => {
         variant="secondary"
         size="large"
         newTab
-        className="mt-6 mb-6"
+        className="mt-8 mb-8"
       >
         {t("branding.assets.download-btn")}
       </Button>
@@ -42,14 +42,14 @@ const BrandingAssets = () => {
       <Divider theme="light" axis="x" className="my-4" />
       <div className="logo-section">
         <div>
-          <p className="smaller text-uppercase mt-4">
+          <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.mainLogoType")}
           </p>
-          <div className="d-flex align-items-center">
+          <div className="flex items-center">
             <Button
               to="src/img/branding/solanaLogo.png"
               download
-              className="me-4"
+              className="mr-4"
             >
               PNG
             </Button>
@@ -71,14 +71,14 @@ const BrandingAssets = () => {
       <Divider theme="light" axis="x" className="my-4" />
       <div className="logo-section">
         <div>
-          <p className="smaller text-uppercase mt-4">
+          <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.logomark")}
           </p>
-          <div className="d-flex align-items-center">
+          <div className="flex items-center">
             <Button
               to="src/img/branding/solanaLogoMark.png"
               download
-              className="me-4"
+              className="mr-4"
             >
               PNG
             </Button>
@@ -100,14 +100,14 @@ const BrandingAssets = () => {
       <Divider theme="light" axis="x" className="my-4" />
       <div className="logo-section">
         <div>
-          <p className="smaller text-uppercase mt-4">
+          <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.wordmark")}
           </p>
-          <div className="d-flex align-items-center">
+          <div className="flex items-center">
             <Button
               to="src/img/branding/solanaWordMark.png"
               download
-              className="me-4"
+              className="mr-4"
             >
               PNG
             </Button>
@@ -129,14 +129,14 @@ const BrandingAssets = () => {
       <Divider theme="light" axis="x" className="my-4" />
       <div className="logo-section">
         <div>
-          <p className="smaller text-uppercase mt-4">
+          <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.vertical")}
           </p>
-          <div className="d-flex align-items-center">
+          <div className="flex items-center">
             <Button
               to="src/img/branding/solanaVerticalLogo.png"
               download
-              className="me-4"
+              className="mr-4"
             >
               PNG
             </Button>
@@ -158,14 +158,14 @@ const BrandingAssets = () => {
       <Divider theme="light" axis="x" className="my-4" />
       <div className="logo-section">
         <div>
-          <p className="smaller text-uppercase mt-4">
+          <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.foundation")}
           </p>
-          <div className="d-flex align-items-center">
+          <div className="flex items-center">
             <Button
               to="src/img/branding/solanaFoundationLogo.png"
               download
-              className="me-4"
+              className="mr-4"
             >
               PNG
             </Button>

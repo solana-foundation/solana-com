@@ -23,7 +23,7 @@ export function EventsArchivePage({ events }: EventsArchivePageProps) {
       <div className="overflow-hidden">
         <EventsHeroSection type="archive" />
 
-        <div className="container">
+        <div className="container pb-10">
           <EventsList list={pageEvents} />
           <EventsArchivePagination
             initialPageSize={TOTAL_EVENTS_PER_PAGE}

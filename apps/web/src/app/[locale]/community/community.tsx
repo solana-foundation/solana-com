@@ -23,7 +23,7 @@ export function CommunityPage({
   youtubeVideos,
 }: CommunityPageProps) {
   return (
-    <div className="community-page mt-n10">
+    <div className="-mt-20">
       <CommunityHero />
       <CommunityLinks />
       <CommunitySocial data={socialData} />

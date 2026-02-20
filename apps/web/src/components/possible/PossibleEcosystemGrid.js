@@ -5,7 +5,7 @@ const PossibleEcosystemGrid = ({ data }) => {
   const chunkedData = divideIntoSixGroups(data, 6);
 
   return (
-    <div className={`d-table w-100 h-auto `}>
+    <div className={`table w-full h-auto `}>
       {chunkedData.map((chunk, index) => {
         return (
           <PossibleEcosystemGridRow

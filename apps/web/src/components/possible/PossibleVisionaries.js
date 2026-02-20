@@ -36,7 +36,7 @@ const PossibleVisionaries = () => {
   return (
     <section
       className={classNames(
-        `pt-10 pb-6 pt-md-10 pb-md-10 position-relative`,
+        "pt-20 pb-8 md:pt-20 md:pb-20 relative",
         styles[`possible-visionaries`],
       )}
     >
@@ -48,16 +48,16 @@ const PossibleVisionaries = () => {
         width="850px"
         rotation="100deg"
       />
-      <div className="container-fluid container-xl position-relative mx-auto d-block px-lg-8">
-        <div className={`row`}>
-          <div className="col-12 col-md-5 d-flex flex-row d-md-block mb-8 mb-md-0 ps-lg-0 align-items-center">
-            <h2 className="h2 pe-5 flex-grow-1 flex-shrink-1 mb-0">
+      <div className="container-fluid container-xl relative mx-auto block lg:px-12">
+        <div className="grid grid-cols-12 gap-x-5 md:gap-x-10">
+          <div className="col-span-12 md:col-span-5 flex flex-row md:block mb-12 md:mb-0 items-center">
+            <h2 className="h2 pr-6 grow shrink mb-0">
               {t.rich("possible.visionaries.title", {
                 italic: (chunks) => <em>{chunks}</em>,
               })}
             </h2>
           </div>
-          <div className={`col-12 col-md-7 px-0 mb-6 mb-md-0`}>
+          <div className="col-span-12 md:col-span-7 px-0 mb-8 md:mb-0 -mx-5 md:mx-0">
             <PossibleEpisodeSelection
               sliderRef={sliderRef}
               episodeData={data}
@@ -68,17 +68,17 @@ const PossibleVisionaries = () => {
       </div>
       <div
         className={classNames(
-          "container-fluid p-0 mb-6 mb-md-0 mx-auto d-block",
+          "container-fluid p-0 mb-8 md:mb-0 mx-auto block",
           styles["visionaries-videoContainer--possible"],
         )}
       >
-        <div className={`row`}>
-          <div className={`col`}>
+        <div className="grid grid-cols-12 gap-5 md:gap-10 -mx-5 md:mx-0">
+          <div className="col-span-12">
             <Slider {...settings} ref={sliderRef}>
               {data.map((item, index) => (
-                <div key={index} className={`container-fluid`}>
-                  <div className={`row d-md-flex flex-md-row-reverse pb-8`}>
-                    <div className={`col-12 col-md-6 px-0 mb-9 mb-md-0`}>
+                <div key={index}>
+                  <div className="flex flex-wrap md:flex-nowrap md:flex-row-reverse pb-12">
+                    <div className="w-full md:w-1/2 px-0 mb-16 md:mb-0">
                       <VideoModalButton
                         poster={item.poster}
                         index={index}
@@ -86,7 +86,7 @@ const PossibleVisionaries = () => {
                         watchText={t("possible.visionaries.watch")}
                       />
                     </div>
-                    <div className={`col-12 col-md-6 px-8 pe-lg-12`}>
+                    <div className="w-full md:w-1/2 px-12 lg:pr-32">
                       <div>
                         {item.speakers.map((speaker, index) => {
                           return (
@@ -97,7 +97,7 @@ const PossibleVisionaries = () => {
                               src={speaker.image}
                               alt={speaker.name}
                               className={classNames(
-                                "mb-5 me-1 mt-md-3 d-inline-block w-auto h-100",
+                                "mb-6 mr-1 md:mt-3 !inline-block w-auto h-full",
                                 styles[
                                   `visionaries-speakerThumbnail--possible`
                                 ],
@@ -106,15 +106,15 @@ const PossibleVisionaries = () => {
                           );
                         })}
                       </div>
-                      <h2 className="h6 fw-normal mb-6 mb-md-7">
+                      <h2 className="h6 font-normal mb-8 md:mb-10">
                         {item.title}
                       </h2>
-                      <p className="mb-5 copy text-white">{item.description}</p>
+                      <p className="mb-6 copy text-white">{item.description}</p>
                       <VideoTrigger
                         platform="vimeo"
                         id={index}
                         title={item.title}
-                        className="copy text-white text-uppercase fw-normal d-flex align-items-center"
+                        className="copy text-white uppercase font-normal flex items-center"
                         mode="button"
                       >
                         <Image
@@ -122,7 +122,7 @@ const PossibleVisionaries = () => {
                           alt={""}
                           width={30}
                           height={30}
-                          className={`d-inline-block me-2`}
+                          className="inline-block mr-2"
                         />
                         {t("possible.visionaries.watch")}
                       </VideoTrigger>
@@ -161,24 +161,57 @@ const PossibleEpisodeSelection = ({
 
   return (
     <div className="container-fluid">
-      <div className="row">
-        <div className="col d-flex flex-column flex-md-row pe-lg-0">
-          <div
-            className={classNames(
-              "w-100 d-flex flex-row flex-nowrap overflow-scroll me-2",
-              styles[`visionaries-episodeSelectionContainer--possible`],
-            )}
-            ref={containerRef}
-          >
+      <div className="flex flex-col md:flex-row md:-mr-5">
+        <div
+          className={classNames(
+            "md:w-full flex flex-row flex-nowrap overflow-scroll -ml-5 -mr-5 md:mr-2 md:ml-0 px-5 md:px-0",
+            styles[`visionaries-episodeSelectionContainer--possible`],
+          )}
+          ref={containerRef}
+        >
+          {episodeData.map((item, index) => (
+            <button
+              key={index}
+              className={classNames(
+                "uppercase grow-0",
+                styles[`visionaries-episodeSelectionBtn--possible`],
+                currentEpisode === index && "active",
+              )}
+              onClick={() => selectEpisode(index)}
+            >
+              {item.name === "DRiP" ? (
+                <>
+                  DR<span className="lowercase">I</span>P
+                </>
+              ) : (
+                item.name
+              )}
+            </button>
+          ))}
+        </div>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              className={classNames(
+                "uppercase whitespace-nowrap !mr-0",
+                styles[`visionaries-episodeSelectionBtn--possible`],
+              )}
+            >
+              {t("possible.visionaries.seeAll")}
+              <span className="inline-block relative -mr-3 ml-1">
+                <ChevronDown />
+              </span>
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content className="pb-0 z-10">
             {episodeData.map((item, index) => (
-              <button
+              <DropdownMenu.Item
                 key={index}
+                onSelect={() => selectEpisode(index)}
                 className={classNames(
-                  "btn btn-lg text-uppercase flex-grow-0",
-                  styles[`visionaries-episodeSelectionBtn--possible`],
                   currentEpisode === index && "active",
+                  styles[`visionaries-episodeDropdownBtn--possible`],
                 )}
-                onClick={() => selectEpisode(index)}
               >
                 {item.name === "DRiP" ? (
                   <>
@@ -187,45 +220,10 @@ const PossibleEpisodeSelection = ({
                 ) : (
                   item.name
                 )}
-              </button>
+              </DropdownMenu.Item>
             ))}
-          </div>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button
-                className={classNames(
-                  "uppercase whitespace-nowrap !mr-0",
-                  styles[`visionaries-episodeSelectionBtn--possible`],
-                )}
-              >
-                {t("possible.visionaries.seeAll")}
-                <span className="d-inline-block position-relative me-n3 ms-1">
-                  <ChevronDown />
-                </span>
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content className="pb-0 z-10">
-              {episodeData.map((item, index) => (
-                <DropdownMenu.Item
-                  key={index}
-                  onSelect={() => selectEpisode(index)}
-                  className={classNames(
-                    currentEpisode === index && "active",
-                    styles[`visionaries-episodeDropdownBtn--possible`],
-                  )}
-                >
-                  {item.name === "DRiP" ? (
-                    <>
-                      DR<span className="lowercase">I</span>P
-                    </>
-                  ) : (
-                    item.name
-                  )}
-                </DropdownMenu.Item>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </div>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
       </div>
     </div>
   );
@@ -233,9 +231,9 @@ const PossibleEpisodeSelection = ({
 
 const VideoModalButton = ({ poster, index, title }) => {
   return (
-    <div className={`position-relative d-block mx-auto w-100 h-auto`}>
+    <div className="relative block mx-auto w-full h-auto">
       <Image
-        className={`video-thumbnail poster w-100 h-auto`}
+        className="video-thumbnail poster w-full h-auto"
         src={poster}
         alt={""}
         width={400}

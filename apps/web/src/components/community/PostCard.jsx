@@ -23,6 +23,7 @@ const StyledPostCard = styled.article`
   .post-card {
     &-title {
       margin-top: 1rem;
+      margin-bottom: 1rem;
       color: white;
       font-style: normal;
       font-weight: bold;

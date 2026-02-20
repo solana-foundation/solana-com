@@ -295,12 +295,12 @@ const CarouselCards = ({ children }) => {
   return (
     <StyledCarouselCards className="py-2" data-overflowing={dataPos || "none"}>
       <div ref={wrapperRef} className="carousel-cards">
-        <div className="d-flex flex-row flex-nowrap" ref={contentRef}>
+        <div className="flex flex-nowrap" ref={contentRef}>
           {children}
         </div>
       </div>
       <button
-        className="overlay-left justify-content-center align-items-center btn btn-link text-white"
+        className="overlay-left justify-center items-center btn btn-link text-white"
         aria-label={t("developers.nav.prev")}
         onMouseDown={onLeftBtnMouseDown}
         onMouseUp={stopScroll}
@@ -312,7 +312,7 @@ const CarouselCards = ({ children }) => {
         <ArrowLeft />
       </button>
       <button
-        className="overlay-right justify-content-center align-items-center btn btn-link text-white"
+        className="overlay-right justify-center items-center btn btn-link text-white"
         aria-label={t("developers.nav.next")}
         onMouseDown={onRightBtnMouseDown}
         onMouseUp={stopScroll}

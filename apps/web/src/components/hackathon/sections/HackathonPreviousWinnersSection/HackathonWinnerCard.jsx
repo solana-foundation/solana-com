@@ -7,7 +7,7 @@ export default function HackathonWinnerCard({ logo, alt, width, height }) {
   return (
     <div
       className={classNames(
-        "d-flex justify-content-center align-items-center",
+        "flex justify-center items-center",
         styles["winner-card"],
       )}
     >

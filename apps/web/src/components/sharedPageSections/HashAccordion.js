@@ -14,10 +14,10 @@ const HashAccordionItem = ({ question, answer }) => {
     <AccordionItem
       data-id={id}
       value={id}
-      className={`[&>h3]:mb-0 border-b border-white/20 xl:py-4`}
+      className={`[&>h3]:mb-0 border-b border-white/20 md:py-4`}
     >
       <AccordionTrigger
-        className={`h6 [&>svg]:self-center [&>svg]:size-6 [&[data-state="open"]>svg]:rotate-180 mb-0 px-5`}
+        className={`text-xl [&>svg]:self-center [&>svg]:size-6 [&[data-state="open"]>svg]:rotate-180 mb-0 px-5`}
       >
         {question}
       </AccordionTrigger>

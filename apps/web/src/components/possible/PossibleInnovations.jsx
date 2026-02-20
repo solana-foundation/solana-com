@@ -18,17 +18,17 @@ const PossibleInnovation = () => {
     <Accordion type="multiple">
       <section
         id={`possible-innovation`}
-        className="container pt-12 pb-8 pt-md-6 pb-md-0 position-relative z-3"
+        className="container pt-12 pb-8 md:pt-8 md:pb-0 relative z-[3]"
       >
-        <div className={`row d-flex`}>
-          <div className="col-12 col-md-6">
-            <h2 className="h2 mb-0 mb-md-11 pt-md-11">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12 md:col-span-6">
+            <h2 className="h2 mb-0 md:mb-24 md:pt-24">
               {t("possible.innovations.title")}
             </h2>
           </div>
         </div>
-        <div className={`row d-flex`}>
-          <div className="col-12 col-md-6">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12 md:col-span-6">
             {/* MINT */}
             <InnovationAccordion
               ref={refs[0]}
@@ -48,7 +48,7 @@ const PossibleInnovation = () => {
                 docsLink: (chunks) => (
                   <Link
                     href="/news/state-compression-compressed-nfts-solana"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -72,7 +72,7 @@ const PossibleInnovation = () => {
                 gamingLink: (chunks) => (
                   <Link
                     href="/developers/gaming"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -84,7 +84,7 @@ const PossibleInnovation = () => {
                 heliumLink: (chunks) => (
                   <Link
                     href="/news/helium-upgrades-to-solana"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -92,16 +92,13 @@ const PossibleInnovation = () => {
                 hivemapperLink: (chunks) => (
                   <Link
                     href="/news/case-study-hivemapper"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
                 ),
                 aiLink: (chunks) => (
-                  <Link
-                    href="/ai"
-                    className="text-decoration-underline copy__link"
-                  >
+                  <Link href="/ai" className="underline copy__link">
                     {chunks}
                   </Link>
                 ),
@@ -122,17 +119,14 @@ const PossibleInnovation = () => {
             >
               {t.rich("possible.innovations.climate.description1", {
                 environmentLink: (chunks) => (
-                  <Link
-                    href="/environment"
-                    className="text-decoration-underline copy__link"
-                  >
+                  <Link href="/environment" className="underline copy__link">
                     {chunks}
                   </Link>
                 ),
                 emissionsLink: (chunks) => (
                   <Link
                     href="/news/announcing-real-time-emissions-measurement-on-the-solana-blockchain"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -143,7 +137,7 @@ const PossibleInnovation = () => {
               {t("possible.innovations.climate.description2")}
             </InnovationAccordion>
           </div>
-          <div className="col-12 col-md-6">
+          <div className="col-span-12 md:col-span-6">
             {/* Payment */}
             <InnovationAccordion
               ref={refs[3]}
@@ -160,7 +154,7 @@ const PossibleInnovation = () => {
                 paymentsLink: (chunks) => (
                   <Link
                     href="/developers/payments"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -169,7 +163,7 @@ const PossibleInnovation = () => {
                   <Link
                     target={"_blank"}
                     href="https://solanapay.com/"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -197,7 +191,7 @@ const PossibleInnovation = () => {
                   <Link
                     target={"_blank"}
                     href="https://solanamobile.com/"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>

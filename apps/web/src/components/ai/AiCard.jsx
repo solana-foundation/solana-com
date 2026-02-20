@@ -14,20 +14,20 @@ export default function AiCard() {
   const t = useTranslations();
 
   return (
-    <section className="container my-12 py-md-10">
-      <div className="position-relative d-flex d-md-block justify-content-center">
+    <section className="container my-32 md:py-20">
+      <div className="relative flex md:block justify-center">
         <div className={styles["ai-card__graphic"]}>
           <Image src={nftsEcosystemBlob} placeholder="blur" alt="" />
         </div>
       </div>
       <RoundedDepthCard
-        className={classNames(styles["card"], "px-8 pt-8 pb-5")}
+        className={classNames(styles["card"], "px-12 pt-12 pb-6")}
       >
         <h3 className={classNames(styles["card__title"], "h2")}>
           {t("ai.card.title")}
         </h3>
 
-        <div className={classNames(styles["card__content"], "my-5")}>
+        <div className={classNames(styles["card__content"], "my-6")}>
           <ul>
             <li>{t("ai.card.check-1")}</li>
             <li>{t("ai.card.check-2")}</li>
@@ -35,28 +35,28 @@ export default function AiCard() {
           </ul>
         </div>
 
-        <div className="d-flex flex-column">
+        <div className="flex flex-col">
           <Button
             to="https://x.com/knimkar/status/1863719025500623344"
-            className="mt-6"
+            className="mt-8"
             noBorder={true}
             newTab
           >
             {t("ai.card.cta")}
-            <ArrowRight className="ms-2" />
+            <ArrowRight className="ml-2" />
           </Button>
         </div>
       </RoundedDepthCard>
 
       <RoundedDepthCard
-        className={classNames(styles["card"], "px-8 pt-8 pb-5")}
+        className={classNames(styles["card"], "px-12 pt-12 pb-6")}
       >
         <h3 className={classNames(styles["card__title"], "h2")}>
           {t("ai.hackathon.title")}
         </h3>
 
-        <div className={classNames(styles["card__content"], "my-5")}>
-          <div className="d-flex flex-column flex-md-row justify-content-between align-md-items-center">
+        <div className={classNames(styles["card__content"], "my-6")}>
+          <div className="flex flex-col md:flex-row justify-between md:items-center">
             <ul>
               <li>{t("ai.hackathon.check-1")}</li>
               <li>{t("ai.hackathon.check-2")}</li>
@@ -76,15 +76,15 @@ export default function AiCard() {
           </div>
         </div>
 
-        <div className="d-flex flex-column flex-lg-row mt-6">
+        <div className="flex flex-col lg:flex-row mt-8">
           <Button
             to="https://x.com/sendaifun/status/1879665070709621176"
-            className="me-lg-2 mb-2 mb-lg-0"
+            className="lg:mr-2 mb-2 lg:mb-0"
             noBorder={true}
             newTab
           >
             {t("ai.hackathon.cta")}
-            <ArrowRight className="ms-2" />
+            <ArrowRight className="ml-2" />
           </Button>
           <Button
             newTab
@@ -92,7 +92,7 @@ export default function AiCard() {
             variant="outline"
           >
             {t("ai.hero.cta-2")}
-            <ArrowRight className="ms-2" />
+            <ArrowRight className="ml-2" />
           </Button>
         </div>
       </RoundedDepthCard>

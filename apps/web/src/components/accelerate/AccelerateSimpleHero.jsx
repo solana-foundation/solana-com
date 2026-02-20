@@ -19,7 +19,7 @@ const SimpleHero = ({ title }) => {
         placeholder="blur"
       />
       <div className="container my-8">
-        <h1 className="fw-normal spacegrotesk">{title}</h1>
+        <h1 className="font-normal spacegrotesk">{title}</h1>
       </div>
     </div>
   );

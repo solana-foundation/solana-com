@@ -48,7 +48,7 @@ export const StatsGrid: React.FC<StatsGridProps> = ({
         <div
           key={stat.label}
           className={cn(
-            "p-twd-4 md:p-twd-8 xl:px-twd-10 flex flex-col justify-between gap-twd-4 max-xl:border-b border-nd-border-light",
+            "p-4 md:p-8 xl:px-10 flex flex-col justify-between gap-4 max-xl:border-b border-nd-border-light",
             {
               "xl:pl-0": index === 0,
               "border-l": index % 2,
@@ -82,7 +82,7 @@ export const StatsGrid: React.FC<StatsGridProps> = ({
             <div className="text-[20px] xl:text-[40px] leading-none font-light uppercase">
               {stat.value}
             </div>
-            <div className="mt-twd-1.5 md:mt-twd-1 xl:mt-twd-3 text-[14px] md:text-[18px] leading-[1.33] font-medium">
+            <div className="mt-1.5 md:mt-1 xl:mt-3 text-[14px] md:text-[18px] leading-[1.33] font-medium">
               {stat.label}
             </div>
           </div>
@@ -91,7 +91,7 @@ export const StatsGrid: React.FC<StatsGridProps> = ({
       {items.length % 2 !== 0 && (
         <div
           className={cn(
-            "p-twd-4 md:p-twd-8 xl:px-twd-10 flex flex-col justify-between gap-twd-4 border-l max-xl:border-t border-nd-border-light xl:hidden",
+            "p-4 md:p-8 xl:px-10 flex flex-col justify-between gap-4 border-l max-xl:border-t border-nd-border-light xl:hidden",
             {
               "animate-fade-in-up": isIntersecting,
             },

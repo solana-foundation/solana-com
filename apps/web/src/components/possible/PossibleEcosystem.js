@@ -8,7 +8,7 @@ const PossibleEcosystem = () => {
   const t = useTranslations();
 
   return (
-    <section className={`pt-10 pb-8 pt-md-12 pb-md-10 position-relative`}>
+    <section className="pt-20 pb-12 md:pt-32 md:pb-20 relative">
       <PossibleGlow
         backgroundColor="#9e00d6"
         top="0%"
@@ -25,10 +25,10 @@ const PossibleEcosystem = () => {
         width="900px"
         rotation="20deg"
       />
-      <div className="container position-relative">
-        <div className={`row`}>
-          <div className="col d-flex flex-row mb-8 mb-md-0 pb-md-10 align-items-center ">
-            <h2 className="h2 pe-5 flex-grow-1 flex-shrink-1 mb-0">
+      <div className="container relative">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12 flex mb-12 md:mb-0 md:pb-20 items-center">
+            <h2 className="h2 pr-6 grow shrink mb-0">
               {t("possible.ecosystem.title")}
             </h2>
             <Button
@@ -36,27 +36,27 @@ const PossibleEcosystem = () => {
               newTab
               variant="outline"
               size="medium"
-              className="d-none d-md-block mb-2 align-self-end flex-shrink-0 flex-grow-0"
+              className="hidden md:block mb-2 self-end shrink-0 grow-0"
             >
               {t("possible.ecosystem.cta")}
             </Button>
           </div>
         </div>
       </div>
-      <div className="container-fluid p-0 mb-6 mb-md-0">
-        <div className={`row`}>
+      <div className="container-fluid p-0 mb-8 md:mb-0">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
           <PossibleEcosystemGrid data={PossibleEcosystemData} />
         </div>
       </div>
-      <div className="container d-block d-md-none">
-        <div className={`row`}>
-          <div className={`col text-center`}>
+      <div className="container block md:hidden">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12 text-center">
             <Button
               to="/news"
               newTab
               variant="outline"
               size="medium"
-              className="mt-4 align-self-end flex-shrink-0 flex-grow-0"
+              className="mt-4 self-end shrink-0 grow-0"
             >
               {t("possible.ecosystem.cta")}
             </Button>

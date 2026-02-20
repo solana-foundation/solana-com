@@ -21,17 +21,17 @@ const PossibleStartBuilding = () => {
         height="520px"
         width="900px"
         rotation="20deg"
-        className="d-none d-md-block z-n1"
+        className="hidden md:block [z-index:-1]"
       />
-      <div className="container pt-8 pb-4 pt-md-10 pb-md-12 px-md-0 position-relative z-index-1">
-        <div className={`row d-flex align-items-end`}>
-          <div className="col">
-            <h2 className="h2 mb-10 mb-md-6 text-start text-md-center">
+      <div className="container pt-12 pb-4 md:pt-20 md:pb-32 md:px-0 relative z-[1]">
+        <div className="grid grid-cols-12 gap-5 md:gap-10 items-end">
+          <div className="col-span-12">
+            <h2 className="h2 mb-20 md:mb-8 text-left md:text-center">
               {t("possible.startBuilding.title")}
             </h2>
           </div>
         </div>
-        <div className={`row flex-md-wrap `}>
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
           <StartBuildingColumn
             image={portalImg}
             title={t("possible.startBuilding.portal.title")}
@@ -61,34 +61,34 @@ const PossibleStartBuilding = () => {
 
 const StartBuildingColumn = ({ image, title, copy, cta, url }) => {
   return (
-    <div className="col-12 col-md-4 mb-8 mb-md-0 d-md-flex flex-md-column flex-md-grow-1">
+    <div className="col-span-12 md:col-span-4 mb-12 md:mb-0 md:flex md:flex-col md:grow">
       <div
         className={classNames(
           styles["card--possible"],
-          `h-md-100 d-md-flex flex-md-column`,
+          "md:h-full md:flex md:flex-col",
         )}
       >
         <Link
           href={url}
-          className="d-flex justify-content-center mt-n9 mt-md-0 mb-3 mb-md-6"
+          className="flex justify-center -mt-16 md:mt-0 mb-3 md:mb-8"
         >
           <Image
             priority
             src={image}
             alt=""
-            className={`px-lg-6 w-100 h-auto`}
+            className="lg:px-8 w-full h-auto"
           />
         </Link>
-        <Link href={url} className="d-block mb-4">
-          <h3 className="h6 fw-semibold text-white">{title}</h3>
+        <Link href={url} className="block mb-4">
+          <h3 className="h6 font-semibold text-white">{title}</h3>
         </Link>
-        <p className={"copy mb-5"}>{copy}</p>
+        <p className="copy mb-6">{copy}</p>
         <Button
           to={url}
           newTab
           variant="outline"
           size="large"
-          className={"mt-md-auto"}
+          className="md:mt-auto"
         >
           {cta}
         </Button>

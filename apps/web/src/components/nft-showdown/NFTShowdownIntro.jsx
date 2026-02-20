@@ -8,25 +8,27 @@ const NFTShowdownIntro = () => {
   const t = useTranslations();
 
   return (
-    <div className="my-6">
+    <div className="my-8">
       <div className={styles["nft-showdown-intro"]}>
         <Image
           src={NFTShowdownLogo}
           alt={t("nft-showdown.title")}
-          className="img-fluid"
+          className="max-w-full h-auto"
           width={960}
           height={592}
           placeholder="blur"
         />
-        <div className="mb-6">
-          <div className="mono section-title h6 fw-normal">
+        <div className="mb-8">
+          <div className="mono section-title h6 font-normal">
             {t("nft-showdown.intro.title")}:
           </div>
           <h1 className="h3">{t("nft-showdown.intro.heading")}</h1>
-          <h2 className="h6 mono fw-normal">{t("nft-showdown.intro.lead")}</h2>
+          <h2 className="h6 mono font-normal">
+            {t("nft-showdown.intro.lead")}
+          </h2>
         </div>
         <p>{t("nft-showdown.intro.description-1")}</p>
-        <div className="my-10 text-center">
+        <div className="my-20 text-center">
           <Button
             to="/news/solana-nft-showdown-winners"
             variant="secondary"
@@ -36,7 +38,7 @@ const NFTShowdownIntro = () => {
             {t("nft-showdown.cta")}
           </Button>
         </div>
-        <div className="ratio ratio-16x9 my-6">
+        <div className="aspect-video my-8">
           <iframe
             width="560"
             height="315"

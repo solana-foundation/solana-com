@@ -33,7 +33,7 @@ const ValidatorsGettingStarted = () => {
   const t = useTranslations();
 
   return (
-    <section className="getting-started">
+    <section className="mt-20 min-[567px]:mt-32">
       <div className="container">
         <StyledCardsWrapper>
           <StyledGettingStartedCard background="#AB66FF">
@@ -102,13 +102,13 @@ const ValidatorsGettingStarted = () => {
                 {t("validators.getting-started.cards.delegation-text")}
               </p>
             </div>
-            <div className="d-flex flex-wrap">
+            <div className="flex flex-wrap">
               <Button
                 to="https://solana.org/delegation-program"
                 newTab
                 aria-label="Solana Foundation delegation program"
                 variant="none"
-                className="mt-2 me-2"
+                className="mt-2 mr-2"
               >
                 {t("commands.learn")}
               </Button>

@@ -7,11 +7,11 @@ const BrandingLogo = () => {
   return (
     <section id="brand">
       <h2 className="h3">{t("branding.logo.title")}</h2>
-      <div className="h6 fw-bold mt-8">{t("branding.logo.sub-title")}</div>
-      <div className="mt-5">
-        <BrandLogo className="my-5" />
+      <div className="h6 font-bold mt-12">{t("branding.logo.sub-title")}</div>
+      <div className="mt-6">
+        <BrandLogo className="my-6" />
       </div>
-      <p className="small mt-5">{t("branding.logo.description")}</p>
+      <p className="small mt-6">{t("branding.logo.description")}</p>
     </section>
   );
 };

@@ -49,7 +49,7 @@ const EventsDetailSection = ({ event = null }) => {
     event.platform === "external" ? event.key : event.rsvp || event.lumaUrl;
 
   return (
-    <StyledSection className="my-10">
+    <StyledSection className="my-20">
       <div className="event-img">
         <Link
           target="_blank"

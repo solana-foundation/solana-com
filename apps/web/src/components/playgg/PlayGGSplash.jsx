@@ -27,43 +27,31 @@ const PlayGGSplash = () => {
     <div className="container">
       <div className={styles["playgg-splash"]}>
         <div>
-          <div className="d-flex mono">
-            <div className="w-75 w-lg-50 d-flex">
-              <div className="pe-md-10 w-50">
-                <div className="text-uppercase text-nowrap">
+          <div className="flex mono">
+            <div className="w-3/4 lg:w-1/2 flex">
+              <div className="md:pr-20 w-1/2">
+                <div className="uppercase whitespace-nowrap">
                   [{t("playgg.info.title")}]
                 </div>
                 <div>&ndash;</div>
                 <p>{t("playgg.info.description")}</p>
               </div>
-              {/* <div className="ps-4 w-50">
-                <div className="text-uppercase text-nowrap">
-                  [{t("playgg.presentedby.title")}]
-                </div>
-                <div>&ndash;</div>
-                <div className="d-flex align-items-center">
-                  <Solana className="me-2 me-md-4" />
-                  <p style={{ width: "1px" }} className="m-0">
-                    {t("playgg.presentedby.description")}
-                  </p>
-                </div>
-              </div> */}
             </div>
           </div>
 
           <div className={styles["playgg-splash__wrapper"]}>
             <div className={styles["playgg-splash__date"]}>
-              <Jul /> <span className="d-block">18&ndash;19</span>
+              <Jul /> <span className="block">18&ndash;19</span>
             </div>
             <Solana className={styles["playgg-splash__solana"]} />
             <div
               className={classNames(
                 styles["playgg-splash__date"],
                 styles["playgg-splash__date--difference"],
-                "d-none d-lg-block",
+                "hidden lg:block",
               )}
             >
-              <Jul /> <span className="d-block">18&ndash;19</span>
+              <Jul /> <span className="block">18&ndash;19</span>
             </div>
             <div className={styles["playgg-splash__text"]}>
               <Play className={styles["playgg-splash__text__play"]} />
@@ -95,14 +83,14 @@ const PlayGGSplash = () => {
             </div>
           </div>
 
-          <div className="d-flex align-items-center">
-            <div className="w-50">
+          <div className="flex items-center">
+            <div className="w-1/2">
               <div className={styles["playgg-splash__sandiego"]}>
                 <span>SAN</span>
                 <Diego />
               </div>
             </div>
-            <div className="w-50">
+            <div className="w-1/2">
               {/* <div className={styles["playgg-splash__form"]}>
                 <div className={styles["playgg-splash__form__title"]}>
                   {t("playgg.signup.title")}
@@ -113,7 +101,7 @@ const PlayGGSplash = () => {
               <div
                 className={classNames(styles["playgg-splash__cta"], "text-end")}
               >
-                <div className="text-uppercase text-nowrap smaller">
+                <div className="uppercase whitespace-nowrap smaller">
                   [{t("playgg.presentedby.title")}]
                 </div>
                 <div>&ndash;</div>

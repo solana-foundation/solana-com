@@ -61,7 +61,7 @@ const Ramps = ({
         title: t("on-off-ramp.ramp-modal-data.country-title"),
       },
       {
-        content: `<div class="tw-flex tw-flex-row tw-gap-2 tw-flex-wrap py-2">${fiatHtml}</div>`,
+        content: `<div class="flex flex-row gap-2 flex-wrap py-2">${fiatHtml}</div>`,
         title: t("on-off-ramp.ramp-modal-data.fiat-title"),
       },
       {
@@ -97,7 +97,7 @@ const Ramps = ({
         ) : (
           <div className={styles["ramp-no-results"]}>
             {t("on-off-ramp.no-results.title")}
-            <Button variant="outline" onClick={resetFilters} className="ms-2">
+            <Button variant="outline" onClick={resetFilters} className="ml-2">
               {t("on-off-ramp.no-results.clear-filters-button")}
             </Button>
           </div>
@@ -135,7 +135,7 @@ const Ramps = ({
               {t("on-off-ramp.ramp-modal-data.button-title")}
             </Button>
           </div>
-          <div className="mt-5">
+          <div className="mt-6">
             <Accordion type="multiple">
               {modalData.map((itemData, index) => (
                 <AccordionItem

@@ -132,28 +132,26 @@ const ArtistsAndCreatorsNewsletter = ({
   }, []);
 
   return (
-    <section className={`position-relative pb-5`}>
-      <div
-        className={`container-xl pt-8 pb-4 pb-md-10 px-6 px-md-8 mx-auto position-relative`}
-      >
+    <section className="relative pb-6">
+      <div className="container-xl pt-12 pb-4 md:pb-20 px-8 md:px-12 mx-auto relative">
         {isSuccess ? (
           <>
-            <div className={`row flex justify-content-center`}>
-              <div className={`col col-lg-8`}>
+            <div className="flex justify-center">
+              <div className="w-full lg:w-2/3">
                 <DialogTitle asChild>
-                  <h3 className={`h3 fw-normal text-center mb-5`}>
+                  <h3 className="h3 font-normal text-center mb-6">
                     {t("artistsAndCreatorsNewsletter.form.success.title")}
                   </h3>
                 </DialogTitle>
                 <DialogDescription asChild>
-                  <p className={`lead text-center mb-7`}>
+                  <p className="text-xl font-light text-center mb-10">
                     {t("artistsAndCreatorsNewsletter.form.success.description")}
                   </p>
                 </DialogDescription>
                 <Button
                   size={`md`}
                   hierarchy={"secondary"}
-                  className="tw-mt-4 mx-auto d-block"
+                  className="mt-4 mx-auto block"
                   onClick={() => modalCloseHandler()}
                 >
                   {t("artistsAndCreatorsNewsletter.form.success.cta")}
@@ -163,22 +161,22 @@ const ArtistsAndCreatorsNewsletter = ({
           </>
         ) : (
           <>
-            <div className={`row flex justify-content-center`}>
-              <div className={`col col-lg-8 mb-md-5`}>
+            <div className="flex justify-center">
+              <div className="w-full lg:w-2/3 md:mb-6">
                 <DialogTitle asChild>
-                  <h3 className={`h3 fw-normal mb-5 text-center`}>
+                  <h3 className="h3 font-normal mb-6 text-center">
                     {t("artistsAndCreatorsNewsletter.title")}
                   </h3>
                 </DialogTitle>
                 <DialogDescription asChild>
-                  <p className={`lead text-center mb-8`}>
+                  <p className="text-xl font-light text-center mb-12">
                     {t("artistsAndCreatorsNewsletter.description")}
                   </p>
                 </DialogDescription>
               </div>
             </div>
-            <div className={`row flex justify-content-center`}>
-              <div className={`col col-lg-6`}>
+            <div className="flex justify-center">
+              <div className="w-full lg:w-1/2">
                 <form onSubmit={onSubmit}>
                   <Input
                     size={"md"}
@@ -187,7 +185,7 @@ const ArtistsAndCreatorsNewsletter = ({
                     placeholder={t(
                       "artistsAndCreatorsNewsletter.form.email.placeholder",
                     )}
-                    className={"tw-w-full mb-4"}
+                    className="w-full mb-4"
                     helperText={
                       values.email.error
                         ? t("artistsAndCreatorsNewsletter.form.email.error")
@@ -202,7 +200,7 @@ const ArtistsAndCreatorsNewsletter = ({
                       "artistsAndCreatorsNewsletter.form.firstName.label",
                     )}
                     name="firstName"
-                    className={"tw-w-full mb-5"}
+                    className="w-full mb-6"
                     placeholder={t(
                       "artistsAndCreatorsNewsletter.form.firstName.placeholder",
                     )}
@@ -223,7 +221,7 @@ const ArtistsAndCreatorsNewsletter = ({
                     placeholder={t(
                       "artistsAndCreatorsNewsletter.form.lastName.placeholder",
                     )}
-                    className={"tw-w-full mb-5"}
+                    className="w-full mb-6"
                     helperText={
                       values.lastName.error
                         ? t("artistsAndCreatorsNewsletter.form.lastName.error")
@@ -238,16 +236,14 @@ const ArtistsAndCreatorsNewsletter = ({
                     type="submit"
                     size={`md`}
                     hierarchy={"secondary"}
-                    className="tw-mt-4 tw-w-full"
+                    className="mt-4 w-full"
                   >
                     {isSubmitting
                       ? t("artistsAndCreatorsNewsletter.form.submitting")
                       : t("artistsAndCreatorsNewsletter.form.submit")}
                   </Button>
                   {error && (
-                    <p
-                      className={`tw-text-sm tw-font-light mb-0 tw-text-error-500 text-center mt-5`}
-                    >
+                    <p className="text-sm font-light mb-0 text-error-500 text-center mt-6">
                       {error}
                     </p>
                   )}

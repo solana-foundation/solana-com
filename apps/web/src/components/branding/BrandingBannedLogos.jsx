@@ -45,8 +45,8 @@ const BrandingBannedLogos = () => {
   const t = useTranslations();
 
   return (
-    <StyledSection className="mt-6">
-      <div className="h6 fw-bold">{t("branding.banned.title")}</div>
+    <StyledSection className="mt-8">
+      <div className="h6 font-bold">{t("branding.banned.title")}</div>
       <p className="small mt-2">{t("branding.banned.description")}</p>
       <div className="banned-logos">
         <div style={{ background: "#9945FF" }}>

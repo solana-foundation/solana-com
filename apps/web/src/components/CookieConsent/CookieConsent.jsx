@@ -82,11 +82,11 @@ export default function CookieConsent() {
             <p>{t("cookie-consent.title")}</p>
           </div>
 
-          <div className="d-flex align-items-center justify-content-between smaller">
+          <div className="flex items-center justify-between smaller">
             <div>
               <Button
                 variant="captioned"
-                className="px-0"
+                className="!px-0"
                 onClick={() => setCookieConsent(false)}
               >
                 {t("cookie-consent.button.optout")}
@@ -94,7 +94,7 @@ export default function CookieConsent() {
               <Button
                 to="/privacy-policy#collection-of-information"
                 variant="captioned"
-                className="px-0 ms-4"
+                className="!px-0 ml-4"
               >
                 {t("cookie-consent.button.details")}
               </Button>

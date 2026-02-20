@@ -45,7 +45,7 @@ export const Community: React.FC<CommunityProps> = ({
   links = [],
 }) => {
   return (
-    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0 px-2">
+    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2">
       <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative transform-gpu">
         {bgJsonFilePath && (
           <UnicornScene
@@ -87,7 +87,7 @@ export const Community: React.FC<CommunityProps> = ({
             {subtitle && (
               <p
                 className={cn(
-                  "nd-body-xl max-xl:mt-twd-3 xl:py-twd-3 xl:pl-twd-6 xl:max-w-[40%] relative ",
+                  "nd-body-xl max-xl:mt-3 xl:py-3 xl:pl-6 xl:max-w-[40%] relative ",
                   "xl:before:absolute xl:before:top-0 xl:before:left-0 xl:before:w-px xl:before:h-full xl:before:bg-gradient-to-b xl:before:from-[#D884F0] xl:before:to-[#44EBA6]",
                 )}
               >
@@ -95,12 +95,12 @@ export const Community: React.FC<CommunityProps> = ({
               </p>
             )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1 mt-twd-10 relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-1 mt-10 relative">
             {links?.map((item, index) => (
               <a
                 key={index}
                 href={item.href}
-                className="flex max-md:flex-row md:flex-col items-start gap-twd-3 md:gap-twd-12 px-twd-4 py-twd-5 md:px-twd-6 md:py-twd-8 rounded-xl bg-nd-border-light hover:bg-nd-mid-em-text-alpha/20 backdrop-blur-[8px] text-inherit"
+                className="flex max-md:flex-row md:flex-col items-start gap-3 md:gap-12 px-4 py-5 md:px-6 md:py-8 rounded-xl bg-nd-border-light hover:bg-nd-mid-em-text-alpha/20 backdrop-blur-[8px] text-inherit"
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -113,7 +113,7 @@ export const Community: React.FC<CommunityProps> = ({
                   <h4 className="font-medium nd-body-xl max-xl:!text-[16px]">
                     {item.title}
                   </h4>
-                  <p className="nd-body-m text-nd-mid-em-text !mt-twd-1 max-xl:!text-[14px]">
+                  <p className="nd-body-m text-nd-mid-em-text !mt-1 max-xl:!text-[14px]">
                     {item.description}
                   </p>
                 </div>

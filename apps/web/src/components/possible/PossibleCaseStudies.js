@@ -9,7 +9,7 @@ const PossibleCaseStudies = () => {
 
   return (
     <section className={styles["section__caseStudies--possible"]}>
-      <div className="container-fluid pt-8 pt-md-12 pb-md-10 position-relative z-index-1">
+      <div className="container-fluid pt-12 md:pt-32 md:pb-20 relative z-[1]">
         <div className={styles["caseStudies__card-row--possible"]}>
           <div className={styles["caseStudies__card-row-inner--possible"]}>
             <CaseStudyCard
@@ -52,18 +52,15 @@ const PossibleCaseStudies = () => {
 const CaseStudyCard = ({ title, copy, cta, url }) => {
   return (
     <div
-      className={classNames(
-        styles["caseStudies__card"],
-        "p-6 pb-9 position-relative ",
-      )}
+      className={classNames(styles["caseStudies__card"], "p-8 pb-16 relative")}
     >
-      <Link href={url} className="d-block mb-4">
-        <h3 className="h6 fw-medium mb-3 mb-md-4 text-white">{title}</h3>
+      <Link href={url} className="block mb-4">
+        <h3 className="h6 font-medium mb-3 md:mb-4 text-white">{title}</h3>
       </Link>
-      <p className={"copy mb-5"}>{copy}</p>
+      <p className="copy mb-6">{copy}</p>
       <Link
         href={url}
-        className={`cta copy fw-light mb-6 ms-6 text-uppercase text-decoration-underline position-absolute bottom-0 start-0`}
+        className="cta copy font-light mb-8 ml-8 uppercase underline absolute bottom-0 left-0"
       >
         {cta}
       </Link>

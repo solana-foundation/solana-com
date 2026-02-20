@@ -19,10 +19,10 @@ const PossibleHero = () => {
   }, [prefersReducedMotion]);
 
   return (
-    <section className="position-relative">
-      <div className="container-xl pt-8 pb-4 pb-md-10 px-6 px-md-8 mx-auto position-relative">
-        <div className={`row d-flex align-items-end`}>
-          <div className="col">
+    <section className="relative">
+      <div className="container-xl pt-12 pb-4 md:pb-20 !px-8 md:!px-12 mx-auto relative">
+        <div className="flex flex-wrap items-end gap-10">
+          <div className="flex-1">
             <h1 className="mb-0">
               <video
                 loop
@@ -33,7 +33,7 @@ const PossibleHero = () => {
                 ref={heroVideoRef}
                 className={classNames(
                   styles["hero__title-image--possible"],
-                  `me-auto mb-8`,
+                  "mr-auto mb-12",
                 )}
               >
                 <source
@@ -41,19 +41,17 @@ const PossibleHero = () => {
                   type="video/mp4"
                 />
               </video>
-              <span className="visually-hidden">
-                {t("possible.hero.title")}
-              </span>
+              <span className="sr-only">{t("possible.hero.title")}</span>
             </h1>
             <p
               className={classNames(
                 styles["hero__copy--possible"],
-                `d-block d-md-none mb-6`,
+                "block md:hidden mb-8",
               )}
             >
               {t("possible.hero.description")}
             </p>
-            <div className={`text-center text-md-start`}>
+            <div className="text-center md:text-left">
               <Button
                 to="/developers"
                 variant="secondary"
@@ -64,7 +62,7 @@ const PossibleHero = () => {
               </Button>
             </div>
           </div>
-          <div className="col d-none d-md-block ps-8 pe-5">
+          <div className="flex-1 hidden md:block pl-12 pr-6">
             <VideoModalButton title={t("possible.hero.title")} />
             <p className={classNames(styles["hero__copy--possible"], `mb-0`)}>
               {t("possible.hero.description")}
@@ -72,7 +70,7 @@ const PossibleHero = () => {
           </div>
         </div>
       </div>
-      <div className={`d-block d-md-none`}>
+      <div className="block md:hidden">
         <VideoModalButton title={t("possible.hero.title")} />
       </div>
     </section>
@@ -84,7 +82,7 @@ const VideoModalButton = ({ title }) => {
     <div
       className={classNames(
         styles["hero__poster--possible"],
-        "position-relative mt-8 mt-md-0 mb-8 mb-md-9",
+        "relative mt-12 md:mt-0 mb-12 md:mb-16",
       )}
     >
       <Image

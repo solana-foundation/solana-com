@@ -47,7 +47,7 @@ const SharedModal = ({
   return (
     <Dialog open={show} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent
-        className={`dark-modal-content ${sizeClass} text-white border-[0px] ${className ? className : ""}`}
+        className={`dark-modal-content ${sizeClass} max-h-[95vh] overflow-auto text-white border-[0px] ${className ? className : ""}`}
         showCloseButton
         closeButtonClassName="box-content w-[1.5rem] h-[1.5rem] p-[0.25rem] text-[#232323] border-0 !bg-purple-700 rounded-full [&>svg]:!size-6"
       >

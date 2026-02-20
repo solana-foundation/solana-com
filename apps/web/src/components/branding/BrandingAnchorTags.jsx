@@ -26,7 +26,7 @@ const BrandingAnchorTagsSection = () => {
   return (
     <StyledSection>
       <p className="smallest">{t("branding.tags.title")}</p>
-      <div className="d-flex flex-column">
+      <div className="flex flex-col">
         <a href="#brand">
           <div className="tag small">
             <span>{t("branding.tags.first-tag")}</span>

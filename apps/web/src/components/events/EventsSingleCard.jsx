@@ -94,7 +94,7 @@ const EventsSingleCard = ({ event }) => {
             )}
         </p>
         <div className="small">
-          <small className="d-block">
+          <small className="block">
             <EventsSingleLocation event={event} />
           </small>
           <small>{event.type}</small>

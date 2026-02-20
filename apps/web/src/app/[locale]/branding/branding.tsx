@@ -58,8 +58,8 @@ export function BrandingPage({ translations }: BrandingPageProps) {
           title: translations.title,
         }}
       />
-      <StyledMainContainer className="container pt-8">
-        <div className="left-content">
+      <StyledMainContainer className="container pt-12">
+        <div className="left-content pb-10">
           <BrandingWelcome />
           <BrandingLogo />
           <BrandingClearspace />

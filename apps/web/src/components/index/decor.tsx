@@ -3,7 +3,7 @@ import React from "react";
 export const Decor = () => {
   return (
     <div>
-      <div className="pb-twd-20 xl:pb-twd-10"></div>
+      <div className="pb-20 xl:pb-10"></div>
       <div className="relative pointer-events-none h-0 z-0">
         <div className="relative top-0 left-0 h-[900px] md:h-[800px] xl:h-[900px] -translate-y-1/2 overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full blur-[2px]">
@@ -40,7 +40,7 @@ export const Decor = () => {
           </div>
         </div>
       </div>
-      <div className="pb-twd-10 xl:pb-twd-0"></div>
+      <div className="pb-10 xl:pb-0"></div>
     </div>
   );
 };

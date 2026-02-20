@@ -115,7 +115,7 @@ const RampFilter = ({
   return (
     <div className={`ramp-filter ${styles["ramp-filter"]}`}>
       <div
-        className={`d-flex flex-row justify-content-between align-items-center ${styles["ramp-filter__header"]}`}
+        className={`flex justify-between items-center ${styles["ramp-filter__header"]}`}
         onClick={toggleActiveState}
       >
         <h3 className={`${styles["ramp-filter__title"]}`}>{title}</h3>

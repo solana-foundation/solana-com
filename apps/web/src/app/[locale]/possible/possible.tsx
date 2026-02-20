@@ -45,7 +45,7 @@ export function PossiblePage() {
     <div
       className={classNames(
         styles["possible-layout"],
-        "position-relative d-block overflow-hidden",
+        "relative block overflow-hidden",
       )}
     >
       <PossibleHero />
@@ -62,7 +62,7 @@ export function PossiblePage() {
               <PossibleStats visible={statsInView} showKPIs={false} />
             </>
           ) : (
-            <div className="min-vh-100 w-100" />
+            <div className="min-h-screen w-full" />
           )}
         </div>
       </div>

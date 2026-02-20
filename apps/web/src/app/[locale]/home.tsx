@@ -186,7 +186,7 @@ export function HomePage({
       />
 
       <Logos
-        className="h-[73px] xl:h-[123px] gap-twd-4 md:gap-twd-3 xl:gap-twd-4 justify-evenly max-w-screen-2xl w-full mx-twd-auto px-twd-5 md:px-twd-8 xl:px-twd-10 py-twd-6 xl:py-twd-11 mt-twd-4 md:mt-twd-6 xl:mt-twd-8"
+        className="h-[73px] xl:h-[123px] gap-4 md:gap-3 xl:gap-4 justify-evenly max-w-screen-2xl w-full mx-auto px-5 md:px-8 xl:px-10 py-6 xl:py-11 mt-4 md:mt-6 xl:mt-8"
         itemClassName="h-full m-0 !mr-0 flex-shrink-0"
         logos={LOGOS}
         animation={false}
@@ -215,7 +215,7 @@ export function HomePage({
                 date={event.schedule.from}
                 location={event.venue.city || event.venue.address}
                 href={event.rsvp}
-                className="px-twd-1"
+                className="px-1"
               />
             ))}
           </CardCarouselSection>
@@ -278,7 +278,7 @@ export function HomePage({
         {newsToDisplay.map((item) => (
           <BigBannerCard
             key={item.id}
-            className="px-twd-1"
+            className="px-1"
             imageSrc={item.heroImage}
             title={item.title}
             description={item.description}
@@ -302,7 +302,7 @@ export function HomePage({
             id={item.contentDetails.videoId}
             thumbnail={item.snippet.thumbnails.maxres.url}
             alt={item.snippet.title}
-            className="px-twd-1"
+            className="px-1"
             title={item.snippet.title}
           />
         ))}

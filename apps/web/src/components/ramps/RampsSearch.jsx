@@ -9,9 +9,7 @@ const RampsSearch = ({ mobileClickEvent, searchTerm, handleInputChange }) => {
       <h3 className={`${styles["ramps-search__title"]}`}>
         {t("on-off-ramp.search.title")}
       </h3>
-      <div
-        className={`position-relative ${styles["ramps-search__field-container"]}`}
-      >
+      <div className={`relative ${styles["ramps-search__field-container"]}`}>
         <input
           className={`${styles["ramps-search__search-field"]}`}
           type="text"

@@ -78,7 +78,7 @@ export function Folder({
         {name}
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="ms-2 flex flex-col border-l ps-2">{props.children}</div>
+        <div className="ml-2 flex flex-col border-l pl-2">{props.children}</div>
       </CollapsibleContent>
     </Collapsible>
   );

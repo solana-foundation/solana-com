@@ -24,7 +24,7 @@ const StatsNo = ({ value, description, className }) => {
       </div>
       <div
         className={classNames(
-          "smaller text-uppercase subdued",
+          "smaller uppercase subdued",
           styles["index-stats__ff-mono"],
         )}
       >
@@ -43,34 +43,34 @@ const StatsCard = ({
   className,
 }) => {
   return (
-    <div className={`col-md-6 mb-2 ${className}`}>
-      <div className={classNames("p-6", styles["index-stats__card"])}>
+    <div className={`col-span-12 md:col-span-6 mb-2 ${className}`}>
+      <div className={classNames("p-8", styles["index-stats__card"])}>
         <h3
-          className={classNames("h5", styles["index-stats__card__title"])}
+          className={classNames("h5 mb-4", styles["index-stats__card__title"])}
           style={{ borderColor: border }}
         >
           {title}
         </h3>
         <p className="small subdued">{description}</p>
-        <div className="mt-6">
+        <div className="mt-8">
           {/* Check for the static 0% value of the carbon impact section */}
           {parseInt(value) !== 0 ? (
             <div
               className={classNames(
-                "h5 fw-normal",
+                "h5 font-normal",
                 styles["index-stats__live"],
               )}
             >
               {value}
             </div>
           ) : (
-            <div className="h5 fw-normal" style={{ lineHeight: 1 }}>
+            <div className="h5 font-normal" style={{ lineHeight: 1 }}>
               {value}
             </div>
           )}
           <div
             className={classNames(
-              "smaller text-uppercase subdued",
+              "smaller uppercase subdued",
               styles["index-stats__ff-mono"],
             )}
           >
@@ -100,26 +100,26 @@ const PossibleStats = ({ visible, showKPIs = true }) => {
       </div>
       <div className="container">
         {showKPIs && (
-          <div className="row pb-10">
-            <div className="col-lg-6">
+          <div className="grid grid-cols-12 gap-5 md:gap-10 pb-20">
+            <div className="col-span-12 lg:col-span-6">
               <h2
                 className={classNames(
-                  "h4 w-lg-75 mt-0 mt-lg-10 mb-8 mb-lg-0",
+                  "h4 lg:w-3/4 mt-0 lg:mt-20 mb-12 lg:mb-0",
                   styles["index-stats__heading"],
                 )}
               >
                 {t("possible.stats.headline")}
               </h2>
             </div>
-            <div className="col-lg-6">
-              <div className="mb-8">
+            <div className="col-span-12 lg:col-span-6">
+              <div className="mb-12">
                 <StatsNo
                   value="11.5M+"
                   description={t("possible.stats.accounts")}
                   className={styles["index-stats__color--purple"]}
                 />
               </div>
-              <div className="mb-8">
+              <div className="mb-12">
                 <StatsNo
                   value="21.9M"
                   description={t("possible.stats.nfts")}
@@ -137,15 +137,20 @@ const PossibleStats = ({ visible, showKPIs = true }) => {
           </div>
         )}
 
-        <div className="row pt-9 mt-9">
-          <div className="col-lg-4">
-            <div className="mb-8 mb-lg-0">
-              <h2 className={classNames("h4", styles["index-stats__heading"])}>
+        <div className="grid grid-cols-12 gap-5 md:gap-10 pt-16 mt-16">
+          <div className="col-span-12 lg:col-span-4">
+            <div className="mb-12 lg:mb-0">
+              <h2
+                className={classNames(
+                  "h4 mb-4",
+                  styles["index-stats__heading"],
+                )}
+              >
                 {t("possible.stats.headline-secondary")}
               </h2>
               <div
                 className={classNames(
-                  "smaller text-uppercase subdued",
+                  "smaller uppercase subdued",
                   styles["index-stats__live"],
                   styles["index-stats__ff-mono"],
                 )}
@@ -154,8 +159,8 @@ const PossibleStats = ({ visible, showKPIs = true }) => {
               </div>
             </div>
           </div>
-          <div className="col-lg-8">
-            <div className="row">
+          <div className="col-span-12 lg:col-span-8">
+            <div className="grid grid-cols-12 gap-5 md:gap-10">
               <StatsCard
                 title={t("possible.stats.adoption.fast.title")}
                 description={t("possible.stats.adoption.fast.description")}
@@ -183,7 +188,7 @@ const PossibleStats = ({ visible, showKPIs = true }) => {
                 }
                 valueName={t("possible.stats.validators")}
                 border="#FFD512"
-                className="mt-lg-n10"
+                className="lg:-mt-20"
               />
               <StatsCard
                 title={t("possible.stats.adoption.scalable.title")}
@@ -214,7 +219,7 @@ const PossibleStats = ({ visible, showKPIs = true }) => {
                 value="0%"
                 valueName={t("possible.stats.carbon")}
                 border="#19FB9B"
-                className="mt-lg-n8"
+                className="lg:-mt-12"
               />
             </div>
           </div>

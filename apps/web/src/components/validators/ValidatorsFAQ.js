@@ -11,12 +11,12 @@ const ValidatorsFAQ = () => {
   const questionsAndAnswers = t.raw("validators.qa.items");
 
   return (
-    <section className="mt-12">
+    <section className="mt-20 min-[567px]:mt-32">
       <div className="container">
-        <h2 className="mb-4 mb-md-7">{t("validators.qa.title")}</h2>
+        <h2 className="mb-4 md:mb-10">{t("validators.qa.title")}</h2>
 
-        <div className="row">
-          <div className="col-lg-8">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12 lg:col-span-8">
             <HashAccordion>
               {questionsAndAnswers.map((qa, index) => (
                 <HashAccordionItem
@@ -72,7 +72,7 @@ const ValidatorsFAQ = () => {
               ))}
             </HashAccordion>
           </div>
-          <div className="col-lg-4 d-none d-lg-block">
+          <div className="col-span-12 lg:col-span-4 hidden lg:block">
             <Image src={faqLogo} alt="" />
           </div>
         </div>

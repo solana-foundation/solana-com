@@ -54,9 +54,9 @@ export default function PlayGGSignUpForm() {
       onSubmit={onSubmit}
       className={styles["sign-up-form"]}
     >
-      <div className="d-flex align-items-center">
+      <div className="flex items-center">
         <div className={styles["sign-up-form__input-container"]}>
-          <label htmlFor="playgg-email" className="visually-hidden">
+          <label htmlFor="playgg-email" className="sr-only">
             <span>Email</span>
           </label>
           <input
@@ -68,16 +68,11 @@ export default function PlayGGSignUpForm() {
             placeholder=" "
             className={classNames(
               styles["sign-up-form__input"],
-              "border-0 w-100",
+              "border-0 w-full",
             )}
           />
 
-          <div
-            className={classNames(
-              styles["placeholder"],
-              "position-absolute left-0",
-            )}
-          >
+          <div className={classNames(styles["placeholder"], "absolute left-0")}>
             <EnterEmail />
           </div>
         </div>

@@ -28,7 +28,7 @@ export default function DevelopersResourceItem({
 
   return (
     <ResourceLink to={url} className={styles["resource-item"]}>
-      <div className="d-flex position-relative flex-column justify-content-between">
+      <div className="flex relative flex-col justify-between">
         <div className={styles["resource-item__container"]}>
           <div className={styles["resource-item__category"]}>{category}</div>
           <div>

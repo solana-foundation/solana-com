@@ -126,6 +126,7 @@ const StyledButton = styled.button`
         0 0.5rem 1rem -0.75rem rgba(35, 35, 35, 0.1) !important;
       transform: translate3d(0, -3px, 0);
     }
+    &:disabled,
     &.disabled {
       opacity: 0.65;
       pointer-events: none;
@@ -185,9 +186,9 @@ const Button = ({
       $noBorder={noBorder}
       {...props}
     >
-      {arrow && <GetEmArrow width="11" height="11" className="me-2" />}
+      {arrow && <GetEmArrow width="11" height="11" className="mr-2" />}
       {children}
-      {arrowRight && <GetEmArrow width="11" height="11" className="ms-2" />}
+      {arrowRight && <GetEmArrow width="11" height="11" className="ml-2" />}
     </StyledButton>
   );
 };

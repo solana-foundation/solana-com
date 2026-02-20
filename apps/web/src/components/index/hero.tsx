@@ -86,7 +86,7 @@ export const Hero: React.FC<HeroProps> = ({
     <>
       <section
         id="hero"
-        className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left border-b border-nd-border-light m-twd-0"
+        className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left border-b border-nd-border-light m-0"
         aria-labelledby="hero-title"
       >
         {bgJsonFilePath && (
@@ -122,25 +122,25 @@ export const Hero: React.FC<HeroProps> = ({
           />
         )}
         <div className="flex min-h-[700px]">
-          <Container className="flex flex-col justify-between relative pt-twd-12 xl:pt-[165px] md:pb-twd-8 xl:pb-twd-10 min-h-[calc(100vh-70px)]">
+          <Container className="flex flex-col justify-between relative pt-12 xl:pt-[165px] md:pb-8 xl:pb-10 min-h-[calc(100vh-70px)]">
             <div className="max-w-5xl">
               <h1 className="nd-heading-2xl" id="hero-title">
                 {title}
               </h1>
-              <p className="text-nd-mid-em-text font-medium max-md:mt-twd-5 md:mt-twd-6 nd-body-xl xl:max-w-[440px]">
+              <p className="text-nd-mid-em-text font-medium max-md:mt-5 md:mt-6 nd-body-xl xl:max-w-[440px]">
                 {subtitle}
               </p>
 
               {cta && (
                 <div className="mt-[52px]">
                   <Button
-                    className="rounded-full md:h-[48px] nd-body-m !px-twd-5 py-twd-3 bg-nd-cta text-nd-inverse hover:!bg-nd-primary/90 tracking-[-0.16px] md:tracking-[-0.18px]"
+                    className="rounded-full md:h-[48px] nd-body-m !px-5 py-3 bg-nd-cta text-nd-inverse hover:!bg-nd-primary/90 tracking-[-0.16px] md:tracking-[-0.18px]"
                     size="lg"
                     aria-label={cta}
                     onClick={() => setOpen(true)}
                   >
                     {cta}
-                    <span className="-mr-twd-3 p-twd-1 !size-8 bg-nd-inverse text-nd-cta rounded-full inline-flex items-center justify-center">
+                    <span className="-mr-3 p-1 !size-8 bg-nd-inverse text-nd-cta rounded-full inline-flex items-center justify-center">
                       <ArrowRightIcon
                         aria-hidden={true}
                         className="!size-[16px] block"
@@ -153,11 +153,11 @@ export const Hero: React.FC<HeroProps> = ({
             </div>
 
             {shouldShowBanner && (
-              <div className="mt-[52px] -mx-twd-5 md:mx-twd-0">
+              <div className="mt-[52px] -mx-5 md:mx-0">
                 <div className="overflow-hidden w-full md:w-[504px]">
-                  <div className="w-full flex flex-row items-stretch p-twd-2 bg-[#DFCDF5] text-nd-inverse md:rounded-xl bg-blend-screen">
+                  <div className="w-full flex flex-row items-stretch p-2 bg-[#DFCDF5] text-nd-inverse md:rounded-xl bg-blend-screen">
                     {bannerImgSrc && (
-                      <div className="grow-0 shrink-0 mr-twd-3 md:mr-twd-5 pb-twd-10 md:pb-twd-0">
+                      <div className="grow-0 shrink-0 mr-3 md:mr-5 pb-10 md:pb-0">
                         <Image
                           src={bannerImgSrc}
                           alt=""
@@ -170,8 +170,8 @@ export const Hero: React.FC<HeroProps> = ({
                         />
                       </div>
                     )}
-                    <div className="grow flex flex-col justify-between md:py-twd-1.5 xl:py-twd-2 md:pr-twd-2">
-                      <div className="max-md:py-twd-1 max-md:pr-twd-1">
+                    <div className="grow flex flex-col justify-between md:py-1.5 xl:py-2 md:pr-2">
+                      <div className="max-md:py-1 max-md:pr-1">
                         {bannerEyebrow && (
                           <p className="font-medium nd-body-l">
                             {bannerEyebrow}
@@ -183,13 +183,13 @@ export const Hero: React.FC<HeroProps> = ({
                           </p>
                         )}
                       </div>
-                      <div className="mt-twd-2 md:mt-twd-3">
+                      <div className="mt-2 md:mt-3">
                         <Button
                           className={cn(
-                            "rounded-full font-normal nd-body-s tracking-[-0.1em] !px-twd-4 py-[6px] h-8 bg-nd-inverse text-nd-primary hover:!bg-nd-inverse/90",
+                            "rounded-full font-normal nd-body-s tracking-[-0.1em] !px-4 py-[6px] h-8 bg-nd-inverse text-nd-primary hover:!bg-nd-inverse/90",
                             bannerImgSrc
-                              ? "ml-[-86px] md:ml-twd-0 w-[calc(100%+86px)] md:w-auto"
-                              : "w-full md:w-twd-auto",
+                              ? "ml-[-86px] md:ml-0 w-[calc(100%+86px)] md:w-auto"
+                              : "w-full md:w-auto",
                           )}
                           size="lg"
                           asChild
