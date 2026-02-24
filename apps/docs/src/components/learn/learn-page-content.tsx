@@ -163,7 +163,7 @@ export default function LearnPageContent({
               />
             </div>
           </div>
-          <div className="mt-12 grid grid-cols-12 gap-10">
+          <div className="mt-12 grid grid-cols-12 gap-5 md:gap-10">
             <div className="col-span-12 lg:col-span-6">
               <DevelopersDocumentItem
                 title={resources[2].label}

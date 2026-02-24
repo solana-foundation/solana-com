@@ -17,7 +17,7 @@ export default memo(function DevelopersFeaturedResourcesList({
         "pb-20 mb-20",
       )}
     >
-      <div className="grid grid-cols-12 gap-10">
+      <div className="grid grid-cols-12 gap-5 md:gap-10">
         <div className="col-span-12 lg:col-span-4 p-0">
           <h1 className="mb-6">{t(`developers.${translationTag}.title`)}</h1>
           <p className="mb-10">

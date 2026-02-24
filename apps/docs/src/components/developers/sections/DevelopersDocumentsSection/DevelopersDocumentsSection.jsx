@@ -28,7 +28,7 @@ export default function DevelopersDocumentsSection({ latestVideo }) {
               "linear-gradient(180deg, #19161C 0%, rgba(25, 22, 28, 0) 100%)",
           }}
         >
-          <div className="grid grid-cols-12 gap-10">
+          <div className="grid grid-cols-12 gap-5 md:gap-10">
             <div className="col-span-12 lg:col-span-6">
               <DevelopersDocumentItem
                 title={t("developers.documents.solana-docs.title")}
@@ -46,7 +46,7 @@ export default function DevelopersDocumentsSection({ latestVideo }) {
               />
             </div>
           </div>
-          <div className="grid grid-cols-12 gap-10 mt-12 lg:mt-32">
+          <div className="grid grid-cols-12 gap-5 md:gap-10 mt-12 lg:mt-32">
             <div className="col-span-12 lg:col-span-6">
               <DevelopersChangelog latestVideo={latestVideo} />
             </div>
