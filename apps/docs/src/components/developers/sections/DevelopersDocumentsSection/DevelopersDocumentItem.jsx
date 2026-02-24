@@ -18,7 +18,7 @@ export default function DevelopersDocumentItem({
       <div
         className={classNames(
           styles["document-item__header"],
-          "d-flex justify-content-between align-items-center",
+          "flex justify-between items-center",
         )}
       >
         <h3 className={styles["document-item__title"]}>{title}</h3>

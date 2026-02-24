@@ -101,12 +101,12 @@ export default function LearnPageContent({
 
       <section
         id="tutorials"
-        className="pt-8 pb-20 text-white md:pt-12 md:pb-24"
+        className="pt-12 pb-20 text-white md:pt-12 md:pb-24"
         aria-label={translations.tutorialsAriaLabel}
       >
         <div className="container">
           <div
-            className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3"
             role="list"
           >
             {tutorials.map((tutorial, index) => (
@@ -134,7 +134,7 @@ export default function LearnPageContent({
         }}
       >
         <div className="container">
-          <div className="pt-10 mb-8">
+          <div className="pt-20 mb-12">
             <h2
               id="resources-heading"
               className="mb-4 text-2xl font-bold text-white md:text-3xl"
@@ -143,8 +143,8 @@ export default function LearnPageContent({
             </h2>
             <p className="subdued">{translations.continueJourneySubtitle}</p>
           </div>
-          <div className="row">
-            <div className="col-12 col-lg-6">
+          <div className="grid grid-cols-12 gap-x-10">
+            <div className="col-span-12 lg:col-span-6">
               <DevelopersDocumentItem
                 title={resources[0].label}
                 description={resources[0].description}
@@ -153,7 +153,7 @@ export default function LearnPageContent({
                 ctaLabel={translations.developersDocumentsViewAll}
               />
             </div>
-            <div className="mt-10 col-12 col-lg-6 mt-lg-0">
+            <div className="mt-20 lg:mt-0 col-span-12 lg:col-span-6">
               <DevelopersDocumentItem
                 title={resources[1].label}
                 description={resources[1].description}
@@ -163,8 +163,8 @@ export default function LearnPageContent({
               />
             </div>
           </div>
-          <div className="mt-8 row mt-lg-12">
-            <div className="col-12 col-lg-6">
+          <div className="mt-12 grid grid-cols-12 gap-10">
+            <div className="col-span-12 lg:col-span-6">
               <DevelopersDocumentItem
                 title={resources[2].label}
                 description={resources[2].description}
@@ -173,7 +173,7 @@ export default function LearnPageContent({
                 ctaLabel={translations.developersDocumentsViewAll}
               />
             </div>
-            <div className="mt-10 col-12 col-lg-6 mt-lg-0">
+            <div className="mt-20 lg:mt-0 col-span-12 lg:col-span-6">
               <DevelopersDocumentItem
                 title={resources[3].label}
                 description={resources[3].description}

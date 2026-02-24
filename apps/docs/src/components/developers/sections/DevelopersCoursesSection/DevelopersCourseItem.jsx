@@ -24,7 +24,7 @@ export default function DevelopersCourseItem({
   return (
     <CourseLink to={url} className={styles["course-item"]} $image={image}>
       <div className={classNames("container", styles["course-item__content"])}>
-        <div className="d-flex">
+        <div className="flex">
           <div className={styles["details"]}>
             {!!courseCreator ? (
               <div className={styles["details__pill"]}>

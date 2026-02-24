@@ -17,19 +17,19 @@ export default function DevelopersDocumentsSection({ latestVideo }) {
   return (
     <section className={styles["documents-section"]}>
       <div className="container">
-        <div className="mb-8 pt-10">
+        <div className="mb-12 pt-20">
           <DevelopersSectionTitle titleId="developers.documents.title" />
           <p className="subdued">{t("developers.documents.description")}</p>
         </div>
         <div
-          className="d-flex flex-column"
+          className="flex flex-col"
           style={{
             backgroundColor:
               "linear-gradient(180deg, #19161C 0%, rgba(25, 22, 28, 0) 100%)",
           }}
         >
-          <div className="row">
-            <div className="col-12 col-lg-6">
+          <div className="grid grid-cols-12 gap-10">
+            <div className="col-span-12 lg:col-span-6">
               <DevelopersDocumentItem
                 title={t("developers.documents.solana-docs.title")}
                 description={t("developers.documents.solana-docs.description")}
@@ -37,7 +37,7 @@ export default function DevelopersDocumentsSection({ latestVideo }) {
                 newTab={false}
               />
             </div>
-            <div className="col-12 col-lg-6 mt-10 mt-lg-0">
+            <div className="col-span-12 lg:col-span-6 mt-20 lg:mt-0">
               <DevelopersDocumentItem
                 title={t("developers.documents.anchor-docs.title")}
                 description={t("developers.documents.anchor-docs.description")}
@@ -46,11 +46,11 @@ export default function DevelopersDocumentsSection({ latestVideo }) {
               />
             </div>
           </div>
-          <div className="row mt-8 mt-lg-12">
-            <div className="col-12 col-lg-6">
+          <div className="grid grid-cols-12 gap-10 mt-12 lg:mt-32">
+            <div className="col-span-12 lg:col-span-6">
               <DevelopersChangelog latestVideo={latestVideo} />
             </div>
-            <div className="col-12 col-lg-6">
+            <div className="col-span-12 lg:col-span-6">
               <InlineLink
                 to={`https://www.youtube.com/playlist?list=${YT_PLAYLIST_CHANGELOG}`}
               >

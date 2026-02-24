@@ -55,14 +55,14 @@ export default function DevelopersCoursesSection(/* { courses } */) {
   );
 
   return (
-    <section className="mt-12 mt-md-0" id="courses">
+    <section className="mt-32 md:mt-0" id="courses">
       <div className="container">
-        <div className="mb-6 d-md-flex align-items-center justify-content-between">
+        <div className="mb-8 md:flex items-center justify-between">
           <div>
             <DevelopersSectionTitle titleId="developers.courses.title" />
             <p className="subdued">{t("developers.courses.description")}</p>
           </div>
-          {/* <Button className="text-nowrap ms-md-4" to="/developers/courses">
+          {/* <Button className="text-nowrap md:ml-4" to="/developers/courses">
             {t("developers.documents.view-all")}
           </Button> */}
         </div>

@@ -3,13 +3,13 @@ import DevelopersOtherContent from "./DevelopersOtherContent";
 
 export default function DevelopersContentSection() {
   return (
-    <section className="mt-4 mt-lg-12">
-      <div className="container d-flex">
-        <div className="row gx-5 gy-5">
-          <div className="col-12 col-lg-6">
+    <section className="mt-4 lg:mt-32">
+      <div className="container flex">
+        <div className="grid grid-cols-12 gap-6">
+          <div className="col-span-12 lg:col-span-6">
             <DevelopersNewsletter />
           </div>
-          <div className="col-12 col-lg-6">
+          <div className="col-span-12 lg:col-span-6">
             <DevelopersOtherContent />
           </div>
         </div>
