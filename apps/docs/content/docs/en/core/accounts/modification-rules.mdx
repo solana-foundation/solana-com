@@ -14,8 +14,6 @@ related:
   - /docs/core/cpi/cpi-execution
 ---
 
-{/* TOC: Lamports Rules, Data Rules, Owner Rules, Executable Flag Rules, Account Borrow Rules */}
-
 <Callout type="info" title="Summary">
   Runtime checks after each instruction: only the owner can debit lamports or
   modify data, data can grow max 10 KiB per instruction, owner changes require
@@ -29,12 +27,12 @@ is rolled back if any check fails.
 
 ## Lamports rules
 
-| Rule                                                  | Enforcement                                                                                                                                                                                                                                                                                                                                | Error                         |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| Only the owner can debit lamports                     | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): checks `is_owned_by_current_program()` when `lamports < current`                                                                                                                                                               | `ExternalAccountLamportSpend` |
-| Read-only accounts cannot have lamports changed       | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): checks `is_writable()`                                                                                                                                                                                                         | `ReadonlyLamportChange`       |
-| Any program can credit lamports to a writable account | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): the ownership check only applies when the new balance is less than the current balance; the writable check at [line 788](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789) still applies | `ReadonlyLamportChange`       |
-| Lamports must balance across an instruction           | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): verifies `get_lamports_delta() == 0`                                                                                                                                                                                | `UnbalancedInstruction`       |
+| Rule                                                  | Enforcement                                                                                                                                                                                                                          | Error                         |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| Only the owner can debit lamports                     | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): checks `is_owned_by_current_program()` when `lamports < current`                                                         | `ExternalAccountLamportSpend` |
+| Read-only accounts cannot have lamports changed       | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): checks `is_writable()`                                                                                                   | `ReadonlyLamportChange`       |
+| Any program can credit lamports to a writable account | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789): the ownership check only applies when the new balance is less than the current balance; the writable check still applies | `ReadonlyLamportChange`       |
+| Lamports must balance across an instruction           | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): verifies `get_lamports_delta() == 0`                                                                          | `UnbalancedInstruction`       |
 
 ## Data rules
 
@@ -63,6 +61,21 @@ is rolled back if any check fails.
 | Only the owner can set the flag | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): checks `is_owned_by_current_program()`      | `ExecutableModified`             |
 | Account must be writable        | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): checks `is_writable()`                      | `ExecutableModified`             |
 
+## Rent state transitions
+
+Accounts exist in one of three
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+values: `Uninitialized` (0 lamports), `RentPaying` (above 0 but below the
+rent-exempt minimum), and `RentExempt` (at or above the minimum). Disallowed
+transitions produce `TransactionError::InsufficientFundsForRent`.
+
+The runtime enforces these rules via
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126):
+
+- Any account can transition to `Uninitialized` (close) or `RentExempt`.
+- No account can enter `RentPaying` from `Uninitialized` or `RentExempt`. All
+  new accounts must be rent-exempt.
+
 ## Account borrow rules
 
 During instruction execution, the runtime enforces single-writer borrow
@@ -70,7 +83,10 @@ semantics on accounts. A program can obtain either one mutable reference or
 multiple immutable references to an account, but not both simultaneously. If a
 program attempts to borrow an account that is already mutably borrowed (or
 mutably borrow an account that is already immutably borrowed), the instruction
-fails with `AccountBorrowFailed`. Similarly, if an instruction completes while a
-borrow is still outstanding, the runtime returns `AccountBorrowOutstanding`.
-These are common errors developers encounter when passing the same account to
-multiple arguments of a single instruction.
+fails with `AccountBorrowFailed` via
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)
+and
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520).
+If an instruction completes while a borrow is still outstanding, the runtime
+returns `AccountBorrowOutstanding` in
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385).

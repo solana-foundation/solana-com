@@ -2,7 +2,7 @@
 title: Account Runtime
 description:
   How the Solana runtime loads and validates accounts before execution, and the
-  BPF serialization format used to pass account data to programs.
+  serialization format used to pass account data to programs.
 url: /docs/core/accounts/account-runtime
 type: reference
 prerequisites:
@@ -17,13 +17,13 @@ related:
 
 <Callout type="info" title="Summary">
   Before execution, the runtime loads accounts, validates the fee payer, checks
-  rent-exemption, and serializes account data into the BPF format for program
-  consumption.
+  rent-exemption, and serializes account data into a memory layout that programs
+  can access.
 </Callout>
 
 <Callout>
   This page covers runtime internals. Most developers don't need this
-  information for building programs -- see [Account
+  information for building programs. See [Account
   Structure](/docs/core/accounts/account-structure) for the developer-facing
   view.
 </Callout>
@@ -35,10 +35,12 @@ Before a transaction executes, the runtime loads all referenced accounts via
 This process performs several validations:
 
 1. **Fee payer validation**: The fee payer (first account) must exist, be a
-   system account or nonce account, and have enough lamports to cover fees while
-   remaining rent-exempt
+   system account or nonce account, and have enough lamports to cover fees
    ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
-   If the payer is neither a system account nor a nonce account, the transaction
+   After paying fees, the account must either remain rent-exempt or go to
+   exactly 0 lamports. It cannot end up between 0 and the rent-exempt minimum.
+   Nonce accounts must always retain enough lamports to remain rent-exempt. If
+   the payer is neither a system account nor a nonce account, the transaction
    fails with `TransactionError::InvalidAccountForFee`.
 
 2. **Loaded data size limit**: The total size of all loaded accounts (including
@@ -58,11 +60,7 @@ This process performs several validations:
    invalid owner, the transaction fails with
    `TransactionError::InvalidProgramForExecution`.
 
-4. **Rent epoch update**: Rent-exempt accounts that do not yet have `rent_epoch`
-   set to `u64::MAX` are updated during loading
-   ([`update_rent_exempt_status_for_account()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L351-L362)).
-
-5. **Non-existent accounts**: Accounts that do not exist on-chain are loaded as
+4. **Non-existent accounts**: Accounts that do not exist on-chain are loaded as
    default accounts (0 lamports, empty data, owned by system program) with
    `rent_epoch` set to `u64::MAX`.
 
@@ -75,9 +73,7 @@ defined in
 [`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
 
 The buffer begins with a `u64` (8 bytes, little-endian) containing the number of
-accounts
-([serialization.rs line 531](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L531)).
-Then, for each account in the instruction, the buffer contains:
+accounts. Then, for each account in the instruction, the buffer contains:
 
 | Offset        | Size            | Field                                  | Type                                                                                                      |
 | ------------- | --------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -104,6 +100,34 @@ After all accounts, the buffer appends:
 
 For duplicate accounts, only 1 byte (the duplicate marker with the index of the
 original) plus 7 bytes of padding are written.
+
+## Account deduplication
+
+When the same account public key appears multiple times in an instruction's
+`accounts` array, the runtime
+[deduplicates](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)
+them. Each entry in the instruction's account list gets its own
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+struct, but entries that refer to the same transaction-level account point to
+the same underlying data.
+
+The
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+method determines whether a given instruction account index is the first
+occurrence or a duplicate by looking up the transaction-level account index and
+finding the first instruction-level index that maps to it:
+
+- If the current instruction account index equals the first mapped index, it is
+  **not** a duplicate (returns `None`).
+- Otherwise, it returns `Some(first_index)`, where `first_index` is the index of
+  the first occurrence.
+
+Because all references to the same account share the same underlying
+`AccountSharedData`, modifications through any reference are immediately visible
+through all other references. However, only one mutable borrow can be held at a time. Attempting to borrow
+the same account mutably through two different instruction account indices
+simultaneously returns `InstructionError::AccountBorrowFailed`. Programs must
+drop one borrow before acquiring another on the same underlying account.
 
 After the program executes, the runtime deserializes the buffer back
 ([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))

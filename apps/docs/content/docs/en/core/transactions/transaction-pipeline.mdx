@@ -19,7 +19,7 @@ related:
 <Callout type="info" title="Summary">
   Transactions pass through 8 stages: receive, sigverify, sanitize, budget/age
   checks, fee payer validation, account loading, instruction execution, and
-  commit. Blockhash expires after ~60s.
+  commit.
 </Callout>
 
 ## Transaction processing pipeline
@@ -46,8 +46,7 @@ before the transaction enters the banking stage. For each signature at index
 
 Verification is parallelized: the validator splits packet batches into chunks of
 [`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)
-(128) and processes them in parallel using Rayon. When GPU perf-libs are
-available, verification is offloaded to the GPU.
+(128) and processes them in parallel.
 
 ### 3. Sanitize
 
@@ -58,7 +57,6 @@ Sanitization validates structural invariants:
 
 - Number of signatures matches `num_required_signatures` in the header
 - All instruction `program_id_index` and `account_indices` are within bounds
-- No duplicate account keys in the static keys list
 - The fee payer (account index 0) is a writable signer
 
 The `RuntimeTransaction` wrapper caches precomputed metadata from
@@ -123,8 +121,8 @@ checked by
 
 The fee is deducted from the fee payer at this stage. A snapshot of the
 fee-subtracted fee payer (and advanced nonce, if applicable) is saved as
-`RollbackAccounts` -- these are the accounts that get committed even if
-execution fails.
+`RollbackAccounts`, which are the accounts that get committed even if execution
+fails.
 
 ### 6. Load accounts
 
@@ -133,7 +131,7 @@ loads all accounts referenced by the transaction. The
 [`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)
 wraps the external account store and maintains a batch-local cache so that
 accounts modified by earlier transactions in the same batch are visible to later
-ones (SIMD-83 ordering).
+ones.
 
 For each non-fee-payer account, the loader:
 
@@ -181,8 +179,10 @@ function iterates through each instruction and calls the target program:
 2. The runtime checks whether the program is a
    [precompile](/docs/core/programs/precompiles) (Ed25519, Secp256k1,
    Secp256r1). Precompiles are verified directly without invoking the BPF VM.
-3. For all other programs, the runtime invokes `process_instruction`, which
-   loads the program from the cache and executes it in the BPF virtual machine.
+3. For all other programs, the runtime invokes
+   [`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477),
+   which loads the program from the cache and executes it in the BPF virtual
+   machine.
 4. After the instruction completes, the runtime
    [verifies](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
    that the total lamport balance across all instruction accounts has not
@@ -206,7 +206,7 @@ After execution, the runtime verifies that:
 If execution succeeds, the modified account states from the `TransactionContext`
 are written back to the `AccountLoader`'s batch-local cache. If execution fails,
 only the `RollbackAccounts` (fee payer with fee deducted and advanced nonce) are
-written back -- the fee is still collected, but all other account changes are
+written back. The fee is still collected, but all other account changes are
 discarded.
 
 ### Pipeline summary
@@ -217,81 +217,15 @@ Receive packet (UDP/QUIC)
   --> Sigverify (parallel Ed25519 verification)
   --> Sanitize (structural validation, metadata extraction)
   --> Parse compute budget, calculate fees
-  --> Check blockhash age / nonce validity
+  --> Check blockhash age (or verify nonce account)
   --> Check status cache (dedup)
+  --> Validate nonce authority and advanceability (if nonce transaction)
   --> Validate fee payer (load, check balance, deduct fee)
   --> Load all accounts (with data size limits)
   --> Load programs (verify loaders)
   --> Execute instructions sequentially
   --> Verify post-conditions (lamport balance, rent state)
   --> Commit account changes (or rollback on failure)
-```
-
-## Reading transaction data
-
-After submission, retrieve transaction details using the transaction signature
-and the [getTransaction](/docs/rpc/http/gettransaction) RPC method.
-
-<Callout>
-  You can also find the transaction using [Solana
-  Explorer](https://explorer.solana.com).
-</Callout>
-
-```json title="Transaction Data"
-{
-  "blockTime": 1745196488,
-  "meta": {
-    "computeUnitsConsumed": 150,
-    "err": null,
-    "fee": 5000,
-    "innerInstructions": [],
-    "loadedAddresses": {
-      "readonly": [],
-      "writable": []
-    },
-    "logMessages": [
-      "Program 11111111111111111111111111111111 invoke [1]",
-      "Program 11111111111111111111111111111111 success"
-    ],
-    "postBalances": [989995000, 10000000, 1],
-    "postTokenBalances": [],
-    "preBalances": [1000000000, 0, 1],
-    "preTokenBalances": [],
-    "rewards": [],
-    "status": {
-      "Ok": null
-    }
-  },
-  "slot": 13049,
-  "transaction": {
-    "message": {
-      "header": {
-        "numReadonlySignedAccounts": 0,
-        "numReadonlyUnsignedAccounts": 1,
-        "numRequiredSignatures": 1
-      },
-      "accountKeys": [
-        "8PLdpLxkuv9Nt8w3XcGXvNa663LXDjSrSNon4EK7QSjQ",
-        "7GLg7bqgLBv1HVWXKgWAm6YoPf1LoWnyWGABbgk487Ma",
-        "11111111111111111111111111111111"
-      ],
-      "recentBlockhash": "7ZCxc2SDhzV2bYgEQqdxTpweYJkpwshVSDtXuY7uPtjf",
-      "instructions": [
-        {
-          "accounts": [0, 1],
-          "data": "3Bxs4NN8M2Yn4TLb",
-          "programIdIndex": 2,
-          "stackHeight": null
-        }
-      ],
-      "indexToProgramIds": {}
-    },
-    "signatures": [
-      "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX"
-    ]
-  },
-  "version": "legacy"
-}
 ```
 
 ## Transaction error reference
@@ -303,7 +237,7 @@ variants and at which pipeline stage they occur:
 | Error                                                                                                                                   | Stage                  | Cause                                                                                                          |
 | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
 | [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Scheduling             | Account is already locked by another transaction in the same batch                                             |
-| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Sanitize               | A pubkey appears twice in the transaction's `account_keys`                                                     |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Scheduling             | A pubkey appears twice in the transaction's `account_keys`                                                     |
 | [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Fee payer validation   | Fee payer account does not exist                                                                               |
 | [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Account loading        | An invoked program does not exist                                                                              |
 | [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Fee payer validation   | Fee payer cannot cover fee + rent-exempt minimum                                                               |

@@ -22,20 +22,13 @@ related:
 
 Solana supports two transaction formats: **legacy** and **versioned** (v0).
 
-Legacy messages have a first byte equal to `num_required_signatures` (range
-0x00-0x7F). Versioned messages set the high bit using
-[`MESSAGE_VERSION_PREFIX`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
-(`0x80`), so a v0 message begins with byte `0x80`.
+The validator determines the format by inspecting the first byte of the message:
 
-The validator determines the version by inspecting the first byte of the
-message. This happens in the
-[`MessageHeaderFrame`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-view/src/message_header_frame.rs#L12-L26)
-parser:
-
-- If `first_byte & 0x80 != 0`: versioned message. The version is
-  `first_byte & 0x7F` (currently only version 0 is supported). The next 3 bytes
-  are the `MessageHeader`.
-- If `first_byte & 0x80 == 0`: legacy message. The first byte _is_
+- If the first byte has the
+  [version prefix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
+  bit set, it's a **versioned message**. Currently only version 0 is supported.
+  The next 3 bytes are the `MessageHeader`.
+- Otherwise, it's a **legacy message**. The first byte is
   `num_required_signatures`, and the next 2 bytes complete the header.
 
 <Callout type="info" title="When to use V0 transactions">
@@ -79,70 +72,9 @@ keys to form the complete account keys list. ALT-resolved accounts follow the
 same ordering as static accounts: writable lookups come before read-only
 lookups.
 
-Each resolved ALT adds
-[`ADDRESS_LOOKUP_TABLE_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L49)
-(8,248 bytes) toward the
-[`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
-(64 MiB) limit, even if only one address is looked up from it. This overhead
-covers the maximum table size (8,192 bytes) plus 56 bytes for account metadata.
-
 <Callout>
   Address lookup tables only affect how accounts are referenced in the on-wire
   transaction. At execution time, the runtime resolves all indices to full
   account addresses. ALT-resolved accounts can only be writable or read-only
   (non-signer); they cannot be signers.
 </Callout>
-
-## Version comparison
-
-| Feature                          | Legacy                                | V0                                   |
-| -------------------------------- | ------------------------------------- | ------------------------------------ |
-| Message prefix byte              | `num_required_signatures` (0x00-0x7F) | `0x80` (version prefix)              |
-| Address lookup tables            | Not supported                         | Supported                            |
-| Max static account keys          | 256                                   | 256                                  |
-| Additional ALT-resolved accounts | 0                                     | Up to 256 per ALT                    |
-| Total account limit              | 256 (`MAX_ACCOUNTS_PER_TRANSACTION`)  | 256 (static + ALT-resolved combined) |
-| Transaction size savings         | --                                    | 31 bytes per ALT-resolved account    |
-
-### Creating a V0 transaction
-
-<CodeTabs storage="versioned-tx">
-
-```ts !! title="Kit"
-import {
-  createTransactionMessage,
-  setTransactionMessageLifetimeUsingBlockhash,
-  setTransactionMessageFeePayerSigner,
-  appendTransactionMessageInstructions,
-  compileTransaction
-} from "@solana/kit";
-
-// Create a V0 transaction message
-const transactionMessage = createTransactionMessage({ version: 0 });
-```
-
-```ts !! title="Legacy SDK"
-import {
-  Connection,
-  TransactionMessage,
-  VersionedTransaction,
-  SystemProgram,
-  Keypair
-} from "@solana/web3.js";
-
-const connection = new Connection("https://api.mainnet.solana.com");
-const { blockhash } = await connection.getLatestBlockhash();
-
-// Create a V0 transaction message
-const messageV0 = new TransactionMessage({
-  payerKey: payer.publicKey,
-  recentBlockhash: blockhash,
-  instructions: [
-    /* your instructions */
-  ]
-}).compileToV0Message(/* optionally pass address lookup table accounts */);
-
-const transaction = new VersionedTransaction(messageV0);
-```
-
-</CodeTabs>

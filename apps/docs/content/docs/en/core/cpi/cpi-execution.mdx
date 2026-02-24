@@ -23,6 +23,36 @@ related:
   rules prevent callee from escalating beyond what the caller granted.
 </Callout>
 
+## Privilege rules
+
+CPIs extend the caller's account privileges to the callee with strict
+enforcement. The runtime checks these rules in
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432):
+
+| Scenario                                                                                               | Allowed? | Enforcement point                                                                                                           | Error                  |
+| ------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Caller passes account as writable, callee marks writable                                               | Yes      | --                                                                                                                          | --                     |
+| Caller passes account as read-only, callee marks writable                                              | No       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| Caller passes account as writable, callee marks read-only                                              | Yes      | --                                                                                                                          | --                     |
+| Caller passes account as signer, callee marks signer                                                   | Yes      | --                                                                                                                          | --                     |
+| Caller passes account as non-signer, callee marks signer, account is a PDA derived from caller's seeds | Yes      | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| Caller passes account as non-signer, callee marks signer, account is NOT a PDA from caller             | No       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| Caller passes account as signer, callee marks non-signer                                               | Yes      | --                                                                                                                          | --                     |
+| Program A calls itself directly (A -> A)                                                               | Yes      | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| Program A calls B which calls A (indirect reentrancy)                                                  | No       | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| CPI to native loader, bpf_loader, bpf_loader_deprecated, or precompile                                 | No       | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| Account not found in transaction                                                                       | No       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+The privilege rules can be summarized as:
+
+1. **Writable privilege cannot escalate.** If the caller marks an account as
+   read-only, the callee cannot mark it writable.
+2. **Signer privilege requires authorization.** An account can be a signer in
+   the callee only if (a) it was already a signer in the caller, OR (b) it is a
+   PDA derived from the calling program's seeds via `invoke_signed`.
+3. **Privilege reduction is always allowed.** The callee may use fewer
+   privileges than the caller granted.
+
 ## CPI execution flow
 
 A CPI passes through several runtime layers. This section documents the full
@@ -54,17 +84,9 @@ signer seeds into VM memory, then triggers the syscall.
 
 ### Step 2: Syscall entry
 
-The SBF VM dispatches to one of two registered syscall handlers depending on the
-caller's language:
-
-- **Rust programs**:
-  [`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)
-  dispatches to `SyscallInvokeSignedRust`
-- **C programs**:
-  [`sol_invoke_signed_c`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L78-L100)
-  dispatches to `SyscallInvokeSignedC`
-
-Both handlers call into the same shared entry point:
+The SBF VM dispatches to the
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)
+syscall handler, which calls into the shared entry point:
 [`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925).
 
 ### Step 3: Consume invocation cost
@@ -78,27 +100,18 @@ from the shared compute meter:
 ### Step 4: Translate instruction from VM memory
 
 The syscall handler translates the instruction from the program's VM address
-space to host-side Rust types. The Rust path calls
+space to host-side Rust types via
 [`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590),
-which reads a `StableInstruction` struct, validates account count against
-[`MAX_ACCOUNTS_PER_INSTRUCTION`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L32)
-(255) and data length against
+which reads a `StableInstruction` struct, validates data length against
 [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)
 (10,240 bytes), then charges the
 [data serialization cost](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569).
 
-The C path calls
-[`translate_instruction_c`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L663-L728),
-which reads the C ABI
-[`SolInstruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L73-L79)
-struct and performs the same validation and cost accounting.
-
 ### Step 5: Translate signer seeds and derive PDAs
 
 The handler calls
-[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)
-(or `translate_signers_c` for C programs). For each set of signer seeds, the
-runtime:
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661).
+For each set of signer seeds, the runtime:
 
 1. Checks the number of signer seed sets against
    [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
@@ -182,11 +195,9 @@ which:
    runs with the same shared compute meter. All CU consumption by the callee
    reduces the caller's remaining budget.
 3. Calls
-   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268-L271)
-   to remove the callee's frame from the instruction stack. `pop()` also
-   verifies the lamport balance has not changed
-   ([`UnbalancedInstruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
-   check).
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   to remove the callee's frame and verify that lamport balances are unchanged
+   (`UnbalancedInstruction` if not).
 
 ### Step 11: Post-CPI account sync (callee to caller)
 
@@ -200,33 +211,3 @@ updates VM memory region mappings for accounts whose data regions changed. See
 for the detailed field mapping.
 
 The CPI syscall returns `0` (success) to the caller program.
-
-## Privilege rules
-
-CPIs extend the caller's account privileges to the callee with strict
-enforcement. The runtime checks these rules in
-[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432):
-
-| Scenario                                                                                               | Allowed? | Enforcement point                                                                                                           | Error                  |
-| ------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| Caller passes account as writable, callee marks writable                                               | Yes      | --                                                                                                                          | --                     |
-| Caller passes account as read-only, callee marks writable                                              | No       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
-| Caller passes account as writable, callee marks read-only                                              | Yes      | --                                                                                                                          | --                     |
-| Caller passes account as signer, callee marks signer                                                   | Yes      | --                                                                                                                          | --                     |
-| Caller passes account as non-signer, callee marks signer, account is a PDA derived from caller's seeds | Yes      | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
-| Caller passes account as non-signer, callee marks signer, account is NOT a PDA from caller             | No       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
-| Caller passes account as signer, callee marks non-signer                                               | Yes      | --                                                                                                                          | --                     |
-| Program A calls itself directly (A -> A)                                                               | Yes      | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
-| Program A calls B which calls A (indirect reentrancy)                                                  | No       | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
-| CPI to native loader, bpf_loader, bpf_loader_deprecated, or precompile                                 | No       | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
-| Account not found in transaction                                                                       | No       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
-
-The privilege rules can be summarized as:
-
-1. **Writable privilege cannot escalate.** If the caller marks an account as
-   read-only, the callee cannot mark it writable.
-2. **Signer privilege requires authorization.** An account can be a signer in
-   the callee only if (a) it was already a signer in the caller, OR (b) it is a
-   PDA derived from the calling program's seeds via `invoke_signed`.
-3. **Privilege reduction is always allowed.** The callee may use fewer
-   privileges than the caller granted.
