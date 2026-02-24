@@ -22,7 +22,7 @@ export function HeroTitle({
     <section
       id="hero"
       className={classNames(
-        "grid grid-cols-12 gap-10 mb-12",
+        "grid grid-cols-12 gap-5 md:gap-10 mb-12",
         styles["developers-content-page"],
       )}
     >
