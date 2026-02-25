@@ -151,3 +151,62 @@ Runtime gọi
 để xây dựng danh sách _rs`InstructionAccount`_ của callee và thực thi các quy
 tắc đặc quyền. Xem [Quy tắc đặc quyền](#privilege-rules) bên dưới để biết bảng
 quyết định đầy đủ.
+
+### Bước 8: Dịch thông tin tài khoản
+
+Handler gọi `translate_accounts` để:
+
+1. [Xác thực số lượng thông tin tài khoản](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)
+   so với _rs`MAX_CPI_ACCOUNT_INFOS`_ (128, hoặc 255 với SIMD-0339).
+2. [Tính phí dịch thông tin tài khoản](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)
+   (chỉ SIMD-0339): `(num_account_infos * 80) / 250` CU.
+3. Với mỗi tài khoản không thể thực thi và không trùng lặp, xây dựng một
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)
+   bằng cách dịch con trỏ từ bộ nhớ VM sang bộ nhớ host. Điều này bao gồm
+   [tính phí tuần tự hóa dữ liệu cho mỗi tài khoản](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374):
+   `account_data_len / cpi_bytes_per_unit` CU.
+
+### Bước 9: Đồng bộ tài khoản trước CPI (từ caller đến callee)
+
+Trước khi thực thi callee, runtime đồng bộ các thay đổi tài khoản của caller để
+callee có thể thấy chúng. Hàm
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+được gọi cho mỗi tài khoản đã dịch, sao chép lamport, dữ liệu và owner. Xem
+[Đồng bộ dữ liệu tài khoản](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+để biết chi tiết ánh xạ trường.
+
+### Bước 10: Đẩy ngữ cảnh lệnh, thực thi callee và pop
+
+Runtime gọi
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488),
+để:
+
+1. Gọi
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)
+   để thêm một frame mới vào ngăn xếp lệnh. _rs`push()`_ thực thi
+   [quy tắc reentrancy](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259):
+   một chương trình chỉ có thể gọi chính nó nếu nó là caller trực tiếp (tức là
+   chương trình A có thể gọi A, nhưng A không thể gọi B mà B lại gọi A). Vi phạm
+   sẽ trả về _rs`ReentrancyNotAllowed`_.
+2. Gọi
+   [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602)
+   để phân giải điểm vào của chương trình callee và gọi nó. Callee chạy với cùng
+   bộ đếm compute được chia sẻ. Mọi tiêu thụ CU của callee đều giảm ngân sách
+   còn lại của caller.
+3. Gọi
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   để xóa frame của callee và xác minh rằng số dư lamport không thay đổi
+   (_rs`UnbalancedInstruction`_ nếu không).
+
+### Bước 11: Đồng bộ tài khoản sau CPI (từ callee đến caller)
+
+Sau khi `process_instruction` trả về (bao gồm cả pop), runtime đồng bộ các thay
+đổi trở lại caller thông qua
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+cho mỗi tài khoản có thể ghi. Ngoài ra,
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
+cập nhật ánh xạ vùng bộ nhớ VM cho các tài khoản có vùng dữ liệu thay đổi. Xem
+[Đồng bộ dữ liệu tài khoản](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+để biết chi tiết ánh xạ trường.
+
+Syscall CPI trả về `0` (thành công) cho chương trình gọi.

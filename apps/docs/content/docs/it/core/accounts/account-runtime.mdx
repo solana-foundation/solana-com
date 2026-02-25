@@ -1,0 +1,141 @@
+---
+title: Runtime degli account
+description:
+  Come il runtime di Solana carica e convalida gli account prima dell'esecuzione
+  e il formato di serializzazione utilizzato per passare i dati degli account ai
+  programmi.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Riepilogo">
+  Prima dell'esecuzione, il runtime carica gli account, convalida il pagatore
+  delle commissioni, verifica l'esenzione dall'affitto e serializza i dati degli
+  account in un layout di memoria accessibile ai programmi.
+</Callout>
+
+<Callout>
+  Questa pagina tratta gli aspetti interni del runtime. La maggior parte degli
+  sviluppatori non necessita di queste informazioni per creare programmi.
+  Consulta [Struttura degli account](/docs/core/accounts/account-structure) per
+  la visione orientata agli sviluppatori.
+</Callout>
+
+## Caricamento degli account
+
+Prima dell'esecuzione di una transazione, il runtime carica tutti gli account
+referenziati tramite
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+Questo processo esegue diverse convalide:
+
+1. **Convalida del pagatore delle commissioni**: il pagatore delle commissioni
+   (primo account) deve esistere, essere un account di sistema o un account
+   nonce e avere abbastanza lamport per coprire le commissioni
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   Dopo aver pagato le commissioni, l'account deve rimanere esente dall'affitto
+   oppure arrivare esattamente a 0 lamport. Non può terminare con un valore
+   compreso tra 0 e il minimo per l'esenzione dall'affitto. Gli account nonce
+   devono sempre mantenere abbastanza lamport per rimanere esenti dall'affitto.
+   Se il pagatore non è né un account di sistema né un account nonce, la
+   transazione fallisce con _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **Limite di dimensione dei dati caricati**: la dimensione totale di tutti gli
+   account caricati (incluso un
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   di 64 byte per account) non deve superare
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 MiB). Il superamento di questo limite produce
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_.
+
+3. **Convalida del program account**: ogni programma invocato da un'istruzione
+   deve esistere ed essere di proprietà di un loader valido: uno dei
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) o il
+   loader nativo. Se il program account non esiste, la transazione fallisce con
+   _rs`TransactionError::ProgramAccountNotFound`_. Se esiste ma ha un
+   proprietario non valido, la transazione fallisce con
+   _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **Account non esistenti**: gli account che non esistono on-chain vengono
+   caricati come account predefiniti (0 lamport, dati vuoti, di proprietà del
+   system program) con `rent_epoch` impostato su `u64::MAX`.
+
+## Formato di serializzazione BPF
+
+Quando un programma viene invocato, il runtime serializza gli account in un
+buffer di memoria contiguo e lo passa alla BPF VM. Il formato di serializzazione
+(per il formato allineato standard utilizzato da tutti i loader tranne il
+loader-v1 deprecato) è definito in
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+Il buffer inizia con un `u64` (8 byte, little-endian) contenente il numero di
+account. Quindi, per ogni account nell'istruzione, il buffer contiene:
+
+| Offset        | Dimensione      | Campo                                   | Tipo                                                                                                                  |
+| ------------- | --------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 0             | 1               | marcatore duplicato                     | `u8` (`0xFF` = unico, indice = duplicato di quell'account)                                                            |
+| 1             | 1               | is_signer                               | `u8` (0 o 1)                                                                                                          |
+| 2             | 1               | is_writable                             | `u8` (0 o 1)                                                                                                          |
+| 3             | 1               | executable                              | `u8` (0 o 1)                                                                                                          |
+| 4             | 4               | original_data_len (riservato, sempre 0) | `[0u8; 4]`                                                                                                            |
+| 8             | 32              | key                                     | `Pubkey`                                                                                                              |
+| 40            | 32              | owner                                   | `Pubkey`                                                                                                              |
+| 72            | 8               | lamports                                | `u64` (little-endian)                                                                                                 |
+| 80            | 8               | data_len                                | `u64` (little-endian)                                                                                                 |
+| 88            | data_len        | data                                    | `[u8]`                                                                                                                |
+| 88 + data_len | 10240 + padding | spazio realloc + allineamento           | Riempito di zeri fino a `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + padding per allineare a `BPF_ALIGN_OF_U128` (8 byte) |
+| ...           | 8               | rent_epoch                              | `u64` (little-endian)                                                                                                 |
+
+Dopo tutti gli account, il buffer aggiunge:
+
+| Dimensione           | Campo                                       |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+Per gli account duplicati, viene scritto solo 1 byte (il marcatore di
+duplicazione con l'indice dell'originale) più 7 byte di padding.
+
+## Deduplicazione degli account
+
+Quando la stessa chiave pubblica dell'account appare più volte nell'array
+`accounts` di un'istruzione, il runtime li
+[deduplica](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623).
+Ogni voce nell'elenco degli account dell'istruzione ottiene la propria struttura
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75),
+ma le voci che si riferiscono allo stesso account a livello di transazione
+puntano agli stessi dati sottostanti.
+
+Il metodo
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+determina se un dato indice di account dell'istruzione è la prima occorrenza o
+un duplicato cercando l'indice dell'account a livello di transazione e trovando
+il primo indice a livello di istruzione che vi corrisponde:
+
+- Se l'indice corrente dell'account dell'istruzione è uguale al primo indice
+  mappato, **non** è un duplicato (restituisce `None`).
+- Altrimenti, restituisce `Some(first_index)`, dove `first_index` è l'indice
+  della prima occorrenza.
+
+Poiché tutti i riferimenti allo stesso account condividono lo stesso
+_rs`AccountSharedData`_ sottostante, le modifiche attraverso qualsiasi
+riferimento sono immediatamente visibili attraverso tutti gli altri riferimenti.
+Tuttavia, può essere mantenuto un solo prestito mutabile alla volta. Il
+tentativo di prendere in prestito lo stesso account in modo mutabile attraverso
+due indici di account dell'istruzione diversi contemporaneamente restituisce
+_rs`InstructionError::AccountBorrowFailed`_. I programmi devono rilasciare un
+prestito prima di acquisirne un altro sullo stesso account sottostante.
+
+Dopo l'esecuzione del programma, il runtime deserializza il buffer
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+e applica eventuali modifiche a `lamports`, `data` (incluse le modifiche di
+lunghezza fino a _rs`MAX_PERMITTED_DATA_INCREASE`_), e `owner`.

@@ -1,0 +1,647 @@
+---
+title: 계정 유형
+description:
+  Solana 계정 유형 — 실행 가능한 코드를 위한 program account, 프로그램 상태를
+  위한 data account, System Program이 소유한 system account, 그리고 미리 정의된
+  주소에서 클러스터 전체 상태를 제공하는 sysvar.
+url: /docs/core/accounts/account-types
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/programs
+  - /docs/core/accounts/modification-rules
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="요약">
+  Program account는 실행 가능한 sBPF 코드를 보유합니다. Data account는
+  프로그램이 소유한 상태를 저장합니다. System account는 System Program이
+  소유합니다. Sysvar는 미리 정의된 주소에서 접근 가능한 클러스터 전체 상태를
+  제공합니다.
+</Callout>
+
+[`executable`](/docs/core/accounts/account-structure) 필드는 계정의 카테고리를
+결정합니다:
+
+- **[Program account](#program-accounts)**: `executable` = `true`. 실행 가능한
+  코드를 포함합니다.
+- **[Data account](#data-accounts)**: `executable` = `false`. 상태 또는 사용자
+  데이터를 저장합니다.
+
+코드와 변경 가능한 상태의 이러한 분리는 프로그램이 한 번 배포되면 임의의 수의
+data account를 관리할 수 있음을 의미합니다.
+
+## Program account
+
+Program account는 실행 가능한 코드를 저장합니다. 모든 program account는
+[loader 프로그램](/docs/core/programs/builtin-programs#loader-programs)이
+소유합니다. [프로그램](/docs/core/programs)이 배포되면 런타임은 해당
+바이트코드를 보유할 program account를 생성합니다.
+
+![Program account, 4개의 구성 요소 및 loader 프로그램의 다이어그램.](/assets/docs/core/accounts/program-account-simple.svg)
+
+### Program data account
+
+Loader-v3를 사용하여 배포된
+프로그램([Loader 프로그램](/docs/core/programs/builtin-programs#loader-programs)
+참조)은 자체 `data` 필드에 실행 가능한 바이트코드를 저장하지 않습니다. 대신 해당
+`data`는 프로그램 코드를 포함하는 별도의 **program data account**를 가리킵니다.
+(아래 다이어그램 참조.)
+
+![데이터가 있는 program account. 데이터는 별도의 program data account를 가리킵니다](/assets/docs/core/accounts/program-account-expanded.svg)
+
+<Callout>
+  프로그램 배포 또는 업그레이드 중에 buffer account는 업로드를 임시로 준비하는
+  데 사용됩니다.
+</Callout>
+
+다음 예제는 Token Program 계정을 가져옵니다. `executable` 필드가 `true`이므로
+program account임을 확인합니다.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+
+const programId = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address;
+
+const accountInfo = await rpc
+  .getAccountInfo(programId, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet.solana.com",
+  "confirmed"
+);
+
+const programId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+const accountInfo = await connection.getAccountInfo(programId);
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::pubkey;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let program_id = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let account_info = connection.get_account(&program_id).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+## 데이터 계정
+
+데이터 계정은 실행 가능한 코드를 포함하지 않습니다. 프로그램에서 정의한 상태를
+저장합니다.
+
+### 프로그램 상태 계정
+
+프로그램은 데이터 계정에 상태를 저장합니다. 프로그램 상태 계정을 생성하는 과정은
+두 단계로 이루어집니다:
+
+1. [System Program](/docs/core/programs/builtin-programs#the-system-program)을
+   호출하여 계정을 생성합니다. System Program은 지정된 프로그램으로 소유권을
+   이전합니다.
+2. 소유 프로그램이 [지침](/docs/core/instructions)에 따라 계정의 `data` 필드를
+   초기화합니다.
+
+![프로그램 계정이 소유한 데이터 계정 다이어그램](/assets/docs/core/accounts/data-account.svg)
+
+다음 예제는 Token 2022 프로그램이 소유한 토큰 민트 계정을 생성하고 가져옵니다.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  fetchMint
+} from "@solana-program/token-2022";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate keypairs for fee payer
+const feePayer = await generateKeyPairSigner();
+
+// Fund fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
+
+// Get default mint account size (in bytes), no extensions enabled
+const space = BigInt(getMintSize());
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Instruction to create new account for mint (token 2022 program)
+// Invokes the system program
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize mint account data
+// Invokes the token 2022 program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: feePayer.address
+});
+
+const instructions = [createAccountInstruction, initializeMintInstruction];
+
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }), // Create transaction message
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), // Set fee payer
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), // Set transaction blockhash
+  (tx) => appendTransactionMessageInstructions(instructions, tx) // Append instructions
+);
+
+// Sign transaction message with required signers (fee payer and mint keypair)
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", transactionSignature);
+
+const accountInfo = await rpc.getAccountInfo(mint.address).send();
+console.log(accountInfo);
+
+const mintAccount = await fetchMint(rpc, mint.address);
+console.log(mintAccount);
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ID,
+  MINT_SIZE,
+  getMinimumBalanceForRentExemptMint,
+  getMint
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const recentBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// Generate keypair to use as address of mint
+const mint = Keypair.generate();
+
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: await getMinimumBalanceForRentExemptMint(connection),
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint pubkey
+  9, // decimals
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint] // Signers
+);
+
+console.log("Mint Address: ", mint.publicKey.toBase58());
+console.log("Transaction Signature: ", transactionSignature);
+
+const accountInfo = await connection.getAccountInfo(mint.publicKey);
+
+// !collapse(1:16) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+console.log(mintAccount);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_token_2022_interface::{
+    id as token_2022_program_id, instruction::initialize_mint, state::Mint,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
+
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+
+    let space = Mint::LEN;
+    let rent = client.get_minimum_balance_for_rent_exemption(space).await?;
+
+    // Create account instruction
+    let create_account_instruction = create_account(
+        &fee_payer.pubkey(),      // fee payer
+        &mint.pubkey(),           // mint address
+        rent,                     // rent
+        space as u64,             // space
+        &token_2022_program_id(), // program id
+    );
+
+    // Initialize mint instruction
+    let initialize_mint_instruction = initialize_mint(
+        &token_2022_program_id(),
+        &mint.pubkey(),            // mint address
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
+
+    // Create transaction and add instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[create_account_instruction, initialize_mint_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        recent_blockhash,
+    );
+
+    // Send and confirm transaction
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
+
+    let account_info = client.get_account(&mint.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    let mint_account = Mint::unpack(&account_info.data)?;
+    println!("{:#?}", mint_account);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### 시스템 계정
+
+생성 후에도 System Program이 소유하는 계정을 시스템 계정이라고 합니다. 새 주소로
+처음 SOL을 전송하면 System Program이 소유하는 새 계정이 해당 주소에 생성됩니다.
+
+모든 지갑 계정은 시스템 계정입니다. 트랜잭션의 수수료 지불자는 반드시 시스템
+계정이어야 합니다. System Program이 소유한 계정만
+[트랜잭션 수수료](/docs/core/fees)를 지불할 수 있기 때문입니다.
+
+![1,000,000 램포트를 포함하는 System Program 소유 지갑](/assets/docs/core/accounts/system-account.svg)
+
+다음 예제는 새 키페어를 생성하고, SOL을 입금한 후 계정을 가져옵니다. `owner`
+필드는
+`11111111111111111111111111111111`([System Program](/docs/core/programs/builtin-programs#the-system-program))입니다.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPairSigner,
+  lamports
+} from "@solana/kit";
+
+// Create a connection to Solana cluster
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate a new keypair
+const keypair = await generateKeyPairSigner();
+console.log(`Public Key: ${keypair.address}`);
+
+// Funding an address with SOL automatically creates an account
+const signature = await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: keypair.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+const accountInfo = await rpc.getAccountInfo(keypair.address).send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Keypair, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+// Generate a new keypair
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+
+// Create a connection to the Solana cluster
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Funding an address with SOL automatically creates an account
+const signature = await connection.requestAirdrop(
+  keypair.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+const accountInfo = await connection.getAccountInfo(keypair.publicKey);
+console.log(JSON.stringify(accountInfo, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signer::{keypair::Keypair, Signer},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate a new keypair
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+
+    // Create a connection to Solana cluster
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Funding an address with SOL automatically creates an account
+    let signature = connection
+        .request_airdrop(&keypair.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = connection.confirm_transaction(&signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    let account_info = connection.get_account(&keypair.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Sysvar 계정
+
+[Sysvar 계정](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/sysvar_cache.rs#L31)은
+미리 정의된 주소에 있는 특수 계정으로, 클러스터 상태 데이터에 대한 읽기 전용
+액세스를 제공합니다. 이들은 각 slot마다 동적으로 업데이트됩니다.
+
+| Sysvar                                                                                                                 | 주소                                          | 목적                                    |
+| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------- |
+| [Clock](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2064)                                       | `SysvarC1ock11111111111111111111111111111111` | 현재 slot, epoch 및 Unix 타임스탬프     |
+| [EpochSchedule](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2264)                               | `SysvarEpochSchedu1e111111111111111111111111` | 제네시스에서 설정된 epoch 스케줄링 상수 |
+| [EpochRewards](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/partitioned_epoch_rewards/sysvar.rs#L24) | `SysvarEpochRewards1111111111111111111111111` | Epoch 보상 분배 상태 및 진행 상황       |
+| [Rent](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2255)                                        | `SysvarRent111111111111111111111111111111111` | Rent 요율 및 면제 임계값                |
+| [SlotHashes](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2196)                                  | `SysvarS1otHashes111111111111111111111111111` | slot의 부모 뱅크에 대한 최근 해시       |
+| [StakeHistory](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2273)                                | `SysvarStakeHistory1111111111111111111111111` | Epoch별 스테이크 활성화 및 비활성화     |
+| [LastRestartSlot](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2123)                             | `SysvarLastRestartS1ot1111111111111111111111` | 마지막 클러스터 재시작 slot             |
+| [Instructions](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L736)                           | `Sysvar1nstructions1111111111111111111111111` | 현재 트랜잭션의 직렬화된 인스트럭션     |
+| [SlotHistory](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2182)                                 | `SysvarS1otHistory11111111111111111111111111` | 지난 epoch 동안 생성된 slot의 기록      |
+
+다음 예제는 Sysvar Clock 계정을 가져와서 역직렬화합니다.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { createSolanaRpc } from "@solana/kit";
+import { fetchSysvarClock, SYSVAR_CLOCK_ADDRESS } from "@solana/sysvars";
+
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+
+const accountInfo = await rpc
+  .getAccountInfo(SYSVAR_CLOCK_ADDRESS, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+
+// Automatically fetch and deserialize the account data
+const clock = await fetchSysvarClock(rpc);
+console.log(clock);
+```
+
+```ts !! title="Legacy"
+import { Connection, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+import { getSysvarClockCodec } from "@solana/sysvars";
+
+const connection = new Connection(
+  "https://api.mainnet.solana.com",
+  "confirmed"
+);
+
+const accountInfo = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
+
+// Deserialize the account data
+const decodedClock = getSysvarClockCodec().decode(
+  new Uint8Array(accountInfo?.data ?? [])
+);
+
+console.log(decodedClock);
+// !collapse(1:16) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use bincode::deserialize;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::sysvar::{self, clock::Clock};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let account = connection.get_account(&sysvar::clock::ID).await?;
+    // Deserialize the account data
+    let clock: Clock = deserialize(&account.data)?;
+
+    println!("{:#?}", account);
+    println!("{:#?}", clock);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

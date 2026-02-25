@@ -96,3 +96,81 @@ total (before callee)  = 967 CUs
 | Κάτοχος               | Καλούμενος -> Καλών | Αντιγράφεται πάντα πίσω                                                                                                                                                                                                                                                             |
 | Μήκος δεδομένων       | Καλούμενος -> Καλών | Εάν άλλαξε. Ο δείκτης του τμήματος δεδομένων VM και το πεδίο σειριοποιημένου μήκους ενημερώνονται. Εάν ο λογαριασμός συρρικνώθηκε, η ελευθερωμένη μνήμη μηδενίζεται. Εάν το νέο μήκος υπερβαίνει το `original_data_len + MAX_PERMITTED_DATA_INCREASE`, επιστρέφει `InvalidRealloc`. |
 | Περιεχόμενο δεδομένων | Καλούμενος -> Καλών | Αντιγράφεται από το buffer δεδομένων του καλούμενου στην περιοχή σειριοποιημένων δεδομένων του καλούντος                                                                                                                                                                            |
+
+### Όρια realloc
+
+Τα δεδομένα λογαριασμού μπορούν να αλλάξουν μέγεθος κατά τη διάρκεια CPI έως και
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10.240 bytes (10 KiB) πέρα από το μήκος δεδομένων του λογαριασμού κατά την
+έναρξη της τρέχουσας εντολής ανώτατου επιπέδου. Αυτός ο περιορισμός επιβάλλεται
+τόσο στο
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+(προ-CPI) όσο και στο
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+(μετά-CPI). Η υπέρβασή του επιστρέφει _rs`InvalidRealloc`_.
+
+## Υπογραφή PDA
+
+Όταν καλείται το _rs`invoke_signed`_, το runtime παράγει διευθύνσεις PDA από τα
+παρεχόμενα seeds και το program ID του καλούντος. Αυτό συμβαίνει στο
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661):
+
+1. Ο πίνακας signer seeds επικυρώνεται: το πολύ
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16) σύνολα signer seed.
+2. Κάθε σύνολο seed επικυρώνεται: το πολύ
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16) seeds ανά σύνολο, κάθε seed το πολύ
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   (32) bytes.
+3. Καλείται το
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   με τα seeds και το **program ID του καλούντος** (όχι του καλούμενου).
+4. Εάν τα seeds δεν παράγουν έγκυρο PDA (δηλαδή, το προκύπτον σημείο βρίσκεται
+   στην καμπύλη ed25519), το CPI αποτυγχάνει με
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+5. Τα παραγόμενα PDA pubkeys συλλέγονται και μεταβιβάζονται στο
+   `prepare_next_instruction` ως έγκυροι υπογράφοντες. Κατά τον έλεγχο
+   προνομίων, εάν ένας λογαριασμός καλούμενου επισημαίνεται ως υπογράφων και το
+   pubkey του ταιριάζει με ένα από αυτά τα παραγόμενα PDAs, ο έλεγχος
+   υπογράφοντος περνάει επιτυχώς.
+
+<Callout>
+  Το PDA παράγεται χρησιμοποιώντας το program ID του **καλούντος**, όχι του
+  καλούμενου. Αυτό σημαίνει ότι μόνο το πρόγραμμα που κατέχει το PDA (αυτό του
+  οποίου το ID χρησιμοποιήθηκε για να το παραχθεί) μπορεί να υπογράψει εξ
+  ονόματός του. Ένα πρόγραμμα δεν μπορεί να υπογράψει για PDAs που παράγονται
+  από άλλα προγράμματα.
+</Callout>
+
+## Δεδομένα επιστροφής
+
+Τα προγράμματα μπορούν να μεταβιβάσουν δεδομένα πίσω στους καλούντες
+χρησιμοποιώντας τον μηχανισμό δεδομένων επιστροφής. Αυτό χρησιμοποιεί δύο
+syscalls:
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439):
+  Ορίζει έως και
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  (1.024) bytes δεδομένων επιστροφής για την τρέχουσα εντολή. Το κόστος είναι
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` CUs.
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440):
+  Διαβάζει τα δεδομένα επιστροφής που ορίστηκαν από την πιο πρόσφατα εκτελεσμένη
+  εντολή. Επιστρέφει τα δεδομένα μαζί με το program ID που τα όρισε. Το κόστος
+  είναι `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost` CUs (32 bytes
+  για το program ID).
+
+Τα δεδομένα επιστροφής αποθηκεύονται ανά συναλλαγή και αντικαθίστανται από κάθε
+εντολή που καλεί το `sol_set_return_data`. Στην αρχή κάθε κλήσης προγράμματος,
+το runtime
+[επαναφέρει τα δεδομένα επιστροφής](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)
+σε κενά. Αφού επιστρέψει ένα CPI, ο καλών μπορεί να διαβάσει όποια δεδομένα
+επιστροφής όρισε τελευταίος ο καλούμενος (ή οποιοδήποτε πρόγραμμα κάλεσε ο
+καλούμενος).
+
+<Callout>
+  Τα δεδομένα επιστροφής περιορίζονται σε 1.024 bytes. Μόνο το **τελευταίο**
+  πρόγραμμα που καλεί το `sol_set_return_data` στην αλυσίδα κλήσεων καθορίζει τι
+  βλέπει ο καλών. Εάν ένας καλούμενος πραγματοποιήσει περαιτέρω CPIs που ορίζουν
+  δεδομένα επιστροφής, τα δικά του δεδομένα επιστροφής αντικαθίστανται.
+</Callout>
