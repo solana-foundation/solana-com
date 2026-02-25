@@ -595,6 +595,24 @@ export function Sponsors() {
                       )}
                     </div>
                   )}
+
+                  {activeSponsor && (
+                    <div className="flex items-center justify-center border-t border-white/10 pt-4">
+                      <a
+                        href="https://thegrid.id"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 text-xs text-white/40 transition-colors hover:text-white/70"
+                      >
+                        <span>{t("poweredBy")}</span>
+                        <img
+                          src={getImagePath("/images/thegrid-logo-white.svg")}
+                          alt="The Grid"
+                          className="h-4 opacity-40 transition-opacity group-hover:opacity-70"
+                        />
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             </DialogContent>
