@@ -255,7 +255,6 @@ export async function fetchCalendarEvents(
       el.rsvp === "https://luma.com/accelerate-miami"
     ) {
       el.featured = true;
-      el.schedule.to = "2025-04-26T23:59:59+07:00";
     }
     return el;
   });
