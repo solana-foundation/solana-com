@@ -317,6 +317,15 @@ export function detectLinkType(url: string): LinkType {
     return "video";
   }
 
+  if (
+    lowerUrl.includes("spotify.com") ||
+    lowerUrl.includes("podcasts.apple.com") ||
+    lowerUrl.includes("podcast") ||
+    lowerUrl.includes("simplecast.com")
+  ) {
+    return "podcast";
+  }
+
   if (lowerUrl.includes("github.com")) {
     return "github";
   }

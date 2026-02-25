@@ -397,6 +397,7 @@ export default config({
             { label: "Article", value: "article" },
             { label: "Tweet/X Post", value: "tweet" },
             { label: "Video", value: "video" },
+            { label: "Podcast", value: "podcast" },
             { label: "GitHub", value: "github" },
             { label: "Other", value: "other" },
           ],

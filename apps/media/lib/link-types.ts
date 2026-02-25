@@ -1,6 +1,12 @@
 import { ContentDocument } from "./post-types";
 
-export type LinkType = "article" | "tweet" | "video" | "github" | "other";
+export type LinkType =
+  | "article"
+  | "tweet"
+  | "video"
+  | "podcast"
+  | "github"
+  | "other";
 
 export type LinkItem = {
   id: string;
