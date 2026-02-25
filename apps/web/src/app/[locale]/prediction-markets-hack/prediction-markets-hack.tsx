@@ -2103,7 +2103,7 @@ export function PredictionMarketsHackPage({
             {translations.sponsorBounties.map((bounty, index) => (
               <div
                 key={index}
-                className={`bg-[#0a0612]/60 rounded-xl p-8 flex flex-col transition-all duration-500 pmh-card ${
+                className={`bg-[#0a0612]/60 rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all duration-500 pmh-card ${
                   bountiesReveal.isVisible
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-8"
@@ -2112,48 +2112,15 @@ export function PredictionMarketsHackPage({
                   border: `1px solid rgba(${SOLANA_GREEN}, 0.2)`,
                   transitionDelay: `${index * 150 + 200}ms`,
                   animationDelay: `${index * 1.2}s`,
+                  minHeight: "200px",
                 }}
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <span
-                    className="text-sm font-mono uppercase tracking-wider font-bold"
-                    style={{ color: SOLANA_GREEN_HEX }}
-                  >
-                    {bounty.sponsor}
-                  </span>
-                </div>
-                <h4 className="text-2xl font-bold text-white mb-4">
-                  {bounty.title}
-                </h4>
-                <p className="text-gray-300 text-base mb-6 whitespace-pre-line flex-grow">
-                  {bounty.description}
-                </p>
-                <div
-                  className="pt-4 mb-4 mt-auto"
-                  style={{
-                    borderTop: `1px solid rgba(${SOLANA_GREEN}, 0.3)`,
-                  }}
+                <h4
+                  className="text-2xl font-bold font-mono tracking-wider"
+                  style={{ color: SOLANA_GREEN_HEX }}
                 >
-                  <span
-                    className="text-3xl font-bold font-mono"
-                    style={{ color: SOLANA_GREEN_HEX }}
-                  >
-                    {bounty.prizeAmount}
-                  </span>
-                  <span className="text-gray-400 text-sm ml-2">prize</span>
-                </div>
-                {bounty.url && (
-                  <a
-                    href={bounty.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-auto inline-flex items-center font-semibold transition-colors"
-                    style={{ color: SOLANA_GREEN_HEX }}
-                  >
-                    Learn more about {bounty.sponsor}
-                    <ArrowUpRight size={16} className="ml-1" />
-                  </a>
-                )}
+                  COMING SOON
+                </h4>
               </div>
             ))}
           </div>
