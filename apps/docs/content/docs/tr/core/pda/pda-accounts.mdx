@@ -1,0 +1,199 @@
+---
+title: PDA hesapları
+description:
+  invoke_signed ve Anchor'un init kısıtlaması kullanarak Solana PDA adreslerinde
+  zincir üstü hesaplar oluşturun. invoke_signed doğrulama akışı ve kod
+  örnekleriyle Anchor PDA oluşturma kalıpları.
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: PDA Signing via invoke_signed, Create a PDA Account */}
+
+<Callout type="info" title="Özet">
+  PDA hesaplarını PDA'nın seed'leriyle _rs`invoke_signed`_ aracılığıyla
+  oluşturun. Yalnızca sahip olan program bir PDA için imza atabilir. Anchor'un
+  _rs`init`_ kısıtlaması PDA hesap oluşturmayı otomatikleştirir.
+</Callout>
+
+## `invoke_signed` ile PDA imzalama
+
+Bir program CPI sırasında bir PDA adına imza atması gerektiğinde, PDA'nın
+seed'leriyle _rs`invoke_signed`_ kullanır. Runtime, seed'lerin **çağıran
+programın ID'sini** kullanarak beklenen PDA'yı türettiğini doğrular ve yalnızca
+sahip olan programın imza atabileceğinden emin olur. Tam doğrulama akışı için
+[PDA imzalama](/docs/core/cpi/cpi-cost-model#pda-signing) bölümüne bakın.
+
+## PDA hesabı oluşturma
+
+Bir PDA türetmek ve PDA'da bir hesap oluşturmak ayrı işlemlerdir. Adresi
+türettikten sonra hesabı açıkça oluşturmalısınız.
+
+Bir PDA'da hesap oluşturmak için, türeten program System Program'ın
+_rs`create_account`_ talimatını [`invoke_signed`](/docs/core/cpi) aracılığıyla
+çağırır ve PDA'nın seed'lerini ileterek runtime'ın programın o adres üzerindeki
+yetkisini doğrulamasını sağlar.
+
+<WithMentions>
+
+Aşağıdaki örnek, program türevli bir adresle yeni bir hesap oluşturmak için
+[Anchor framework](https://www.anchor-lang.com/docs) kullanır. Program, PDA'yı
+türetmek için kullanılan [kullanıcı adresini](mention:user-address) ve
+[bump seed'ini](mention:bump) depolayacak yeni hesabı oluşturmak için tek bir
+[`initialize`](mention:initialize) talimatı içerir.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+[`init`](mention:init) kısıtlaması Anchor'a PDA'yı adres olarak kullanarak yeni
+bir hesap oluşturmak için
+[System Program'ı çağırmasını](/docs/core/programs/builtin-programs#the-system-program)
+söyler. PDA'yı oluşturmak için kullanılan [seed'ler](mention:seeds) şunlardır:
+
+- Sabit dize: "data"
+- Talimatta sağlanan kullanıcı hesabının adresi
+- Kanonik [bump seed](mention:bump)
+
+Bu örnekte, bump kısıtlamasına bir değer atanmamıştır, bu nedenle Anchor PDA'yı
+türetmek ve bump'ı bulmak için _rs`find_program_address`_ kullanacaktır.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Aşağıdaki test dosyası, program türevli bir adresle yeni bir hesap oluşturmak
+için [`initialize`](mention:initialize) talimatını çağıran bir işlem içerir.
+Dosya, [PDA'yı türetmek](mention:pda) için kod içerir.
+
+Örnek ayrıca oluşturulacak yeni hesabın nasıl [alınacağını](mention:fetch)
+gösterir.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  Aynı `user` adres seed'i ile `initialize` talimatını tekrar çağırırsanız,
+  işlem başarısız olur. Bu durum, türetilen adreste zaten bir hesap bulunduğu
+  için gerçekleşir.
+</Callout>

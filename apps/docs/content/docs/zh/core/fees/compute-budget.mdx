@@ -1,0 +1,192 @@
+---
+title: 计算预算
+description:
+  Solana 上的计算单元限制、ComputeBudgetInstruction
+  变体、调度器成本模型、区块限制和执行预算常量。
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* 目录：计算单元限制、计算预算指令、调度器成本模型、区块限制、执行预算常量 */}
+
+<Callout type="info" title="摘要">
+  每条指令默认分配 20 万 CU，每笔交易最多 140 万 CU。可使用
+  `SetComputeUnitLimit` 和 `SetComputeUnitPrice` 指令进行优化。
+  优先费用基于请求的 CU 数量，而非实际使用量。
+</Callout>
+
+## 计算单元限制
+
+每条指令分配
+[默认 200,000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)，每笔交易上限为
+[1,400,000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)。如果没有显式的
+_rs`SetComputeUnitLimit`_ 指令，
+[默认值将根据指令类型计算](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219)：
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **内置指令**（System Program、Stake、Vote 等尚未迁移到 SBF 的指令）：每条分配
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3,000 CU（参见
+  [SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)）。
+- **非内置指令**（用户部署的 SBF 程序）：每条分配
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200,000 CU。
+- **正在迁移的内置指令**（已完成 SBF 迁移并启用相关功能）：视为非内置指令（每条 200,000
+  CU）。
+
+结果会被限制在 _rs`MAX_COMPUTE_UNIT_LIMIT`_（1,400,000）以内。
+
+你可以在交易中包含
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+指令来覆盖默认值。
+
+确定合适的 CU 限制方法：
+
+1. 通过模拟交易测量 CU 消耗。
+2. 在模拟值基础上增加 10% 的安全余量。
+
+<Callout type="warn">
+  优先费用由交易中请求的计算单元上限决定，*而不是*实际使用的计算单元数量。如果你设置的计算单元上限过高或直接使用默认值，将会为未使用的计算单元支付费用。
+</Callout>
+
+## 计算预算指令
+
+[Compute Budget Program](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)（`ComputeBudget111111111111111111111111111111`）包含四种指令。
+
+| 变体                             | 判别符 | 参数             | 类型  | 描述                               |
+| -------------------------------- | ------ | ---------------- | ----- | ---------------------------------- |
+| `RequestHeapFrame`               | `1`    | `bytes`          | `u32` | 每个交易中程序请求的堆大小（字节） |
+| `SetComputeUnitLimit`            | `2`    | `units`          | `u32` | 交易可消耗的最大 CU 数             |
+| `SetComputeUnitPrice`            | `3`    | `micro_lamports` | `u64` | CU 单价（微 lamports）             |
+| `SetLoadedAccountsDataSizeLimit` | `4`    | `bytes`          | `u32` | 交易可加载的账户数据总字节数上限   |
+
+[来源：`ComputeBudgetInstruction` 枚举](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### 约束与错误条件
+
+在[处理计算预算指令](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153)时，适用以下规则：
+
+- **每种类型仅允许一个**：每笔交易中，每种指令变体只能包含一个。若包含重复项，将导致
+  _rs`DuplicateInstruction`_ 错误（整个交易失败）。
+- **`RequestHeapFrame`**：该值必须介于
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)（32
+  KiB）和
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)（256
+  KiB）之间，并且必须为[1,024 的倍数](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194)。否则，交易将以
+  _rs`InvalidInstructionData`_
+  失败。堆大小适用于交易中调用的每个程序（包括 CPI）。
+- **`SetComputeUnitLimit`**：接受任意 `u32` 值。实际限制会被限制为
+  [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)（1,400,000）。
+- **`SetComputeUnitPrice`**：接受任意 `u64` 值（0 到 `u64::MAX`）。
+- **`SetLoadedAccountsDataSizeLimit`**：该值必须大于 0（`NonZeroU32`）。若为 0，将导致
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141)。实际限制会被限制为
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)（64
+  MiB）。
+- **未识别的数据**：任何发送到 Compute Budget
+  Program 且无法反序列化为已知变体的指令，都会以 _rs`InvalidInstructionData`_
+  失败。
+
+<Callout>
+  下文的调度器成本模型描述了 validator
+  内部的预执行成本估算。大多数开发者只需关注上文提到的 compute budget 指令。
+</Callout>
+
+## 调度器成本模型
+
+validator 的
+[scheduler](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)
+使用
+[cost model](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)
+在**执行前**估算交易的资源使用情况。这些预执行成本估算用于判断交易是否能适配区块剩余容量。它们与执行期间发生的 CU 计量是分开的。
+
+调度器总成本由五个部分组成 ([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174))：
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### 成本组成部分
+
+| 组成部分                                                                                                              | 描述                                   |
+| --------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| [**Signature cost**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)            | 每种签名类型的单次签名成本             |
+| [**Write lock cost**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)           | 每个可写账户                           |
+| [**Instruction data cost**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)     | 基于指令数据字节总数                   |
+| [**Programs execution cost**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)   | 来自 compute budget 或默认值的 CU 限额 |
+| [**Loaded accounts data cost**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | 基于已加载账户数据总大小               |
+
+所有数值均以 compute unit（CU）为单位。
+
+### 调度器成本常量
+
+| 常量                                                                                                                   | 数值      |
+| ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30        |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 CUs   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6,690 CUs |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2,280 CUs |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2,400 CUs |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4,800 CUs |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 CUs   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4         |
+
+### 投票交易成本
+
+投票交易无论实际内容如何，均使用
+[固定成本 3,428 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)。
+
+### 区块限制
+
+调度器会强制执行每个区块的限制。如果添加某笔交易会超出任何限制，则该交易不会被包含进区块。
+
+| 限制                                                                                                                          | 数值       |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60,000,000 |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12,000,000 |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36,000,000 |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 MB     |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)
+  提议将 _rs`MAX_BLOCK_UNITS`_ 增加到 100,000,000。
+</Callout>
+
+## 执行预算常量
+
+以下常量来自
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)
+定义了交易执行期间的运行时限制：
+
+| 常量                                                                                                                                     | 数值       | 说明                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------- |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1,400,000  | 每笔交易的最大 CU 限制                            |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200,000    | 每条非内置指令的默认 CU                           |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3,000      | 每条内置指令的默认 CU（SIMD-0170）                |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 CU       | 每 32 KiB 堆页面的成本                            |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1,000 CU   | 一次 CPI 调用的成本                               |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 CU     | 启用 SIMD-0339 后的 CPI 调用成本                  |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32,768     | 最小堆大小（32 KiB）                              |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262,144    | 最大堆大小（256 KiB）                             |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67,108,864 | 每笔交易最大加载账户数据（64 MiB）                |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5          | 最大指令堆栈深度（顶层 + CPI）                    |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9          | 启用 SIMD-0268 后的最大指令堆栈深度（顶层 + CPI） |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64         | 单个程序内最大 SBF-to-SBF 调用深度                |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4,096 字节 | 单个 SBF 堆栈帧的大小                             |

@@ -1,0 +1,422 @@
+---
+title: 指令结构
+description:
+  Solana 指令结构 — program_id、accounts 和 data 字段，AccountMeta 标志
+  is_signer 和 is_writable，已编译指令，以及 TypeScript 和 Rust 中的 SOL
+  转账示例。
+url: /docs/core/instructions/instruction-structure
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/cpi
+---
+
+<Callout type="info" title="摘要">
+  一个指令包含 3 个字段：`program_id`（要调用的程序）、 `accounts`（带有
+  is_signer/is_writable 标志的 AccountMeta 列表）和 `data`
+  （程序解析的数据字节数组）。
+</Callout>
+
+<WithMentions>
+
+## 指令结构
+
+一个
+[`Instruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/instruction/src/lib.rs#L97)
+包含三个字段：
+
+- [`program_id`](mention:program-id)：被调用程序的 [ID](#program-id)。
+- [`accounts`](mention:accounts)：一个 [账户元数据](#account-metadata) 数组
+- [`data`](mention:instruction-data)：包含额外 [数据](#data)
+  的字节数组，供指令使用。
+
+```rust title="Instruction struct"
+pub struct Instruction {
+    /// Pubkey of the program that executes this instruction.
+    // !mention program-id
+    pub program_id: Pubkey,
+    /// Metadata describing accounts that should be passed to the program.
+    // !mention accounts
+    pub accounts: Vec<AccountMeta>,
+    /// Opaque data passed to the program for its own interpretation.
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+### 程序 ID
+
+指令的 [`program_id`](/docs/references/terminology#program-id)
+是包含该指令执行逻辑的程序的公钥地址。运行时会使用此字段将指令路由到正确的程序进行处理。
+
+### 账户元数据
+
+<WithMentions>
+
+指令的 `accounts` 数组是一个有序的
+[`AccountMeta`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/instruction/src/account_meta.rs#L25)
+结构体列表。每个指令交互的账户都必须提供元数据。validator 会利用这些元数据判断哪些交易可以并行运行。写入不同账户的交易可以并行执行。
+
+下图展示了包含单个指令的交易。该指令的 `accounts` 数组包含了两个账户的元数据。
+
+![包含一个指令的交易。该指令的 `accounts` 数组中有两个 `AccountMeta` 结构体。](/assets/docs/core/transactions/accountmeta.svg)
+
+每个 _rs`AccountMeta`_ 有三个字段：
+
+- [pubkey](mention:pubkey)：账户的公钥地址
+- [is_signer](mention:is-signer)：如果账户需要签名交易，则设置为 `true`
+- [is_writable](mention:is-writable)：如果指令会修改账户数据，则设置为 `true`
+
+<Callout>
+  要了解某个指令需要哪些账户，包括哪些账户必须是可写、只读或需要签署交易，必须参考该指令的具体实现，也就是由程序定义的实现。
+</Callout>
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// An account's public key.
+    // !mention pubkey
+    pub pubkey: Pubkey,
+    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
+    // !mention is-signer
+    pub is_signer: bool,
+    /// True if the account data or metadata may be mutated during program execution.
+    // !mention is-writable
+    pub is_writable: bool,
+}
+```
+
+</WithMentions>
+
+### 数据
+
+指令的 `data`
+字段是一个字节数组，用于告知程序要调用哪个函数，并为该函数提供参数。数据通常以一个判别符或索引字节开头，用于标识目标函数，后面跟着序列化的参数。编码格式由每个程序自行定义（例如 Borsh 序列化或自定义布局）。
+
+常见的编码约定：
+
+- **核心程序**（System、Stake、Vote）：使用 Bincode 序列化的枚举变体索引，后跟序列化参数。
+- **Anchor 程序**：使用 8 字节判别符（即 SHA-256 哈希值的前 8 个字节，基于
+  `"global:<function_name>"`）后跟 Borsh 序列化参数。
+
+运行时不会解析 `data` 字段。它会原样传递给程序的 `process_instruction` 入口点。
+
+## 已编译指令
+
+当指令被序列化到交易消息中时，它们会变成
+[`CompiledInstruction`](/docs/core/transactions/transaction-structure#instructions)
+结构体，将所有公钥替换为消息中 `account_keys` 数组中的紧凑整数索引。
+
+## 示例：SOL 转账指令
+
+下面的示例展示了一个 SOL 转账指令的结构。
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair
+} from "@solana/web3.js";
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Define the amount to transfer
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    println!("{:#?}", transfer_instruction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<WithMentions>
+
+下面的代码展示了前面代码片段的输出。不同 SDK 的格式可能有所不同，但请注意，每个指令都包含相同的三项必要信息：[`program_id`](mention:program-id)、[`accounts`](mention:accounts)、[`data`](mention:data)。
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  // !mention(1:16) accounts
+  "accounts": [
+    {
+      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+      "role": 3,
+      "signer": {
+        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+        "keyPair": {
+          "privateKey": {},
+          "publicKey": {}
+        }
+      }
+    },
+    {
+      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
+      "role": 1
+    }
+  ],
+  // !mention program-id
+  "programAddress": "11111111111111111111111111111111",
+  // !mention(1:14) data
+  "data": {
+    "0": 2,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 128,
+    "5": 150,
+    "6": 152,
+    "7": 0,
+    "8": 0,
+    "9": 0,
+    "10": 0,
+    "11": 0
+  }
+}
+```
+
+```json !! title="Legacy"
+{
+  // !mention(1:12) accounts
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  // !mention program-id
+  "programId": "11111111111111111111111111111111",
+  // !mention data
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+```json !! title="Rust"
+{
+  // !mention program-id
+  "program_id": "11111111111111111111111111111111",
+  // !mention(1:12) accounts
+  "accounts": [
+    {
+      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
+      "is_signer": true,
+      "is_writable": true
+    },
+    {
+      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
+      "is_signer": false,
+      "is_writable": true
+    }
+  ],
+  // !mention data
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+</CodeTabs>
+
+</WithMentions>
+
+下面的示例展示了如何手动构建转账指令。（ `Expanded Instruction`
+选项卡在功能上等同于 `Instruction` 选项卡。）
+
+<Callout type="info">
+  实际开发中，通常无需手动构建 _rs`Instruction`_。
+  大多数程序都提供带有辅助函数的客户端库，能够帮你自动生成指令。如果没有可用的库，你也可以手动构建指令。
+</Callout>
+
+<Tabs items={['Kit', 'Legacy', 'Rust']}>
+
+<Tab value="Kit">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const TRANSFER_INSTRUCTION_INDEX = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
+instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
+
+const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
+
+// Manually create the transfer instruction
+const transferInstruction: IInstruction = {
+  programAddress: SYSTEM_PROGRAM_ADDRESS,
+  accounts: [
+    {
+      address: sender.address,
+      role: AccountRole.WRITABLE_SIGNER
+    },
+    {
+      address: recipient.address,
+      role: AccountRole.WRITABLE
+    }
+  ],
+  data: new Uint8Array(instructionData)
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Legacy">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const transferInstructionIndex = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// Manually create a transfer instruction
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Rust">
+
+<CodeTabs>
+
+```rs !! title="Instruction"
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+let transfer_instruction =
+    system_instruction::transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+```
+
+```rs !! title="Expanded Instruction"
+// Instruction index for the System Program's transfer instruction
+let transfer_instruction_index: u32 = 2;
+
+// Define the amount to transfer
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
+let mut instruction_data = Vec::with_capacity(12);
+instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
+instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
+
+// Manually create the transfer instruction
+let transfer_instruction = Instruction {
+    program_id: system_program::id(),
+    accounts: vec![
+        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
+        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
+    ],
+    data: instruction_data,
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+</Tabs>

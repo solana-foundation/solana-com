@@ -1,0 +1,179 @@
+---
+title: Thực thi chương trình
+description:
+  Cách Solana biên dịch và thực thi các chương trình, bao gồm sBPF VM, mô hình
+  đơn vị tính toán, bộ nhớ đệm chương trình và syscalls.
+url: /docs/core/programs/program-execution
+type: conceptual
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/programs/syscall-reference
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/program-deployment
+  - /docs/core/cpi/cpi-execution
+---
+
+{/* TOC: Compilation, Write programs, Program execution model, Program cache, Syscalls */}
+
+<Callout type="info" title="Tóm tắt">
+  Các chương trình được biên dịch thành sBPF thông qua LLVM và chạy trong VM
+  sandbox với ngân sách 1.4M CU cho mỗi giao dịch. Runtime lưu đệm tối đa 512
+  chương trình đã biên dịch, cung cấp syscalls cho logging, CPI, crypto và bộ
+  nhớ, đồng thời trì hoãn các triển khai mới 1 slot.
+</Callout>
+
+## Biên dịch
+
+Solana sử dụng [LLVM](https://llvm.org/) để biên dịch các chương trình thành các
+tệp nhị phân [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+chứa Solana Bytecode Format (sBPF). Tệp nhị phân ELF được lưu trữ on-chain trong
+một tài khoản thực thi.
+
+<Callout>
+  sBPF là biến thể tùy chỉnh của Solana dựa trên bytecode
+  [eBPF](https://en.wikipedia.org/wiki/EBPF), được điều chỉnh cho Solana
+  runtime. Nó không phải là eBPF chuẩn và có các sửa đổi đặc thù của Solana.
+</Callout>
+
+## Viết chương trình
+
+Các chương trình Solana chủ yếu được viết bằng
+[Rust](https://rust-book.cs.brown.edu/title-page.html) sử dụng một trong hai
+cách tiếp cận:
+
+<Cards>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs">
+    Một framework sử dụng các macro Rust để giảm boilerplate. Được khuyến nghị
+    cho hầu hết các nhà phát triển.
+  </Card>
+  <Card title="Native Rust" href="/docs/programs/rust">
+    Rust trực tiếp không dùng framework. Cung cấp toàn quyền kiểm soát nhưng yêu
+    cầu nhiều triển khai thủ công hơn.
+  </Card>
+</Cards>
+
+## Mô hình thực thi chương trình
+
+Khi một giao dịch được xử lý, runtime thực thi từng lệnh tuần tự thông qua
+[`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15).
+Đối với mỗi lệnh, runtime:
+
+1. **Chuẩn bị ngữ cảnh lệnh.** Gọi
+   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)
+   để ánh xạ các chỉ số tài khoản của lệnh, đặt các cờ signer và writable, và
+   cấu hình
+   [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467).
+
+2. **Kiểm tra precompiles.** Nếu chương trình là một
+   [precompile](/docs/core/programs/precompiles), runtime gọi
+   [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491),
+   vẫn đẩy và lấy ra một stack frame (thông qua _rs`push()`_ và _rs`pop()`_)
+   nhưng bỏ qua sBPF VM và tra cứu bộ nhớ đệm chương trình, thực thi mã native
+   trực tiếp.
+
+3. **Đẩy một stack frame.** (Các bước 3-6 xảy ra bên trong
+   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
+   và
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507),
+   được gọi từ _rs`process_message()`_.) Gọi
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
+   trên
+   [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184),
+   điều này tăng chiều cao của instruction stack và thực thi quy tắc reentrancy:
+   một program chỉ có thể tự gọi lại chính nó nếu caller **trực tiếp** (program
+   ở đỉnh hiện tại của instruction stack) là cùng một program. Đệ quy sâu (A ->
+   A -> A) được cho phép, tuân theo giới hạn độ sâu stack. Các pattern
+   reentrancy khác (ví dụ: A gọi B gọi A) trả về
+   _rs`InstructionError::ReentrancyNotAllowed`_.
+
+4. **Phân giải program.** Runtime gọi
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   để xác định loader. Nếu owner của program account là
+   [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517),
+   program đó là builtin và hàm entrypoint của nó được tra cứu trực tiếp từ
+   [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706).
+   Nếu owner là một trong các BPF loader (`bpf_loader_deprecated`, `bpf_loader`,
+   `bpf_loader_upgradeable`, hoặc `loader_v4`), entrypoint builtin của loader sẽ
+   được gọi thay thế.
+
+5. **Thực thi BPF program.** Đối với các BPF program,
+   [loader entrypoint](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+   tra cứu executable đã biên dịch từ program cache.
+   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)
+   sau đó:
+   - Serialize dữ liệu account thành một parameter buffer phẳng
+   - Tạo sBPF VM với các vùng stack, heap và memory
+   - Chạy code đã biên dịch, tiêu thụ compute unit trong quá trình thực thi. Trả
+     về _rs`ComputationalBudgetExceeded`_ nếu vượt quá ngân sách.
+   - Deserialize dữ liệu account từ buffer trở lại thành trạng thái account
+
+6. **Loại bỏ stack frame.** Gọi
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)
+   để xác minh rằng instruction không vi phạm các quy tắc kế toán của runtime
+   (số dư lamport cân bằng, các account readonly không bị sửa đổi, kích thước dữ
+   liệu account nằm trong giới hạn).
+
+7. **Tích lũy compute unit.** Các compute unit được tiêu thụ bởi instruction
+   được cộng vào tổng số của transaction thông qua
+   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53).
+
+## Bộ nhớ đệm chương trình
+
+Runtime duy trì một
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)
+toàn cục lưu trữ các chương trình đã được xác minh và biên dịch. Nó nhận biết
+fork-graph và xử lý các quy tắc hiển thị triển khai, loại bỏ và biên dịch lại
+tại ranh giới epoch.
+
+### Các loại mục trong bộ nhớ đệm
+
+Mỗi chương trình được lưu trong bộ nhớ đệm có một
+[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132)
+xác định hành vi runtime của nó:
+
+| Loại                                                                                                              | Mô tả                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | Chương trình đã được xác minh và biên dịch, sẵn sàng để thực thi.                                                                                                                                                                                                                                                      |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | Chương trình native được biên dịch vào binary của validator (System, Stake, Vote, v.v.). Không được lưu trữ on-chain.                                                                                                                                                                                                  |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | Chương trình đã được xác minh trước đó nhưng tệp thực thi đã biên dịch bị loại bỏ khỏi bộ nhớ để giải phóng không gian. Vẫn theo dõi thống kê sử dụng. Có thể được tải lại mà không cần xác minh lại.                                                                                                                  |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Tombstone cho các chương trình không vượt qua trình xác minh sBPF theo tập tính năng hiện tại. Có thể trở thành `Loaded` nếu các kích hoạt tính năng thay đổi quy tắc xác minh.                                                                                                                                        |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | Tombstone cho các chương trình đã bị đóng rõ ràng hoặc chưa bao giờ được triển khai. Cũng được sử dụng cho các tài khoản (như tài khoản buffer) thuộc về một loader nhưng không chứa mã thực thi.                                                                                                                      |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | Tombstone tổng hợp được trả về bởi [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) khi một mục `Loaded` tồn tại nhưng chưa có hiệu lực (`effective_slot` của nó nằm trong tương lai). Không bao giờ được lưu trực tiếp trong bộ nhớ đệm. |
+
+### Độ trễ hiển thị
+
+Các chương trình mới được triển khai hoặc nâng cấp không có hiệu lực ngay lập
+tức. Hằng số
+[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
+là `1`, có nghĩa là một chương trình được triển khai trong slot N sẽ có hiệu lực
+ở slot N+1. Trong slot triển khai, bất kỳ nỗ lực nào để gọi phiên bản mới sẽ trả
+về `DelayVisibility`, khiến runtime báo cáo "Program is not deployed."
+
+### Chính sách loại bỏ
+
+Bộ nhớ cache lưu trữ tối đa
+[`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)
+(512) mục chương trình đã biên dịch. Khi đạt đến giới hạn, các chương trình ít
+được sử dụng nhất sẽ bị loại bỏ về trạng thái _rs`Unloaded`_. Mức độ sử dụng
+được theo dõi bởi
+[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)
+(tăng lên mỗi khi một giao dịch tham chiếu đến chương trình) và
+[`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199).
+
+### Biên dịch lại tại ranh giới epoch
+
+Nếu việc kích hoạt tính năng thay đổi
+[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)
+tại ranh giới epoch, tất cả các chương trình được lưu trong cache sẽ được
+[biên dịch lại](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L1494)
+đối với môi trường mới.
+
+## Dữ liệu trả về
+
+Các chương trình có thể thiết lập dữ liệu trả về thông qua syscall
+`sol_set_return_data`. Dữ liệu được lưu trữ trong một cấu trúc
+[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499)
+cấp độ giao dịch chứa các byte dữ liệu và `program_id` của chương trình có lệnh
+gọi syscall. Kích thước tối đa là 1.024 byte (_rs`MAX_RETURN_DATA`_).

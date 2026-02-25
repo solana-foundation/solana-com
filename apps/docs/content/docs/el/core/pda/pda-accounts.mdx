@@ -1,0 +1,205 @@
+---
+title: Λογαριασμοί PDA
+description:
+  Δημιουργήστε on-chain λογαριασμούς σε διευθύνσεις Solana PDA χρησιμοποιώντας
+  invoke_signed και τον περιορισμό init του Anchor. Ροή επαλήθευσης
+  invoke_signed και μοτίβα δημιουργίας PDA με Anchor με παραδείγματα κώδικα.
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: PDA Signing via invoke_signed, Create a PDA Account */}
+
+<Callout type="info" title="Περίληψη">
+  Δημιουργήστε λογαριασμούς PDA μέσω _rs`invoke_signed`_ με τα seeds του PDA.
+  Μόνο το πρόγραμμα-ιδιοκτήτης μπορεί να υπογράψει για ένα PDA. Ο περιορισμός
+  _rs`init`_ του Anchor αυτοματοποιεί τη δημιουργία λογαριασμού PDA.
+</Callout>
+
+## Υπογραφή PDA μέσω `invoke_signed`
+
+Όταν ένα πρόγραμμα χρειάζεται να υπογράψει εκ μέρους ενός PDA κατά τη διάρκεια
+ενός CPI, χρησιμοποιεί _rs`invoke_signed`_ με τα seeds του PDA. Το runtime
+επαληθεύει ότι τα seeds παράγουν το αναμενόμενο PDA χρησιμοποιώντας το **ID του
+προγράμματος που καλεί**, διασφαλίζοντας ότι μόνο το πρόγραμμα-ιδιοκτήτης μπορεί
+να υπογράψει. Για την πλήρη ροή επαλήθευσης, δείτε
+[Υπογραφή PDA](/docs/core/cpi/cpi-cost-model#pda-signing).
+
+## Δημιουργία λογαριασμού PDA
+
+Η παραγωγή ενός PDA και η δημιουργία λογαριασμού σε ένα PDA είναι ξεχωριστές
+λειτουργίες. Πρέπει να δημιουργήσετε ρητά τον λογαριασμό αφού παράγετε τη
+διεύθυνση.
+
+Για να δημιουργήσετε έναν λογαριασμό σε ένα PDA, το πρόγραμμα παραγωγής καλεί
+την εντολή _rs`create_account`_ του System Program μέσω
+[`invoke_signed`](/docs/core/cpi), περνώντας τα seeds του PDA ώστε το runtime να
+μπορεί να επαληθεύσει την εξουσία του προγράμματος πάνω σε αυτή τη διεύθυνση.
+
+<WithMentions>
+
+Το παρακάτω παράδειγμα χρησιμοποιεί το
+[Anchor framework](https://www.anchor-lang.com/docs) για να δημιουργήσει έναν
+νέο λογαριασμό με διεύθυνση που παράγεται από το πρόγραμμα. Το πρόγραμμα
+περιλαμβάνει μία μόνο εντολή [`initialize`](mention:initialize) για τη
+δημιουργία του νέου λογαριασμού, ο οποίος θα αποθηκεύσει τη
+[διεύθυνση χρήστη](mention:user-address) και το [bump seed](mention:bump) που
+χρησιμοποιήθηκε για την παραγωγή του PDA.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Ο περιορισμός [`init`](mention:init) υποδεικνύει στο Anchor να
+[καλέσει το System Program](/docs/core/programs/builtin-programs#the-system-program)
+για να δημιουργήσει έναν νέο λογαριασμό χρησιμοποιώντας το PDA ως διεύθυνση. Τα
+[seeds](mention:seeds) που χρησιμοποιούνται για τη δημιουργία του PDA είναι:
+
+- Η σταθερή συμβολοσειρά: "data"
+- Η διεύθυνση του λογαριασμού χρήστη που παρέχεται στην εντολή
+- Το κανονικό [bump seed](mention:bump)
+
+Σε αυτό το παράδειγμα, ο περιορισμός bump δεν έχει εκχωρηθεί τιμή, επομένως το
+Anchor θα χρησιμοποιήσει το _rs`find_program_address`_ για να παράγει το PDA και
+να βρει το bump.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Το αρχείο δοκιμών παρακάτω περιέχει μια συναλλαγή που καλεί την εντολή
+[`initialize`](mention:initialize) για να δημιουργήσει έναν νέο λογαριασμό με
+διεύθυνση που προέρχεται από πρόγραμμα. Το αρχείο περιέχει κώδικα για να
+[παράγει το PDA](mention:pda).
+
+Το παράδειγμα δείχνει επίσης πώς να [ανακτήσετε](mention:fetch) τον νέο
+λογαριασμό που θα δημιουργηθεί.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  Εάν καλέσετε την εντολή `initialize` ξανά με το ίδιο seed διεύθυνσης `user`, η
+  συναλλαγή θα αποτύχει. Αυτό συμβαίνει επειδή υπάρχει ήδη λογαριασμός στην
+  παραγόμενη διεύθυνση.
+</Callout>

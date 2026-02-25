@@ -1,0 +1,112 @@
+---
+title: Programm-Deployment
+description:
+  Deployment, Upgrade und Verifizierung von Solana-Programmen.
+  Loader-v3-Anweisungsreferenz, der 9-Schritte-Upgrade-Mechanismus,
+  Build-Verifizierung und die 5 Loader-Programmtypen.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Zusammenfassung">
+  Programme, die über Loader-v3 bereitgestellt werden, können aktualisiert
+  werden, wenn eine Upgrade-Authority festgelegt ist. Das Widerrufen der
+  Authority macht das Programm unveränderlich. Behandelt den
+  9-Schritte-Upgrade-Mechanismus, alle 9 Loader-v3- Anweisungen,
+  Build-Verifizierung und die 5 Loader-Typen.
+</Callout>
+
+## Programme deployen
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    Deployment mit der Solana-CLI über `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Deployment mit dem Anchor-Framework über `anchor deploy`.
+  </Card>
+</Cards>
+
+## Programme upgraden
+
+Um ein Programm zu upgraden, muss ein Konto die Upgrade-Authority besitzen
+(normalerweise das Konto, das das Programm ursprünglich
+[deployed hat](/docs/programs/deploying)). Während des Deployments oder Upgrades
+wird neuer Bytecode in ein temporäres Buffer-Konto hochgeladen und dann in das
+Programmdaten-Konto geschrieben. Wenn die Upgrade-Authority auf _rs`None`_
+gesetzt wird, wird das Programm unveränderlich und weitere Updates werden
+dauerhaft verhindert.
+
+### Upgrade-Mechanismus
+
+Wenn
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+verarbeitet wird, führt die Runtime folgende Schritte aus:
+
+1. Überprüft, ob das Programm-Konto beschreibbar ist und sich im Besitz von
+   Loader-v3 befindet.
+2. Überprüft, ob das Buffer-Konto einen _rs`Buffer`_-Status mit der korrekten
+   Authority enthält.
+3. Überprüft, ob die `upgrade_authority_address` des ProgramData-Kontos
+   übereinstimmt und nicht _rs`None`_ ist.
+4. Überprüft, ob das Programm nicht bereits im aktuellen Slot deployed wurde
+   (`clock.slot != slot`).
+5. Lädt und verifiziert die neuen ELF-Bytes aus dem Buffer.
+6. Kopiert den neuen Bytecode aus dem Buffer in das ProgramData-Konto und setzt
+   die verbleibenden Bytes auf null.
+7. Finanziert das ProgramData-Konto bis zur Mietbefreiung.
+8. Leert das Buffer-Konto (setzt Lamports auf 0) und kürzt dessen Daten.
+9. Die neue Version wird im nächsten Slot wirksam (`deployment_slot + 1`).
+
+Das `Program`-Konto selbst (sein Zustand und der `programdata_address`-Zeiger)
+ändert sich während eines Upgrades nicht. Nur der Bytecode und die
+Slot-Metadaten des _rs`ProgramData`_-Kontos werden aktualisiert.
+
+## Loader-v3-Anweisungsreferenz
+
+Loader-v3 (BPF Loader Upgradeable) ist der aktuelle Standard-Loader für die
+Bereitstellung von Programmen auf Solana.
+
+| Anweisung                                                                                                    | Beschreibung                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Setzt den Zustand eines Buffer-Kontos auf `Buffer` mit der angegebenen Authority. Schlägt fehl, wenn bereits initialisiert.                                                                                                                                                                                  |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Schreibt Bytes am angegebenen Offset in ein Buffer-Konto. Authority muss signieren.                                                                                                                                                                                                                          |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Erstellt ein neues Programm: leitet die ProgramData-Adresse ab, erstellt das ProgramData-Konto via CPI zum System Program, verifiziert und deployt die ELF aus dem Buffer, setzt den Zustand des Program-Kontos und markiert es als ausführbar.                                                              |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Ersetzt den Bytecode im ProgramData-Konto eines bestehenden Programms aus einem Buffer.                                                                                                                                                                                                                      |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Ändert die Authority eines Buffer- oder ProgramData-Kontos. Das Setzen auf `None` bei ProgramData macht das Programm unveränderlich. Buffer-Authority kann nicht auf `None` gesetzt werden.                                                                                                                  |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | Wie `SetAuthority`, erfordert jedoch zusätzlich, dass die neue Authority die Transaktion signiert.                                                                                                                                                                                                           |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Schließt ein Buffer-, nicht initialisiertes oder ProgramData-Konto, indem seine Lamports an einen Empfänger übertragen werden. Das Schließen von ProgramData schreibt auch einen `Closed`-Tombstone in den Programm-Cache. Ein Programm, das im aktuellen Slot deployt wurde, kann nicht geschlossen werden. |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | Erweitert die Allokation des ProgramData-Kontos um zusätzliche Bytes und finanziert die zusätzliche Miete vom Zahler.                                                                                                                                                                                        |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | Migriert ein Loader-v3-Programm zu Loader-v4, indem die Eigentümerschaft des Program-Kontos übertragen und der Bytecode kopiert wird. Erfordert die Signatur der Migrations-Authority oder der Upgrade-Authority des Programms. Loader-v4 ist noch nicht im Mainnet veröffentlicht.                          |
+
+## Programme verifizieren
+
+Solana unterstützt [verifizierbare Builds](/docs/programs/verified-builds), die
+es Nutzern ermöglichen zu bestätigen, dass der On-Chain-Bytecode eines Programms
+mit seinem öffentlichen Quellcode übereinstimmt. Das Anchor-Framework bietet
+[integrierte Unterstützung](https://www.anchor-lang.com/docs/verifiable-builds)
+für verifizierbare Builds.
+
+Um den Verifizierungsstatus eines bereitgestellten Programms zu überprüfen,
+suchen Sie nach seiner Programm-ID im
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY),
+oder verwenden Sie die Ellipsis Labs
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build),
+um On-Chain-Programme unabhängig zu verifizieren.
+
+## Loader-Programme
+
+| Loader                     | Adresse                                       | Aktualisierbar                         | Beschreibung                                             |
+| -------------------------- | --------------------------------------------- | -------------------------------------- | -------------------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | Nur über Validator-Software-Upgrade    | Besitzt Builtins (System, Vote, Stake) und andere Loader |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Nein (Loader-Verwaltung deaktiviert)   | Legacy-Programme                                         |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Nein (Loader-Verwaltung deaktiviert)   | Legacy-Programme                                         |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Ja, wenn Upgrade-Authority gesetzt ist | Besitzt alle neu bereitgestellten Programme              |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | Ja, wenn Authority gesetzt ist         | Noch nicht im Mainnet veröffentlicht                     |

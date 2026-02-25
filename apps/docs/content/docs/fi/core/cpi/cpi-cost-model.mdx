@@ -1,0 +1,55 @@
+---
+title: CPI-kustannusmalli ja tietojen synkronointi
+description:
+  CPI-laskentakustannukset, tilitietojen synkronointi kutsijan ja kutsuttavan
+  välillä, PDA-allekirjoitusmekaniikka ja paluudata Solanassa.
+url: /docs/core/cpi/cpi-cost-model
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/cpi/cpi-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/syscall-reference
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI cost model, Account data synchronization, PDA signing, Return data */}
+
+<Callout type="info" title="Yhteenveto">
+  Jokainen CPI maksaa ~1 000 CU:ta peruskustannuksena plus
+  serialisointikustannukset. Tilidata synkronoidaan ennen kutsuttavan suoritusta
+  ja sen jälkeen. PDA-allekirjoitus käyttää kutsijan ohjelmatunnusta. Paluudata
+  on rajoitettu 1 024 tavuun.
+</Callout>
+
+## CPI-kustannusmalli
+
+CPI-kustannukset vähennetään samasta transaktiolaskentabudjetista (jaettu
+mittari). Täydellinen kustannuskaava jokaiselle _rs`invoke`_ /
+_rs`invoke_signed`_ -kutsulle:
+
+```
+total_cpi_cost = invocation_cost
+               + instruction_data_cost
+               + account_meta_cost          (SIMD-0339 only)
+               + account_info_cost          (SIMD-0339 only)
+               + per_account_data_cost      (for each non-executable account)
+               + callee_execution_cost
+```
+
+### Kustannusten erittely
+
+| Kustannuskomponentti                       | Kaava                                                                                                                                               | Lähde                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kutsu (kiinteä)                            | [`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108) = 1 000 CU:ta (946 SIMD-0339:n kanssa) | Veloitetaan [CPI-sisäänkäynnissä](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)                                                                                                                                                                                         |
+| Instruction datan serialisointi            | `instruction_data_len / cpi_bytes_per_unit`                                                                                                         | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205) = 250. Veloitetaan [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569) -funktiossa.                                                |
+| Tilimetatietojen serialisointi (SIMD-0339) | `(num_account_metas * 34) / cpi_bytes_per_unit`                                                                                                     | Jokainen `AccountMeta` on 34 tavua (32 pubkey + 1 is_signer + 1 is_writable). Veloitetaan [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L555-L567) -funktiossa.                                                                                            |
+| Tilitietojen käännös (SIMD-0339)           | `(num_account_infos * 80) / cpi_bytes_per_unit`                                                                                                     | [`ACCOUNT_INFO_BYTE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L63-L68) = 80 tavua (32 key + 32 owner + 8 lamports + 8 data_len). Veloitetaan [translate_account_infos](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981) -funktiossa. |
+| Tilikohtainen data                         | `account_data_len / cpi_bytes_per_unit`                                                                                                             | Veloitetaan tilikohtaisesti [CallerAccount::from_account_info](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374) -funktiossa ja [suoritettaville tileille](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1056-L1060).                           |
+| Kutsuttavan suoritus                       | Mitä tahansa CU:ita kutsuttava ohjelma kuluttaa                                                                                                     | Vähennetään jaetusta mittarista kutsuttavan suorituksen aikana.                                                                                                                                                                                                                                               |
+
+### Esimerkki kustannuslaskelmasta
+
+CPI, jossa on 100 tavua instruction dataa, 5 tilimetatietoa, 5 tilitietoa
+(jokainen 1 000 tavun datalla), SIMD-0339 aktiivisena:

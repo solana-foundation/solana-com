@@ -1,0 +1,188 @@
+---
+title: CPI 执行与权限
+description:
+  Solana 运行时中的 11 步 CPI 执行流程、权限扩展规则、重入限制以及授权程序检查。
+url: /docs/core/cpi/cpi-execution
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/constants-reference
+---
+
+{/* 目录：CPI 执行流程，权限规则 */}
+
+<Callout type="info" title="摘要">
+  CPI 会经过 11 个运行时步骤，包括权限检查、账户转换和数据同步。最大调用深度为
+  5（使用 SIMD-0268 时为 9）。权限规则防止被调用方获得超出调用方授予的权限。
+</Callout>
+
+## 权限规则
+
+CPI 会将调用方的账户权限扩展给被调用方，并严格执行。运行时会在
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)
+检查这些规则：
+
+| 场景                                                                               | 是否允许 | 执行检查点                                                                                                                  | 错误代码               |
+| ---------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 调用方将账户作为可写传递，被调用方标记为可写                                       | 是       | --                                                                                                                          | --                     |
+| 调用方将账户作为只读传递，被调用方标记为可写                                       | 否       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| 调用方将账户作为可写传递，被调用方标记为只读                                       | 是       | --                                                                                                                          | --                     |
+| 调用方将账户作为签名者传递，被调用方标记为签名者                                   | 是       | --                                                                                                                          | --                     |
+| 调用方将账户作为非签名者传递，被调用方标记为签名者，且账户是由调用方种子派生的 PDA | 是       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| 调用方将账户作为非签名者传递，被调用方标记为签名者，且账户不是由调用方派生的 PDA   | 否       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| 调用方将账户作为签名者传递，被调用方标记为非签名者                                 | 是       | --                                                                                                                          | --                     |
+| 程序 A 直接调用自身（A -> A）                                                      | 是       | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| 程序 A 调用 B，B 再调用 A（间接重入）                                              | 否       | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| CPI 到 native loader、bpf_loader、bpf_loader_deprecated 或 precompile              | 否       | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| 交易中未找到账户                                                                   | 否       | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+权限规则可总结如下：
+
+1. **可写权限不可提升。**
+   如果调用方将账户标记为只读，被调用方不能将其标记为可写。
+2. **签名者权限需要授权。**
+   只有在以下情况下，被调用方中的账户才能成为签名者：(a) 该账户在调用方中已是签名者，或 (b) 该账户是通过调用程序的种子派生出的 PDA（程序派生地址），方式为
+   _rs`invoke_signed`_。
+3. **权限降低始终允许。** 被调用方可以使用比调用方授予的更少的权限。
+
+## CPI 执行流程
+
+CPI 会经过多个运行时层。本节将记录从程序 SDK 调用到越过 syscall 边界进入运行时再返回的完整流程。每一步都引用了实现该步骤的源文件。
+
+<Callout>
+  程序指令调用的最大高度称为
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L66)
+  ，其值由
+  [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)
+  常量设定为 5。当 [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) 激活时，该值提升至 9。
+
+堆栈高度为 1 时表示初始交易指令。每次 CPI 调用高度加 1。最大为 5 意味着程序最多可进行 4 层嵌套 CPI 调用（启用 SIMD-0268 时可达 8 层）。
+
+</Callout>
+
+### 步骤 1：程序调用 `invoke` 或 `invoke_signed`
+
+程序会调用
+[`invoke`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L26)
+或
+[`invoke_signed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L51)。
+_rs`invoke`_ 是一个简单封装器，会以空的签名者种子数组调用
+_rs`invoke_signed`_。SDK 函数会将 _rs`Instruction`_、_rs`AccountInfo`_
+切片和签名者种子序列化到 VM 内存中，然后触发 syscall。
+
+### 步骤 2：Syscall 入口
+
+SBF VM 会分发到
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)
+syscall 处理器，并调用共享入口点：
+[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925)。
+
+### 步骤 3：消耗调用费用
+
+在 _rs`cpi_common`_ 内部的第一个操作是
+[收取固定调用费用](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)
+，费用从共享计算计量器中扣除：
+[`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108)
+= 1,000 CU（或使用 SIMD-0339 时为 946 CU）。
+
+### 步骤 4：从 VM 内存中转换指令
+
+系统调用处理器会将指令从程序的 VM 地址空间转换为主机端 Rust 类型，通过
+[`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590)
+实现。它会读取一个 _rs`StableInstruction`_ 结构体，并根据
+[`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)
+（10,240 字节）校验数据长度，然后收取
+[数据序列化费用](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569)。
+
+### 步骤 5：转换签名者 seed 并派生 PDA
+
+处理器会调用
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)。对于每组签名者 seed，运行时会：
+
+1. 检查签名者 seed 集合的数量是否超过
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   （16）。
+2. 检查每组 seed 的长度是否超过
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   （每组最多 16 个 seed）。
+3. 使用 seed 和**调用方**的程序 ID 调用
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)。如果 seed 无法生成有效的 PDA，则 CPI 会因
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36)
+   失败。
+4. 将生成的 PDA 公钥收集到一个 `signers` vec 中。
+
+这些派生出的 PDA 会被视为被调用指令的有效签名者。
+
+### 步骤 6：检查授权程序
+
+在继续之前，运行时会调用
+[`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)
+以验证目标程序是否允许 CPI。以下程序会被阻止：
+
+- 原生加载器
+- `bpf_loader` 和 `bpf_loader_deprecated`
+- `bpf_loader_upgradeable`（仅允许特定管理指令：`upgrade`、
+  `set_authority`、`set_authority_checked`（需特性开关）、
+  `extend_program_checked`（需特性开关）、`close`）
+- 预编译程序（如 ed25519、secp256k1 等）
+
+如有违规，将返回
+[`ProgramNotSupported`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L55)。
+
+### 步骤 7：权限验证（`prepare_next_instruction`）
+
+运行时会调用
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)
+，构建被调用方的 _rs`InstructionAccount`_
+列表并强制执行权限规则。完整决策表请参见下方的[权限规则](#privilege-rules)。
+
+### 步骤 8：翻译账户信息
+
+处理程序会调用 `translate_accounts`，其功能如下：
+
+1. [验证账户信息数量](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)
+   是否符合 _rs`MAX_CPI_ACCOUNT_INFOS`_（128，或在 SIMD-0339 下为 255）。
+2. [收取账户信息翻译费用](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)
+   （仅限 SIMD-0339）：`(num_account_infos * 80) / 250` CU。
+3. 对于每个非可执行且非重复的账户，通过将指针从 VM 内存翻译到主机内存，构建一个
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)。这包括
+   [按账户收取数据序列化费用](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374)：
+   `account_data_len / cpi_bytes_per_unit` CU。
+
+### 步骤 9：CPI 前账户同步（调用方到被调用方）
+
+在执行被调用方之前，运行时会同步调用方账户的修改，以便被调用方能够看到这些更改。对于每个已翻译的账户，会调用函数
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)，复制 lamport、数据和 owner。详细字段映射请参见
+[账户数据同步](/docs/core/cpi/cpi-cost-model#account-data-synchronization)。
+
+### 步骤 10：推送指令上下文、执行被调用方并弹出
+
+运行时会调用
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488)，其功能如下：
+
+1. 调用
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)，向指令栈添加一个新帧。_rs`push()`_
+   会强制执行
+   [可重入性规则](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)：程序只能在直接调用者的情况下调用自身（即程序 A 可以调用 A，但 A 不能调用 B 再调用 A）。如违反则返回
+   _rs`ReentrancyNotAllowed`_。
+2. 调用
+   [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602)，解析被调用方的程序入口并执行。被调用方与调用方共享同一个计算预算，所有被调用方消耗的 CU 都会减少调用方剩余预算。
+3. 调用
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)，移除被调用方的帧，并验证 lamport 余额是否未变（如有变则返回
+   _rs`UnbalancedInstruction`_）。
+
+### 步骤 11：CPI 后账户同步（被调用方到调用方）
+
+`process_instruction` 返回后（包括弹出操作），运行时会通过
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+对每个可写账户同步更改。此外，
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
+会更新数据区域发生变化账户的 VM 内存区域映射。详细字段映射请参见
+[账户数据同步](/docs/core/cpi/cpi-cost-model#account-data-synchronization)。
+
+CPI syscall 会向调用程序返回 `0`（成功）。

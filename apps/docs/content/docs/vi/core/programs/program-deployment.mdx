@@ -1,0 +1,108 @@
+---
+title: Triển khai chương trình
+description:
+  Triển khai, nâng cấp và xác minh các chương trình Solana. Tài liệu tham khảo
+  lệnh Loader-v3, cơ chế nâng cấp 9 bước, xác minh bản build và 5 loại chương
+  trình loader.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Tóm tắt">
+  Các chương trình được triển khai qua loader-v3 có thể được nâng cấp khi có
+  quyền nâng cấp được thiết lập. Thu hồi quyền này sẽ khiến chương trình trở nên
+  bất biến. Bao gồm cơ chế nâng cấp 9 bước, tất cả 9 lệnh loader-v3, xác minh
+  bản build và 5 loại loader.
+</Callout>
+
+## Triển khai chương trình
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    Triển khai bằng Solana CLI với `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Triển khai bằng framework Anchor với `anchor deploy`.
+  </Card>
+</Cards>
+
+## Nâng cấp chương trình
+
+Để nâng cấp một chương trình, một tài khoản phải nắm giữ quyền nâng cấp (thường
+là tài khoản đã [triển khai chương trình](/docs/programs/deploying) ban đầu).
+Trong quá trình triển khai hoặc nâng cấp, bytecode mới được tải lên một buffer
+account tạm thời, sau đó được ghi vào programdata account. Đặt quyền nâng cấp
+thành _rs`None`_ sẽ khiến chương trình trở nên bất biến và ngăn chặn vĩnh viễn
+các cập nhật tiếp theo.
+
+### Cơ chế nâng cấp
+
+Khi
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+được xử lý, runtime sẽ:
+
+1. Xác minh program account có thể ghi và thuộc sở hữu của loader-v3.
+2. Xác minh buffer account chứa trạng thái _rs`Buffer`_ với quyền chính xác.
+3. Xác minh `upgrade_authority_address` của programdata account khớp và không
+   phải _rs`None`_.
+4. Xác minh chương trình chưa được triển khai trong slot hiện tại
+   (`clock.slot != slot`).
+5. Tải và xác minh các byte ELF mới từ buffer.
+6. Sao chép bytecode mới từ buffer vào programdata account và đặt các byte còn
+   lại về 0.
+7. Cấp vốn cho programdata account để miễn phí thuê.
+8. Rút cạn buffer account (đặt lamports về 0) và cắt bớt dữ liệu của nó.
+9. Phiên bản mới có hiệu lực trong slot tiếp theo (`deployment_slot + 1`).
+
+Bản thân tài khoản `Program` (trạng thái và con trỏ `programdata_address` của
+nó) không thay đổi trong quá trình nâng cấp. Chỉ có bytecode và metadata slot
+của tài khoản _rs`ProgramData`_ được cập nhật.
+
+## Tham chiếu lệnh Loader-v3
+
+Loader-v3 (BPF Loader Upgradeable) là trình tải mặc định hiện tại để triển khai
+program trên Solana.
+
+| Lệnh                                                                                                         | Mô tả                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Đặt trạng thái của tài khoản buffer thành `Buffer` với quyền được chỉ định. Thất bại nếu đã được khởi tạo.                                                                                                                                  |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Ghi các byte tại vị trí được chỉ định trong tài khoản buffer. Quyền phải ký.                                                                                                                                                                |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Tạo program mới: suy ra địa chỉ ProgramData, tạo tài khoản ProgramData thông qua CPI đến System Program, xác minh và triển khai ELF từ buffer, đặt trạng thái của tài khoản Program và đánh dấu nó có thể thực thi.                         |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Thay thế bytecode trong tài khoản ProgramData của program hiện có từ buffer.                                                                                                                                                                |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Thay đổi quyền của tài khoản Buffer hoặc ProgramData. Đặt thành `None` trên ProgramData làm cho program không thể thay đổi. Quyền của Buffer không thể được đặt thành `None`.                                                               |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | Giống như `SetAuthority`, nhưng yêu cầu quyền mới cũng phải ký giao dịch.                                                                                                                                                                   |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Đóng tài khoản buffer, chưa khởi tạo hoặc ProgramData bằng cách chuyển lamport của nó cho người nhận. Đóng ProgramData cũng ghi tombstone `Closed` vào bộ nhớ cache program. Không thể đóng program đã được triển khai trong slot hiện tại. |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | Mở rộng phân bổ của tài khoản ProgramData thêm các byte bổ sung, tài trợ rent thêm từ người trả tiền.                                                                                                                                       |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | Di chuyển program loader-v3 sang loader-v4 bằng cách chuyển quyền sở hữu tài khoản program và sao chép bytecode. Yêu cầu quyền di chuyển hoặc quyền nâng cấp của program phải ký. Loader-v4 chưa được phát hành trên mainnet.               |
+
+## Xác minh chương trình
+
+Solana hỗ trợ [bản dựng có thể xác minh](/docs/programs/verified-builds), cho
+phép người dùng xác nhận rằng bytecode trên chuỗi của chương trình khớp với mã
+nguồn công khai của nó. Framework Anchor cung cấp
+[hỗ trợ tích hợp](https://www.anchor-lang.com/docs/verifiable-builds) cho các
+bản dựng có thể xác minh.
+
+Để kiểm tra trạng thái xác minh cho một chương trình đã triển khai, tìm kiếm
+program ID của nó trên
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY),
+hoặc sử dụng Ellipsis Labs
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+để xác minh độc lập các chương trình trên chuỗi.
+
+## Chương trình loader
+
+| Loader                     | Địa chỉ                                       | Có thể nâng cấp                           | Mô tả                                                       |
+| -------------------------- | --------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | Chỉ thông qua nâng cấp phần mềm validator | Sở hữu các builtin (System, Vote, Stake) và các loader khác |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Không (quản lý loader đã bị vô hiệu hóa)  | Chương trình cũ                                             |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Không (quản lý loader đã bị vô hiệu hóa)  | Chương trình cũ                                             |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Có, nếu upgrade authority được thiết lập  | Sở hữu tất cả các chương trình mới triển khai               |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | Có, nếu authority được thiết lập          | Chưa được phát hành trên mainnet                            |

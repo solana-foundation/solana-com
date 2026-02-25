@@ -1,0 +1,444 @@
+---
+title: Talimat yapısı
+description:
+  Solana talimat yapısı — program_id, accounts ve data alanları, AccountMeta
+  bayrakları is_signer ve is_writable, derlenmiş talimatlar ve TypeScript ve
+  Rust'ta SOL transfer örnekleri.
+url: /docs/core/instructions/instruction-structure
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/cpi
+---
+
+<Callout type="info" title="Özet">
+  Bir talimat 3 alana sahiptir: `program_id` (hangi programın çağrılacağı),
+  `accounts` (is_signer/is_writable bayraklarına sahip AccountMeta listesi) ve
+  `data` (programın yorumladığı veri bayt dizisi).
+</Callout>
+
+<WithMentions>
+
+## Talimat yapısı
+
+Bir
+[`Instruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/instruction/src/lib.rs#L97)
+üç alandan oluşur:
+
+- [`program_id`](mention:program-id): Çağrılan programın [ID](#program-id)'si.
+- [`accounts`](mention:accounts): [Hesap metadatası](#account-metadata) dizisi
+- [`data`](mention:instruction-data): Talimat tarafından kullanılacak ek
+  [veri](#data) içeren bayt dizisi.
+
+```rust title="Instruction struct"
+pub struct Instruction {
+    /// Pubkey of the program that executes this instruction.
+    // !mention program-id
+    pub program_id: Pubkey,
+    /// Metadata describing accounts that should be passed to the program.
+    // !mention accounts
+    pub accounts: Vec<AccountMeta>,
+    /// Opaque data passed to the program for its own interpretation.
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+### Program ID
+
+Talimatın [`program_id`](/docs/references/terminology#program-id)'si, talimatın
+yürütme mantığını içeren programın genel anahtar adresidir. Runtime, talimatı
+işlenmek üzere doğru programa yönlendirmek için bu alanı kullanır.
+
+### Hesap metadatası
+
+<WithMentions>
+
+Talimatın `accounts` dizisi, sıralı bir
+[`AccountMeta`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/instruction/src/account_meta.rs#L25)
+struct listesidir. Talimatın etkileşimde bulunduğu her hesap için metadata
+sağlanmalıdır. Validator, hangi işlemlerin paralel çalışabileceğini belirlemek
+için bu metadatayı kullanır. Farklı hesaplara yazan işlemler paralel olarak
+yürütülebilir.
+
+Aşağıdaki diyagram, tek bir talimat içeren bir işlemi göstermektedir. Talimatın
+`accounts` dizisi iki hesap için metadata içerir.
+
+![Tek talimatlı bir işlem. Talimat, `accounts` dizisinde iki `AccountMeta` struct içerir.](/assets/docs/core/transactions/accountmeta.svg)
+
+Her _rs`AccountMeta`_ üç alana sahiptir:
+
+- [pubkey](mention:pubkey): Hesabın genel anahtar adresi
+- [is_signer](mention:is-signer): Hesap işlemi imzalamalıysa `true` olarak
+  ayarlanır
+- [is_writable](mention:is-writable): Talimat hesabın verisini değiştiriyorsa
+  `true` olarak ayarlanır
+
+<Callout>
+  Bir talimatın hangi hesapları gerektirdiğini, hangilerinin yazılabilir, salt
+  okunur veya işlemi imzalaması gerektiğini bilmek için, program tarafından
+  tanımlanan talimatın uygulamasına başvurmalısınız.
+</Callout>
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// An account's public key.
+    // !mention pubkey
+    pub pubkey: Pubkey,
+    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
+    // !mention is-signer
+    pub is_signer: bool,
+    /// True if the account data or metadata may be mutated during program execution.
+    // !mention is-writable
+    pub is_writable: bool,
+}
+```
+
+</WithMentions>
+
+### Veri
+
+Talimatın `data` alanı, programa hangi fonksiyonun çağrılacağını söyleyen ve o
+fonksiyon için argümanları sağlayan bir bayt dizisidir. Veri tipik olarak hedef
+fonksiyonu tanımlayan bir ayırt edici veya indeks bayt(lar)ı ile başlar,
+ardından serileştirilmiş argümanlar gelir. Kodlama formatı her program
+tarafından tanımlanır (örneğin, Borsh serileştirmesi veya özel bir düzen).
+
+Yaygın kodlama kuralları:
+
+- **Çekirdek programlar** (System, Stake, Vote): Bincode ile serileştirilmiş
+  enum varyant indeksi ve ardından serileştirilmiş argümanlar kullanır.
+- **Anchor programları**: 8 baytlık bir ayırt edici
+  (`"global:<function_name>"`'nin SHA-256 hash'inin ilk 8 baytı) ve ardından
+  Borsh ile serileştirilmiş argümanlar kullanır.
+
+Çalışma zamanı `data` alanını yorumlamaz. Programın `process_instruction` giriş
+noktasına olduğu gibi iletilir.
+
+## Derlenmiş talimat
+
+Talimatlar bir işlem mesajına serileştirildiğinde, tüm genel anahtarları mesajın
+`account_keys` dizisindeki kompakt tamsayı indeksleriyle değiştiren
+[`CompiledInstruction`](/docs/core/transactions/transaction-structure#instructions)
+yapılarına dönüşürler.
+
+## Örnek: SOL transfer talimatı
+
+Aşağıdaki örnek bir SOL transfer talimatının yapısını göstermektedir.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair
+} from "@solana/web3.js";
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Define the amount to transfer
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    println!("{:#?}", transfer_instruction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<WithMentions>
+
+Aşağıdaki kod, önceki kod parçacıklarının çıktısını göstermektedir. Format
+SDK'lar arasında farklılık gösterecektir, ancak her talimatın aynı üç gerekli
+bilgi parçasını içerdiğine dikkat edin: [`program_id`](mention:program-id),
+[`accounts`](mention:accounts), [`data`](mention:data).
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  // !mention(1:16) accounts
+  "accounts": [
+    {
+      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+      "role": 3,
+      "signer": {
+        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+        "keyPair": {
+          "privateKey": {},
+          "publicKey": {}
+        }
+      }
+    },
+    {
+      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
+      "role": 1
+    }
+  ],
+  // !mention program-id
+  "programAddress": "11111111111111111111111111111111",
+  // !mention(1:14) data
+  "data": {
+    "0": 2,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 128,
+    "5": 150,
+    "6": 152,
+    "7": 0,
+    "8": 0,
+    "9": 0,
+    "10": 0,
+    "11": 0
+  }
+}
+```
+
+```json !! title="Legacy"
+{
+  // !mention(1:12) accounts
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  // !mention program-id
+  "programId": "11111111111111111111111111111111",
+  // !mention data
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+```json !! title="Rust"
+{
+  // !mention program-id
+  "program_id": "11111111111111111111111111111111",
+  // !mention(1:12) accounts
+  "accounts": [
+    {
+      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
+      "is_signer": true,
+      "is_writable": true
+    },
+    {
+      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
+      "is_signer": false,
+      "is_writable": true
+    }
+  ],
+  // !mention data
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+</CodeTabs>
+
+</WithMentions>
+
+Aşağıdaki örnekler, transfer talimatının manuel olarak nasıl oluşturulacağını
+göstermektedir. (`Expanded Instruction` sekmesi, `Instruction` sekmesiyle
+işlevsel olarak eşdeğerdir.)
+
+<Callout type="info">
+  Pratikte, genellikle bir `Instruction`'yi manuel olarak oluşturmanız gerekmez.
+  Çoğu program, sizin için talimatları oluşturan yardımcı fonksiyonlara sahip
+  istemci kütüphaneleri sağlar. Eğer bir kütüphane mevcut değilse, talimatı
+  manuel olarak oluşturabilirsiniz.
+</Callout>
+
+<Tabs items={['Kit', 'Legacy', 'Rust']}>
+
+<Tab value="Kit">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const TRANSFER_INSTRUCTION_INDEX = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
+instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
+
+const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
+
+// Manually create the transfer instruction
+const transferInstruction: IInstruction = {
+  programAddress: SYSTEM_PROGRAM_ADDRESS,
+  accounts: [
+    {
+      address: sender.address,
+      role: AccountRole.WRITABLE_SIGNER
+    },
+    {
+      address: recipient.address,
+      role: AccountRole.WRITABLE
+    }
+  ],
+  data: new Uint8Array(instructionData)
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Legacy">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const transferInstructionIndex = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// Manually create a transfer instruction
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Rust">
+
+<CodeTabs>
+
+```rs !! title="Instruction"
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+let transfer_instruction =
+    system_instruction::transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+```
+
+```rs !! title="Expanded Instruction"
+// Instruction index for the System Program's transfer instruction
+let transfer_instruction_index: u32 = 2;
+
+// Define the amount to transfer
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
+let mut instruction_data = Vec::with_capacity(12);
+instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
+instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
+
+// Manually create the transfer instruction
+let transfer_instruction = Instruction {
+    program_id: system_program::id(),
+    accounts: vec![
+        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
+        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
+    ],
+    data: instruction_data,
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+</Tabs>

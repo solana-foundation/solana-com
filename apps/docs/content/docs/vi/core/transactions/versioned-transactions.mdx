@@ -1,0 +1,82 @@
+---
+title: Giao dịch có phiên bản
+description:
+  So sánh định dạng giao dịch legacy và versioned (V0) trên Solana, bao gồm
+  Address Lookup Tables (ALTs), phát hiện phiên bản, định dạng message V0 và
+  phân giải ALT.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="Tóm tắt">
+  Giao dịch V0 bổ sung Address Lookup Tables (ALTs), cho phép tham chiếu đến các
+  tài khoản thông qua chỉ số 1 byte thay vì khóa 32 byte. Điều này tiết kiệm 31
+  byte cho mỗi tài khoản được phân giải bằng ALT.
+</Callout>
+
+Solana hỗ trợ hai định dạng giao dịch: **legacy** và **versioned** (v0).
+
+Validator xác định định dạng bằng cách kiểm tra byte đầu tiên của message:
+
+- Nếu byte đầu tiên có bit
+  [version prefix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
+  được đặt, đó là **versioned message**. Hiện tại chỉ hỗ trợ phiên bản 0. 3 byte
+  tiếp theo là _rs`MessageHeader`_.
+- Ngược lại, đó là **legacy message**. Byte đầu tiên là
+  `num_required_signatures`, và 2 byte tiếp theo hoàn thành header.
+
+<Callout type="info" title="Khi nào nên sử dụng giao dịch V0">
+  Sử dụng V0 khi giao dịch của bạn tham chiếu nhiều tài khoản và tiệm cận giới
+  hạn gói 1.232 byte. Nếu giao dịch của bạn vừa với giới hạn kích thước với tất
+  cả tài khoản inline, giao dịch legacy đơn giản hơn và có hỗ trợ công cụ rộng
+  rãi hơn. V0 là bắt buộc để sử dụng Address Lookup Tables.
+</Callout>
+
+## Định dạng message V0
+
+Message v0 có các trường giống như message legacy, cộng thêm một mảng
+`address_table_lookups` được thêm vào sau các instruction:
+
+| Trường                  | Kích thước                | Mô tả                                        |
+| ----------------------- | ------------------------- | -------------------------------------------- |
+| `0x80`                  | 1 byte                    | Byte tiền tố phiên bản                       |
+| `header`                | 3 byte                    | MessageHeader (giống như legacy)             |
+| `static_account_keys`   | compact-u16 + N x 32 byte | Các khóa xuất hiện trực tiếp trong giao dịch |
+| `recent_blockhash`      | 32 byte                   | Blockhash                                    |
+| `instructions`          | compact-u16 + biến thiên  | Định dạng giống như legacy                   |
+| `address_table_lookups` | compact-u16 + biến thiên  | Tham chiếu ALT (xem bên dưới)                |
+
+Mỗi mục tra cứu bảng địa chỉ chứa:
+
+| Trường             | Kích thước               | Mô tả                                         |
+| ------------------ | ------------------------ | --------------------------------------------- |
+| `account_key`      | 32 byte                  | Khóa công khai của tài khoản ALT              |
+| `writable_indexes` | compact-u16 + N x 1 byte | Chỉ số trong ALT cho các tài khoản có thể ghi |
+| `readonly_indexes` | compact-u16 + N x 1 byte | Chỉ số trong ALT cho các tài khoản chỉ đọc    |
+
+## Phân giải bảng tra cứu địa chỉ
+
+ALT là một tài khoản on-chain lưu trữ tối đa 256 khóa công khai. Bằng cách tham
+chiếu đến ALT, một giao dịch có thể bao gồm các tài khoản bổ sung bằng cách sử
+dụng chỉ số 1 byte thay vì khóa công khai 32 byte, giảm đáng kể chi phí cho mỗi
+tài khoản.
+
+Tại thời điểm chạy, trước khi bắt đầu thực thi, validator phân giải tất cả các
+tham chiếu ALT thành khóa công khai đầy đủ. Các địa chỉ đã phân giải được thêm
+vào các khóa tài khoản tĩnh để tạo thành danh sách khóa tài khoản hoàn chỉnh.
+Các tài khoản được phân giải từ ALT tuân theo thứ tự tương tự như các tài khoản
+tĩnh: các tra cứu có thể ghi đứng trước các tra cứu chỉ đọc.
+
+<Callout>
+  Bảng tra cứu địa chỉ chỉ ảnh hưởng đến cách các tài khoản được tham chiếu
+  trong giao dịch trên mạng. Tại thời điểm thực thi, runtime phân giải tất cả
+  các chỉ số thành địa chỉ tài khoản đầy đủ. Các tài khoản được phân giải từ ALT
+  chỉ có thể là có thể ghi hoặc chỉ đọc (không phải người ký); chúng không thể
+  là người ký.
+</Callout>

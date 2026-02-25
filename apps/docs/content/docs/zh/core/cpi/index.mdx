@@ -1,0 +1,76 @@
+---
+title: Cross Program Invocation
+description:
+  Solana 上的 Cross Program Invocation（CPI）——介绍程序如何通过 invoke 和
+  invoke_signed 调用其他程序，处理 PDA 签名者，并实现链上功能组合。
+url: /docs/core/cpi
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/programs
+related:
+  - /docs/core/cpi/cpi-without-pda
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/pda
+---
+
+Cross Program Invocation（CPI）是指一个 [program](/docs/core/programs)
+在执行过程中调用另一个程序的
+[instruction](/docs/core/instructions)。CPI 实现了可组合性：网络上的任何程序都可以调用其他程序的指令。
+
+![Cross-program invocation example](/assets/docs/core/cpi/cpi.svg)
+
+<Cards>
+  <Card title="无 PDA 签名者的 CPI" href="/docs/core/cpi/cpi-without-pda">
+    使用 invoke 函数、Anchor CpiContext、原生 Rust 示例、SOL 转账 CPI 示例。
+  </Card>
+  <Card title="带 PDA 签名者的 CPI" href="/docs/core/cpi/cpi-with-pda">
+    使用带签名种子的 invoke_signed、Anchor CpiContext 与 PDA、原生 Rust PDA
+    签名示例。
+  </Card>
+  <Card title="CPI 执行与权限" href="/docs/core/cpi/cpi-execution">
+    11 步 CPI 执行流程、权限扩展规则、重入性、账户校验。
+  </Card>
+  <Card title="CPI 成本模型与数据同步" href="/docs/core/cpi/cpi-cost-model">
+    CPI 成本公式、序列化成本、账户数据同步、PDA 签名、返回数据。
+  </Card>
+</Cards>
+
+## 关键要点
+
+- **两个函数**：_rs`invoke`_（无 PDA 签名）和
+  _rs`invoke_signed`_（带 PDA 签名）。
+- **权限扩展**：[Account](/docs/core/accounts)
+  权限（签名者、可写）会从调用方传递到被调用方。被调用方无法提升权限，只能使用调用方传递的权限。
+- **共享计算预算**：被调用方消耗的 CU 会减少调用方剩余的预算。
+- **重入性**：允许直接自递归（A->A->A），但不允许间接重入（A->B->A 返回
+  _rs`ReentrancyNotAllowed`_）。
+
+## 限制
+
+| 限制项                      | 数值                         | 来源                                                                                                                                                                                                                                                            |
+| --------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 最大指令堆栈深度            | 5（SIMD-0268 可达 9）        | [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8), [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) |
+| CPI 调用成本                | 1,000 CU（SIMD-0339 为 946） | [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21), [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)              |
+| 每次 CPI 最多 PDA 签名者    | 16                           | [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)                                                                                                                                                                   |
+| CPI 指令数据最大值          | 10 KiB（10,240 字节）        | [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)                                                                                                                                                  |
+| 返回数据最大值              | 1,024 字节                   | [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)                                                                                                                                                             |
+| CPI 账户信息最大数量        | 128（SIMD-0339 可达 255）\*  | [`MAX_CPI_ACCOUNT_INFOS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L122), [`MAX_CPI_ACCOUNT_INFOS_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L124)                                    |
+| CPI 序列化成本              | 每 250 字节 1 CU             | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205)                                                                                                                                              |
+| 每次 CPI 账户数据最大重分配 | 10,240 字节（10 KiB）        | [`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)                                                                                                                                         |
+
+## `invoke` 与 `invoke_signed`
+
+Solana 提供了两个用于进行 CPI 的函数：
+
+| 函数            | 使用场景                                    | PDA 签名              |
+| --------------- | ------------------------------------------- | --------------------- |
+| `invoke`        | 所有所需签名者已在原始交易中签名的 CPI      | 否                    |
+| `invoke_signed` | 调用程序需要代表其拥有的 PDA 进行签名的 CPI | 是，通过 signer seeds |
+
+在底层，_rs`invoke`_ 实际上只是调用了 _rs`invoke_signed`_，并传入一个空的 signer
+seeds 数组。当你不需要 PDA 签名时，使用
+_rs`invoke`_；当程序需要代表 PDA 授权操作时，使用 _rs`invoke_signed`_。
+
+这两个函数最终都会触发相同的 syscall（[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)），并经过相同的运行时路径（[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925)）。唯一的区别在于是否提供了 signer
+seeds。当提供 seeds 时，运行时会派生 PDA 公钥，并在权限检查前将其加入有效签名者集合。

@@ -1,0 +1,221 @@
+---
+title: Budget di calcolo
+description:
+  Limiti delle unità di calcolo, varianti di ComputeBudgetInstruction, modello
+  di costo dello scheduler, limiti dei blocchi e costanti del budget di
+  esecuzione su Solana.
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Compute unit limit, Compute budget instructions, Scheduler cost model, Block limits, Execution budget constants */}
+
+<Callout type="info" title="Riepilogo">
+  200K CU predefinite per istruzione, massimo 1,4M per transazione. Usa le
+  istruzioni `SetComputeUnitLimit` e `SetComputeUnitPrice` per ottimizzare. La
+  commissione prioritaria si basa sulle CU richieste, non sull'utilizzo
+  effettivo.
+</Callout>
+
+## Limite delle unità di calcolo
+
+A ogni istruzione viene allocato un
+[valore predefinito di 200.000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44),
+e ogni transazione ha un limite massimo di
+[1.400.000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39).
+Quando non è presente un'istruzione esplicita _rs`SetComputeUnitLimit`_, il
+[valore predefinito viene calcolato](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219)
+in base al tipo di istruzione:
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **Istruzioni builtin** (System Program, Stake, Vote, ecc. che non sono state
+  migrate a SBF): a ciascuna vengono allocate
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3.000 CU (secondo
+  [SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)).
+- **Istruzioni non builtin** (programmi SBF distribuiti dall'utente): a ciascuna
+  vengono allocate
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200.000 CU.
+- **Builtin in migrazione** che hanno completato la migrazione a SBF
+  (controllati da feature flag): trattati come non builtin (200.000 CU
+  ciascuno).
+
+Il risultato viene limitato a _rs`MAX_COMPUTE_UNIT_LIMIT`_ (1.400.000).
+
+Puoi sovrascrivere questo valore predefinito includendo un'istruzione
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+nella tua transazione.
+
+Per determinare il limite di CU appropriato:
+
+1. Simula la transazione per misurare il consumo di CU.
+2. Aggiungi un margine di sicurezza del 10% al valore simulato.
+
+<Callout type="warn">
+  La commissione prioritaria è determinata dal limite di unità di calcolo
+  richiesto nella transazione, *non* dal numero effettivo di unità di calcolo
+  utilizzate. Se imposti un limite di unità di calcolo troppo alto o usi
+  l'importo predefinito, paghi per unità di calcolo non utilizzate.
+</Callout>
+
+## Istruzioni del budget di calcolo
+
+Il
+[Compute Budget Program](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`) ha quattro istruzioni.
+
+| Variante                         | Discriminatore | Parametro        | Tipo  | Descrizione                                                            |
+| -------------------------------- | -------------- | ---------------- | ----- | ---------------------------------------------------------------------- |
+| `RequestHeapFrame`               | `1`            | `bytes`          | `u32` | Dimensione heap richiesta in byte per ogni programma nella transazione |
+| `SetComputeUnitLimit`            | `2`            | `units`          | `u32` | CU massime che la transazione può consumare                            |
+| `SetComputeUnitPrice`            | `3`            | `micro_lamports` | `u64` | Prezzo CU in micro-lamport                                             |
+| `SetLoadedAccountsDataSizeLimit` | `4`            | `bytes`          | `u32` | Byte totali massimi di dati account che la transazione può caricare    |
+
+[Fonte: enum `ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### Vincoli e condizioni di errore
+
+Le seguenti regole si applicano durante
+[l'elaborazione delle istruzioni del budget di calcolo](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153):
+
+- **Una per tipo**: è consentita solo una di ciascuna variante di istruzione per
+  transazione. L'inclusione di duplicati causa un errore
+  _rs`DuplicateInstruction`_ (l'intera transazione fallisce).
+- **`RequestHeapFrame`**: il valore deve essere compreso tra
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)
+  (32 KiB) e
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)
+  (256 KiB), e deve essere un
+  [multiplo di 1.024](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194).
+  Altrimenti la transazione fallisce con _rs`InvalidInstructionData`_. La
+  dimensione heap si applica a ogni programma invocato nella transazione
+  (inclusi i CPI).
+- **`SetComputeUnitLimit`**: qualsiasi valore `u32` è accettato. Il limite
+  effettivo è limitato a
+  [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+  (1.400.000).
+- **`SetComputeUnitPrice`**: qualsiasi valore `u64` è accettato (da 0 a
+  `u64::MAX`).
+- **`SetLoadedAccountsDataSizeLimit`**: il valore deve essere maggiore di 0
+  (`NonZeroU32`). Un valore di 0 causa
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141).
+  Il limite effettivo è limitato a
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+  (64 MiB).
+- **Dati non riconosciuti**: qualsiasi istruzione inviata al Compute Budget
+  Program che non viene deserializzata in una variante nota fallisce con
+  _rs`InvalidInstructionData`_.
+
+<Callout>
+  Il modello di costo dello scheduler descritto di seguito descrive la stima dei
+  costi pre-esecuzione interna del validator. La maggior parte degli
+  sviluppatori necessita solo delle istruzioni del budget di calcolo sopra
+  riportate.
+</Callout>
+
+## Modello di costo dello scheduler
+
+Lo
+[scheduler](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)
+del validator utilizza un
+[modello di costo](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)
+per stimare l'utilizzo delle risorse della transazione **prima
+dell'esecuzione**. Queste stime dei costi pre-esecuzione determinano se una
+transazione rientra nella capacità rimanente del blocco. Sono separate dalla
+misurazione delle CU che avviene durante l'esecuzione.
+
+Il costo totale dello scheduler è la somma di cinque componenti
+([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### Componenti del costo
+
+| Componente                                                                                                                        | Descrizione                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| [**Costo della firma**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)                     | Costo per firma per ogni tipo di firma                         |
+| [**Costo del write lock**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)                  | Per account scrivibile                                         |
+| [**Costo dell'instruction data**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)           | Basato sul totale dei byte di instruction data                 |
+| [**Costo di esecuzione dei programmi**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)     | Limite CU dal budget di calcolo o predefinito                  |
+| [**Costo dei dati degli account caricati**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | Basato sulla dimensione totale dei dati degli account caricati |
+
+Tutti i valori sono espressi in unità di calcolo.
+
+### Costanti del costo dello scheduler
+
+| Costante                                                                                                               | Valore   |
+| ---------------------------------------------------------------------------------------------------------------------- | -------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30       |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 CU   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6.690 CU |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2.280 CU |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2.400 CU |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4.800 CU |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 CU   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4        |
+
+### Costo della transazione di voto
+
+Le transazioni di voto utilizzano un
+[costo statico di 3.428 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)
+indipendentemente dal loro contenuto effettivo.
+
+### Limiti del blocco
+
+Lo scheduler applica limiti per blocco. Se l'aggiunta di una transazione supera
+qualsiasi limite, essa non viene inclusa nel blocco.
+
+| Limite                                                                                                                        | Valore     |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60.000.000 |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12.000.000 |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36.000.000 |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 MB     |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)
+  propone di aumentare _rs`MAX_BLOCK_UNITS`_ a 100.000.000.
+</Callout>
+
+## Costanti del budget di esecuzione
+
+Le seguenti costanti da
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)
+definiscono i limiti di runtime durante l'esecuzione delle transazioni:
+
+| Costante                                                                                                                                 | Valore     | Descrizione                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------- |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1.400.000  | Limite massimo di CU per transazione                                         |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200.000    | CU predefinite per istruzione non builtin                                    |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3.000      | CU predefinite per istruzione builtin (SIMD-0170)                            |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 CU       | Costo per pagina heap da 32 KiB                                              |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1.000 CU   | Costo di una invocazione CPI                                                 |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 CU     | Costo invocazione CPI con SIMD-0339                                          |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32.768     | Dimensione minima heap (32 KiB)                                              |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262.144    | Dimensione massima heap (256 KiB)                                            |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67.108.864 | Dati account massimi caricati per transazione (64 MiB)                       |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5          | Profondità massima dello stack di istruzioni (top-level + CPI)               |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9          | Profondità massima dello stack di istruzioni (top-level + CPI) con SIMD-0268 |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64         | Profondità massima chiamate SBF-to-SBF all'interno di un programma           |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4.096 byte | Dimensione di un frame dello stack SBF                                       |

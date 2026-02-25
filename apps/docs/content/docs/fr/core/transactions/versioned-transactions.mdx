@@ -1,0 +1,85 @@
+---
+title: Transactions versionnées
+description:
+  Formats de transaction legacy vs versionnées (V0) sur Solana, incluant les
+  tables de recherche d'adresses (ALT), la détection de version, le format de
+  message V0 et la résolution ALT.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="Résumé">
+  Les transactions V0 ajoutent les tables de recherche d'adresses (ALT),
+  permettant de référencer des comptes via des indices de 1 octet au lieu de
+  clés de 32 octets. Cela économise 31 octets par compte résolu via ALT.
+</Callout>
+
+Solana prend en charge deux formats de transaction : **legacy** et
+**versionnées** (v0).
+
+Le validator détermine le format en inspectant le premier octet du message :
+
+- Si le premier octet a le
+  [préfixe de version](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
+  bit défini, c'est un **message versionné**. Actuellement, seule la version 0
+  est prise en charge. Les 3 octets suivants sont le _rs`MessageHeader`_.
+- Sinon, c'est un **message legacy**. Le premier octet est
+  `num_required_signatures`, et les 2 octets suivants complètent l'en-tête.
+
+<Callout type="info" title="Quand utiliser les transactions V0">
+  Utilisez V0 lorsque votre transaction référence de nombreux comptes et
+  approche la limite de paquet de 1 232 octets. Si votre transaction tient dans
+  la limite de taille avec tous les comptes en ligne, les transactions legacy
+  sont plus simples et bénéficient d'un support d'outils plus large. V0 est
+  requis pour utiliser les tables de recherche d'adresses.
+</Callout>
+
+## Format de message V0
+
+Un message v0 possède les mêmes champs qu'un message legacy, plus un tableau
+`address_table_lookups` supplémentaire ajouté après les instructions :
+
+| Champ                   | Taille                      | Description                                             |
+| ----------------------- | --------------------------- | ------------------------------------------------------- |
+| `0x80`                  | 1 octet                     | Octet de préfixe de version                             |
+| `header`                | 3 octets                    | MessageHeader (identique au legacy)                     |
+| `static_account_keys`   | compact-u16 + N x 32 octets | Clés qui apparaissent littéralement dans la transaction |
+| `recent_blockhash`      | 32 octets                   | Blockhash                                               |
+| `instructions`          | compact-u16 + variable      | Même format que legacy                                  |
+| `address_table_lookups` | compact-u16 + variable      | Références ALT (voir ci-dessous)                        |
+
+Chaque entrée de table de recherche d'adresses contient :
+
+| Champ              | Taille                    | Description                                          |
+| ------------------ | ------------------------- | ---------------------------------------------------- |
+| `account_key`      | 32 octets                 | La clé publique du compte ALT                        |
+| `writable_indexes` | compact-u16 + N x 1 octet | Indices dans l'ALT pour les comptes modifiables      |
+| `readonly_indexes` | compact-u16 + N x 1 octet | Indices dans l'ALT pour les comptes en lecture seule |
+
+## Résolution de la table de recherche d'adresses
+
+Une ALT est un compte on-chain qui stocke jusqu'à 256 clés publiques. En
+référençant une ALT, une transaction peut inclure des comptes supplémentaires en
+utilisant des indices de 1 octet au lieu de clés publiques de 32 octets,
+réduisant considérablement la surcharge par compte.
+
+Au moment de l'exécution, avant le début de l'exécution, le validateur résout
+toutes les références ALT en clés publiques complètes. Les adresses résolues
+sont ajoutées aux clés de compte statiques pour former la liste complète des
+clés de compte. Les comptes résolus par ALT suivent le même ordre que les
+comptes statiques : les recherches modifiables viennent avant les recherches en
+lecture seule.
+
+<Callout>
+  Les tables de recherche d'adresses n'affectent que la manière dont les comptes
+  sont référencés dans la transaction sur le réseau. Au moment de l'exécution,
+  le runtime résout tous les indices en adresses de compte complètes. Les
+  comptes résolus par ALT ne peuvent être que modifiables ou en lecture seule
+  (non-signataires) ; ils ne peuvent pas être signataires.
+</Callout>

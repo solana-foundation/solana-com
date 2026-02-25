@@ -1,0 +1,208 @@
+---
+title: 컴퓨트 예산
+description:
+  솔라나의 컴퓨트 유닛 제한, ComputeBudgetInstruction 변형, 스케줄러 비용 모델,
+  블록 제한 및 실행 예산 상수입니다.
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Compute unit limit, Compute budget instructions, Scheduler cost model, Block limits, Execution budget constants */}
+
+<Callout type="info" title="요약">
+  명령어당 기본 200K CU, 트랜잭션당 최대 1.4M입니다. 최적화를 위해
+  `SetComputeUnitLimit` 및 `SetComputeUnitPrice` 명령어를 사용하세요. 우선순위
+  수수료는 실제 사용량이 아닌 요청된 CU를 기준으로 합니다.
+</Callout>
+
+## 컴퓨트 유닛 제한
+
+각 명령어에는
+[기본적으로 200,000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)가
+할당되며, 각 트랜잭션은
+[1,400,000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)로
+제한됩니다. 명시적인 _rs`SetComputeUnitLimit`_ 명령어가 없는 경우,
+[기본값은 명령어 유형에 따라 계산됩니다](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219):
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **빌트인 명령어** (SBF로 마이그레이션되지 않은 System Program, Stake, Vote
+  등): 각각
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3,000 CU 할당
+  ([SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)에
+  따름).
+- **비빌트인 명령어** (사용자 배포 SBF 프로그램): 각각
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200,000 CU 할당.
+- **마이그레이션 중인 빌트인** SBF로의 마이그레이션이 완료된 경우 (기능
+  게이트됨): 비빌트인으로 처리 (각각 200,000 CU).
+
+결과는 _rs`MAX_COMPUTE_UNIT_LIMIT`_ (1,400,000)로 제한됩니다.
+
+트랜잭션에
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+명령어를 포함하여 이 기본값을 재정의할 수 있습니다.
+
+적절한 CU 제한을 결정하려면:
+
+1. 트랜잭션을 시뮬레이션하여 CU 소비량을 측정합니다.
+2. 시뮬레이션된 값에 10%의 안전 마진을 추가합니다.
+
+<Callout type="warn">
+  우선순위 수수료는 실제 사용된 컴퓨트 유닛 수가 *아닌* 트랜잭션에서 요청된
+  컴퓨트 유닛 제한에 따라 결정됩니다. 컴퓨트 유닛 제한을 너무 높게 설정하거나
+  기본 금액을 사용하면 사용하지 않은 컴퓨트 유닛에 대해서도 비용을 지불하게
+  됩니다.
+</Callout>
+
+## 컴퓨트 예산 명령어
+
+[컴퓨트 예산 프로그램](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`)은 네 가지 명령어를 가지고
+있습니다.
+
+| 변형                             | 식별자 | 매개변수         | 타입  | 설명                                                   |
+| -------------------------------- | ------ | ---------------- | ----- | ------------------------------------------------------ |
+| `RequestHeapFrame`               | `1`    | `bytes`          | `u32` | 트랜잭션 내 각 프로그램에 대해 요청된 힙 크기(바이트)  |
+| `SetComputeUnitLimit`            | `2`    | `units`          | `u32` | 트랜잭션이 소비할 수 있는 최대 CU                      |
+| `SetComputeUnitPrice`            | `3`    | `micro_lamports` | `u64` | 마이크로 램포트 단위의 CU 가격                         |
+| `SetLoadedAccountsDataSizeLimit` | `4`    | `bytes`          | `u32` | 트랜잭션이 로드할 수 있는 계정 데이터의 최대 총 바이트 |
+
+[출처: `ComputeBudgetInstruction` 열거형](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### 제약 조건 및 오류 상황
+
+[컴퓨트 예산 명령어 처리](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153)
+시 다음 규칙이 적용됩니다:
+
+- **타입당 하나**: 트랜잭션당 각 명령어 변형은 하나만 허용됩니다. 중복을
+  포함하면 _rs`DuplicateInstruction`_ 오류가 발생합니다 (전체 트랜잭션이
+  실패합니다).
+- **`RequestHeapFrame`**: 값은
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)
+  (32 KiB)와
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)
+  (256 KiB) 사이여야 하며,
+  [1,024의 배수](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194)여야
+  합니다. 그렇지 않으면 트랜잭션이 *rs`InvalidInstructionData`*로 실패합니다. 힙
+  크기는 트랜잭션에서 호출되는 모든 프로그램(CPI 포함)에 적용됩니다.
+- **`SetComputeUnitLimit`**: 모든 `u32` 값이 허용됩니다. 유효 한도는
+  [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+  (1,400,000)로 제한됩니다.
+- **`SetComputeUnitPrice`**: 모든 `u64` 값이 허용됩니다 (0부터 `u64::MAX`까지).
+- **`SetLoadedAccountsDataSizeLimit`**: 값은 0보다 커야 합니다 (`NonZeroU32`).
+  값이 0이면
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141)가
+  발생합니다. 유효 한도는
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+  (64 MiB)로 제한됩니다.
+- **인식되지 않는 데이터**: 알려진 변형으로 역직렬화되지 않는 컴퓨트 예산
+  프로그램으로 전송된 모든 명령어는 *rs`InvalidInstructionData`*로 실패합니다.
+
+<Callout>
+  아래의 스케줄러 비용 모델은 validator 내부의 사전 실행 비용 추정을 설명합니다.
+  대부분의 개발자는 위의 컴퓨트 예산 명령어만 필요합니다.
+</Callout>
+
+## 스케줄러 비용 모델
+
+validator의
+[스케줄러](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)는
+[비용 모델](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)을
+사용하여 **실행 전** 트랜잭션 리소스 사용량을 추정합니다. 이러한 사전 실행 비용
+추정은 트랜잭션이 블록의 남은 용량에 맞는지 여부를 결정합니다. 이는 실행 중에
+발생하는 CU 측정과는 별개입니다.
+
+총 스케줄러 비용은 다섯 가지 구성 요소의 합계입니다
+([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### 비용 구성 요소
+
+| 구성 요소                                                                                                           | 설명                              |
+| ------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| [**서명 비용**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)               | 각 서명 유형별 서명당 비용        |
+| [**쓰기 잠금 비용**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)          | 쓰기 가능한 계정당                |
+| [**instruction data 비용**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)   | 총 instruction data 바이트 기반   |
+| [**프로그램 실행 비용**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)      | 컴퓨트 예산의 CU 한도 또는 기본값 |
+| [**로드된 계정 데이터 비용**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | 총 로드된 계정 데이터 크기 기반   |
+
+모든 값은 컴퓨트 유닛 단위입니다.
+
+### 스케줄러 비용 상수
+
+| 상수                                                                                                                   | 값       |
+| ---------------------------------------------------------------------------------------------------------------------- | -------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30       |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 CU   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6,690 CU |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2,280 CU |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2,400 CU |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4,800 CU |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 CU   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4        |
+
+### 투표 트랜잭션 비용
+
+투표 트랜잭션은 실제 내용과 관계없이
+[정적 비용 3,428 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)를
+사용합니다.
+
+### 블록 한도
+
+스케줄러는 블록당 한도를 적용합니다. 트랜잭션을 추가하면 한도를 초과하는 경우
+해당 트랜잭션은 블록에 포함되지 않습니다.
+
+| 제한                                                                                                                          | 값         |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60,000,000 |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12,000,000 |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36,000,000 |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 MB     |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)은
+  _`MAX_BLOCK_UNITS`_를 100,000,000으로 증가시킬 것을 제안합니다.
+</Callout>
+
+## 실행 예산 상수
+
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)의
+다음 상수들은 트랜잭션 실행 중 런타임 제한을 정의합니다:
+
+| 상수                                                                                                                                     | 값           | 설명                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------ |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1,400,000    | 트랜잭션당 최대 CU 제한                                |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200,000      | 비내장 명령어당 기본 CU                                |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3,000        | 내장 명령어당 기본 CU (SIMD-0170)                      |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 CU         | 32 KiB 힙 페이지당 비용                                |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1,000 CU     | CPI 호출 한 번당 비용                                  |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 CU       | SIMD-0339 적용 시 CPI 호출 비용                        |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32,768       | 최소 힙 크기 (32 KiB)                                  |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262,144      | 최대 힙 크기 (256 KiB)                                 |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67,108,864   | 트랜잭션당 최대 로드된 계정 데이터 (64 MiB)            |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5            | 최대 명령어 스택 깊이 (최상위 + CPI)                   |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9            | SIMD-0268 적용 시 최대 명령어 스택 깊이 (최상위 + CPI) |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64           | 프로그램 내 최대 SBF-to-SBF 호출 깊이                  |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4,096 바이트 | SBF 스택 프레임 하나의 크기                            |

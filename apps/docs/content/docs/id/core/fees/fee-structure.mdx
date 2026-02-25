@@ -1,0 +1,318 @@
+---
+title: Struktur biaya
+description:
+  Cara perhitungan biaya transaksi Solana, termasuk biaya dasar per tanda
+  tangan, formula biaya prioritas, distribusi biaya, dan cara mengatur biaya
+  menggunakan instruksi compute budget.
+url: /docs/core/fees/fee-structure
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/precompiles
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Fee calculation algorithm, Base fee, Fee distribution, Prioritization fee, Prioritization fee formula, Compute unit price, Transaction scheduling priority, Example */}
+
+<Callout type="info" title="Ringkasan">
+  Total biaya = biaya dasar (5.000 lamport/tanda tangan, 50% dibakar) + biaya
+  prioritas (harga_CU * batas_CU / 1 juta lamport, 100% ke validator). Dikenakan
+  biaya baik transaksi berhasil maupun gagal.
+</Callout>
+
+## Algoritma perhitungan biaya
+
+Total biaya untuk sebuah transaksi dihitung oleh
+[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72):
+
+```text title="Total fee formula"
+total_fee = base_fee + prioritization_fee
+```
+
+Input-nya adalah pesan transaksi, `lamports_per_signature` saat ini (saat ini
+5.000), dan biaya prioritas yang diturunkan dari instruksi compute budget. Total
+biaya dikurangkan dari pembayar biaya sebelum eksekusi dimulai. Jika transaksi
+gagal, biaya tetap dikenakan.
+
+## Biaya dasar
+
+Biaya dasar mencakup biaya verifikasi tanda tangan Ed25519 ditambah verifikasi
+tanda tangan precompile apa pun. Setiap tanda tangan dalam transaksi dikenakan
+biaya, termasuk tanda tangan yang diverifikasi oleh program precompile Ed25519,
+Secp256k1, dan Secp256r1.
+
+Fungsi
+[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
+menghitung:
+
+```text title="Base fee formula"
+signature_count = num_transaction_signatures
+                + num_ed25519_signatures
+                + num_secp256k1_signatures
+                + num_secp256r1_signatures   (if feature enabled)
+
+base_fee = signature_count * lamports_per_signature
+```
+
+- `num_transaction_signatures`: jumlah tanda tangan Ed25519 pada transaksi
+  (biasanya satu per penandatangan).
+- `num_ed25519_signatures`, `num_secp256k1_signatures`,
+  `num_secp256r1_signatures`: tanda tangan yang diverifikasi oleh program
+  precompile yang sesuai.
+- `lamports_per_signature`: saat ini
+  [5.000 lamport](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210).
+
+### Distribusi biaya
+
+Biaya dasar dan biaya prioritas didistribusikan secara berbeda. Fungsi
+[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
+dalam runtime menghitung:
+
+```text title="Fee distribution"
+burn_amount     = transaction_fee * 50 / 100
+validator_share = (transaction_fee - burn_amount) + priority_fee
+```
+
+- **Biaya dasar (transaction_fee)**: 50%
+  [dibakar](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
+  (dihapus dari pasokan yang beredar) dan 50% masuk ke validator penghasil blok.
+  Persentase pembakaran adalah
+  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70).
+- **Biaya prioritas**: 100% masuk ke validator (tidak ada yang dibakar), sesuai
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md).
+
+Total reward validator untuk sebuah transaksi adalah:
+
+```text
+validator_reward = (base_fee / 2) + prioritization_fee
+```
+
+## Biaya prioritas
+
+Biaya prioritas adalah biaya opsional yang meningkatkan prioritas penjadwalan
+sebuah transaksi. Unit komputasi (CU) adalah unit perhitungan yang diukur oleh
+runtime selama eksekusi transaksi. Setiap operasi (aritmatika, akses memori,
+syscall) memerlukan sejumlah CU tetap. Anda dapat mengatur biaya prioritas
+dengan menyertakan instruksi compute budget dalam transaksi Anda. (Lihat panduan
+[Cara Menggunakan Priority Fees](/developers/guides/advanced/how-to-use-priority-fees)
+untuk detail lebih lanjut.)
+
+### Formula biaya prioritas
+
+Fungsi
+[`get_prioritization_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L61-L69)
+menghitung:
+
+```text title="Prioritization fee formula"
+micro_lamport_fee = compute_unit_price * compute_unit_limit
+prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
+```
+
+| Variabel             | Deskripsi                                                                                                                                                                     | Default                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `compute_unit_price` | Micro-lamport per CU, diatur melalui `SetComputeUnitPrice`                                                                                                                    | 0 micro-lamport              |
+| `compute_unit_limit` | CU maksimum yang dapat dikonsumsi transaksi, diatur melalui `SetComputeUnitLimit`                                                                                             | Jumlah default per instruksi |
+| `1,000,000`          | Faktor konversi dari micro-lamport ke lamport ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)) | --                           |
+
+### Batas unit komputasi
+
+Batas unit komputasi adalah jumlah maksimum CU yang dapat dikonsumsi oleh sebuah
+transaksi. Jika tidak ada instruksi
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+yang disertakan, default dihitung dari jumlah dan jenis instruksi (200.000 CU
+per instruksi non-builtin, 3.000 per builtin). Lihat
+[Compute Budget](/docs/core/fees/compute-budget) untuk detail tentang
+perhitungan default.
+
+<Callout type="warn">
+  Biaya prioritas didasarkan pada batas CU yang diminta, bukan penggunaan CU
+  aktual. Menetapkan batas lebih tinggi dari yang diperlukan berarti membayar
+  untuk unit komputasi yang tidak digunakan.
+</Callout>
+
+### Harga unit komputasi
+
+Harga unit komputasi adalah jumlah opsional micro-lamport yang dibayarkan untuk
+setiap CU yang diminta. Harga CU secara langsung menentukan biaya prioritas.
+Untuk mengatur harga CU, sertakan instruksi
+[`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L35)
+dalam transaksi Anda.
+
+<Callout>
+  Harga CU default adalah 0, yang berarti biaya prioritas default juga 0.
+</Callout>
+
+Untuk estimasi harga CU secara real-time, lihat penyedia API biaya prioritas di
+bawah ini.
+
+| Penyedia                                | API biaya prioritas                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| [Helius](https://www.helius.dev/)       | [Dokumentasi](https://docs.helius.dev/solana-apis/priority-fee-api)             |
+| [QuickNode](https://www.quicknode.com/) | [Dokumentasi](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
+| [Triton](https://triton.one/)           | [Dokumentasi](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
+
+### Prioritas penjadwalan transaksi
+
+Penjadwal mengurutkan transaksi menggunakan fungsi
+[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546):
+
+```text title="Transaction priority formula"
+Priority = reward * 1,000,000 / (cost + 1)
+```
+
+- **reward**: pendapatan biaya validator = biaya prioritas + porsi biaya dasar
+  yang tidak dibakar. Dihitung oleh
+  [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83).
+- **cost**:
+  [estimasi biaya CU](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
+  penjadwal (biaya tanda tangan + biaya write lock + biaya data instruksi +
+  biaya eksekusi program + biaya ukuran data akun yang dimuat). Lihat
+  [Compute Budget](/docs/core/fees/compute-budget#scheduler-cost-model) untuk
+  detail.
+- **1.000.000**: pengali untuk mempertahankan presisi, karena biaya sering
+  melebihi reward dalam lamport mentah.
+- **+1**: mencegah pembagian dengan nol.
+
+Prioritas menentukan urutan transaksi dikeluarkan dari buffer penjadwal untuk
+dieksekusi.
+
+## Contoh: mengatur batas CU dan harga CU
+
+Contoh di bawah ini menunjukkan cara mengatur batas CU dan harga CU pada
+transaksi menggunakan SDK Solana.
+
+| SDK                            | Referensi kode sumber                                                                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218)   |
+| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24) |
+
+<CodeTabs storage="compute-budget">
+
+```ts !! title="Typescript"
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+```
+
+```rust !! title="Rust"
+let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+
+let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+```
+
+</CodeTabs>
+
+<CodeTabs storage="compute-budget" flags="r">
+
+```ts !! title="Typescript"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection,
+  ComputeBudgetProgram,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Create compute budget instructions
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// Add the compute budget and transfer instructions to a new transaction
+const transaction = new Transaction()
+  .add(limitInstruction)
+  .add(priceInstruction)
+  .add(transferInstruction);
+
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  sender
+]);
+
+console.log("Transaction Signature:", signature);
+```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Create compute budget instructions
+    let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+    let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+
+    let transfer_amount = LAMPORTS_PER_SOL / 100;
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[limit_instruction, price_instruction, transfer_instruction],
+        Some(&sender.pubkey()),
+    );
+    transaction.sign(&[&sender], recent_blockhash);
+
+    let signature = client.send_and_confirm_transaction(&transaction).await?;
+    println!("Transaction Signature: {}", signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
