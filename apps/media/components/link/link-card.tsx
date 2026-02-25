@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   FileText,
   Github,
+  Headphones,
   Play,
   Twitter,
   Link as LinkIcon,
@@ -19,6 +20,7 @@ const linkTypeIcons = {
   article: FileText,
   tweet: Twitter,
   video: Play,
+  podcast: Headphones,
   github: Github,
   other: LinkIcon,
 };
@@ -27,6 +29,7 @@ const linkTypeLabels = {
   article: "Article",
   tweet: "Tweet",
   video: "Video",
+  podcast: "Podcast",
   github: "GitHub",
   other: "Link",
 };
