@@ -16,6 +16,8 @@ interface TerminalItem {
   categoryId: string;
   date: string;
   url: string;
+  source?: string;
+  linkType?: string;
 }
 
 // Map category names to category IDs
@@ -50,6 +52,8 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     categoryId,
     date: link.publishedAt,
     url: link.url,
+    source: link.source,
+    linkType: link.linkType,
   };
 }
 
