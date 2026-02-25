@@ -1,0 +1,825 @@
+---
+title: Призупинення карбування
+description: Дізнайтеся, як увімкнути PausableMintExtension.
+---
+
+## Як увімкнути PausableExtension
+
+[`PausableExtension`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L733)
+дозволяє призначеному органу призупинення зупинити всю активність токенів на
+mint. Орган призупинення може призупинити або відновити mint у будь-який момент.
+
+Коли призупинено, програма Token-2022 відхиляє всі перекази, карбування та
+спалювання для цього токена. Коли відновлено, звичайні операції продовжуються.
+
+Це поширений патерн як у блокчейн-системах токенів, так і в традиційних
+фінансах, де можливість заморозити активність потрібна для дотримання вимог,
+реагування на інциденти або адміністративного контролю.
+
+### Typescript
+
+<CodeTabs storage="token-ts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  fetchMint,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getInitializePausableConfigInstruction,
+  getMintSize,
+  getMintToInstruction,
+  getPauseInstruction,
+  getResumeInstruction,
+  getTransferCheckedInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+const sendAndConfirm = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Generate the authority (fee payer, mint authority, freeze authority, pause authority)
+const authority = await generateKeyPairSigner();
+
+// Fund authority/fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: authority.address,
+  lamports: lamports(5_000_000_000n), // 5 SOL
+  commitment: "confirmed"
+});
+
+// ---------- Create mint with Pausable extension ----------
+
+const mint = await generateKeyPairSigner();
+
+// Define the pausable extension for size calculation
+const pausableExtension = extension("PausableConfig", {
+  authority: authority.address,
+  paused: false
+});
+
+// Calculate space for mint account with the Pausable extension
+const space = BigInt(getMintSize([pausableExtension]));
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Get latest blockhash
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// 1) Create the mint account
+const createMintAccountInstruction = getCreateAccountInstruction({
+  payer: authority,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// 2) Initialize the pausable extension (must come BEFORE initializeMint)
+const initializePausableInstruction = getInitializePausableConfigInstruction({
+  mint: mint.address,
+  authority: authority.address
+});
+
+// 3) Initialize the mint
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: authority.address,
+  freezeAuthority: authority.address
+});
+
+// 4) Create associated token account for authority
+const [authorityAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: authority.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const createAtaInstruction = await getCreateAssociatedTokenInstructionAsync({
+  payer: authority,
+  mint: mint.address,
+  owner: authority.address
+});
+
+// 5) Mint 100 tokens (100 * 10^9)
+const mintToInstruction = getMintToInstruction({
+  mint: mint.address,
+  token: authorityAta,
+  mintAuthority: authority,
+  amount: 100_000_000_000n
+});
+
+// 6) Create recipient and their ATA
+const recipient = await generateKeyPairSigner();
+
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const createRecipientAtaInstruction =
+  await getCreateAssociatedTokenInstructionAsync({
+    payer: authority,
+    mint: mint.address,
+    owner: recipient.address
+  });
+
+// Send transaction to create mint with pausable extension, ATAs, and mint tokens
+const createMintTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) =>
+    appendTransactionMessageInstructions(
+      [
+        createMintAccountInstruction,
+        initializePausableInstruction,
+        initializeMintInstruction,
+        createAtaInstruction,
+        mintToInstruction,
+        createRecipientAtaInstruction
+      ],
+      tx
+    )
+);
+
+const signedCreateMintTx =
+  await signTransactionMessageWithSigners(createMintTx);
+
+assertIsTransactionWithBlockhashLifetime(signedCreateMintTx);
+await sendAndConfirm(signedCreateMintTx, {
+  commitment: "confirmed",
+  skipPreflight: true
+});
+
+console.log("Mint created with Pausable extension:", mint.address);
+
+// Read back the pausable config from the mint
+let mintAccount = await fetchMint(rpc, mint.address);
+console.log("Pausable config:", mintAccount.data.extensions);
+
+// ---------- Pause the mint ----------
+
+const pauseInstruction = getPauseInstruction({
+  mint: mint.address,
+  authority: authority
+});
+
+const { value: latestBlockhash2 } = await rpc.getLatestBlockhash().send();
+
+const pauseTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash2, tx),
+  (tx) => appendTransactionMessageInstructions([pauseInstruction], tx)
+);
+
+const signedPauseTx = await signTransactionMessageWithSigners(pauseTx);
+
+assertIsTransactionWithBlockhashLifetime(signedPauseTx);
+await sendAndConfirm(signedPauseTx, {
+  commitment: "confirmed"
+});
+
+console.log("\nMint is now PAUSED");
+
+// Verify paused state
+mintAccount = await fetchMint(rpc, mint.address);
+console.log("Pausable config:", mintAccount.data.extensions);
+
+// Try a transfer while paused (should fail)
+const transferInstruction = getTransferCheckedInstruction({
+  source: authorityAta,
+  mint: mint.address,
+  destination: recipientAta,
+  authority: authority,
+  amount: 1_000_000_000n, // 1 token
+  decimals: 9
+});
+
+const { value: latestBlockhash3 } = await rpc.getLatestBlockhash().send();
+
+const transferWhilePausedTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash3, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+const signedTransferWhilePausedTx = await signTransactionMessageWithSigners(
+  transferWhilePausedTx
+);
+
+console.log("\nTransfer Expected to Fail with Error:");
+try {
+  assertIsTransactionWithBlockhashLifetime(signedTransferWhilePausedTx);
+  await sendAndConfirm(signedTransferWhilePausedTx, {
+    commitment: "confirmed"
+  });
+} catch (error: any) {
+  console.log(" ", error.message ?? error);
+}
+
+// ---------- Resume (unpause) the mint ----------
+
+const resumeInstruction = getResumeInstruction({
+  mint: mint.address,
+  authority: authority
+});
+
+const { value: latestBlockhash4 } = await rpc.getLatestBlockhash().send();
+
+const resumeTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash4, tx),
+  (tx) => appendTransactionMessageInstructions([resumeInstruction], tx)
+);
+
+const signedResumeTx = await signTransactionMessageWithSigners(resumeTx);
+
+assertIsTransactionWithBlockhashLifetime(signedResumeTx);
+await sendAndConfirm(signedResumeTx, {
+  commitment: "confirmed"
+});
+
+console.log("\nMint is now RESUMED");
+
+// Verify resumed state
+mintAccount = await fetchMint(rpc, mint.address);
+console.log("Pausable config:", mintAccount.data.extensions);
+
+// Transfer should now succeed after resume
+const { value: latestBlockhash5 } = await rpc.getLatestBlockhash().send();
+
+const transferAfterResumeTx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash5, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+const signedTransferAfterResumeTx = await signTransactionMessageWithSigners(
+  transferAfterResumeTx
+);
+
+assertIsTransactionWithBlockhashLifetime(signedTransferAfterResumeTx);
+await sendAndConfirm(signedTransferAfterResumeTx, {
+  commitment: "confirmed"
+});
+
+const transferSig = getSignatureFromTransaction(signedTransferAfterResumeTx);
+console.log("\nTransfer after resume succeeded!");
+console.log("Transaction Signature:", transferSig);
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  createInitializePausableConfigInstruction,
+  createPauseInstruction,
+  createResumeInstruction,
+  createTransferCheckedInstruction,
+  ExtensionType,
+  getMintLen,
+  getMint,
+  getPausableConfig,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
+  createMintToInstruction
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Airdrop 5 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// ---------- Create mint with Pausable extension ----------
+
+const mint = Keypair.generate();
+
+// Calculate space for mint account with the Pausable extension
+const mintLength = getMintLen([ExtensionType.PausableConfig]);
+
+// Get minimum balance for rent exemption
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
+
+// 1) Create the mint account
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: mintLength,
+  lamports: mintRent,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+// 2) Initialize the pausable extension (must come BEFORE initializeMint)
+const initializePausableInstruction = createInitializePausableConfigInstruction(
+  mint.publicKey, // mint
+  feePayer.publicKey, // pause authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+// 3) Initialize the mint
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint
+  9, // decimals
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+// 4) Create associated token account for fee payer
+const associatedTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  feePayer.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+const createAtaInstruction = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey, // payer
+  associatedTokenAccount, // ata
+  feePayer.publicKey, // owner
+  mint.publicKey, // mint
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// 5) Mint 100 tokens (100 * 10^9)
+const mintToInstruction = createMintToInstruction(
+  mint.publicKey, // mint
+  associatedTokenAccount, // destination
+  feePayer.publicKey, // authority
+  100_000_000_000, // amount
+  [], // multiSigners
+  TOKEN_2022_PROGRAM_ID
+);
+
+// 6) Create recipient ATA
+const recipient = Keypair.generate();
+const recipientAta = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  recipient.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+const createRecipientAtaInstruction = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey, // payer
+  recipientAta, // ata
+  recipient.publicKey, // owner
+  mint.publicKey, // mint
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// Send transaction to create mint with pausable extension, ATAs, and mint tokens
+const transaction = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+}).add(
+  createMintAccountInstruction,
+  initializePausableInstruction,
+  initializeMintInstruction,
+  createAtaInstruction,
+  mintToInstruction,
+  createRecipientAtaInstruction
+);
+
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint]
+);
+
+console.log("Mint created with Pausable extension:", mint.publicKey.toBase58());
+console.log("Transaction Signature:", transactionSignature);
+
+// Read back the pausable config from the mint
+let mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+let pausableConfig = getPausableConfig(mintAccount);
+console.log("Pausable config:", pausableConfig);
+
+// ---------- Pause the mint ----------
+
+const latestBlockhash2 = await connection.getLatestBlockhash();
+
+const pauseIx = createPauseInstruction(
+  mint.publicKey, // mint
+  feePayer.publicKey, // pause authority
+  [], // multiSigners
+  TOKEN_2022_PROGRAM_ID
+);
+
+const pauseTransaction = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: latestBlockhash2.blockhash,
+  lastValidBlockHeight: latestBlockhash2.lastValidBlockHeight
+}).add(pauseIx);
+
+await sendAndConfirmTransaction(connection, pauseTransaction, [feePayer]);
+
+console.log("\nMint is now PAUSED");
+
+// Verify paused state
+mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+pausableConfig = getPausableConfig(mintAccount);
+console.log("Pausable config:", pausableConfig);
+
+// Try a transfer while paused (should fail)
+const transferIx = createTransferCheckedInstruction(
+  associatedTokenAccount, // source
+  mint.publicKey, // mint
+  recipientAta, // destination
+  feePayer.publicKey, // owner
+  1_000_000_000, // 1 token
+  9, // decimals
+  [], // multiSigners
+  TOKEN_2022_PROGRAM_ID
+);
+
+const latestBlockhash3 = await connection.getLatestBlockhash();
+
+const transferWhilePausedTx = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: latestBlockhash3.blockhash,
+  lastValidBlockHeight: latestBlockhash3.lastValidBlockHeight
+}).add(transferIx);
+
+console.log("\nTransfer Expected to Fail with Error:");
+try {
+  await sendAndConfirmTransaction(connection, transferWhilePausedTx, [
+    feePayer
+  ]);
+} catch (error: any) {
+  console.log(" ", error.message ?? error);
+}
+
+// ---------- Resume (unpause) the mint ----------
+
+const latestBlockhash4 = await connection.getLatestBlockhash();
+
+const resumeIx = createResumeInstruction(
+  mint.publicKey, // mint
+  feePayer.publicKey, // pause authority
+  [], // multiSigners
+  TOKEN_2022_PROGRAM_ID
+);
+
+const resumeTransaction = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: latestBlockhash4.blockhash,
+  lastValidBlockHeight: latestBlockhash4.lastValidBlockHeight
+}).add(resumeIx);
+
+await sendAndConfirmTransaction(connection, resumeTransaction, [feePayer]);
+
+console.log("\nMint is now RESUMED");
+
+// Verify resumed state
+mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+pausableConfig = getPausableConfig(mintAccount);
+console.log("Pausable config:", pausableConfig);
+
+// Transfer should now succeed after resume
+const latestBlockhash5 = await connection.getLatestBlockhash();
+
+const transferAfterResumeTx = new Transaction({
+  feePayer: feePayer.publicKey,
+  blockhash: latestBlockhash5.blockhash,
+  lastValidBlockHeight: latestBlockhash5.lastValidBlockHeight
+}).add(transferIx);
+
+const transferSig = await sendAndConfirmTransaction(
+  connection,
+  transferAfterResumeTx,
+  [feePayer]
+);
+
+console.log("\nTransfer after resume succeeded!");
+console.log("Transaction Signature:", transferSig);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address_with_program_id,
+    instruction::create_associated_token_account,
+};
+use spl_token_2022_interface::{
+    extension::{
+        pausable::{instruction as pausable_ix, PausableConfig},
+        BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+    },
+    instruction::{initialize_mint, mint_to, transfer_checked},
+    state::{Account, Mint},
+    ID as TOKEN_2022_PROGRAM_ID,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let latest_blockhash = client.get_latest_blockhash().await?;
+
+    let fee_payer = Keypair::new();
+
+    // Airdrop SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // ---------- Create mint with Pausable extension ----------
+
+    let mint = Keypair::new();
+
+    // Calculate space for mint account with the Pausable extension
+    let mint_space = ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::Pausable])?;
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_space)
+        .await?;
+
+    // 1) Create the mint account
+    let create_mint_account_ix = create_account(
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
+        mint_rent,
+        mint_space as u64,
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    // 2) Initialize the pausable extension (must come BEFORE initialize_mint)
+    let initialize_pausable_ix = pausable_ix::initialize(
+        &TOKEN_2022_PROGRAM_ID,
+        &mint.pubkey(),
+        &fee_payer.pubkey(), // pause authority
+    )?;
+
+    // 3) Initialize the mint
+    let initialize_mint_ix = initialize_mint(
+        &TOKEN_2022_PROGRAM_ID,
+        &mint.pubkey(),
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
+
+    // 4) Create associated token account for fee_payer
+    let ata = get_associated_token_address_with_program_id(
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let create_ata_ix = create_associated_token_account(
+        &fee_payer.pubkey(),
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    // 5) Mint 100 tokens
+    let amount = 100_000_000_000; // 100 tokens with 9 decimals
+    let mint_to_ix = mint_to(
+        &TOKEN_2022_PROGRAM_ID,
+        &mint.pubkey(),
+        &ata,
+        &fee_payer.pubkey(),
+        &[&fee_payer.pubkey()],
+        amount,
+    )?;
+
+    // 6) Create recipient ATA
+    let recipient = Keypair::new();
+    let recipient_ata = get_associated_token_address_with_program_id(
+        &recipient.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let create_recipient_ata_ix = create_associated_token_account(
+        &fee_payer.pubkey(),
+        &recipient.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let tx = Transaction::new_signed_with_payer(
+        &[
+            create_mint_account_ix,
+            initialize_pausable_ix,
+            initialize_mint_ix,
+            create_ata_ix,
+            mint_to_ix,
+            create_recipient_ata_ix,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        latest_blockhash,
+    );
+
+    client.send_and_confirm_transaction(&tx).await?;
+    println!("Mint created with Pausable extension: {}", mint.pubkey());
+
+    // Read back the pausable config from the mint
+    let mint_data = client.get_account(&mint.pubkey()).await?;
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_data.data)?;
+    let pausable = mint_state.get_extension::<PausableConfig>()?;
+    println!("Pausable config: {:#?}", pausable);
+
+    // ---------- Pause the mint ----------
+
+    let pause_ix = pausable_ix::pause(
+        &TOKEN_2022_PROGRAM_ID,
+        &mint.pubkey(),
+        &fee_payer.pubkey(), // pause authority
+        &[&fee_payer.pubkey()],
+    )?;
+
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let tx = Transaction::new_signed_with_payer(
+        &[pause_ix],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    client.send_and_confirm_transaction(&tx).await?;
+    println!("\nMint is now PAUSED");
+
+    // Verify paused state
+    let mint_data = client.get_account(&mint.pubkey()).await?;
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_data.data)?;
+    let pausable = mint_state.get_extension::<PausableConfig>()?;
+    println!("Pausable config: {:#?}", pausable);
+
+    // Try a transfer while paused (should fail)
+    let transfer_ix = transfer_checked(
+        &TOKEN_2022_PROGRAM_ID,
+        &ata,
+        &mint.pubkey(),
+        &recipient_ata,
+        &fee_payer.pubkey(),
+        &[&fee_payer.pubkey()],
+        1_000_000_000, // 1 token
+        9,
+    )?;
+
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let tx = Transaction::new_signed_with_payer(
+        &[transfer_ix.clone()],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    println!("\nTransfer Expected to Fail with Error:");
+    let result = client.simulate_transaction(&tx).await?;
+    if result.value.err.is_some() {
+        if let Some(logs) = result.value.logs {
+            for log in logs.iter().filter(|l| l.starts_with("Program log:")) {
+                println!("  {}", log);
+            }
+        }
+    }
+
+    // ---------- Resume (unpause) the mint ----------
+
+    let resume_ix = pausable_ix::resume(
+        &TOKEN_2022_PROGRAM_ID,
+        &mint.pubkey(),
+        &fee_payer.pubkey(), // pause authority
+        &[&fee_payer.pubkey()],
+    )?;
+
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let tx = Transaction::new_signed_with_payer(
+        &[resume_ix],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    client.send_and_confirm_transaction(&tx).await?;
+    println!("\nMint is now RESUMED");
+
+    // Verify resumed state
+    let mint_data = client.get_account(&mint.pubkey()).await?;
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_data.data)?;
+    let pausable = mint_state.get_extension::<PausableConfig>()?;
+    println!("Pausable config: {:#?}", pausable);
+
+    // Transfer should now succeed
+    let latest_blockhash = client.get_latest_blockhash().await?;
+    let tx = Transaction::new_signed_with_payer(
+        &[transfer_ix],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    let sig = client.send_and_confirm_transaction(&tx).await?;
+    println!("\nTransfer after resume succeeded!");
+    println!("Transaction Signature: {}", sig);
+
+    // Verify recipient received the tokens
+    let recipient_data = client.get_account(&recipient_ata).await?;
+    let recipient_state = StateWithExtensions::<Account>::unpack(&recipient_data.data)?;
+    println!("\nRecipient Token Account: {:#?}", recipient_state.base);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
