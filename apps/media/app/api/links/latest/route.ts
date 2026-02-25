@@ -6,7 +6,7 @@ import { LinkItem } from "@/lib/link-types";
 const CACHE_TAG = "links";
 const REVALIDATE_SECONDS = 300; // 5 minutes
 const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 250;
 
 // Terminal item format expected by the web app
 interface TerminalItem {
@@ -18,6 +18,7 @@ interface TerminalItem {
   url: string;
   source?: string;
   linkType?: string;
+  categories?: string[];
 }
 
 // Map category names to category IDs
@@ -54,6 +55,9 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     url: link.url,
     source: link.source,
     linkType: link.linkType,
+    categories: link.categories.map(
+      (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase()
+    ),
   };
 }
 
