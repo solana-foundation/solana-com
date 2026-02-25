@@ -192,8 +192,8 @@ The `recent_blockhash` field is a 32-byte hash that serves two purposes:
 2. **Deduplication**: prevents the same transaction from being processed twice.
 
 A blockhash expires after 150 slots. If the blockhash is no longer valid when
-the transaction arrives, it is rejected with _rs`BlockhashNotFound`_, unless it is a
-valid [durable nonce transaction](/docs/core/transactions/durable-nonces).
+the transaction arrives, it is rejected with _rs`BlockhashNotFound`_, unless it
+is a valid [durable nonce transaction](/docs/core/transactions/durable-nonces).
 
 <Callout>
   The [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC method
@@ -273,7 +273,8 @@ Each compiled instruction is serialized as:
 
 ### Size calculation
 
-Given _rs`PACKET_DATA_SIZE`_ = 1,232 bytes, the available space can be calculated:
+Given _rs`PACKET_DATA_SIZE`_ = 1,232 bytes, the available space can be
+calculated:
 
 ```
 Total = 1232 bytes
@@ -312,10 +313,11 @@ The example below shows the code relevant to the above diagrams. See the System
 Program's
 [`transfer` function](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210).
 
-<CodeTabs flags="r">
+<CodeTabs storage="sol-transfer" flags="r">
 
 ```ts !! title="Kit"
 import {
+  airdropFactory,
   appendTransactionMessageInstructions,
   createSolanaRpc,
   createSolanaRpcSubscriptions,
@@ -331,21 +333,34 @@ import {
 } from "@solana/kit";
 import { getTransferSolInstruction } from "@solana-program/system";
 
+// Create a connection to cluster
 const rpc = createSolanaRpc("http://localhost:8899");
 const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
 
+// Generate sender and recipient keypairs
 const sender = await generateKeyPairSigner();
 const recipient = await generateKeyPairSigner();
 
 const LAMPORTS_PER_SOL = 1_000_000_000n;
 const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
 
+// Fund sender with airdrop
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: sender.address,
+  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
+  commitment: "confirmed"
+});
+
+// Check balance before transfer
+const { value: preBalance1 } = await rpc.getBalance(sender.address).send();
+const { value: preBalance2 } = await rpc.getBalance(recipient.address).send();
+
 // !mark(1:6)
 // Create a transfer instruction for transferring SOL from sender to recipient
 const transferInstruction = getTransferSolInstruction({
   source: sender,
   destination: recipient.address,
-  amount: transferAmount
+  amount: transferAmount // 0.01 SOL in lamports
 });
 
 // Add the transfer instruction to a new transaction
@@ -357,13 +372,36 @@ const transactionMessage = pipe(
   (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
 );
 
-// Sign and send the transaction
+// Send the transaction to the network
 const signedTransaction =
   await signTransactionMessageWithSigners(transactionMessage);
 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
   signedTransaction,
   { commitment: "confirmed" }
 );
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+// Check balance after transfer
+const { value: postBalance1 } = await rpc.getBalance(sender.address).send();
+const { value: postBalance2 } = await rpc.getBalance(recipient.address).send();
+
+console.log(
+  "Sender prebalance:",
+  Number(preBalance1) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Recipient prebalance:",
+  Number(preBalance2) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Sender postbalance:",
+  Number(postBalance1) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Recipient postbalance:",
+  Number(postBalance2) / Number(LAMPORTS_PER_SOL)
+);
+console.log("Transaction Signature:", transactionSignature);
 ```
 
 ```ts !! title="Legacy"
@@ -376,11 +414,25 @@ import {
   Connection
 } from "@solana/web3.js";
 
+// Create a connection to cluster
 const connection = new Connection("http://localhost:8899", "confirmed");
 
+// Generate sender and recipient keypairs
 const sender = Keypair.generate();
 const recipient = new Keypair();
 
+// Fund sender with airdrop
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Check balance before transfer
+const preBalance1 = await connection.getBalance(sender.publicKey);
+const preBalance2 = await connection.getBalance(recipient.publicKey);
+
+// Define the amount to transfer
 const transferAmount = 0.01; // 0.01 SOL
 
 // !mark(1:6)
@@ -388,16 +440,28 @@ const transferAmount = 0.01; // 0.01 SOL
 const transferInstruction = SystemProgram.transfer({
   fromPubkey: sender.publicKey,
   toPubkey: recipient.publicKey,
-  lamports: transferAmount * LAMPORTS_PER_SOL
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
 });
 
-// Add the transfer instruction to a new transaction and send
+// Add the transfer instruction to a new transaction
 const transaction = new Transaction().add(transferInstruction);
+
+// Send the transaction to the network
 const transactionSignature = await sendAndConfirmTransaction(
   connection,
   transaction,
-  [sender]
+  [sender] // signer
 );
+
+// Check balance after transfer
+const postBalance1 = await connection.getBalance(sender.publicKey);
+const postBalance2 = await connection.getBalance(recipient.publicKey);
+
+console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
+console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
+console.log("Transaction Signature:", transactionSignature);
 ```
 
 ```rs !! title="Rust"
@@ -412,28 +476,69 @@ use solana_system_interface::instruction::transfer;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Create a connection to cluster
     let connection = RpcClient::new_with_commitment(
         "http://localhost:8899".to_string(),
         CommitmentConfig::confirmed(),
     );
 
+    // Generate sender and recipient keypairs
     let sender = Keypair::new();
     let recipient = Keypair::new();
 
+    // Fund sender with airdrop
+    let airdrop_signature = connection
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        let confirmed = connection.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Check balance before transfer
+    let pre_balance1 = connection.get_balance(&sender.pubkey()).await?;
+    let pre_balance2 = connection.get_balance(&recipient.pubkey()).await?;
+
+    // Define the amount to transfer
     let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
 
     // Create a transfer instruction for transferring SOL from sender to recipient
     let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
 
-    // Add the transfer instruction to a new transaction and send
+    // Add the transfer instruction to a new transaction
     let mut transaction =
         Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
     let blockhash = connection.get_latest_blockhash().await?;
     transaction.sign(&[&sender], blockhash);
 
+    // Send the transaction to the network
     let transaction_signature = connection
         .send_and_confirm_transaction(&transaction)
         .await?;
+
+    // Check balance after transfer
+    let post_balance1 = connection.get_balance(&sender.pubkey()).await?;
+    let post_balance2 = connection.get_balance(&recipient.pubkey()).await?;
+
+    println!(
+        "Sender prebalance: {}",
+        pre_balance1 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Recipient prebalance: {}",
+        pre_balance2 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Sender postbalance: {}",
+        post_balance1 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Recipient postbalance: {}",
+        post_balance2 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!("Transaction Signature: {}", transaction_signature);
 
     Ok(())
 }
