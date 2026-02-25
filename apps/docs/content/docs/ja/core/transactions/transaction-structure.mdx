@@ -1,0 +1,792 @@
+---
+title: トランザクション構造
+description: Solanaトランザクションの構造：署名、メッセージ形式、ヘッダー、アカウントアドレス、ブロックハッシュ、コンパイル済みインストラクション、バイナリエンコーディング、サイズ制限。
+url: /docs/core/transactions/transaction-structure
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/fees/fee-structure
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Signatures, Message (Header, Account addresses, Recent blockhash, Instructions), Transaction binary format, SOL transfer example */}
+
+<Callout type="info" title="概要">
+  トランザクションは署名とメッセージで構成されます。メッセージにはヘッダー、アカウントアドレス、最新のブロックハッシュ、コンパイル済みinstructionsが含まれます。シリアライズ後の最大サイズ:1,232バイト。
+</Callout>
+
+[`Transaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction/src/lib.rs#L193)には、2つのトップレベルフィールドがあります:
+
+<WithMentions>
+
+- [`signatures`](mention:signatures): 署名の配列
+- [`message`](mention:message): 処理されるinstructionsのリストを含むトランザクション情報
+
+```rust title="Transaction"
+pub struct Transaction {
+    // !mention signatures
+    pub signatures: Vec<Signature>,
+    // !mention message
+    pub message: Message,
+}
+```
+
+</WithMentions>
+
+![トランザクションの2つの部分を示す図](/assets/docs/core/transactions/tx_format.png)
+
+トランザクションのシリアライズ後の合計サイズは、[`PACKET_DATA_SIZE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/packet/src/lib.rs#L32)(1,232バイト)を超えてはなりません。この制限は、1,280バイト(IPv6の最小MTU)からネットワークヘッダー用の48バイト(IPv6用40バイト + フラグメントヘッダー用8バイト)を引いた値です。1,232バイトには、[`signatures`](#signatures)配列と[`message`](#message)構造体の両方が含まれます。
+
+![トランザクション形式とサイズ制限を示す図](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+## 署名
+
+`signatures`フィールドは、[`Signature`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/signature/src/lib.rs#L34)値のコンパクトエンコード配列です。各`Signature`は、署名者アカウントの秘密鍵で署名された、シリアライズされた`Message`の64バイトEd25519署名です。トランザクションのinstructionsによって参照される[署名者アカウント](#account-addresses)ごとに1つの署名が必要です。
+
+配列の最初の署名は**手数料支払者**のものであり、トランザクションの[基本手数料と優先手数料](/docs/core/fees/fee-structure#base-fee)を支払うアカウントです。この最初の署名は**トランザクションID**としても機能し、ネットワーク上でトランザクションを検索するために使用されます。トランザクションIDは一般的に**トランザクション署名**と呼ばれます。
+
+手数料支払者の要件:
+
+- メッセージの最初のアカウント(インデックス0)であり、署名者である必要があります。
+- システムプログラムが所有するアカウント、またはnonceアカウントである必要があります([`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)で検証されます)。
+- `rent_exempt_minimum + total_fee`をカバーするのに十分なlamportsを保持している必要があります。そうでない場合、トランザクションは*rs`InsufficientFundsForFee`*で失敗します。
+
+## メッセージ
+
+`message`フィールドは、トランザクションのペイロードを含む[`Message`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L161)構造体です:
+
+<WithMentions>
+
+- [`header`](mention:message-header): メッセージ[ヘッダー](#header)
+- [`account_keys`](mention:account-addresses): トランザクションのinstructionsに必要な[アカウントアドレス](#account-addresses)の配列
+- [`recent_blockhash`](mention:recent-blockhash): トランザクションのタイムスタンプとして機能する[ブロックハッシュ](#recent-blockhash)
+- [`instructions`](mention:instructions): [instructions](#instructions)の配列
+
+```rust title="Message"
+pub struct Message {
+    /// The message header, identifying signed and read-only `account_keys`.
+    // !mention message-header
+    pub header: MessageHeader,
+
+    /// All the account keys used by this transaction.
+    #[serde(with = "short_vec")]
+    // !mention account-addresses
+    pub account_keys: Vec<Pubkey>,
+
+    /// The id of a recent ledger entry.
+    // !mention recent-blockhash
+    pub recent_blockhash: Hash,
+
+    /// Programs that will be executed in sequence and committed in
+    /// one atomic transaction if all succeed.
+    #[serde(with = "short_vec")]
+    // !mention instructions
+    pub instructions: Vec<CompiledInstruction>,
+}
+```
+
+</WithMentions>
+
+### ヘッダー
+
+<WithMentions>
+
+`header`フィールドは、`account_keys`配列を権限グループに分割する3つの`u8`フィールドを持つ[`MessageHeader`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/lib.rs#L109)構造体です:
+
+- [`num_required_signatures`](mention:num_required_signatures): トランザクションに必要な署名の総数。
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): 読み取り専用の署名済みアカウントの数。
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts): 読み取り専用の未署名アカウントの数。
+
+```rust title="MessageHeader"
+pub struct MessageHeader {
+    /// The number of signatures required for this message to be considered
+    /// valid. The signers of those signatures must match the first
+    /// `num_required_signatures` of [`Message::account_keys`].
+    // !mention num_required_signatures
+    pub num_required_signatures: u8,
+
+    /// The last `num_readonly_signed_accounts` of the signed keys are read-only
+    /// accounts.
+    // !mention num_readonly_signed_accounts
+    pub num_readonly_signed_accounts: u8,
+
+    /// The last `num_readonly_unsigned_accounts` of the unsigned keys are
+    /// read-only accounts.
+    // !mention num_readonly_unsigned_accounts
+    pub num_readonly_unsigned_accounts: u8,
+}
+```
+
+</WithMentions>
+
+![メッセージヘッダーの3つの部分を示す図](/assets/docs/core/transactions/message_header.png)
+
+### アカウントアドレス
+
+[`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L168)フィールドは、公開鍵のコンパクトエンコードされた配列です。各エントリは、トランザクションのinstructionsの少なくとも1つで使用されるアカウントを識別します。配列にはすべてのアカウントを含める必要があり、次の厳密な順序に従う必要があります:
+
+1. 署名者 + 書き込み可能
+2. 署名者 + 読み取り専用
+3. 非署名者 + 書き込み可能
+4. 非署名者 + 読み取り専用
+
+<Callout>
+  この厳密な順序により、`account_keys`配列をメッセージの[`header`](#header)内の3つのカウントと組み合わせることで、アカウントごとのメタデータフラグを保存することなく、各アカウントの権限を決定できます。ヘッダーのカウントは、配列を上記の4つの権限グループに分割します。
+</Callout>
+
+![アカウントアドレス配列の順序を示す図](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### 最新のブロックハッシュ
+
+`recent_blockhash`フィールドは、2つの目的を果たす32バイトのハッシュです。
+
+1. **タイムスタンプ**: トランザクションが最近作成されたことを証明します。
+2. **重複排除**: 同じトランザクションが2回処理されることを防ぎます。
+
+ブロックハッシュは150スロット後に期限切れになります。トランザクションが到着したときにブロックハッシュが有効でない場合、[durable nonceトランザクション](/docs/core/transactions/durable-nonces)でない限り、*rs`BlockhashNotFound`*で拒否されます。
+
+<Callout>
+  [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash)
+  RPCメソッドを使用すると、現在のブロックハッシュと、そのブロックハッシュが有効な最後のブロック高を取得できます。
+</Callout>
+
+### Instructions
+
+[`instructions`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L176)フィールドは、[`CompiledInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/compiled_instruction.rs#L21)構造体のコンパクトエンコードされた配列です。各*rs`CompiledInstruction`*は、完全な公開鍵ではなく、`account_keys`配列へのインデックスによってアカウントを参照します。これには以下が含まれます。
+
+<WithMentions>
+
+1. [`program_id_index`](mention:program-id-index): 呼び出すプログラムを識別する`account_keys`へのインデックス。
+2. [`accounts`](mention:account-indexes): プログラムに渡すアカウントを指定する`account_keys`へのインデックスの配列。
+3. [`data`](mention:instruction-data):
+   instruction識別子とシリアライズされた引数を含むバイト配列。
+
+```rust title="CompiledInstruction"
+pub struct CompiledInstruction {
+    /// Index into the transaction keys array indicating the program account that executes this instruction.
+    // !mention program-id-index
+    pub program_id_index: u8,
+    /// Ordered indices into the transaction keys array indicating which accounts to pass to the program.
+    #[serde(with = "short_vec")]
+    // !mention account-indexes
+    pub accounts: Vec<u8>,
+    /// The program input data.
+    #[serde(with = "short_vec")]
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+![Instructionsのコンパクト配列](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+## トランザクションのバイナリ形式
+
+トランザクションは、コンパクトエンコーディング方式を使用してシリアライズされます。すべての可変長配列(署名、アカウントキー、instructions)には、compact-u16長エンコーディングが接頭辞として付けられます。この形式は、0〜127の値には1バイト、より大きな値には2〜3バイトを使用します。
+
+**レガシートランザクションのレイアウト**(ワイヤー上):
+
+| フィールド                | サイズ                        | 説明                                              |
+| ------------------------- | ----------------------------- | ------------------------------------------------- |
+| `num_signatures`          | 1〜3バイト(compact-u16)       | 署名の数                                          |
+| `signatures`              | `num_signatures` x 64バイト   | Ed25519署名                                       |
+| `num_required_signatures` | 1バイト                       | `MessageHeader`フィールド1                        |
+| `num_readonly_signed`     | 1バイト                       | `MessageHeader`フィールド2                        |
+| `num_readonly_unsigned`   | 1バイト                       | `MessageHeader`フィールド3                        |
+| `num_account_keys`        | 1〜3バイト(compact-u16)       | 静的アカウントキーの数                            |
+| `account_keys`            | `num_account_keys` x 32バイト | 公開鍵                                            |
+| `recent_blockhash`        | 32バイト                      | ブロックハッシュ                                  |
+| `num_instructions`        | 1〜3バイト(compact-u16)       | instructionsの数                                  |
+| `instructions`            | 可変                          | [コンパイル済みinstructions](#instructions)の配列 |
+
+コンパイルされた各instructionは次のようにシリアライズされます:
+
+| フィールド         | サイズ                   | 説明                           |
+| ------------------ | ------------------------ | ------------------------------ |
+| `program_id_index` | 1バイト                  | アカウントキーへのインデックス |
+| `num_accounts`     | 1-3バイト (compact-u16)  | アカウントインデックスの数     |
+| `account_indices`  | `num_accounts` x 1バイト | アカウントキーインデックス     |
+| `data_len`         | 1-3バイト (compact-u16)  | instruction dataの長さ         |
+| `data`             | `data_len` バイト        | 不透明なinstruction data       |
+
+### サイズ計算
+
+_rs`PACKET_DATA_SIZE`_ =
+1,232バイトの場合、利用可能なスペースは次のように計算できます:
+
+```
+Total = 1232 bytes
+ - compact-u16(num_sigs)          # 1 byte
+ - num_sigs * 64                  # signature bytes
+ - 3                              # message header
+ - compact-u16(num_keys)          # 1 byte
+ - num_keys * 32                  # account key bytes
+ - 32                             # recent blockhash
+ - compact-u16(num_ixs)           # 1 byte
+ - sum(instruction_sizes)         # per-instruction overhead + data
+```
+
+## 例: SOL転送トランザクション
+
+以下の図は、トランザクションとinstructionsがどのように連携してユーザーがネットワークと対話できるようにするかを示しています。この例では、SOLがあるアカウントから別のアカウントに転送されます。
+
+送信者アカウントの[メタデータ](/docs/core/instructions/instruction-structure#account-metadata)は、トランザクションに署名する必要があることを示しています。これにより、System
+Programはlamportを差し引くことができます。lamport残高を変更するには、送信者と受信者の両方のアカウントが書き込み可能である必要があります。このinstructionを実行するために、送信者のウォレットは署名とSOL転送instructionを含むメッセージを含むトランザクションを送信します。
+
+![SOL転送図](/assets/docs/core/transactions/sol-transfer.svg)
+
+トランザクションが送信された後、System
+Programは転送instructionを処理し、両方のアカウントのlamport残高を更新します。
+
+![SOL転送プロセス図](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+以下の例は、上記の図に関連するコードを示しています。System
+Programの[`transfer`関数](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)を参照してください。
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Create a connection to cluster
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Fund sender with airdrop
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: sender.address,
+  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
+  commitment: "confirmed"
+});
+
+// Check balance before transfer
+const { value: preBalance1 } = await rpc.getBalance(sender.address).send();
+const { value: preBalance2 } = await rpc.getBalance(recipient.address).send();
+
+// !mark(1:6)
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount // 0.01 SOL in lamports
+});
+
+// Add the transfer instruction to a new transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+// Send the transaction to the network
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+// Check balance after transfer
+const { value: postBalance1 } = await rpc.getBalance(sender.address).send();
+const { value: postBalance2 } = await rpc.getBalance(recipient.address).send();
+
+console.log(
+  "Sender prebalance:",
+  Number(preBalance1) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Recipient prebalance:",
+  Number(preBalance2) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Sender postbalance:",
+  Number(postBalance1) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Recipient postbalance:",
+  Number(postBalance2) / Number(LAMPORTS_PER_SOL)
+);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+// Create a connection to cluster
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Fund sender with airdrop
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Check balance before transfer
+const preBalance1 = await connection.getBalance(sender.publicKey);
+const preBalance2 = await connection.getBalance(recipient.publicKey);
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// !mark(1:6)
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+// Add the transfer instruction to a new transaction
+const transaction = new Transaction().add(transferInstruction);
+
+// Send the transaction to the network
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender] // signer
+);
+
+// Check balance after transfer
+const postBalance1 = await connection.getBalance(sender.publicKey);
+const postBalance2 = await connection.getBalance(recipient.publicKey);
+
+console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
+console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create a connection to cluster
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Fund sender with airdrop
+    let airdrop_signature = connection
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        let confirmed = connection.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Check balance before transfer
+    let pre_balance1 = connection.get_balance(&sender.pubkey()).await?;
+    let pre_balance2 = connection.get_balance(&recipient.pubkey()).await?;
+
+    // Define the amount to transfer
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    // Add the transfer instruction to a new transaction
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    let blockhash = connection.get_latest_blockhash().await?;
+    transaction.sign(&[&sender], blockhash);
+
+    // Send the transaction to the network
+    let transaction_signature = connection
+        .send_and_confirm_transaction(&transaction)
+        .await?;
+
+    // Check balance after transfer
+    let post_balance1 = connection.get_balance(&sender.pubkey()).await?;
+    let post_balance2 = connection.get_balance(&recipient.pubkey()).await?;
+
+    println!(
+        "Sender prebalance: {}",
+        pre_balance1 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Recipient prebalance: {}",
+        pre_balance2 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Sender postbalance: {}",
+        post_balance1 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Recipient postbalance: {}",
+        post_balance2 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!("Transaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+以下の例は、単一のSOL転送instructionを含むトランザクションの構造を示しています。
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import {
+  createSolanaRpc,
+  generateKeyPairSigner,
+  lamports,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstructions,
+  pipe,
+  signTransactionMessageWithSigners,
+  getCompiledTransactionMessageDecoder
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const rpc = createSolanaRpc("http://localhost:8899");
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Decode the messageBytes
+const compiledTransactionMessage =
+  getCompiledTransactionMessageDecoder().decode(signedTransaction.messageBytes);
+
+console.log(JSON.stringify(compiledTransactionMessage, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const { blockhash, lastValidBlockHeight } =
+  await connection.getLatestBlockhash();
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+const transaction = new Transaction({
+  blockhash,
+  lastValidBlockHeight,
+  feePayer: sender.publicKey
+}).add(transferInstruction);
+transaction.sign(sender);
+
+const compiledMessage = transaction.compileMessage();
+console.log(JSON.stringify(compiledMessage, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Fetch the latest blockhash and last valid block height
+    let blockhash = connection.get_latest_blockhash().await?;
+
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(
+        &sender.pubkey(),
+        &recipient.pubkey(),
+        LAMPORTS_PER_SOL / 100, // 0.01 SOL
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    transaction.sign(&[&sender], blockhash);
+
+    println!("{:#?}", transaction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<WithMentions>
+以下のコードは、前のコードスニペットからの出力を示しています。
+SDK間で形式は異なりますが、各インストラクションには同じ必須情報が含まれていることに注目してください。
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  "version": 0,
+  // !mention header
+  "header": {
+    "numSignerAccounts": 1,
+    "numReadonlySignerAccounts": 0,
+    "numReadonlyNonSignerAccounts": 1
+  },
+  // !mention account_keys
+  "staticAccounts": [
+    "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
+    "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
+    "11111111111111111111111111111111"
+  ],
+  // !mention recent_blockhash
+  "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  // !mention instructions
+  "instructions": [
+    {
+      "programAddressIndex": 2,
+      "accountIndices": [0, 1],
+      "data": {
+        "0": 2,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 128,
+        "5": 150,
+        "6": 152,
+        "7": 0,
+        "8": 0,
+        "9": 0,
+        "10": 0,
+        "11": 0
+      }
+    }
+  ]
+}
+```
+
+```json !! title="Legacy"
+{
+  // !mention header
+  "header": {
+    "numRequiredSignatures": 1,
+    "numReadonlySignedAccounts": 0,
+    "numReadonlyUnsignedAccounts": 1
+  },
+  // !mention account_keys
+  "accountKeys": [
+    "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
+    "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
+    "11111111111111111111111111111111"
+  ],
+  "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  // !mention instructions
+  "instructions": [
+    {
+      "programIdIndex": 2,
+      "accounts": [0, 1],
+      "data": "3Bxs4NN8M2Yn4TLb"
+    }
+  ],
+  "indexToProgramIds": {}
+}
+```
+
+```json !! title="Rust"
+{
+  "signatures": [
+    "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
+  ],
+  "message": {
+    // !mention header
+    "header": {
+      "num_required_signatures": 1,
+      "num_readonly_signed_accounts": 0,
+      "num_readonly_unsigned_accounts": 1
+    },
+    "account_keys": [
+      "9CpbtdXfUTgLMJL8DEAeEm8thERJPwDuruohjvUuzY7m",
+      "6jELNgS8Q35sF4QZCvwgyKGaKrbcm8P5QcNWUyAb5ekJ",
+      "11111111111111111111111111111111"
+    ],
+    "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    // !mention instructions
+    "instructions": [
+      {
+        "program_id_index": 2,
+        "accounts": [0, 1],
+        "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+      }
+    ]
+  }
+}
+```
+
+</CodeTabs>
+</WithMentions>
+
+## トランザクション詳細の取得
+
+送信後、トランザクション署名と[getTransaction](/docs/rpc/http/gettransaction)
+RPCメソッドを使用してトランザクション詳細を取得します。
+
+<Callout>
+  [Solana
+  Explorer](https://explorer.solana.com)を使用してトランザクションを見つけることもできます。
+</Callout>
+
+```json title="Transaction Data"
+{
+  "blockTime": 1745196488,
+  "meta": {
+    "computeUnitsConsumed": 150,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success"
+    ],
+    "postBalances": [989995000, 10000000, 1],
+    "postTokenBalances": [],
+    "preBalances": [1000000000, 0, 1],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 13049,
+  "transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "8PLdpLxkuv9Nt8w3XcGXvNa663LXDjSrSNon4EK7QSjQ",
+        "7GLg7bqgLBv1HVWXKgWAm6YoPf1LoWnyWGABbgk487Ma",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "7ZCxc2SDhzV2bYgEQqdxTpweYJkpwshVSDtXuY7uPtjf",
+      "instructions": [
+        {
+          "accounts": [0, 1],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX"
+    ]
+  },
+  "version": "legacy"
+}
+```

@@ -1,0 +1,83 @@
+---
+title: Transaksi berversi
+description:
+  Format transaksi legacy vs berversi (V0) di Solana, termasuk Address Lookup
+  Tables (ALTs), deteksi versi, format pesan V0, dan resolusi ALT.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="Ringkasan">
+  Transaksi V0 menambahkan Address Lookup Tables (ALTs), memungkinkan referensi
+  ke akun melalui indeks 1-byte alih-alih kunci 32-byte. Ini menghemat 31 byte
+  per akun yang di-resolve ALT.
+</Callout>
+
+Solana mendukung dua format transaksi: **legacy** dan **berversi** (v0).
+
+Validator menentukan format dengan memeriksa byte pertama dari pesan:
+
+- Jika byte pertama memiliki bit
+  [version prefix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
+  yang diset, itu adalah **pesan berversi**. Saat ini hanya versi 0 yang
+  didukung. 3 byte berikutnya adalah _`MessageHeader`_.
+- Jika tidak, itu adalah **pesan legacy**. Byte pertama adalah
+  `num_required_signatures`, dan 2 byte berikutnya melengkapi header.
+
+<Callout type="info" title="Kapan menggunakan transaksi V0">
+  Gunakan V0 ketika transaksi Anda mereferensikan banyak akun dan mendekati
+  batas paket 1.232-byte. Jika transaksi Anda muat dalam batas ukuran dengan
+  semua akun inline, transaksi legacy lebih sederhana dan memiliki dukungan
+  tooling yang lebih luas. V0 diperlukan untuk menggunakan Address Lookup
+  Tables.
+</Callout>
+
+## Format pesan V0
+
+Pesan v0 memiliki field yang sama dengan pesan legacy, ditambah array
+`address_table_lookups` tambahan yang ditambahkan setelah instruksi:
+
+| Field                   | Ukuran                    | Deskripsi                                        |
+| ----------------------- | ------------------------- | ------------------------------------------------ |
+| `0x80`                  | 1 byte                    | Byte version prefix                              |
+| `header`                | 3 byte                    | MessageHeader (sama dengan legacy)               |
+| `static_account_keys`   | compact-u16 + N x 32 byte | Kunci yang muncul secara literal dalam transaksi |
+| `recent_blockhash`      | 32 byte                   | Blockhash                                        |
+| `instructions`          | compact-u16 + variabel    | Format sama dengan legacy                        |
+| `address_table_lookups` | compact-u16 + variabel    | Referensi ALT (lihat di bawah)                   |
+
+Setiap entri pencarian tabel alamat berisi:
+
+| Field              | Size                     | Description                                       |
+| ------------------ | ------------------------ | ------------------------------------------------- |
+| `account_key`      | 32 bytes                 | Kunci publik akun ALT                             |
+| `writable_indexes` | compact-u16 + N x 1 byte | Indeks ke dalam ALT untuk akun yang dapat ditulis |
+| `readonly_indexes` | compact-u16 + N x 1 byte | Indeks ke dalam ALT untuk akun read-only          |
+
+## Resolusi tabel pencarian alamat
+
+ALT adalah akun on-chain yang menyimpan hingga 256 kunci publik. Dengan
+mereferensikan ALT, sebuah transaksi dapat menyertakan akun tambahan menggunakan
+indeks 1-byte alih-alih kunci publik 32-byte, sehingga secara signifikan
+mengurangi overhead per akun.
+
+Saat runtime, sebelum eksekusi dimulai, validator menyelesaikan semua referensi
+ALT menjadi kunci publik lengkap. Alamat yang telah diselesaikan ditambahkan ke
+kunci akun statis untuk membentuk daftar kunci akun yang lengkap. Akun yang
+diselesaikan melalui ALT mengikuti urutan yang sama dengan akun statis:
+pencarian yang dapat ditulis (writable lookups) muncul sebelum pencarian
+read-only.
+
+<Callout>
+  Tabel pencarian alamat hanya memengaruhi cara akun direferensikan dalam
+  transaksi on-wire. Pada waktu eksekusi, runtime menyelesaikan semua indeks
+  menjadi alamat akun lengkap. Akun yang diselesaikan melalui ALT hanya dapat
+  bersifat writable atau read-only (non-signer); mereka tidak dapat menjadi
+  signer.
+</Callout>

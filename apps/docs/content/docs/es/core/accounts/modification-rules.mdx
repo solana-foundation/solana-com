@@ -1,0 +1,97 @@
+---
+title: Reglas de modificación
+description:
+  Reglas aplicadas en tiempo de ejecución para modificar lamports, datos,
+  propietario, bandera ejecutable y semántica de préstamo de cuentas de Solana.
+url: /docs/core/accounts/modification-rules
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+  - /docs/core/cpi/cpi-execution
+---
+
+<Callout type="info" title="Resumen">
+  Verificaciones del runtime después de cada instrucción: solo el propietario
+  puede debitar lamports o modificar datos, los datos pueden crecer máximo 10
+  KiB por instrucción, los cambios de propietario requieren datos inicializados
+  en cero, y la bandera ejecutable es irreversible.
+</Callout>
+
+El runtime de Solana aplica estas reglas después de que cada instrucción se
+ejecuta mediante los métodos
+[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727).
+Cada regla se verifica en el punto de modificación, y la transacción se revierte
+si alguna verificación falla.
+
+## Reglas de lamports
+
+| Regla                                                               | Aplicación                                                                                                                                                                                                                                       | Error                         |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| Solo el propietario puede debitar lamports                          | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): verifica `is_owned_by_current_program()` cuando `lamports < current`                                                                 | `ExternalAccountLamportSpend` |
+| Las cuentas de solo lectura no pueden tener lamports modificados    | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): verifica `is_writable()`                                                                                                             | `ReadonlyLamportChange`       |
+| Cualquier programa puede acreditar lamports a una cuenta escribible | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789): la verificación de propiedad solo aplica cuando el nuevo saldo es menor que el saldo actual; la verificación de escritura aún aplica | `ReadonlyLamportChange`       |
+| Los lamports deben balancearse a través de una instrucción          | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): verifica `get_lamports_delta() == 0`                                                                                      | `UnbalancedInstruction`       |
+
+## Reglas de datos
+
+| Regla                                                         | Aplicación                                                                                                                                                                                                                              | Error                                |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Solo el propietario puede modificar datos                     | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023): verifica `is_owned_by_current_program()`                                                                           | `ExternalAccountDataModified`        |
+| Las cuentas de solo lectura no pueden tener datos modificados | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016): verifica `is_writable()`                                                                                           | `ReadonlyDataModified`               |
+| Solo el propietario puede redimensionar datos                 | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037): verifica `is_owned_by_current_program()` cuando `new_len != old_len`                                               | `AccountDataSizeChanged`             |
+| Tamaño máximo de datos: 10 MiB                                | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332): verifica `new_len <= MAX_ACCOUNT_DATA_LEN`                                     | `InvalidRealloc`                     |
+| Crecimiento máximo por instrucción: 10 KiB                    | Deserialización en [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629): verifica `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE`                     | `InvalidRealloc`                     |
+| Crecimiento máximo por transacción: 20 MiB                    | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330): verifica `resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION` acumulativo | `MaxAccountsDataAllocationsExceeded` |
+
+## Reglas del propietario
+
+| Regla                                                     | Aplicación                                                                                                                                        | Error               |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Solo el propietario actual puede reasignar el propietario | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755): verifica `is_owned_by_current_program()` | `ModifiedProgramId` |
+| La cuenta debe ser escribible                             | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759): verifica `is_writable()`                 | `ModifiedProgramId` |
+| Los datos deben estar inicializados en cero               | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763): verifica `is_zeroed(data)`               | `ModifiedProgramId` |
+
+## Reglas de bandera ejecutable
+
+| Regla                                           | Aplicación                                                                                                                                                  | Error                            |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| La cuenta debe estar exenta de rent             | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967): verifica `rent.is_exempt(lamports, data_len)` | `ExecutableAccountNotRentExempt` |
+| Solo el propietario puede establecer la bandera | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): verifica `is_owned_by_current_program()`      | `ExecutableModified`             |
+| La cuenta debe ser escribible                   | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): verifica `is_writable()`                      | `ExecutableModified`             |
+
+## Transiciones de estado de rent
+
+Las cuentas existen en uno de tres valores
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30):
+_rs`Uninitialized`_ (0 lamports), _rs`RentPaying`_ (por encima de 0 pero por
+debajo del mínimo exento de rent), y _rs`RentExempt`_ (igual o por encima del
+mínimo). Las transiciones no permitidas producen
+_rs`TransactionError::InsufficientFundsForRent`_.
+
+El runtime aplica estas reglas mediante
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126):
+
+- Cualquier cuenta puede transicionar a _rs`Uninitialized`_ (cerrar) o
+  _rs`RentExempt`_.
+- Ninguna cuenta puede entrar en _rs`RentPaying`_ desde _rs`Uninitialized`_ o
+  _rs`RentExempt`_. Todas las cuentas nuevas deben estar exentas de rent.
+
+## Reglas de préstamo de cuentas
+
+Durante la ejecución de instrucciones, el runtime aplica semántica de préstamo
+de escritor único en las cuentas. Un programa puede obtener una referencia
+mutable o múltiples referencias inmutables a una cuenta, pero no ambas
+simultáneamente. Si un programa intenta tomar prestada una cuenta que ya está
+prestada de forma mutable (o prestar de forma mutable una cuenta que ya está
+prestada de forma inmutable), la instrucción falla con _rs`AccountBorrowFailed`_
+mediante
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)
+y
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520).
+Si una instrucción se completa mientras un préstamo aún está pendiente, el
+runtime devuelve _rs`AccountBorrowOutstanding`_ en
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385).

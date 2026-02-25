@@ -1,0 +1,296 @@
+---
+title: Διαδικασία επεξεργασίας συναλλαγών
+description:
+  Πώς επεξεργάζονται οι συναλλαγές Solana από την υποβολή έως την καταχώριση,
+  συμπεριλαμβανομένης της πλήρους διαδικασίας επικύρωσης 8 σταδίων, της
+  ανάγνωσης λεπτομερειών συναλλαγών από το δίκτυο και των συνηθισμένων σφαλμάτων
+  επικύρωσης.
+url: /docs/core/transactions/transaction-pipeline
+type: reference
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/fees/fee-structure
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+---
+
+<Callout type="info" title="Περίληψη">
+  Οι συναλλαγές περνούν από 8 στάδια: λήψη, επαλήθευση υπογραφής, εξυγίανση,
+  έλεγχοι προϋπολογισμού/ηλικίας, επικύρωση πληρωτή προμήθειας, φόρτωση
+  λογαριασμού, εκτέλεση εντολής και καταχώριση.
+</Callout>
+
+## Διαδικασία επεξεργασίας συναλλαγών
+
+Όταν μια συναλλαγή φτάνει σε έναν validator, περνά από μια σειρά σταδίων
+επικύρωσης και εκτέλεσης. Το παρακάτω περιγράφει την πλήρη διαδικασία από τη
+λήψη έως την καταχώριση, με αναφορές σε αρχεία πηγαίου κώδικα στον
+[agave](https://github.com/anza-xyz/agave/tree/v3.1.8) validator client.
+
+### 1. Λήψη και αποσειριοποίηση
+
+Ο validator λαμβάνει bytes συναλλαγής μέσω UDP/QUIC. Τα ακατέργαστα bytes πρέπει
+να χωρούν σε ένα μόνο πακέτο (_rs`PACKET_DATA_SIZE`_ = 1.232 bytes). Τα bytes
+αποσειριοποιούνται σε μια _rs`VersionedTransaction`_, η οποία περιέχει τον
+πίνακα υπογραφών και ένα _rs`VersionedMessage`_ (είτε legacy είτε v0).
+
+### 2. Επαλήθευση υπογραφής (sigverify)
+
+Οι υπογραφές επαληθεύονται στο
+[στάδιο sigverify](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs)
+πριν η συναλλαγή εισέλθει στο στάδιο banking. Για κάθε υπογραφή στο ευρετήριο
+`i`, ο επαληθευτής ελέγχει Ed25519(`signatures[i]`, `account_keys[i]`,
+`message_bytes`). Αν κάποια υπογραφή είναι άκυρη, το πακέτο απορρίπτεται.
+
+Η επαλήθευση είναι παραλληλοποιημένη: ο validator χωρίζει τις παρτίδες πακέτων
+σε τμήματα των
+[`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)
+(128) και τα επεξεργάζεται παράλληλα.
+
+### 3. Εξυγίανση
+
+Η αποσειριοποιημένη συναλλαγή εξυγιαίνεται για να παραχθεί μια
+_rs`SanitizedTransaction`_ (ή
+[`RuntimeTransaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/runtime_transaction.rs#L31)).
+Η εξυγίανση επικυρώνει δομικά αναλλοίωτα:
+
+- Ο αριθμός των υπογραφών ταιριάζει με το `num_required_signatures` στην
+  κεφαλίδα
+- Όλα τα `program_id_index` και `account_indices` των εντολών βρίσκονται εντός
+  ορίων
+- Ο πληρωτής προμήθειας (ευρετήριο λογαριασμού 0) είναι εγγράψιμος υπογράφων
+
+Το περιτύλιγμα _rs`RuntimeTransaction`_ αποθηκεύει προϋπολογισμένα μεταδεδομένα
+από το
+[`TransactionMeta`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/transaction_meta.rs#L38-L44):
+το hash του μηνύματος, τη σημαία συναλλαγής ψήφου, τους αριθμούς υπογραφών
+προμεταγλώττισης (Ed25519/secp256k1/secp256r1), τις λεπτομέρειες εντολής
+προϋπολογισμού υπολογισμού και το συνολικό μήκος δεδομένων εντολής.
+
+### 4. Έλεγχος προϋπολογισμού υπολογισμού, ηλικίας και κρυφής μνήμης κατάστασης
+
+Η μέθοδος
+[`check_transactions`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L55-L69)
+εκτελεί διάφορους ελέγχους ανά συναλλαγή:
+
+**Προϋπολογισμός υπολογισμού**: Οι οδηγίες προϋπολογισμού υπολογισμού της
+συναλλαγής αναλύονται και επικυρώνονται πρώτα. Οι λεπτομέρειες χρέωσης
+υπολογίζονται από τα όρια προϋπολογισμού και τη χρέωση προτεραιότητας. Εάν ο
+προϋπολογισμός υπολογισμού είναι μη έγκυρος ή αντικρουόμενος, η συναλλαγή
+αποτυγχάνει με σφάλματα ανάλυσης προϋπολογισμού υπολογισμού όπως
+_rs`DuplicateInstruction`_, `InstructionError(..., InvalidInstructionData)` ή
+_rs`InvalidLoadedAccountsDataSizeLimit`_.
+
+**Ηλικία blockhash**: Το `recent_blockhash` της συναλλαγής αναζητείται στο
+[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
+Εάν το hash βρεθεί και η ηλικία του είναι εντός _rs`MAX_PROCESSING_AGE`_ (150
+slots), η συναλλαγή προχωρά. Εάν δεν βρεθεί, ο validator ελέγχει για έγκυρο
+[durable nonce](/docs/core/transactions/durable-nonces).
+
+**Κρυφή μνήμη κατάστασης**: Το hash μηνύματος της συναλλαγής ελέγχεται έναντι
+μιας κρυφής μνήμης κατάστασης. Εάν βρεθεί, η συναλλαγή απορρίπτεται με
+_rs`AlreadyProcessed`_.
+
+### 5. Επικύρωση nonce και πληρωτή χρέωσης
+
+Η μέθοδος
+[`validate_transaction_nonce_and_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L580-L620)
+στο SVM χειρίζεται δύο επικυρώσεις:
+
+**Επικύρωση nonce** (εάν ισχύει): Για συναλλαγές nonce, ο validator φορτώνει τον
+λογαριασμό nonce και επαληθεύει:
+
+- Ο λογαριασμός ανήκει στο System Program
+- Αναλύεται ως _rs`State::Initialized`_
+- Το αποθηκευμένο durable nonce ταιριάζει με το `recent_blockhash` της
+  συναλλαγής
+- Το nonce μπορεί να προχωρήσει (το τρέχον durable nonce διαφέρει από το επόμενο
+  durable nonce, δηλαδή το nonce δεν έχει ήδη χρησιμοποιηθεί στο τρέχον block)
+- Η εξουσιοδότηση nonce έχει υπογράψει τη συναλλαγή
+
+Εάν είναι έγκυρο, το nonce προχωρά στην επόμενη τιμή durable nonce. Δείτε
+[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729).
+
+**Επικύρωση πληρωτή χρέωσης**: Ο λογαριασμός πληρωτή χρέωσης (πάντα δείκτης 0)
+φορτώνεται και ελέγχεται από τη
+[`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417):
+
+- Ο λογαριασμός πρέπει να υπάρχει (lamports > 0), διαφορετικά
+  _rs`AccountNotFound`_
+- Ο λογαριασμός πρέπει να είναι system account ή nonce account, διαφορετικά
+  _rs`InvalidAccountForFee`_
+- Τα lamports πρέπει να καλύπτουν το `min_balance + total_fee`, όπου το
+  `min_balance` είναι 0 για system accounts ή
+  `rent.minimum_balance(NonceState::size())` για nonce accounts· διαφορετικά
+  _rs`InsufficientFundsForFee`_
+- Μετά την αφαίρεση της χρέωσης, ο λογαριασμός πρέπει να παραμείνει απαλλαγμένος
+  από ενοίκιο (δεν μπορεί να μεταβεί από απαλλαγμένος από ενοίκιο σε πληρωτής
+  ενοικίου)
+
+Η χρέωση αφαιρείται από τον πληρωτή χρέωσης σε αυτό το στάδιο. Ένα στιγμιότυπο
+του πληρωτή χρέωσης μετά την αφαίρεση της χρέωσης (και του προηγμένου nonce, εάν
+υπάρχει) αποθηκεύεται ως _rs`RollbackAccounts`_, που είναι οι λογαριασμοί που
+καταχωρούνται ακόμα και αν η εκτέλεση αποτύχει.
+
+### 6. Φόρτωση λογαριασμών
+
+Η
+[`load_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L419-L455)
+φορτώνει όλους τους λογαριασμούς στους οποίους αναφέρεται η συναλλαγή. Ο
+[`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)
+τυλίγει το εξωτερικό αποθετήριο λογαριασμών και διατηρεί μια τοπική cache για
+την ομάδα, ώστε οι λογαριασμοί που τροποποιήθηκαν από προηγούμενες συναλλαγές
+στην ίδια ομάδα να είναι ορατοί στις επόμενες.
+
+Για κάθε λογαριασμό που δεν είναι πληρωτής χρέωσης, ο φορτωτής:
+
+1. Ανακτά τον λογαριασμό από την cache ή το accounts-db
+2. Ενημερώνει την κατάσταση απαλλαγής από ενοίκιο εάν χρειάζεται
+3. Συσσωρεύει το μέγεθος δεδομένων του λογαριασμού προς το
+   [`loaded_accounts_data_size_limit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (προεπιλογή 64 MiB). Κάθε λογαριασμός επιβαρύνεται με ένα βασικό overhead
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   (64 bytes) συν το μήκος των δεδομένων του
+
+Για κάθε πρόγραμμα που καλείται από τις οδηγίες της συναλλαγής, ο φορτωτής
+επαληθεύει ότι ο λογαριασμός του προγράμματος υπάρχει και ανήκει σε έγκυρο
+φορτωτή (`NativeLoader` ή έναν από τους _rs`PROGRAM_OWNERS`_). Μη έγκυρα
+προγράμματα αποτυγχάνουν με _rs`ProgramAccountNotFound`_ ή
+_rs`InvalidProgramForExecution`_.
+
+Τα προγράμματα LoaderV3 (αναβαθμίσιμα) φορτώνουν σιωπηρά τον συσχετισμένο
+λογαριασμό programdata, ο οποίος επίσης μετράει στο όριο μεγέθους φορτωμένων
+δεδομένων.
+
+Εάν η φόρτωση λογαριασμού αποτύχει αλλά ο πληρωτής χρέωσης επικυρώθηκε επιτυχώς,
+η συναλλαγή γίνεται αποτέλεσμα
+[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152):
+η χρέωση εξακολουθεί να εισπράττεται αλλά δεν εκτελούνται οδηγίες.
+
+### 7. Εκτέλεση οδηγιών
+
+Η
+[`execute_loaded_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L847)
+δημιουργεί ένα _rs`TransactionContext`_ με όλους τους φορτωμένους λογαριασμούς
+και καλεί την
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs).
+Οι οδηγίες εκτελούνται διαδοχικά με τη σειρά που εμφανίζονται στο μήνυμα. Κάθε
+κλήση οδηγίας δημιουργεί ένα _rs`InvokeContext`_ και καλεί το πρόγραμμα-στόχο.
+
+#### Λεπτομέρειες επεξεργασίας οδηγιών
+
+Η συνάρτηση
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)
+του runtime επαναλαμβάνει κάθε οδηγία και καλεί το πρόγραμμα-στόχο:
+
+1. Για κάθε εντολή, το runtime καλεί το
+   [`prepare_next_top_level_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436),
+   το οποίο δημιουργεί το
+   [`InstructionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L519).
+   Αυτό το context περιέχει αναφορές στους λογαριασμούς της εντολής (επιλυμένους
+   από τους μεταγλωττισμένους δείκτες), τα δεδομένα της εντολής και τον δείκτη
+   του program account.
+2. Το runtime ελέγχει αν το πρόγραμμα είναι
+   [precompile](/docs/core/programs/precompiles) (Ed25519, Secp256k1,
+   Secp256r1). Τα precompiles επαληθεύονται απευθείας χωρίς να καλείται το BPF
+   VM.
+3. Για όλα τα άλλα προγράμματα, το runtime καλεί το
+   [`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477),
+   το οποίο φορτώνει το πρόγραμμα από την cache και το εκτελεί στο BPF virtual
+   machine.
+4. Μετά την ολοκλήρωση της εντολής, το runtime
+   [επαληθεύει](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   ότι το συνολικό υπόλοιπο lamport σε όλους τους λογαριασμούς εντολών δεν έχει
+   αλλάξει (έλεγχος _rs`UnbalancedInstruction`_).
+5. Αν οποιαδήποτε εντολή αποτύχει, ολόκληρη η συναλλαγή ακυρώνεται. Καμία
+   ενδιάμεση αλλαγή κατάστασης δεν καταχωρείται.
+
+Κάθε εντολή αυξάνει το instruction trace. Το trace περιλαμβάνει τόσο εντολές
+ανώτατου επιπέδου όσο και οποιαδήποτε [CPIs](/docs/core/cpi) καλούν. Το συνολικό
+μήκος του trace (εντολές ανώτατου επιπέδου συν όλα τα ένθετα CPIs) δεν μπορεί να
+υπερβαίνει το 64 (_rs`MAX_INSTRUCTION_TRACE_LENGTH`_). Η υπέρβαση αυτού του
+ορίου επιστρέφει _rs`InstructionError::MaxInstructionTraceLengthExceeded`_.
+
+Μετά την εκτέλεση, το runtime επαληθεύει ότι:
+
+- Το άθροισμα των lamports σε όλους τους λογαριασμούς δεν έχει αλλάξει
+- Κανένας λογαριασμός δεν μετέβη από rent-exempt σε rent-paying
+
+### 8. Commit ή rollback
+
+Αν η εκτέλεση πετύχει, οι τροποποιημένες καταστάσεις λογαριασμών από το
+`TransactionContext` γράφονται πίσω στην batch-local cache του
+_rs`AccountLoader`_. Αν η εκτέλεση αποτύχει, μόνο τα _rs`RollbackAccounts`_ (fee
+payer με αφαιρεμένη χρέωση και προωθημένο nonce) γράφονται πίσω. Η χρέωση
+εξακολουθεί να εισπράττεται, αλλά όλες οι άλλες αλλαγές λογαριασμών
+απορρίπτονται.
+
+### Σύνοψη pipeline
+
+```
+Receive packet (UDP/QUIC)
+  --> Deserialize into VersionedTransaction
+  --> Sigverify (parallel Ed25519 verification)
+  --> Sanitize (structural validation, metadata extraction)
+  --> Parse compute budget, calculate fees
+  --> Check blockhash age (or verify nonce account)
+  --> Check status cache (dedup)
+  --> Validate nonce authority and advanceability (if nonce transaction)
+  --> Validate fee payer (load, check balance, deduct fee)
+  --> Load all accounts (with data size limits)
+  --> Load programs (verify loaders)
+  --> Execute instructions sequentially
+  --> Verify post-conditions (lamport balance, rent state)
+  --> Commit account changes (or rollback on failure)
+```
+
+## Αναφορά σφαλμάτων συναλλαγών
+
+Ο παρακάτω πίνακας παραθέτει όλες τις παραλλαγές
+[`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
+και σε ποιο στάδιο του pipeline εμφανίζονται:
+
+| Σφάλμα                                                                                                                                  | Στάδιο                             | Αιτία                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Προγραμματισμός                    | Ο λογαριασμός είναι ήδη κλειδωμένος από άλλη συναλλαγή στην ίδια ομάδα                                              |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Προγραμματισμός                    | Ένα pubkey εμφανίζεται δύο φορές στο `account_keys` της συναλλαγής                                                  |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Επικύρωση πληρωτή προμήθειας       | Ο λογαριασμός πληρωτή προμήθειας δεν υπάρχει                                                                        |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Φόρτωση λογαριασμού                | Ένα πρόγραμμα που καλέστηκε δεν υπάρχει                                                                             |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Επικύρωση πληρωτή προμήθειας       | Ο πληρωτής προμήθειας δεν μπορεί να καλύψει την προμήθεια + το ελάχιστο rent-exempt                                 |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Επικύρωση πληρωτή προμήθειας       | Ο πληρωτής προμήθειας δεν είναι λογαριασμός συστήματος ή nonce                                                      |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Προσωρινή μνήμη κατάστασης         | Η συναλλαγή είχε ήδη επεξεργαστεί                                                                                   |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Έλεγχος ηλικίας                    | Το blockhash δεν βρίσκεται στην ουρά και δεν είναι έγκυρο nonce                                                     |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Εκτέλεση                           | Προέκυψε σφάλμα κατά την επεξεργασία μιας εντολής (περιλαμβάνει δείκτη εντολής και συγκεκριμένο `InstructionError`) |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Φόρτωση λογαριασμού                | Η αλυσίδα κλήσεων του φορτωτή είναι πολύ βαθιά                                                                      |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Εξυγίανση                          | Η συναλλαγή απαιτεί προμήθεια αλλά δεν έχει υπογραφή                                                                |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Εξυγίανση                          | Η συναλλαγή περιέχει μη έγκυρη αναφορά λογαριασμού                                                                  |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Επαλήθευση υπογραφής               | Η υπογραφή Ed25519 δεν επαληθεύεται (το πακέτο απορρίπτεται)                                                        |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Φόρτωση λογαριασμού                | Το πρόγραμμα δεν ανήκει σε έγκυρο φορτωτή                                                                           |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Εξυγίανση                          | Η συναλλαγή απέτυχε να εξυγιάνει σωστά τις μετατοπίσεις λογαριασμών                                                 |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Προγραμματισμός                    | Οι συναλλαγές είναι προσωρινά απενεργοποιημένες λόγω συντήρησης του cluster                                         |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Εκτέλεση                           | Η επεξεργασία της συναλλαγής άφησε έναν λογαριασμό με εκκρεμή δανεισμένη αναφορά                                    |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Προγραμματισμός                    | Η συναλλαγή θα υπερέβαινε το μέγιστο όριο κόστους μπλοκ                                                             |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Εξυγίανση                          | Η έκδοση της συναλλαγής δεν υποστηρίζεται                                                                           |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Φόρτωση λογαριασμού                | Η συναλλαγή φορτώνει εγγράψιμο λογαριασμό που δεν μπορεί να γραφτεί                                                 |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Προγραμματισμός                    | Η συναλλαγή θα υπερέβαινε το μέγιστο όριο κόστους λογαριασμού εντός του μπλοκ                                       |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Προγραμματισμός                    | Η συναλλαγή θα υπερέβαινε το όριο δεδομένων λογαριασμού εντός του μπλοκ                                             |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Προγραμματισμός                    | Η συναλλαγή κλείδωσε πάρα πολλούς λογαριασμούς                                                                      |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Φόρτωση λογαριασμού                | Ο λογαριασμός πίνακα αναζήτησης διευθύνσεων δεν υπάρχει                                                             |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Φόρτωση λογαριασμού                | Ο πίνακας αναζήτησης διευθύνσεων ανήκει στο λάθος πρόγραμμα                                                         |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Φόρτωση λογαριασμού                | Ο πίνακας αναζήτησης διευθύνσεων περιέχει μη έγκυρα δεδομένα                                                        |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Φόρτωση λογαριασμού                | Η αναζήτηση πίνακα διευθύνσεων χρησιμοποιεί μη έγκυρο δείκτη                                                        |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Έλεγχος μετά την εκτέλεση          | Ο λογαριασμός μετέβη από rent-exempt σε rent-paying                                                                 |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Προγραμματισμός                    | Η συναλλαγή θα υπερέβαινε το μέγιστο όριο κόστους ψήφου                                                             |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Προγραμματισμός                    | Η συναλλαγή θα υπερέβαινε το συνολικό όριο δεδομένων λογαριασμού                                                    |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Ανάλυση προϋπολογισμού υπολογισμού | Διπλότυπη παραλλαγή εντολής προϋπολογισμού υπολογισμού στην ίδια συναλλαγή                                          |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Έλεγχος μετά την εκτέλεση          | Ο λογαριασμός δεν έχει αρκετά lamports για να καλύψει το rent για το μέγεθος δεδομένων του                          |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Φόρτωση λογαριασμού                | Τα συνολικά φορτωμένα δεδομένα υπερβαίνουν το όριο των 64 MiB                                                       |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Ανάλυση προϋπολογισμού υπολογισμού | Το `SetLoadedAccountsDataSizeLimit` ορίστηκε σε 0                                                                   |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Εξυγίανση                          | Η συναλλαγή διέφερε πριν/μετά την ενεργοποίηση χαρακτηριστικού και χρειάζεται επανεξυγίανση                         |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Φόρτωση λογαριασμού                | Η εκτέλεση προγράμματος είναι προσωρινά περιορισμένη στον αναφερόμενο λογαριασμό                                    |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Έλεγχος μετά την εκτέλεση          | Το συνολικό υπόλοιπο lamport πριν τη συναλλαγή δεν ισούται με το υπόλοιπο μετά                                      |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Φόρτωση λογαριασμού                | Η προσωρινή μνήμη προγράμματος έφτασε το μέγιστο όριο                                                               |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                             | Το commit ακυρώθηκε εσωτερικά                                                                                       |

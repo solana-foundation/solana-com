@@ -1,0 +1,270 @@
+---
+title: 트랜잭션 파이프라인
+description:
+  제출부터 커밋까지 Solana 트랜잭션이 처리되는 방법, 전체 8단계 검증 파이프라인,
+  네트워크에서 트랜잭션 세부 정보 읽기, 일반적인 검증 오류를 포함합니다.
+url: /docs/core/transactions/transaction-pipeline
+type: reference
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/fees/fee-structure
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+---
+
+<Callout type="info" title="요약">
+  트랜잭션은 8단계를 거칩니다: 수신, 서명 검증, 정제, 예산/기간 확인, 수수료
+  지불자 검증, 계정 로딩, 명령 실행, 커밋.
+</Callout>
+
+## 트랜잭션 처리 파이프라인
+
+트랜잭션이 validator에 도착하면 일련의 검증 및 실행 단계를 거칩니다. 다음은
+수신부터 커밋까지의 전체 파이프라인을 설명하며,
+[agave](https://github.com/anza-xyz/agave/tree/v3.1.8) validator 클라이언트의
+소스 파일 참조를 포함합니다.
+
+### 1. 수신 및 역직렬화
+
+Validator는 UDP/QUIC를 통해 트랜잭션 바이트를 수신합니다. 원시 바이트는 단일
+패킷(_rs`PACKET_DATA_SIZE`_ = 1,232바이트) 내에 맞아야 합니다. 바이트는 서명
+배열과 _rs`VersionedMessage`_(레거시 또는 v0)를 포함하는
+*rs`VersionedTransaction`*로 역직렬화됩니다.
+
+### 2. 서명 검증(sigverify)
+
+서명은 트랜잭션이 뱅킹 단계에 진입하기 전에
+[sigverify 단계](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs)에서
+검증됩니다. 인덱스 `i`의 각 서명에 대해 검증자는 Ed25519(`signatures[i]`,
+`account_keys[i]`, `message_bytes`)를 확인합니다. 서명이 유효하지 않으면 패킷이
+폐기됩니다.
+
+검증은 병렬화됩니다: validator는 패킷 배치를
+[`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)(128)
+청크로 분할하여 병렬로 처리합니다.
+
+### 3. 정제
+
+역직렬화된 트랜잭션은 정제되어 _rs`SanitizedTransaction`_(또는
+[`RuntimeTransaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/runtime_transaction.rs#L31))를
+생성합니다. 정제는 구조적 불변성을 검증합니다:
+
+- 서명 수가 헤더의 `num_required_signatures`와 일치
+- 모든 명령 `program_id_index` 및 `account_indices`가 범위 내에 있음
+- 수수료 지불자(계정 인덱스 0)가 쓰기 가능한 서명자임
+
+_rs`RuntimeTransaction`_ 래퍼는
+[`TransactionMeta`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/transaction_meta.rs#L38-L44)에서
+사전 계산된 메타데이터를 캐시합니다: 메시지 해시, 투표 트랜잭션 플래그, 사전
+컴파일 서명 수(Ed25519/secp256k1/secp256r1), 컴퓨트 예산 명령 세부 정보, 총 명령
+데이터 길이.
+
+### 4. 컴퓨트 예산, 기간 및 상태 캐시 확인
+
+[`check_transactions`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L55-L69)
+메서드는 트랜잭션당 여러 검사를 수행합니다:
+
+**컴퓨트 예산**: 트랜잭션의 컴퓨트 예산 명령어가 먼저 파싱되고 검증됩니다.
+수수료 세부 정보는 예산 한도와 우선순위 수수료로부터 계산됩니다. 컴퓨트 예산이
+유효하지 않거나 충돌하는 경우, 트랜잭션은 _rs`DuplicateInstruction`_,
+`InstructionError(..., InvalidInstructionData)` 또는
+*rs`InvalidLoadedAccountsDataSizeLimit`*와 같은 컴퓨트 예산 파싱 오류와 함께
+실패합니다.
+
+**블록해시 기간**: 트랜잭션의 `recent_blockhash`는
+[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33)에서
+조회됩니다. 해시가 발견되고 그 기간이 _rs`MAX_PROCESSING_AGE`_(150 슬롯) 이내인
+경우, 트랜잭션이 진행됩니다. 발견되지 않으면, validator는 유효한
+[durable nonce](/docs/core/transactions/durable-nonces)를 확인합니다.
+
+**상태 캐시**: 트랜잭션의 메시지 해시가 상태 캐시와 대조됩니다. 발견되면,
+트랜잭션은 *rs`AlreadyProcessed`*와 함께 거부됩니다.
+
+### 5. nonce 및 수수료 지불자 검증
+
+SVM의
+[`validate_transaction_nonce_and_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L580-L620)
+메서드는 두 가지 검증을 처리합니다:
+
+**Nonce 검증**(해당하는 경우): nonce 트랜잭션의 경우, validator는 nonce 계정을
+로드하고 다음을 확인합니다:
+
+- 계정이 System Program 소유인지
+- *rs`State::Initialized`*로 파싱되는지
+- 저장된 durable nonce가 트랜잭션의 `recent_blockhash`와 일치하는지
+- nonce가 진행될 수 있는지(현재 durable nonce가 다음 durable nonce와 다른지, 즉
+  nonce가 현재 블록에서 이미 사용되지 않았는지)
+- nonce 권한이 트랜잭션에 서명했는지
+
+유효한 경우, nonce는 다음 durable nonce 값으로 진행됩니다.
+[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)를
+참조하세요.
+
+**수수료 지불자 검증**: 수수료 지불자 계정(항상 인덱스 0)이 로드되고
+[`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)에
+의해 확인됩니다:
+
+- 계정이 존재해야 함(lamports > 0), 그렇지 않으면 _rs`AccountNotFound`_
+- 계정이 시스템 계정 또는 nonce 계정이어야 함, 그렇지 않으면
+  _rs`InvalidAccountForFee`_
+- Lamports가 `min_balance + total_fee`를 충당해야 함, 여기서 `min_balance`는
+  시스템 계정의 경우 0이거나 nonce 계정의 경우
+  `rent.minimum_balance(NonceState::size())`임; 그렇지 않으면
+  _rs`InsufficientFundsForFee`_
+- 수수료 차감 후, 계정은 렌트 면제 상태를 유지해야 함(렌트 면제에서 렌트 지불로
+  전환할 수 없음)
+
+이 단계에서 수수료 지불자로부터 수수료가 차감됩니다. 수수료가 차감된 수수료
+지불자(및 해당되는 경우 고급 nonce)의 스냅샷이 *rs`RollbackAccounts`*로
+저장되며, 이는 실행이 실패하더라도 커밋되는 계정입니다.
+
+### 6. 계정 로드
+
+[`load_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L419-L455)는
+트랜잭션에서 참조하는 모든 계정을 로드합니다.
+[`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)는
+외부 계정 저장소를 래핑하고 배치 로컬 캐시를 유지하여 동일한 배치의 이전
+트랜잭션에서 수정된 계정이 이후 트랜잭션에서 보이도록 합니다.
+
+각 비수수료 지불자 계정에 대해 로더는 다음을 수행합니다.
+
+1. 캐시 또는 accounts-db에서 계정을 가져옵니다
+2. 필요한 경우 임대료 면제 상태를 업데이트합니다
+3. 계정의 데이터 크기를
+   [`loaded_accounts_data_size_limit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)(기본값
+   64 MiB)에 누적합니다. 각 계정은
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)(64바이트)의
+   기본 오버헤드와 데이터 길이를 발생시킵니다
+
+트랜잭션의 명령어에 의해 호출되는 각 프로그램에 대해 로더는 program account가
+존재하고 유효한 로더(`NativeLoader` 또는 _rs`PROGRAM_OWNERS`_ 중 하나)가
+소유하고 있는지 확인합니다. 유효하지 않은 프로그램은
+_rs`ProgramAccountNotFound`_ 또는 *rs`InvalidProgramForExecution`*로 실패합니다.
+
+LoaderV3(업그레이드 가능) 프로그램은 연결된 programdata 계정을 암시적으로
+로드하며, 이 역시 로드된 데이터 크기 제한에 포함됩니다.
+
+계정 로드가 실패했지만 수수료 지불자가 성공적으로 검증된 경우, 트랜잭션은
+[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)
+결과가 됩니다. 수수료는 여전히 징수되지만 명령어는 실행되지 않습니다.
+
+### 7. 명령어 실행
+
+[`execute_loaded_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L847)는
+로드된 모든 계정으로 *rs`TransactionContext`*를 생성하고
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs)를
+호출합니다. 명령어는 메시지에 나타나는 순서대로 순차적으로 실행됩니다. 각 명령어
+호출은 *rs`InvokeContext`*를 생성하고 대상 프로그램을 호출합니다.
+
+#### 명령어 처리 세부사항
+
+런타임의
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)
+함수는 각 명령어를 반복하고 대상 프로그램을 호출합니다.
+
+1. 각 instruction에 대해 런타임은
+   [`prepare_next_top_level_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)를
+   호출하여
+   [`InstructionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L519)를
+   구성합니다. 이 컨텍스트에는 instruction의 계정(컴파일된 인덱스에서 해석됨),
+   instruction data 및 program account 인덱스에 대한 참조가 포함됩니다.
+2. 런타임은 프로그램이 [precompile](/docs/core/programs/precompiles)(Ed25519,
+   Secp256k1, Secp256r1)인지 확인합니다. Precompile은 BPF VM을 호출하지 않고
+   직접 검증됩니다.
+3. 다른 모든 프로그램의 경우 런타임은
+   [`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477)를
+   호출하여 캐시에서 프로그램을 로드하고 BPF 가상 머신에서 실행합니다.
+4. Instruction이 완료된 후 런타임은 모든 instruction 계정의 총 lamport 잔액이
+   변경되지 않았는지
+   [검증](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)합니다
+   (_rs`UnbalancedInstruction`_ 확인).
+5. Instruction이 실패하면 전체 트랜잭션이 롤백됩니다. 중간 상태 변경은 커밋되지
+   않습니다.
+
+각 instruction은 instruction 추적을 증가시킵니다. 추적에는 최상위 instruction과
+호출하는 모든 [CPI](/docs/core/cpi)가 포함됩니다. 총 추적 길이(최상위
+instruction과 모든 중첩된 CPI)는 64를 초과할 수 없습니다
+(_rs`MAX_INSTRUCTION_TRACE_LENGTH`_). 이 제한을 초과하면
+*rs`InstructionError::MaxInstructionTraceLengthExceeded`*가 반환됩니다.
+
+실행 후 런타임은 다음을 검증합니다:
+
+- 모든 계정의 lamport 합계가 변경되지 않았는지 확인
+- 렌트 면제 상태에서 렌트 지불 상태로 전환된 계정이 없는지 확인
+
+### 8. 커밋 또는 롤백
+
+실행이 성공하면 `TransactionContext`의 수정된 계정 상태가 *rs`AccountLoader`*의
+배치 로컬 캐시에 기록됩니다. 실행이 실패하면 _rs`RollbackAccounts`_(수수료가
+차감되고 nonce가 진행된 수수료 지불자)만 기록됩니다. 수수료는 여전히 징수되지만
+다른 모든 계정 변경 사항은 폐기됩니다.
+
+### 파이프라인 요약
+
+```
+Receive packet (UDP/QUIC)
+  --> Deserialize into VersionedTransaction
+  --> Sigverify (parallel Ed25519 verification)
+  --> Sanitize (structural validation, metadata extraction)
+  --> Parse compute budget, calculate fees
+  --> Check blockhash age (or verify nonce account)
+  --> Check status cache (dedup)
+  --> Validate nonce authority and advanceability (if nonce transaction)
+  --> Validate fee payer (load, check balance, deduct fee)
+  --> Load all accounts (with data size limits)
+  --> Load programs (verify loaders)
+  --> Execute instructions sequentially
+  --> Verify post-conditions (lamport balance, rent state)
+  --> Commit account changes (or rollback on failure)
+```
+
+## 트랜잭션 오류 참조
+
+다음 표는 모든
+[`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
+변형과 발생하는 파이프라인 단계를 나열합니다:
+
+| 오류                                                                                                                                    | 단계               | 원인                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | 스케줄링           | 계정이 동일한 배치의 다른 트랜잭션에 의해 이미 잠겨 있음                |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | 스케줄링           | pubkey가 트랜잭션의 `account_keys`에 두 번 나타남                       |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | 수수료 지불자 검증 | 수수료 지불자 계정이 존재하지 않음                                      |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | 계정 로딩          | 호출된 프로그램이 존재하지 않음                                         |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | 수수료 지불자 검증 | 수수료 지불자가 수수료 + 렌트 면제 최소값을 충당할 수 없음              |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | 수수료 지불자 검증 | 수수료 지불자가 시스템 또는 nonce 계정이 아님                           |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | 상태 캐시          | 트랜잭션이 이미 처리됨                                                  |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | 기간 확인          | 블록해시가 큐에 없고 유효한 nonce가 아님                                |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | 실행               | 명령어 처리 중 오류 발생(명령어 인덱스 및 특정 `InstructionError` 포함) |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | 계정 로딩          | 로더 호출 체인이 너무 깊음                                              |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | 검증               | 트랜잭션에 수수료가 필요하지만 서명이 없음                              |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | 검증               | 트랜잭션에 잘못된 계정 참조가 포함됨                                    |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | 서명 검증          | Ed25519 서명이 검증되지 않음(패킷이 폐기됨)                             |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | 계정 로딩          | 프로그램이 유효한 로더의 소유가 아님                                    |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | 검증               | 트랜잭션이 계정 오프셋을 올바르게 검증하지 못함                         |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | 스케줄링           | 클러스터 유지보수로 인해 트랜잭션이 현재 비활성화됨                     |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | 실행               | 트랜잭션 처리가 미해결 차용 참조가 있는 계정을 남김                     |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | 스케줄링           | 트랜잭션이 최대 블록 비용 제한을 초과함                                 |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | 검증               | 트랜잭션 버전이 지원되지 않음                                           |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | 계정 로딩          | 트랜잭션이 쓸 수 없는 쓰기 가능 계정을 로드함                           |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | 스케줄링           | 트랜잭션이 블록 내 최대 계정 비용 제한을 초과함                         |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | 스케줄링           | 트랜잭션이 블록 내 계정 데이터 제한을 초과함                            |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | 스케줄링           | 트랜잭션이 너무 많은 계정을 잠금                                        |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | 계정 로딩          | 주소 조회 테이블 계정이 존재하지 않음                                   |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | 계정 로딩          | 주소 조회 테이블이 잘못된 프로그램의 소유임                             |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | 계정 로딩          | 주소 조회 테이블에 잘못된 데이터가 포함됨                               |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | 계정 로딩          | 주소 테이블 조회가 잘못된 인덱스를 사용함                               |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | 실행 후 확인       | 계정이 렌트 면제에서 렌트 지불로 전환됨                                 |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | 스케줄링           | 트랜잭션이 최대 투표 비용 제한을 초과함                                 |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | 스케줄링           | 트랜잭션이 총 계정 데이터 제한을 초과함                                 |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | 컴퓨트 예산 파싱   | 동일한 트랜잭션에 중복된 컴퓨트 예산 명령어 변형                        |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | 실행 후 확인       | 계정에 데이터 크기에 대한 렌트를 충당할 충분한 lamport가 없음           |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | 계정 로딩          | 로드된 총 데이터가 64 MiB 제한을 초과함                                 |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | 컴퓨트 예산 파싱   | `SetLoadedAccountsDataSizeLimit`가 0으로 설정됨                         |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | 검증               | 트랜잭션이 기능 활성화 전후에 달라져 재검증이 필요함                    |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | 계정 로딩          | 참조된 계정에서 프로그램 실행이 일시적으로 제한됨                       |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | 실행 후 확인       | 트랜잭션 전 총 lamport 잔액이 트랜잭션 후 잔액과 같지 않음              |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | 계정 로딩          | 프로그램 캐시가 최대 제한에 도달함                                      |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | 커밋               | 커밋이 내부적으로 취소됨                                                |

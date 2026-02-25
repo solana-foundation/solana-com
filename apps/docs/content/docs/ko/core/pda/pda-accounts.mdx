@@ -1,0 +1,196 @@
+---
+title: PDA 계정
+description:
+  invoke_signed와 Anchor의 init 제약 조건을 사용하여 Solana PDA 주소에 온체인
+  계정을 생성합니다. 코드 예제와 함께 invoke_signed 검증 흐름 및 Anchor PDA 생성
+  패턴을 설명합니다.
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: PDA Signing via invoke_signed, Create a PDA Account */}
+
+<Callout type="info" title="요약">
+  PDA의 seed를 사용하여 _rs`invoke_signed`_를 통해 PDA 계정을 생성합니다. 소유
+  프로그램만 PDA에 서명할 수 있습니다. Anchor의 _rs`init`_ 제약 조건은 PDA 계정
+  생성을 자동화합니다.
+</Callout>
+
+## `invoke_signed`를 통한 PDA 서명
+
+프로그램이 CPI 중에 PDA를 대신하여 서명해야 할 때, PDA의 seed와 함께
+*rs`invoke_signed`*를 사용합니다. 런타임은 **호출 프로그램의 ID**를 사용하여
+seed가 예상 PDA를 도출하는지 검증하며, 이를 통해 소유 프로그램만 서명할 수
+있도록 보장합니다. 전체 검증 흐름은
+[PDA 서명](/docs/core/cpi/cpi-cost-model#pda-signing)을 참조하세요.
+
+## PDA 계정 생성
+
+PDA 도출과 PDA에 계정 생성은 별도의 작업입니다. 주소를 도출한 후 명시적으로
+계정을 생성해야 합니다.
+
+PDA에 계정을 생성하려면, 도출 프로그램이 [`invoke_signed`](/docs/core/cpi)를
+통해 System Program의 _rs`create_account`_ 명령을 호출하고, 런타임이 해당 주소에
+대한 프로그램의 권한을 검증할 수 있도록 PDA의 seed를 전달합니다.
+
+<WithMentions>
+
+아래 예제는 [Anchor 프레임워크](https://www.anchor-lang.com/docs)를 사용하여
+프로그램 파생 주소로 새 계정을 생성합니다. 프로그램에는 새 계정을 생성하는 단일
+[`initialize`](mention:initialize) 명령이 포함되어 있으며, 이 계정은 PDA를
+도출하는 데 사용된 [사용자 주소](mention:user-address)와
+[bump seed](mention:bump)를 저장합니다.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+[`init`](mention:init) 제약 조건은 Anchor에게 PDA를 주소로 사용하여 새 계정을
+생성하도록
+[System Program을 호출](/docs/core/programs/builtin-programs#the-system-program)하라고
+지시합니다. PDA를 생성하는 데 사용된 [seed](mention:seeds)는 다음과 같습니다.
+
+- 고정 문자열: "data"
+- 명령어에 제공된 사용자 계정의 주소
+- 표준 [bump seed](mention:bump)
+
+이 예제에서는 bump 제약 조건에 값이 할당되지 않았으므로 Anchor는 PDA를 파생하고
+bump를 찾기 위해 *`find_program_address`*를 사용합니다.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+아래 테스트 파일에는 프로그램 파생 주소로 새 계정을 생성하기 위해
+[`initialize`](mention:initialize) 명령어를 호출하는 트랜잭션이 포함되어
+있습니다. 이 파일에는 [PDA를 파생](mention:pda)하는 코드가 포함되어 있습니다.
+
+이 예제는 생성될 새 계정을 [가져오는](mention:fetch) 방법도 보여줍니다.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  동일한 `user` 주소 seed로 `initialize` 명령어를 다시 호출하면 트랜잭션이
+  실패합니다. 이는 파생된 주소에 이미 계정이 존재하기 때문입니다.
+</Callout>

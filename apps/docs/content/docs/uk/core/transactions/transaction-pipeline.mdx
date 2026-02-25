@@ -1,0 +1,283 @@
+---
+title: Конвеєр транзакцій
+description:
+  Як обробляються транзакції Solana від надсилання до фіксації, включаючи повний
+  8-етапний конвеєр валідації, зчитування деталей транзакцій з мережі та
+  поширені помилки валідації.
+url: /docs/core/transactions/transaction-pipeline
+type: reference
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/fees/fee-structure
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+---
+
+<Callout type="info" title="Підсумок">
+  Транзакції проходять через 8 етапів: отримання, перевірка підпису,
+  санітизація, перевірка бюджету/віку, валідація платника комісії, завантаження
+  облікових записів, виконання інструкцій та фіксація.
+</Callout>
+
+## Конвеєр обробки транзакцій
+
+Коли транзакція надходить до валідатора, вона проходить через серію етапів
+валідації та виконання. Нижче описано повний конвеєр від отримання до фіксації з
+посиланнями на файли вихідного коду клієнта валідатора
+[agave](https://github.com/anza-xyz/agave/tree/v3.1.8).
+
+### 1. Отримання та десеріалізація
+
+Валідатор отримує байти транзакції через UDP/QUIC. Необроблені байти мають
+поміститися в один пакет (_rs`PACKET_DATA_SIZE`_ = 1 232 байти). Байти
+десеріалізуються в _rs`VersionedTransaction`_, який містить масив підписів та
+_rs`VersionedMessage`_ (legacy або v0).
+
+### 2. Перевірка підпису (sigverify)
+
+Підписи перевіряються на
+[етапі sigverify](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs)
+перед тим, як транзакція потрапляє на етап banking. Для кожного підпису з
+індексом `i` верифікатор перевіряє Ed25519(`signatures[i]`, `account_keys[i]`,
+`message_bytes`). Якщо будь-який підпис недійсний, пакет відкидається.
+
+Перевірка паралелізована: валідатор розділяє пакети на фрагменти по
+[`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)
+(128) і обробляє їх паралельно.
+
+### 3. Санітизація
+
+Десеріалізована транзакція санітизується для створення
+_rs`SanitizedTransaction`_ (або
+[`RuntimeTransaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/runtime_transaction.rs#L31)).
+Санітизація валідує структурні інваріанти:
+
+- Кількість підписів відповідає `num_required_signatures` у заголовку
+- Усі `program_id_index` та `account_indices` інструкцій знаходяться в межах
+  допустимих значень
+- Платник комісії (обліковий запис з індексом 0) є підписантом з правом запису
+
+Обгортка _rs`RuntimeTransaction`_ кешує попередньо обчислені метадані з
+[`TransactionMeta`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/transaction_meta.rs#L38-L44):
+хеш повідомлення, прапорець транзакції голосування, кількість підписів
+прекомпіляції (Ed25519/secp256k1/secp256r1), деталі інструкцій обчислювального
+бюджету та загальну довжину даних інструкцій.
+
+### 4. Перевірка бюджету обчислень, віку та кешу статусу
+
+Метод
+[`check_transactions`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L55-L69)
+виконує кілька перевірок для кожної транзакції:
+
+**Бюджет обчислень**: інструкції бюджету обчислень транзакції спочатку парсяться
+та валідуються. Деталі комісії розраховуються на основі лімітів бюджету та
+комісії пріоритизації. Якщо бюджет обчислень недійсний або суперечливий,
+транзакція завершується помилками парсингу бюджету обчислень, такими як
+_rs`DuplicateInstruction`_, `InstructionError(..., InvalidInstructionData)` або
+_rs`InvalidLoadedAccountsDataSizeLimit`_.
+
+**Вік блокхешу**: `recent_blockhash` транзакції шукається в
+[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
+Якщо хеш знайдено і його вік знаходиться в межах _rs`MAX_PROCESSING_AGE`_ (150
+слотів), транзакція продовжується. Якщо не знайдено, валідатор перевіряє
+наявність дійсного
+[довготривалого nonce](/docs/core/transactions/durable-nonces).
+
+**Кеш статусу**: хеш повідомлення транзакції перевіряється в кеші статусу. Якщо
+знайдено, транзакція відхиляється з помилкою _rs`AlreadyProcessed`_.
+
+### 5. Валідація nonce та платника комісії
+
+Метод
+[`validate_transaction_nonce_and_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L580-L620)
+в SVM обробляє дві валідації:
+
+**Валідація nonce** (якщо застосовно): для nonce-транзакцій валідатор завантажує
+nonce-акаунт і перевіряє:
+
+- Акаунт належить System Program
+- Він парситься як _rs`State::Initialized`_
+- Збережений довготривалий nonce відповідає `recent_blockhash` транзакції
+- Nonce може бути просунутий (його поточний довготривалий nonce відрізняється
+  від наступного довготривалого nonce, тобто nonce ще не використовувався в
+  поточному блоці)
+- Авторитет nonce підписав транзакцію
+
+Якщо валідація успішна, nonce просувається до наступного значення довготривалого
+nonce. Див.
+[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729).
+
+**Валідація платника комісії**: акаунт платника комісії (завжди індекс 0)
+завантажується та перевіряється методом
+[`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417):
+
+- Акаунт повинен існувати (lamports > 0), інакше _rs`AccountNotFound`_
+- Акаунт повинен бути системним акаунтом або nonce-акаунтом, інакше
+  _rs`InvalidAccountForFee`_
+- Lamports повинні покривати `min_balance + total_fee`, де `min_balance`
+  дорівнює 0 для системних акаунтів або
+  `rent.minimum_balance(NonceState::size())` для nonce-акаунтів; інакше
+  _rs`InsufficientFundsForFee`_
+- Після вирахування комісії акаунт повинен залишатися звільненим від оренди (не
+  може переходити зі стану звільнення від оренди до стану сплати оренди)
+
+Комісія вираховується з платника комісії на цьому етапі. Знімок платника комісії
+після вирахування комісії (та просунутого nonce, якщо застосовно) зберігається
+як _rs`RollbackAccounts`_, це акаунти, які фіксуються навіть якщо виконання
+завершується невдачею.
+
+### 6. Завантаження акаунтів
+
+[`load_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L419-L455)
+завантажує всі акаунти, на які посилається транзакція.
+[`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)
+обгортає зовнішнє сховище акаунтів і підтримує локальний кеш пакета, щоб
+акаунти, змінені попередніми транзакціями в тому ж пакеті, були видимі для
+наступних.
+
+Для кожного акаунта, що не є платником комісії, завантажувач:
+
+1. Отримує акаунт з кешу або accounts-db
+2. Оновлює статус звільнення від оренди за потреби
+3. Накопичує розмір даних акаунта до
+   [`loaded_accounts_data_size_limit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (за замовчуванням 64 МіБ). Кожен акаунт має базові витрати
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   (64 байти) плюс довжина його даних
+
+Для кожної програми, викликаної інструкціями транзакції, завантажувач перевіряє,
+що program account існує і належить валідному завантажувачу (`NativeLoader` або
+одному з _rs`PROGRAM_OWNERS`_). Невалідні програми завершуються з помилкою
+_rs`ProgramAccountNotFound`_ або _rs`InvalidProgramForExecution`_.
+
+Програми LoaderV3 (оновлювані) неявно завантажують свій асоційований programdata
+account, який також враховується в ліміт розміру завантажених даних.
+
+Якщо завантаження акаунта завершується невдачею, але платник комісії був успішно
+валідований, транзакція стає
+[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)
+результатом: комісія все одно стягується, але жодна інструкція не виконується.
+
+### 7. Виконання інструкцій
+
+[`execute_loaded_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L847)
+створює _rs`TransactionContext`_ з усіма завантаженими акаунтами та викликає
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs).
+Інструкції виконуються послідовно в порядку, в якому вони з'являються в
+повідомленні. Кожен виклик інструкції створює _rs`InvokeContext`_ і викликає
+цільову програму.
+
+#### Деталі обробки інструкцій
+
+Функція runtime
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)
+ітерує через кожну інструкцію та викликає цільову програму:
+
+1. Для кожної інструкції середовище виконання викликає
+   [`prepare_next_top_level_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436),
+   який створює
+   [`InstructionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L519).
+   Цей контекст містить посилання на акаунти інструкції (отримані з
+   скомпільованих індексів), дані інструкції та індекс акаунта програми.
+2. Середовище виконання перевіряє, чи є програма
+   [прекомпіляцією](/docs/core/programs/precompiles) (Ed25519, Secp256k1,
+   Secp256r1). Прекомпіляції перевіряються безпосередньо без виклику BPF VM.
+3. Для всіх інших програм середовище виконання викликає
+   [`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477),
+   який завантажує програму з кешу та виконує її у віртуальній машині BPF.
+4. Після завершення інструкції середовище виконання
+   [перевіряє](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398),
+   що загальний баланс lamport по всіх акаунтах інструкції не змінився
+   (перевірка _rs`UnbalancedInstruction`_).
+5. Якщо будь-яка інструкція завершується невдало, вся транзакція відкочується.
+   Жодні проміжні зміни стану не фіксуються.
+
+Кожна інструкція збільшує трасування інструкцій. Трасування включає як
+інструкції верхнього рівня, так і будь-які [CPI](/docs/core/cpi), які вони
+викликають. Загальна довжина трасування (інструкції верхнього рівня плюс усі
+вкладені CPI) не може перевищувати 64 (_rs`MAX_INSTRUCTION_TRACE_LENGTH`_).
+Перевищення цього ліміту повертає
+_rs`InstructionError::MaxInstructionTraceLengthExceeded`_.
+
+Після виконання середовище виконання перевіряє, що:
+
+- Сума lamport по всіх акаунтах не змінилася
+- Жоден акаунт не перейшов зі стану звільнення від оренди до стану оплати оренди
+
+### 8. Фіксація або відкат
+
+Якщо виконання успішне, змінені стани акаунтів з `TransactionContext`
+записуються назад у локальний кеш пакета _rs`AccountLoader`_. Якщо виконання
+завершується невдало, записуються назад лише _rs`RollbackAccounts`_ (платник
+комісії з вирахуваною комісією та просунутим nonce). Комісія все одно
+стягується, але всі інші зміни акаунтів відкидаються.
+
+### Підсумок конвеєра
+
+```
+Receive packet (UDP/QUIC)
+  --> Deserialize into VersionedTransaction
+  --> Sigverify (parallel Ed25519 verification)
+  --> Sanitize (structural validation, metadata extraction)
+  --> Parse compute budget, calculate fees
+  --> Check blockhash age (or verify nonce account)
+  --> Check status cache (dedup)
+  --> Validate nonce authority and advanceability (if nonce transaction)
+  --> Validate fee payer (load, check balance, deduct fee)
+  --> Load all accounts (with data size limits)
+  --> Load programs (verify loaders)
+  --> Execute instructions sequentially
+  --> Verify post-conditions (lamport balance, rent state)
+  --> Commit account changes (or rollback on failure)
+```
+
+## Довідник помилок транзакцій
+
+Наступна таблиця містить усі варіанти
+[`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
+та етапи конвеєра, на яких вони виникають:
+
+| Помилка                                                                                                                                 | Етап                           | Причина                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Планування                     | Обліковий запис вже заблоковано іншою транзакцією в тому самому пакеті                                  |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Планування                     | Pubkey з'являється двічі в `account_keys` транзакції                                                    |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Перевірка платника комісії     | Обліковий запис платника комісії не існує                                                               |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Завантаження облікових записів | Викликана програма не існує                                                                             |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Перевірка платника комісії     | Платник комісії не може покрити комісію + мінімум для звільнення від rent                               |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Перевірка платника комісії     | Платник комісії не є системним обліковим записом або обліковим записом nonce                            |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Кеш статусу                    | Транзакція вже була оброблена                                                                           |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Перевірка віку                 | Blockhash відсутній у черзі і не є дійсним nonce                                                        |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Виконання                      | Під час обробки інструкції сталася помилка (включає індекс інструкції та конкретний `InstructionError`) |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Завантаження облікових записів | Ланцюг викликів завантажувача занадто глибокий                                                          |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Санітизація                    | Транзакція потребує комісії, але не має підпису                                                         |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Санітизація                    | Транзакція містить недійсне посилання на обліковий запис                                                |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Перевірка підпису              | Підпис Ed25519 не перевіряється (пакет відкидається)                                                    |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Завантаження облікових записів | Програма не належить дійсному завантажувачу                                                             |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Санітизація                    | Транзакція не змогла правильно санітизувати зміщення облікових записів                                  |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Планування                     | Транзакції наразі вимкнено через обслуговування кластера                                                |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Виконання                      | Обробка транзакції залишила обліковий запис із непогашеним запозиченим посиланням                       |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Планування                     | Транзакція перевищить максимальний ліміт вартості блоку                                                 |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Санітизація                    | Версія транзакції не підтримується                                                                      |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Завантаження облікових записів | Транзакція завантажує обліковий запис для запису, який не може бути записаний                           |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Планування                     | Транзакція перевищить максимальний ліміт вартості облікового запису в блоці                             |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Планування                     | Транзакція перевищить ліміт даних облікового запису в блоці                                             |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Планування                     | Транзакція заблокувала занадто багато облікових записів                                                 |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Завантаження облікових записів | Обліковий запис таблиці пошуку адрес не існує                                                           |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Завантаження облікових записів | Таблиця пошуку адрес належить неправильній програмі                                                     |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Завантаження облікових записів | Таблиця пошуку адрес містить недійсні дані                                                              |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Завантаження облікових записів | Пошук у таблиці адрес використовує недійсний індекс                                                     |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Перевірка після виконання      | Обліковий запис перейшов зі звільненого від rent до платного за rent                                    |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Планування                     | Транзакція перевищить максимальний ліміт вартості голосування                                           |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Планування                     | Транзакція перевищить загальний ліміт даних облікового запису                                           |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Розбір бюджету обчислень       | Дублікат варіанта інструкції бюджету обчислень у тій самій транзакції                                   |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Перевірка після виконання      | Обліковий запис не має достатньо lamport для покриття rent за розмір його даних                         |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Завантаження облікових записів | Загальний обсяг завантажених даних перевищує ліміт 64 МіБ                                               |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Розбір бюджету обчислень       | `SetLoadedAccountsDataSizeLimit` встановлено на 0                                                       |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Санітизація                    | Транзакція відрізнялася до/після активації функції та потребує повторної санітизації                    |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Завантаження облікових записів | Виконання програми тимчасово обмежено для вказаного облікового запису                                   |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Перевірка після виконання      | Загальний баланс lamport до транзакції не дорівнює балансу після                                        |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Завантаження облікових записів | Кеш програми досяг максимального ліміту                                                                 |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Фіксація                       | Фіксацію скасовано внутрішньо                                                                           |

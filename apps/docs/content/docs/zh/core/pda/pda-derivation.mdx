@@ -1,0 +1,411 @@
+---
+title: PDA 派生
+description:
+  Solana PDA 如何通过 SHA-256 结合 seed、bump 值和 program ID
+  进行派生。介绍派生算法、规范 bump 搜索、计算成本，以及 TypeScript 和 Rust 的
+  SDK 示例。
+url: /docs/core/pda/pda-derivation
+type: conceptual
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/pda/pda-accounts
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="摘要">
+  PDA 是通过将 seed、program ID 和 bump 组合后用 SHA-256 哈希，直到结果落在
+  Ed25519 曲线之外为止。规范 bump 是第一个生成曲线外地址的值。最多支持 16 个
+  seed，每个 seed 最多 32 字节。
+</Callout>
+
+## 背景
+
+Solana
+[`Keypair`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/keypair/src/lib.rs#L26)
+的值是 [Ed25519 曲线](https://ed25519.cr.yp.to/)
+上的点。一个 keypair 包含公钥（用作账户地址）和私钥（用于生成签名）。拥有私钥的人可以为该地址签署交易。
+
+![两个曲线上的账户地址](/assets/docs/core/pda/address-on-curve.svg)
+
+PDA 是有意派生到 Ed25519 曲线之外的。由于它不是有效的曲线点，因此不存在私钥，也没有外部方可以为其生成签名。只有派生该 PDA 的程序可以通过
+_rs`invoke_signed`_ 授权 PDA 上的操作。
+
+![曲线外地址](/assets/docs/core/pda/address-off-curve.svg)
+
+### PDA 与 keypair 账户的区别
+
+| 属性           | keypair 账户                 | PDA 账户                        |
+| -------------- | ---------------------------- | ------------------------------- |
+| 地址类型       | Ed25519 曲线上的地址         | Ed25519 曲线外的地址            |
+| 是否有私钥     | 有                           | 没有                            |
+| 能否签署交易   | 可以（有私钥时）             | 不可以                          |
+| CPI 时能否签名 | 不可以（除非交易中包含签名） | 可以（通过 `invoke_signed`）    |
+| 派生方式       | 生成 Ed25519 keypair         | 由 seed + program ID 决定性派生 |
+| 典型用途       | 用户钱包、Program ID         | 程序拥有的数据账户              |
+
+## 可选 seed
+
+可选 seed 是用户自定义的字节串，作为 PDA 派生的输入。它们用于为某个程序创建唯一且可预测的地址。例如，使用
+`["user", user_pubkey]` 作为 seed，可以为每个用户派生出不同的 PDA。
+
+seed 必须遵循以下约束：
+
+- 每次派生最多 16 个 seed（_rs`MAX_SEEDS`_）
+- 每个 seed 最多 32 字节（_rs`MAX_SEED_LEN`_）
+
+## bump seed
+
+bump seed 是在派生过程中附加到可选 seed 后的单字节（0-255）。
+[`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L800)
+会从 255 递减到 0，依次调用
+_rs`create_program_address`_，直到结果不在 Ed25519 曲线上。第一个成功的值就是**规范 bump**。
+
+程序应始终使用规范 bump，以确保从 seed 到地址的唯一且可预测的映射。
+
+<Callout type="warn">
+  派生 PDA 时务必使用规范 bump。如果使用非规范 bump，会为同一组 seed
+  创建第二个有效地址，这可能导致攻击者替换为非预期账户，从而产生安全漏洞。
+</Callout>
+
+![PDA 派生](/assets/docs/core/pda/pda-derivation.svg)
+
+## 派生算法
+
+PDA 的派生在 SDK 的
+[`create_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L911)
+函数中实现。算法流程如下：
+
+1. 校验 seed 数量不超过 _rs`MAX_SEEDS`_（16 个），且每个 seed 不超过
+   _rs`MAX_SEED_LEN`_（32 字节）。如有不符，返回
+   _rs`PubkeyError::MaxSeedLengthExceeded`_。
+2. 将所有 seed、程序 ID 以及字符串 `"ProgramDerivedAddress"`
+   一起进行 SHA-256 哈希，得到 32 字节结果。
+3. 检查结果是否为 Ed25519 曲线上的有效点。
+4. 如果结果在曲线上，返回
+   _rs`PubkeyError::InvalidSeeds`_（此地址会有对应私钥，违背 PDA 的安全性）。
+5. 如果结果不在曲线上，则将其作为 PDA 返回。
+
+## 计算单元成本
+
+该[链上 syscall](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L798-L834)针对
+_rs`create_program_address`_
+每次调用收取[1,500 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L200)。
+
+[`try_find_program_address` syscall](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L836-L886)
+在进入时收取 1,500 CU（在循环前），然后每次循环中 bump 失败时额外收取 1,500 CU。
+
+## 常见 seed 模式
+
+seed 是应用特定的。常见模式包括：
+
+| 模式          | seed                                              | 用例                     |
+| ------------- | ------------------------------------------------- | ------------------------ |
+| 全局单例      | `["global"]`                                      | 整个程序范围的配置账户   |
+| 每用户账户    | `["user", user_pubkey]`                           | 每个用户每个程序一个账户 |
+| 每用户每实体  | `["vault", user_pubkey, mint_pubkey]`             | 代币金库、每用户每代币   |
+| 计数器 / 顺序 | `["order", user_pubkey, &order_id.to_le_bytes()]` | 每用户的顺序记录         |
+
+<Callout type="warn">
+  seed 在哈希前会被拼接，因此 `["ab", "cd"]` 和 `["abcd"]` 会生成相同的
+  PDA。请使用定长 seed 或分隔符以避免冲突。例如，`["ab", "-", "cd"]`
+  就不会产生歧义。
+</Callout>
+
+## 示例：派生 PDA
+
+派生 PDA 仅计算地址，并不会在该地址上创建链上账户。账户必须通过单独的指令（通常是
+_rs`create_account`_ 通过 CPI）显式创建。
+
+Solana SDK 提供了 PDA 派生函数。每个函数都需要：
+
+- **Program ID**：用于派生 PDA 的程序地址，该程序可以代表 PDA 签名。
+- **可选 seed**：预定义输入，如字符串、数字或其他账户地址。
+
+| SDK                            | 函数                                                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/kit` (TypeScript)     | [`getProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L157) |
+| `@solana/web3.js` (TypeScript) | [`findProgramAddressSync`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/publickey.ts#L212)               |
+| `solana_sdk` (Rust)            | [`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L800)                      |
+
+以下示例演示如何使用 Solana SDK 派生 PDA。点击 **▶ 运行** 即可执行代码。
+
+### 使用字符串 seed 派生 PDA
+
+下面的示例演示如何使用 program ID 和可选的字符串 seed 派生 PDA。
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let seeds: &[&[u8]] = &[b"helloWorld"];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### 使用地址 seed 派生 PDA
+
+下面的示例演示如何使用 program ID 和可选的地址 seed 派生 PDA。
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:4)
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+// !focus(1:3)
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### 使用多个 seed 派生 PDA
+
+下面的示例演示如何使用 program ID 和多个可选 seed 派生 PDA。
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:5)
+const optionalSeedString = "helloWorld";
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedString, optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus(1:4)
+const optionalSeedString = "helloWorld";
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus(1:2)
+    let optional_seed_bytes = b"helloWorld";
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### 遍历所有 bump
+
+以下示例展示了如何使用所有可能的 bump seed（255 到 0）进行 PDA 派生，说明
+_rs`find_program_address`_ 如何返回[规范 bump](#bump-seed-search)：
+
+<Callout type="info">
+  未包含 Kit 示例，因为
+  [`createProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L101)
+  函数未导出。
+</Callout>
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const optionalSeed = "helloWorld";
+
+// Loop through all bump seeds (255 down to 0)
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(optionalSeed), Buffer.from([bump])],
+      programId
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_id = Pubkey::from_str("11111111111111111111111111111111")?;
+    let optional_seed = b"helloWorld";
+
+    // Loop through all bump seeds (255 down to 0)
+    for bump in (0..=255).rev() {
+        match Pubkey::create_program_address(&[optional_seed.as_ref(), &[bump]], &program_id) {
+            Ok(pda) => println!("bump {}: {}", bump, pda),
+            Err(err) => println!("bump {}: {}", bump, err),
+        }
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<CodeTabs>
+
+```sh !! title="Expected TS Output"
+bump 255: Error: Invalid seeds, address must fall off the curve
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Error: Invalid seeds, address must fall off the curve
+...
+// remaining bump outputs
+```
+
+```sh !! title="Expected Rust Output"
+bump 255: Provided seeds do not result in a valid address
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Provided seeds do not result in a valid address
+...
+// remaining bump outputs
+```
+
+</CodeTabs>
+
+在此示例中，bump
+255 会生成一个在曲线上的地址，因此失败。第一个有效的 bump 是 254，这使其成为规范的 bump。

@@ -1,0 +1,103 @@
+---
+title: 프로그램 배포
+description:
+  Solana 프로그램 배포, 업그레이드 및 검증. Loader-v3 명령어 참조, 9단계
+  업그레이드 메커니즘, 빌드 검증 및 5가지 로더 프로그램 유형.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="요약">
+  loader-v3를 통해 배포된 프로그램은 업그레이드 권한이 설정된 경우 업그레이드할
+  수 있습니다. 권한을 취소하면 프로그램이 불변 상태가 됩니다. 9단계 업그레이드
+  메커니즘, 9가지 loader-v3 명령어, 빌드 검증 및 5가지 로더 유형을 다룹니다.
+</Callout>
+
+## 프로그램 배포
+
+<Cards>
+  <Card title="네이티브 Rust" href="/docs/programs/deploying">
+    `solana program deploy`를 사용하여 Solana CLI로 배포합니다.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    `anchor deploy`를 사용하여 Anchor 프레임워크로 배포합니다.
+  </Card>
+</Cards>
+
+## 프로그램 업그레이드
+
+프로그램을 업그레이드하려면 계정이 업그레이드 권한을 보유해야 합니다(일반적으로
+[프로그램을 배포한](/docs/programs/deploying) 원래 계정). 배포 또는 업그레이드
+중에 새 바이트코드가 임시 버퍼 계정에 업로드된 다음 programdata account에
+기록됩니다. 업그레이드 권한을 *rs`None`*로 설정하면 프로그램이 불변 상태가 되어
+추가 업데이트가 영구적으로 방지됩니다.
+
+### 업그레이드 메커니즘
+
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)가
+처리될 때 런타임은 다음을 수행합니다:
+
+1. program account가 쓰기 가능하고 loader-v3가 소유하는지 확인합니다.
+2. 버퍼 계정에 올바른 권한을 가진 _rs`Buffer`_ 상태가 포함되어 있는지
+   확인합니다.
+3. programdata account의 `upgrade_authority_address`가 일치하고 *rs`None`*가
+   아닌지 확인합니다.
+4. 프로그램이 현재 slot에 이미 배포되지 않았는지
+   확인합니다(`clock.slot != slot`).
+5. 버퍼에서 새 ELF 바이트를 로드하고 검증합니다.
+6. 버퍼에서 programdata account로 새 바이트코드를 복사하고 나머지 바이트를 0으로
+   설정합니다.
+7. programdata account에 렌트 면제를 위한 자금을 제공합니다.
+8. 버퍼 계정을 비우고(lamports를 0으로 설정) 데이터를 잘라냅니다.
+9. 새 버전은 다음 slot부터 적용됩니다(`deployment_slot + 1`).
+
+`Program` 계정 자체(상태 및 `programdata_address` 포인터)는 업그레이드 중에
+변경되지 않습니다. _`ProgramData`_ 계정의 바이트코드와 slot 메타데이터만
+업데이트됩니다.
+
+## Loader-v3 명령어 참조
+
+Loader-v3(BPF Loader Upgradeable)는 Solana에서 프로그램을 배포하기 위한 현재
+기본 로더입니다.
+
+| 명령어                                                                                                       | 설명                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | 버퍼 계정의 상태를 지정된 권한으로 `Buffer`로 설정합니다. 이미 초기화된 경우 실패합니다.                                                                                                                                         |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | 버퍼 계정의 지정된 오프셋에 바이트를 씁니다. 권한이 서명해야 합니다.                                                                                                                                                             |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | 새 프로그램을 생성합니다: ProgramData 주소를 파생하고, System Program에 대한 CPI를 통해 ProgramData 계정을 생성하며, 버퍼에서 ELF를 검증 및 배포하고, Program 계정의 상태를 설정하여 실행 가능하도록 표시합니다.                 |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | 기존 프로그램의 ProgramData 계정에 있는 바이트코드를 버퍼의 것으로 교체합니다.                                                                                                                                                   |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Buffer 또는 ProgramData 계정의 권한을 변경합니다. ProgramData에서 `None`로 설정하면 프로그램이 불변이 됩니다. Buffer 권한은 `None`로 설정할 수 없습니다.                                                                         |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | `SetAuthority`와 유사하지만, 새 권한도 트랜잭션에 서명해야 합니다.                                                                                                                                                               |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | 버퍼, 초기화되지 않은 계정 또는 ProgramData 계정을 닫고 해당 lamport를 수신자에게 전송합니다. ProgramData를 닫으면 프로그램 캐시에 `Closed` 톰스톤도 기록됩니다. 현재 slot에 배포된 프로그램은 닫을 수 없습니다.                 |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | ProgramData 계정의 할당을 추가 바이트만큼 확장하고, 지불자로부터 추가 rent를 충당합니다.                                                                                                                                         |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | 프로그램 계정의 소유권을 이전하고 바이트코드를 복사하여 loader-v3 프로그램을 loader-v4로 마이그레이션합니다. 마이그레이션 권한 또는 프로그램의 업그레이드 권한이 서명해야 합니다. Loader-v4는 아직 메인넷에 출시되지 않았습니다. |
+
+## 프로그램 검증
+
+Solana는 [검증 가능한 빌드](/docs/programs/verified-builds)를 지원하여 사용자가
+프로그램의 온체인 바이트코드가 공개 소스 코드와 일치하는지 확인할 수 있습니다.
+Anchor 프레임워크는 검증 가능한 빌드에 대한
+[기본 지원](https://www.anchor-lang.com/docs/verifiable-builds)을 제공합니다.
+
+배포된 프로그램의 검증 상태를 확인하려면
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY)에서
+프로그램 ID를 검색하거나, Ellipsis Labs의
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)를
+사용하여 온체인 프로그램을 독립적으로 검증할 수 있습니다.
+
+## 로더 프로그램
+
+| 로더                       | 주소                                          | 업그레이드 가능 여부                            | 설명                                                 |
+| -------------------------- | --------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | validator 소프트웨어 업그레이드를 통해서만 가능 | 내장 프로그램(System, Vote, Stake) 및 기타 로더 소유 |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | 불가능 (로더 관리 비활성화됨)                   | 레거시 프로그램                                      |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | 불가능 (로더 관리 비활성화됨)                   | 레거시 프로그램                                      |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | 가능, 업그레이드 권한이 설정된 경우             | 새로 배포된 모든 프로그램 소유                       |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | 가능, 권한이 설정된 경우                        | 아직 메인넷에 출시되지 않음                          |

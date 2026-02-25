@@ -1,0 +1,216 @@
+---
+title: Hesaplama bütçesi
+description:
+  Solana'da hesaplama birimi limitleri, ComputeBudgetInstruction varyantları,
+  zamanlayıcı maliyet modeli, blok limitleri ve yürütme bütçesi sabitleri.
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Compute unit limit, Compute budget instructions, Scheduler cost model, Block limits, Execution budget constants */}
+
+<Callout type="info" title="Özet">
+  Talimat başına varsayılan 200K CU, işlem başına maksimum 1,4M. Optimize etmek
+  için `SetComputeUnitLimit` ve `SetComputeUnitPrice` talimatlarını kullanın.
+  Öncelik ücreti, gerçek kullanıma değil, talep edilen CU'lara göre belirlenir.
+</Callout>
+
+## Hesaplama birimi limiti
+
+Her talimata
+[varsayılan olarak 200.000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+tahsis edilir ve her işlem
+[1.400.000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+ile sınırlandırılır. Açık bir _rs`SetComputeUnitLimit`_ talimatı bulunmadığında,
+[varsayılan değer](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219)
+talimat türüne göre hesaplanır:
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **Yerleşik talimatlar** (SBF'ye geçirilmemiş System Program, Stake, Vote vb.):
+  her birine
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3.000 CU tahsis edilir
+  ([SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)'e
+  göre).
+- **Yerleşik olmayan talimatlar** (kullanıcı tarafından dağıtılan SBF
+  programları): her birine
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200.000 CU tahsis edilir.
+- **Geçiş yapan yerleşik programlar** (SBF'ye geçişi tamamlamış, özellik kapısı
+  ile korunan): yerleşik olmayan program olarak değerlendirilir (her biri
+  200.000 CU).
+
+Sonuç, _rs`MAX_COMPUTE_UNIT_LIMIT`_ (1.400.000) değerine sınırlandırılır.
+
+İşleminize bir
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+talimatı ekleyerek bu varsayılan değeri geçersiz kılabilirsiniz.
+
+Uygun CU limitini belirlemek için:
+
+1. CU tüketimini ölçmek için işlemi simüle edin.
+2. Simüle edilen değere %10 güvenlik marjı ekleyin.
+
+<Callout type="warn">
+  Öncelik ücreti, kullanılan gerçek hesaplama birimi sayısına *değil*, işlem
+  üzerinde talep edilen hesaplama birimi limitine göre belirlenir. Çok yüksek
+  bir hesaplama birimi limiti belirlerseniz veya varsayılan miktarı
+  kullanırsanız, kullanılmayan hesaplama birimleri için ödeme yaparsınız.
+</Callout>
+
+## Hesaplama bütçesi talimatları
+
+[Compute Budget Program](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`) dört talimata sahiptir.
+
+| Varyant                          | Ayırıcı | Parametre        | Tür   | Açıklama                                                      |
+| -------------------------------- | ------- | ---------------- | ----- | ------------------------------------------------------------- |
+| `RequestHeapFrame`               | `1`     | `bytes`          | `u32` | İşlemdeki her program için bayt cinsinden istenen heap boyutu |
+| `SetComputeUnitLimit`            | `2`     | `units`          | `u32` | İşlemin tüketebileceği maksimum CU                            |
+| `SetComputeUnitPrice`            | `3`     | `micro_lamports` | `u64` | Mikro-lamport cinsinden CU fiyatı                             |
+| `SetLoadedAccountsDataSizeLimit` | `4`     | `bytes`          | `u32` | İşlemin yükleyebileceği maksimum toplam hesap verisi baytı    |
+
+[Kaynak: `ComputeBudgetInstruction` enum](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### Kısıtlamalar ve hata koşulları
+
+[Hesaplama bütçesi talimatları işlenirken](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153)
+aşağıdaki kurallar geçerlidir:
+
+- **Türden birer tane**: işlem başına her talimat varyantından yalnızca bir tane
+  kullanılabilir. Tekrar içermesi _rs`DuplicateInstruction`_ hatasına neden olur
+  (tüm işlem başarısız olur).
+- **`RequestHeapFrame`**: değer
+  [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)
+  (32 KiB) ile
+  [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)
+  (256 KiB) arasında olmalı ve
+  [1.024'ün katı](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194)
+  olmalıdır. Aksi takdirde işlem _rs`InvalidInstructionData`_ ile başarısız
+  olur. Heap boyutu işlemde çağrılan her programa (CPI'lar dahil) uygulanır.
+- **`SetComputeUnitLimit`**: herhangi bir `u32` değeri kabul edilir. Geçerli
+  limit
+  [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)
+  (1.400.000) değerine sınırlandırılır.
+- **`SetComputeUnitPrice`**: herhangi bir `u64` değeri kabul edilir (0 ile
+  `u64::MAX` arası).
+- **`SetLoadedAccountsDataSizeLimit`**: değer 0'dan büyük olmalıdır
+  (`NonZeroU32`). 0 değeri
+  [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141)
+  hatasına neden olur. Geçerli limit
+  [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+  (64 MiB) değerine sınırlandırılır.
+- **Tanınmayan veri**: Compute Budget Program'a gönderilen ve bilinen bir
+  varyanta deserialize edilemeyen herhangi bir talimat
+  _rs`InvalidInstructionData`_ ile başarısız olur.
+
+<Callout>
+  Aşağıdaki zamanlayıcı maliyet modeli, validator-dahili ön yürütme maliyet
+  tahminini açıklar. Çoğu geliştirici yalnızca yukarıdaki hesaplama bütçesi
+  talimatlarına ihtiyaç duyar.
+</Callout>
+
+## Zamanlayıcı maliyet modeli
+
+Validator'ın
+[zamanlayıcısı](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)
+**yürütmeden önce** işlem kaynak kullanımını tahmin etmek için bir
+[maliyet modeli](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)
+kullanır. Bu ön yürütme maliyet tahminleri, bir işlemin bloğun kalan
+kapasitesine sığıp sığmadığını belirler. Bunlar, yürütme sırasında gerçekleşen
+CU ölçümünden ayrıdır.
+
+Toplam zamanlayıcı maliyeti beş bileşenin toplamıdır
+([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### Maliyet bileşenleri
+
+| Bileşen                                                                                                                    | Açıklama                                        |
+| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [**İmza maliyeti**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)                  | Her imza türü için imza başına maliyet          |
+| [**Yazma kilidi maliyeti**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)          | Yazılabilir hesap başına                        |
+| [**Instruction data maliyeti**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)      | Toplam instruction data baytlarına göre         |
+| [**Program yürütme maliyeti**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)       | Hesaplama bütçesinden CU limiti veya varsayılan |
+| [**Yüklenen hesap verisi maliyeti**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | Toplam yüklenen hesap verisi boyutuna göre      |
+
+Tüm değerler hesaplama birimi cinsindendir.
+
+### Zamanlayıcı maliyet sabitleri
+
+| Sabit                                                                                                                  | Değer    |
+| ---------------------------------------------------------------------------------------------------------------------- | -------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30       |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 CU   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6.690 CU |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2.280 CU |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2.400 CU |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4.800 CU |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 CU   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4        |
+
+### Oylama işlemi maliyeti
+
+Oylama işlemleri, gerçek içeriklerinden bağımsız olarak
+[3.428 CU'luk sabit bir maliyet](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)
+kullanır.
+
+### Blok limitleri
+
+Zamanlayıcı, blok başına limitleri uygular. Bir işlemin eklenmesi herhangi bir
+limiti aşacaksa, bloğa dahil edilmez.
+
+| Limit                                                                                                                         | Değer      |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60,000,000 |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12,000,000 |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36,000,000 |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 MB     |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)
+  _`MAX_BLOCK_UNITS`_ değerini 100,000,000'a yükseltmeyi önermektedir.
+</Callout>
+
+## Yürütme bütçesi sabitleri
+
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)
+dosyasındaki aşağıdaki sabitler, işlem yürütme sırasındaki çalışma zamanı
+limitlerini tanımlar:
+
+| Sabit                                                                                                                                    | Değer      | Açıklama                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------- |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1,400,000  | İşlem başına maksimum CU limiti                                       |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200,000    | Yerleşik olmayan talimat başına varsayılan CU                         |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3,000      | Yerleşik talimat başına varsayılan CU (SIMD-0170)                     |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 CU       | 32 KiB heap sayfası başına maliyet                                    |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1,000 CU   | Bir CPI çağrısının maliyeti                                           |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 CU     | SIMD-0339 ile CPI çağrı maliyeti                                      |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32,768     | Minimum heap boyutu (32 KiB)                                          |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262,144    | Maksimum heap boyutu (256 KiB)                                        |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67,108,864 | İşlem başına maksimum yüklenen hesap verisi (64 MiB)                  |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5          | Maksimum talimat yığın derinliği (üst seviye + CPI'lar)               |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9          | SIMD-0268 ile maksimum talimat yığın derinliği (üst seviye + CPI'lar) |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64         | Bir program içinde maksimum SBF'den SBF'ye çağrı derinliği            |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4,096 bayt | Bir SBF yığın çerçevesinin boyutu                                     |

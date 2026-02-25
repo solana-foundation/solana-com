@@ -1,0 +1,84 @@
+---
+title: Transacciones versionadas
+description:
+  Formatos de transacción legacy vs versionadas (V0) en Solana, incluyendo
+  tablas de búsqueda de direcciones (ALTs), detección de versión, formato de
+  mensaje V0 y resolución de ALT.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="Resumen">
+  Las transacciones V0 añaden tablas de búsqueda de direcciones (ALTs),
+  permitiendo referencias a cuentas mediante índices de 1 byte en lugar de
+  claves de 32 bytes. Esto ahorra 31 bytes por cuenta resuelta mediante ALT.
+</Callout>
+
+Solana soporta dos formatos de transacción: **legacy** y **versionadas** (v0).
+
+El validador determina el formato inspeccionando el primer byte del mensaje:
+
+- Si el primer byte tiene el
+  [prefijo de versión](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
+  bit establecido, es un **mensaje versionado**. Actualmente solo se soporta la
+  versión 0. Los siguientes 3 bytes son el _`MessageHeader`_.
+- De lo contrario, es un **mensaje legacy**. El primer byte es
+  `num_required_signatures`, y los siguientes 2 bytes completan el encabezado.
+
+<Callout type="info" title="Cuándo usar transacciones V0">
+  Usa V0 cuando tu transacción referencie muchas cuentas y se acerque al límite
+  de paquete de 1,232 bytes. Si tu transacción cabe dentro del límite de tamaño
+  con todas las cuentas inline, las transacciones legacy son más simples y
+  tienen mayor soporte de herramientas. V0 es requerido para usar tablas de
+  búsqueda de direcciones.
+</Callout>
+
+## Formato de mensaje V0
+
+Un mensaje v0 tiene los mismos campos que un mensaje legacy, más un array
+adicional `address_table_lookups` añadido después de las instrucciones:
+
+| Campo                   | Tamaño                     | Descripción                                        |
+| ----------------------- | -------------------------- | -------------------------------------------------- |
+| `0x80`                  | 1 byte                     | Byte de prefijo de versión                         |
+| `header`                | 3 bytes                    | MessageHeader (igual que legacy)                   |
+| `static_account_keys`   | compact-u16 + N x 32 bytes | Claves que aparecen literalmente en la transacción |
+| `recent_blockhash`      | 32 bytes                   | Blockhash                                          |
+| `instructions`          | compact-u16 + variable     | Mismo formato que legacy                           |
+| `address_table_lookups` | compact-u16 + variable     | Referencias ALT (ver abajo)                        |
+
+Cada entrada de la tabla de búsqueda de direcciones contiene:
+
+| Campo              | Tamaño                   | Descripción                                              |
+| ------------------ | ------------------------ | -------------------------------------------------------- |
+| `account_key`      | 32 bytes                 | La clave pública de la cuenta ALT                        |
+| `writable_indexes` | compact-u16 + N x 1 byte | Índices en la ALT para cuentas con permisos de escritura |
+| `readonly_indexes` | compact-u16 + N x 1 byte | Índices en la ALT para cuentas de solo lectura           |
+
+## Resolución de la tabla de búsqueda de direcciones
+
+Una ALT es una cuenta on-chain que almacena hasta 256 claves públicas. Al
+referenciar una ALT, una transacción puede incluir cuentas adicionales usando
+índices de 1 byte en lugar de claves públicas de 32 bytes, reduciendo
+significativamente la sobrecarga por cuenta.
+
+En tiempo de ejecución, antes de que comience la ejecución, el validador
+resuelve todas las referencias de ALT en claves públicas completas. Las
+direcciones resueltas se añaden a las claves de cuenta estáticas para formar la
+lista completa de claves de cuenta. Las cuentas resueltas por ALT siguen el
+mismo orden que las cuentas estáticas: las búsquedas con permisos de escritura
+vienen antes que las búsquedas de solo lectura.
+
+<Callout>
+  Las tablas de búsqueda de direcciones solo afectan cómo se referencian las
+  cuentas en la transacción transmitida. En tiempo de ejecución, el runtime
+  resuelve todos los índices a direcciones de cuenta completas. Las cuentas
+  resueltas por ALT solo pueden tener permisos de escritura o ser de solo
+  lectura (no firmantes); no pueden ser firmantes.
+</Callout>

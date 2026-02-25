@@ -1,0 +1,87 @@
+---
+title: 지속 가능한 논스
+description:
+  오프라인 서명 및 지연된 트랜잭션 제출을 위한 Solana의 지속 가능한 논스 작동
+  방식, 논스 수명 주기, 감지, 검증 및 실패 동작 포함.
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="요약">
+  지속 가능한 논스 트랜잭션은 최근 블록해시를 저장된 논스 값으로 대체하여
+  트랜잭션의 150 슬롯 만료 기간을 제거합니다. 이를 통해 오프라인 서명 및 지연된
+  제출이 가능합니다.
+</Callout>
+
+<Callout type="warn">
+  지속 가능한 논스는 향후 릴리스에서 더 이상 사용되지 않을 수 있습니다. 자세한
+  내용은 [SIMD
+  논의](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)를
+  참조하세요.
+</Callout>
+
+## 지속 가능한 논스
+
+지속 가능한 논스 트랜잭션은 최근 블록해시를 저장된 논스 값으로 대체하여 150 슬롯
+만료 기간을 제거합니다. 이를 통해 오프라인 서명 및 지연된 제출이 가능합니다.
+
+### 논스 트랜잭션 작동 방식
+
+논스 계정은 세 가지 필드를 포함하는 _rs`State::Initialized`_ 값을 저장하는
+System Program 소유 계정입니다: **권한** pubkey(논스를 진행할 수 있는 사람),
+**지속 가능한 논스** 값(최근 블록해시에서 파생된 해시), **서명당 램포트**(논스가
+마지막으로 진행되었을 때의 수수료율).
+
+지속 가능한 논스를 사용하려면:
+
+1. _rs`CreateAccount`_ + *rs`InitializeNonceAccount`*를 사용하여 논스 계정을
+   생성하고 초기화합니다
+2. *rs`AdvanceNonceAccount`*를 **첫 번째 명령어**로 하고 논스 값을
+   `recent_blockhash`로 하여 트랜잭션을 구성합니다
+3. 트랜잭션에 서명합니다(논스가 만료되지 않으므로 오프라인으로 수행 가능)
+4. 준비가 되면 제출합니다
+
+### 논스 감지
+
+런타임은 첫 번째 명령어(인덱스
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0)가 _rs`AdvanceNonceAccount`_ 명령어를 사용하는 System Program 호출인지
+확인하여 논스 트랜잭션을 감지합니다. 논스 계정은 해당 명령어의 첫 번째
+계정이어야 하며 쓰기 가능해야 합니다.
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121)를
+참조하세요.
+
+### Nonce 검증 흐름
+
+트랜잭션의 `recent_blockhash`가 `BlockhashQueue`에서 발견되지 않으면, 검증자는
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180)를
+통해 유효한 nonce 트랜잭션인지 확인합니다:
+
+1. nonce에 저장된 `durable_nonce`는 다음 durable nonce(현재 blockhash에서
+   파생됨)와 달라야 합니다. 이는 nonce가 이 블록에서 이미 사용되지 않았음을
+   보장합니다
+2. nonce 계정이 로드되어야 하며 *rs`State::Initialized`*로 파싱되어야 합니다
+3. 저장된 `durable_nonce`는 트랜잭션의 `recent_blockhash`와 일치해야 합니다
+
+nonce 권한 서명 확인은 나중에
+수행됩니다([`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)).
+
+모든 검사를 통과하면 실행이 시작되기 전에 nonce가 다음 durable nonce 값으로
+진행됩니다. 실행 실패 시에도 진행된 nonce와 수수료가 차감된 수수료 지불자는
+여전히 커밋됩니다(재생을 방지하면서 수수료를 징수함).
+
+### Nonce 실패 동작
+
+nonce 트랜잭션이 **검증에 실패**하면(nonce가 이미 사용됨, 권한이 서명되지 않음,
+계정을 찾을 수 없음) 전체 트랜잭션이 삭제됩니다. 수수료가 징수되지 않고 상태
+변경도 없습니다.
+
+nonce 트랜잭션이 **검증을 통과했지만 실행에 실패**하면(명령어가 오류를 반환함)
+nonce는 여전히 진행되고 수수료는 여전히 징수됩니다. 이는 트랜잭션이 재생되는
+것을 방지하면서 검증자가 보상을 받을 수 있도록 보장합니다.

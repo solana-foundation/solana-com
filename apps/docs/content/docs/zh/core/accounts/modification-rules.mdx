@@ -1,0 +1,88 @@
+---
+title: 修改规则
+description:
+  对 Solana 账户
+  lamports、数据、所有者、可执行标志和借用语义进行运行时强制执行的修改规则。
+url: /docs/core/accounts/modification-rules
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+  - /docs/core/cpi/cpi-execution
+---
+
+<Callout type="info" title="概要">
+  每条指令执行后进行运行时检查：只有所有者可以扣除 lamports
+  或修改数据，数据每条指令最多可增长 10
+  KiB，变更所有者需保证数据为全零初始化，可执行标志一旦设置不可逆。
+</Callout>
+
+Solana 运行时会在每条指令执行后，通过
+[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727)
+方法强制执行这些规则。每条规则都会在发生修改时进行检查，如果有任何检查未通过，交易将被回滚。
+
+## Lamports 规则
+
+| 规则                                  | 强制执行方式                                                                                                                                                                | 错误代码                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 只有所有者可以扣除 lamports           | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785)：检查 `is_owned_by_current_program()` 当 `lamports < current` 时 | `ExternalAccountLamportSpend` |
+| 只读账户不能更改 lamports             | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789)：检查 `is_writable()`                                            | `ReadonlyLamportChange`       |
+| 任何程序都可以向可写账户增加 lamports | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789)：只有当新余额小于当前余额时才检查所有权；可写性检查始终适用      | `ReadonlyLamportChange`       |
+| 每条指令 lamports 必须平衡            | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)：验证 `get_lamports_delta() == 0`                     | `UnbalancedInstruction`       |
+
+## 数据规则
+
+| 规则                       | 强制执行方式                                                                                                                                                                                                                | 错误代码                             |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 只有所有者可以修改数据     | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023)：检查 `is_owned_by_current_program()`                                                                   | `ExternalAccountDataModified`        |
+| 只读账户不能修改数据       | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016)：检查 `is_writable()`                                                                                   | `ReadonlyDataModified`               |
+| 只有所有者可以调整数据大小 | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037)：当 `new_len != old_len` 时检查 `is_owned_by_current_program()`                                         | `AccountDataSizeChanged`             |
+| 最大数据大小：10 MiB       | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332)：检查 `new_len <= MAX_ACCOUNT_DATA_LEN`                             | `InvalidRealloc`                     |
+| 每条指令最大增长：10 KiB   | 在 [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629) 反序列化时检查 `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE`                    | `InvalidRealloc`                     |
+| 每笔交易最大增长：20 MiB   | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330)：检查累计 `resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION` | `MaxAccountsDataAllocationsExceeded` |
+
+## 所有者规则
+
+| 规则                             | 执行方式                                                                                                                                      | 错误码              |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| 只有当前所有者可以重新分配所有权 | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755)：检查 `is_owned_by_current_program()` | `ModifiedProgramId` |
+| 账户必须可写                     | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759)：检查 `is_writable()`                 | `ModifiedProgramId` |
+| 数据必须为零初始化               | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763)：检查 `is_zeroed(data)`               | `ModifiedProgramId` |
+
+## 可执行标志规则
+
+| 规则                     | 执行方式                                                                                                                                                | 错误码                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| 账户必须 rent 免除       | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967)：检查 `rent.is_exempt(lamports, data_len)` | `ExecutableAccountNotRentExempt` |
+| 只有所有者可以设置该标志 | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971)：检查 `is_owned_by_current_program()`      | `ExecutableModified`             |
+| 账户必须可写             | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975)：检查 `is_writable()`                      | `ExecutableModified`             |
+
+## rent 状态转换
+
+账户存在于三种
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+状态之一：_rs`Uninitialized`_（0
+lamports）、_rs`RentPaying`_（大于 0 但低于 rent 免除最低值）、以及
+_rs`RentExempt`_（等于或高于最低值）。不允许的状态转换会产生
+_rs`TransactionError::InsufficientFundsForRent`_。
+
+运行时通过
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126)
+强制执行这些规则：
+
+- 任何账户都可以转换为 _rs`Uninitialized`_（关闭）或 _rs`RentExempt`_。
+- 任何账户都不能从 _rs`Uninitialized`_ 或 _rs`RentExempt`_ 进入
+  _rs`RentPaying`_。所有新账户必须为 rent 免除。
+
+## 账户借用规则
+
+在指令执行期间，运行时会对账户强制实施单写者借用语义。一个程序可以获得一个可变引用或多个不可变引用，但不能同时获得两者。如果程序尝试借用已被可变借用的账户（或对已被不可变借用的账户进行可变借用），该指令会因
+_rs`AccountBorrowFailed`_ 而失败，相关代码见
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)
+和
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520)。如果指令在借用尚未释放时完成，运行时会在
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385)
+返回 _rs`AccountBorrowOutstanding`_。

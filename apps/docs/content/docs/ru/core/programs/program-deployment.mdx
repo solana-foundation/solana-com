@@ -1,0 +1,111 @@
+---
+title: Развёртывание программ
+description:
+  Развёртывание, обновление и верификация программ Solana. Справочник по
+  инструкциям loader-v3, механизм обновления из 9 шагов, проверка сборки и 5
+  типов загрузчиков программ.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Кратко">
+  Программы, развёрнутые через loader-v3, могут быть обновлены, если назначен
+  управляющий обновлением. Отзыв полномочий делает программу неизменяемой.
+  Описан механизм обновления из 9 шагов, все 9 инструкций loader-v3, проверка
+  сборки и 5 типов загрузчиков.
+</Callout>
+
+## Развёртывание программ
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    Развёртывание с помощью Solana CLI с `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Развёртывание с помощью фреймворка Anchor с `anchor deploy`.
+  </Card>
+</Cards>
+
+## Обновление программ
+
+Чтобы обновить программу, аккаунт должен обладать полномочиями управляющего
+обновлением (обычно это аккаунт, который изначально
+[развёрнул программу](/docs/programs/deploying)). Во время развёртывания или
+обновления новый байткод загружается во временный буферный аккаунт, затем
+записывается в аккаунт programdata. Назначение управляющего обновлением
+_rs`None`_ делает программу неизменяемой и навсегда предотвращает дальнейшие
+обновления.
+
+### Механизм обновления
+
+Когда
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+обрабатывается, рантайм:
+
+1. Проверяет, что аккаунт Program доступен для записи и принадлежит loader-v3.
+2. Проверяет, что Buffer аккаунт содержит состояние _rs`Buffer`_ с правильными
+   полномочиями.
+3. Проверяет, что аккаунт ProgramData с `upgrade_authority_address` совпадает и
+   не является _rs`None`_.
+4. Проверяет, что программа не была уже развёрнута в текущем слоте
+   (`clock.slot != slot`).
+5. Загружает и проверяет новые ELF-байты из буфера.
+6. Копирует новый байткод из буфера в аккаунт ProgramData и обнуляет оставшиеся
+   байты.
+7. Обеспечивает аккаунт ProgramData арендной неуязвимостью.
+8. Опустошает буферный аккаунт (устанавливает lamports в 0) и обрезает его
+   данные.
+9. Новая версия вступает в силу в следующем слоте (`deployment_slot + 1`).
+
+Сам аккаунт `Program` (его состояние и указатель `programdata_address`) не
+изменяется во время обновления. Обновляются только байткод аккаунта
+_rs`ProgramData`_ и метаданные slot.
+
+## Справочник инструкций Loader-v3
+
+Loader-v3 (BPF Loader Upgradeable) — это текущий загрузчик по умолчанию для
+деплоя программ в Solana.
+
+| Инструкция                                                                                                   | Описание                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Устанавливает состояние buffer-аккаунта в `Buffer` с указанным владельцем. Не сработает, если уже инициализирован.                                                                                                                     |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Записывает байты по заданному смещению в buffer-аккаунте. Необходима подпись владельца.                                                                                                                                                |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Создаёт новую программу: вычисляет адрес ProgramData, создаёт аккаунт ProgramData через CPI к System Program, проверяет и деплоит ELF из буфера, устанавливает состояние Program-аккаунта и помечает его как исполняемый.              |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Заменяет байткод в существующем аккаунте ProgramData программы из буфера.                                                                                                                                                              |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Меняет владельца Buffer- или ProgramData-аккаунта. Установка `None` для ProgramData делает программу неизменяемой. Для Buffer нельзя установить владельца `None`.                                                                      |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | Аналогично `SetAuthority`, но требует, чтобы новый владелец также подписал транзакцию.                                                                                                                                                 |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Закрывает buffer-, неинициализированный или ProgramData-аккаунт, переводя его лампорты получателю. При закрытии ProgramData также записывает tombstone `Closed` в кэш программы. Нельзя закрыть программу, развернутую в текущем slot. |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | Увеличивает выделение памяти для аккаунта ProgramData на дополнительные байты, оплачивая дополнительную rent с плательщика.                                                                                                            |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | Мигрирует программу loader-v3 на loader-v4, передавая владение аккаунтом программы и копируя байткод. Требует подпись миграционного или upgrade-владельца программы. Loader-v4 ещё не выпущен в mainnet.                               |
+
+## Проверка программ
+
+Solana поддерживает [проверяемые сборки](/docs/programs/verified-builds),
+которые позволяют пользователям убедиться, что байткод программы в блокчейне
+соответствует её открытому исходному коду. Фреймворк Anchor предоставляет
+[встроенную поддержку](https://www.anchor-lang.com/docs/verifiable-builds)
+проверяемых сборок.
+
+Чтобы проверить статус верификации развернутой программы, найдите её
+идентификатор (program ID) в
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY)
+или используйте CLI-инструмент Ellipsis Labs
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+для независимой проверки программ в блокчейне.
+
+## Загрузчики программ
+
+| Загрузчик                  | Адрес                                         | Возможность обновления               | Описание                                                                     |
+| -------------------------- | --------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |
+| **Встроенный загрузчик**   | `NativeLoader1111111111111111111111111111111` | Только через обновление ПО validator | Владеет встроенными программами (System, Vote, Stake) и другими загрузчиками |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Нет (управление отключено)           | Устаревшие программы                                                         |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Нет (управление отключено)           | Устаревшие программы                                                         |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Да, если назначен authority          | Владеет всеми новыми развернутыми программами                                |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | Да, если назначен authority          | Пока не выпущен в основной сети                                              |
