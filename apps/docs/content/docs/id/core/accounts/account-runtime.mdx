@@ -1,0 +1,138 @@
+---
+title: Runtime akun
+description:
+  Bagaimana runtime Solana memuat dan memvalidasi akun sebelum eksekusi, dan
+  format serialisasi yang digunakan untuk meneruskan data akun ke program.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Ringkasan">
+  Sebelum eksekusi, runtime memuat akun, memvalidasi pembayar biaya, memeriksa
+  pembebasan sewa, dan menserialisasi data akun ke dalam tata letak memori yang
+  dapat diakses oleh program.
+</Callout>
+
+<Callout>
+  Halaman ini membahas internal runtime. Sebagian besar developer tidak
+  memerlukan informasi ini untuk membangun program. Lihat [Struktur
+  akun](/docs/core/accounts/account-structure) untuk tampilan yang menghadap ke
+  developer.
+</Callout>
+
+## Pemuatan akun
+
+Sebelum transaksi dieksekusi, runtime memuat semua akun yang direferensikan
+melalui
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+Proses ini melakukan beberapa validasi:
+
+1. **Validasi pembayar biaya**: Pembayar biaya (akun pertama) harus ada, berupa
+   akun sistem atau akun nonce, dan memiliki lamport yang cukup untuk menutupi
+   biaya
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   Setelah membayar biaya, akun harus tetap bebas sewa atau menjadi tepat 0
+   lamport. Akun tidak boleh berakhir di antara 0 dan minimum bebas sewa. Akun
+   nonce harus selalu mempertahankan lamport yang cukup untuk tetap bebas sewa.
+   Jika pembayar bukan akun sistem maupun akun nonce, transaksi gagal dengan
+   _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **Batas ukuran data yang dimuat**: Total ukuran semua akun yang dimuat
+   (termasuk
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   sebesar 64 byte per akun) tidak boleh melebihi
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 MiB). Melebihi batas ini menghasilkan
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_.
+
+3. **Validasi akun program**: Setiap program yang dipanggil oleh instruksi harus
+   ada dan dimiliki oleh loader yang valid: salah satu dari
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) atau
+   native loader. Jika akun program tidak ada, transaksi gagal dengan
+   _rs`TransactionError::ProgramAccountNotFound`_. Jika ada tetapi memiliki
+   owner yang tidak valid, transaksi gagal dengan
+   _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **Akun yang tidak ada**: Akun yang tidak ada di on-chain dimuat sebagai akun
+   default (0 lamport, data kosong, dimiliki oleh system program) dengan
+   `rent_epoch` diatur ke `u64::MAX`.
+
+## Format serialisasi BPF
+
+Ketika sebuah program dipanggil, runtime menserialisasi akun ke dalam buffer
+memori yang bersebelahan dan meneruskannya ke BPF VM. Format serialisasi (untuk
+format aligned standar yang digunakan oleh semua loader kecuali loader-v1 yang
+usang) didefinisikan dalam
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+Buffer dimulai dengan `u64` (8 byte, little-endian) yang berisi jumlah akun.
+Kemudian, untuk setiap akun dalam instruksi, buffer berisi:
+
+| Offset        | Ukuran          | Field                                  | Tipe                                                                                                          |
+| ------------- | --------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 0             | 1               | duplicate marker                       | `u8` (`0xFF` = unik, index = duplikat dari akun tersebut)                                                     |
+| 1             | 1               | is_signer                              | `u8` (0 atau 1)                                                                                               |
+| 2             | 1               | is_writable                            | `u8` (0 atau 1)                                                                                               |
+| 3             | 1               | executable                             | `u8` (0 atau 1)                                                                                               |
+| 4             | 4               | original_data_len (reserved, selalu 0) | `[0u8; 4]`                                                                                                    |
+| 8             | 32              | key                                    | `Pubkey`                                                                                                      |
+| 40            | 32              | owner                                  | `Pubkey`                                                                                                      |
+| 72            | 8               | lamports                               | `u64` (little-endian)                                                                                         |
+| 80            | 8               | data_len                               | `u64` (little-endian)                                                                                         |
+| 88            | data_len        | data                                   | `[u8]`                                                                                                        |
+| 88 + data_len | 10240 + padding | realloc space + alignment              | Diisi nol hingga `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + padding untuk align ke `BPF_ALIGN_OF_U128` (8 byte) |
+| ...           | 8               | rent_epoch                             | `u64` (little-endian)                                                                                         |
+
+Setelah semua akun, buffer menambahkan:
+
+| Ukuran               | Field                                       |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+Untuk akun duplikat, hanya 1 byte (penanda duplikat dengan indeks dari akun
+asli) ditambah 7 byte padding yang ditulis.
+
+## Deduplikasi akun
+
+Ketika kunci publik akun yang sama muncul beberapa kali dalam array `accounts`
+instruksi, runtime melakukan
+[deduplikasi](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)
+terhadap mereka. Setiap entri dalam daftar akun instruksi mendapatkan struct
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+sendiri, tetapi entri yang merujuk ke akun tingkat transaksi yang sama menunjuk
+ke data yang sama.
+
+Metode
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+menentukan apakah indeks akun instruksi tertentu adalah kemunculan pertama atau
+duplikat dengan mencari indeks akun tingkat transaksi dan menemukan indeks
+tingkat instruksi pertama yang memetakan ke sana:
+
+- Jika indeks akun instruksi saat ini sama dengan indeks yang dipetakan pertama,
+  maka **bukan** duplikat (mengembalikan `None`).
+- Jika tidak, mengembalikan `Some(first_index)`, di mana `first_index` adalah
+  indeks dari kemunculan pertama.
+
+Karena semua referensi ke akun yang sama berbagi _rs`AccountSharedData`_ yang
+sama, modifikasi melalui referensi apa pun langsung terlihat melalui semua
+referensi lainnya. Namun, hanya satu pinjaman mutable yang dapat dipegang pada
+satu waktu. Mencoba meminjam akun yang sama secara mutable melalui dua indeks
+akun instruksi yang berbeda secara bersamaan mengembalikan
+_rs`InstructionError::AccountBorrowFailed`_. Program harus melepaskan satu
+pinjaman sebelum mengambil yang lain pada akun yang sama.
+
+Setelah program dieksekusi, runtime melakukan deserialisasi buffer kembali
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+dan menerapkan perubahan apa pun ke `lamports`, `data` (termasuk perubahan
+panjang hingga _rs`MAX_PERMITTED_DATA_INCREASE`_), dan `owner`.

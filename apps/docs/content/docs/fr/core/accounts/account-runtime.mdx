@@ -63,3 +63,80 @@ Ce processus effectue plusieurs validations :
    avec _rs`TransactionError::ProgramAccountNotFound`_. S'il existe mais possède
    un propriétaire invalide, la transaction échoue avec
    _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **Comptes non existants** : les comptes qui n'existent pas on-chain sont
+   chargés en tant que comptes par défaut (0 lamport, données vides, détenus par
+   le programme système) avec `rent_epoch` défini sur `u64::MAX`.
+
+## Format de sérialisation BPF
+
+Lorsqu'un programme est invoqué, le runtime sérialise les comptes dans un tampon
+mémoire contigu et le transmet à la VM BPF. Le format de sérialisation (pour le
+format aligné standard utilisé par tous les chargeurs sauf le loader-v1
+obsolète) est défini dans
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+Le tampon commence par un `u64` (8 octets, little-endian) contenant le nombre de
+comptes. Ensuite, pour chaque compte dans l'instruction, le tampon contient :
+
+| Décalage      | Taille          | Champ                                   | Type                                                                                                                     |
+| ------------- | --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 0             | 1               | marqueur de duplication                 | `u8` (`0xFF` = unique, index = duplication de ce compte)                                                                 |
+| 1             | 1               | is_signer                               | `u8` (0 ou 1)                                                                                                            |
+| 2             | 1               | is_writable                             | `u8` (0 ou 1)                                                                                                            |
+| 3             | 1               | executable                              | `u8` (0 ou 1)                                                                                                            |
+| 4             | 4               | original_data_len (réservé, toujours 0) | `[0u8; 4]`                                                                                                               |
+| 8             | 32              | key                                     | `Pubkey`                                                                                                                 |
+| 40            | 32              | owner                                   | `Pubkey`                                                                                                                 |
+| 72            | 8               | lamports                                | `u64` (little-endian)                                                                                                    |
+| 80            | 8               | data_len                                | `u64` (little-endian)                                                                                                    |
+| 88            | data_len        | data                                    | `[u8]`                                                                                                                   |
+| 88 + data_len | 10240 + padding | espace de réallocation + alignement     | Rempli de zéros jusqu'à `MAX_PERMITTED_DATA_INCREASE` (10 Kio) + padding pour aligner sur `BPF_ALIGN_OF_U128` (8 octets) |
+| ...           | 8               | rent_epoch                              | `u64` (little-endian)                                                                                                    |
+
+Après tous les comptes, le buffer ajoute :
+
+| Taille               | Champ                                       |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+Pour les comptes dupliqués, seul 1 octet (le marqueur de duplication avec
+l'index de l'original) plus 7 octets de remplissage sont écrits.
+
+## Déduplication des comptes
+
+Lorsque la même clé publique de compte apparaît plusieurs fois dans le tableau
+`accounts` d'une instruction, le runtime les
+[déduplique](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623).
+Chaque entrée dans la liste de comptes de l'instruction obtient sa propre
+structure
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75),
+mais les entrées qui font référence au même compte au niveau de la transaction
+pointent vers les mêmes données sous-jacentes.
+
+La méthode
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+détermine si un index de compte d'instruction donné est la première occurrence
+ou un duplicata en recherchant l'index de compte au niveau de la transaction et
+en trouvant le premier index au niveau de l'instruction qui y correspond :
+
+- Si l'index de compte d'instruction actuel est égal au premier index mappé, ce
+  n'est **pas** un duplicata (retourne `None`).
+- Sinon, il retourne `Some(first_index)`, où `first_index` est l'index de la
+  première occurrence.
+
+Étant donné que toutes les références au même compte partagent le même
+_rs`AccountSharedData`_ sous-jacent, les modifications effectuées via n'importe
+quelle référence sont immédiatement visibles via toutes les autres références.
+Cependant, un seul emprunt mutable peut être détenu à la fois. Tenter
+d'emprunter le même compte de manière mutable via deux index de compte
+d'instruction différents simultanément retourne
+_rs`InstructionError::AccountBorrowFailed`_. Les programmes doivent libérer un
+emprunt avant d'en acquérir un autre sur le même compte sous-jacent.
+
+Après l'exécution du programme, le runtime désérialise le buffer
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+et applique tous les changements à `lamports`, `data` (y compris les changements
+de longueur jusqu'à _rs`MAX_PERMITTED_DATA_INCREASE`_), et `owner`.
