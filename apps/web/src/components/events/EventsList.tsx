@@ -25,6 +25,11 @@ interface Event {
   img?: EventImage;
   schedule?: EventSchedule;
   type?: string;
+  venue?: {
+    address?: string;
+    city_state?: string;
+    [key: string]: string | undefined;
+  };
 }
 
 interface EventsListProps {

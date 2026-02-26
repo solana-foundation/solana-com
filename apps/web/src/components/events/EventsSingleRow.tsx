@@ -1,4 +1,3 @@
-import styled from "styled-components";
 import Image from "next/image";
 
 import Link from "../../utils/Link";
@@ -6,50 +5,49 @@ import EventsSingleLocation from "./EventsSingleLocation";
 import FormattedDate from "../shared/FormattedDate";
 import defaultImg from "../../../assets/events/solana-community-event.jpg";
 
-const StyledEventWrapperLink = styled(Link)`
-  .details {
-    transition: all 400ms;
-    border: 1px solid transparent;
-    border-radius: 0.25rem;
-    padding: 0.5rem;
-    width: 100%;
-  }
+type EventData = {
+  platform?: string;
+  key?: string;
+  rsvp?: string;
+  lumaUrl?: string;
+  img?: { primary?: { alt?: string } | string };
+  title?: string;
+  schedule?: {
+    from?: string | Date;
+    to?: string | Date;
+    timezone?: string;
+  };
+  type?: string;
+  venue?: {
+    address?: string;
+    city_state?: string;
+    [key: string]: string | undefined;
+  };
+};
 
-  img {
-    transition: all 400ms;
-    object-fit: contain;
-    overflow: hidden;
-    aspect-ratio: 1/1;
-  }
-
-  &:hover {
-    .details {
-      border-color: #333333;
-    }
-    img {
-      transform: scale(1.05);
-    }
-  }
-`;
-
-const EventsSingleRow = ({ event }) => {
+const EventsSingleRow = ({ event }: { event?: EventData }) => {
   const eventUrl =
-    event.platform === "external" ? event.key : event.rsvp || event.lumaUrl;
+    event?.platform === "external"
+      ? event.key!
+      : event?.rsvp || event?.lumaUrl!;
 
   return event ? (
-    <StyledEventWrapperLink
-      className="link-unstyled flex items-center"
+    <Link
+      className="link-unstyled flex items-center group"
       target="_blank"
-      rel={!eventUrl.includes("solana.com") && "nofollow"}
+      rel={
+        eventUrl && !eventUrl.includes("solana.com") ? "nofollow" : undefined
+      }
       to={eventUrl}
     >
       <Image
-        alt={event?.img?.primary?.alt || ""}
-        src={event?.img?.primary || defaultImg}
+        alt={(event?.img?.primary as { alt?: string })?.alt || ""}
+        src={(event?.img?.primary as string) || defaultImg}
         width={150}
         height={150}
+        className="transition-all duration-[400ms] object-contain overflow-hidden aspect-square group-hover:scale-105"
       />
-      <div className="details md:ml-2">
+      <div className="transition-all duration-[400ms] border border-transparent rounded-[0.25rem] p-2 w-full md:ml-2 group-hover:border-[#333333]">
         <h3 className="h6 small">{event.title}</h3>
         <p className="smaller subdued mb-0" suppressHydrationWarning={true}>
           {event?.schedule?.from && (
@@ -60,7 +58,7 @@ const EventsSingleRow = ({ event }) => {
             />
           )}
           {event?.schedule?.to &&
-            new Date(event?.schedule?.from).getDay() !==
+            new Date(event?.schedule?.from!).getDay() !==
               new Date(event?.schedule?.to).getDay() && (
               <>
                 <span className="mx-1">-</span>
@@ -77,7 +75,7 @@ const EventsSingleRow = ({ event }) => {
           <div>{event.type}</div>
         </div>
       </div>
-    </StyledEventWrapperLink>
+    </Link>
   ) : (
     <></>
   );

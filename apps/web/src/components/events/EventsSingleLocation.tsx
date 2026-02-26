@@ -8,13 +8,15 @@ interface EventVenue {
 }
 
 interface EventsSingleLocationProps {
-  event: {
-    venue: EventVenue;
+  event?: {
+    venue?: EventVenue;
   };
 }
 
 const getEventLocation = (event: EventsSingleLocationProps["event"]) => {
   const { venue } = event;
+
+  if (!venue) return undefined;
 
   const key = findKey(venue, (x) => !!x);
 
@@ -32,7 +34,7 @@ const getEventLocation = (event: EventsSingleLocationProps["event"]) => {
 export default function EventsSingleLocation({
   event,
 }: EventsSingleLocationProps) {
-  const location = useMemo(() => getEventLocation(event), [event]);
+  const location = useMemo(() => event && getEventLocation(event), [event]);
 
   if (location) {
     return location;

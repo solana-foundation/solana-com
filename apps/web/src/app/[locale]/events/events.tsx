@@ -66,7 +66,7 @@ export function EventsLandingPage({
           <div className="mb-8 mt-4">
             <Button
               to="https://lu.ma/solanafoundation-community"
-              className="mr-2"
+              className="mr-2 mb-2"
               arrowRight
               newTab
               rel="nofollow"
@@ -74,6 +74,7 @@ export function EventsLandingPage({
               {translations.submitEvent}
             </Button>
             <Button
+              className="mb-2"
               to="https://app.getriver.io/solana"
               arrowRight
               newTab

@@ -5,13 +5,17 @@ export default memo(function FormattedDate({
   date: dateString,
   format,
   timezone,
+}: {
+  date: string | Date;
+  format: string;
+  timezone?: string;
 }) {
-  const [date, setDate] = useState(null);
+  const [date, setDate] = useState<string | null>(null);
 
   useEffect(() => {
     const parsed = new Date(dateString);
 
-    if (isNaN(parsed)) {
+    if (isNaN(parsed.getTime())) {
       return;
     }
 

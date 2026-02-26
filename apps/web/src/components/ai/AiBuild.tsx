@@ -1,5 +1,4 @@
-import styled from "styled-components";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { ArrowRight } from "react-feather";
 
 import { useTranslations } from "next-intl";
@@ -14,23 +13,35 @@ import zerepyIcon from "../../../assets/ai/zerepy.jpg";
 
 import styles from "./AiBuild.module.scss";
 
-const StyledCard = styled.div`
-  position: relative;
-  color: ${(props) => (props.color ? props.color : "#fff")};
-  background-color: ${(props) => props.bgColor ?? "unset"};
-  background-size: cover;
-  background-repeat: no-repeat;
-`;
-
-function Card({ color, bgColor, dividerColor, title, icon, content, ctaLink }) {
+function Card({
+  color,
+  bgColor,
+  dividerColor,
+  title,
+  icon,
+  content,
+  ctaLink,
+}: {
+  color?: string;
+  bgColor?: string;
+  dividerColor?: string;
+  title: string;
+  icon: StaticImageData;
+  content: string;
+  ctaLink: string;
+}) {
   const t = useTranslations();
 
   return (
-    <StyledCard
-      color={color}
-      bgColor={bgColor}
-      dividerColor={dividerColor}
+    <div
       className={styles["card"]}
+      style={{
+        position: "relative",
+        color: color ?? "#fff",
+        backgroundColor: bgColor ?? "unset",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+      }}
     >
       {title && (
         <>
@@ -50,7 +61,7 @@ function Card({ color, bgColor, dividerColor, title, icon, content, ctaLink }) {
           </div>
         </>
       )}
-    </StyledCard>
+    </div>
   );
 }
 

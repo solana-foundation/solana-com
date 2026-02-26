@@ -1,4 +1,3 @@
-import styled from "styled-components";
 import Image from "next/image";
 import SocialShareButtons from "../sharedPageSections/SocialShareButtons";
 import Button from "../shared/Button";
@@ -7,64 +6,49 @@ import { useTranslations } from "next-intl";
 import defaultImg from "../../../public/social/solana.jpg";
 import { Link } from "@/utils/Link";
 
-const StyledSection = styled.section`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  column-gap: 2rem;
-  row-gap: 2rem;
+type EventData = {
+  platform?: string;
+  key?: string;
+  rsvp?: string;
+  lumaUrl?: string;
+  img?: { primary?: { alt?: string } | string };
+  title?: string;
+  description?: string;
+  schedule?: {
+    from?: string;
+    to?: string;
+    timezone?: string;
+  };
+};
 
-  @media (min-width: 768px) {
-    flex-direction: row;
-  }
-
-  .event-img {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1/1;
-
-    @media (min-width: 768px) {
-      width: 500px;
-    }
-  }
-  .event-details {
-    flex: 1;
-    min-width: 280px;
-    display: flex;
-    flex-direction: column;
-    row-gap: 1.25rem;
-  }
-
-  small {
-    font-size: 0.875rem;
-    line-height: 130%;
-  }
-`;
-
-const EventsDetailSection = ({ event = null }) => {
+const EventsDetailSection = ({
+  event = null,
+}: {
+  event?: EventData | null;
+}) => {
   const t = useTranslations();
   if (!event) return null;
 
   const eventUrl =
-    event.platform === "external" ? event.key : event.rsvp || event.lumaUrl;
+    event.platform === "external" ? event.key! : event.rsvp || event.lumaUrl!;
 
   return (
-    <StyledSection className="my-20">
-      <div className="event-img">
+    <section className="my-20 flex flex-col items-center gap-x-8 gap-y-8 md:flex-row">
+      <div className="relative w-full aspect-square md:w-[500px]">
         <Link
           target="_blank"
-          rel={!eventUrl.includes("solana.com") && "nofollow"}
+          rel={!eventUrl.includes("solana.com") ? "nofollow" : undefined}
           to={eventUrl}
         >
           <Image
-            alt={event?.img?.primary?.alt || event.title}
-            src={event?.img?.primary || defaultImg}
+            alt={(event?.img?.primary as { alt?: string })?.alt || event.title!}
+            src={(event?.img?.primary as string) || defaultImg}
             fill
           />
         </Link>
       </div>
-      <div className="event-details">
-        <small>
+      <div className="flex-1 min-w-[280px] flex flex-col gap-y-5">
+        <small className="text-sm leading-[130%]">
           {event?.schedule?.from && (
             <FormattedDate
               date={event?.schedule?.from}
@@ -73,7 +57,7 @@ const EventsDetailSection = ({ event = null }) => {
             />
           )}
           {event?.schedule?.to &&
-            new Date(event?.schedule?.from).getDay() !==
+            new Date(event?.schedule?.from!).getDay() !==
               new Date(event?.schedule?.to).getDay() && (
               <>
                 <span className="mx-1">-</span>
@@ -86,12 +70,12 @@ const EventsDetailSection = ({ event = null }) => {
             )}
         </small>
         <h2 className="h4">{event.title}</h2>
-        <small>{event.description}</small>
+        <small className="text-sm leading-[130%]">{event.description}</small>
         <Button
           to={eventUrl}
           arrow={true}
           newTab
-          rel={!eventUrl.includes("solana.com") && "nofollow"}
+          rel={!eventUrl.includes("solana.com") ? "nofollow" : undefined}
         >
           {t("events.detail.action")}
         </Button>
@@ -101,7 +85,7 @@ const EventsDetailSection = ({ event = null }) => {
           className="mt-2"
         />
       </div>
-    </StyledSection>
+    </section>
   );
 };
 

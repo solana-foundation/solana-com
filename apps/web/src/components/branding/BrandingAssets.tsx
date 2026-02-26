@@ -1,33 +1,13 @@
 import Image from "next/image";
-import styled from "styled-components";
 import Divider from "../shared/Divider";
 import Button from "../shared/Button";
 import { useTranslations } from "next-intl";
-
-const StyledSection = styled.section`
-  .logo-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    column-gap: 1.5rem;
-    row-gap: 1.5rem;
-    flex-wrap: wrap;
-
-    .logo {
-      min-width: 280px;
-      width: 320px;
-      height: 160px;
-      display: flex;
-      align-items: center;
-    }
-  }
-`;
 
 const BrandingAssets = () => {
   const t = useTranslations();
 
   return (
-    <StyledSection className="pt-10" id="asset">
+    <section className="pt-10" id="asset">
       <h2 className="h3">{t("branding.assets.title")}</h2>
       <Button
         to="https://drive.google.com/drive/u/1/folders/1Y882o7uxW4Bx2vL6MXI-IozbGTX3ztBk"
@@ -40,7 +20,7 @@ const BrandingAssets = () => {
       </Button>
 
       <Divider theme="light" axis="x" className="my-4" />
-      <div className="logo-section">
+      <div className="flex justify-between items-center gap-x-6 gap-y-6 flex-wrap">
         <div>
           <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.mainLogoType")}
@@ -49,16 +29,20 @@ const BrandingAssets = () => {
             <Button
               to="src/img/branding/solanaLogo.png"
               download
-              className="mr-4"
+              className="mr-4 px-5"
             >
               PNG
             </Button>
-            <Button to="src/img/branding/solanaLogo.svg" download>
+            <Button
+              className="px-5"
+              to="src/img/branding/solanaLogo.svg"
+              download
+            >
               SVG
             </Button>
           </div>
         </div>
-        <div className="logo">
+        <div className="min-w-[280px] w-[320px] h-[160px] flex items-center">
           <Image
             alt="Official Solana full logo (horizontal)"
             src="/src/img/branding/solanaLogo.svg"
@@ -69,7 +53,7 @@ const BrandingAssets = () => {
       </div>
 
       <Divider theme="light" axis="x" className="my-4" />
-      <div className="logo-section">
+      <div className="flex justify-between items-center gap-x-6 gap-y-6 flex-wrap">
         <div>
           <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.logomark")}
@@ -78,16 +62,20 @@ const BrandingAssets = () => {
             <Button
               to="src/img/branding/solanaLogoMark.png"
               download
-              className="mr-4"
+              className="mr-4 px-5"
             >
               PNG
             </Button>
-            <Button to="src/img/branding/solanaLogoMark.svg" download>
+            <Button
+              className="px-5"
+              to="src/img/branding/solanaLogoMark.svg"
+              download
+            >
               SVG
             </Button>
           </div>
         </div>
-        <div className="logo">
+        <div className="min-w-[280px] w-[320px] h-[160px] flex items-center">
           <Image
             alt="Official Solana logo mark icon"
             src="/src/img/branding/solanaLogoMark.svg"
@@ -98,7 +86,7 @@ const BrandingAssets = () => {
       </div>
 
       <Divider theme="light" axis="x" className="my-4" />
-      <div className="logo-section">
+      <div className="flex justify-between items-center gap-x-6 gap-y-6 flex-wrap">
         <div>
           <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.wordmark")}
@@ -107,16 +95,20 @@ const BrandingAssets = () => {
             <Button
               to="src/img/branding/solanaWordMark.png"
               download
-              className="mr-4"
+              className="mr-4 px-5"
             >
               PNG
             </Button>
-            <Button to="src/img/branding/solanaWordMark.svg" download>
+            <Button
+              className="px-5"
+              to="src/img/branding/solanaWordMark.svg"
+              download
+            >
               SVG
             </Button>
           </div>
         </div>
-        <div className="logo">
+        <div className="min-w-[280px] w-[320px] h-[160px] flex items-center">
           <Image
             alt="Official Solana wordmark"
             src="/src/img/branding/solanaWordMark.svg"
@@ -127,7 +119,7 @@ const BrandingAssets = () => {
       </div>
 
       <Divider theme="light" axis="x" className="my-4" />
-      <div className="logo-section">
+      <div className="flex justify-between items-center gap-x-6 gap-y-6 flex-wrap">
         <div>
           <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.vertical")}
@@ -136,16 +128,20 @@ const BrandingAssets = () => {
             <Button
               to="src/img/branding/solanaVerticalLogo.png"
               download
-              className="mr-4"
+              className="mr-4 px-5"
             >
               PNG
             </Button>
-            <Button to="src/img/branding/solanaVerticalLogo.svg" download>
+            <Button
+              className="px-5"
+              to="src/img/branding/solanaVerticalLogo.svg"
+              download
+            >
               SVG
             </Button>
           </div>
         </div>
-        <div className="logo">
+        <div className="min-w-[280px] w-[320px] h-[160px] flex items-center">
           <Image
             alt="Official Solana vertical logo"
             src="/src/img/branding/solanaVerticalLogo.svg"
@@ -156,7 +152,7 @@ const BrandingAssets = () => {
       </div>
 
       <Divider theme="light" axis="x" className="my-4" />
-      <div className="logo-section">
+      <div className="flex justify-between items-center gap-x-6 gap-y-6 flex-wrap">
         <div>
           <p className="smaller uppercase mt-4 mb-4">
             {t("branding.assets.foundation")}
@@ -165,16 +161,20 @@ const BrandingAssets = () => {
             <Button
               to="src/img/branding/solanaFoundationLogo.png"
               download
-              className="mr-4"
+              className="mr-4 px-5"
             >
               PNG
             </Button>
-            <Button to="src/img/branding/solanaFoundationLogo.svg" download>
+            <Button
+              className="px-5"
+              to="src/img/branding/solanaFoundationLogo.svg"
+              download
+            >
               SVG
             </Button>
           </div>
         </div>
-        <div className="logo">
+        <div className="min-w-[280px] w-[320px] h-[160px] flex items-center">
           <Image
             alt="Official Solana Foundation logo"
             src="/src/img/branding/solanaFoundationLogo.svg"
@@ -183,7 +183,7 @@ const BrandingAssets = () => {
           />
         </div>
       </div>
-    </StyledSection>
+    </section>
   );
 };
 

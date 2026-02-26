@@ -1,23 +1,24 @@
 import { createContext, useState } from "react";
-import styled from "styled-components";
 import TypeformModal from "../shared/TypeformModal";
 import { Footer } from "@solana-com/ui-chrome";
 import styles from "./PlayGGLayout.module.scss";
 
 export const ModalContext = createContext({});
 
-const LayoutWrapper = styled.div`
-  --color-playgg-black: #111;
-  --color-playgg-white: #fff;
-  --color-playgg-purple: #9945ff;
-  --color-playgg-green: #14f195;
-`;
-
-const PlayGGLayout = ({ children }) => {
+const PlayGGLayout = ({ children }: { children?: React.ReactNode }) => {
   const [showTypeformModal, setShowTypeformModal] = useState(false);
 
   return (
-    <LayoutWrapper>
+    <div
+      style={
+        {
+          "--color-playgg-black": "#111",
+          "--color-playgg-white": "#fff",
+          "--color-playgg-purple": "#9945ff",
+          "--color-playgg-green": "#14f195",
+        } as React.CSSProperties
+      }
+    >
       <div className={styles["playgg-layout"]}>
         <ModalContext.Provider
           value={{
@@ -43,7 +44,7 @@ const PlayGGLayout = ({ children }) => {
           color: var(--color-playgg-black);
         }
       `}</style>
-    </LayoutWrapper>
+    </div>
   );
 };
 

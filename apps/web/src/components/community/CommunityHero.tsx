@@ -1,23 +1,9 @@
 import Image from "next/legacy/image";
-import styled from "styled-components";
 import { useTranslations } from "next-intl";
 import heroImg from "../../../public/src/img/community/hero.png";
 
-const ImgContainer = styled.div`
-  position: absolute;
-  z-index: -1;
-  left: 0;
-  top: 0;
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-`;
-
 /**
  * The community hero section
- *
- * @returns {JSX.Element}
- * @constructor
  */
 const CommunityHero = () => {
   const t = useTranslations();
@@ -25,14 +11,14 @@ const CommunityHero = () => {
   return (
     <section className="w-full relative pt-[5.5rem]">
       <div className="relative">
-        <ImgContainer>
+        <div className="absolute z-[-1] left-0 top-0 w-full flex justify-end">
           <Image
             src={heroImg}
             alt=""
             objectPosition="center"
             objectFit="cover"
           />
-        </ImgContainer>
+        </div>
         <div className="container pt-32 md:pb-12">
           <div className="grid grid-cols-12 pb-12 mb-12">
             <div className="col-span-12 md:col-span-6">

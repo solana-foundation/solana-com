@@ -1,5 +1,4 @@
 import { useState } from "react";
-import styled from "styled-components";
 import { useTranslations } from "next-intl";
 import { config } from "src/config";
 import {
@@ -12,45 +11,24 @@ import {
 } from "react-share";
 import CopyLinkIcon from "../../../public/src/img/icons/copyLink.inline.svg";
 
-const StyledSection = styled.section`
-  .shared-icons {
-    display: flex;
-    align-items: center;
-    column-gap: 0.8em;
-
-    & > button {
-      svg {
-        circle {
-          fill: #c4c4c4;
-        }
-        path {
-          fill: #222;
-        }
-      }
-    }
-  }
-`;
-
-const StyledCopied = styled.button`
-  cursor: pointer;
-  background-color: transparent;
-  border: none;
-  padding: 0;
-
-  .copied {
-    font-size: 1rem;
-    color: #42ba96;
-  }
-`;
-
-const SocialShareButtons = ({ url, title, className = "" }) => {
+const SocialShareButtons = ({
+  url,
+  title,
+  className = "",
+}: {
+  url: string;
+  title?: string;
+  className?: string;
+}) => {
   const t = useTranslations();
 
   const [copied, setCopied] = useState(false);
-  const [timer, setTimer] = useState(null);
+  const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const { social } = config;
-  const copyLink = async (u) => {
+  const copyLink = async (u: string) => {
     if (timer) {
       clearTimeout(timer);
     }
@@ -69,8 +47,8 @@ const SocialShareButtons = ({ url, title, className = "" }) => {
   };
 
   return (
-    <StyledSection className={className}>
-      <div className="shared-icons">
+    <section className={className}>
+      <div className="flex items-center gap-x-[0.8em] [&>button_svg_circle]:fill-[#c4c4c4] [&>button_svg_path]:fill-[#222]">
         <TwitterShareButton url={url} title={title} via={social.twitter.name}>
           <XIcon size={32} round />
         </TwitterShareButton>
@@ -80,15 +58,21 @@ const SocialShareButtons = ({ url, title, className = "" }) => {
         <TelegramShareButton url={url} title={title}>
           <TelegramIcon size={32} round />
         </TelegramShareButton>
-        <StyledCopied type="button" onClick={() => copyLink(url)}>
+        <button
+          type="button"
+          onClick={() => copyLink(url)}
+          className="cursor-pointer bg-transparent border-none p-0"
+        >
           {copied ? (
-            <span className="copied">{t("commands.copied")}</span>
+            <span className="text-base text-[#42ba96]">
+              {t("commands.copied")}
+            </span>
           ) : (
             <CopyLinkIcon />
           )}
-        </StyledCopied>
+        </button>
       </div>
-    </StyledSection>
+    </section>
   );
 };
 
