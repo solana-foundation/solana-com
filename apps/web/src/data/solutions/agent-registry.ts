@@ -9,7 +9,11 @@ export const PRODUCTS = [
   },
   {
     key: "erc8004market",
-    href: "https://8004market.com/",
+    href: "https://8004market.io/",
+  },
+  {
+    key: "sati",
+    href: "https://sati.cascade.fyi",
   },
 ];
 
@@ -21,9 +25,5 @@ export const TOOLS = [
   {
     key: "1",
     href: "https://quantulabs.github.io/8004-solana/",
-  },
-  {
-    key: "2",
-    href: "https://sati.cascade.fyi",
   },
 ];
