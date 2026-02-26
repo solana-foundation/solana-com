@@ -94,3 +94,77 @@ berjalan untuk akun yang ditandai sebagai writable:
 | Owner        | Yang dipanggil -> Pemanggil | Selalu disalin kembali                                                                                                                                                                                                                                       |
 | Panjang data | Yang dipanggil -> Pemanggil | Jika berubah. Pointer slice data VM dan field panjang yang diserialisasi diperbarui. Jika akun diperkecil, memori yang dibebaskan dikosongkan. Jika panjang baru melebihi `original_data_len + MAX_PERMITTED_DATA_INCREASE`, mengembalikan `InvalidRealloc`. |
 | Konten data  | Yang dipanggil -> Pemanggil | Disalin dari buffer data yang dipanggil ke region data yang diserialisasi pemanggil                                                                                                                                                                          |
+
+### Batasan realloc
+
+Data akun dapat diubah ukurannya selama CPI hingga
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10.240 byte (10 KiB) melebihi panjang data akun pada awal instruksi tingkat
+atas saat ini. Batasan ini diterapkan baik di
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+(pra-CPI) maupun
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+(pasca-CPI). Melebihi batasan ini akan mengembalikan _rs`InvalidRealloc`_.
+
+## Penandatanganan PDA
+
+Ketika _rs`invoke_signed`_ dipanggil, runtime menurunkan alamat PDA dari seed
+yang diberikan dan ID program pemanggil. Ini terjadi di
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661):
+
+1. Array seed penandatangan divalidasi: maksimal
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16) set seed penandatangan.
+2. Setiap set seed divalidasi: maksimal
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16) seed per set, setiap seed maksimal
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   (32) byte.
+3. [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   dipanggil dengan seed dan **ID program pemanggil** (bukan ID program yang
+   dipanggil).
+4. Jika seed tidak menghasilkan PDA yang valid (yaitu, titik yang dihasilkan
+   berada pada kurva ed25519), CPI gagal dengan
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+5. Pubkey PDA yang diturunkan dikumpulkan dan diteruskan ke
+   `prepare_next_instruction` sebagai penandatangan yang valid. Selama
+   pemeriksaan hak istimewa, jika akun yang dipanggil ditandai sebagai
+   penandatangan dan pubkey-nya cocok dengan salah satu PDA yang diturunkan ini,
+   pemeriksaan penandatangan berhasil.
+
+<Callout>
+  PDA diturunkan menggunakan ID program **pemanggil**, bukan ID program yang
+  dipanggil. Ini berarti hanya program yang memiliki PDA (yang ID-nya digunakan
+  untuk menurunkannya) yang dapat menandatangani atas namanya. Sebuah program
+  tidak dapat menandatangani untuk PDA yang diturunkan dari program lain.
+</Callout>
+
+## Data pengembalian
+
+Program dapat mengirimkan data kembali ke pemanggil menggunakan mekanisme data
+pengembalian. Ini menggunakan dua syscall:
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439):
+  Mengatur hingga
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  (1.024) byte data pengembalian untuk instruksi saat ini. Biayanya adalah
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` CU.
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440):
+  Membaca data pengembalian yang diatur oleh instruksi yang terakhir dieksekusi.
+  Mengembalikan data beserta ID program yang mengaturnya. Biayanya adalah
+  `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost` CU (32 byte untuk
+  ID program).
+
+Data pengembalian disimpan per-transaksi dan ditimpa oleh setiap instruksi yang
+memanggil `sol_set_return_data`. Pada awal setiap pemanggilan program, runtime
+[mereset data pengembalian](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)
+menjadi kosong. Setelah CPI kembali, pemanggil dapat membaca data pengembalian
+apa pun yang terakhir ditetapkan oleh callee (atau program apa pun yang
+dipanggil oleh callee).
+
+<Callout>
+  Data pengembalian dibatasi hingga 1.024 byte. Hanya program **terakhir** yang
+  memanggil `sol_set_return_data` dalam rantai pemanggilan yang menentukan apa
+  yang dilihat pemanggil. Jika callee melakukan CPI lebih lanjut yang menetapkan
+  data pengembalian, data pengembalian callee sendiri akan ditimpa.
+</Callout>

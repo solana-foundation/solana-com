@@ -1,0 +1,367 @@
+---
+title: Структура аккаунта
+description:
+  Адреса аккаунтов, пять полей, которые содержит каждый аккаунт Solana —
+  lamports, data, owner, executable и rent_epoch — с интерактивным разбором
+  кода.
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+<Callout type="info" title="Сводка">
+  Аккаунты имеют 5 полей: lamports, data, owner, executable и rent_epoch. Каждый
+  аккаунт идентифицируется уникальным 32-байтовым адресом. Для того чтобы
+  аккаунт оставался в сети, на нем должен храниться минимальный баланс lamport,
+  пропорциональный размеру данных.
+</Callout>
+
+## Адрес аккаунта
+
+Каждый адрес аккаунта — это 32-байтовое значение, отображаемое в виде строки,
+закодированной в base58. Адрес может быть одного из двух типов:
+
+1. **Публичный ключ**: соответствует [Ed25519](https://ed25519.cr.yp.to/)
+   keypair (имеет приватный ключ)
+2. **Program derived address (PDA)**: детерминированно вычисляется из ID
+   программы и seed-значений (не имеет приватного ключа)
+
+![Аккаунт с публичным ключом, закодированным в base58, в качестве адреса](/assets/docs/core/accounts/account-address.svg)
+
+### Публичный ключ
+
+_rs`Keypair`_ состоит из публичного ключа (используется как адрес аккаунта) и
+приватного ключа (используется для подписи транзакций). В следующем примере
+создается keypair с помощью Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program derived address
+
+[Program derived address](/docs/core/pda) (PDA) детерминированно вычисляется из
+ID программы и одного или нескольких дополнительных seed-значений. У PDA нет
+соответствующего приватного ключа. В следующем примере показано, как получить
+PDA с помощью Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## Поля аккаунта
+
+Каждый
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+имеет максимальный размер
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+(10 Миб, что эквивалентно _rs`MAX_PERMITTED_DATA_LENGTH`_) и содержит пять
+полей:
+
+<WithMentions>
+
+| Поле                               | Тип       | Описание                                                                                |
+| ---------------------------------- | --------- | --------------------------------------------------------------------------------------- |
+| [`lamports`](mention:lamports)     | `u64`     | Баланс в lamports. Владелец может списывать; любая программа может зачислять.           |
+| [`data`](mention:data)             | `Vec<u8>` | Состояние аккаунта или байткод программы. Макс. 10 Миб. Только владелец может изменять. |
+| [`owner`](mention:owner)           | `Pubkey`  | Программа с правом записи. Можно переназначить только при обнулённых данных.            |
+| [`executable`](mention:executable) | `bool`    | True = program account.                                                                 |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | Устарело. Устанавливается в `u64::MAX` для аккаунтов, освобождённых от rent.            |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamports
+
+Поле `lamports` содержит баланс аккаунта в
+[lamports](/docs/references/terminology#lamport) (1 SOL = 1 000 000 000
+lamports).
+
+Каждый аккаунт должен поддерживать минимальный баланс в lamports, называемый
+балансом для освобождения от rent, чтобы его данные хранились в блокчейне. Этот
+баланс пропорционален размеру данных аккаунта.
+
+<Callout type="info">
+  Хотя это часто называют "rent", баланс для освобождения от rent фактически
+  является возвратным депозитом: вся сумма возвращается при закрытии аккаунта.
+</Callout>
+
+См.
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+и константы rent
+[constants](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80).
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Data
+
+Поле `data` хранит произвольный массив байтов. Его содержимое зависит от типа
+аккаунта:
+
+- **Program accounts**: содержит исполняемый байткод или адрес
+  [program data account](/docs/core/accounts/account-types#program-data-accounts),
+  который хранит байткод.
+- **Data accounts**: содержит определённые программой данные состояния. Формат
+  сериализации задаётся программой-владельцем.
+
+Чтение данных аккаунта требует двух шагов:
+
+1. Получить аккаунт по его [адресу](#account-address).
+2. Десериализовать поле `data` из сырых байтов в структуру данных, определённую
+   программой.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Владелец
+
+Поле `owner` содержит program ID (публичный ключ) программы, которая владеет
+этим аккаунтом.
+
+Только программа-владелец может:
+
+- Изменять поле `data` аккаунта
+- Списывать лампорты с поля `lamports` аккаунта
+
+Любая программа может добавить лампорты на другой аккаунт, но только владелец
+может списывать лампорты с него.
+
+Для program accounts владельцем является
+[loader program](/docs/core/programs/builtin-programs#loader-programs) аккаунта.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Исполняемый
+
+Поле `executable` — это булево значение, определяющее, является ли аккаунт
+[program account](/docs/core/accounts/account-types#program-accounts) или
+[data account](/docs/core/accounts/account-types#data-accounts):
+
+- `true` = program account (содержит исполняемый код)
+- `false` = data account (хранит состояние)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Эпоха аренды
+
+**Поле `rent_epoch` устарело.**
+
+Ранее отслеживало, когда с аккаунта автоматически списывались лампорты для
+оплаты хранения данных в блокчейне. Поскольку сбор rent устарел, `rent_epoch`
+устанавливается в `u64::MAX` для всех новых аккаунтов, освобождённых от rent.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

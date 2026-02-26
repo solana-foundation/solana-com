@@ -1,0 +1,171 @@
+---
+title: Modelo de custo de CPI e sincronização de dados
+description:
+  Custos computacionais de CPI, sincronização de dados de conta entre chamador e
+  chamado, mecânica de assinatura de PDA e dados de retorno na Solana.
+url: /docs/core/cpi/cpi-cost-model
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/cpi/cpi-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/syscall-reference
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI cost model, Account data synchronization, PDA signing, Return data */}
+
+<Callout type="info" title="Resumo">
+  Cada CPI custa ~1.000 CUs base mais custos de serialização. Os dados da conta
+  são sincronizados antes e depois da execução do chamado. A assinatura de PDA
+  usa o ID do programa chamador. Os dados de retorno são limitados a 1.024
+  bytes.
+</Callout>
+
+## Modelo de custo de CPI
+
+Os custos de CPI são retirados do mesmo orçamento computacional da transação
+(medidor partilhado). A fórmula de custo completa para cada chamada _rs`invoke`_
+/ _rs`invoke_signed`_:
+
+```
+total_cpi_cost = invocation_cost
+               + instruction_data_cost
+               + account_meta_cost          (SIMD-0339 only)
+               + account_info_cost          (SIMD-0339 only)
+               + per_account_data_cost      (for each non-executable account)
+               + callee_execution_cost
+```
+
+## Discriminação de custos
+
+| Componente de custo                            | Fórmula                                                                                                                                      | Fonte                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Invocação (fixo)                               | [`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108) = 1.000 CUs (946 com SIMD-0339) | Cobrado na [entrada de CPI](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)                                                                                                                                                                                  |
+| Serialização de instruction data               | `instruction_data_len / cpi_bytes_per_unit`                                                                                                  | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205) = 250. Cobrado em [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569).                                                |
+| Serialização de metadados de conta (SIMD-0339) | `(num_account_metas * 34) / cpi_bytes_per_unit`                                                                                              | Cada `AccountMeta` tem 34 bytes (32 pubkey + 1 is_signer + 1 is_writable). Cobrado em [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L555-L567).                                                                                               |
+| Tradução de informações de conta (SIMD-0339)   | `(num_account_infos * 80) / cpi_bytes_per_unit`                                                                                              | [`ACCOUNT_INFO_BYTE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L63-L68) = 80 bytes (32 key + 32 owner + 8 lamports + 8 data_len). Cobrado em [translate_account_infos](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981). |
+| Dados por conta                                | `account_data_len / cpi_bytes_per_unit`                                                                                                      | Cobrado por conta em [CallerAccount::from_account_info](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374) e para [contas executáveis](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1056-L1060).                                   |
+| Execução do chamado                            | Quaisquer CUs que o programa chamado consumir                                                                                                | Deduzido do medidor partilhado durante a execução do chamado.                                                                                                                                                                                                                                    |
+
+## Exemplo de cálculo de custo
+
+Uma CPI com 100 bytes de instruction data, 5 metadados de conta, 5 informações
+de conta (cada uma com 1.000 bytes de dados), SIMD-0339 ativo:
+
+```
+invocation_cost        = 946
+instruction_data_cost  = 100 / 250 = 0  (integer division)
+account_meta_cost      = (5 * 34) / 250 = 0
+account_info_cost      = (5 * 80) / 250 = 1
+per_account_data_cost  = 5 * (1000 / 250) = 20
+total (before callee)  = 967 CUs
+```
+
+## Sincronização de dados da conta
+
+O estado da conta é sincronizado entre o chamador e o chamado em dois pontos
+durante uma CPI. Isso garante que ambos os lados vejam uma visão consistente dos
+dados da conta.
+
+### Sincronização pré-CPI (chamador para chamado)
+
+Antes da execução do chamado,
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+copia as modificações em andamento do chamador para a visão da conta do chamado:
+
+| Campo              | Direção             | Quando                                                                                                            |
+| ------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Lamports           | Chamador -> Chamado | Se o valor difere da visão atual do chamado                                                                       |
+| Tamanho dos dados  | Chamador -> Chamado | Se o chamador redimensionou a conta. Não deve exceder `original_data_len + MAX_PERMITTED_DATA_INCREASE` (10 KiB). |
+| Conteúdo dos dados | Chamador -> Chamado | Se os dados da conta são modificáveis (`can_data_be_changed` passa)                                               |
+| Proprietário       | Chamador -> Chamado | Definido por último, para que alterações de dados/lamports sejam permitidas sob o proprietário antigo             |
+
+### Sincronização pós-CPI (chamado para chamador)
+
+Após o retorno do chamado,
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+copia as modificações do chamado de volta para a visão do chamador. Isso só é
+executado para contas marcadas como graváveis:
+
+| Campo              | Direção             | Quando                                                                                                                                                                                                                                                                 |
+| ------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lamports           | Chamado -> Chamador | Sempre copiado de volta                                                                                                                                                                                                                                                |
+| Proprietário       | Chamado -> Chamador | Sempre copiado de volta                                                                                                                                                                                                                                                |
+| Tamanho dos dados  | Chamado -> Chamador | Se alterado. O ponteiro da fatia de dados da VM e o campo de comprimento serializado são atualizados. Se a conta foi reduzida, a memória liberada é zerada. Se o novo comprimento exceder `original_data_len + MAX_PERMITTED_DATA_INCREASE`, retorna `InvalidRealloc`. |
+| Conteúdo dos dados | Chamado -> Chamador | Copiado do buffer de dados do chamado para a região de dados serializados do chamador                                                                                                                                                                                  |
+
+### Limites de realloc
+
+Os dados da conta podem ser redimensionados durante CPI até
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10.240 bytes (10 KiB) além do comprimento dos dados da conta no início da
+instrução de nível superior atual. Este limite é aplicado tanto em
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+(pré-CPI) quanto em
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+(pós-CPI). Excedê-lo retorna _rs`InvalidRealloc`_.
+
+## Assinatura PDA
+
+Quando _rs`invoke_signed`_ é chamado, o runtime deriva endereços PDA a partir
+das seeds fornecidas e do ID do programa do chamador. Isto acontece em
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661):
+
+1. O array de seeds de assinante é validado: no máximo
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16) conjuntos de seeds de assinante.
+2. Cada conjunto de seeds é validado: no máximo
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16) seeds por conjunto, cada seed com no máximo
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   (32) bytes.
+3. [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   é chamado com as seeds e o **ID do programa do chamador** (não o do chamado).
+4. Se as seeds não produzirem um PDA válido (ou seja, o ponto resultante está na
+   curva ed25519), o CPI falha com
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+5. As pubkeys PDA derivadas são coletadas e passadas para
+   `prepare_next_instruction` como assinantes válidos. Durante a verificação de
+   privilégios, se uma conta do chamado estiver marcada como assinante e sua
+   pubkey corresponder a um desses PDAs derivados, a verificação de assinante
+   passa.
+
+<Callout>
+  O PDA é derivado usando o ID do programa do **chamador**, não o do chamado.
+  Isto significa que apenas o programa que possui o PDA (aquele cujo ID foi
+  usado para derivá-lo) pode assinar em seu nome. Um programa não pode assinar
+  por PDAs derivados de outros programas.
+</Callout>
+
+## Dados de retorno
+
+Os programas podem passar dados de volta aos chamadores usando o mecanismo de
+dados de retorno. Isto usa duas syscalls:
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439):
+  Define até
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  (1.024) bytes de dados de retorno para a instrução atual. O custo é
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` CUs.
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440):
+  Lê os dados de retorno definidos pela instrução executada mais recentemente.
+  Retorna os dados juntamente com o ID do programa que os definiu. O custo é
+  `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost` CUs (32 bytes para
+  o ID do programa).
+
+Os dados de retorno são armazenados por transação e são substituídos por cada
+instrução que chama `sol_set_return_data`. No início de cada invocação de
+programa, o runtime
+[redefine os dados de retorno](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)
+para vazio. Após um CPI retornar, o chamador pode ler quaisquer dados de retorno
+que o chamado (ou qualquer programa que o chamado tenha chamado) definiu por
+último.
+
+<Callout>
+  Os dados de retorno são limitados a 1.024 bytes. Apenas o **último** programa
+  a chamar `sol_set_return_data` na cadeia de chamadas determina o que o
+  chamador vê. Se um chamado fizer CPIs adicionais que definam dados de retorno,
+  os próprios dados de retorno do chamado são substituídos.
+</Callout>

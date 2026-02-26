@@ -1,0 +1,65 @@
+---
+title: Exécution des comptes
+description:
+  Comment le runtime Solana charge et valide les comptes avant l'exécution, et
+  le format de sérialisation utilisé pour transmettre les données de compte aux
+  programmes.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Résumé">
+  Avant l'exécution, le runtime charge les comptes, valide le payeur de frais,
+  vérifie l'exemption de loyer et sérialise les données de compte dans une
+  disposition mémoire accessible aux programmes.
+</Callout>
+
+<Callout>
+  Cette page couvre les mécanismes internes du runtime. La plupart des
+  développeurs n'ont pas besoin de ces informations pour créer des programmes.
+  Consultez [Structure des comptes](/docs/core/accounts/account-structure) pour
+  la vue destinée aux développeurs.
+</Callout>
+
+## Chargement des comptes
+
+Avant l'exécution d'une transaction, le runtime charge tous les comptes
+référencés via
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+Ce processus effectue plusieurs validations :
+
+1. **Validation du payeur de frais** : le payeur de frais (premier compte) doit
+   exister, être un compte système ou un compte nonce, et disposer de
+   suffisamment de lamports pour couvrir les frais
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   Après paiement des frais, le compte doit soit rester exempté de loyer, soit
+   atteindre exactement 0 lamport. Il ne peut pas se retrouver entre 0 et le
+   minimum d'exemption de loyer. Les comptes nonce doivent toujours conserver
+   suffisamment de lamports pour rester exemptés de loyer. Si le payeur n'est ni
+   un compte système ni un compte nonce, la transaction échoue avec
+   _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **Limite de taille des données chargées** : la taille totale de tous les
+   comptes chargés (incluant un
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   de 64 octets par compte) ne doit pas dépasser
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 Mio). Le dépassement de cette limite produit
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_.
+
+3. **Validation du compte de programme** : chaque programme invoqué par une
+   instruction doit exister et appartenir à un chargeur valide : l'un des
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) ou le
+   chargeur natif. Si le compte de programme n'existe pas, la transaction échoue
+   avec _rs`TransactionError::ProgramAccountNotFound`_. S'il existe mais possède
+   un propriétaire invalide, la transaction échoue avec
+   _rs`TransactionError::InvalidProgramForExecution`_.

@@ -1,0 +1,141 @@
+---
+title: CPIコストモデルとデータ同期
+description: CPIの計算コスト、呼び出し元と呼び出し先間のアカウントデータ同期、PDA署名メカニズム、およびSolanaでの戻りデータ。
+url: /docs/core/cpi/cpi-cost-model
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/cpi/cpi-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/syscall-reference
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI cost model, Account data synchronization, PDA signing, Return data */}
+
+<Callout type="info" title="概要">
+  各CPIは基本コストとして約1,000
+  CU、さらにシリアライゼーションコストがかかります。アカウントデータは呼び出し先の実行前後で同期されます。PDA署名は呼び出し元のプログラムIDを使用します。戻りデータは1,024バイトに制限されています。
+</Callout>
+
+## CPIコストモデル
+
+CPIのコストは、同じトランザクション計算バジェット(共有メーター)から引き出されます。各
+_rs`invoke`_ / _rs`invoke_signed`_ 呼び出しの完全なコスト計算式:
+
+```
+total_cpi_cost = invocation_cost
+               + instruction_data_cost
+               + account_meta_cost          (SIMD-0339 only)
+               + account_info_cost          (SIMD-0339 only)
+               + per_account_data_cost      (for each non-executable account)
+               + callee_execution_cost
+```
+
+### コストの内訳
+
+| コスト要素                                       | 計算式                                                                                                                                     | ソース                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 呼び出し(固定)                                   | [`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108) = 1,000 CU (SIMD-0339では946) | [CPIエントリ](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)で課金                                                                                                                                                                                     |
+| instruction dataのシリアライゼーション           | `instruction_data_len / cpi_bytes_per_unit`                                                                                                | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205) = 250。[translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569)で課金。                                               |
+| アカウントメタのシリアライゼーション (SIMD-0339) | `(num_account_metas * 34) / cpi_bytes_per_unit`                                                                                            | 各 `AccountMeta` は34バイト(32 pubkey + 1 is_signer + 1 is_writable)。[translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L555-L567)で課金。                                                                                                   |
+| アカウント情報の変換 (SIMD-0339)                 | `(num_account_infos * 80) / cpi_bytes_per_unit`                                                                                            | [`ACCOUNT_INFO_BYTE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L63-L68) = 80バイト(32 key + 32 owner + 8 lamports + 8 data_len)。[translate_account_infos](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)で課金。 |
+| アカウントごとのデータ                           | `account_data_len / cpi_bytes_per_unit`                                                                                                    | [CallerAccount::from_account_info](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374)および[実行可能アカウント](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1056-L1060)でアカウントごとに課金。                              |
+| 呼び出し先の実行                                 | 呼び出し先プログラムが消費するCU                                                                                                           | 呼び出し先の実行中に共有メーターから差し引かれます。                                                                                                                                                                                                                                        |
+
+### コスト計算の例
+
+100バイトのinstruction
+data、5つのアカウントメタ、5つのアカウント情報(それぞれ1,000バイトのデータ)を持つCPI、SIMD-0339が有効な場合:
+
+```
+invocation_cost        = 946
+instruction_data_cost  = 100 / 250 = 0  (integer division)
+account_meta_cost      = (5 * 34) / 250 = 0
+account_info_cost      = (5 * 80) / 250 = 1
+per_account_data_cost  = 5 * (1000 / 250) = 20
+total (before callee)  = 967 CUs
+```
+
+## アカウントデータの同期
+
+アカウントの状態は、CPI中の2つのポイントで呼び出し元と呼び出し先の間で同期されます。これにより、両者がアカウントデータの一貫したビューを確認できます。
+
+### CPI前の同期(呼び出し元から呼び出し先へ)
+
+呼び出し先が実行される前に、
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+は呼び出し元の実行中の変更を呼び出し先のアカウントビューにコピーします:
+
+| フィールド | 方向                     | タイミング                                                                                                                |
+| ---------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Lamports   | 呼び出し元 -> 呼び出し先 | 値が呼び出し先の現在のビューと異なる場合                                                                                  |
+| データ長   | 呼び出し元 -> 呼び出し先 | 呼び出し元がアカウントをリサイズした場合。`original_data_len + MAX_PERMITTED_DATA_INCREASE`(10 KiB)を超えてはいけません。 |
+| データ内容 | 呼び出し元 -> 呼び出し先 | アカウントのデータが変更可能な場合(`can_data_be_changed`が通過)                                                           |
+| オーナー   | 呼び出し元 -> 呼び出し先 | 最後に設定されるため、古いオーナーの下でデータ/lamportの変更が許可されます                                                |
+
+### CPI後の同期(呼び出し先から呼び出し元へ)
+
+呼び出し先が戻った後、
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+は呼び出し先の変更を呼び出し元のビューにコピーします。これは書き込み可能としてマークされたアカウントに対してのみ実行されます:
+
+| フィールド | 方向                     | タイミング                                                                                                                                                                                                                                                    |
+| ---------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lamports   | 呼び出し先 -> 呼び出し元 | 常にコピーされます                                                                                                                                                                                                                                            |
+| オーナー   | 呼び出し先 -> 呼び出し元 | 常にコピーされます                                                                                                                                                                                                                                            |
+| データ長   | 呼び出し先 -> 呼び出し元 | 変更された場合。VMデータスライスポインタとシリアル化された長さフィールドが更新されます。アカウントが縮小された場合、解放されたメモリはゼロ化されます。新しい長さが`original_data_len + MAX_PERMITTED_DATA_INCREASE`を超える場合、`InvalidRealloc`を返します。 |
+| データ内容 | 呼び出し先 -> 呼び出し元 | 呼び出し先のデータバッファから呼び出し元のシリアル化されたデータ領域にコピーされます                                                                                                                                                                          |
+
+### Reallocの制限
+
+アカウントデータは、CPI中に現在のトップレベル命令の開始時点でのアカウントのデータ長を超えて
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10,240バイト(10 KiB)までリサイズできます。この制限は
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+(CPI前)と
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+(CPI後)の両方で適用されます。これを超えると*rs`InvalidRealloc`*が返されます。
+
+## PDA署名
+
+*rs`invoke_signed`*が呼び出されると、ランタイムは提供されたseedと呼び出し元のプログラムIDからPDAアドレスを導出します。これは
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)で行われます:
+
+1. 署名者seed配列が検証されます:最大
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16)個の署名者seedセット。
+2. 各seedセットが検証されます:セットあたり最大
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16)個のseed、各seedは最大
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   (32)バイト。
+3. [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   がseedと**呼び出し元のプログラムID**(呼び出し先ではない)で呼び出されます。
+4. seedが有効なPDAを生成しない場合(つまり、結果のポイントがed25519曲線上にある場合)、CPIは
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36)で失敗します。
+5. 導出されたPDA
+   pubkeyが収集され、有効な署名者として`prepare_next_instruction`に渡されます。権限チェック中に、呼び出し先アカウントが署名者としてマークされ、そのpubkeyがこれらの導出されたPDAのいずれかと一致する場合、署名者チェックは成功します。
+
+<Callout>
+  PDAは呼び出し**先**のプログラムIDではなく、**呼び出し元**のプログラムIDを使用して導出されます。これは、PDAを所有するプログラム(導出に使用されたIDを持つプログラム)のみがその代わりに署名できることを意味します。プログラムは他のプログラムから導出されたPDAに対して署名することはできません。
+</Callout>
+
+## リターンデータ
+
+プログラムはリターンデータメカニズムを使用して、呼び出し元にデータを返すことができます。これは2つのsyscallを使用します:
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439): 現在の命令に対して最大
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  (1,024)バイトのリターンデータを設定します。コストは
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` CUです。
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440): 最後に実行された命令によって設定されたリターンデータを読み取ります。データとそれを設定したプログラムIDを返します。コストは
+  `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost`
+  CU(プログラムIDの32バイト)です。
+
+リターンデータはトランザクションごとに保存され、`sol_set_return_data`を呼び出す各命令によって上書きされます。各プログラム呼び出しの開始時に、ランタイムは[リターンデータをリセット](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)して空にします。CPIが戻った後、呼び出し元は呼び出し先（または呼び出し先が呼び出した任意のプログラム）が最後に設定したリターンデータを読み取ることができます。
+
+<Callout>
+  リターンデータは1,024バイトに制限されています。呼び出しチェーンで`sol_set_return_data`を呼び出した**最後の**プログラムのみが、呼び出し元に表示される内容を決定します。呼び出し先がリターンデータを設定するさらなるCPIを行う場合、呼び出し先自身のリターンデータは上書きされます。
+</Callout>

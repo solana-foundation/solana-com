@@ -1,0 +1,351 @@
+---
+title: 账户结构
+description:
+  账户地址、每个 Solana 账户包含的五个字段 —— lamports、data、owner、executable
+  和 rent_epoch —— 以及交互式代码演示。
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* 目录：账户地址、账户字段、ScrollyCoding 演示（Lamports、Data、Owner、Executable、Rent Epoch）、AccountSharedData、Rent 状态机 */}
+
+<Callout type="info" title="摘要">
+  账户包含 5 个字段：lamports、data、owner、executable 和 rent_epoch。
+  每个账户都由唯一的 32 字节地址标识。账户必须根据其数据大小，持有一定数量的
+  lamport 余额，才能保留在链上。
+</Callout>
+
+## 账户地址
+
+每个账户地址都是一个 32 字节的值，以 base58 编码字符串的形式展示。地址可以是以下两种类型之一：
+
+1. **公钥**：对应一个 [Ed25519](https://ed25519.cr.yp.to/) keypair（拥有私钥）
+2. **Program Derived Address
+   (PDA)**：由程序 ID 和种子（seeds）确定性生成（没有私钥）
+
+![一个带有 base58 编码公钥地址的账户](/assets/docs/core/accounts/account-address.svg)
+
+### 公钥
+
+一个 _rs`Keypair`_
+包含一个公钥（用作账户地址）和一个私钥（用于签名交易）。以下示例演示如何使用 Solana
+SDK 生成一个 keypair。
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program Derived Address
+
+[Program Derived Address](/docs/core/pda)（PDA）是由程序 ID 和一个或多个可选种子确定性生成的。PDA 没有对应的私钥。以下示例演示如何使用 Solana
+SDK 派生一个 PDA。
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## 账户字段
+
+每个
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+最大可达
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+（10 MiB，即 _rs`MAX_PERMITTED_DATA_LENGTH`_），并包含五个字段：
+
+<WithMentions>
+
+| 字段                               | 类型      | 描述                                                |
+| ---------------------------------- | --------- | --------------------------------------------------- |
+| [`lamports`](mention:lamports)     | `u64`     | 以 lamport 计的余额。所有者可扣款，任何程序可入账。 |
+| [`data`](mention:data)             | `Vec<u8>` | 账户状态或程序字节码。最大 10 MiB。仅所有者可写。   |
+| [`owner`](mention:owner)           | `Pubkey`  | 拥有写入权限的程序。仅当数据被清零时可重新分配。    |
+| [`executable`](mention:executable) | `bool`    | True = program account。                            |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | 已弃用。对于免租金账户，设置为 `u64::MAX`。         |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamports
+
+`lamports` 字段存储账户的余额，单位为
+[lamport](/docs/references/terminology#lamport)（1 SOL = 1,000,000,000
+lamport）。
+
+每个账户都必须保持最低 lamport 余额（即免租金余额），以保证其数据能存储在链上。该余额与账户数据大小成正比。
+
+<Callout type="info">
+  虽然通常被称为“租金”，但免租金余额实际上是可退还的押金，账户关闭时可全额返还。
+</Callout>
+
+参见
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+以及 rent
+[常量](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80)。
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Data
+
+`data` 字段存储任意字节数组，其内容取决于账户类型：
+
+- **Program accounts**：包含可执行字节码或存储字节码的
+  [program data account](/docs/core/accounts/account-types#program-data-accounts)
+  地址。
+- **Data accounts**：包含程序定义的状态数据。所属程序定义序列化格式。
+
+读取账户数据需要两个步骤：
+
+1. 通过其 [地址](#account-address) 获取账户。
+2. 将 `data` 字段从原始字节反序列化为程序定义的数据结构。
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 所有者
+
+`owner` 字段包含拥有此账户的程序的 program ID（公钥）。
+
+只有所有者程序可以：
+
+- 修改账户的 `data` 字段
+- 从账户的 `lamports` 字段中扣除 lamports
+
+任何程序都可以向其他账户添加 lamports，但只有所有者才能从中扣除 lamports。
+
+对于 program account，其所有者是该账户的
+[loader program](/docs/core/programs/builtin-programs#loader-programs)。
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 可执行性
+
+`executable` 字段是一个布尔值，用于判断该账户是
+[program account](/docs/core/accounts/account-types#program-accounts) 还是
+[data account](/docs/core/accounts/account-types#data-accounts)：
+
+- `true` = program account（包含可执行代码）
+- `false` = data account（存储状态）
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 租赁 epoch
+
+**`rent_epoch` 字段已弃用。**
+
+此前用于追踪账户何时会自动扣除 lamports 以支付链上数据存储费用。由于 rent 机制已弃用，所有新的免租账户的
+`rent_epoch` 都被设置为 `u64::MAX`。
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

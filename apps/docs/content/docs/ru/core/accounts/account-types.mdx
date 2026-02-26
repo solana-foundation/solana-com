@@ -506,3 +506,148 @@ await connection.confirmTransaction(signature, "confirmed");
 const accountInfo = await connection.getAccountInfo(keypair.publicKey);
 console.log(JSON.stringify(accountInfo, null, 2));
 ```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signer::{keypair::Keypair, Signer},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate a new keypair
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+
+    // Create a connection to Solana cluster
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Funding an address with SOL automatically creates an account
+    let signature = connection
+        .request_airdrop(&keypair.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = connection.confirm_transaction(&signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    let account_info = connection.get_account(&keypair.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Системные аккаунты (Sysvar)
+
+[Системные аккаунты (Sysvar)](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/sysvar_cache.rs#L31)
+— это специальные аккаунты по предопределённым адресам, которые предоставляют
+только для чтения доступ к данным состояния кластера. Они обновляются
+динамически каждый slot.
+
+| Sysvar                                                                                                                 | Адрес                                         | Назначение                                                   |
+| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------ |
+| [Clock](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2064)                                       | `SysvarC1ock11111111111111111111111111111111` | Текущий slot, epoch и Unix-временная метка                   |
+| [EpochSchedule](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2264)                               | `SysvarEpochSchedu1e111111111111111111111111` | Константы расписания epoch, заданные в genesis               |
+| [EpochRewards](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/partitioned_epoch_rewards/sysvar.rs#L24) | `SysvarEpochRewards1111111111111111111111111` | Статус и прогресс распределения наград за epoch              |
+| [Rent](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2255)                                        | `SysvarRent111111111111111111111111111111111` | Ставка rent и порог освобождения                             |
+| [SlotHashes](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2196)                                  | `SysvarS1otHashes111111111111111111111111111` | Последние хэши родительских банков slot                      |
+| [StakeHistory](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2273)                                | `SysvarStakeHistory1111111111111111111111111` | Активация и деактивация стейка по epoch                      |
+| [LastRestartSlot](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2123)                             | `SysvarLastRestartS1ot1111111111111111111111` | Последний slot перезапуска кластера                          |
+| [Instructions](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L736)                           | `Sysvar1nstructions1111111111111111111111111` | Сериализованные инструкции текущей транзакции                |
+| [SlotHistory](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L2182)                                 | `SysvarS1otHistory11111111111111111111111111` | Запись о том, какие slot были произведены за последний epoch |
+
+В следующем примере выполняется получение и десериализация системного аккаунта
+Clock.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { createSolanaRpc } from "@solana/kit";
+import { fetchSysvarClock, SYSVAR_CLOCK_ADDRESS } from "@solana/sysvars";
+
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+
+const accountInfo = await rpc
+  .getAccountInfo(SYSVAR_CLOCK_ADDRESS, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+
+// Automatically fetch and deserialize the account data
+const clock = await fetchSysvarClock(rpc);
+console.log(clock);
+```
+
+```ts !! title="Legacy"
+import { Connection, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+import { getSysvarClockCodec } from "@solana/sysvars";
+
+const connection = new Connection(
+  "https://api.mainnet.solana.com",
+  "confirmed"
+);
+
+const accountInfo = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
+
+// Deserialize the account data
+const decodedClock = getSysvarClockCodec().decode(
+  new Uint8Array(accountInfo?.data ?? [])
+);
+
+console.log(decodedClock);
+// !collapse(1:16) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use bincode::deserialize;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::sysvar::{self, clock::Clock};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let account = connection.get_account(&sysvar::clock::ID).await?;
+    // Deserialize the account data
+    let clock: Clock = deserialize(&account.data)?;
+
+    println!("{:#?}", account);
+    println!("{:#?}", clock);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

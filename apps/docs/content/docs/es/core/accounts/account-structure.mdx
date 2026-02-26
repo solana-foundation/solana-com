@@ -1,0 +1,370 @@
+---
+title: Estructura de cuenta
+description:
+  "Direcciones de cuenta, los cinco campos que contiene cada cuenta de Solana:
+  lamports, data, owner, executable y rent_epoch, con tutorial de código
+  interactivo."
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+<Callout type="info" title="Resumen">
+  Las cuentas tienen 5 campos: lamports, data, owner, executable y rent_epoch.
+  Cada cuenta se identifica mediante una dirección única de 32 bytes. Las
+  cuentas deben mantener un saldo mínimo de lamports proporcional al tamaño de
+  sus datos para permanecer en la cadena.
+</Callout>
+
+## Dirección de cuenta
+
+Cada dirección de cuenta es un valor de 32 bytes, mostrado como una cadena
+codificada en base58. Una dirección puede ser de dos tipos:
+
+1. **Clave pública**: corresponde a un [Ed25519](https://ed25519.cr.yp.to/)
+   keypair (tiene una clave privada)
+2. **Program Derived Address (PDA)**: derivada determinísticamente de un ID de
+   programa y semillas (sin clave privada)
+
+![Una cuenta con su dirección de clave pública codificada en base58](/assets/docs/core/accounts/account-address.svg)
+
+### Clave pública
+
+Un _rs`Keypair`_ consiste en una clave pública (usada como dirección de cuenta)
+y una clave privada (usada para firmar transacciones). El siguiente ejemplo
+genera un keypair usando el SDK de Solana.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program Derived Address
+
+Un [Program Derived Address](/docs/core/pda) (PDA) se deriva determinísticamente
+de un ID de programa y una o más semillas opcionales. Los PDAs no tienen una
+clave privada correspondiente. El siguiente ejemplo deriva un PDA usando el SDK
+de Solana.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## Campos de cuenta
+
+Cada
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+tiene un tamaño máximo de
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+(10 MiB, equivalente a _rs`MAX_PERMITTED_DATA_LENGTH`_) y contiene cinco campos:
+
+<WithMentions>
+
+| Campo                              | Tipo      | Descripción                                                                                |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| [`lamports`](mention:lamports)     | `u64`     | Saldo en lamports. El propietario puede debitar; cualquier programa puede acreditar.       |
+| [`data`](mention:data)             | `Vec<u8>` | Estado de cuenta o bytecode del programa. Máx. 10 MiB. Solo escribible por el propietario. |
+| [`owner`](mention:owner)           | `Pubkey`  | Programa con acceso de escritura. Reasignable solo cuando los datos están en cero.         |
+| [`executable`](mention:executable) | `bool`    | True = program account.                                                                    |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | Obsoleto. Establecido en `u64::MAX` para cuentas exentas de renta.                         |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamports
+
+El campo `lamports` contiene el saldo de la cuenta en
+[lamports](/docs/references/terminology#lamport) (1 SOL = 1.000.000.000
+lamports).
+
+Cada cuenta debe mantener un saldo mínimo de lamports, conocido como el saldo
+exento de renta, para mantener sus datos almacenados en cadena. Este saldo es
+proporcional al tamaño de los datos de la cuenta.
+
+<Callout type="info">
+  Aunque a menudo se llama "rent", el saldo exento de renta funciona como un
+  depósito reembolsable, el saldo completo se recupera cuando se cierra la
+  cuenta.
+</Callout>
+
+Ver
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+y las
+[constantes](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80)
+de rent.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Data
+
+El campo `data` almacena un array de bytes arbitrario. Su contenido depende del
+tipo de cuenta:
+
+- **Program accounts**: Contiene bytecode ejecutable o la dirección de una
+  [cuenta de datos de programa](/docs/core/accounts/account-types#program-data-accounts)
+  que almacena el bytecode.
+- **Cuentas de datos**: Contiene datos de estado definidos por el programa. El
+  programa propietario define el formato de serialización.
+
+Leer datos de cuenta requiere dos pasos:
+
+1. Obtener la cuenta por su [dirección](#account-address).
+2. Deserializar el campo `data` de bytes sin procesar a la estructura de datos
+   definida por el programa.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Propietario
+
+El campo `owner` contiene el ID del programa (clave pública) del programa que
+posee esta cuenta.
+
+El programa propietario es el único programa que puede:
+
+- Modificar el campo `data` de la cuenta
+- Deducir lamports del campo `lamports` de la cuenta
+
+Cualquier programa puede agregar lamports a otra cuenta, pero solo el
+propietario puede deducir lamports de ella.
+
+Para las program accounts, el propietario es el
+[programa cargador](/docs/core/programs/builtin-programs#loader-programs) de la
+cuenta.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Ejecutable
+
+El campo `executable` es un booleano que determina si la cuenta es una
+[program account](/docs/core/accounts/account-types#program-accounts) o una
+[data account](/docs/core/accounts/account-types#data-accounts):
+
+- `true` = program account (contiene código ejecutable)
+- `false` = data account (almacena estado)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Epoch de rent
+
+**El campo `rent_epoch` está obsoleto.**
+
+Anteriormente rastreaba cuándo se deducirían automáticamente lamports de una
+cuenta para pagar el mantenimiento de sus datos en la cadena. Dado que la
+recolección de rent está obsoleta, `rent_epoch` se establece en `u64::MAX` para
+todas las nuevas cuentas exentas de rent.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

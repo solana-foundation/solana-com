@@ -1,0 +1,99 @@
+---
+title: Κανόνες τροποποίησης
+description:
+  Κανόνες που επιβάλλονται από το runtime για την τροποποίηση των lamports,
+  δεδομένων, owner, executable flag και σημασιολογίας δανεισμού λογαριασμών
+  Solana.
+url: /docs/core/accounts/modification-rules
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+  - /docs/core/cpi/cpi-execution
+---
+
+<Callout type="info" title="Περίληψη">
+  Έλεγχοι runtime μετά από κάθε εντολή: μόνο ο owner μπορεί να χρεώσει lamports
+  ή να τροποποιήσει δεδομένα, τα δεδομένα μπορούν να αυξηθούν κατά μέγιστο 10
+  KiB ανά εντολή, οι αλλαγές owner απαιτούν δεδομένα μηδενικής αρχικοποίησης και
+  το executable flag είναι μη αναστρέψιμο.
+</Callout>
+
+Το Solana runtime επιβάλλει αυτούς τους κανόνες μετά την εκτέλεση κάθε εντολής
+μέσω
+[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727)
+μεθόδων. Κάθε κανόνας ελέγχεται κατά το σημείο τροποποίησης και η συναλλαγή
+αναιρείται εάν αποτύχει οποιοσδήποτε έλεγχος.
+
+## Κανόνες lamports
+
+| Κανόνας                                                                    | Επιβολή                                                                                                                                                                                                                                                   | Σφάλμα                        |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Μόνο ο owner μπορεί να χρεώσει lamports                                    | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): ελέγχει `is_owned_by_current_program()` όταν `lamports < current`                                                                             | `ExternalAccountLamportSpend` |
+| Οι λογαριασμοί μόνο για ανάγνωση δεν μπορούν να έχουν αλλαγές στα lamports | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): ελέγχει `is_writable()`                                                                                                                       | `ReadonlyLamportChange`       |
+| Οποιοδήποτε πρόγραμμα μπορεί να πιστώσει lamports σε εγγράψιμο λογαριασμό  | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789): ο έλεγχος ιδιοκτησίας ισχύει μόνο όταν το νέο υπόλοιπο είναι μικρότερο από το τρέχον υπόλοιπο· ο έλεγχος εγγραψιμότητας εξακολουθεί να ισχύει | `ReadonlyLamportChange`       |
+| Τα lamports πρέπει να ισοσκελίζονται σε μια εντολή                         | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): επαληθεύει `get_lamports_delta() == 0`                                                                                             | `UnbalancedInstruction`       |
+
+## Κανόνες δεδομένων
+
+| Κανόνας                                                                      | Επιβολή                                                                                                                                                                                                                              | Σφάλμα                               |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| Μόνο ο owner μπορεί να τροποποιήσει δεδομένα                                 | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023): ελέγχει `is_owned_by_current_program()`                                                                         | `ExternalAccountDataModified`        |
+| Οι λογαριασμοί μόνο για ανάγνωση δεν μπορούν να έχουν τροποποιημένα δεδομένα | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016): ελέγχει `is_writable()`                                                                                         | `ReadonlyDataModified`               |
+| Μόνο ο owner μπορεί να αλλάξει το μέγεθος των δεδομένων                      | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037): ελέγχει `is_owned_by_current_program()` όταν `new_len != old_len`                                               | `AccountDataSizeChanged`             |
+| Μέγιστο μέγεθος δεδομένων: 10 MiB                                            | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332): ελέγχει `new_len <= MAX_ACCOUNT_DATA_LEN`                                   | `InvalidRealloc`                     |
+| Μέγιστη αύξηση ανά εντολή: 10 KiB                                            | Deserialization στο [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629): ελέγχει `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE`                  | `InvalidRealloc`                     |
+| Μέγιστη αύξηση ανά συναλλαγή: 20 MiB                                         | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330): ελέγχει σωρευτικό `resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION` | `MaxAccountsDataAllocationsExceeded` |
+
+## Κανόνες ιδιοκτήτη
+
+| Κανόνας                                                           | Επιβολή                                                                                                                                          | Σφάλμα              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
+| Μόνο ο τρέχων ιδιοκτήτης μπορεί να αναθέσει εκ νέου τον ιδιοκτήτη | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755): ελέγχει `is_owned_by_current_program()` | `ModifiedProgramId` |
+| Ο λογαριασμός πρέπει να είναι εγγράψιμος                          | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759): ελέγχει `is_writable()`                 | `ModifiedProgramId` |
+| Τα δεδομένα πρέπει να είναι μηδενικά αρχικοποιημένα               | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763): ελέγχει `is_zeroed(data)`               | `ModifiedProgramId` |
+
+## Κανόνες σημαίας εκτελέσιμου
+
+| Κανόνας                                             | Επιβολή                                                                                                                                                    | Σφάλμα                           |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Ο λογαριασμός πρέπει να είναι απαλλαγμένος από rent | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967): ελέγχει `rent.is_exempt(lamports, data_len)` | `ExecutableAccountNotRentExempt` |
+| Μόνο ο ιδιοκτήτης μπορεί να ορίσει τη σημαία        | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): ελέγχει `is_owned_by_current_program()`      | `ExecutableModified`             |
+| Ο λογαριασμός πρέπει να είναι εγγράψιμος            | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): ελέγχει `is_writable()`                      | `ExecutableModified`             |
+
+## Μεταβάσεις κατάστασης rent
+
+Οι λογαριασμοί υπάρχουν σε μία από τρεις
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+τιμές: _rs`Uninitialized`_ (0 lamports), _rs`RentPaying`_ (πάνω από 0 αλλά κάτω
+από το ελάχιστο απαλλαγής από rent), και _rs`RentExempt`_ (στο ή πάνω από το
+ελάχιστο). Οι μη επιτρεπόμενες μεταβάσεις παράγουν
+_rs`TransactionError::InsufficientFundsForRent`_.
+
+Το runtime επιβάλλει αυτούς τους κανόνες μέσω
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126):
+
+- Οποιοσδήποτε λογαριασμός μπορεί να μεταβεί σε _rs`Uninitialized`_ (κλείσιμο) ή
+  _rs`RentExempt`_.
+- Κανένας λογαριασμός δεν μπορεί να εισέλθει σε _rs`RentPaying`_ από
+  _rs`Uninitialized`_ ή _rs`RentExempt`_. Όλοι οι νέοι λογαριασμοί πρέπει να
+  είναι απαλλαγμένοι από rent.
+
+## Κανόνες δανεισμού λογαριασμού
+
+Κατά την εκτέλεση εντολών, το runtime επιβάλλει σημασιολογία δανεισμού μονού
+εγγραφέα στους λογαριασμούς. Ένα πρόγραμμα μπορεί να αποκτήσει είτε μία
+μεταβλητή αναφορά είτε πολλαπλές αμετάβλητες αναφορές σε έναν λογαριασμό, αλλά
+όχι και τα δύο ταυτόχρονα. Εάν ένα πρόγραμμα επιχειρήσει να δανειστεί έναν
+λογαριασμό που είναι ήδη δανεισμένος μεταβλητά (ή να δανειστεί μεταβλητά έναν
+λογαριασμό που είναι ήδη δανεισμένος αμετάβλητα), η εντολή αποτυγχάνει με
+_rs`AccountBorrowFailed`_ μέσω
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)
+και
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520).
+Εάν μια εντολή ολοκληρωθεί ενώ ένας δανεισμός εξακολουθεί να είναι σε
+εκκρεμότητα, το runtime επιστρέφει _rs`AccountBorrowOutstanding`_ στο
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385).
