@@ -1,0 +1,366 @@
+---
+title: Hesap yapısı
+description:
+  Hesap adresleri, her Solana hesabının içerdiği beş alan — lamports, data,
+  owner, executable ve rent_epoch — etkileşimli kod incelemesi ile.
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+<Callout type="info" title="Özet">
+  Hesaplar 5 alana sahiptir: lamports, data, owner, executable ve rent_epoch.
+  Her hesap benzersiz bir 32 baytlık adresle tanımlanır. Hesapların zincir
+  üzerinde kalabilmesi için veri boyutlarıyla orantılı minimum bir lamport
+  bakiyesi tutması gerekir.
+</Callout>
+
+## Hesap adresi
+
+Her hesap adresi, base58 kodlu bir dize olarak görüntülenen 32 baytlık bir
+değerdir. Bir adres iki türden biri olabilir:
+
+1. **Public key**: bir [Ed25519](https://ed25519.cr.yp.to/) keypair'e karşılık
+   gelir (özel anahtara sahiptir)
+2. **Program Derived Address (PDA)**: bir program ID'si ve seed'lerden
+   deterministik olarak türetilir (özel anahtara sahip değildir)
+
+![Base58 kodlu public key adresi olan bir hesap](/assets/docs/core/accounts/account-address.svg)
+
+### Public key
+
+Bir _rs`Keypair`_, bir public key (hesap adresi olarak kullanılır) ve bir
+private key'den (işlemleri imzalamak için kullanılır) oluşur. Aşağıdaki örnek,
+Solana SDK kullanarak bir keypair oluşturur.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program Derived Address
+
+Bir [Program Derived Address](/docs/core/pda) (PDA), bir program ID'si ve bir
+veya daha fazla isteğe bağlı seed'den deterministik olarak türetilir. PDA'ların
+karşılık gelen bir private key'i yoktur. Aşağıdaki örnek, Solana SDK kullanarak
+bir PDA türetir.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## Hesap alanları
+
+Her
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+maksimum
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+(10 MiB, _rs`MAX_PERMITTED_DATA_LENGTH`_ ile eşdeğer) boyutuna sahiptir ve beş
+alan içerir:
+
+<WithMentions>
+
+| Alan                               | Tür       | Açıklama                                                                                   |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| [`lamports`](mention:lamports)     | `u64`     | Lamport cinsinden bakiye. Sahip borçlandırabilir; herhangi bir program alacaklandırabilir. |
+| [`data`](mention:data)             | `Vec<u8>` | Hesap durumu veya program bytecode'u. Maks. 10 MiB. Yalnızca sahip yazabilir.              |
+| [`owner`](mention:owner)           | `Pubkey`  | Yazma erişimine sahip program. Yalnızca data sıfırlandığında yeniden atanabilir.           |
+| [`executable`](mention:executable) | `bool`    | True = program hesabı.                                                                     |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | Kullanımdan kaldırıldı. Rent-exempt hesaplar için `u64::MAX` olarak ayarlanır.             |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamport'lar
+
+`lamports` alanı, hesabın bakiyesini
+[lamport](/docs/references/terminology#lamport) cinsinden tutar (1 SOL =
+1.000.000.000 lamport).
+
+Her hesap, verilerini zincir üzerinde saklamak için rent-exempt bakiye olarak
+bilinen minimum bir lamport bakiyesi tutmalıdır. Bu bakiye, hesabın veri
+boyutuyla orantılıdır.
+
+<Callout type="info">
+  Genellikle "rent" olarak adlandırılsa da, rent-exempt bakiye iade edilebilir
+  bir depozito işlevi görür; hesap kapatıldığında tam bakiye geri alınır.
+</Callout>
+
+Bkz.
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+ve rent
+[sabitleri](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80).
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Data
+
+`data` alanı, rastgele bir bayt dizisi saklar. İçeriği hesap türüne bağlıdır:
+
+- **Program hesapları**: Çalıştırılabilir bytecode veya bytecode'u saklayan bir
+  [program data hesabının](/docs/core/accounts/account-types#program-data-accounts)
+  adresini içerir.
+- **Data hesapları**: Program tanımlı durum verilerini içerir. Sahip olan
+  program serileştirme formatını tanımlar.
+
+Hesap verilerini okumak iki adım gerektirir:
+
+1. Hesabı [adresi](#account-address) ile getirin.
+2. `data` alanını ham baytlardan program tanımlı veri yapısına deserialize edin.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Sahip
+
+`owner` alanı, bu hesaba sahip olan programın program kimliğini (genel anahtar)
+içerir.
+
+Sahip program, şunları yapabilen tek programdır:
+
+- Hesabın `data` alanını değiştirmek
+- Hesabın `lamports` alanından lamport düşmek
+
+Herhangi bir program başka bir hesaba lamport ekleyebilir, ancak yalnızca sahip
+hesaptan lamport düşebilir.
+
+Program hesapları için sahip, hesabın
+[yükleyici programıdır](/docs/core/programs/builtin-programs#loader-programs).
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Çalıştırılabilir
+
+`executable` alanı, hesabın bir
+[program hesabı](/docs/core/accounts/account-types#program-accounts) mı yoksa
+bir [veri hesabı](/docs/core/accounts/account-types#data-accounts) mı olduğunu
+belirleyen bir boolean değeridir:
+
+- `true` = program hesabı (çalıştırılabilir kod içerir)
+- `false` = veri hesabı (durum saklar)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Rent epoch
+
+**`rent_epoch` alanı kullanımdan kaldırılmıştır.**
+
+Önceden bir hesaptan, verilerini zincir üzerinde tutmak için ödeme yapmak
+amacıyla lamportların ne zaman otomatik olarak düşüleceğini takip ederdi. Rent
+tahsilatı kullanımdan kaldırıldığından, `rent_epoch` tüm yeni rent-muaf hesaplar
+için `u64::MAX` olarak ayarlanır.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

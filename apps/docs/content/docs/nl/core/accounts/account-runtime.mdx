@@ -1,0 +1,141 @@
+---
+title: Account runtime
+description:
+  Hoe de Solana runtime accounts laadt en valideert vóór uitvoering, en het
+  serialisatieformaat dat wordt gebruikt om accountgegevens door te geven aan
+  programma's.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Samenvatting">
+  Vóór uitvoering laadt de runtime accounts, valideert de betaler van de kosten,
+  controleert huurvrijstelling en serialiseert accountgegevens naar een
+  geheugenindeling die programma's kunnen benaderen.
+</Callout>
+
+<Callout>
+  Deze pagina behandelt runtime-interne werking. De meeste ontwikkelaars hebben
+  deze informatie niet nodig voor het bouwen van programma's. Zie
+  [accountstructuur](/docs/core/accounts/account-structure) voor het
+  ontwikkelaarsperspectief.
+</Callout>
+
+## Account laden
+
+Voordat een transactie wordt uitgevoerd, laadt de runtime alle gerefereerde
+accounts via
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+Dit proces voert verschillende validaties uit:
+
+1. **Validatie van de betaler**: De betaler van de kosten (eerste account) moet
+   bestaan, een systeemaccount of nonce-account zijn en voldoende lamports
+   hebben om de kosten te dekken
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   Na het betalen van de kosten moet het account ofwel huurvrij blijven of
+   precies naar 0 lamports gaan. Het kan niet eindigen tussen 0 en het huurvrije
+   minimum. Nonce-accounts moeten altijd voldoende lamports behouden om huurvrij
+   te blijven. Als de betaler geen systeemaccount of nonce-account is, mislukt
+   de transactie met _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **Limiet voor geladen gegevensgrootte**: De totale grootte van alle geladen
+   accounts (inclusief een
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   van 64 bytes per account) mag niet groter zijn dan
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 MiB). Het overschrijden van deze limiet levert
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_ op.
+
+3. **Validatie van programma-account**: Elk programma dat door een instructie
+   wordt aangeroepen moet bestaan en eigendom zijn van een geldige loader: een
+   van de
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) of de
+   native loader. Als het programma-account niet bestaat, mislukt de transactie
+   met _rs`TransactionError::ProgramAccountNotFound`_. Als het wel bestaat maar
+   een ongeldige eigenaar heeft, mislukt de transactie met
+   _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **Niet-bestaande accounts**: Accounts die niet on-chain bestaan worden
+   geladen als standaard accounts (0 lamports, lege data, eigendom van system
+   program) met `rent_epoch` ingesteld op `u64::MAX`.
+
+## BPF-serialisatieformaat
+
+Wanneer een programma wordt aangeroepen, serialiseert de runtime accounts naar
+een aaneengesloten geheugenbuffer en geeft deze door aan de BPF VM. Het
+serialisatieformaat (voor het standaard uitgelijnde formaat dat wordt gebruikt
+door alle loaders behalve de verouderde loader-v1) is gedefinieerd in
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+De buffer begint met een `u64` (8 bytes, little-endian) die het aantal accounts
+bevat. Vervolgens bevat de buffer voor elk account in de instructie:
+
+| Offset        | Grootte         | Veld                                       | Type                                                                                                                       |
+| ------------- | --------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| 0             | 1               | duplicaatmarkering                         | `u8` (`0xFF` = uniek, index = duplicaat van dat account)                                                                   |
+| 1             | 1               | is_signer                                  | `u8` (0 of 1)                                                                                                              |
+| 2             | 1               | is_writable                                | `u8` (0 of 1)                                                                                                              |
+| 3             | 1               | executable                                 | `u8` (0 of 1)                                                                                                              |
+| 4             | 4               | original_data_len (gereserveerd, altijd 0) | `[0u8; 4]`                                                                                                                 |
+| 8             | 32              | key                                        | `Pubkey`                                                                                                                   |
+| 40            | 32              | owner                                      | `Pubkey`                                                                                                                   |
+| 72            | 8               | lamports                                   | `u64` (little-endian)                                                                                                      |
+| 80            | 8               | data_len                                   | `u64` (little-endian)                                                                                                      |
+| 88            | data_len        | data                                       | `[u8]`                                                                                                                     |
+| 88 + data_len | 10240 + padding | realloc-ruimte + uitlijning                | Opgevuld met nullen tot `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + padding om uit te lijnen op `BPF_ALIGN_OF_U128` (8 bytes) |
+| ...           | 8               | rent_epoch                                 | `u64` (little-endian)                                                                                                      |
+
+Na alle accounts voegt de buffer het volgende toe:
+
+| Grootte              | Veld                                        |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+Voor dubbele accounts wordt slechts 1 byte (de duplicaatmarkering met de index
+van het origineel) plus 7 bytes padding geschreven.
+
+## Deduplicatie van accounts
+
+Wanneer dezelfde publieke accountsleutel meerdere keren voorkomt in de
+`accounts`-array van een instructie,
+[dedupliceert](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)
+de runtime deze. Elk item in de accountlijst van de instructie krijgt zijn eigen
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)-struct,
+maar items die verwijzen naar hetzelfde account op transactieniveau wijzen naar
+dezelfde onderliggende data.
+
+De
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)-methode
+bepaalt of een gegeven instructie-accountindex het eerste voorkomen of een
+duplicaat is door de accountindex op transactieniveau op te zoeken en de eerste
+index op instructieniveau te vinden die ernaar verwijst:
+
+- Als de huidige instructie-accountindex gelijk is aan de eerste toegewezen
+  index, is het **geen** duplicaat (retourneert `None`).
+- Anders retourneert het `Some(first_index)`, waarbij `first_index` de index is
+  van het eerste voorkomen.
+
+Omdat alle verwijzingen naar hetzelfde account dezelfde onderliggende
+_rs`AccountSharedData`_ delen, zijn wijzigingen via elke verwijzing onmiddellijk
+zichtbaar via alle andere verwijzingen. Er kan echter slechts één muteerbare
+borrow tegelijk worden vastgehouden. Een poging om hetzelfde account muteerbaar
+te lenen via twee verschillende instructie-accountindexen tegelijkertijd
+retourneert _rs`InstructionError::AccountBorrowFailed`_. Programma's moeten één
+borrow loslaten voordat ze een andere op hetzelfde onderliggende account
+verkrijgen.
+
+Nadat het programma is uitgevoerd, deserialiseert de runtime de buffer terug
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+en past eventuele wijzigingen toe op `lamports`, `data` (inclusief
+lengtewijzigingen tot _rs`MAX_PERMITTED_DATA_INCREASE`_), en `owner`.

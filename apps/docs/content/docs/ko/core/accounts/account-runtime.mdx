@@ -88,3 +88,46 @@ related:
 | 88            | data_len     | data                               | `[u8]`                                                                                                       |
 | 88 + data_len | 10240 + 패딩 | 재할당 공간 + 정렬                 | `MAX_PERMITTED_DATA_INCREASE` (10 KiB)까지 0으로 채워짐 + `BPF_ALIGN_OF_U128` (8바이트)로 정렬하기 위한 패딩 |
 | ...           | 8            | rent_epoch                         | `u64` (리틀 엔디안)                                                                                          |
+
+모든 계정 다음에 버퍼는 다음을 추가합니다:
+
+| 크기                 | 필드                                      |
+| -------------------- | ----------------------------------------- |
+| 8                    | instruction_data_len (`u64`, 리틀 엔디안) |
+| instruction_data_len | instruction_data                          |
+| 32                   | program_id (`Pubkey`)                     |
+
+중복 계정의 경우, 1바이트(원본 인덱스가 포함된 중복 마커)와 7바이트의 패딩만
+작성됩니다.
+
+## 계정 중복 제거
+
+동일한 계정 공개 키가 명령어의 `accounts` 배열에 여러 번 나타나는 경우, 런타임은
+이를
+[중복 제거](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)합니다.
+명령어의 계정 목록에 있는 각 항목은 자체
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+구조체를 가지지만, 동일한 트랜잭션 수준 계정을 참조하는 항목들은 동일한 기본
+데이터를 가리킵니다.
+
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+메서드는 주어진 명령어 계정 인덱스가 첫 번째 발생인지 중복인지를 트랜잭션 수준
+계정 인덱스를 조회하고 이에 매핑되는 첫 번째 명령어 수준 인덱스를 찾아
+결정합니다:
+
+- 현재 명령어 계정 인덱스가 첫 번째 매핑된 인덱스와 같으면 중복이 **아닙니다**
+  (`None` 반환).
+- 그렇지 않으면 `Some(first_index)`를 반환하며, 여기서 `first_index`는 첫 번째
+  발생의 인덱스입니다.
+
+동일한 계정에 대한 모든 참조는 동일한 기본 *rs`AccountSharedData`*를 공유하므로,
+어떤 참조를 통한 수정이든 다른 모든 참조를 통해 즉시 표시됩니다. 그러나 한 번에
+하나의 가변 차용만 보유할 수 있습니다. 두 개의 서로 다른 명령어 계정 인덱스를
+통해 동일한 계정을 동시에 가변적으로 차용하려고 시도하면
+*rs`InstructionError::AccountBorrowFailed`*를 반환합니다. 프로그램은 동일한 기본
+계정에서 다른 차용을 획득하기 전에 하나의 차용을 해제해야 합니다.
+
+프로그램이 실행된 후, 런타임은 버퍼를
+역직렬화하고([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+`lamports`, `data`(*rs`MAX_PERMITTED_DATA_INCREASE`*까지의 길이 변경 포함),
+`owner`에 대한 모든 변경 사항을 적용합니다.
