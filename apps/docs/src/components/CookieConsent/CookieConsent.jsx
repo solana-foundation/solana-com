@@ -74,7 +74,7 @@ export default function CookieConsent() {
       {cookieConsent === null ? (
         <div
           className={classNames(
-            "border bg-black p-4 rounded",
+            "border bg-black text-white p-4 rounded",
             styles["cookie-consent"],
           )}
         >
