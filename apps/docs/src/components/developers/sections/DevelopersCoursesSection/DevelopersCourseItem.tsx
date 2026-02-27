@@ -1,28 +1,36 @@
 import classNames from "classnames";
 import { useTranslations } from "next-intl";
 import { ArrowRightCircle } from "react-feather";
-import styled from "styled-components";
 
 import { InlineLink } from "@/utils/Link";
 
 import styles from "./DevelopersCourseItem.module.scss";
 
-const CourseLink = styled(InlineLink)`
-  background-image: url("${(props) => props.$image.src}");
-  background-size: cover;
-  background-repeat: no-repeat;
-`;
+type Image = { src: string };
 
 export default function DevelopersCourseItem({
   title,
   courseCreator,
   url,
   image,
+}: {
+  title: string;
+  courseCreator?: string;
+  url: string;
+  image: Image;
 }) {
   const t = useTranslations();
 
   return (
-    <CourseLink to={url} className={styles["course-item"]} $image={image}>
+    <InlineLink
+      to={url}
+      className={styles["course-item"]}
+      style={{
+        backgroundImage: `url("${image.src}")`,
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
       <div className={classNames("container", styles["course-item__content"])}>
         <div className="flex">
           <div className={styles["details"]}>
@@ -44,6 +52,6 @@ export default function DevelopersCourseItem({
         </div>
       </div>
       <div className={styles["shadow"]} />
-    </CourseLink>
+    </InlineLink>
   );
 }

@@ -1,19 +1,12 @@
 import classNames from "classnames";
 import { useTranslations } from "next-intl";
 import { ArrowRightCircle } from "react-feather";
-import styled from "styled-components";
 
 import { InlineLink } from "@/utils/Link";
 
 import styles from "./DevelopersCourseFeaturedItem.module.scss";
 
-const CourseLink = styled(InlineLink)`
-  background-color: rgba(9, 10, 12, 0.96);
-  background-image: url("${(props) => props.$image.src}");
-  background-size: auto 100%;
-  background-position: right;
-  background-repeat: no-repeat;
-`;
+type Image = { src: string };
 
 export default function DevelopersCourseFeaturedItem({
   title,
@@ -22,14 +15,27 @@ export default function DevelopersCourseFeaturedItem({
   url,
   image,
   className,
+}: {
+  title: string;
+  description?: string;
+  courseCreator?: string;
+  url: string;
+  image: Image;
+  className?: string;
 }) {
   const t = useTranslations();
 
   return (
-    <CourseLink
-      href={url}
+    <InlineLink
+      to={url}
       className={classNames(styles["course-item"], className)}
-      $image={image}
+      style={{
+        backgroundColor: "rgba(9, 10, 12, 0.96)",
+        backgroundImage: `url("${image.src}")`,
+        backgroundSize: "auto 100%",
+        backgroundPosition: "right",
+        backgroundRepeat: "no-repeat",
+      }}
     >
       <div className={classNames("container", styles["course-item__content"])}>
         <div className={styles["details"]}>
@@ -52,6 +58,6 @@ export default function DevelopersCourseFeaturedItem({
         </div>
       </div>
       <div className={styles["shadow"]} />
-    </CourseLink>
+    </InlineLink>
   );
 }

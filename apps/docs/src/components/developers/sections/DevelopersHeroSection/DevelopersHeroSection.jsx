@@ -19,7 +19,7 @@ const HeroSection = ({
         </div>
         <div className={styles["hero-section__light"]} />
         <div className={styles["content"]}>
-          <h1>{title}</h1>
+          <h1 className="h2">{title}</h1>
           <p className="h6 subdued">{description}</p>
           {buttons && (
             <div className={styles["content__hero-buttons"]}>
@@ -36,7 +36,9 @@ const HeroSection = ({
                 <Button
                   to={buttons.secondary.href}
                   newTab={buttons.secondary.href?.startsWith("http")}
-                  className={styles["content__btn-icon"]}
+                  className={
+                    buttons.secondary.icon ? styles["content__btn-icon"] : null
+                  }
                 >
                   <span>{buttons.secondary.label}</span>
                   {buttons.secondary.icon || null}
