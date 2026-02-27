@@ -17,6 +17,8 @@ interface AgentRegistryPageProps {
     stats: SolutionHeroStat[];
     featuresTitle: string;
     featuresDescription: string;
+    featuresCtaButton: string;
+    featuresCtaButtonHref: string;
     ecoProjectsTitle: string;
     toolsTitle: string;
     toolsDescription: string;
@@ -48,6 +50,8 @@ export function AgentRegistryPage({ translations }: AgentRegistryPageProps) {
           <WhatIsIt
             title={translations.featuresTitle}
             description={translations.featuresDescription}
+            ctaButton={translations.featuresCtaButton}
+            ctaButtonHref={translations.featuresCtaButtonHref}
             highlightColor="#9945FF"
             imageSrc="/src/img/solutions/depin/what-is.webp"
           />

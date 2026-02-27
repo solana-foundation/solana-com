@@ -31,6 +31,9 @@ export default async function Page(_props: Props) {
     stats,
     featuresTitle: t("agentRegistry.features.title"),
     featuresDescription: t("agentRegistry.features.description"),
+    featuresCtaButton: t("agentRegistry.features.ctaButton"),
+    featuresCtaButtonHref:
+      "https://github.com/QuantuLabs/8004-solana-ts/blob/main/skill.md",
     ecoProjectsTitle: t("agentRegistry.ecoProjects.title"),
     toolsTitle: t("agentRegistry.tools.title"),
     toolsDescription: t("agentRegistry.tools.description"),

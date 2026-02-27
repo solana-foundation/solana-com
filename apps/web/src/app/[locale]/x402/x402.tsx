@@ -17,8 +17,6 @@ interface X402PageProps {
     stats: SolutionHeroStat[];
     featuresTitle: string;
     featuresDescription: string;
-    featuresCtaButton: string;
-    featuresCtaButtonHref: string;
     ecoProjectsTitle: string;
     toolsTitle: string;
     toolsDescription: string;
@@ -50,8 +48,6 @@ export function X402Page({ translations }: X402PageProps) {
           <WhatIsIt
             title={translations.featuresTitle}
             description={translations.featuresDescription}
-            ctaButton={translations.featuresCtaButton}
-            ctaButtonHref={translations.featuresCtaButtonHref}
             highlightColor="#14F195"
             imageSrc="/src/img/solutions/depin/what-is.webp"
           />

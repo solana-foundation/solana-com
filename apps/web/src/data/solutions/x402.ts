@@ -54,8 +54,4 @@ export const TOOLS = [
     key: "6",
     href: "https://solana.com/developers/templates",
   },
-  {
-    key: "7",
-    href: "https://github.com/QuantuLabs/8004-solana-ts/blob/main/docs/QUICKSTART.md",
-  },
 ];

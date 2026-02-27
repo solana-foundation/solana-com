@@ -26,4 +26,8 @@ export const TOOLS = [
     key: "1",
     href: "https://quantulabs.github.io/8004-solana/",
   },
+  {
+    key: "2",
+    href: "https://github.com/QuantuLabs/8004-solana-ts/blob/main/docs/QUICKSTART.md",
+  },
 ];
