@@ -45,7 +45,7 @@ export function AgentRegistryPage({ translations }: AgentRegistryPageProps) {
 
         <Divider />
 
-        {/* What is Solana Agent Registry Section */}
+        {/* What is Agent Registry Section */}
         <div className="[&_section]:!py-[32px] md:[&_section]:!py-[56px] xl:[&_section]:!py-[80px]">
           <WhatIsIt
             title={translations.featuresTitle}
