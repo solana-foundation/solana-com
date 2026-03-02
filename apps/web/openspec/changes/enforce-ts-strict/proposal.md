@@ -2,9 +2,9 @@
 
 ## Why
 
-`strict: false` and 121 JS/JSX files (~25% of source) leave the compiler blind
-to null dereferences, implicit `any`, and unsafe assignments. Refactoring is
-risky because breakages go undetected until runtime.
+`strict: false`, `strictNullChecks: false`, and 121 JS/JSX files (~25% of source)
+leave the compiler blind to null dereferences, implicit `any`, and unsafe
+assignments. Refactoring is risky because breakages go undetected until runtime.
 
 ## What Changes
 
