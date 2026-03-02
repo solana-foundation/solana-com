@@ -28,7 +28,9 @@ export const MarkdownEmbed = memo(
         /^(https:\/\/)?whimsical.com\/embed\/(?:[a-zA-Z0-9-]+-)?([a-km-zA-HJ-NP-Z1-9]{16,22})/gi,
       ).test(url)
     ) {
-      return <WhimsicalEmbed src={url} width={width} height={height || 180} />;
+      return (
+        <WhimsicalEmbed src={url} width={width ?? 0} height={height || 180} />
+      );
     }
 
     // youtube embeds

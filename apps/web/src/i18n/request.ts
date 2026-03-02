@@ -8,9 +8,10 @@ const enMessages = (await import("@@/public/locales/en/common.json")).default;
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const requested = await requestLocale;
-  const locale = locales.includes(requested)
-    ? requested
-    : routing.defaultLocale;
+  const locale =
+    requested !== undefined && locales.includes(requested)
+      ? requested
+      : routing.defaultLocale;
 
   // Load the requested locale with automatic fallback to English if it doesn't exist
   const messages = await loadMessages(

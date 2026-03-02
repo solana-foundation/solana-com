@@ -1,7 +1,23 @@
 import Button from "../shared/Button";
 import { useTranslations } from "next-intl";
 
-const CARDS = [
+type CardButton = {
+  to: string;
+  ariaLabel: string;
+  labelKey: string;
+  variant: "none" | "transparent";
+  arrow?: boolean;
+  className?: string;
+};
+
+type Card = {
+  background: string;
+  headerKey: string;
+  textKey: string;
+  buttons: CardButton[];
+};
+
+const CARDS: Card[] = [
   {
     background: "#AB66FF",
     headerKey: "validators.getting-started.cards.docs-header",
