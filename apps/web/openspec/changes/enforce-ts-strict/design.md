@@ -2,9 +2,8 @@
 
 ## Context
 
-`apps/web/tsconfig.json` has `strict: false` and `allowJs: true`. 121 JS/JSX
-files remain. The existing `strictNullChecks: true` is the only strict flag
-active. The compiler accepts implicit `any`, unsafe `this`, and uninitialized
+`apps/web/tsconfig.json` has `strict: false`, `strictNullChecks: false` and `allowJs: true`. 121 JS/JSX
+files remain. The compiler accepts implicit `any`, unsafe `this`, and uninitialized
 class properties.
 
 ## Goals / Non-Goals
