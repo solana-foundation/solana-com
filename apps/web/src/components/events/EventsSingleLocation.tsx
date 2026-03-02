@@ -14,7 +14,7 @@ interface EventsSingleLocationProps {
 }
 
 const getEventLocation = (event: EventsSingleLocationProps["event"]) => {
-  const { venue } = event;
+  const venue = event?.venue;
 
   if (!venue) return undefined;
 

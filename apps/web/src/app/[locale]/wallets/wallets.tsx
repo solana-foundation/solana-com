@@ -57,12 +57,12 @@ interface WalletsPageProps {
   buildCards: React.ComponentProps<typeof CardDeck>["cards"];
   buyCards: React.ComponentProps<typeof CardDeck>["cards"];
   developerCards: React.ComponentProps<typeof CardDeck>["cards"];
-  compareWalletsButton: React.ComponentProps<
-    typeof ConversionPanel
-  >["buttons"][number];
-  applyForGrantButton: React.ComponentProps<
-    typeof ConversionPanel
-  >["buttons"][number];
+  compareWalletsButton: NonNullable<
+    React.ComponentProps<typeof ConversionPanel>["buttons"]
+  >[number];
+  applyForGrantButton: NonNullable<
+    React.ComponentProps<typeof ConversionPanel>["buttons"]
+  >[number];
 }
 
 export function WalletsPage({

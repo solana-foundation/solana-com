@@ -82,7 +82,7 @@ const nextConfig: NextConfig = {
         destination: `/news`,
         permanent: true,
       },
-      ...rewritesAndRedirectsJson.redirects.map((redirect) => ({
+      ...rewritesAndRedirectsJson.redirects.map((redirect: Redirect) => ({
         ...redirect,
         permanent: redirect.permanent ?? true,
       })),
@@ -218,7 +218,7 @@ const nextConfig: NextConfig = {
   // https://github.com/vercel/next.js/issues/71638
   sassOptions: {
     logger: {
-      warn: function (message) {
+      warn: function (message: string) {
         if (
           message.includes("deprecat") ||
           message.includes("declarations that appear after nested")

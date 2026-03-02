@@ -100,7 +100,7 @@ export function DevelopersEvmToSvmErc4626Page() {
             </td>
             <td style={tableCellStyle}>{t(row.objectKey)}</td>
             <td style={tableCellStyle}>
-              {"purposeParts" in row ? (
+              {"purposeParts" in row && row.purposeParts ? (
                 row.purposeParts.map((part, partIndex) => {
                   if (part.type === "code") {
                     return (

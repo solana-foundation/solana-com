@@ -143,7 +143,7 @@ export function Video(props: VideoProps) {
         {thumbnail && (
           <Image
             src={thumbnail}
-            alt={alt}
+            alt={alt ?? ""}
             fill
             className="object-cover z-0"
             loading="lazy"
