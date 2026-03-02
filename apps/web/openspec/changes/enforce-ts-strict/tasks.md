@@ -2,9 +2,10 @@
 
 ## 1. Enable strict: true (Phase 1)
 
-- [ ] 1.1 Set `"strict": true` in `apps/web/tsconfig.json`
+- [ ] 1.1 Set `"strict": true` and `"strictNullChecks": true` in `apps/web/tsconfig.json`
 - [ ] 1.2 Run `pnpm tsc --noEmit` and collect all errors
-- [ ] 1.3 Fix errors in existing `.ts`/`.tsx` files (noImplicitAny, strictPropertyInitialization, noImplicitThis)
+- [ ] 1.3 Fix null/undefined violations (TS2531/TS2532) — use `?.`, `??`, or explicit guards; avoid `!` non-null assertions
+- [ ] 1.4 Fix remaining strict errors in existing `.ts`/`.tsx` files (noImplicitAny, strictPropertyInitialization, noImplicitThis)
 
 ## 2. Convert utilities, hooks, lib, constants (Phase 2)
 

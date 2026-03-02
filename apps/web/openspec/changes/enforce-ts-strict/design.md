@@ -23,6 +23,7 @@ class properties.
 
 ## Risks / Trade-offs
 
+- Both `strict` and `strictNullChecks` are currently `false` → enabling them in Phase 1 will surface violations across all existing TS files that must be fixed before conversion batches begin
 - Large batch of file renames may surface import-path issues in tests → run `pnpm tsc --noEmit` after every batch
 - `solana-lib` attribute shapes may not be fully documented → stub types can start broad (`Record<string, unknown>`) and be narrowed incrementally
 
