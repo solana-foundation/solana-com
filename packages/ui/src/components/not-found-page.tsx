@@ -17,8 +17,8 @@ export interface NotFoundPageProps {
 }
 
 export function NotFoundPage({
-  title = "gm. This page doesn\u2019t exist.",
-  subtitle = "But while you\u2019re here \u2014 SOL is still faster than this 404 loaded.",
+  title = "This page doesn\u2019t exist.",
+  subtitle = "It may have been moved or is no longer available. There\u2019s plenty to explore.",
   ctaLabel = "Back to homepage",
   ctaHref = "/",
   renderLink,
