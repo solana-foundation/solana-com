@@ -150,7 +150,7 @@ export function Hero() {
             {t("nav.speakers")}
           </a>
           <Link
-            href="/accelerate/agenda"
+            href="/accelerate/hong-kong/agenda"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
             style={{
               fontFamily: "'Space Grotesk', sans-serif",
@@ -285,7 +285,7 @@ export function Hero() {
                   {t("nav.speakers")}
                 </a>
                 <Link
-                  href="/accelerate/agenda"
+                  href="/accelerate/hong-kong/agenda"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
                   style={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}

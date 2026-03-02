@@ -1,27 +1,25 @@
 import {
-  Hero,
-  EventDetails,
-  AgendaBanner,
-  Speakers,
-  Sponsors,
-  FAQ,
-  GettingThere,
-  FooterCTA,
-  HashScroll,
-} from "@/components";
+  HomepageNav,
+  HomepageHero,
+  AuroraWave,
+  EventLineup,
+  Highlights,
+  VideoCarousel,
+  StayUpdated,
+  HomepageFooter,
+} from "@/components/homepage";
 
 export default function HomePage() {
   return (
     <>
-      <HashScroll />
-      <Hero />
-      <EventDetails />
-      <AgendaBanner />
-      <Speakers />
-      <Sponsors />
-      <FAQ />
-      <GettingThere />
-      <FooterCTA />
+      <HomepageNav />
+      <HomepageHero />
+      <AuroraWave />
+      <EventLineup />
+      <Highlights />
+      <VideoCarousel />
+      <StayUpdated />
+      <HomepageFooter />
     </>
   );
 }

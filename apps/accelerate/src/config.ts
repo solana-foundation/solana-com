@@ -38,15 +38,16 @@ const assetBaseUrl = siteUrl.replace(/\/accelerate$/, "");
 
 export const config = {
   siteMetadata: {
-    title: `Solana Accelerate APAC - Hong Kong`,
-    description: `Join us at Solana Accelerate APAC in Hong Kong on 11 February 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.`,
-    shortDescription: `Solana Accelerate APAC - Hong Kong | 11 February 2026`,
+    title: `Solana Accelerate 2026`,
+    description: `Solana Accelerate brings together the global Solana community across multiple events in 2026. Join us in Hong Kong and Miami.`,
+    shortDescription: `Solana Accelerate 2026 — Hong Kong & Miami`,
     keywords: [
       "Solana",
       "blockchain",
       "cryptocurrency",
       "web3",
       "Hong Kong",
+      "Miami",
       "APAC",
       "conference",
       "event",
@@ -63,6 +64,32 @@ export const config = {
     },
   },
   siteIcon: `https://solana.com/favicon.png`,
+  events: {
+    hongKong: {
+      name: "Solana Accelerate APAC",
+      location: {
+        name: "Hong Kong",
+        address: "Hong Kong",
+      },
+      startDate: "2026-02-11",
+      endDate: "2026-02-11",
+      description:
+        "Join us at Solana Accelerate APAC in Hong Kong on 11 February 2026. Connect with the Solana ecosystem, meet builders, and explore the future of blockchain.",
+    },
+    miami: {
+      name: "Solana Accelerate Miami",
+      location: {
+        name: "Miami",
+        address: "Miami, FL",
+      },
+      startDate: "2026-05-05",
+      endDate: "2026-05-05",
+      description:
+        "Solana Accelerate comes to Miami on 5 May 2026. Connect with builders, developers, and the global Solana community.",
+      lumaUrl: "https://lu.ma/accelerate-miami",
+    },
+  },
+  // Keep legacy event field for backward compatibility with layout.tsx
   event: {
     name: "Solana Accelerate APAC",
     location: {

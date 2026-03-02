@@ -126,7 +126,7 @@ export function AgendaBanner() {
           {/* CTA Button */}
           <motion.div variants={fadeInUp}>
             <Link
-              href="/accelerate/agenda"
+              href="/accelerate/hong-kong/agenda"
               className="group inline-flex h-[56px] items-center justify-center rounded-[32px] px-8 text-black transition-all hover:opacity-90 sm:h-[66px]"
               style={{
                 background: "linear-gradient(to right, #9945FF, #19FB9B)",
