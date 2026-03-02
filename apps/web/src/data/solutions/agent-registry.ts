@@ -24,7 +24,7 @@ export const TOOLS = [
   },
   {
     key: "1",
-    href: "https://quantulabs.github.io/8004-solana/",
+    href: "https://8004.qnt.sh",
   },
   {
     key: "2",
