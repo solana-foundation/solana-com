@@ -6,6 +6,7 @@ export default {
   presets: [createPreset()],
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
     "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
     "../../packages/templates/src/**/*.{js,ts,jsx,tsx}",
     "./node_modules/fumadocs-ui/dist/**/*.js",
