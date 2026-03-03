@@ -32,7 +32,7 @@ export const Projects: React.FC<ProjectsProps> = ({
   return (
     <section
       className={cn(
-        "relative overflow-hidden text-nd-high-em-text text-left m-0",
+        "relative z-10 overflow-hidden text-nd-high-em-text text-left m-0",
         className,
       )}
     >

@@ -254,7 +254,7 @@ export function HomePage({
       <Divider />
 
       <Projects
-        className="z-1"
+        className="z-10"
         title={translations.projectsTitle}
         projects={PROJECTS.map((item, index) => ({
           ...item,
