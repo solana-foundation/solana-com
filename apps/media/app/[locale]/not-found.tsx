@@ -1,3 +1,5 @@
+"use client";
+
 import { Link } from "@workspace/i18n/routing";
 import { NotFoundPage } from "@workspace/ui/not-found-page";
 
