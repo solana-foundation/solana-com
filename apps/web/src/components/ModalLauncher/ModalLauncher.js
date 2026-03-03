@@ -8,16 +8,20 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { useRouter } from "next/navigation";
-import { Modal, CloseButton } from "react-bootstrap";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Dialog, DialogContent } from "@workspace/ui";
 import ArtistsAndCreatorsNewsletter from "../newsletter/artistsAndCreators";
 
 const ModalLauncher = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [showModal, setShowModal] = useState(false);
   const [modalComponent, setModalComponent] = useState(null);
   const [modalLaunchId, setModalLaunchId] = useState("default");
   const modalActionCompleted = useRef(false);
+  const modalLaunchParam = searchParams.get("modalLaunch");
+  const modalLaunchIdParam = searchParams.get("modalLaunchId");
 
   const modalMapping = useMemo(
     () => ({
@@ -37,68 +41,59 @@ const ModalLauncher = () => {
     }
 
     // Update the URL
-    const currentPath = router.pathname;
-    const currentQuery = { ...router.query };
-    delete currentQuery.modalLaunch;
-    delete currentQuery.modalLaunchId;
-    router.push(
-      {
-        pathname: currentPath,
-        query: currentQuery,
-      },
-      { shallow: true },
-    );
-  }, [modalLaunchId, router]);
+    const currentPath = pathname;
+    const currentQuery = {};
+    for (const [key, value] of searchParams.entries()) {
+      if (key !== "modalLaunch" && key !== "modalLaunchId") {
+        currentQuery[key] = value;
+      }
+    }
+    const search = new URLSearchParams(currentQuery).toString();
+    router.push(`${currentPath}${search ? "?" + search : ""}`);
+  }, [modalLaunchId, router, pathname, searchParams]);
 
   useEffect(() => {
-    const { modalLaunch, modalLaunchId } = router.query;
-
     if (
-      modalLaunch === "true" &&
-      modalLaunchId &&
-      modalMapping[modalLaunchId]
+      modalLaunchParam === "true" &&
+      modalLaunchIdParam &&
+      modalMapping[modalLaunchIdParam]
     ) {
       setModalComponent(
-        createElement(modalMapping[router.query.modalLaunchId], {
+        createElement(modalMapping[modalLaunchIdParam], {
           modalCloseHandler,
           modalActionCompleted,
         }),
       );
       setShowModal(true);
-      setModalLaunchId(modalLaunchId);
+      setModalLaunchId(modalLaunchIdParam);
 
       // track modal launch
       if (typeof window.gtag !== "undefined") {
         window.gtag("event", "modal_launch", {
           event_category: "engagement",
           event_action: "Opened",
-          event_label: modalLaunchId,
+          event_label: modalLaunchIdParam,
         });
       }
     } else {
       setShowModal(false);
       setModalComponent(null);
     }
-  }, [router.query, modalCloseHandler, modalMapping]);
+  }, [modalLaunchIdParam, modalCloseHandler, modalMapping, modalLaunchParam]);
 
   return (
-    <Modal
-      show={showModal}
-      onHide={modalCloseHandler}
-      size="xl"
-      aria-labelledby="contained-modal-title-vcenter"
-      dialogClassName=""
-      className={`modal-${modalLaunchId}`}
-      centered
+    <Dialog
+      open={showModal}
+      onOpenChange={(open) => !open && modalCloseHandler()}
     >
-      <Modal.Header className={`rounded-top border-0 `} data-bs-theme="dark">
-        <CloseButton
-          className={`btn-close btn-close-white`}
-          onClick={modalCloseHandler}
-        />
-      </Modal.Header>
-      <Modal.Body className={`rounded-bottom`}>{modalComponent}</Modal.Body>
-    </Modal>
+      <DialogContent
+        className={`modal-${modalLaunchId} !p-0 max-h-[95vh] md:max-w-3xl overflow-auto rounded-md border-0 bg-black bg-[url('/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ff1d4c0384bf94fd4bd51807305310e9e.png')] bg-center bg-cover bg-no-repeat`}
+        data-bs-theme="dark"
+        showCloseButton={true}
+      >
+        {modalComponent}
+      </DialogContent>
+    </Dialog>
   );
 };
 

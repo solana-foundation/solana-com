@@ -11,7 +11,7 @@ export default function AiHero() {
   const t = useTranslations();
 
   return (
-    <div className="position-relative mb-8">
+    <div className="relative mb-12">
       <div className={styles["hero__bg--small"]}>
         <Image src={bgSmall} alt="" priority fill />
       </div>
@@ -27,7 +27,7 @@ export default function AiHero() {
               ),
             })}
           </h1>
-          <div className={classNames("w-lg-75", styles["hero__points"])}>
+          <div className={classNames("lg:w-3/4", styles["hero__points"])}>
             <p className="mb-0">{t("ai.hero.point-3")}</p>
           </div>
           <Button

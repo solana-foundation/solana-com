@@ -12,13 +12,10 @@ export default function RSVP() {
         size="large"
         variant="transparent"
         to="https://lu.ma/playgg"
-        className={classNames(
-          styles["playgg-rsvp"],
-          "text-uppercase rounded-0",
-        )}
+        className={classNames(styles["playgg-rsvp"], "uppercase !rounded-none")}
       >
         {t("playgg.rsvp")}
-        <ArrowSubmit className="ms-4" />
+        <ArrowSubmit className="ml-4" />
       </Button>
     </>
   );

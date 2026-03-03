@@ -23,15 +23,6 @@ const StyledVideoCard = styled.div`
   }
 
   .video-card {
-    &-title {
-      margin-top: 1rem;
-      color: white;
-      font-style: normal;
-      font-weight: bold;
-      font-size: 1.3rem;
-      line-height: 130% !important;
-    }
-
     &-image {
       margin: 0 0 10px 0;
       width: auto;
@@ -64,18 +55,19 @@ const StyledVideoCard = styled.div`
  * Show video info in the card
  *
  * @param {object} video - Video data
+ * @param {boolean} isFeatured - Whether this is the featured (large) video card
  * @returns {JSX.Element}
  * @constructor
  */
-const VideoCard = ({ video, showThumbnail }) => {
+const VideoCard = ({ video, showThumbnail, isFeatured }) => {
   const t = useTranslations();
   const thumbnailUrl = getMaximalThumbnailResolutionUrl(video);
 
   return (
-    <StyledVideoCard className="card-container">
+    <StyledVideoCard className="card-container max-md:!border-none">
       <div>
         {showThumbnail && (
-          <div className="ratio ratio-16x9 video">
+          <div className="aspect-video video">
             <Link
               to={`https://www.youtube.com/watch?v=${video.contentDetails.videoId}`}
             >
@@ -89,7 +81,15 @@ const VideoCard = ({ video, showThumbnail }) => {
             </Link>
           </div>
         )}
-        <p className="video-card-title">{video.snippet.title}</p>
+        <p
+          className={
+            isFeatured
+              ? "mt-4 text-white font-bold text-[2.625rem] leading-[110%] tracking-[-1px] mb-4"
+              : "mt-4 text-white font-bold text-[1.3rem] leading-[130%] mb-4"
+          }
+        >
+          {video.snippet.title}
+        </p>
       </div>
       <Button
         to={`https://www.youtube.com/watch?v=${video.contentDetails.videoId}`}

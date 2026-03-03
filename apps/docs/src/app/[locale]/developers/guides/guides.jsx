@@ -24,7 +24,7 @@ export function GuidesIndex({ records, featured }) {
       />
 
       <RoundedDepthCard
-        className="p-5 mt-10"
+        className="p-6 mt-20"
         bgColor="#26262b"
         color="#ffffff"
         shadow="bottom"

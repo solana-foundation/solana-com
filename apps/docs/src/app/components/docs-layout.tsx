@@ -68,7 +68,7 @@ function CustomSidebar() {
         </SidebarViewport>
       </CollapsibleSidebar>
       <div
-        className="fixed bottom-0 left-0 z-50 p-7 md:hidden"
+        className="fixed bottom-0 left-0 z-50 p-10 md:hidden"
         id="fd-sidebar-toggle"
       >
         <NavbarSidebarTrigger />

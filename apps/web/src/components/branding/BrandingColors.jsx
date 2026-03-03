@@ -50,32 +50,30 @@ const BrandingColors = () => {
 
   return (
     <StyledSection>
-      <div className="h6 fw-bold mb-4">{t("branding.colors.title")}</div>
+      <div className="h6 font-bold mb-4">{t("branding.colors.title")}</div>
       <Divider theme="light" axis="x" />
-      <div className="mt-4 mb-6">
-        <p className="smaller text-uppercase">
+      <div className="mt-4 mb-8">
+        <p className="smaller uppercase mb-4">
           {t("branding.colors.gradient")}
         </p>
         <Button to="src/img/branding/solanaGradient.jpg" download>
           PNG
         </Button>
-        <div className="mt-6">
+        <div className="mt-8">
           <Image alt="" className="gradient" src={solanaGradient} />
         </div>
       </div>
       <Divider theme="light" axis="x" />
       <div className="colors mt-4">
         <div>
-          <p className="smaller text-uppercase mt-2">
+          <p className="smaller uppercase mt-2">
             {t("branding.colors.purple")}
           </p>
           <p className="small mt-2">#9945FF</p>
           <div className="purple mt-6" />
         </div>
         <div>
-          <p className="smaller text-uppercase mt-2">
-            {t("branding.colors.green")}
-          </p>
+          <p className="smaller uppercase mt-2">{t("branding.colors.green")}</p>
           <p className="small mt-2">#14F195</p>
           <div className="green mt-6" />
         </div>

@@ -1,10 +1,9 @@
 import styled from "styled-components";
-import { Button as BSButton } from "react-bootstrap";
 import GetEmArrow from "../../../public/src/img/icons/getemarrow.inline.svg";
 import Link from "../../utils/Link";
 
-const StyledBSButton = styled(BSButton)`
-  &.btn {
+const StyledButton = styled.button`
+  & {
     font-family: DSemi, monospace;
     font-weight: normal;
     text-transform: uppercase;
@@ -12,6 +11,10 @@ const StyledBSButton = styled(BSButton)`
     font-size: ${(props) => (props.size === "small" ? "0.75rem" : "0.95rem")};
     // fit-content to prevent .btn growing when inside a flex box
     width: fit-content;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    text-align: center;
     background-color: ${(props) => {
       switch (props.$variant) {
         case "secondary":
@@ -111,6 +114,23 @@ const StyledBSButton = styled(BSButton)`
     &:active {
       transform: translateY(0);
     }
+    &.lift {
+      transition:
+        box-shadow 0.25s ease,
+        transform 0.25s ease;
+    }
+    &.lift:not([disabled]):focus,
+    &.lift:not([disabled]):hover {
+      box-shadow:
+        0 1rem 2.5rem rgba(35, 35, 35, 0.1),
+        0 0.5rem 1rem -0.75rem rgba(35, 35, 35, 0.1) !important;
+      transform: translate3d(0, -3px, 0);
+    }
+    &:disabled,
+    &.disabled {
+      opacity: 0.65;
+      pointer-events: none;
+    }
   }
 `;
 
@@ -145,7 +165,7 @@ const Button = ({
   ...props
 }) => {
   return (
-    <StyledBSButton
+    <StyledButton
       // Decide on what HTML element to return
       as={to ? Link : "button"}
       // <a>...</a> specific
@@ -158,19 +178,18 @@ const Button = ({
       // Common conditionals
       aria-label={ariaLabel}
       className={`
-      btn
       ${className || ``}
       ${variant === "disabled" ? `disabled` : `lift`}
-      ${arrow || arrowRight ? `d-inline-flex align-items-center` : ``}`}
+      ${arrow || arrowRight ? `inline-flex items-center` : `inline-block`}`}
       $variant={variant}
       size={size}
       $noBorder={noBorder}
       {...props}
     >
-      {arrow && <GetEmArrow width="11" height="11" className="me-2" />}
+      {arrow && <GetEmArrow width="11" height="11" className="mr-2" />}
       {children}
-      {arrowRight && <GetEmArrow width="11" height="11" className="ms-2" />}
-    </StyledBSButton>
+      {arrowRight && <GetEmArrow width="11" height="11" className="ml-2" />}
+    </StyledButton>
   );
 };
 

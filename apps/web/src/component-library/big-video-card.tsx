@@ -104,7 +104,7 @@ export const BigVideoCard: React.FC<BigVideoCardProps> = ({
           </div>
         )}
       </div>
-      <h3 className="nd-heading-m max-xl:mt-twd-5 xl:mt-twd-7">{title}</h3>
+      <h3 className="nd-heading-m max-xl:mt-5 xl:mt-7">{title}</h3>
       {description && (
         <p className="nd-body-xl text-nd-mid-em-text !mt-1">{description}</p>
       )}

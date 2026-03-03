@@ -30,14 +30,14 @@ const ECDRStats = () => {
     >
       <div className={styles["ecdr-stats__effect"]} />
       <div className={styles["ecdr-stats__heading"]}>
-        <div className="col-lg-6">
+        <div className="w-full lg:w-1/2">
           <h2 className={styles["ecdr-stats__heading--title"]}>
             {t("ecdr.stats.title")}
           </h2>
         </div>
-        <div className="col-lg-4">
-          <div className="d-flex">
-            <ClipboardIcon className="me-2" width="24" height="26" />
+        <div className="w-full lg:w-1/3">
+          <div className="flex">
+            <ClipboardIcon className="mr-2" width="24" height="26" />
             <p className={styles["ecdr-stats__heading--learn"]}>
               {t.rich("ecdr.stats.learn", {
                 learnLink: (chunks) => (
@@ -76,18 +76,16 @@ const ECDRStats = () => {
           note={t("ecdr.stats.active-developers.note")}
         />
       </div>
-      <div className="row">
+      <div>
         <h2 className={styles["ecdr-stats__open-source--title"]}>
-          <span className="d-block">{openSourceTitle[0]}</span>
-          <span className="d-block d-md-inline-block">
+          <span className="block">{openSourceTitle[0]}</span>
+          <span className="block md:inline-block">
             {openSourceTitle[1]}
           </span>{" "}
-          <span className="d-block d-md-inline-block">
-            {openSourceTitle[2]}
-          </span>
-          <span className="d-block">{openSourceTitle[3]}</span>
+          <span className="block md:inline-block">{openSourceTitle[2]}</span>
+          <span className="block">{openSourceTitle[3]}</span>
         </h2>
-        <p className="col-md-6 mt-4 mx-auto text-center">
+        <p className="w-full md:w-1/2 mt-4 mx-auto text-center">
           {t("ecdr.stats.open-source.description")}
         </p>
       </div>

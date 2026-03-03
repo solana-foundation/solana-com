@@ -38,7 +38,7 @@ const EventsSingleRow = ({ event }) => {
 
   return event ? (
     <StyledEventWrapperLink
-      className="link-unstyled d-flex align-items-center"
+      className="link-unstyled flex items-center"
       target="_blank"
       rel={!eventUrl.includes("solana.com") && "nofollow"}
       to={eventUrl}
@@ -49,7 +49,7 @@ const EventsSingleRow = ({ event }) => {
         width={150}
         height={150}
       />
-      <div className="details ms-md-2">
+      <div className="details md:ml-2">
         <h3 className="h6 small">{event.title}</h3>
         <p className="smaller subdued mb-0" suppressHydrationWarning={true}>
           {event?.schedule?.from && (

@@ -18,10 +18,10 @@ const StyledSimpleHero = styled.section`
  */
 const SimpleHero = memo(({ frontmatter }) => {
   return (
-    <StyledSimpleHero className="py-6" id="hero">
-      <div className="container my-8">
-        <div className="row">
-          <div className="col-lg-10">
+    <StyledSimpleHero className="py-8" id="hero">
+      <div className="container my-12">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12 lg:col-span-10">
             <h1 className="m-0">
               {frontmatter.title}
               {frontmatter.topic && (

@@ -32,7 +32,7 @@ function Header({
       <header className={`sticky top-0 z-50 ${className}`}>
         <nav
           id="navbar"
-          className={`navbar py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)] bg-[rgb(18_18_18/95%)] light:bg-white/95`}
+          className={`py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)] bg-[rgb(18_18_18/95%)] light:bg-white/95`}
         >
           <div
             className={`w-full max-w-[1440px] px-[20px] xl:px-[14px] mx-auto flex items-center justify-between gap-x-5 xl:gap-x-12 ${containerClassName}`}
