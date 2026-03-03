@@ -12,7 +12,7 @@ const CONTENT_BLOCK_STYLE_KEYS = {
   imageMax500: "imageMax500",
   imageMax700: "imageMax700",
   cardDeckWrapper: "cardDeckWrapper",
-};
+} as const;
 
 export const BLOCK_STYLES = {
   [CONTENT_BLOCK_STYLE_KEYS.tocBox]: {
@@ -116,11 +116,11 @@ export const BLOCK_STYLES = {
   [CONTENT_BLOCK_STYLE_KEYS.cardDeckWrapper]: {
     large: { paddingTop: "0px", marginTop: "-3px" },
   },
-};
+} as const;
 
 export const META = {
   seoImage: "",
-};
+} as const;
 
 export const IMAGE_ASSETS = {
   toc: {
@@ -187,7 +187,7 @@ export const IMAGE_ASSETS = {
     fit: "contain",
     alt: "Solana Playground execution results",
   },
-};
+} as const;
 
 export const NAV_BUTTONS = [
   {
@@ -199,7 +199,7 @@ export const NAV_BUTTONS = [
     endIcon: "none",
     url: "https://solana.com/developers/evm-to-svm",
   },
-];
+] as const;
 
 export const RESOURCE_CARD_DECK = {
   numCols: 3,
@@ -254,4 +254,4 @@ export const RESOURCE_CARD_DECK = {
       },
     },
   ],
-};
+} as const;

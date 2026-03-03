@@ -1,6 +1,6 @@
 export const META = {
   seoImage: "",
-};
+} as const;
 
 export const HERO_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F66ae8c1674f64fd7b130787680851470.png";
@@ -17,7 +17,7 @@ export const VIDEO_SOURCES = {
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F0e2f08aacdc9463585517273101eae3a_2Fcompressed.mp4",
   keyManagement:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F30042b2227264383a694d37ebbaa0991_2Fcompressed.mp4",
-};
+} as const;
 
 export const HERO_BUTTONS = [
   {
@@ -34,7 +34,7 @@ export const HERO_BUTTONS = [
     iconSize: "md",
     url: "/solana-wallets",
   },
-];
+] as const;
 
 export const COMPARE_WALLETS_BUTTON = {
   labelKey: "buttons.compareWallets",
@@ -42,7 +42,7 @@ export const COMPARE_WALLETS_BUTTON = {
   size: "md",
   iconSize: "md",
   url: "https://solana.com/solana-wallets",
-};
+} as const;
 
 export const APPLY_FOR_GRANT_BUTTON = {
   labelKey: "buttons.applyForGrant",
@@ -50,7 +50,7 @@ export const APPLY_FOR_GRANT_BUTTON = {
   size: "md",
   iconSize: "md",
   url: "https://share.hsforms.com/1GE1hYdApQGaDiCgaiWMXHA5lohw",
-};
+} as const;
 
 export const CARD_DECKS = {
   build: [
@@ -152,7 +152,7 @@ export const CARD_DECKS = {
       eyebrow: "",
     },
   ],
-};
+} as const;
 
 export const SECTION_PADDING_STYLES = {
   large: {
@@ -163,7 +163,7 @@ export const SECTION_PADDING_STYLES = {
     marginTop: "0px",
     minHeight: "100px",
   },
-};
+} as const;
 
 export const COPY_OFFSET_STYLES = {
   large: {
@@ -172,7 +172,7 @@ export const COPY_OFFSET_STYLES = {
   small: {
     marginTop: "-30px",
   },
-};
+} as const;
 
 export const SECTION_OFFSET_STYLES = {
   large: {
@@ -181,13 +181,13 @@ export const SECTION_OFFSET_STYLES = {
   small: {
     marginTop: "-45px",
   },
-};
+} as const;
 
 export const CARD_DECK_OFFSET_STYLES = {
   large: {
     marginTop: "-100px",
   },
-};
+} as const;
 
 export const VIDEO_STYLES = {
   borderRadius: "30px",
@@ -196,7 +196,7 @@ export const VIDEO_STYLES = {
   borderColor: "#14f195",
   width: "33%",
   minWidth: "260px",
-};
+} as const;
 
 export const EVM_TO_SVM_BLOCK_STYLES = {
   spacing: {
@@ -236,12 +236,12 @@ export const EVM_TO_SVM_BLOCK_STYLES = {
       paddingTop: "20px",
     },
   },
-};
+} as const;
 
 export const EVM_TO_SVM_META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdcec953384914384853a2faf467f6c10.png",
-};
+} as const;
 
 export const EVM_TO_SVM_NAV_BUTTONS = [
   {
@@ -253,7 +253,7 @@ export const EVM_TO_SVM_NAV_BUTTONS = [
     endIcon: "none",
     url: "https://solana.com/developers/evm-to-svm",
   },
-];
+] as const;
 
 export const EVM_TO_SVM_RESOURCE_CARD_DECK = {
   numCols: 3,
@@ -308,11 +308,11 @@ export const EVM_TO_SVM_RESOURCE_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
 
 export const EVM_TO_SVM_RESOURCE_CARD_DECK_WRAPPER_STYLES = {
   large: { paddingTop: "0px", marginTop: "-3px" },
-};
+} as const;
 
 export const EVM_TO_SVM_TABLE_OF_CONTENTS_ANCHORS = [
   "#account-model",
@@ -328,7 +328,7 @@ export const EVM_TO_SVM_TABLE_OF_CONTENTS_ANCHORS = [
   "#tools",
   "#differences-smart-contract",
   "#building",
-];
+] as const;
 
 export const EVM_TO_SVM_TABLE_OF_CONTENTS_INDENTS = [
   "1em",
@@ -344,7 +344,7 @@ export const EVM_TO_SVM_TABLE_OF_CONTENTS_INDENTS = [
   "3em",
   "3em",
   "1em",
-];
+] as const;
 
 export const EVM_TO_SVM_TABLE_OF_CONTENTS_BOX_STYLES = {
   large: {
@@ -366,7 +366,7 @@ export const EVM_TO_SVM_TABLE_OF_CONTENTS_BOX_STYLES = {
   },
   medium: { display: "flex" },
   small: { display: "flex" },
-};
+} as const;
 
 export const EVM_TO_SVM_TABLE_OF_CONTENTS_IMAGE = {
   src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ff1d4c0384bf94fd4bd51807305310e9e.png",
@@ -390,7 +390,7 @@ export const EVM_TO_SVM_TABLE_OF_CONTENTS_IMAGE = {
     medium: { display: "flex" },
     small: { display: "none" },
   },
-};
+} as const;
 
 export const EVM_TO_SVM_CONTENT_IMAGES = {
   accountModel: {
@@ -541,7 +541,7 @@ export const EVM_TO_SVM_CONTENT_IMAGES = {
       },
     },
   },
-};
+} as const;
 
 export const EVM_TO_SVM_TOKEN_EXTENSION_LINKS = [
   "https://solana.com/developers/guides/token-extensions/mint-close-authority",
@@ -553,4 +553,4 @@ export const EVM_TO_SVM_TOKEN_EXTENSION_LINKS = [
   null,
   null,
   null,
-];
+] as const;

@@ -1,7 +1,7 @@
 export const META = {
   seoImage:
-    "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F4edb360386f14eea8b54bf2e8a4f41d1.png",
-};
+    "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ff908a0fe9b7f4def894c0e8d5a59f91f.png",
+} as const;
 
 export const NAV_BUTTONS = [
   {
@@ -19,9 +19,9 @@ export const NAV_BUTTONS = [
     size: "md",
     iconSize: "md",
     endIcon: "arrow-right",
-    url: "/developers/evm-to-svm/smart-contracts",
+    url: "https://solana.com/developers/evm-to-svm/accounts",
   },
-];
+] as const;
 
 export const RESOURCE_CARD_DECK = {
   numCols: 3,
@@ -76,4 +76,11 @@ export const RESOURCE_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
+
+export const TABLE_OF_CONTENTS_ANCHORS = [
+  "#ethereums-original-consensus",
+  "#ethereums-current-consensus",
+  "#solanas-consensus",
+  "#summary",
+] as const;

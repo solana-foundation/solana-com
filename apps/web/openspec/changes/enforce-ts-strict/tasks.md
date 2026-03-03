@@ -28,11 +28,11 @@
 
 ## 3. Convert data files (Phase 3)
 
-- [ ] 3.1 `src/data/developers/evm-to-svm/*.js` (11 files) → `.ts`, exports `as const`
-- [ ] 3.2 `src/data/developers/dao.js`, `defi.js`, `gaming.js`, `nfts.js`, `payments.js` → `.ts`, exports `as const`
-- [ ] 3.3 `src/data/ramps/ramps-data.js`, `wallets/wallet-data.js`, `wallets/wallet-filters.js` → `.ts`, exports `as const`
-- [ ] 3.4 `src/data/pyusd.js`, `research.js`, `staking.js`, `tokenized-equities.js`, `wallets.js` → `.ts`, exports `as const`
-- [ ] 3.5 `src/data/solutions/financial-institutions.js`, `request-for-startups.js` → `.ts`, exports `as const`
+- [x] 3.1 `src/data/developers/evm-to-svm/*.js` (12 files) → `.ts`, exports `as const`
+- [x] 3.2 `src/data/developers/dao.js`, `defi.js`, `gaming.js`, `nfts.js`, `payments.js` → `.ts`, exports `as const`
+- [x] 3.3 `src/data/ramps/ramps-data.js`, `wallets/wallet-data.js`, `wallets/wallet-filters.js` → `.ts`, exports `as const`
+- [x] 3.4 `src/data/pyusd.js`, `research.js`, `staking.js`, `tokenized-equities.js`, `wallets.js` → `.ts`, exports `as const`
+- [x] 3.5 `src/data/solutions/financial-institutions.js`, `request-for-startups.js` → `.ts`, exports `as const`
 
 ## 4. Convert simple components (Phase 4)
 

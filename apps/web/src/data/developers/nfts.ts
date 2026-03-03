@@ -1,6 +1,6 @@
 export const META = {
   seoImage: "",
-};
+} as const;
 
 export const HERO_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fe8d65c145e264971a47a40f171876987.png";
@@ -11,11 +11,11 @@ export const HERO_BUTTONS = [
     size: "md",
     url: "https://www.metaplex.com/creators",
   },
-];
+] as const;
 
 export const STATS_CONFIG = {
   contained: true,
-};
+} as const;
 
 export const CARD_DECK_PRIMARY_COLUMNS = 2;
 
@@ -52,7 +52,7 @@ export const CARD_DECK_PRIMARY_CARDS = [
       endIcon: "arrow-up-right",
     },
   },
-];
+] as const;
 
 export const CARD_DECK_SECONDARY_COLUMNS = 3;
 
@@ -84,7 +84,7 @@ export const CARD_DECK_SECONDARY_CARDS = [
       endIcon: "arrow-up-right",
     },
   },
-];
+] as const;
 
 export const SWITCHBACK_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F72f88b1f2ecf4f8a8bbac455506053be.png";
@@ -95,7 +95,7 @@ export const SWITCHBACK_BUTTONS = [
     size: "md",
     url: "https://solana.com/ecosystem",
   },
-];
+] as const;
 
 export const FEATURE_HIGHLIGHT = {
   color: "green",
@@ -109,7 +109,7 @@ export const FEATURE_HIGHLIGHT = {
       url: "https://solana.com/ecosystem/explore?categories=digital%20collectibles",
     },
   ],
-};
+} as const;
 
 export const FEATURE_HIGHLIGHT_CARDS = [
   {
@@ -161,11 +161,11 @@ export const FEATURE_HIGHLIGHT_CARDS = [
       endIcon: "arrow-up-right",
     },
   },
-];
+] as const;
 
 export const COMMUNITY_GALLERY_CONFIG = {
   square: true,
-};
+} as const;
 
 export const COMMUNITY_GALLERY_CARDS = [
   {
@@ -261,4 +261,4 @@ export const COMMUNITY_GALLERY_CARDS = [
       endIcon: "arrow-up-right",
     },
   },
-];
+] as const;

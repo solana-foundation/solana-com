@@ -1,7 +1,59 @@
+const CONTENT_BLOCK_STYLE_KEYS = {
+  tocBox: "tocBox",
+  columnCopy: "columnCopy",
+  spacing: "spacing",
+  tableWrapper: "tableWrapper",
+  codeBlock: "codeBlock",
+  cardDeckWrapper: "cardDeckWrapper",
+} as const;
+
+export const BLOCK_STYLES = {
+  [CONTENT_BLOCK_STYLE_KEYS.tocBox]: {
+    large: {
+      lineHeight: "normal",
+      height: "auto",
+      marginTop: "auto",
+      marginBottom: "auto",
+      paddingTop: "20px",
+      paddingLeft: "20px",
+      paddingBottom: "20px",
+      paddingRight: "20px",
+      backgroundColor: "rgba(21, 21, 21, 1)",
+      borderRadius: "20px",
+    },
+  },
+  [CONTENT_BLOCK_STYLE_KEYS.columnCopy]: {
+    large: { paddingTop: "20px", marginTop: "auto", marginBottom: "auto" },
+  },
+  [CONTENT_BLOCK_STYLE_KEYS.spacing]: {
+    large: { paddingTop: "20px" },
+  },
+  [CONTENT_BLOCK_STYLE_KEYS.tableWrapper]: {
+    large: {
+      paddingRight: "50px",
+      paddingLeft: "50px",
+      paddingTop: "20px",
+    },
+  },
+  [CONTENT_BLOCK_STYLE_KEYS.codeBlock]: {
+    large: {
+      paddingTop: "20px",
+      paddingLeft: "40px",
+      paddingRight: "40px",
+      paddingBottom: "20px",
+      backgroundColor: "rgba(169, 11, 120, 0.3)",
+      borderRadius: "30px",
+    },
+  },
+  [CONTENT_BLOCK_STYLE_KEYS.cardDeckWrapper]: {
+    large: { paddingTop: "0px", marginTop: "-3px" },
+  },
+} as const;
+
 export const META = {
   seoImage:
-    "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F34318882f7cb4f9e9ac5b5bb9cbd67b9.png",
-};
+    "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F44332879cab2417692e5975137cb0e27.png",
+} as const;
 
 export const NAV_BUTTONS = [
   {
@@ -13,7 +65,15 @@ export const NAV_BUTTONS = [
     endIcon: "none",
     url: "https://solana.com/developers/evm-to-svm",
   },
-];
+  {
+    label: "",
+    hierarchy: "outline",
+    size: "md",
+    iconSize: "md",
+    endIcon: "arrow-right",
+    url: "/developers/evm-to-svm/client-differences",
+  },
+] as const;
 
 export const RESOURCE_CARD_DECK = {
   numCols: 3,
@@ -68,12 +128,11 @@ export const RESOURCE_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
 
 export const TABLE_OF_CONTENTS_ANCHORS = [
-  "#types-clients",
-  "#number",
-  "#types-node",
-  "#rpc",
+  "#SPL",
+  "#writing-programs",
+  "#deploying-programs",
   "#summary",
-];
+] as const;

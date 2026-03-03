@@ -1,7 +1,7 @@
 export const META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F66f93ae5c46847c8b874d425856fba62.png",
-};
+} as const;
 
 export const HERO_SWITCHBACK = {
   assetSide: "right",
@@ -30,7 +30,7 @@ export const HERO_SWITCHBACK = {
   emailError: "",
   submitError: "",
   successMessage: "",
-};
+} as const;
 
 export const VALIDATOR_SWITCHBACK = {
   assetSide: "right",
@@ -45,7 +45,7 @@ export const VALIDATOR_SWITCHBACK = {
   emailError: "",
   submitError: "",
   successMessage: "",
-};
+} as const;
 
 export const ENERGY_SWITCHBACK = {
   assetSide: "left",
@@ -60,7 +60,7 @@ export const ENERGY_SWITCHBACK = {
   emailError: "",
   submitError: "",
   successMessage: "",
-};
+} as const;
 
 export const PERFORMANCE_SWITCHBACK = {
   assetSide: "right",
@@ -75,7 +75,7 @@ export const PERFORMANCE_SWITCHBACK = {
   emailError: "",
   submitError: "",
   successMessage: "",
-};
+} as const;
 
 export const VALIDATOR_CARD_DECK = {
   featured: false,
@@ -115,7 +115,7 @@ export const VALIDATOR_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
 
 export const ENERGY_CARD_DECK = {
   featured: false,
@@ -155,7 +155,7 @@ export const ENERGY_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
 
 export const PERFORMANCE_CARD_DECK = {
   featured: false,
@@ -195,7 +195,7 @@ export const PERFORMANCE_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
 
 export const ADDITIONAL_CARD_DECK = {
   numCols: 3,
@@ -234,7 +234,7 @@ export const ADDITIONAL_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
 
 export const CONVERSION_PANEL = {
   variant: "centered",
@@ -250,4 +250,4 @@ export const CONVERSION_PANEL = {
       url: "https://solana.com/developers",
     },
   ],
-};
+} as const;

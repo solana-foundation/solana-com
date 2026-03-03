@@ -1,6 +1,6 @@
 export const META = {
   // seoImage: "",
-};
+} as const;
 
 export const HERO_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fcaab781a01724a068276fdd3446f4cbe.png";
@@ -16,11 +16,11 @@ export const HERO_BUTTONS = [
     size: "md",
     url: "https://docs.solana.com",
   },
-];
+] as const;
 
 export const STATS_CONFIG = {
   contained: true,
-};
+} as const;
 
 export const SWITCHBACK_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F873bf74d6e4a43d8a6f83d99f0d0288f.png";
@@ -31,7 +31,7 @@ export const SWITCHBACK_BUTTONS = [
     size: "md",
     url: "",
   },
-];
+] as const;
 
 export const CARD_DECK_COLUMNS = 3;
 
@@ -96,7 +96,7 @@ export const CARD_DECK_CARDS = [
       url: "https://solana.com/ecosystem/explore",
     },
   },
-];
+] as const;
 
 export const CONVERSION_PANEL_PRIMARY = {
   variant: "centered",
@@ -108,11 +108,11 @@ export const CONVERSION_PANEL_PRIMARY = {
       url: "https://solana.com/rpc",
     },
   ],
-};
+} as const;
 
 export const COMMUNITY_GALLERY_CONFIG = {
   square: false,
-};
+} as const;
 
 export const COMMUNITY_GALLERY_CARDS = [
   {
@@ -198,7 +198,7 @@ export const COMMUNITY_GALLERY_CARDS = [
       endIcon: "arrow-up-right",
     },
   },
-];
+] as const;
 
 export const CONVERSION_PANEL_COMMUNITY = {
   variant: "inline-centered",
@@ -217,4 +217,4 @@ export const CONVERSION_PANEL_COMMUNITY = {
       url: "https://forums.solana.com",
     },
   ],
-};
+} as const;

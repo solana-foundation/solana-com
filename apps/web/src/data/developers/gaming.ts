@@ -1,6 +1,6 @@
 export const META = {
   seoImage: "",
-};
+} as const;
 
 export const HERO_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F41fd7d3ae9764ca9bb7244717136dcb8.png";
@@ -16,7 +16,7 @@ export const HERO_BUTTONS = [
     size: "md",
     url: "mailto:games@solana.org",
   },
-];
+] as const;
 
 export const GAMES_KIT_PANEL = {
   variant: "inline-centered",
@@ -28,7 +28,7 @@ export const GAMES_KIT_PANEL = {
       endIcon: "arrow-up-right",
     },
   ],
-};
+} as const;
 
 export const FEATURE_HIGHLIGHT = {
   headingAs: "h2",
@@ -44,14 +44,14 @@ export const FEATURE_HIGHLIGHT = {
       url: "https://learn.figment.io/protocols/solana",
     },
   ],
-};
+} as const;
 
 export const FEATURE_HIGHLIGHT_CARDS = [
   { variant: "none" },
   { variant: "none", color: "aqua" },
   { variant: "none" },
   { variant: "none" },
-];
+] as const;
 
 export const SHOWCASE_SWITCHBACK = {
   assetSide: "left",
@@ -67,7 +67,7 @@ export const SHOWCASE_SWITCHBACK = {
       url: "https://miniroyale.io/",
     },
   ],
-};
+} as const;
 
 export const COMMUNITY_HEADING = {
   variant: "floatingButton",
@@ -79,7 +79,7 @@ export const COMMUNITY_HEADING = {
       url: "https://solana.com/ecosystem/explore?categories=gaming",
     },
   ],
-};
+} as const;
 
 export const SWITCHBACK_CHAIN = {
   hideBackground: false,
@@ -106,7 +106,7 @@ export const SWITCHBACK_CHAIN = {
       },
     },
   ],
-};
+} as const;
 
 export const FUNDING_PANEL = {
   variant: "centered",
@@ -156,4 +156,4 @@ export const COMMUNITY_PANEL = {
       url: "https://forums.solana.com",
     },
   ],
-};
+} as const;

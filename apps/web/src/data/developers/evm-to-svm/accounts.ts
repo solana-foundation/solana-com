@@ -1,59 +1,7 @@
-const CONTENT_BLOCK_STYLE_KEYS = {
-  tocBox: "tocBox",
-  columnCopy: "columnCopy",
-  spacing: "spacing",
-  tableWrapper: "tableWrapper",
-  codeBlock: "codeBlock",
-  cardDeckWrapper: "cardDeckWrapper",
-};
-
-export const BLOCK_STYLES = {
-  [CONTENT_BLOCK_STYLE_KEYS.tocBox]: {
-    large: {
-      lineHeight: "normal",
-      height: "auto",
-      marginTop: "auto",
-      marginBottom: "auto",
-      paddingTop: "20px",
-      paddingLeft: "20px",
-      paddingBottom: "20px",
-      paddingRight: "20px",
-      backgroundColor: "rgba(21, 21, 21, 1)",
-      borderRadius: "20px",
-    },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.columnCopy]: {
-    large: { paddingTop: "20px", marginTop: "auto", marginBottom: "auto" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.spacing]: {
-    large: { paddingTop: "20px" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.tableWrapper]: {
-    large: {
-      paddingRight: "50px",
-      paddingLeft: "50px",
-      paddingTop: "20px",
-    },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.codeBlock]: {
-    large: {
-      paddingTop: "20px",
-      paddingLeft: "40px",
-      paddingRight: "40px",
-      paddingBottom: "20px",
-      backgroundColor: "rgba(169, 11, 120, 0.3)",
-      borderRadius: "30px",
-    },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.cardDeckWrapper]: {
-    large: { paddingTop: "0px", marginTop: "-3px" },
-  },
-};
-
 export const META = {
   seoImage:
-    "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F44332879cab2417692e5975137cb0e27.png",
-};
+    "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F4edb360386f14eea8b54bf2e8a4f41d1.png",
+} as const;
 
 export const NAV_BUTTONS = [
   {
@@ -71,9 +19,9 @@ export const NAV_BUTTONS = [
     size: "md",
     iconSize: "md",
     endIcon: "arrow-right",
-    url: "/developers/evm-to-svm/client-differences",
+    url: "/developers/evm-to-svm/smart-contracts",
   },
-];
+] as const;
 
 export const RESOURCE_CARD_DECK = {
   numCols: 3,
@@ -128,11 +76,4 @@ export const RESOURCE_CARD_DECK = {
       },
     },
   ],
-};
-
-export const TABLE_OF_CONTENTS_ANCHORS = [
-  "#SPL",
-  "#writing-programs",
-  "#deploying-programs",
-  "#summary",
-];
+} as const;

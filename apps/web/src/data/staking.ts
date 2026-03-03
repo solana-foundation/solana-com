@@ -1,6 +1,6 @@
 export const META = {
   seoImage: "",
-};
+} as const;
 
 export const STAKING_OVERVIEW_ACCORDION_KEYS = Array.from(
   { length: 12 },

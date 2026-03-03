@@ -1,7 +1,7 @@
 export const META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fc49d029e85c04eed926bbee89b868317.png",
-};
+} as const;
 
 export const HERO_BUTTONS = [
   {
@@ -16,7 +16,7 @@ export const HERO_BUTTONS = [
     iconSize: "md",
     url: "https://www.rareskills.io/solana-tutorial",
   },
-];
+] as const;
 
 export const PRIMARY_CARD_DECK = {
   numCols: 2,
@@ -170,7 +170,7 @@ export const PRIMARY_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
 
 export const SECONDARY_CARD_DECK = {
   numCols: 3,
@@ -225,4 +225,4 @@ export const SECONDARY_CARD_DECK = {
       },
     },
   ],
-};
+} as const;

@@ -5,7 +5,7 @@ const CONTENT_BLOCK_STYLE_KEYS = {
   tableWrapper: "tableWrapper",
   smallOnly: "smallOnly",
   cardDeckWrapper: "cardDeckWrapper",
-};
+} as const;
 
 export const BLOCK_STYLES = {
   [CONTENT_BLOCK_STYLE_KEYS.spacing]: {
@@ -32,12 +32,12 @@ export const BLOCK_STYLES = {
   [CONTENT_BLOCK_STYLE_KEYS.cardDeckWrapper]: {
     large: { paddingTop: "0px", marginTop: "-3px" },
   },
-};
+} as const;
 
 export const META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F46090d5a9f6b4c5cad45a659a2079a20.png",
-};
+} as const;
 
 export const NAV_BUTTONS = [
   {
@@ -49,7 +49,7 @@ export const NAV_BUTTONS = [
     endIcon: "none",
     url: "https://solana.com/developers/evm-to-svm",
   },
-];
+] as const;
 
 export const RESOURCE_CARD_DECK = {
   numCols: 3,
@@ -104,13 +104,13 @@ export const RESOURCE_CARD_DECK = {
       },
     },
   ],
-};
+} as const;
 
 export const CONTENT_EDITOR_CTA = {
   button: {
     url: "/developers/evm-to-svm/erc20",
   },
-};
+} as const;
 
 export const CONCEPTUAL_MAP_TABLE = {
   headers: [
@@ -160,7 +160,7 @@ export const CONCEPTUAL_MAP_TABLE = {
       purposeKey: "contentEditor.conceptualMapTable.rows.4.purpose",
     },
   ],
-};
+} as const;
 
 export const CODE_BLOCKS = [
   {
@@ -268,7 +268,7 @@ contract Spl4626Vault {
 use anchor_spl::token::{
     self, Mint, Token, TokenAccount,
     Transfer, MintTo, Burn,
-};
+} as const;
 
 declare_id!("VaUlt4626pHkYwWjSfERn6y6oAYcg4UH8zQcAXXXXXXXXX"); // replace after deploy
 
@@ -507,4 +507,4 @@ impl<'info> Redeem<'info> {
 `,
     language: "rust",
   },
-];
+] as const;

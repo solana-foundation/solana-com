@@ -1,7 +1,7 @@
 export const META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F836d3cc4f41644ceaa4922bdbcc9de85.png",
-};
+} as const;
 
 export const SWITCHBACK_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F8394a7c13a8b4714a3df212f0799b409.png";
@@ -11,14 +11,14 @@ export const CONTENT_EDITOR_CALL_TO_ACTION = {
     hierarchy: "outline",
     url: "/developers",
   },
-};
+} as const;
 
 export const SWITCHBACK_BUTTON = {
   hierarchy: "primary",
   size: "md",
   iconSize: "md",
   url: "https://solana.com/docs/advanced/actions",
-};
+} as const;
 
 export const CONTENT_BLOCKS = [
   { key: "contentEditor.content.0" },
@@ -61,4 +61,4 @@ export const CONTENT_BLOCKS = [
   { key: "contentEditor.content.19" },
   { key: "contentEditor.content.20" },
   { key: "contentEditor.content.21" },
-];
+] as const;
