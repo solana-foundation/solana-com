@@ -7,6 +7,7 @@ import VideoDialog from "@/components/ui/VideoDialog";
 import { NextIntlClientProvider } from "next-intl";
 import { getLangDir } from "rtl-detect";
 import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
+import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { LayoutProvider } from "@/components/layout/layout-context";
 import { reader } from "@/lib/reader";
 import { staticLocales } from "@workspace/i18n/config";
@@ -171,7 +172,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     icons: {
       icon: siteIcon,
       shortcut: siteIcon,
-      apple: siteIcon,
+      apple: appleTouchIcon.src,
     },
     robots: {
       index: true,

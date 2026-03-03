@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import faviconPng from "./assets/favicon.png";
 import type {
   InkeepBaseSettings,
   InkeepAIChatSettings,
@@ -732,7 +733,7 @@ const aiChatSettings: InkeepAIChatSettings = {
   chatSubjectName: "Solana",
   introMessage:
     "I'm an AI assistant trained on documentation, github repos, and other content. Ask me anything about `Solana`.",
-  aiAssistantAvatar: "https://solana.com/favicon.png",
+  aiAssistantAvatar: faviconPng.src,
   disclaimerSettings: {
     isEnabled: true,
     label: "",

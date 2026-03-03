@@ -32,7 +32,7 @@ export default function TutorialNavigation({
 }: TutorialNavigationProps) {
   return (
     <nav
-      className="mt-12 pt-8 border-t border-zinc-800"
+      className="mt-32 pt-12 border-t border-zinc-800"
       aria-label={translations.tutorialNavigationAriaLabel}
     >
       <div className="flex justify-between items-center">

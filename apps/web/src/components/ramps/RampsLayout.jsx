@@ -181,14 +181,14 @@ const RampLayout = ({
           newsletter={false}
         />
       </div>
-      <div className={`position-relative ${styles["ramps-layout"]}`}>
+      <div className={`relative ${styles["ramps-layout"]}`}>
         <RampsSearch
           mobileClickEvent={toggleFiltersActive}
           searchTerm={searchItems}
           handleInputChange={handleInputChange}
         />
         <div
-          className={`d-flex flex-row align-items-start relative ${styles["ramps-layout__content"]}`}
+          className={`flex items-start relative ${styles["ramps-layout__content"]}`}
         >
           <Filters
             placeholderRamps={placeholderRamps}

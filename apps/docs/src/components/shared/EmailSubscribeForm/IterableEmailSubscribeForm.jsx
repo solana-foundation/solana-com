@@ -92,14 +92,14 @@ export default function IterableEmailSubscribeForm({
     <div className={styles["iterable-email-subscribe-form"]}>
       <ActionForm action={actionUrl} onSubmit={onSubmit}>
         <div className={styles["iterable-email-subscribe-form__content"]}>
-          <div className="w-100">
+          <div className="w-full">
             <input
               ref={inputRef}
               name="email"
               type="email"
               className={classNames(
                 styles["iterable-email-subscribe-form__input"],
-                "form-control rounded-pill w-100 d-inline-block",
+                "form-control rounded-full w-full inline-block",
               )}
               placeholder={
                 placeholderTextID
@@ -118,7 +118,7 @@ export default function IterableEmailSubscribeForm({
               variant="secondary"
               className={classNames(
                 styles["iterable-email-subscribe-form__button"],
-                "rounded-pill",
+                "rounded-full",
               )}
               disabled={isLoading}
               onClick={onSubmit}
@@ -131,13 +131,13 @@ export default function IterableEmailSubscribeForm({
         </div>
 
         {status && (
-          <div className="mt-4 w-100 m-auto text-center">
+          <div className="mt-4 w-full m-auto text-center">
             <StatusMessage status={status} />
           </div>
         )}
 
         {!error && isInvalid && (
-          <div className="mt-4 w-100 m-auto text-center">
+          <div className="mt-4 w-full m-auto text-center">
             <p
               id="email-error"
               className={styles["iterable-email-subscribe-form__input-error"]}

@@ -76,7 +76,7 @@ export default async function LearnContentPage(props: Props) {
   }));
 
   return (
-    <div className="container-fluid py-8 md:py-12">
+    <div className="container-fluid py-12 md:py-12">
       <div className="container">
         <div className="relative flex justify-center">
           <main className="w-full max-w-4xl px-4">
@@ -116,7 +116,7 @@ export default async function LearnContentPage(props: Props) {
                 }}
               />
 
-              <header className="mb-8">
+              <header className="mb-12">
                 <h1 id="article-title" className="h1 mb-4">
                   {data.h1 || data.title}
                 </h1>

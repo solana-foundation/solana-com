@@ -38,12 +38,12 @@ export function EventsLandingPage({
     <StrictMode>
       <div className="overflow-hidden">
         <EventsHeroSection />
-        <div className="container">
+        <div className="container pb-10">
           <EventsDetailSection event={featuredEvent} />
           <EventsList list={events} />
 
           {usEvents.length > 0 && (
-            <div className="my-10">
+            <div className="my-20">
               <h2>{translations.usHeading}</h2>
               <p>{translations.usDescription}</p>
               <EventsList list={usEvents} isCompact />
@@ -63,10 +63,10 @@ export function EventsLandingPage({
               })}
             </li>
           </ul>
-          <div className="mb-6">
+          <div className="mb-8 mt-4">
             <Button
               to="https://lu.ma/solanafoundation-community"
-              className="me-2"
+              className="mr-2 mb-2"
               arrowRight
               newTab
               rel="nofollow"
@@ -74,6 +74,7 @@ export function EventsLandingPage({
               {translations.submitEvent}
             </Button>
             <Button
+              className="mb-2"
               to="https://app.getriver.io/solana"
               arrowRight
               newTab

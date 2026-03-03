@@ -15,7 +15,7 @@ export function ValidatorsPage() {
   });
 
   return (
-    <div className="validators-page mt-n12 pt-12 pb-8">
+    <div className="relative -mt-32 pt-32 pb-12">
       <ValidatorsHero ref={ref} />
       <ValidatorsCards visible={inView} />
       <ValidatorsDefinition />

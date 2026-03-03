@@ -30,7 +30,7 @@ export const Performance: React.FC<PerformanceProps> = ({
   counters,
 }) => {
   return (
-    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
+    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0">
       {bgJsonFilePath && (
         <UnicornScene
           projectId="performance"
@@ -68,7 +68,7 @@ export const Performance: React.FC<PerformanceProps> = ({
           <div className="xl:max-w-[50%] grow-0">
             {title && <h2 className="nd-heading-l">{title}</h2>}
             {subtitle && (
-              <p className="text-nd-mid-em-text nd-body-xl max-md:mt-twd-3 md:mt-[35px] xl:mt-twd-8">
+              <p className="text-nd-mid-em-text nd-body-xl max-md:mt-3 md:mt-[35px] xl:mt-8">
                 {subtitle}
               </p>
             )}
@@ -78,7 +78,7 @@ export const Performance: React.FC<PerformanceProps> = ({
               <div
                 key={item.label}
                 className={cn(
-                  "py-twd-5 px-twd-3 md:px-twd-8 xl:py-twd-8 flex flex-row gap-twd-4 md:gap-twd-8 xl:gap-[28px] border-nd-border-light",
+                  "py-5 px-3 md:px-8 xl:py-8 flex flex-row gap-4 md:gap-8 xl:gap-[28px] border-nd-border-light",
                   {
                     "border-t ": index,
                   },
@@ -103,7 +103,7 @@ export const Performance: React.FC<PerformanceProps> = ({
                   <div className="text-[28px] xl:text-[40px] leading-[1.14] xl:leading-[1] font-light uppercase">
                     {item.value}
                   </div>
-                  <div className="mt-twd-1.5 md:mt-twd-1 xl:mt-twd-3 text-[16px] md:text-[18px] leading-[1.33] font-medium">
+                  <div className="mt-1.5 md:mt-1 xl:mt-3 text-[16px] md:text-[18px] leading-[1.33] font-medium">
                     {item.label}
                   </div>
                 </div>
@@ -113,7 +113,7 @@ export const Performance: React.FC<PerformanceProps> = ({
         </div>
 
         {stats && stats.length > 0 && (
-          <div className="mt-[380px] md:mt-[350px] xl:mt-[560px] -mx-twd-5 md:-mx-twd-8 xl:mx-twd-0">
+          <div className="mt-[380px] md:mt-[350px] xl:mt-[560px] -mx-5 md:-mx-8 xl:mx-0">
             <StatsGrid items={stats} />
           </div>
         )}

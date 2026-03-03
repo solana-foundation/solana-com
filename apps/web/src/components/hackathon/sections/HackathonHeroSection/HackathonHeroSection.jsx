@@ -13,12 +13,9 @@ import styles from "./HackathonHeroSection.module.scss";
 
 function StatComponent({ Icon, title, subtitle }) {
   return (
-    <div
-      className="d-flex justify-content-center align-items-center"
-      style={{ gap: 16 }}
-    >
+    <div className="flex justify-center items-center" style={{ gap: 16 }}>
       {Icon && <Icon />}
-      <div className="d-flex flex-column">
+      <div className="flex flex-col">
         <span className={styles["stats-title"]}>{title}</span>
         <p
           className={classNames("subdued", styles["stat-subtitle"])}
@@ -49,7 +46,7 @@ export default function HackathonHeroSection() {
         </div>
         <div
           className={classNames(
-            "d-flex justify-content-center align-items-center",
+            "flex justify-center items-center",
             styles["hero-section__stats-container"],
           )}
         >

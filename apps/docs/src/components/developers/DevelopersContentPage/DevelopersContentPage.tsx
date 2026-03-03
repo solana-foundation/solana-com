@@ -21,9 +21,12 @@ export function HeroTitle({
   return (
     <section
       id="hero"
-      className={classNames("row mb-8", styles["developers-content-page"])}
+      className={classNames(
+        "grid grid-cols-12 gap-5 md:gap-10 mb-12",
+        styles["developers-content-page"],
+      )}
     >
-      <div className={"col-lg-8 mb-5"}>
+      <div className={"col-span-12 lg:col-span-8 mb-6"}>
         <h1 className={styles["developers-content-page__h1"]}>
           <Link href={record.href || "#"} style={{ color: "inherit" }}>
             {record.title}
@@ -61,7 +64,7 @@ export function HeroTitle({
 
         <TagCloud record={record} baseHref={baseHref} />
       </div>
-      <div className={"col-lg-4"}>
+      <div className={"col-span-12 lg:col-span-4"}>
         <div className={styles["developers-content-page__hero-image"]}>
           <Link href={record.href || "#"}>
             <Image
@@ -73,7 +76,7 @@ export function HeroTitle({
               loading="lazy"
               fill
               sizes="100vw"
-              className="position-relative img-fluid"
+              className="relative max-w-full h-auto"
               placeholder="blur"
               blurDataURL={blurImage.blurDataURL}
               onError={(e) => {

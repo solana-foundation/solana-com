@@ -14,14 +14,14 @@ export function DocsFooter({
 }) {
   const { text } = useI18n();
   return (
-    <div className="grid grid-cols-2 gap-4 pb-6">
+    <div className="grid grid-cols-2 gap-4 pb-8">
       {previous ? (
         <Link
           href={previous.url}
           className="flex w-full flex-col gap-2 rounded-lg border bg-fd-card p-4 text-sm transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground"
         >
           <div className="inline-flex items-center gap-0.5 text-fd-muted-foreground">
-            <ChevronLeft className="-ms-1 size-4 shrink-0 rtl:rotate-180" />
+            <ChevronLeft className="-ml-1 size-4 shrink-0 rtl:rotate-180" />
             <p>{text?.previousPage}</p>
           </div>
           <p className="font-medium">{previous.name}</p>
@@ -33,7 +33,7 @@ export function DocsFooter({
           className="flex w-full flex-col gap-2 rounded-lg border bg-fd-card p-4 text-sm transition-colors hover:bg-fd-accent/80 hover:text-fd-accent-foreground col-start-2 text-end"
         >
           <div className="inline-flex items-center gap-0.5 text-fd-muted-foreground flex-row-reverse">
-            <ChevronRight className="-me-1 size-4 shrink-0 rtl:rotate-180" />
+            <ChevronRight className="-mr-1 size-4 shrink-0 rtl:rotate-180" />
             <p>{text?.nextPage}</p>
           </div>
           <p className="font-medium">{next.name}</p>

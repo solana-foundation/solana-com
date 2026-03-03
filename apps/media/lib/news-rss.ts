@@ -2,6 +2,7 @@ import { Feed } from "feed";
 import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
 import { contentDocumentToPlainText } from "@/lib/content-renderer";
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
 const BASE_URL = "https://solana.com";
 const NEWS_URL = `${BASE_URL}/news`;
@@ -64,8 +65,8 @@ async function buildNewsFeed(feedUrl: string) {
     id: feedUrl,
     link: NEWS_URL,
     language: "en",
-    image: `${BASE_URL}/favicon.png`,
-    favicon: `${BASE_URL}/favicon.png`,
+    image: `${BASE_URL}${faviconPng.src}`,
+    favicon: `${BASE_URL}${faviconPng.src}`,
     copyright: `© ${new Date().getFullYear()} Solana Foundation. All rights reserved.`,
     updated: posts.length > 0 && posts[0]?.date ? posts[0].date : new Date(),
     feedLinks: {

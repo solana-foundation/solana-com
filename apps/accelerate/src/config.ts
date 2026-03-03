@@ -21,6 +21,8 @@ export function getImagePath(path: string): string {
   return `${ASSET_PREFIX}${normalizedPath}`;
 }
 
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+
 const getSiteUrl = () => {
   if (process.env.NODE_ENV === `development`) {
     return `http://localhost:3004`;
@@ -62,7 +64,7 @@ export const config = {
       name: `solana`,
     },
   },
-  siteIcon: `https://solana.com/favicon.png`,
+  siteIcon: faviconPng.src,
   event: {
     name: "Solana Accelerate APAC",
     location: {

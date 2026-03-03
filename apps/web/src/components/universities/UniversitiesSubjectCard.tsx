@@ -27,15 +27,15 @@ export default function UniversitiesSubjectCard({
   const cardRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="d-block" style={{ minWidth: "300px", maxWidth: "300px" }}>
+    <div className="block" style={{ minWidth: "300px", maxWidth: "300px" }}>
       <Link
         href={href}
-        className="text-decoration-none"
+        className="no-underline"
         target="_blank"
         rel="noopener noreferrer"
       >
         <div
-          className="position-relative"
+          className="relative"
           style={{ borderRadius: "16px", padding: "1px" }}
           ref={cardRef}
           onMouseEnter={() => {
@@ -48,18 +48,18 @@ export default function UniversitiesSubjectCard({
           onMouseLeave={() => setHovered(false)}
         >
           {hovered && (
-            <div className="position-absolute inset-0 rounded-[inherit] universities-card-hover-gradient blur-[2px] -z-[1]" />
+            <div className="absolute inset-0 rounded-[inherit] universities-card-hover-gradient blur-[2px] -z-[1]" />
           )}
 
           {/* Card content */}
-          <div className="position-relative overflow-hidden cursor-pointer rounded-[15px] h-[400px] bg-[#0a0a0a] border-white-10 z-[1]">
+          <div className="relative overflow-hidden cursor-pointer rounded-[15px] h-[400px] bg-[#0a0a0a] border-white-10 z-[1]">
             <ParticleEffect
               isHovered={hovered}
               width={cardDimensions.width}
               height={cardDimensions.height}
             />
 
-            <div className="position-relative h-100 d-flex flex-column align-items-center justify-content-center p-4 z-1">
+            <div className="relative h-full flex flex-col items-center justify-center p-4 z-[1]">
               <div
                 className="mb-4 text-white transition-transform duration-300 ease-in-out"
                 style={{
