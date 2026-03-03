@@ -1,7 +1,5 @@
 import { useTranslations } from "next-intl";
 import ArrowSubmit from "../../../assets/playgg/arrow-submit.inline.svg";
-import styles from "./RSVP.module.scss";
-import classNames from "classnames";
 import Button from "../shared/Button";
 
 export default function RSVP() {
@@ -12,7 +10,7 @@ export default function RSVP() {
         size="large"
         variant="transparent"
         to="https://lu.ma/playgg"
-        className={classNames(styles["playgg-rsvp"], "uppercase !rounded-none")}
+        className={"uppercase !rounded-none !no-underline"}
       >
         {t("playgg.rsvp")}
         <ArrowSubmit className="ml-4" />

@@ -29,7 +29,7 @@ solana-com/
 - **Framework**: Next.js 15.5.9 with App Router
 - **Language**: TypeScript 5.8.3
 - **UI Library**: React 19.1.2
-- **Styling**: Tailwind CSS 3.4+ / SCSS / styled-components
+- **Styling**: Tailwind CSS 3.4+ / SCSS
 - **i18n**: next-intl (20 supported languages)
 - **Build System**: Turborepo for monorepo orchestration
 - **Deployment**: Vercel (multi-project setup with rewrites)

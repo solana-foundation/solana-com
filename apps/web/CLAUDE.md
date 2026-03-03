@@ -12,7 +12,7 @@ information, events, news aggregation, and marketing content.
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router) with next-intl
-- **Styling**: Tailwind CSS, SCSS, styled-components, Bootstrap 5
+- **Styling**: Tailwind CSS, SCSS, Bootstrap 5
 - **Animation**: Framer Motion, GSAP
 - **CMS**: Builder.io for dynamic content and redirects
 - **UI Components**: Radix UI primitives, React Bootstrap

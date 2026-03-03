@@ -14,7 +14,7 @@ repositories.
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router) with next-intl
-- **Styling**: Tailwind CSS 3.4, SCSS, styled-components
+- **Styling**: Tailwind CSS 3.4, SCSS
 - **Animation**: Framer Motion
 - **Code Highlighting**: Shiki
 - **URL State**: nuqs (type-safe URL search params)
@@ -119,7 +119,6 @@ Allowed remote image sources:
 ## Build Configuration
 
 - Asset prefix: `/templates-assets` for Vercel multi-project setup
-- styled-components compiler enabled
 - External workspace packages transpiled via `experimental.externalDir`
 
 ## Styling
@@ -128,7 +127,6 @@ Combines multiple styling approaches:
 
 - Tailwind CSS for utility classes
 - SCSS for custom styles
-- styled-components for component styles
 
 ## Conventions
 
