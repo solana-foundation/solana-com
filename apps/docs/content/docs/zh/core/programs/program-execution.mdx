@@ -1,0 +1,147 @@
+---
+title: 程序执行
+description:
+  Solana 如何编译和执行程序，包括 sBPF
+  虚拟机、计算单元模型、程序缓存和系统调用。
+url: /docs/core/programs/program-execution
+type: conceptual
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/programs/syscall-reference
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/program-deployment
+  - /docs/core/cpi/cpi-execution
+---
+
+{/* 目录：编译、编写程序、程序执行模型、程序缓存、系统调用 */}
+
+<Callout type="info" title="摘要">
+  程序通过 LLVM 编译为 sBPF，并在沙盒虚拟机中运行，每笔交易有 1.4M CU
+  的预算。运行时最多缓存 512
+  个已编译程序，提供日志、CPI、加密和内存等系统调用，并在新部署时延迟 1 个
+  slot。
+</Callout>
+
+## 编译
+
+Solana 使用 [LLVM](https://llvm.org/) 将程序编译为
+[ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+二进制文件，其中包含 Solana 字节码格式（sBPF）。ELF 二进制文件以可执行账户的形式存储在链上。
+
+<Callout>
+  sBPF 是 Solana 针对运行时定制的 [eBPF](https://en.wikipedia.org/wiki/EBPF)
+  字节码变体。它并非标准 eBPF，而是经过 Solana 特定修改的版本。
+</Callout>
+
+## 编写程序
+
+Solana 程序主要使用 [Rust](https://rust-book.cs.brown.edu/title-page.html)
+编写，常见有两种方式：
+
+<Cards>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs">
+    一个利用 Rust 宏减少样板代码的框架。推荐大多数开发者使用。
+  </Card>
+  <Card title="原生 Rust" href="/docs/programs/rust">
+    直接使用 Rust，无需框架。提供完全控制，但需要更多手动实现。
+  </Card>
+</Cards>
+
+## 程序执行模型
+
+当处理一笔交易时，运行时会依次执行每条指令，通过
+[`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)。对于每条指令，运行时会：
+
+1. **准备指令上下文。** 调用
+   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)，用于映射指令的账户索引、设置签名者和可写标志，并配置
+   [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467)。
+
+2. **检查预编译程序。** 如果该程序是
+   [预编译程序](/docs/core/programs/precompiles)，运行时会调用
+   [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491)，该过程依然会通过
+   _rs`push()`_ 和 _rs`pop()`_
+   推入和弹出栈帧，但会跳过 sBPF 虚拟机和程序缓存查找，直接执行本地代码。
+
+3. **推入一个栈帧。**（第 3-6 步在
+   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
+   和
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   内部执行，由 _rs`process_message()`_ 调用。）调用
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
+   作用于
+   [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184)，该操作会增加指令栈高度并强制执行可重入性规则：只有当**直接**调用者（当前指令栈顶的程序）与自身为同一程序时，程序才可以重新进入自身。允许深度自递归（A
+   -> A -> A），但受限于栈深度。其他可重入模式（例如 A 调用 B 再调用 A）会返回
+   _rs`InstructionError::ReentrancyNotAllowed`_。
+
+4. **解析程序。** 运行时会调用
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   来确定加载器。如果 program account 的 owner 是
+   [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517)，则该程序为内置程序，其入口函数会直接从
+   [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706)
+   查找。如果 owner 是某个 BPF
+   loader（`bpf_loader_deprecated`、`bpf_loader`、`bpf_loader_upgradeable` 或
+   `loader_v4`），则会调用加载器自身的内置入口函数。
+
+5. **执行 BPF 程序。**
+   对于 BPF 程序，[loader entrypoint](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+   会从程序缓存中查找已编译的可执行文件。然后
+   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)
+   函数会：
+
+- 将账户数据序列化为扁平参数缓冲区
+- 创建包含栈、堆和内存区域的 sBPF 虚拟机
+- 运行已编译代码，执行期间消耗计算单元。如果超出预算，则返回
+  _rs`ComputationalBudgetExceeded`_。
+- 从缓冲区反序列化账户数据回账户状态
+
+6. **弹出栈帧。** 调用
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)，用于验证指令是否违反了运行时的记账规则（ lamport 余额是否平衡、只读账户未被修改、账户数据大小在限制范围内）。
+
+7. **累计计算单元。** 指令消耗的计算单元通过
+   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53)
+   累加到交易总量中。
+
+## 程序缓存
+
+运行时维护一个全局的
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)，用于存储已验证和已编译的程序。该缓存支持分叉图感知，并负责处理部署可见性规则、驱逐和 epoch 边界的重新编译。
+
+### 缓存条目类型
+
+每个被缓存的程序都有一个
+[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132)，用于决定其运行时行为：
+
+| 类型                                                                                                              | 描述                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | 已验证并编译的程序，可直接执行。                                                                                                                                                                                                          |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | 编译进 validator 二进制文件的原生程序（如 System、Stake、Vote 等）。不会存储在链上。                                                                                                                                                      |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | 之前已验证的程序，其已编译可执行文件为释放内存空间被驱逐。仍然会跟踪使用统计信息，可在无需重新验证的情况下重新加载。                                                                                                                      |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | 未通过当前功能集下 sBPF 验证器验证的程序的墓碑标记。如果功能激活更改了验证规则，可能会变为 `Loaded`。                                                                                                                                     |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | 被明确关闭或从未部署的程序的墓碑标记。也用于属于 loader 但不包含可执行代码的账户（如缓冲账户）。                                                                                                                                          |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | 由 [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) 返回的合成墓碑标记，当存在 `Loaded` 条目但尚未生效（其 `effective_slot` 在未来）。不会直接存储在缓存中。 |
+
+### 可见性延迟
+
+新部署或升级的程序不会立即生效。[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
+常量为 `1`，这意味着在 slot N 部署的程序会在 slot
+N+1 生效。在部署 slot 期间，任何尝试调用新版本的操作都会返回
+_rs`DelayVisibility`_，导致运行时报出“程序未部署”。
+
+### 驱逐策略
+
+缓存最多可容纳
+[`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)（512）个已编译程序条目。当达到上限时，最少使用的程序会被驱逐到
+_rs`Unloaded`_ 状态。使用情况通过
+[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)（每次有交易引用该程序时递增）和
+[`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199)
+进行跟踪。
+
+### epoch 边界重新编译
+
+如果某个功能激活在 epoch 边界更改了
+[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)，所有缓存的程序都会根据新环境
+[重新编译](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L1494)。
+
+## 返回数据

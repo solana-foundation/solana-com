@@ -1,0 +1,94 @@
+---
+title: Kestävät noncet
+description:
+  Miten kestävät noncet toimivat Solanassa offline-allekirjoitusta ja
+  viivästettyä transaktioiden lähettämistä varten, mukaan lukien noncen
+  elinkaari, tunnistus, validointi ja virhekäyttäytyminen.
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="Yhteenveto">
+  Kestävän noncen transaktiot korvaavat viimeaikaisen lohkohashin tallennetulla
+  nonce-arvolla, poistaen 150 slotin vanhenemisikkunan transaktiolta. Tämä
+  mahdollistaa offline-allekirjoituksen ja viivästetyn lähetyksen.
+</Callout>
+
+<Callout type="warn">
+  Kestävät noncet saatetaan poistaa käytöstä tulevassa versiossa. Katso
+  [SIMD-keskustelu](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)
+  lisätietoja varten.
+</Callout>
+
+## Kestävät noncet
+
+Kestävän noncen transaktio korvaa viimeaikaisen lohkohashin tallennetulla
+nonce-arvolla, poistaen 150 slotin vanhenemisikkunan. Tämä mahdollistaa
+offline-allekirjoituksen ja viivästetyn lähetyksen.
+
+## Miten nonce-transaktiot toimivat
+
+Nonce-tili on System Program -omistama tili, joka tallentaa
+_rs`State::Initialized`_-arvon, joka sisältää kolme kenttää:
+**authority**-pubkeyn (kuka voi edistää noncea), **kestävän nonce** -arvon
+(viimeaikaisesta lohkohashista johdettu hash) ja **lamportit per allekirjoitus**
+(maksutaso, kun nonce viimeksi edistettiin).
+
+Kestävän noncen käyttäminen:
+
+1. Luo ja alusta nonce-tili käyttäen _rs`CreateAccount`_ +
+   _rs`InitializeNonceAccount`_
+2. Rakenna transaktio _rs`AdvanceNonceAccount`_:n kanssa **ensimmäisenä
+   instruktiona** ja nonce-arvo `recent_blockhash`:na
+3. Allekirjoita transaktio (voidaan tehdä offline-tilassa, koska nonce ei
+   vanhene)
+4. Lähetä kun valmis
+
+## Noncen tunnistus
+
+Runtime tunnistaa nonce-transaktiot tarkistamalla, onko ensimmäinen instruktio
+(indeksi
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0) kutsu System Programiin _rs`AdvanceNonceAccount`_-instruktiolla.
+Nonce-tilin on oltava kyseisen instruktion ensimmäinen tili ja sen on oltava
+kirjoitettavissa. Katso
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
+
+### Nonce-vahvistuksen kulku
+
+Kun transaktion `recent_blockhash` ei löydy `BlockhashQueue`-tililtä,
+validaattori tarkistaa, onko kyseessä kelvollinen nonce-transaktio
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180)-funktion
+avulla:
+
+1. Noncen tallennetun `durable_nonce`-arvon on poikettava seuraavasta kestävästä
+   noncesta (johdettu nykyisestä lohkohajautusarvosta). Tämä varmistaa, ettei
+   noncea ole jo käytetty tässä lohkossa
+2. Nonce-tili on ladattava ja sen on jäsennyttävä muotoon
+   _rs`State::Initialized`_
+3. Tallennetun `durable_nonce`-arvon on vastattava transaktion
+   `recent_blockhash`-arvoa
+
+Nonce-valtuutuksen allekirjoituksen tarkistus suoritetaan myöhemmin
+([`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)).
+
+Jos kaikki tarkistukset läpäistään, nonce siirretään seuraavaan kestävään
+nonce-arvoon ennen suorituksen alkamista. Suorituksen epäonnistuessa siirretty
+nonce ja maksun vähentänyt maksaja tallennetaan silti (estäen uudelleentoiston
+ja keräten maksut).
+
+### Nonce-virheen käyttäytyminen
+
+Jos nonce-transaktio **epäonnistuu vahvistuksessa** (nonce jo käytetty,
+valtuutusta ei allekirjoitettu, tiliä ei löydy), koko transaktio hylätään.
+Maksuja ei kerätä, tilamuutoksia ei tehdä.
+
+Jos nonce-transaktio **läpäisee vahvistuksen, mutta suoritus epäonnistuu**
+(käsky palauttaa virheen), nonce silti siirretään ja maksut kerätään. Tämä estää
+transaktion uudelleentoiston ja varmistaa, että validaattori saa korvauksen.

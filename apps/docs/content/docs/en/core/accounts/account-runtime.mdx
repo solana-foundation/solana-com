@@ -1,0 +1,136 @@
+---
+title: Account Runtime
+description:
+  How the Solana runtime loads and validates accounts before execution, and the
+  serialization format used to pass account data to programs.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Summary">
+  Before execution, the runtime loads accounts, validates the fee payer, checks
+  rent-exemption, and serializes account data into a memory layout that programs
+  can access.
+</Callout>
+
+<Callout>
+  This page covers runtime internals. Most developers don't need this
+  information for building programs. See [Account
+  Structure](/docs/core/accounts/account-structure) for the developer-facing
+  view.
+</Callout>
+
+## Account loading
+
+Before a transaction executes, the runtime loads all referenced accounts via
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+This process performs several validations:
+
+1. **Fee payer validation**: The fee payer (first account) must exist, be a
+   system account or nonce account, and have enough lamports to cover fees
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   After paying fees, the account must either remain rent-exempt or go to
+   exactly 0 lamports. It cannot end up between 0 and the rent-exempt minimum.
+   Nonce accounts must always retain enough lamports to remain rent-exempt. If
+   the payer is neither a system account nor a nonce account, the transaction
+   fails with _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **Loaded data size limit**: The total size of all loaded accounts (including
+   a
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   of 64 bytes per account) must not exceed
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 MiB). Exceeding this limit produces
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_.
+
+3. **Program account validation**: Every program invoked by an instruction must
+   exist and be owned by a valid loader: one of the
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) or the
+   native loader. If the program account does not exist, the transaction fails
+   with _rs`TransactionError::ProgramAccountNotFound`_. If it exists but has an
+   invalid owner, the transaction fails with
+   _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **Non-existent accounts**: Accounts that do not exist on-chain are loaded as
+   default accounts (0 lamports, empty data, owned by system program) with
+   `rent_epoch` set to `u64::MAX`.
+
+## BPF serialization format
+
+When a program is invoked, the runtime serializes accounts into a contiguous
+memory buffer and passes it to the BPF VM. The serialization format (for the
+standard aligned format used by all loaders except the deprecated loader-v1) is
+defined in
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+The buffer begins with a `u64` (8 bytes, little-endian) containing the number of
+accounts. Then, for each account in the instruction, the buffer contains:
+
+| Offset        | Size            | Field                                  | Type                                                                                                      |
+| ------------- | --------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 0             | 1               | duplicate marker                       | `u8` (`0xFF` = unique, index = duplicate of that account)                                                 |
+| 1             | 1               | is_signer                              | `u8` (0 or 1)                                                                                             |
+| 2             | 1               | is_writable                            | `u8` (0 or 1)                                                                                             |
+| 3             | 1               | executable                             | `u8` (0 or 1)                                                                                             |
+| 4             | 4               | original_data_len (reserved, always 0) | `[0u8; 4]`                                                                                                |
+| 8             | 32              | key                                    | `Pubkey`                                                                                                  |
+| 40            | 32              | owner                                  | `Pubkey`                                                                                                  |
+| 72            | 8               | lamports                               | `u64` (little-endian)                                                                                     |
+| 80            | 8               | data_len                               | `u64` (little-endian)                                                                                     |
+| 88            | data_len        | data                                   | `[u8]`                                                                                                    |
+| 88 + data_len | 10240 + padding | realloc space + alignment              | Zero-filled to `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + padding to align to `BPF_ALIGN_OF_U128` (8 bytes) |
+| ...           | 8               | rent_epoch                             | `u64` (little-endian)                                                                                     |
+
+After all accounts, the buffer appends:
+
+| Size                 | Field                                       |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+For duplicate accounts, only 1 byte (the duplicate marker with the index of the
+original) plus 7 bytes of padding are written.
+
+## Account deduplication
+
+When the same account public key appears multiple times in an instruction's
+`accounts` array, the runtime
+[deduplicates](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)
+them. Each entry in the instruction's account list gets its own
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+struct, but entries that refer to the same transaction-level account point to
+the same underlying data.
+
+The
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+method determines whether a given instruction account index is the first
+occurrence or a duplicate by looking up the transaction-level account index and
+finding the first instruction-level index that maps to it:
+
+- If the current instruction account index equals the first mapped index, it is
+  **not** a duplicate (returns `None`).
+- Otherwise, it returns `Some(first_index)`, where `first_index` is the index of
+  the first occurrence.
+
+Because all references to the same account share the same underlying
+_rs`AccountSharedData`_, modifications through any reference are immediately visible
+through all other references. However, only one mutable borrow can be held at a
+time. Attempting to borrow the same account mutably through two different
+instruction account indices simultaneously returns
+_rs`InstructionError::AccountBorrowFailed`_. Programs must drop one borrow before
+acquiring another on the same underlying account.
+
+After the program executes, the runtime deserializes the buffer back
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+and applies any changes to `lamports`, `data` (including length changes up to
+_rs`MAX_PERMITTED_DATA_INCREASE`_), and `owner`.

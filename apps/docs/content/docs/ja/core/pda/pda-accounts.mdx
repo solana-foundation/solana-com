@@ -1,0 +1,177 @@
+---
+title: PDAアカウント
+description:
+  invoke_signedとAnchorのinit制約を使用して、Solana
+  PDAアドレスに、オンチェーンアカウントを作成します。invoke_signed検証フローとAnchor
+  PDA作成パターンをコード例とともに解説します。
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: PDA Signing via invoke_signed, Create a PDA Account */}
+
+<Callout type="info" title="概要">
+  PDAのseedを使用して、_rs`invoke_signed`_経由でPDAアカウントを作成します。所有プログラムのみがPDAに署名できます。Anchorの_rs`init`_制約は、PDAアカウント作成を自動化します。
+</Callout>
+
+## `invoke_signed`によるPDA署名
+
+プログラムがCPI中にPDAの代わりに署名する必要がある場合、PDAのseedを使用して*rs`invoke_signed`*を使用します。ランタイムは、**呼び出し元プログラムのID**を使用してseedが期待されるPDAを導出することを検証し、所有プログラムのみが署名できることを保証します。完全な検証フローについては、[PDA署名](/docs/core/cpi/cpi-cost-model#pda-signing)を参照してください。
+
+## PDAアカウントの作成
+
+PDAの導出とPDAでのアカウント作成は別々の操作です。アドレスを導出した後、明示的にアカウントを作成する必要があります。
+
+PDAでアカウントを作成するには、導出プログラムが[`invoke_signed`](/docs/core/cpi)経由でSystem
+Programの*rs`create_account`*命令を呼び出し、PDAのseedを渡すことで、ランタイムがそのアドレスに対するプログラムの権限を検証できるようにします。
+
+<WithMentions>
+
+以下の例では、[Anchorフレームワーク](https://www.anchor-lang.com/docs)を使用して、プログラム導出アドレスで新しいアカウントを作成します。プログラムには、新しいアカウントを作成するための単一の[`initialize`](mention:initialize)命令が含まれており、PDAの導出に使用された[ユーザーアドレス](mention:user-address)と[bump seed](mention:bump)を保存します。
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+[`init`](mention:init)制約は、Anchorに対して、PDAをアドレスとして使用して新しいアカウントを作成するために[System Programを呼び出す](/docs/core/programs/builtin-programs#the-system-program)よう指示します。PDAの作成に使用される[seeds](mention:seeds)は次のとおりです。
+
+- 固定文字列: "data"
+- 命令で提供されたユーザーアカウントのアドレス
+- 正規の[bump seed](mention:bump)
+
+この例では、bump制約に値が割り当てられていないため、AnchorはPDAを導出してbumpを見つけるために*rs`find_program_address`*を使用します。
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+以下のテストファイルには、プログラム派生アドレスで新しいアカウントを作成するために[`initialize`](mention:initialize)命令を呼び出すトランザクションが含まれています。このファイルには、[PDAを導出する](mention:pda)コードが含まれています。
+
+この例では、作成される新しいアカウントを[取得する](mention:fetch)方法も示しています。
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  同じ`user`アドレスseedで`initialize`命令を再度呼び出すと、トランザクションは失敗します。これは、導出されたアドレスにすでにアカウントが存在するためです。
+</Callout>

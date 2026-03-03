@@ -1,0 +1,277 @@
+---
+title: Transaction Pipeline
+description:
+  How Solana transactions are processed from submission to commit, including the
+  full 8-stage validation pipeline, reading transaction details from the
+  network, and common validation errors.
+url: /docs/core/transactions/transaction-pipeline
+type: reference
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/fees/fee-structure
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+---
+
+<Callout type="info" title="Summary">
+  Transactions pass through 8 stages: receive, sigverify, sanitize, budget/age
+  checks, fee payer validation, account loading, instruction execution, and
+  commit.
+</Callout>
+
+## Transaction processing pipeline
+
+When a transaction arrives at a validator, it passes through a series of
+validation and execution stages. The following describes the full pipeline from
+receipt to commit, with source file references into the
+[agave](https://github.com/anza-xyz/agave/tree/v3.1.8) validator client.
+
+### 1. Receive and deserialize
+
+The validator receives transaction bytes over UDP/QUIC. The raw bytes must fit
+within a single packet (_rs`PACKET_DATA_SIZE`_ = 1,232 bytes). The bytes are
+deserialized into a _rs`VersionedTransaction`_, which contains the signatures array
+and a _rs`VersionedMessage`_ (either legacy or v0).
+
+### 2. Signature verification (sigverify)
+
+Signatures are verified in the
+[sigverify stage](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs)
+before the transaction enters the banking stage. For each signature at index
+`i`, the verifier checks Ed25519(`signatures[i]`, `account_keys[i]`,
+`message_bytes`). If any signature is invalid, the packet is discarded.
+
+Verification is parallelized: the validator splits packet batches into chunks of
+[`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)
+(128) and processes them in parallel.
+
+### 3. Sanitize
+
+The deserialized transaction is sanitized to produce a _rs`SanitizedTransaction`_
+(or
+[`RuntimeTransaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/runtime_transaction.rs#L31)).
+Sanitization validates structural invariants:
+
+- Number of signatures matches `num_required_signatures` in the header
+- All instruction `program_id_index` and `account_indices` are within bounds
+- The fee payer (account index 0) is a writable signer
+
+The _rs`RuntimeTransaction`_ wrapper caches precomputed metadata from
+[`TransactionMeta`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/transaction_meta.rs#L38-L44):
+the message hash, vote transaction flag, precompile signature counts
+(Ed25519/secp256k1/secp256r1), compute budget instruction details, and total
+instruction data length.
+
+### 4. Check compute budget, age, and status cache
+
+The
+[`check_transactions`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L55-L69)
+method performs several checks per transaction:
+
+**Compute budget**: The transaction's compute budget instructions are parsed and
+validated first. Fee details are calculated from the budget limits and
+prioritization fee. If the compute budget is invalid or conflicting, the
+transaction fails with compute-budget parsing errors such as
+_rs`DuplicateInstruction`_, `InstructionError(..., InvalidInstructionData)`, or
+_rs`InvalidLoadedAccountsDataSizeLimit`_.
+
+**Blockhash age**: The transaction's `recent_blockhash` is looked up in the
+[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
+If the hash is found and its age is within _rs`MAX_PROCESSING_AGE`_ (150 slots), the
+transaction proceeds. If not found, the validator checks for a valid
+[durable nonce](/docs/core/transactions/durable-nonces).
+
+**Status cache**: The transaction's message hash is checked against a status
+cache. If found, the transaction is rejected with _rs`AlreadyProcessed`_.
+
+### 5. Validate nonce and fee payer
+
+The
+[`validate_transaction_nonce_and_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L580-L620)
+method in the SVM handles two validations:
+
+**Nonce validation** (if applicable): For nonce transactions, the validator
+loads the nonce account and verifies:
+
+- The account is owned by the System Program
+- It parses as _rs`State::Initialized`_
+- The stored durable nonce matches the transaction's `recent_blockhash`
+- The nonce can be advanced (its current durable nonce differs from the next
+  durable nonce, i.e., the nonce has not already been used in the current block)
+- The nonce authority has signed the transaction
+
+If valid, the nonce is advanced to the next durable nonce value. See
+[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729).
+
+**Fee payer validation**: The fee payer account (always index 0) is loaded and
+checked by
+[`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417):
+
+- Account must exist (lamports > 0), otherwise _rs`AccountNotFound`_
+- Account must be a system account or nonce account, otherwise
+  _rs`InvalidAccountForFee`_
+- Lamports must cover `min_balance + total_fee`, where `min_balance` is 0 for
+  system accounts or `rent.minimum_balance(NonceState::size())` for nonce
+  accounts; otherwise _rs`InsufficientFundsForFee`_
+- After fee deduction, the account must remain rent-exempt (cannot transition
+  from rent-exempt to rent-paying)
+
+The fee is deducted from the fee payer at this stage. A snapshot of the
+fee-subtracted fee payer (and advanced nonce, if applicable) is saved as
+_rs`RollbackAccounts`_, which are the accounts that get committed even if execution
+fails.
+
+### 6. Load accounts
+
+[`load_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L419-L455)
+loads all accounts referenced by the transaction. The
+[`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)
+wraps the external account store and maintains a batch-local cache so that
+accounts modified by earlier transactions in the same batch are visible to later
+ones.
+
+For each non-fee-payer account, the loader:
+
+1. Fetches the account from the cache or accounts-db
+2. Updates rent-exempt status if needed
+3. Accumulates the account's data size toward the
+   [`loaded_accounts_data_size_limit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (default 64 MiB). Each account incurs a base overhead of
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   (64 bytes) plus its data length
+
+For each program invoked by the transaction's instructions, the loader verifies
+that the program account exists and is owned by a valid loader (`NativeLoader`
+or one of the _rs`PROGRAM_OWNERS`_). Invalid programs fail with
+_rs`ProgramAccountNotFound`_ or _rs`InvalidProgramForExecution`_.
+
+LoaderV3 (upgradeable) programs implicitly load their associated programdata
+account, which also counts toward the loaded data size limit.
+
+If account loading fails but the fee payer was successfully validated, the
+transaction becomes a
+[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)
+result: the fee is still collected but no instructions execute.
+
+### 7. Execute instructions
+
+[`execute_loaded_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L847)
+creates a _rs`TransactionContext`_ with all loaded accounts and invokes
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs).
+Instructions execute sequentially in the order they appear in the message. Each
+instruction invocation creates an _rs`InvokeContext`_ and calls the target program.
+
+#### Instruction processing details
+
+The runtime's
+[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)
+function iterates through each instruction and calls the target program:
+
+1. For each instruction, the runtime calls
+   [`prepare_next_top_level_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436),
+   which builds the
+   [`InstructionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L519).
+   This context contains references to the instruction's accounts (resolved from
+   the compiled indices), the instruction data, and the program account index.
+2. The runtime checks whether the program is a
+   [precompile](/docs/core/programs/precompiles) (Ed25519, Secp256k1,
+   Secp256r1). Precompiles are verified directly without invoking the BPF VM.
+3. For all other programs, the runtime invokes
+   [`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477),
+   which loads the program from the cache and executes it in the BPF virtual
+   machine.
+4. After the instruction completes, the runtime
+   [verifies](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   that the total lamport balance across all instruction accounts has not
+   changed (_rs`UnbalancedInstruction`_ check).
+5. If any instruction fails, the entire transaction is rolled back. No
+   intermediate state changes are committed.
+
+Each instruction increments the instruction trace. The trace includes both
+top-level instructions and any [CPIs](/docs/core/cpi) they invoke. The total
+trace length (top-level instructions plus all nested CPIs) cannot exceed 64
+(_rs`MAX_INSTRUCTION_TRACE_LENGTH`_). Exceeding this limit returns
+_rs`InstructionError::MaxInstructionTraceLengthExceeded`_.
+
+After execution, the runtime verifies that:
+
+- The sum of lamports across all accounts has not changed
+- No account transitioned from rent-exempt to rent-paying
+
+### 8. Commit or rollback
+
+If execution succeeds, the modified account states from the `TransactionContext`
+are written back to the _rs`AccountLoader`_'s batch-local cache. If execution fails,
+only the _rs`RollbackAccounts`_ (fee payer with fee deducted and advanced nonce) are
+written back. The fee is still collected, but all other account changes are
+discarded.
+
+### Pipeline summary
+
+```
+Receive packet (UDP/QUIC)
+  --> Deserialize into VersionedTransaction
+  --> Sigverify (parallel Ed25519 verification)
+  --> Sanitize (structural validation, metadata extraction)
+  --> Parse compute budget, calculate fees
+  --> Check blockhash age (or verify nonce account)
+  --> Check status cache (dedup)
+  --> Validate nonce authority and advanceability (if nonce transaction)
+  --> Validate fee payer (load, check balance, deduct fee)
+  --> Load all accounts (with data size limits)
+  --> Load programs (verify loaders)
+  --> Execute instructions sequentially
+  --> Verify post-conditions (lamport balance, rent state)
+  --> Commit account changes (or rollback on failure)
+```
+
+## Transaction error reference
+
+The following table lists all
+[`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
+variants and at which pipeline stage they occur:
+
+| Error                                                                                                                                   | Stage                  | Cause                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Scheduling             | Account is already locked by another transaction in the same batch                                             |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Scheduling             | A pubkey appears twice in the transaction's `account_keys`                                                     |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Fee payer validation   | Fee payer account does not exist                                                                               |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Account loading        | An invoked program does not exist                                                                              |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Fee payer validation   | Fee payer cannot cover fee + rent-exempt minimum                                                               |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Fee payer validation   | Fee payer is not a system or nonce account                                                                     |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Status cache           | Transaction was already processed                                                                              |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Age check              | Blockhash not in queue and not a valid nonce                                                                   |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Execution              | An error occurred while processing an instruction (includes instruction index and specific `InstructionError`) |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Account loading        | Loader call chain is too deep                                                                                  |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Sanitize               | Transaction requires a fee but has no signature present                                                        |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Sanitize               | Transaction contains an invalid account reference                                                              |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Sigverify              | Ed25519 signature does not verify (packet is discarded)                                                        |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Account loading        | Program is not owned by a valid loader                                                                         |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Sanitize               | Transaction failed to sanitize accounts offsets correctly                                                      |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Scheduling             | Transactions are currently disabled due to cluster maintenance                                                 |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Execution              | Transaction processing left an account with an outstanding borrowed reference                                  |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Scheduling             | Transaction would exceed max block cost limit                                                                  |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Sanitize               | Transaction version is unsupported                                                                             |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Account loading        | Transaction loads a writable account that cannot be written                                                    |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Scheduling             | Transaction would exceed max account cost limit within the block                                               |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Scheduling             | Transaction would exceed account data limit within the block                                                   |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Scheduling             | Transaction locked too many accounts                                                                           |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Account loading        | Address lookup table account does not exist                                                                    |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Account loading        | Address lookup table is owned by the wrong program                                                             |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Account loading        | Address lookup table contains invalid data                                                                     |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Account loading        | Address table lookup uses an invalid index                                                                     |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Post-execution check   | Account transitioned from rent-exempt to rent-paying                                                           |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Scheduling             | Transaction would exceed max vote cost limit                                                                   |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Scheduling             | Transaction would exceed total account data limit                                                              |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Compute budget parsing | Duplicate compute budget instruction variant in the same transaction                                           |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Post-execution check   | Account does not have enough lamports to cover rent for its data size                                          |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Account loading        | Total loaded data exceeds 64 MiB limit                                                                         |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Compute budget parsing | `SetLoadedAccountsDataSizeLimit` set to 0                                                                      |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Sanitize               | Transaction differed before/after feature activation and needs resanitization                                  |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Account loading        | Program execution is temporarily restricted on the referenced account                                          |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Post-execution check   | Total lamport balance before the transaction does not equal the balance after                                  |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Account loading        | Program cache hit max limit                                                                                    |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                 | Commit cancelled internally                                                                                    |

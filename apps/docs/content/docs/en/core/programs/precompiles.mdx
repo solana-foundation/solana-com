@@ -1,0 +1,190 @@
+---
+title: Precompiled Programs
+description:
+  Solana's precompiled programs for signature verification — Ed25519, Secp256k1,
+  and Secp256r1 — that bypass the sBPF VM and run as native code within the
+  validator.
+url: /docs/core/programs/precompiles
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/builtin-programs
+related:
+  - /docs/core/fees/fee-structure
+  - /docs/core/programs/syscall-reference
+  - /docs/core/transactions/transaction-structure
+---
+
+<Callout type="info" title="Summary">
+  Precompiles (Ed25519, Secp256k1, Secp256r1) verify signatures as native code,
+  bypassing the sBPF VM. They handle cryptographic operations where sBPF
+  execution would be too slow. Precompiles are not callable via CPI.
+</Callout>
+
+## Precompiled programs
+
+Precompiled programs bypass the sBPF virtual machine and run as native code
+within the validator. They handle cryptographic operations where sBPF execution
+would be too slow.
+
+### Verify ed25519 signature
+
+The ed25519 program verifies one or more ed25519 signatures within a single
+instruction.
+
+| Program         | Program ID                                    | Description                                                                | Instructions                                                                                    | Source                                                                             |
+| --------------- | --------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Ed25519 Program | `Ed25519SigVerify111111111111111111111111111` | Verifies ed25519 signatures. If any signature fails, an error is returned. | [Instructions](https://docs.rs/solana-ed25519-program/latest/solana_ed25519_program/index.html) | [Source](https://github.com/anza-xyz/agave/blob/v3.1.8/precompiles/src/ed25519.rs) |
+
+The instruction's first `u8` contains a count of the number of signatures to
+check, followed by a single byte of padding. After that, the following struct is
+serialized once per signature:
+
+```rs title="Ed25519SignatureOffsets"
+struct Ed25519SignatureOffsets {
+    signature_offset: u16,             // offset to ed25519 signature of 64 bytes
+    signature_instruction_index: u16,  // instruction index to find signature
+    public_key_offset: u16,            // offset to public key of 32 bytes
+    public_key_instruction_index: u16, // instruction index to find public key
+    message_data_offset: u16,          // offset to start of message data
+    message_data_size: u16,            // size of message data
+    message_instruction_index: u16,    // index of instruction data to get message data
+}
+```
+
+```txt title="Signature verification pseudocode"
+process_instruction() {
+    for i in 0..count {
+        // i'th index values referenced:
+        instructions = &transaction.message().instructions
+        instruction_index = ed25519_signature_instruction_index != u16::MAX ? ed25519_signature_instruction_index : current_instruction;
+        signature = instructions[instruction_index].data[ed25519_signature_offset..ed25519_signature_offset + 64]
+        instruction_index = ed25519_pubkey_instruction_index != u16::MAX ? ed25519_pubkey_instruction_index : current_instruction;
+        pubkey = instructions[instruction_index].data[ed25519_pubkey_offset..ed25519_pubkey_offset + 32]
+        instruction_index = ed25519_message_instruction_index != u16::MAX ? ed25519_message_instruction_index : current_instruction;
+        message = instructions[instruction_index].data[ed25519_message_data_offset..ed25519_message_data_offset + ed25519_message_data_size]
+        if pubkey.verify(signature, message) != Success {
+            return Error
+        }
+    }
+    return Success
+}
+```
+
+### Verify secp256k1 recovery
+
+The secp256k1 program verifies secp256k1 public key recovery operations
+(ecrecover).
+
+| Program           | Program ID                                    | Description                                                    | Instructions                                                                                        | Source                                                                               |
+| ----------------- | --------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Secp256k1 Program | `KeccakSecp256k11111111111111111111111111111` | Verifies secp256k1 public key recovery operations (ecrecover). | [Instructions](https://docs.rs/solana-secp256k1-program/latest/solana_secp256k1_program/index.html) | [Source](https://github.com/anza-xyz/agave/blob/v3.1.8/precompiles/src/secp256k1.rs) |
+
+The instruction's first byte contains a count of the number of public keys to
+check. After that, the following struct is serialized once per public key:
+
+```rs title="SecpSignatureOffsets"
+struct SecpSignatureOffsets {
+    signature_offset: u16,                // offset to [signature,recovery_id] of 64+1 bytes
+    signature_instruction_index: u8,      // instruction index to find signature
+    eth_address_offset: u16,              // offset to ethereum_address of 20 bytes
+    eth_address_instruction_index: u8,    // instruction index to find ethereum address
+    message_data_offset: u16,             // offset to start of message data
+    message_data_size: u16,               // size of message data
+    message_instruction_index: u8,        // instruction index to find message data
+}
+```
+
+```txt title="Recovery verification pseudocode"
+process_instruction() {
+  for i in 0..count {
+      // i'th index values referenced:
+      instructions = &transaction.message().instructions
+      signature = instructions[signature_instruction_index].data[signature_offset..signature_offset + 64]
+      recovery_id = instructions[signature_instruction_index].data[signature_offset + 64]
+      ref_eth_pubkey = instructions[eth_address_instruction_index].data[eth_address_offset..eth_address_offset + 20]
+      message_hash = keccak256(instructions[message_instruction_index].data[message_data_offset..message_data_offset + message_data_size])
+      pubkey = ecrecover(signature, recovery_id, message_hash)
+      eth_pubkey = keccak256(pubkey[1..])[12..]
+      if eth_pubkey != ref_eth_pubkey {
+          return Error
+      }
+  }
+  return Success
+}
+```
+
+Signature and message data can reference any instruction data in the
+transaction. By specifying the special instructions sysvar, programs can also
+read data from the transaction itself.
+
+Transaction cost equals the number of signatures to verify multiplied by the
+per-signature verification cost.
+
+### Verify secp256r1 signature
+
+The secp256r1 program verifies up to 8 secp256r1 signatures per instruction.
+
+| Program           | Program ID                                    | Description                                                                                                   | Instructions                                                                                      | Source                                                                               |
+| ----------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Secp256r1 Program | `Secp256r1SigVerify1111111111111111111111111` | Verifies up to 8 secp256r1 signatures. Takes a signature, public key, and message. Returns error if any fail. | [Instructions](https://docs.rs/solana-secp256r1-program/latest/solana_secp256r1_program/all.html) | [Source](https://github.com/anza-xyz/agave/blob/v3.1.8/precompiles/src/secp256r1.rs) |
+
+The instruction's first `u8` is a count of signatures to check, followed by a
+single byte of padding. After that, the following struct is serialized once per
+signature:
+
+```rs title="Secp256r1SignatureOffsets"
+struct Secp256r1SignatureOffsets {
+    signature_offset: u16,             // offset to compact secp256r1 signature of 64 bytes
+    signature_instruction_index: u16,  // instruction index to find signature
+    public_key_offset: u16,            // offset to compressed public key of 33 bytes
+    public_key_instruction_index: u16, // instruction index to find public key
+    message_data_offset: u16,          // offset to start of message data
+    message_data_size: u16,            // size of message data
+    message_instruction_index: u16,    // index of instruction data to get message data
+}
+
+```
+
+<Callout>
+  Low S values are enforced for all signatures to avoid accidental signature
+  malleability.
+</Callout>
+
+```txt title="Signature verification pseudocode"
+process_instruction() {
+    if data.len() < SIGNATURE_OFFSETS_START {
+        return Error
+    }
+
+    num_signatures = data[0] as usize
+    if num_signatures == 0 || num_signatures > 8 {
+        return Error
+    }
+
+    expected_data_size = num_signatures * SIGNATURE_OFFSETS_SERIALIZED_SIZE + SIGNATURE_OFFSETS_START
+    if data.len() < expected_data_size {
+        return Error
+    }
+
+    for i in 0..num_signatures {
+        offsets = parse_signature_offsets(data, i)
+
+        signature = get_data_slice(data, instruction_datas, offsets.signature_instruction_index, offsets.signature_offset, SIGNATURE_SERIALIZED_SIZE)
+
+        if s > half_curve_order {
+            return Error
+        }
+
+        pubkey = get_data_slice(data, instruction_datas, offsets.public_key_instruction_index, offsets.public_key_offset, COMPRESSED_PUBKEY_SERIALIZED_SIZE)
+
+        message = get_data_slice(data, instruction_datas, offsets.message_instruction_index, offsets.message_data_offset, offsets.message_data_size)
+
+        if !verify_signature(signature, pubkey, message) {
+            return Error
+        }
+    }
+
+    return Success
+}
+```

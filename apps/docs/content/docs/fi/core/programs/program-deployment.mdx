@@ -1,0 +1,109 @@
+---
+title: Ohjelman käyttöönotto
+description:
+  Solana-ohjelmien käyttöönotto, päivittäminen ja varmentaminen.
+  Loader-v3-käskyjen viite, 9-vaiheinen päivitysmekanismi, käännöksen
+  varmentaminen ja 5 lataajaohjelmatyyppiä.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Yhteenveto">
+  Loader-v3:n kautta käyttöönotetut ohjelmat voidaan päivittää, kun
+  päivitysoikeus on asetettu. Oikeuden peruuttaminen tekee ohjelmasta
+  muuttumattoman. Kattaa 9-vaiheisen päivitysmekanismin, kaikki 9
+  loader-v3-käskyä, käännöksen varmentamisen ja 5 lataajatyyppiä.
+</Callout>
+
+## Ohjelmien käyttöönotto
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    Ota käyttöön Solana CLI:llä komennolla `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Ota käyttöön Anchor-kehyksellä komennolla `anchor deploy`.
+  </Card>
+</Cards>
+
+## Ohjelmien päivittäminen
+
+Ohjelman päivittämiseksi tilin on pidettävä hallussaan päivitysoikeutta
+(tyypillisesti tili, joka alun perin
+[otti ohjelman käyttöön](/docs/programs/deploying)). Käyttöönoton tai
+päivityksen aikana uusi tavukoodi ladataan väliaikaiselle puskuritilille ja
+kirjoitetaan sitten program data -tilille. Päivitysoikeuden asettaminen arvoon
+_rs`None`_ tekee ohjelmasta muuttumattoman ja estää pysyvästi kaikki tulevat
+päivitykset.
+
+### Päivitysmekanismi
+
+Kun
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+käsitellään, ajonaikaympäristö:
+
+1. Varmistaa, että program account on kirjoitettavissa ja loader-v3:n omistama.
+2. Varmistaa, että buffer account sisältää _rs`Buffer`_-tilan oikealla
+   oikeudella.
+3. Varmistaa, että programdata account -tilin `upgrade_authority_address` täsmää
+   eikä ole _rs`None`_.
+4. Varmistaa, että ohjelmaa ei ole jo otettu käyttöön nykyisessä slotissa
+   (`clock.slot != slot`).
+5. Lataa ja varmistaa uudet ELF-tavut puskurista.
+6. Kopioi uuden tavukoodin puskurista programdata account -tilille ja nollaa
+   jäljelle jäävät tavut.
+7. Rahoittaa programdata account -tilin vuokravapauteen.
+8. Tyhjentää puskuritilin (asettaa lamportit arvoon 0) ja katkaisee sen datan.
+9. Uusi versio tulee voimaan seuraavassa slotissa (`deployment_slot + 1`).
+
+Itse `Program`-tili (sen tila ja `programdata_address`-osoitin) ei muutu
+päivityksen aikana. Vain _rs`ProgramData`_-tilin tavukoodi ja slot-metatiedot
+päivitetään.
+
+## Loader-v3-käskyviite
+
+Loader-v3 (BPF Loader Upgradeable) on nykyinen oletuslataaja ohjelmien
+käyttöönotolle Solanassa.
+
+| Käsky                                                                                                        | Kuvaus                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Asettaa puskuritilin tilan arvoon `Buffer` määritetyllä valtuutuksella. Epäonnistuu, jos jo alustettu.                                                                                                                                                   |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Kirjoittaa tavuja määritettyyn kohtaan puskuritilillä. Valtuutuksen on allekirjoitettava.                                                                                                                                                                |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Luo uuden ohjelman: johtaa ProgramData-osoitteen, luo ProgramData-tilin CPI:n kautta System Programiin, vahvistaa ja ottaa käyttöön ELF:n puskurista, asettaa program account -tilin tilan ja merkitsee sen suoritettavaksi.                             |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Korvaa olemassa olevan ohjelman ProgramData-tilin tavukoodin puskurista.                                                                                                                                                                                 |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Muuttaa Buffer- tai ProgramData-tilin valtuutusta. Asettaminen arvoon `None` ProgramDatassa tekee ohjelmasta muuttumattoman. Puskurin valtuutusta ei voi asettaa arvoon `None`.                                                                          |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | Kuten `SetAuthority`, mutta vaatii myös uuden valtuutuksen allekirjoittamaan transaktion.                                                                                                                                                                |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Sulkee puskuri-, alustamattoman tai ProgramData-tilin siirtämällä sen lamportit vastaanottajalle. ProgramDatan sulkeminen kirjoittaa myös `Closed`-hautakiven ohjelman välimuistiin. Ei voi sulkea ohjelmaa, joka otettiin käyttöön nykyisellä slotilla. |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | Laajentaa ProgramData-tilin varausta lisätavuilla rahoittaen ylimääräisen rent-maksun maksajalta.                                                                                                                                                        |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | Siirtää loader-v3-ohjelman loader-v4:ään siirtämällä program account -tilin omistajuuden ja kopioimalla tavukoodin. Vaatii migraatiovaltuutuksen tai ohjelman päivitysvaltuutuksen allekirjoituksen. Loader-v4 ei ole vielä julkaistu mainnetissä.       |
+
+## Ohjelmien varmentaminen
+
+Solana tukee [varmenettavia käännöksiä](/docs/programs/verified-builds), joiden
+avulla käyttäjät voivat varmistaa, että ohjelman lohkoketjussa oleva tavukoodi
+vastaa sen julkista lähdekoodia. Anchor-kehys tarjoaa
+[sisäänrakennetun tuen](https://www.anchor-lang.com/docs/verifiable-builds)
+varmenettaville käännöksille.
+
+Tarkistaaksesi käyttöönotetun ohjelman varmentamistilan, etsi sen ohjelmatunnus
+[Solana Explorerista](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY)
+tai käytä Ellipsis Labsin
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+-työkalua varmentaaksesi lohkoketjussa olevat ohjelmat itsenäisesti.
+
+## Latausohjelmat
+
+| Latausohjelma              | Osoite                                        | Päivitettävissä                                 | Kuvaus                                                                         |
+| -------------------------- | --------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | Vain validaattoriohjelmiston päivityksen kautta | Omistaa sisäänrakennetut ohjelmat (System, Vote, Stake) ja muut latausohjelmat |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Ei (lataimen hallinta poistettu käytöstä)       | Vanhat ohjelmat                                                                |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Ei (lataimen hallinta poistettu käytöstä)       | Vanhat ohjelmat                                                                |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Kyllä, jos päivitysoikeus on asetettu           | Omistaa kaikki äskettäin käyttöönotetut ohjelmat                               |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | Kyllä, jos oikeus on asetettu                   | Ei vielä julkaistu mainnetissä                                                 |

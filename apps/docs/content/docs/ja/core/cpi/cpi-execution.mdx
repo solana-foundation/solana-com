@@ -1,0 +1,191 @@
+---
+title: CPI実行と権限
+description: Solanaランタイムを通じた11ステップのCPI実行フロー、権限拡張ルール、再入制限、および認可されたプログラムチェック。
+url: /docs/core/cpi/cpi-execution
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI実行フロー、権限ルール */}
+
+<Callout type="info" title="概要">
+  CPIは権限チェック、アカウント変換、データ同期を含む11のランタイムステップを通過します。最大呼び出し深度:
+  5
+  (SIMD-0268では9)。権限ルールは、呼び出し先が呼び出し元が付与した権限を超えてエスカレートすることを防ぎます。
+</Callout>
+
+## 権限ルール
+
+CPIは呼び出し元のアカウント権限を厳格な強制により呼び出し先に拡張します。ランタイムは[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)でこれらのルールをチェックします:
+
+| シナリオ                                                                                                                  | 許可?  | 強制ポイント                                                                                                                | エラー                 |
+| ------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 呼び出し元がアカウントを書き込み可能として渡し、呼び出し先が書き込み可能としてマーク                                      | はい   | --                                                                                                                          | --                     |
+| 呼び出し元がアカウントを読み取り専用として渡し、呼び出し先が書き込み可能としてマーク                                      | いいえ | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| 呼び出し元がアカウントを書き込み可能として渡し、呼び出し先が読み取り専用としてマーク                                      | はい   | --                                                                                                                          | --                     |
+| 呼び出し元がアカウントを署名者として渡し、呼び出し先が署名者としてマーク                                                  | はい   | --                                                                                                                          | --                     |
+| 呼び出し元がアカウントを非署名者として渡し、呼び出し先が署名者としてマーク、アカウントが呼び出し元のシードから派生したPDA | はい   | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| 呼び出し元がアカウントを非署名者として渡し、呼び出し先が署名者としてマーク、アカウントが呼び出し元からのPDAではない       | いいえ | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| 呼び出し元がアカウントを署名者として渡し、呼び出し先が非署名者としてマーク                                                | はい   | --                                                                                                                          | --                     |
+| プログラムAが自身を直接呼び出す (A -> A)                                                                                  | はい   | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| プログラムAがBを呼び出し、BがAを呼び出す (間接的な再入)                                                                   | いいえ | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| ネイティブローダー、bpf_loader、bpf_loader_deprecated、またはプリコンパイルへのCPI                                        | いいえ | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| トランザクション内にアカウントが見つからない                                                                              | いいえ | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+権限ルールは次のように要約できます。
+
+1. **書き込み権限はエスカレートできません。**
+   呼び出し元がアカウントを読み取り専用としてマークした場合、呼び出し先はそれを書き込み可能としてマークできません。
+2. **署名者権限には承認が必要です。**
+   アカウントが呼び出し先で署名者になれるのは、(a) 呼び出し元ですでに署名者であった場合、または (b)
+   _rs`invoke_signed`_
+   を介して呼び出し元プログラムのシードから派生したPDAである場合のみです。
+3. **権限の削減は常に許可されます。**
+   呼び出し先は、呼び出し元が付与した権限よりも少ない権限を使用できます。
+
+## CPI実行フロー
+
+CPIは複数のランタイムレイヤーを通過します。このセクションでは、プログラムSDK呼び出しからシステムコール境界を経てランタイムに入り、戻るまでの完全なパイプラインを説明します。各ステップは、それを実装するソースファイルを参照しています。
+
+<Callout>
+  プログラム命令呼び出しの最大の高さは
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L66)
+  と呼ばれ、
+  [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)
+  定数の5に設定されています。[`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) がアクティブな場合、これは9に増加します。
+
+スタック高さ1は初期トランザクション命令です。各CPIは高さを1ずつ増やします。最大5は、プログラムが最大4レベルの深さまでCPIを実行できることを意味します(SIMD-0268では8レベルの深さ)。
+
+</Callout>
+
+### ステップ1: プログラムが`invoke`または`invoke_signed`を呼び出す
+
+プログラムは
+[`invoke`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L26)
+または
+[`invoke_signed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L51)
+を呼び出します。 _rs`invoke`_ は、空の署名者シード配列で _rs`invoke_signed`_
+を呼び出す薄いラッパーです。SDK関数は _rs`Instruction`_、 _rs`AccountInfo`_
+スライス、および署名者シードをVMメモリにシリアライズし、その後システムコールをトリガーします。
+
+### ステップ2: システムコールエントリ
+
+SBF VMは
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)
+システムコールハンドラにディスパッチし、共有エントリポイント
+[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925)
+を呼び出します。
+
+### ステップ3: 呼び出しコストの消費
+
+*rs`cpi_common`*内の最初のアクションは、共有コンピュートメーターから
+[固定呼び出しコストを請求する](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)
+ことです:
+[`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108)
+= 1,000 CU(またはSIMD-0339では946 CU)。
+
+### ステップ4: VM メモリから instruction を変換
+
+システムコールハンドラーは、プログラムのVMアドレス空間からホスト側のRust型へinstructionを変換します。これは
+[`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590)
+を介して行われ、*rs`StableInstruction`*構造体を読み取り、データ長を
+[`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)
+(10,240バイト)に対して検証し、その後
+[データシリアライゼーションコスト](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569)を請求します。
+
+### ステップ5: 署名者seedの変換とPDAの導出
+
+ハンドラーは
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)を呼び出します。各署名者seedのセットに対して、ランタイムは以下を実行します:
+
+1. 署名者seedセットの数を
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16)に対してチェックします。
+2. 各seedセットの長さを
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (セットあたり16個のseed)に対してチェックします。
+3. seedと**呼び出し元の**プログラムIDを使用して
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   を呼び出します。seedが有効なPDAを生成しない場合、CPIは
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36)で失敗します。
+4. 結果として得られたPDA公開鍵を`signers`ベクターに収集します。
+
+これらの導出されたPDAは、呼び出し先instructionの有効な署名者として扱われます。
+
+### ステップ6: 認可されたプログラムのチェック
+
+処理を進める前に、ランタイムは
+[`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)
+を呼び出して、ターゲットプログラムがCPIに許可されているかを検証します。以下のプログラムはブロックされます:
+
+- ネイティブローダー
+- `bpf_loader`および`bpf_loader_deprecated`
+- `bpf_loader_upgradeable`(特定の管理instructionsを除く: `upgrade`、
+  `set_authority`、`set_authority_checked`(機能ゲート付き)、
+  `extend_program_checked`(機能ゲート付き)、`close`)
+- プリコンパイルプログラム(ed25519、secp256k1など)
+
+違反は
+[`ProgramNotSupported`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L55)を返します。
+
+### ステップ7: 権限検証(`prepare_next_instruction`)
+
+ランタイムは
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)
+を呼び出し、呼び出し先の*rs`InstructionAccount`*リストを構築し、権限ルールを適用します。完全な決定テーブルについては、以下の[権限ルール](#privilege-rules)を参照してください。
+
+### ステップ8: アカウント情報の変換
+
+ハンドラーは`translate_accounts`を呼び出し、以下を実行します:
+
+1. [アカウント情報数の検証](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)
+   *rs`MAX_CPI_ACCOUNT_INFOS`*に対して(128、またはSIMD-0339では255)。
+2. [アカウント情報変換コストの課金](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)
+   (SIMD-0339のみ): `(num_account_infos * 80) / 250` CU。
+3. 実行不可能で重複していない各アカウントに対して、VMメモリからホストメモリへのポインタを変換することで
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)
+   を構築します。これには
+   [アカウントごとのデータシリアライゼーションコストの課金](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374)が含まれます:
+   `account_data_len / cpi_bytes_per_unit` CU。
+
+### ステップ9: CPI前のアカウント同期(呼び出し元から呼び出し先へ)
+
+呼び出し先を実行する前に、ランタイムは呼び出し元のアカウント変更を同期し、呼び出し先がそれらを確認できるようにします。関数
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+が変換された各アカウントに対して呼び出され、lamport、データ、所有者をコピーします。詳細なフィールドマッピングについては、
+[アカウントデータの同期](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+を参照してください。
+
+### ステップ10: 命令コンテキストのプッシュ、呼び出し先の実行、ポップ
+
+ランタイムは
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488)
+を呼び出し、以下を実行します:
+
+1. [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)
+   を呼び出して、命令スタックに新しいフレームを追加します。*rs`push()`*は
+   [再入規則](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)を強制します: プログラムは直接の呼び出し元である場合にのみ自身を呼び出すことができます(つまり、プログラムAはAを呼び出せますが、AはBを呼び出してそのBがAを呼び出すことはできません)。違反すると
+   *rs`ReentrancyNotAllowed`*が返されます。
+2. [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602)
+   を呼び出し、呼び出し先のプログラムエントリポイントを解決して実行します。呼び出し先は同じ共有コンピュートメーターで実行されます。呼び出し先によるすべてのCU消費は、呼び出し元の残りの予算を減らします。
+3. [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   を呼び出して、呼び出し先のフレームを削除し、lamport残高が変更されていないことを確認します (変更されている場合は*rs`UnbalancedInstruction`*)。
+
+### ステップ11: CPI後のアカウント同期(呼び出し先から呼び出し元へ)
+
+`process_instruction`が返された後(ポップを含む)、ランタイムは
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+を介して、書き込み可能な各アカウントの変更を呼び出し元に同期します。さらに、
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
+は、データ領域が変更されたアカウントのVMメモリ領域マッピングを更新します。詳細なフィールドマッピングについては、
+[アカウントデータの同期](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+を参照してください。
+
+CPI syscallは、呼び出し元プログラムに`0`（成功）を返します。

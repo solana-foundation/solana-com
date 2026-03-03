@@ -1,0 +1,140 @@
+---
+title: Środowisko uruchomieniowe konta
+description:
+  Jak środowisko uruchomieniowe Solana ładuje i weryfikuje konta przed
+  wykonaniem oraz jaki format serializacji jest używany do przekazywania danych
+  kont do programów.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Podsumowanie">
+  Przed wykonaniem środowisko uruchomieniowe ładuje konta, weryfikuje płatnika
+  opłat, sprawdza zwolnienie z czynszu i serializuje dane kont do układu
+  pamięci, do którego mają dostęp programy.
+</Callout>
+
+<Callout>
+  Ta strona opisuje wewnętrzne mechanizmy środowiska uruchomieniowego. Większość
+  deweloperów nie potrzebuje tych informacji do tworzenia programów. Zobacz
+  [Strukturę konta](/docs/core/accounts/account-structure) aby poznać
+  perspektywę deweloperską.
+</Callout>
+
+## Ładowanie konta
+
+Przed wykonaniem transakcji środowisko uruchomieniowe ładuje wszystkie wskazane
+konta za pomocą
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+Ten proces wykonuje kilka weryfikacji:
+
+1. **Weryfikacja płatnika opłat**: Płatnik opłat (pierwsze konto) musi istnieć,
+   być kontem systemowym lub kontem nonce oraz posiadać wystarczającą liczbę
+   lamportów na pokrycie opłat
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   Po opłaceniu opłat konto musi pozostać zwolnione z czynszu lub mieć dokładnie
+   0 lamportów. Nie może mieć salda pomiędzy 0 a minimalną kwotą zwolnienia z
+   czynszu. Konta nonce zawsze muszą mieć wystarczającą liczbę lamportów, aby
+   pozostać zwolnione z czynszu. Jeśli płatnik nie jest kontem systemowym ani
+   nonce, transakcja kończy się niepowodzeniem z
+   _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **Limit rozmiaru załadowanych danych**: Całkowity rozmiar wszystkich
+   załadowanych kont (w tym
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   64 bajtów na konto) nie może przekroczyć
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 MiB). Przekroczenie tego limitu skutkuje
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_.
+
+3. **Weryfikacja konta program account**: Każdy program wywoływany przez
+   instrukcję musi istnieć i być własnością prawidłowego loadera: jednego z
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) lub
+   natywnego loadera. Jeśli konto program account nie istnieje, transakcja
+   kończy się niepowodzeniem z _rs`TransactionError::ProgramAccountNotFound`_.
+   Jeśli istnieje, ale ma nieprawidłowego właściciela, transakcja kończy się
+   niepowodzeniem z _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **Nieistniejące konta**: Konta, które nie istnieją on-chain, są ładowane jako
+   domyślne konta (0 lamportów, puste dane, właściciel: System Program) z
+   `rent_epoch` ustawionym na `u64::MAX`.
+
+## Format serializacji BPF
+
+Gdy program jest wywoływany, środowisko uruchomieniowe serializuje konta do
+ciągłego bufora w pamięci i przekazuje go do BPF VM. Format serializacji
+(standardowy format wyrównany używany przez wszystkie loadery poza przestarzałym
+loader-v1) jest zdefiniowany w
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+Bufor zaczyna się od `u64` (8 bajtów, little-endian), zawierającego liczbę kont.
+Następnie, dla każdego konta w instrukcji, bufor zawiera:
+
+| Offset        | Rozmiar         | Pole                                        | Typ                                                                                                                   |
+| ------------- | --------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 0             | 1               | znacznik duplikatu                          | `u8` (`0xFF` = unikalny, index = duplikat tego konta)                                                                 |
+| 1             | 1               | is_signer                                   | `u8` (0 lub 1)                                                                                                        |
+| 2             | 1               | is_writable                                 | `u8` (0 lub 1)                                                                                                        |
+| 3             | 1               | executable                                  | `u8` (0 lub 1)                                                                                                        |
+| 4             | 4               | original_data_len (zarezerwowane, zawsze 0) | `[0u8; 4]`                                                                                                            |
+| 8             | 32              | key                                         | `Pubkey`                                                                                                              |
+| 40            | 32              | owner                                       | `Pubkey`                                                                                                              |
+| 72            | 8               | lamports                                    | `u64` (little-endian)                                                                                                 |
+| 80            | 8               | data_len                                    | `u64` (little-endian)                                                                                                 |
+| 88            | data_len        | data                                        | `[u8]`                                                                                                                |
+| 88 + data_len | 10240 + padding | miejsce na realloc + wyrównanie             | Wypełnione zerami do `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + padding do wyrównania do `BPF_ALIGN_OF_U128` (8 bajtów) |
+| ...           | 8               | rent_epoch                                  | `u64` (little-endian)                                                                                                 |
+
+Po wszystkich kontach bufor dołącza:
+
+| Rozmiar              | Pole                                        |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+Dla zduplikowanych kont zapisywany jest tylko 1 bajt (znacznik duplikatu z
+indeksem oryginału) oraz 7 bajtów wypełnienia.
+
+## Deduplikacja kont
+
+Gdy ten sam publiczny klucz konta pojawia się wielokrotnie w tablicy `accounts`
+instrukcji, środowisko wykonawcze
+[deduplikuje](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)
+je. Każdy wpis na liście kont instrukcji otrzymuje własną strukturę
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75),
+ale wpisy odnoszące się do tego samego konta na poziomie transakcji wskazują na
+te same dane bazowe.
+
+Metoda
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+określa, czy dany indeks konta instrukcji jest pierwszym wystąpieniem, czy
+duplikatem, poprzez wyszukanie indeksu konta na poziomie transakcji i
+znalezienie pierwszego indeksu na poziomie instrukcji, który do niego prowadzi:
+
+- Jeśli bieżący indeks konta instrukcji jest równy pierwszemu zmapowanemu
+  indeksowi, to **nie** jest duplikatem (zwraca `None`).
+- W przeciwnym razie zwraca `Some(first_index)`, gdzie `first_index` to indeks
+  pierwszego wystąpienia.
+
+Ponieważ wszystkie odwołania do tego samego konta współdzielą te same dane
+bazowe _rs`AccountSharedData`_, modyfikacje przez dowolne odwołanie są
+natychmiast widoczne przez wszystkie inne odwołania. Jednak w danym momencie
+można posiadać tylko jeden mutowalny zapożyczenie. Próba jednoczesnego
+mutowalnego zapożyczenia tego samego konta przez dwa różne indeksy konta
+instrukcji zwraca _rs`InstructionError::AccountBorrowFailed`_. Programy muszą
+zwolnić jedno zapożyczenie, zanim uzyskają kolejne na tym samym koncie bazowym.
+
+Po wykonaniu programu środowisko wykonawcze deserializuje bufor z powrotem
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+i stosuje wszelkie zmiany do `lamports`, `data` (w tym zmiany długości do
+_rs`MAX_PERMITTED_DATA_INCREASE`_) oraz `owner`.

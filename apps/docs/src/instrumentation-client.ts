@@ -18,7 +18,8 @@ Sentry.init({
         frame.filename?.includes("chrome-extension://") ||
         frame.filename?.includes("moz-extension://") ||
         frame.filename?.includes("safari-extension://") ||
-        frame.filename?.includes("extension://"),
+        frame.filename?.includes("extension://") ||
+        frame.filename?.startsWith("app:///"),
     );
 
     if (isExtensionError) {

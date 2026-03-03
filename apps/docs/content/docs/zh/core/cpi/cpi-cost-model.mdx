@@ -1,0 +1,151 @@
+---
+title: CPI 成本模型与数据同步
+description:
+  Solana 上的 CPI 计算成本、调用方与被调用方之间的账户数据同步、PDA
+  签名机制以及返回数据。
+url: /docs/core/cpi/cpi-cost-model
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/cpi/cpi-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/syscall-reference
+  - /docs/core/constants-reference
+---
+
+{/* 目录：CPI 成本模型、账户数据同步、PDA 签名、返回数据 */}
+
+<Callout type="info" title="摘要">
+  每次 CPI 的基础费用约为 1,000
+  CU，外加序列化成本。账户数据会在被调用方执行前后进行同步。PDA 签名使用调用方的
+  program ID。返回数据限制为 1,024 字节。
+</Callout>
+
+## CPI 成本模型
+
+CPI 成本来自同一个交易计算预算（共享计量器）。每次 _rs`invoke`_ /
+_rs`invoke_signed`_ 调用的完整成本公式：
+
+```
+total_cpi_cost = invocation_cost
+               + instruction_data_cost
+               + account_meta_cost          (SIMD-0339 only)
+               + account_info_cost          (SIMD-0339 only)
+               + per_account_data_cost      (for each non-executable account)
+               + callee_execution_cost
+```
+
+### 成本明细
+
+| 成本组成                      | 公式                                                                                                                                        | 来源                                                                                                                                                                                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 调用（固定）                  | [`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108) = 1,000 CU（SIMD-0339 为 946） | 在 [CPI 入口](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818) 收取                                                                                                                                                                                         |
+| instruction data 序列化       | `instruction_data_len / cpi_bytes_per_unit`                                                                                                 | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205) = 250。在 [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569) 收取。                                                |
+| 账户 meta 序列化（SIMD-0339） | `(num_account_metas * 34) / cpi_bytes_per_unit`                                                                                             | 每个 `AccountMeta` 为 34 字节（32 pubkey + 1 is_signer + 1 is_writable）。在 [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L555-L567) 收取。                                                                                                |
+| 账户信息转换（SIMD-0339）     | `(num_account_infos * 80) / cpi_bytes_per_unit`                                                                                             | [`ACCOUNT_INFO_BYTE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L63-L68) = 80 字节（32 key + 32 owner + 8 lamports + 8 data_len）。在 [translate_account_infos](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981) 收取。 |
+| 每个账户数据                  | `account_data_len / cpi_bytes_per_unit`                                                                                                     | 在 [CallerAccount::from_account_info](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374) 及 [可执行账户](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1056-L1060) 收取。                                                         |
+| 被调用方执行                  | 被调用程序实际消耗的 CU                                                                                                                     | 在被调用方执行期间从共享计量器中扣除。                                                                                                                                                                                                                                                         |
+
+### 成本计算示例
+
+一个包含 100 字节 instruction
+data、5 个账户 meta、5 个账户信息（每个有 1,000 字节数据），且启用 SIMD-0339 的 CPI：
+
+```
+invocation_cost        = 946
+instruction_data_cost  = 100 / 250 = 0  (integer division)
+account_meta_cost      = (5 * 34) / 250 = 0
+account_info_cost      = (5 * 80) / 250 = 1
+per_account_data_cost  = 5 * (1000 / 250) = 20
+total (before callee)  = 967 CUs
+```
+
+## 账户数据同步
+
+在 CPI 过程中，调用方和被调用方之间的账户状态会在两个时点进行同步。这确保了双方都能看到一致的账户数据视图。
+
+### CPI 前同步（调用方到被调用方）
+
+在被调用方执行之前，
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+会将调用方的未提交修改复制到被调用方的账户视图中：
+
+| 字段         | 方向               | 时机                                                                                             |
+| ------------ | ------------------ | ------------------------------------------------------------------------------------------------ |
+| Lamports     | 调用方 -> 被调用方 | 如果该值与被调用方当前视图不同                                                                   |
+| Data length  | 调用方 -> 被调用方 | 如果调用方已调整账户大小。不得超过 `original_data_len + MAX_PERMITTED_DATA_INCREASE`（10 KiB）。 |
+| Data content | 调用方 -> 被调用方 | 如果账户数据可修改（`can_data_be_changed` 通过）                                                 |
+| Owner        | 调用方 -> 被调用方 | 最后设置，因此在旧所有者下允许数据/ lamport 变更                                                 |
+
+### CPI 后同步（被调用方到调用方）
+
+在被调用方返回后，
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+会将被调用方的修改复制回调用方的视图。此操作仅针对标记为可写的账户执行：
+
+| 字段         | 方向               | 时机                                                                                                                                                                                  |
+| ------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lamports     | 被调用方 -> 调用方 | 总是会被复制回去                                                                                                                                                                      |
+| Owner        | 被调用方 -> 调用方 | 总是会被复制回去                                                                                                                                                                      |
+| Data length  | 被调用方 -> 调用方 | 如果发生变化。会更新 VM 数据切片指针和序列化长度字段。如果账户被缩小，释放的内存会被清零。如果新长度超过 `original_data_len + MAX_PERMITTED_DATA_INCREASE`，则返回 `InvalidRealloc`。 |
+| Data content | 被调用方 -> 调用方 | 从被调用方的数据缓冲区复制到调用方的序列化数据区域                                                                                                                                    |
+
+### Realloc 限制
+
+通过 CPI，账户数据可以被重新分配（resize），最大可达
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10,240 字节（10 KiB），超出当前顶层指令开始时账户数据长度的部分。此限制在
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+（CPI 前）和
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+（CPI 后）都会强制执行。超出该限制会返回 _rs`InvalidRealloc`_。
+
+## PDA 签名
+
+当调用 _rs`invoke_signed`_ 时，运行时会根据提供的 seed 和调用者的 program
+ID 派生 PDA 地址。此过程发生在
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)：
+
+1. 验证 signer seed 数组：最多
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   （16 个）signer seed 集合。
+2. 验证每个 seed 集合：每组最多
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   （16 个）seed，每个 seed 最多
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   （32 字节）。
+3. 使用 seed 和**调用者的 program ID**（不是被调用者的）调用
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)。
+4. 如果 seed 未能生成有效的 PDA（即结果点在 ed25519 曲线上），CPI 会因
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36)
+   失败。
+5. 派生出的 PDA pubkey 会被收集并作为有效签名者传递给
+   `prepare_next_instruction`。在权限检查期间，如果被调用账户被标记为 signer 且其 pubkey 与这些派生 PDA 之一匹配，则签名检查通过。
+
+<Callout>
+  PDA 是使用**调用者**的 program ID 派生的，而不是被调用者的。
+  这意味着只有拥有该 PDA 的程序（即用于派生 PDA 的 ID
+  所属的程序）才能代表其签名。一个程序无法为其他程序派生的 PDA 签名。
+</Callout>
+
+## 返回数据
+
+程序可以通过返回数据机制将数据传递回调用者。该机制使用两个 syscall：
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439)：为当前指令设置最多
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  （1,024 字节）的返回数据。其消耗为
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` CU。
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440)：读取最近一次执行指令设置的返回数据。返回数据及设置该数据的 program
+  ID。其消耗为 `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost`
+  CU（program ID 为 32 字节）。
+
+返回数据是按每笔交易存储的，每次调用 `sol_set_return_data`
+的指令都会覆盖之前的数据。在每次程序调用开始时，运行时会[重置返回数据](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)为空。在 CPI 返回后，调用方可以读取被调用方（或被调用方调用的任何程序）最后设置的返回数据。
+
+<Callout>
+  返回数据的大小限制为 1,024 字节。只有调用链中**最后**一个调用
+  `sol_set_return_data` 的程序决定了调用方能看到什么。如果被调用方进一步进行 CPI
+  并设置返回数据，那么被调用方自己的返回数据会被覆盖。
+</Callout>

@@ -1,0 +1,366 @@
+---
+title: Tilin rakenne
+description:
+  Tiliosoitteet, viisi kenttää, jotka jokainen Solana-tili sisältää — lamports,
+  data, owner, executable ja rent_epoch — interaktiivisella koodiläpikäynnillä.
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+<Callout type="info" title="Yhteenveto">
+  Tileillä on 5 kenttää: lamports, data, owner, executable ja rent_epoch.
+  Jokainen tili tunnistetaan ainutlaatuisella 32-tavuisella osoitteella. Tilien
+  on säilytettävä vähimmäislamport-saldo, joka on suhteessa niiden datakokoon,
+  pysyäkseen ketjussa.
+</Callout>
+
+## Tiliosoite
+
+Jokainen tiliosoite on 32-tavuinen arvo, joka näytetään base58-koodattuna
+merkkijonona. Osoite voi olla kahta tyyppiä:
+
+1. **Julkinen avain**: vastaa [Ed25519](https://ed25519.cr.yp.to/) keypairia
+   (sisältää yksityisen avaimen)
+2. **Program Derived Address (PDA)**: johdettu deterministisesti ohjelma-ID:stä
+   ja siemenistä (ei yksityistä avainta)
+
+![An account with its base58 encoded public key address](/assets/docs/core/accounts/account-address.svg)
+
+### Julkinen avain
+
+_rs`Keypair`_ koostuu julkisesta avaimesta (käytetään tiliosoitteena) ja
+yksityisestä avaimesta (käytetään transaktioiden allekirjoittamiseen). Seuraava
+esimerkki generoi keypair-parin Solana SDK:n avulla.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program Derived Address
+
+[Program Derived Address](/docs/core/pda) (PDA) johdetaan deterministisesti
+ohjelma-ID:stä ja yhdestä tai useammasta valinnaisesta siemenestä. PDA:lla ei
+ole vastaavaa yksityistä avainta. Seuraava esimerkki johtaa PDA:n Solana SDK:n
+avulla.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## Tilin kentät
+
+Jokaisella
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+-tilillä on enimmäiskoko
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+(10 MiB, vastaa _rs`MAX_PERMITTED_DATA_LENGTH`_) ja se sisältää viisi kenttää:
+
+<WithMentions>
+
+| Kenttä                             | Tyyppi    | Kuvaus                                                                                 |
+| ---------------------------------- | --------- | -------------------------------------------------------------------------------------- |
+| [`lamports`](mention:lamports)     | `u64`     | Saldo lamporteissa. Omistaja voi veloittaa; mikä tahansa ohjelma voi hyvittää.         |
+| [`data`](mention:data)             | `Vec<u8>` | Tilin tila tai ohjelman tavukoodi. Enintään 10 MiB. Vain omistaja voi kirjoittaa.      |
+| [`owner`](mention:owner)           | `Pubkey`  | Ohjelma, jolla on kirjoitusoikeus. Uudelleenmääritettävissä vain kun data on nollattu. |
+| [`executable`](mention:executable) | `bool`    | True = ohjelmatili.                                                                    |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | Vanhentunut. Asetettu arvoon `u64::MAX` rent-vapautetuille tileille.                   |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamportit
+
+`lamports`-kenttä sisältää tilin saldon
+[lamporteissa](/docs/references/terminology#lamport) (1 SOL = 1 000 000 000
+lamportia).
+
+Jokaisen tilin on ylläpidettävä vähimmäislamport-saldo, joka tunnetaan
+rent-vapautettuna saldona, jotta sen data säilyy ketjussa. Tämä saldo on
+verrannollinen tilin datan kokoon.
+
+<Callout type="info">
+  Vaikka sitä usein kutsutaan "rentiksi", rent-vapautettu saldo toimii
+  palautettavana talletuksena, koko saldo palautetaan kun tili suljetaan.
+</Callout>
+
+Katso
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+ja rent-
+[vakiot](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80).
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Data
+
+`data`-kenttä tallentaa mielivaltaisen tavutaulukon. Sen sisältö riippuu tilin
+tyypistä:
+
+- **Ohjelmatilit**: Sisältää suoritettavan tavukoodin tai
+  [ohjelman datatilin](/docs/core/accounts/account-types#program-data-accounts)
+  osoitteen, joka tallentaa tavukoodin.
+- **Datatilit**: Sisältää ohjelman määrittelemän tiladatan. Omistava ohjelma
+  määrittelee serialisointimuodon.
+
+Tilin datan lukeminen vaatii kaksi vaihetta:
+
+1. Hae tili sen [osoitteella](#account-address).
+2. Deserialisoi `data`-kenttä raakatavuista ohjelman määrittelemään
+   datarakenteeseen.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Omistaja
+
+`owner`-kenttä sisältää ohjelman tunnisteen (julkisen avaimen) ohjelmasta, joka
+omistaa tämän tilin.
+
+Omistaja-ohjelma on ainoa ohjelma, joka voi:
+
+- Muokata tilin `data`-kenttää
+- Vähentää lamportteja tilin `lamports`-kentästä
+
+Mikä tahansa ohjelma voi lisätä lamportteja toiselle tilille, mutta vain
+omistaja voi vähentää lamportteja siitä.
+
+Ohjelmatileillä omistaja on tilin
+[latausohjelma](/docs/core/programs/builtin-programs#loader-programs).
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Suoritettava
+
+`executable`-kenttä on totuusarvo, joka määrittää, onko tili
+[ohjelmatili](/docs/core/accounts/account-types#program-accounts) vai
+[datatili](/docs/core/accounts/account-types#data-accounts):
+
+- `true` = ohjelmatili (sisältää suoritettavaa koodia)
+- `false` = datatili (tallentaa tilaa)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Rent epoch
+
+**`rent_epoch`-kenttä on vanhentunut.**
+
+Aiemmin seurattiin, milloin tilistä vähennetään automaattisesti lamportteja sen
+datan ketjussa ylläpitämisen maksamiseksi. Koska rent-keräys on vanhentunut,
+`rent_epoch` asetetaan arvoon `u64::MAX` kaikille uusille rent-vapautetuille
+tileille.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

@@ -1,0 +1,111 @@
+---
+title: Programma-implementatie
+description:
+  Implementeren, upgraden en verifiëren van Solana-programma's. Loader-v3
+  instructiereferentie, het 9-stappen upgrademechanisme, buildverificatie en de
+  5 loader-programmatypen.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Samenvatting">
+  Programma's die via loader-v3 zijn geïmplementeerd kunnen worden geüpgraded
+  wanneer een upgrade-autoriteit is ingesteld. Het intrekken van de autoriteit
+  maakt het programma onveranderlijk. Behandelt het 9-stappen upgrademechanisme,
+  alle 9 loader-v3 instructies, buildverificatie en de 5 loader-typen.
+</Callout>
+
+## Programma's implementeren
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    Implementeer met de Solana CLI met `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Implementeer met het Anchor-framework met `anchor deploy`.
+  </Card>
+</Cards>
+
+## Programma's upgraden
+
+Om een programma te upgraden moet een account de upgrade-autoriteit bezitten
+(doorgaans het account dat oorspronkelijk
+[het programma heeft geïmplementeerd](/docs/programs/deploying)). Tijdens
+implementatie of upgrade wordt nieuwe bytecode geüpload naar een tijdelijk
+bufferaccount en vervolgens naar het programdata-account geschreven. Het
+instellen van de upgrade-autoriteit op _rs`None`_ maakt het programma
+onveranderlijk en voorkomt permanent verdere updates.
+
+### Upgrademechanisme
+
+Wanneer
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+wordt verwerkt, doet de runtime het volgende:
+
+1. Verifieert dat het program account schrijfbaar is en eigendom is van
+   loader-v3.
+2. Verifieert dat het bufferaccount een _rs`Buffer`_ status bevat met de juiste
+   autoriteit.
+3. Verifieert dat de `upgrade_authority_address` van het programdata-account
+   overeenkomt en niet _rs`None`_ is.
+4. Verifieert dat het programma niet al in de huidige slot is geïmplementeerd
+   (`clock.slot != slot`).
+5. Laadt en verifieert de nieuwe ELF-bytes uit de buffer.
+6. Kopieert de nieuwe bytecode uit de buffer naar het programdata-account en zet
+   de resterende bytes op nul.
+7. Financiert het programdata-account tot huurvrijstelling.
+8. Leegt het bufferaccount (zet lamports op 0) en kapt de data af.
+9. De nieuwe versie wordt effectief in de volgende slot (`deployment_slot + 1`).
+
+Het `Program` account zelf (zijn status en de `programdata_address` pointer)
+verandert niet tijdens een upgrade. Alleen de bytecode en slot metadata van het
+_rs`ProgramData`_ account worden bijgewerkt.
+
+## Loader-v3 instructiereferentie
+
+Loader-v3 (BPF Loader Upgradeable) is de huidige standaard loader voor het
+deployen van programma's op Solana.
+
+| Instructie                                                                                                   | Beschrijving                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Stelt de status van een buffer account in op `Buffer` met de opgegeven authority. Mislukt als het al geïnitialiseerd is.                                                                                                                                                    |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Schrijft bytes op de opgegeven offset in een buffer account. Authority moet ondertekenen.                                                                                                                                                                                   |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Creëert een nieuw programma: leidt het ProgramData adres af, creëert het ProgramData account via CPI naar System Program, verifieert en deployt de ELF vanuit de buffer, stelt de status van het Program account in en markeert het als uitvoerbaar.                        |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Vervangt de bytecode in het ProgramData account van een bestaand programma vanuit een buffer.                                                                                                                                                                               |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Wijzigt de authority van een Buffer of ProgramData account. Instellen op `None` op ProgramData maakt het programma onveranderlijk. Buffer authority kan niet worden ingesteld op `None`.                                                                                    |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | Zoals `SetAuthority`, maar vereist dat de nieuwe authority ook de transactie ondertekent.                                                                                                                                                                                   |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Sluit een buffer, niet-geïnitialiseerd of ProgramData account door zijn lamports over te dragen aan een ontvanger. Het sluiten van ProgramData schrijft ook een `Closed` tombstone naar de programma cache. Kan geen programma sluiten dat in de huidige slot is gedeployd. |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | Breidt de allocatie van het ProgramData account uit met extra bytes, waarbij de extra rent wordt gefinancierd door de betaler.                                                                                                                                              |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | Migreert een loader-v3 programma naar loader-v4 door het eigendom van het program account over te dragen en de bytecode te kopiëren. Vereist dat de migratie authority of de upgrade authority van het programma ondertekent. Loader-v4 is nog niet uitgebracht op mainnet. |
+
+## Programma's verifiëren
+
+Solana ondersteunt [verifieerbare builds](/docs/programs/verified-builds),
+waarmee gebruikers kunnen bevestigen dat de on-chain bytecode van een programma
+overeenkomt met de publieke broncode. Het Anchor-framework biedt
+[ingebouwde ondersteuning](https://www.anchor-lang.com/docs/verifiable-builds)
+voor verifieerbare builds.
+
+Om de verificatiestatus van een geïmplementeerd programma te controleren, zoek
+je naar het programma-ID op de
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY),
+of gebruik de Ellipsis Labs
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+om on-chain programma's onafhankelijk te verifiëren.
+
+## Loader-programma's
+
+| Loader                     | Adres                                         | Upgradebaar                            | Beschrijving                                           |
+| -------------------------- | --------------------------------------------- | -------------------------------------- | ------------------------------------------------------ |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | Alleen via validator software-upgrade  | Bezit builtins (System, Vote, Stake) en andere loaders |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Nee (loaderbeheer uitgeschakeld)       | Legacy-programma's                                     |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Nee (loaderbeheer uitgeschakeld)       | Legacy-programma's                                     |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Ja, als upgrade authority is ingesteld | Bezit alle nieuw geïmplementeerde programma's          |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | Ja, als authority is ingesteld         | Nog niet uitgebracht op mainnet                        |

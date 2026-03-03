@@ -1,0 +1,372 @@
+---
+title: Δομή λογαριασμού
+description:
+  Διευθύνσεις λογαριασμών, τα πέντε πεδία που περιέχει κάθε λογαριασμός Solana —
+  lamports, data, owner, executable και rent_epoch — με διαδραστική επεξήγηση
+  κώδικα.
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+<Callout type="info" title="Περίληψη">
+  Οι λογαριασμοί έχουν 5 πεδία: lamports, data, owner, executable και
+  rent_epoch. Κάθε λογαριασμός αναγνωρίζεται από μια μοναδική διεύθυνση 32
+  bytes. Οι λογαριασμοί πρέπει να διατηρούν ένα ελάχιστο υπόλοιπο lamport
+  ανάλογο με το μέγεθος των δεδομένων τους για να παραμείνουν on-chain.
+</Callout>
+
+## Διεύθυνση λογαριασμού
+
+Κάθε διεύθυνση λογαριασμού είναι μια τιμή 32 bytes, που εμφανίζεται ως
+συμβολοσειρά κωδικοποιημένη σε base58. Μια διεύθυνση μπορεί να είναι ένας από
+δύο τύπους:
+
+1. **Public key**: αντιστοιχεί σε ένα [Ed25519](https://ed25519.cr.yp.to/)
+   keypair (έχει private key)
+2. **Program Derived Address (PDA)**: παράγεται ντετερμινιστικά από ένα program
+   ID και seeds (χωρίς private key)
+
+![Ένας λογαριασμός με τη διεύθυνση του public key κωδικοποιημένη σε base58](/assets/docs/core/accounts/account-address.svg)
+
+### Public key
+
+Ένα _rs`Keypair`_ αποτελείται από ένα public key (που χρησιμοποιείται ως
+διεύθυνση λογαριασμού) και ένα private key (που χρησιμοποιείται για την υπογραφή
+συναλλαγών). Το παρακάτω παράδειγμα δημιουργεί ένα keypair χρησιμοποιώντας το
+Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program Derived Address
+
+Ένα [Program Derived Address](/docs/core/pda) (PDA) παράγεται ντετερμινιστικά
+από ένα program ID και ένα ή περισσότερα προαιρετικά seeds. Τα PDAs δεν έχουν
+αντίστοιχο private key. Το παρακάτω παράδειγμα παράγει ένα PDA χρησιμοποιώντας
+το Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## Πεδία λογαριασμού
+
+Κάθε
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+έχει μέγιστο μέγεθος
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+(10 MiB, ισοδύναμο με _rs`MAX_PERMITTED_DATA_LENGTH`_) και περιέχει πέντε πεδία:
+
+<WithMentions>
+
+| Πεδίο                              | Τύπος     | Περιγραφή                                                                                     |
+| ---------------------------------- | --------- | --------------------------------------------------------------------------------------------- |
+| [`lamports`](mention:lamports)     | `u64`     | Υπόλοιπο σε lamports. Ο κάτοχος μπορεί να χρεώσει· οποιοδήποτε πρόγραμμα μπορεί να πιστώσει.  |
+| [`data`](mention:data)             | `Vec<u8>` | Κατάσταση λογαριασμού ή bytecode προγράμματος. Μέγιστο 10 MiB. Εγγράψιμο μόνο από τον κάτοχο. |
+| [`owner`](mention:owner)           | `Pubkey`  | Πρόγραμμα με δικαίωμα εγγραφής. Επαναπροσδιορίζεται μόνο όταν τα δεδομένα είναι μηδενισμένα.  |
+| [`executable`](mention:executable) | `bool`    | True = λογαριασμός προγράμματος.                                                              |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | Καταργημένο. Ορίζεται σε `u64::MAX` για λογαριασμούς απαλλαγμένους από rent.                  |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamports
+
+Το πεδίο `lamports` περιέχει το υπόλοιπο του λογαριασμού σε
+[lamports](/docs/references/terminology#lamport) (1 SOL = 1.000.000.000
+lamports).
+
+Κάθε λογαριασμός πρέπει να διατηρεί ένα ελάχιστο υπόλοιπο lamports, γνωστό ως
+υπόλοιπο απαλλαγής από rent, για να διατηρούνται τα δεδομένα του on-chain. Αυτό
+το υπόλοιπο είναι ανάλογο με το μέγεθος των δεδομένων του λογαριασμού.
+
+<Callout type="info">
+  Αν και συχνά αποκαλείται "rent", το υπόλοιπο απαλλαγής από rent λειτουργεί ως
+  επιστρεπτέα κατάθεση· το πλήρες υπόλοιπο ανακτάται όταν ο λογαριασμός κλείσει.
+</Callout>
+
+Δείτε
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+και τις
+[σταθερές](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80)
+rent.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Δεδομένα
+
+Το πεδίο `data` αποθηκεύει έναν αυθαίρετο πίνακα bytes. Τα περιεχόμενά του
+εξαρτώνται από τον τύπο λογαριασμού:
+
+- **Λογαριασμοί προγράμματος**: Περιέχει εκτελέσιμο bytecode ή τη διεύθυνση ενός
+  [λογαριασμού δεδομένων προγράμματος](/docs/core/accounts/account-types#program-data-accounts)
+  που αποθηκεύει το bytecode.
+- **Λογαριασμοί δεδομένων**: Περιέχει δεδομένα κατάστασης που ορίζονται από το
+  πρόγραμμα. Το πρόγραμμα-κάτοχος ορίζει τη μορφή σειριοποίησης.
+
+Η ανάγνωση δεδομένων λογαριασμού απαιτεί δύο βήματα:
+
+1. Ανάκτηση του λογαριασμού από τη [διεύθυνσή](#account-address) του.
+2. Αποσειριοποίηση του πεδίου `data` από ακατέργαστα bytes στη δομή δεδομένων
+   που ορίζεται από το πρόγραμμα.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Κάτοχος
+
+Το πεδίο `owner` περιέχει το αναγνωριστικό προγράμματος (δημόσιο κλειδί) του
+προγράμματος που κατέχει αυτόν τον λογαριασμό.
+
+Το πρόγραμμα κατόχου είναι το μόνο πρόγραμμα που μπορεί να:
+
+- Τροποποιήσει το πεδίο `data` του λογαριασμού
+- Αφαιρέσει lamports από το πεδίο `lamports` του λογαριασμού
+
+Οποιοδήποτε πρόγραμμα μπορεί να προσθέσει lamports σε άλλον λογαριασμό, αλλά
+μόνο ο κάτοχος μπορεί να αφαιρέσει lamports από αυτόν.
+
+Για τους λογαριασμούς προγραμμάτων, ο κάτοχος είναι το
+[πρόγραμμα φόρτωσης](/docs/core/programs/builtin-programs#loader-programs) του
+λογαριασμού.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Εκτελέσιμο
+
+Το πεδίο `executable` είναι μια boolean τιμή που καθορίζει αν ο λογαριασμός
+είναι
+[λογαριασμός προγράμματος](/docs/core/accounts/account-types#program-accounts) ή
+[λογαριασμός δεδομένων](/docs/core/accounts/account-types#data-accounts):
+
+- `true` = λογαριασμός προγράμματος (περιέχει εκτελέσιμο κώδικα)
+- `false` = λογαριασμός δεδομένων (αποθηκεύει κατάσταση)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Περίοδος rent
+
+**Το πεδίο `rent_epoch` είναι παρωχημένο.**
+
+Προηγουμένως παρακολουθούσε πότε θα αφαιρούνταν αυτόματα lamports από έναν
+λογαριασμό για την πληρωμή διατήρησης των δεδομένων του on-chain. Εφόσον η
+είσπραξη rent είναι παρωχημένη, το `rent_epoch` ορίζεται σε `u64::MAX` για όλους
+τους νέους λογαριασμούς που απαλλάσσονται από rent.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

@@ -1,0 +1,203 @@
+---
+title: Comptes PDA
+description:
+  Créez des comptes on-chain aux adresses PDA Solana en utilisant invoke_signed
+  et la contrainte init d'Anchor. Flux de vérification invoke_signed et modèles
+  de création PDA Anchor avec exemples de code.
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: PDA Signing via invoke_signed, Create a PDA Account */}
+
+<Callout type="info" title="Résumé">
+  Créez des comptes PDA via _rs`invoke_signed`_ avec les seeds du PDA. Seul le
+  programme propriétaire peut signer pour un PDA. La contrainte _rs`init`_
+  d'Anchor automatise la création de comptes PDA.
+</Callout>
+
+## Signature PDA via `invoke_signed`
+
+Lorsqu'un programme doit signer au nom d'un PDA lors d'un CPI, il utilise
+_rs`invoke_signed`_ avec les seeds du PDA. Le runtime vérifie que les seeds
+dérivent le PDA attendu en utilisant l'**ID du programme appelant**,
+garantissant que seul le programme propriétaire peut signer. Pour le flux de
+vérification complet, voir
+[Signature PDA](/docs/core/cpi/cpi-cost-model#pda-signing).
+
+## Créer un compte PDA
+
+Dériver un PDA et créer un compte à une adresse PDA sont des opérations
+distinctes. Vous devez explicitement créer le compte après avoir dérivé
+l'adresse.
+
+Pour créer un compte à une adresse PDA, le programme de dérivation invoque
+l'instruction _rs`create_account`_ du System Program via
+[`invoke_signed`](/docs/core/cpi), en passant les seeds du PDA afin que le
+runtime puisse vérifier l'autorité du programme sur cette adresse.
+
+<WithMentions>
+
+L'exemple ci-dessous utilise le
+[framework Anchor](https://www.anchor-lang.com/docs) pour créer un nouveau
+compte avec une adresse dérivée du programme. Le programme inclut une seule
+instruction [`initialize`](mention:initialize) pour créer le nouveau compte, qui
+stockera l'[adresse utilisateur](mention:user-address) et le
+[bump seed](mention:bump) utilisés pour dériver le PDA.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+La contrainte [`init`](mention:init) indique à Anchor
+d'[invoquer le System Program](/docs/core/programs/builtin-programs#the-system-program)
+pour créer un nouveau compte en utilisant le PDA comme adresse. Les
+[seeds](mention:seeds) utilisés pour créer le PDA sont :
+
+- La chaîne fixe : "data"
+- L'adresse du compte utilisateur fournie dans l'instruction
+- Le [bump seed](mention:bump) canonique
+
+Dans cet exemple, la contrainte bump n'a pas de valeur assignée, donc Anchor
+utilisera _rs`find_program_address`_ pour dériver le PDA et trouver le bump.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Le fichier de test ci-dessous contient une transaction qui invoque l'instruction
+[`initialize`](mention:initialize) pour créer un nouveau compte avec une adresse
+dérivée de programme. Le fichier contient du code pour
+[dériver le PDA](mention:pda).
+
+L'exemple montre également comment [récupérer](mention:fetch) le nouveau compte
+qui sera créé.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  Si vous invoquez l'instruction `initialize` à nouveau avec la même seed
+  d'adresse `user`, la transaction échouera. Cela se produit parce qu'un compte
+  existe déjà à l'adresse dérivée.
+</Callout>

@@ -21,10 +21,6 @@ export default async function Page(_props: Props) {
       value: t("x402.hero.stats.2.value"),
       label: t("x402.hero.stats.2.label"),
     },
-    {
-      value: t("x402.hero.stats.3.value"),
-      label: t("x402.hero.stats.3.label"),
-    },
   ];
 
   const translations = {

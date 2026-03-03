@@ -1,0 +1,201 @@
+---
+title: PDA-tilit
+description:
+  Luo ketjussa olevia tilejä Solana PDA-osoitteisiin käyttäen invoke_signed- ja
+  Anchor-kehyksen init-rajoitetta. invoke_signed-vahvistusprosessi ja Anchor
+  PDA:n luontimallit koodiesimerkkien kanssa.
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: PDA Signing via invoke_signed, Create a PDA Account */}
+
+<Callout type="info" title="Yhteenveto">
+  Luo PDA-tilejä _rs`invoke_signed`_-komennolla käyttäen PDA:n seedejä. Vain
+  omistava ohjelma voi allekirjoittaa PDA:n puolesta. Anchor-kehyksen
+  _rs`init`_-rajoite automatisoi PDA-tilin luomisen.
+</Callout>
+
+## PDA:n allekirjoitus `invoke_signed`-komennolla
+
+Kun ohjelma tarvitsee allekirjoittaa PDA:n puolesta CPI:n aikana, se käyttää
+_rs`invoke_signed`_-komentoa PDA:n seedeillä. Ajonaikainen ympäristö vahvistaa,
+että seedit johtavat odotettavaan PDA:han käyttäen **kutsuvan ohjelman ID:tä**,
+varmistaen että vain omistava ohjelma voi allekirjoittaa. Täydellinen
+vahvistusprosessi löytyy kohdasta
+[PDA:n allekirjoitus](/docs/core/cpi/cpi-cost-model#pda-signing).
+
+## PDA-tilin luominen
+
+PDA:n johdattaminen ja tilin luominen PDA:han ovat erillisiä operaatioita. Sinun
+täytyy erikseen luoda tili osoitteen johdattamisen jälkeen.
+
+Luodakseen tilin PDA:han, johdattava ohjelma kutsuu System Program -ohjelman
+_rs`create_account`_-käskyä [`invoke_signed`](/docs/core/cpi)-komennon kautta,
+välittäen PDA:n seedit, jotta ajonaikainen ympäristö voi vahvistaa ohjelman
+valtuutuksen kyseiseen osoitteeseen.
+
+<WithMentions>
+
+Alla oleva esimerkki käyttää [Anchor-kehystä](https://www.anchor-lang.com/docs)
+luodakseen uuden tilin ohjelmasta johdetulla osoitteella. Ohjelma sisältää yhden
+[`initialize`](mention:initialize)-käskyn uuden tilin luomiseksi, joka tallentaa
+[käyttäjän osoitteen](mention:user-address) ja [bump seedin](mention:bump),
+joita käytettiin PDA:n johdattamiseen.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+[`init`](mention:init)-rajoite kertoo Anchorille
+[kutsua System Program -ohjelmaa](/docs/core/programs/builtin-programs#the-system-program)
+luodakseen uuden tilin käyttäen PDA:ta osoitteena. PDA:n luomiseen käytetyt
+[seedit](mention:seeds) ovat:
+
+- Kiinteä merkkijono: "data"
+- Ohjeessa annetun käyttäjätilin osoite
+- Kanoninen [bump seed](mention:bump)
+
+Tässä esimerkissä bump-rajoitteelle ei ole määritetty arvoa, joten Anchor
+käyttää _`find_program_address`_ -arvoa PDA:n johdattamiseen ja bumpin
+löytämiseen.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Alla oleva testitiedosto sisältää transaktion, joka kutsuu
+[`initialize`](mention:initialize)-käskyä luodakseen uuden tilin ohjelmasta
+johdetulla osoitteella. Tiedosto sisältää koodin
+[PDA:n johdattamiseen](mention:pda).
+
+Esimerkki näyttää myös, kuinka [hakea](mention:fetch) uusi tili, joka luodaan.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  Jos kutsut `initialize`-käskyä uudelleen samalla `user`-osoitteen seedillä,
+  transaktio epäonnistuu. Tämä johtuu siitä, että johdettuun osoitteeseen on jo
+  olemassa tili.
+</Callout>

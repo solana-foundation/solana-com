@@ -1,0 +1,365 @@
+---
+title: Struktur akun
+description:
+  Alamat akun, lima field yang terdapat dalam setiap akun Solana — lamports,
+  data, owner, executable, dan rent_epoch — dengan panduan kode interaktif.
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+<Callout type="info" title="Ringkasan">
+  Akun memiliki 5 field: lamports, data, owner, executable, dan rent_epoch.
+  Setiap akun diidentifikasi dengan alamat unik 32-byte. Akun harus menyimpan
+  saldo lamport minimum yang proporsional dengan ukuran datanya agar tetap
+  berada di on-chain.
+</Callout>
+
+## Alamat akun
+
+Setiap alamat akun adalah nilai 32-byte, ditampilkan sebagai string yang
+di-encode dengan base58. Alamat dapat berupa salah satu dari dua jenis:
+
+1. **Public key**: sesuai dengan keypair [Ed25519](https://ed25519.cr.yp.to/)
+   (memiliki private key)
+2. **Program Derived Address (PDA)**: diturunkan secara deterministik dari
+   program ID dan seeds (tanpa private key)
+
+![An account with its base58 encoded public key address](/assets/docs/core/accounts/account-address.svg)
+
+### Public key
+
+Sebuah _rs`Keypair`_ terdiri dari public key (digunakan sebagai alamat akun) dan
+private key (digunakan untuk menandatangani transaksi). Contoh berikut
+menghasilkan keypair menggunakan Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program Derived Address
+
+Sebuah [Program Derived Address](/docs/core/pda) (PDA) diturunkan secara
+deterministik dari program ID dan satu atau lebih seeds opsional. PDA tidak
+memiliki private key yang sesuai. Contoh berikut menurunkan PDA menggunakan
+Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## Bidang akun
+
+Setiap
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+memiliki ukuran maksimum
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+(10 MiB, setara dengan _rs`MAX_PERMITTED_DATA_LENGTH`_) dan berisi lima bidang:
+
+<WithMentions>
+
+| Bidang                             | Tipe      | Deskripsi                                                                      |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------ |
+| [`lamports`](mention:lamports)     | `u64`     | Saldo dalam lamport. Pemilik dapat mendebit; program apa pun dapat mengkredit. |
+| [`data`](mention:data)             | `Vec<u8>` | State akun atau bytecode program. Maks 10 MiB. Hanya dapat ditulis pemilik.    |
+| [`owner`](mention:owner)           | `Pubkey`  | Program dengan akses tulis. Hanya dapat dipindahkan saat data dikosongkan.     |
+| [`executable`](mention:executable) | `bool`    | True = program account.                                                        |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | Tidak digunakan lagi. Diatur ke `u64::MAX` untuk akun yang bebas rent.         |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamport
+
+Bidang `lamports` menyimpan saldo akun dalam
+[lamport](/docs/references/terminology#lamport) (1 SOL = 1.000.000.000 lamport).
+
+Setiap akun harus mempertahankan saldo lamport minimum, yang dikenal sebagai
+saldo bebas rent, untuk menjaga datanya tetap tersimpan on-chain. Saldo ini
+proporsional dengan ukuran data akun.
+
+<Callout type="info">
+  Meskipun sering disebut "rent", saldo bebas rent berfungsi sebagai deposit
+  yang dapat dikembalikan, saldo penuh dikembalikan saat akun ditutup.
+</Callout>
+
+Lihat
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+dan rent
+[constants](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80).
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Data
+
+Bidang `data` menyimpan array byte arbitrer. Isinya bergantung pada jenis akun:
+
+- **Program account**: Berisi bytecode yang dapat dieksekusi atau alamat
+  [program data account](/docs/core/accounts/account-types#program-data-accounts)
+  yang menyimpan bytecode.
+- **Data account**: Berisi data state yang didefinisikan program. Program
+  pemilik menentukan format serialisasi.
+
+Membaca data akun memerlukan dua langkah:
+
+1. Ambil akun berdasarkan [alamat](#account-address).
+2. Deserialisasi bidang `data` dari byte mentah ke struktur data yang
+   didefinisikan program.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Owner
+
+Field `owner` berisi program ID (public key) dari program yang memiliki akun
+ini.
+
+Owner program adalah satu-satunya program yang dapat:
+
+- Memodifikasi field `data` akun
+- Mengurangi lamport dari field `lamports` akun
+
+Program apa pun dapat menambahkan lamport ke akun lain, tetapi hanya owner yang
+dapat mengurangi lamport darinya.
+
+Untuk program account, owner adalah
+[program loader](/docs/core/programs/builtin-programs#loader-programs) akun
+tersebut.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Executable
+
+Field `executable` adalah boolean yang menentukan apakah akun tersebut adalah
+[program account](/docs/core/accounts/account-types#program-accounts) atau
+[data account](/docs/core/accounts/account-types#data-accounts):
+
+- `true` = program account (berisi kode yang dapat dieksekusi)
+- `false` = data account (menyimpan state)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Rent epoch
+
+**Field `rent_epoch` sudah tidak digunakan lagi.**
+
+Sebelumnya melacak kapan suatu akun akan secara otomatis dikurangi lamportnya
+untuk membayar pemeliharaan datanya di on-chain. Karena pengumpulan rent sudah
+tidak digunakan lagi, `rent_epoch` diatur ke `u64::MAX` untuk semua akun
+rent-exempt yang baru.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

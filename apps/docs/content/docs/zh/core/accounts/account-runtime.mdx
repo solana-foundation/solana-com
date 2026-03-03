@@ -1,0 +1,114 @@
+---
+title: 账户运行时
+description:
+  Solana
+  运行时在执行前如何加载和验证账户，以及用于将账户数据传递给程序的序列化格式。
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="概要">
+  在执行前，运行时会加载账户，验证手续费支付者，检查租金豁免，并将账户数据序列化为程序可访问的内存布局。
+</Callout>
+
+<Callout>
+  本页介绍运行时内部机制。大多数开发者在构建程序时无需了解这些内容。开发者相关内容请参见
+  [账户结构](/docs/core/accounts/account-structure)。
+</Callout>
+
+## 账户加载
+
+在交易执行前，运行时会通过
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519)
+加载所有被引用的账户。此过程会进行多项验证：
+
+1. **手续费支付者验证**：手续费支付者（第一个账户）必须存在，且为 system
+   account 或 nonce
+   account，并且拥有足够的 lamports 支付手续费（[`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)）。支付手续费后，该账户必须保持租金豁免，或余额正好为 0
+   lamports。余额不能介于 0 与租金豁免最低值之间。nonce
+   account 必须始终保留足够 lamports 以保持租金豁免。如果支付者既不是 system
+   account 也不是 nonce account，交易将以
+   _rs`TransactionError::InvalidAccountForFee`_ 失败。
+
+2. **加载数据大小限制**：所有加载账户的总数据大小（包括每个账户的
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   64 字节）不得超过
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)（64
+   MiB）。超出该限制将导致
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_。
+
+3. **program
+   account 验证**：每个被指令调用的 program 都必须存在，并且归属于有效的 loader：包括
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)（BPF
+   Loader Upgradeable、BPF Loader、BPF Loader Deprecated、Loader
+   V4）或原生 loader。如果 program account 不存在，交易将以
+   _rs`TransactionError::ProgramAccountNotFound`_
+   失败。如果存在但归属无效 owner，交易将以
+   _rs`TransactionError::InvalidProgramForExecution`_ 失败。
+
+4. **不存在的账户**：链上不存在的账户会被加载为默认账户（0
+   lamports，数据为空，由 System Program 拥有），并将 `rent_epoch` 设置为
+   `u64::MAX`。
+
+## BPF 序列化格式
+
+当程序被调用时，运行时会将账户序列化到一个连续的内存缓冲区，并将其传递给 BPF
+VM。序列化格式（标准对齐格式，所有加载器都使用，除了已弃用的 loader-v1）定义在
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578)。
+
+该缓冲区以一个
+`u64`（8 字节，小端序）开头，表示账户数量。然后，对于指令中的每个账户，缓冲区包含：
+
+| 偏移量        | 大小            | 字段                                | 类型                                                                                           |
+| ------------- | --------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 0             | 1               | duplicate marker                    | `u8`（`0xFF` = 唯一，index = 该账户的重复项）                                                  |
+| 1             | 1               | is_signer                           | `u8`（0 或 1）                                                                                 |
+| 2             | 1               | is_writable                         | `u8`（0 或 1）                                                                                 |
+| 3             | 1               | executable                          | `u8`（0 或 1）                                                                                 |
+| 4             | 4               | original_data_len（保留，始终为 0） | `[0u8; 4]`                                                                                     |
+| 8             | 32              | key                                 | `Pubkey`                                                                                       |
+| 40            | 32              | owner                               | `Pubkey`                                                                                       |
+| 72            | 8               | lamports                            | `u64`（小端序）                                                                                |
+| 80            | 8               | data_len                            | `u64`（小端序）                                                                                |
+| 88            | data_len        | data                                | `[u8]`                                                                                         |
+| 88 + data_len | 10240 + padding | realloc space + alignment           | 用零填充至 `MAX_PERMITTED_DATA_INCREASE`（10 KiB），再填充至 `BPF_ALIGN_OF_U128`（8 字节）对齐 |
+| ...           | 8               | rent_epoch                          | `u64`（小端序）                                                                                |
+
+在所有账户处理完毕后，缓冲区会追加：
+
+| 大小                 | 字段                                 |
+| -------------------- | ------------------------------------ |
+| 8                    | instruction_data_len (`u64`，小端序) |
+| instruction_data_len | instruction_data                     |
+| 32                   | program_id (`Pubkey`)                |
+
+对于重复账户，仅写入 1 字节（带有原始索引的重复标记）加上 7 字节填充。
+
+## 账户去重
+
+当同一个账户公钥在某条指令的 `accounts`
+数组中多次出现时，运行时会对其进行[去重](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)。指令的账户列表中的每个条目都会有自己的
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+结构体，但指向同一交易级账户的条目会共享同一底层数据。
+
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+方法通过查找交易级账户索引，并找到映射到该账户的第一个指令级索引，来判断给定的指令账户索引是首次出现还是重复：
+
+- 如果当前指令账户索引等于第一个映射索引，则**不是**重复（返回 `None`）。
+- 否则，返回 `Some(first_index)`，其中 `first_index` 是首次出现的索引。
+
+由于所有指向同一账户的引用共享同一底层
+_rs`AccountSharedData`_，通过任意引用进行的修改会立即反映到所有其他引用中。但同一时间只能持有一个可变借用。如果尝试通过两个不同的指令账户索引同时对同一账户进行可变借用，则会返回
+_rs`InstructionError::AccountBorrowFailed`_。程序必须在对同一底层账户进行新的借用前，先释放已有的借用。
+
+程序执行完毕后，运行时会将缓冲区反序列化回去（[`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667)），并将所有更改应用到
+`lamports`、`data`（包括长度变化，最大到
+_rs`MAX_PERMITTED_DATA_INCREASE`_），以及 `owner`。

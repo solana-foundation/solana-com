@@ -1,0 +1,190 @@
+---
+title: PDA 账户
+description:
+  使用 invoke_signed 和 Anchor 的 init 约束，在 Solana PDA
+  地址上创建链上账户。包含 invoke_signed 验证流程及 Anchor PDA
+  创建模式，并附有代码示例。
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* 目录：通过 invoke_signed 进行 PDA 签名，创建 PDA 账户 */}
+
+<Callout type="info" title="摘要">
+  通过 _rs`invoke_signed`_ 及 PDA 的 seed，可以创建 PDA 账户。只有 拥有该 PDA
+  的程序才能为其签名。Anchor 的 _rs`init`_ 约束可自动化 PDA 账户的创建。
+</Callout>
+
+## 通过 `invoke_signed` 进行 PDA 签名
+
+当程序需要在 CPI 期间代表 PDA 进行签名时，会使用 _rs`invoke_signed`_
+及 PDA 的 seed。运行时会验证这些 seed 是否能根据**调用程序的 ID**推导出预期的 PDA，从而确保只有拥有该 PDA 的程序才能签名。完整的验证流程请参见
+[PDA 签名](/docs/core/cpi/cpi-cost-model#pda-signing)。
+
+## 创建 PDA 账户
+
+推导 PDA 和在 PDA 上创建账户是两个独立的操作。在推导出地址后，必须显式创建该账户。
+
+要在 PDA 上创建账户，推导程序需要调用 System Program 的 _rs`create_account`_
+指令，并通过 [`invoke_signed`](/docs/core/cpi)
+传递 PDA 的 seed，以便运行时验证程序对该地址的权限。
+
+<WithMentions>
+
+下面的示例使用 [Anchor framework](https://www.anchor-lang.com/docs)
+通过程序派生地址创建新账户。该程序包含一个 [`initialize`](mention:initialize)
+指令用于创建新账户，该账户将存储用于推导 PDA 的
+[user address](mention:user-address) 和 [bump seed](mention:bump)。
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+[`init`](mention:init) 约束会告知 Anchor
+[调用 System Program](/docs/core/programs/builtin-programs#the-system-program)
+使用 PDA 作为地址创建新账户。用于创建 PDA 的 [seed](mention:seeds) 包括：
+
+- 固定字符串："data"
+- 指令中提供的用户账户地址
+- 标准的 [bump seed](mention:bump)
+
+在此示例中，bump 约束未被赋值，因此 Anchor 会使用 _rs`find_program_address`_
+来推导 PDA 并查找 bump。
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+下面的测试文件包含一个交易，该交易会调用 [`initialize`](mention:initialize)
+指令，以使用程序派生地址创建新账户。该文件还包含 [推导 PDA](mention:pda)
+的代码。
+
+该示例还展示了如何 [fetch](mention:fetch) 即将创建的新账户。
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  如果你再次使用相同的 `initialize` 指令和相同的 `user` 地址 seed 调用，
+  该交易将会失败。原因是派生地址上已经存在一个账户。
+</Callout>
