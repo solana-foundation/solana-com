@@ -1,6 +1,7 @@
 import { config } from "@@/src/config";
 import type { Metadata } from "next";
 import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
+import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 
 export function getBaseMetadata(locale: string = "en"): Metadata {
   const { siteMetadata, siteUrl, siteIcon, social } = config;
@@ -46,7 +47,7 @@ export function getBaseMetadata(locale: string = "en"): Metadata {
         { url: faviconSvg, type: "image/svg+xml" },
       ],
       shortcut: siteIcon,
-      apple: siteIcon,
+      apple: appleTouchIcon.src,
     },
     robots: {
       index: true,
