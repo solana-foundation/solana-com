@@ -1,0 +1,860 @@
+---
+title: İşlem yapısı
+description:
+  İmzalar, mesaj formatı, başlık, hesap adresleri, blok hash'i, derlenmiş
+  talimatlar, ikili kodlama ve boyut bütçesi dahil olmak üzere bir Solana
+  işleminin anatomisi.
+url: /docs/core/transactions/transaction-structure
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/fees/fee-structure
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Signatures, Message (Header, Account addresses, Recent blockhash, Instructions), Transaction binary format, SOL transfer example */}
+
+<Callout type="info" title="Özet">
+  Bir işlem, imzalar + bir mesajdan oluşur. Mesaj bir başlık, hesap adresleri,
+  güncel blok hash'i ve derlenmiş talimatlar içerir. Maksimum serileştirilmiş
+  boyut: 1.232 bayt.
+</Callout>
+
+Bir
+[`Transaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction/src/lib.rs#L193)
+iki üst düzey alana sahiptir:
+
+<WithMentions>
+
+- [`signatures`](mention:signatures): İmza dizisi
+- [`message`](mention:message): İşlenecek talimatların listesi dahil olmak üzere
+  işlem bilgileri
+
+```rust title="Transaction"
+pub struct Transaction {
+    // !mention signatures
+    pub signatures: Vec<Signature>,
+    // !mention message
+    pub message: Message,
+}
+```
+
+</WithMentions>
+
+![Bir işlemin iki bölümünü gösteren diyagram](/assets/docs/core/transactions/tx_format.png)
+
+Bir işlemin toplam serileştirilmiş boyutu
+[`PACKET_DATA_SIZE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/packet/src/lib.rs#L32)
+değerini (1.232 bayt) aşmamalıdır. Bu sınır, 1.280 bayta (IPv6 minimum MTU)
+eşittir ve ağ başlıkları için 48 bayt (40 bayt IPv6 + 8 bayt fragment başlığı)
+çıkarılmıştır. 1.232 bayt hem [`signatures`](#signatures) dizisini hem de
+[`message`](#message) yapısını içerir.
+
+![İşlem formatını ve boyut sınırlarını gösteren diyagram](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+## İmzalar
+
+`signatures` alanı, kompakt kodlanmış bir
+[`Signature`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/signature/src/lib.rs#L34)
+değerleri dizisidir. Her `Signature`, imzalayan hesabın özel anahtarıyla
+imzalanmış, serileştirilmiş `Message`'ın 64 baytlık bir Ed25519 imzasıdır.
+İşlemin talimatları tarafından referans verilen her
+[imzalayan hesap](#account-addresses) için bir imza gereklidir.
+
+Dizideki ilk imza, işlem
+[temel ücret ve önceliklendirme ücretini](/docs/core/fees/fee-structure#base-fee)
+ödeyen hesap olan **ücret ödeyicisine** aittir. Bu ilk imza aynı zamanda ağda
+işlemi aramak için kullanılan **işlem kimliği** olarak da hizmet eder. İşlem
+kimliği genellikle **işlem imzası** olarak adlandırılır.
+
+Ücret ödeyen gereksinimleri:
+
+- Mesajdaki ilk hesap (indeks 0) olmalı ve imzalayan olmalıdır.
+- System Program'a ait bir hesap veya nonce hesabı olmalıdır
+  ([`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)
+  tarafından doğrulanır).
+- `rent_exempt_minimum + total_fee` tutarını karşılayacak yeterli lamport
+  içermelidir; aksi takdirde işlem _rs`InsufficientFundsForFee`_ hatası ile
+  başarısız olur.
+
+## Mesaj
+
+`message` alanı, işlemin yükünü içeren bir
+[`Message`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L161)
+yapısıdır:
+
+<WithMentions>
+
+- [`header`](mention:message-header): Mesaj [başlığı](#header)
+- [`account_keys`](mention:account-addresses): İşlemin talimatları için gerekli
+  [hesap adresleri](#account-addresses) dizisi
+- [`recent_blockhash`](mention:recent-blockhash): İşlem için zaman damgası
+  görevi gören bir [blockhash](#recent-blockhash)
+- [`instructions`](mention:instructions): [Talimatlar](#instructions) dizisi
+
+```rust title="Message"
+pub struct Message {
+    /// The message header, identifying signed and read-only `account_keys`.
+    // !mention message-header
+    pub header: MessageHeader,
+
+    /// All the account keys used by this transaction.
+    #[serde(with = "short_vec")]
+    // !mention account-addresses
+    pub account_keys: Vec<Pubkey>,
+
+    /// The id of a recent ledger entry.
+    // !mention recent-blockhash
+    pub recent_blockhash: Hash,
+
+    /// Programs that will be executed in sequence and committed in
+    /// one atomic transaction if all succeed.
+    #[serde(with = "short_vec")]
+    // !mention instructions
+    pub instructions: Vec<CompiledInstruction>,
+}
+```
+
+</WithMentions>
+
+### Başlık
+
+<WithMentions>
+
+`header` alanı, `account_keys` dizisini izin gruplarına bölen üç `u8` alanına
+sahip bir
+[`MessageHeader`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/lib.rs#L109)
+yapısıdır:
+
+- [`num_required_signatures`](mention:num_required_signatures): İşlem için
+  gereken toplam imza sayısı.
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): Salt
+  okunur olan imzalı hesap sayısı.
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts):
+  Salt okunur olan imzasız hesap sayısı.
+
+```rust title="MessageHeader"
+pub struct MessageHeader {
+    /// The number of signatures required for this message to be considered
+    /// valid. The signers of those signatures must match the first
+    /// `num_required_signatures` of [`Message::account_keys`].
+    // !mention num_required_signatures
+    pub num_required_signatures: u8,
+
+    /// The last `num_readonly_signed_accounts` of the signed keys are read-only
+    /// accounts.
+    // !mention num_readonly_signed_accounts
+    pub num_readonly_signed_accounts: u8,
+
+    /// The last `num_readonly_unsigned_accounts` of the unsigned keys are
+    /// read-only accounts.
+    // !mention num_readonly_unsigned_accounts
+    pub num_readonly_unsigned_accounts: u8,
+}
+```
+
+</WithMentions>
+
+![Mesaj başlığının üç bölümünü gösteren diyagram](/assets/docs/core/transactions/message_header.png)
+
+### Hesap adresleri
+
+[`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L168)
+alanı, kompakt kodlanmış bir public key dizisidir. Her giriş, işlemin
+talimatlarından en az biri tarafından kullanılan bir hesabı tanımlar. Dizi her
+hesabı içermeli ve şu katı sıralamayı izlemelidir:
+
+1. İmzalayan + Yazılabilir
+2. İmzalayan + Salt okunur
+3. İmzalayan olmayan + Yazılabilir
+4. İmzalayan olmayan + Salt okunur
+
+<Callout>
+  Bu katı sıralama, `account_keys` dizisinin mesajın [`header`](#header)
+  alanındaki üç sayımla birleştirilerek, hesap başına metadata bayrakları
+  saklamadan her hesap için izinlerin belirlenmesini sağlar. Başlık sayımları,
+  diziyi yukarıda listelenen dört izin grubuna böler.
+</Callout>
+
+![Hesap adresleri dizisinin sırasını gösteren diyagram](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### Son blok hash'i
+
+`recent_blockhash` alanı, iki amaca hizmet eden 32 baytlık bir hash'tir:
+
+1. **Zaman damgası**: işlemin yakın zamanda oluşturulduğunu kanıtlar.
+2. **Tekrar önleme**: aynı işlemin iki kez işlenmesini önler.
+
+Bir blok hash'i 150 slot sonra geçerliliğini yitirir. İşlem ulaştığında blok
+hash'i artık geçerli değilse, geçerli bir
+[dayanıklı nonce işlemi](/docs/core/transactions/durable-nonces) olmadığı sürece
+_rs`BlockhashNotFound`_ ile reddedilir.
+
+<Callout>
+  [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC metodu, mevcut
+  blok hash'ini ve blok hash'inin geçerli olacağı son blok yüksekliğini almanızı
+  sağlar.
+</Callout>
+
+### Talimatlar
+
+[`instructions`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L176)
+alanı,
+[`CompiledInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/compiled_instruction.rs#L21)
+yapılarının kompakt kodlanmış bir dizisidir. Her _rs`CompiledInstruction`_, tam
+public key yerine `account_keys` dizisindeki indeks ile hesaplara referans
+verir. Şunları içerir:
+
+<WithMentions>
+
+1. [`program_id_index`](mention:program-id-index): Çağrılacak programı
+   tanımlayan `account_keys` içindeki indeks.
+2. [`accounts`](mention:account-indexes): Programa iletilecek hesapları belirten
+   `account_keys` içindeki indeksler dizisi.
+3. [`data`](mention:instruction-data): Talimat ayırıcısını ve serileştirilmiş
+   argümanları içeren bayt dizisi.
+
+```rust title="CompiledInstruction"
+pub struct CompiledInstruction {
+    /// Index into the transaction keys array indicating the program account that executes this instruction.
+    // !mention program-id-index
+    pub program_id_index: u8,
+    /// Ordered indices into the transaction keys array indicating which accounts to pass to the program.
+    #[serde(with = "short_vec")]
+    // !mention account-indexes
+    pub accounts: Vec<u8>,
+    /// The program input data.
+    #[serde(with = "short_vec")]
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+![Talimatların kompakt dizisi](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+## İşlem ikili formatı
+
+İşlemler kompakt bir kodlama şeması kullanılarak serileştirilir. Tüm değişken
+uzunluklu diziler (imzalar, hesap anahtarları, talimatlar) compact-u16 uzunluk
+kodlaması ile öneklenir. Bu format, 0-127 değerleri için 1 bayt ve daha büyük
+değerler için 2-3 bayt kullanır.
+
+**Legacy işlem düzeni** (kablo üzerinde):
+
+| Alan                      | Boyut                        | Açıklama                                     |
+| ------------------------- | ---------------------------- | -------------------------------------------- |
+| `num_signatures`          | 1-3 bayt (compact-u16)       | İmza sayısı                                  |
+| `signatures`              | `num_signatures` x 64 bayt   | Ed25519 imzaları                             |
+| `num_required_signatures` | 1 bayt                       | `MessageHeader` alan 1                       |
+| `num_readonly_signed`     | 1 bayt                       | `MessageHeader` alan 2                       |
+| `num_readonly_unsigned`   | 1 bayt                       | `MessageHeader` alan 3                       |
+| `num_account_keys`        | 1-3 bayt (compact-u16)       | Statik hesap anahtarı sayısı                 |
+| `account_keys`            | `num_account_keys` x 32 bayt | Public key'ler                               |
+| `recent_blockhash`        | 32 bayt                      | Blok hash'i                                  |
+| `num_instructions`        | 1-3 bayt (compact-u16)       | Talimat sayısı                               |
+| `instructions`            | değişken                     | [Derlenmiş talimatlar](#instructions) dizisi |
+
+Her derlenmiş talimat şu şekilde serileştirilir:
+
+| Alan               | Boyut                   | Açıklama                   |
+| ------------------ | ----------------------- | -------------------------- |
+| `program_id_index` | 1 bayt                  | Hesap anahtarlarına indeks |
+| `num_accounts`     | 1-3 bayt (compact-u16)  | Hesap indeksi sayısı       |
+| `account_indices`  | `num_accounts` x 1 bayt | Hesap anahtarı indeksleri  |
+| `data_len`         | 1-3 bayt (compact-u16)  | Talimat verisi uzunluğu    |
+| `data`             | `data_len` bayt         | Opak talimat verisi        |
+
+### Boyut hesaplama
+
+_rs`PACKET_DATA_SIZE`_ = 1.232 bayt olduğunda, kullanılabilir alan şu şekilde
+hesaplanabilir:
+
+```
+Total = 1232 bytes
+ - compact-u16(num_sigs)          # 1 byte
+ - num_sigs * 64                  # signature bytes
+ - 3                              # message header
+ - compact-u16(num_keys)          # 1 byte
+ - num_keys * 32                  # account key bytes
+ - 32                             # recent blockhash
+ - compact-u16(num_ixs)           # 1 byte
+ - sum(instruction_sizes)         # per-instruction overhead + data
+```
+
+## Örnek: SOL transfer işlemi
+
+Aşağıdaki diyagram, kullanıcıların ağ ile etkileşime girmesini sağlamak için
+işlemlerin ve talimatların birlikte nasıl çalıştığını göstermektedir. Bu
+örnekte, SOL bir hesaptan diğerine aktarılmaktadır.
+
+Gönderen hesabın
+[metaverisi](/docs/core/instructions/instruction-structure#account-metadata),
+işlem için imzalaması gerektiğini belirtir. Bu, System Program'ın lamport
+düşmesine izin verir. Lamport bakiyelerinin değişebilmesi için hem gönderen hem
+de alıcı hesapların yazılabilir olması gerekir. Bu talimatı yürütmek için
+gönderenin cüzdanı, imzasını ve SOL transfer talimatını içeren mesajı içeren
+işlemi gönderir.
+
+![SOL transfer diyagramı](/assets/docs/core/transactions/sol-transfer.svg)
+
+İşlem gönderildikten sonra, System Program transfer talimatını işler ve her iki
+hesabın lamport bakiyesini günceller.
+
+![SOL transfer işlem diyagramı](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+Aşağıdaki örnek, yukarıdaki diyagramlarla ilgili kodu göstermektedir. System
+Program'ın
+[`transfer` fonksiyonuna](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210)
+bakın.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Create a connection to cluster
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Fund sender with airdrop
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: sender.address,
+  lamports: lamports(LAMPORTS_PER_SOL), // 1 SOL
+  commitment: "confirmed"
+});
+
+// Check balance before transfer
+const { value: preBalance1 } = await rpc.getBalance(sender.address).send();
+const { value: preBalance2 } = await rpc.getBalance(recipient.address).send();
+
+// !mark(1:6)
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount // 0.01 SOL in lamports
+});
+
+// Add the transfer instruction to a new transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+// Send the transaction to the network
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+// Check balance after transfer
+const { value: postBalance1 } = await rpc.getBalance(sender.address).send();
+const { value: postBalance2 } = await rpc.getBalance(recipient.address).send();
+
+console.log(
+  "Sender prebalance:",
+  Number(preBalance1) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Recipient prebalance:",
+  Number(preBalance2) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Sender postbalance:",
+  Number(postBalance1) / Number(LAMPORTS_PER_SOL)
+);
+console.log(
+  "Recipient postbalance:",
+  Number(postBalance2) / Number(LAMPORTS_PER_SOL)
+);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+// Create a connection to cluster
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Fund sender with airdrop
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Check balance before transfer
+const preBalance1 = await connection.getBalance(sender.publicKey);
+const preBalance2 = await connection.getBalance(recipient.publicKey);
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// !mark(1:6)
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+// Add the transfer instruction to a new transaction
+const transaction = new Transaction().add(transferInstruction);
+
+// Send the transaction to the network
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [sender] // signer
+);
+
+// Check balance after transfer
+const postBalance1 = await connection.getBalance(sender.publicKey);
+const postBalance2 = await connection.getBalance(recipient.publicKey);
+
+console.log("Sender prebalance:", preBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient prebalance:", preBalance2 / LAMPORTS_PER_SOL);
+console.log("Sender postbalance:", postBalance1 / LAMPORTS_PER_SOL);
+console.log("Recipient postbalance:", postBalance2 / LAMPORTS_PER_SOL);
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create a connection to cluster
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Fund sender with airdrop
+    let airdrop_signature = connection
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+    loop {
+        let confirmed = connection.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Check balance before transfer
+    let pre_balance1 = connection.get_balance(&sender.pubkey()).await?;
+    let pre_balance2 = connection.get_balance(&recipient.pubkey()).await?;
+
+    // Define the amount to transfer
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    // Add the transfer instruction to a new transaction
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    let blockhash = connection.get_latest_blockhash().await?;
+    transaction.sign(&[&sender], blockhash);
+
+    // Send the transaction to the network
+    let transaction_signature = connection
+        .send_and_confirm_transaction(&transaction)
+        .await?;
+
+    // Check balance after transfer
+    let post_balance1 = connection.get_balance(&sender.pubkey()).await?;
+    let post_balance2 = connection.get_balance(&recipient.pubkey()).await?;
+
+    println!(
+        "Sender prebalance: {}",
+        pre_balance1 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Recipient prebalance: {}",
+        pre_balance2 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Sender postbalance: {}",
+        post_balance1 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!(
+        "Recipient postbalance: {}",
+        post_balance2 as f64 / LAMPORTS_PER_SOL as f64
+    );
+    println!("Transaction Signature: {}", transaction_signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+Aşağıdaki örnek, tek bir SOL transfer talimatı içeren bir işlemin yapısını
+göstermektedir.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import {
+  createSolanaRpc,
+  generateKeyPairSigner,
+  lamports,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstructions,
+  pipe,
+  signTransactionMessageWithSigners,
+  getCompiledTransactionMessageDecoder
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const rpc = createSolanaRpc("http://localhost:8899");
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Decode the messageBytes
+const compiledTransactionMessage =
+  getCompiledTransactionMessageDecoder().decode(signedTransaction.messageBytes);
+
+console.log(JSON.stringify(compiledTransactionMessage, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const { blockhash, lastValidBlockHeight } =
+  await connection.getLatestBlockhash();
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+const transaction = new Transaction({
+  blockhash,
+  lastValidBlockHeight,
+  feePayer: sender.publicKey
+}).add(transferInstruction);
+transaction.sign(sender);
+
+const compiledMessage = transaction.compileMessage();
+console.log(JSON.stringify(compiledMessage, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Fetch the latest blockhash and last valid block height
+    let blockhash = connection.get_latest_blockhash().await?;
+
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(
+        &sender.pubkey(),
+        &recipient.pubkey(),
+        LAMPORTS_PER_SOL / 100, // 0.01 SOL
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    transaction.sign(&[&sender], blockhash);
+
+    println!("{:#?}", transaction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<WithMentions>
+Aşağıdaki kod, önceki kod parçacıklarından elde edilen çıktıyı gösterir.
+Format SDK'lar arasında farklılık gösterir,
+ancak her talimatın aynı gerekli bilgileri içerdiğine dikkat edin.
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  "version": 0,
+  // !mention header
+  "header": {
+    "numSignerAccounts": 1,
+    "numReadonlySignerAccounts": 0,
+    "numReadonlyNonSignerAccounts": 1
+  },
+  // !mention account_keys
+  "staticAccounts": [
+    "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
+    "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
+    "11111111111111111111111111111111"
+  ],
+  // !mention recent_blockhash
+  "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  // !mention instructions
+  "instructions": [
+    {
+      "programAddressIndex": 2,
+      "accountIndices": [0, 1],
+      "data": {
+        "0": 2,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 128,
+        "5": 150,
+        "6": 152,
+        "7": 0,
+        "8": 0,
+        "9": 0,
+        "10": 0,
+        "11": 0
+      }
+    }
+  ]
+}
+```
+
+```json !! title="Legacy"
+{
+  // !mention header
+  "header": {
+    "numRequiredSignatures": 1,
+    "numReadonlySignedAccounts": 0,
+    "numReadonlyUnsignedAccounts": 1
+  },
+  // !mention account_keys
+  "accountKeys": [
+    "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
+    "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
+    "11111111111111111111111111111111"
+  ],
+  "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  // !mention instructions
+  "instructions": [
+    {
+      "programIdIndex": 2,
+      "accounts": [0, 1],
+      "data": "3Bxs4NN8M2Yn4TLb"
+    }
+  ],
+  "indexToProgramIds": {}
+}
+```
+
+```json !! title="Rust"
+{
+  "signatures": [
+    "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
+  ],
+  "message": {
+    // !mention header
+    "header": {
+      "num_required_signatures": 1,
+      "num_readonly_signed_accounts": 0,
+      "num_readonly_unsigned_accounts": 1
+    },
+    "account_keys": [
+      "9CpbtdXfUTgLMJL8DEAeEm8thERJPwDuruohjvUuzY7m",
+      "6jELNgS8Q35sF4QZCvwgyKGaKrbcm8P5QcNWUyAb5ekJ",
+      "11111111111111111111111111111111"
+    ],
+    "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    // !mention instructions
+    "instructions": [
+      {
+        "program_id_index": 2,
+        "accounts": [0, 1],
+        "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+      }
+    ]
+  }
+}
+```
+
+</CodeTabs>
+</WithMentions>
+
+## İşlem detaylarını getirme
+
+Gönderimden sonra, işlem imzasını ve
+[getTransaction](/docs/rpc/http/gettransaction) RPC metodunu kullanarak işlem
+detaylarını alın.
+
+<Callout>
+  İşlemi [Solana Explorer](https://explorer.solana.com) kullanarak da
+  bulabilirsiniz.
+</Callout>
+
+```json title="Transaction Data"
+{
+  "blockTime": 1745196488,
+  "meta": {
+    "computeUnitsConsumed": 150,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success"
+    ],
+    "postBalances": [989995000, 10000000, 1],
+    "postTokenBalances": [],
+    "preBalances": [1000000000, 0, 1],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 13049,
+  "transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "8PLdpLxkuv9Nt8w3XcGXvNa663LXDjSrSNon4EK7QSjQ",
+        "7GLg7bqgLBv1HVWXKgWAm6YoPf1LoWnyWGABbgk487Ma",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "7ZCxc2SDhzV2bYgEQqdxTpweYJkpwshVSDtXuY7uPtjf",
+      "instructions": [
+        {
+          "accounts": [0, 1],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX"
+    ]
+  },
+  "version": "legacy"
+}
+```

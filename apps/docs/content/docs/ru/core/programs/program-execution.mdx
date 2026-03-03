@@ -1,0 +1,181 @@
+---
+title: Выполнение программ
+description:
+  "Как Solana компилирует и выполняет программы: виртуальная машина sBPF, модель
+  вычислительных единиц, кэш программ и системные вызовы."
+url: /docs/core/programs/program-execution
+type: conceptual
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/programs/syscall-reference
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/program-deployment
+  - /docs/core/cpi/cpi-execution
+---
+
+{/* TOC: Компиляция, Написание программ, Модель выполнения программ, Кэш программ, Системные вызовы */}
+
+<Callout type="info" title="Кратко">
+  Программы компилируются в sBPF через LLVM и выполняются в изолированной
+  виртуальной машине с лимитом 1,4 млн вычислительных единиц (CU) на транзакцию.
+  В рантайме кэшируется до 512 скомпилированных программ, предоставляются
+  системные вызовы для логирования, CPI, криптографии и работы с памятью, а
+  новые деплойменты задерживаются на 1 slot.
+</Callout>
+
+## Компиляция
+
+Solana использует [LLVM](https://llvm.org/) для компиляции программ в бинарные
+файлы [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format),
+содержащие байткод Solana Bytecode Format (sBPF). ELF-бинарник хранится в сети
+на исполняемом аккаунте.
+
+<Callout>
+  sBPF — это собственный вариант байткода
+  [eBPF](https://en.wikipedia.org/wiki/EBPF), адаптированный для рантайма
+  Solana. Это не стандартный eBPF, а версия с модификациями, специфичными для
+  Solana.
+</Callout>
+
+## Написание программ
+
+Программы для Solana в основном пишутся на
+[Rust](https://rust-book.cs.brown.edu/title-page.html) двумя способами:
+
+<Cards>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs">
+    Фреймворк, использующий макросы Rust для сокращения шаблонного кода.
+    Рекомендуется большинству разработчиков.
+  </Card>
+  <Card title="Native Rust" href="/docs/programs/rust">
+    Чистый Rust без фреймворков. Даёт полный контроль, но требует больше ручной
+    реализации.
+  </Card>
+</Cards>
+
+## Модель выполнения программ
+
+Когда транзакция обрабатывается, рантайм выполняет каждую инструкцию
+последовательно через
+[`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15).
+Для каждой инструкции рантайм:
+
+1. **Готовит контекст инструкции.** Вызывает
+   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)
+   для сопоставления индексов аккаунтов инструкции, установки флагов подписанта
+   и возможности записи, а также настройки
+   [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467).
+
+2. **Проверяет прекомпайлы.** Если программа является
+   [precompile](/docs/core/programs/precompiles), рантайм вызывает
+   [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491),
+   который также пушит и попадает в стек-фрейм (через _rs`push()`_ и
+   _rs`pop()`_), но минует виртуальную машину sBPF и поиск в кэше программ,
+   выполняя нативный код напрямую.
+
+3. **Добавляет стековый кадр.** (Шаги 3–6 выполняются внутри
+   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
+   и
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507),
+   вызываемых из _rs`process_message()`_.) Вызывает
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
+   на
+   [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184),
+   что увеличивает высоту стека инструкций и применяет правило
+   реентерабельности: программа может повторно войти только в том случае, если
+   **непосредственный** вызывающий (программа на вершине стека инструкций) — это
+   та же программа. Глубокая саморекурсия (A → A → A) разрешена, но ограничена
+   глубиной стека. Другие паттерны реентерабельности (например, A вызывает B,
+   который вызывает A) возвращают _rs`InstructionError::ReentrancyNotAllowed`_.
+
+4. **Разрешает программу.** Время выполнения вызывает
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507),
+   который определяет загрузчик. Если владельцем аккаунта программы является
+   [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517),
+   программа считается встроенной, и её точка входа ищется напрямую в
+   [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706).
+   Если владельцем является один из BPF-загрузчиков (`bpf_loader_deprecated`,
+   `bpf_loader`, `bpf_loader_upgradeable` или `loader_v4`), вызывается
+   собственная встроенная точка входа загрузчика.
+
+5. **Выполняет BPF-программу.** Для BPF-программ
+   [loader entrypoint](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+   ищет скомпилированный исполняемый файл в кэше программ. Затем функция
+   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449):
+   - Сериализует данные аккаунта в плоский буфер параметров
+   - Создаёт sBPF VM со стеком, кучей и областями памяти
+   - Запускает скомпилированный код, расходуя вычислительные юниты во время
+     выполнения. Возвращает _rs`ComputationalBudgetExceeded`_, если лимит
+     вычислений превышен.
+   - Десериализует данные аккаунта из буфера обратно в состояние аккаунта
+
+6. **Удаляет стековый кадр.** Вызывает
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268),
+   который проверяет, что инструкция не нарушила правила учёта времени
+   выполнения (балансы lamport сбалансированы, только для чтения аккаунты не
+   были изменены, размеры данных аккаунта в пределах лимитов).
+
+7. **Суммирует вычислительные юниты.** Вычислительные юниты, потраченные
+   инструкцией, добавляются к общему количеству транзакции через
+   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53).
+
+## Кэш программ
+
+В рантайме поддерживается глобальный
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677),
+который хранит проверенные и скомпилированные программы. Он учитывает структуру
+fork-graph и управляет правилами видимости деплоя, удалением из кэша и
+перекомпиляцией на границе epoch.
+
+### Типы записей в кэше
+
+Каждая закэшированная программа имеет
+[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132),
+который определяет её поведение во время выполнения:
+
+| Тип                                                                                                               | Описание                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | Проверенная и скомпилированная программа, готовая к исполнению.                                                                                                                                                                                                                                    |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | Нативная программа, скомпилированная в бинарник validator (System, Stake, Vote и др.). Не хранится on-chain.                                                                                                                                                                                       |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | Ранее проверенная программа, чей скомпилированный исполняемый файл был выгружен из памяти для освобождения места. Статистика использования продолжает отслеживаться. Может быть загружена обратно без повторной проверки.                                                                          |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Tombstone для программ, не прошедших проверку sBPF при текущем наборе функций. Может стать `Loaded`, если активация функций изменит правила верификации.                                                                                                                                           |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | Tombstone для программ, которые были явно закрыты или никогда не деплоились. Также используется для аккаунтов (например, buffer-аккаунтов), которые принадлежат загрузчику, но не содержат исполняемый код.                                                                                        |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | Синтетический tombstone, возвращаемый [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755), когда существует запись `Loaded`, но она ещё не активна (её `effective_slot` в будущем). Никогда не хранится напрямую в кэше. |
+
+### Задержка видимости
+
+Только что задеплоенные или обновлённые программы становятся активными не сразу.
+Константа
+[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
+равна `1`, то есть программа, задеплоенная в slot N, становится активной в slot
+N+1. В течение слота деплоя любая попытка вызвать новую версию возвращает
+_rs`DelayVisibility`_, и рантайм сообщает: "Программа не задеплоена."
+
+### Политика вытеснения
+
+Кэш хранит до
+[`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)
+(512) скомпилированных программ. Когда лимит достигнут, наименее используемые
+программы вытесняются в состояние _rs`Unloaded`_. Использование отслеживается с
+помощью
+[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)
+(увеличивается каждый раз, когда транзакция ссылается на программу) и
+[`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199).
+
+### Рекомпиляция на границе эпохи
+
+Если активация функции изменяет
+[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)
+на границе epoch, все закэшированные программы
+[рекомпилируются](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L1494)
+для новой среды.
+
+## Возвращаемые данные
+
+Программы могут устанавливать возвращаемые данные через системный вызов
+`sol_set_return_data`. Данные сохраняются в структуре уровня транзакции
+[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499),
+которая содержит байты данных и `program_id` программы, вызвавшей этот системный
+вызов. Максимальный размер — 1 024 байта (_rs`MAX_RETURN_DATA`_).

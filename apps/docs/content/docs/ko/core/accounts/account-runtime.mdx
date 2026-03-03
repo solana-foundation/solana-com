@@ -1,0 +1,133 @@
+---
+title: 계정 런타임
+description:
+  Solana 런타임이 실행 전에 계정을 로드하고 검증하는 방법, 그리고 프로그램에
+  계정 데이터를 전달하는 데 사용되는 직렬화 형식입니다.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="요약">
+  실행 전에 런타임은 계정을 로드하고, 수수료 지불자를 검증하며, 렌트 면제를
+  확인하고, 프로그램이 접근할 수 있는 메모리 레이아웃으로 계정 데이터를
+  직렬화합니다.
+</Callout>
+
+<Callout>
+  이 페이지는 런타임 내부 구조를 다룹니다. 대부분의 개발자는 프로그램 구축을
+  위해 이 정보가 필요하지 않습니다. 개발자 관점의 내용은 [계정
+  구조](/docs/core/accounts/account-structure)를 참조하세요.
+</Callout>
+
+## 계정 로딩
+
+트랜잭션이 실행되기 전에 런타임은
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519)를
+통해 참조된 모든 계정을 로드합니다. 이 과정에서 여러 검증이 수행됩니다:
+
+1. **수수료 지불자 검증**: 수수료 지불자(첫 번째 계정)는 반드시 존재해야 하며,
+   시스템 계정 또는 논스 계정이어야 하고, 수수료를 충당할 충분한 램포트를
+   보유해야
+   합니다([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   수수료 지불 후 계정은 렌트 면제 상태를 유지하거나 정확히 0 램포트가 되어야
+   합니다. 0과 렌트 면제 최소값 사이의 값으로 끝날 수 없습니다. 논스 계정은 항상
+   렌트 면제를 유지하기에 충분한 램포트를 보유해야 합니다. 지불자가 시스템
+   계정도 논스 계정도 아닌 경우, 트랜잭션은
+   _rs`TransactionError::InvalidAccountForFee`_ 오류로 실패합니다.
+
+2. **로드된 데이터 크기 제한**: 로드된 모든 계정의 총 크기(계정당
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   64바이트 포함)는
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)(64
+   MiB)를 초과할 수 없습니다. 이 제한을 초과하면
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_ 오류가 발생합니다.
+
+3. **프로그램 계정 검증**: 인스트럭션에 의해 호출되는 모든 프로그램은 반드시
+   존재해야 하며, 유효한
+   로더([`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   중 하나: BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4
+   또는 네이티브 로더)가 소유해야 합니다. 프로그램 계정이 존재하지 않으면
+   트랜잭션은 _rs`TransactionError::ProgramAccountNotFound`_ 오류로 실패합니다.
+   존재하지만 유효하지 않은 소유자를 가진 경우, 트랜잭션은
+   _rs`TransactionError::InvalidProgramForExecution`_ 오류로 실패합니다.
+
+4. **존재하지 않는 계정**: 온체인에 존재하지 않는 계정은 `rent_epoch`가
+   `u64::MAX`로 설정된 기본 계정(0 램포트, 빈 데이터, 시스템 프로그램 소유)으로
+   로드됩니다.
+
+## BPF 직렬화 형식
+
+프로그램이 호출되면 런타임은 계정을 연속된 메모리 버퍼로 직렬화하여 BPF VM에
+전달합니다. 직렬화 형식(더 이상 사용되지 않는 loader-v1을 제외한 모든 로더에서
+사용하는 표준 정렬 형식)은
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578)에
+정의되어 있습니다.
+
+버퍼는 계정 수를 포함하는 `u64`(8바이트, 리틀 엔디안)로 시작합니다. 그런 다음
+명령어의 각 계정에 대해 버퍼에는 다음이 포함됩니다:
+
+| 오프셋        | 크기         | 필드                               | 타입                                                                                                         |
+| ------------- | ------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 0             | 1            | 중복 마커                          | `u8` (`0xFF` = 고유, 인덱스 = 해당 계정의 중복)                                                              |
+| 1             | 1            | is_signer                          | `u8` (0 또는 1)                                                                                              |
+| 2             | 1            | is_writable                        | `u8` (0 또는 1)                                                                                              |
+| 3             | 1            | executable                         | `u8` (0 또는 1)                                                                                              |
+| 4             | 4            | original_data_len (예약됨, 항상 0) | `[0u8; 4]`                                                                                                   |
+| 8             | 32           | key                                | `Pubkey`                                                                                                     |
+| 40            | 32           | owner                              | `Pubkey`                                                                                                     |
+| 72            | 8            | lamports                           | `u64` (리틀 엔디안)                                                                                          |
+| 80            | 8            | data_len                           | `u64` (리틀 엔디안)                                                                                          |
+| 88            | data_len     | data                               | `[u8]`                                                                                                       |
+| 88 + data_len | 10240 + 패딩 | 재할당 공간 + 정렬                 | `MAX_PERMITTED_DATA_INCREASE` (10 KiB)까지 0으로 채워짐 + `BPF_ALIGN_OF_U128` (8바이트)로 정렬하기 위한 패딩 |
+| ...           | 8            | rent_epoch                         | `u64` (리틀 엔디안)                                                                                          |
+
+모든 계정 다음에 버퍼는 다음을 추가합니다:
+
+| 크기                 | 필드                                      |
+| -------------------- | ----------------------------------------- |
+| 8                    | instruction_data_len (`u64`, 리틀 엔디안) |
+| instruction_data_len | instruction_data                          |
+| 32                   | program_id (`Pubkey`)                     |
+
+중복 계정의 경우, 1바이트(원본 인덱스가 포함된 중복 마커)와 7바이트의 패딩만
+작성됩니다.
+
+## 계정 중복 제거
+
+동일한 계정 공개 키가 명령어의 `accounts` 배열에 여러 번 나타나는 경우, 런타임은
+이를
+[중복 제거](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)합니다.
+명령어의 계정 목록에 있는 각 항목은 자체
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+구조체를 가지지만, 동일한 트랜잭션 수준 계정을 참조하는 항목들은 동일한 기본
+데이터를 가리킵니다.
+
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+메서드는 주어진 명령어 계정 인덱스가 첫 번째 발생인지 중복인지를 트랜잭션 수준
+계정 인덱스를 조회하고 이에 매핑되는 첫 번째 명령어 수준 인덱스를 찾아
+결정합니다:
+
+- 현재 명령어 계정 인덱스가 첫 번째 매핑된 인덱스와 같으면 중복이 **아닙니다**
+  (`None` 반환).
+- 그렇지 않으면 `Some(first_index)`를 반환하며, 여기서 `first_index`는 첫 번째
+  발생의 인덱스입니다.
+
+동일한 계정에 대한 모든 참조는 동일한 기본 *rs`AccountSharedData`*를 공유하므로,
+어떤 참조를 통한 수정이든 다른 모든 참조를 통해 즉시 표시됩니다. 그러나 한 번에
+하나의 가변 차용만 보유할 수 있습니다. 두 개의 서로 다른 명령어 계정 인덱스를
+통해 동일한 계정을 동시에 가변적으로 차용하려고 시도하면
+*rs`InstructionError::AccountBorrowFailed`*를 반환합니다. 프로그램은 동일한 기본
+계정에서 다른 차용을 획득하기 전에 하나의 차용을 해제해야 합니다.
+
+프로그램이 실행된 후, 런타임은 버퍼를
+역직렬화하고([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+`lamports`, `data`(*rs`MAX_PERMITTED_DATA_INCREASE`*까지의 길이 변경 포함),
+`owner`에 대한 모든 변경 사항을 적용합니다.

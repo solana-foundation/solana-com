@@ -1,0 +1,109 @@
+---
+title: Deployment program
+description:
+  Melakukan deployment, upgrade, dan verifikasi program Solana. Referensi
+  instruksi Loader-v3, mekanisme upgrade 9 langkah, verifikasi build, dan 5
+  jenis program loader.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Ringkasan">
+  Program yang di-deploy melalui loader-v3 dapat di-upgrade ketika upgrade
+  authority ditetapkan. Mencabut authority membuat program menjadi immutable.
+  Mencakup mekanisme upgrade 9 langkah, semua 9 instruksi loader-v3, verifikasi
+  build, dan 5 jenis loader.
+</Callout>
+
+## Melakukan deployment program
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    Deploy menggunakan Solana CLI dengan `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Deploy menggunakan framework Anchor dengan `anchor deploy`.
+  </Card>
+</Cards>
+
+## Melakukan upgrade program
+
+Untuk meng-upgrade program, sebuah akun harus memiliki upgrade authority
+(biasanya akun yang awalnya
+[melakukan deploy program](/docs/programs/deploying)). Selama deployment atau
+upgrade, bytecode baru diunggah ke akun buffer sementara, kemudian ditulis ke
+programdata account. Menetapkan upgrade authority ke _rs`None`_ membuat program
+menjadi immutable dan secara permanen mencegah update lebih lanjut.
+
+### Mekanisme upgrade
+
+Ketika
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+diproses, runtime:
+
+1. Memverifikasi program account dapat ditulis dan dimiliki oleh loader-v3.
+2. Memverifikasi buffer account berisi state _rs`Buffer`_ dengan authority yang
+   benar.
+3. Memverifikasi `upgrade_authority_address` programdata account cocok dan bukan
+   _rs`None`_.
+4. Memverifikasi program belum di-deploy dalam slot saat ini
+   (`clock.slot != slot`).
+5. Memuat dan memverifikasi byte ELF baru dari buffer.
+6. Menyalin bytecode baru dari buffer ke programdata account dan mengosongkan
+   byte yang tersisa.
+7. Mendanai programdata account hingga rent-exemption.
+8. Menguras buffer account (mengatur lamports ke 0) dan memotong datanya.
+9. Versi baru menjadi efektif di slot berikutnya (`deployment_slot + 1`).
+
+Akun `Program` itu sendiri (state-nya dan pointer `programdata_address`) tidak
+berubah selama upgrade. Hanya bytecode akun _rs`ProgramData`_ dan metadata slot
+yang diperbarui.
+
+## Referensi instruksi Loader-v3
+
+Loader-v3 (BPF Loader Upgradeable) adalah loader default saat ini untuk
+men-deploy program di Solana.
+
+| Instruksi                                                                                                    | Deskripsi                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Mengatur state akun buffer menjadi `Buffer` dengan authority yang ditentukan. Gagal jika sudah diinisialisasi.                                                                                                                         |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Menulis byte pada offset yang ditentukan dalam akun buffer. Authority harus menandatangani.                                                                                                                                            |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Membuat program baru: menurunkan alamat ProgramData, membuat akun ProgramData melalui CPI ke System Program, memverifikasi dan men-deploy ELF dari buffer, mengatur state akun Program dan menandainya sebagai executable.             |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Mengganti bytecode dalam akun ProgramData program yang sudah ada dari buffer.                                                                                                                                                          |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Mengubah authority akun Buffer atau ProgramData. Mengatur ke `None` pada ProgramData membuat program menjadi immutable. Authority buffer tidak dapat diatur ke `None`.                                                                 |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | Seperti `SetAuthority`, tetapi memerlukan authority baru untuk juga menandatangani transaksi.                                                                                                                                          |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Menutup akun buffer, uninitialized, atau ProgramData dengan mentransfer lamport-nya ke penerima. Menutup ProgramData juga menulis tombstone `Closed` ke cache program. Tidak dapat menutup program yang di-deploy pada slot saat ini.  |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | Memperluas alokasi akun ProgramData dengan byte tambahan, mendanai rent ekstra dari payer.                                                                                                                                             |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | Memigrasikan program loader-v3 ke loader-v4 dengan mentransfer kepemilikan akun program dan menyalin bytecode. Memerlukan migration authority atau upgrade authority program untuk menandatangani. Loader-v4 belum dirilis di mainnet. |
+
+## Memverifikasi program
+
+Solana mendukung [verifiable builds](/docs/programs/verified-builds), yang
+memungkinkan pengguna mengonfirmasi bahwa bytecode on-chain program cocok dengan
+kode sumber publiknya. Framework Anchor menyediakan
+[dukungan bawaan](https://www.anchor-lang.com/docs/verifiable-builds) untuk
+verifiable builds.
+
+Untuk memeriksa status verifikasi program yang telah di-deploy, cari program
+ID-nya di
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY),
+atau gunakan Ellipsis Labs
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+untuk memverifikasi program on-chain secara independen.
+
+## Program loader
+
+| Loader                     | Alamat                                        | Dapat di-upgrade                         | Deskripsi                                                  |
+| -------------------------- | --------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | Hanya melalui upgrade software validator | Memiliki builtins (System, Vote, Stake) dan loader lainnya |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Tidak (manajemen loader dinonaktifkan)   | Program legacy                                             |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Tidak (manajemen loader dinonaktifkan)   | Program legacy                                             |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Ya, jika upgrade authority diatur        | Memiliki semua program yang baru di-deploy                 |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | Ya, jika authority diatur                | Belum dirilis di mainnet                                   |

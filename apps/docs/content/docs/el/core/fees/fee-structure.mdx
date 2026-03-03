@@ -1,0 +1,324 @@
+---
+title: Δομή τελών
+description:
+  Πώς υπολογίζονται τα τέλη συναλλαγών Solana, συμπεριλαμβανομένου του βασικού
+  τέλους ανά υπογραφή, του τύπου τέλους προτεραιότητας, της κατανομής τελών και
+  του τρόπου ορισμού τελών χρησιμοποιώντας οδηγίες προϋπολογισμού υπολογισμού.
+url: /docs/core/fees/fee-structure
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/precompiles
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Fee calculation algorithm, Base fee, Fee distribution, Prioritization fee, Prioritization fee formula, Compute unit price, Transaction scheduling priority, Example */}
+
+<Callout type="info" title="Περίληψη">
+  Συνολικό τέλος = βασικό τέλος (5.000 lamports/υπογραφή, 50% καίγεται) + τέλος
+  προτεραιότητας (CU_price * CU_limit / 1M lamports, 100% στον validator).
+  Χρεώνεται ανεξάρτητα από το αν η συναλλαγή επιτυγχάνει ή αποτυγχάνει.
+</Callout>
+
+## Αλγόριθμος υπολογισμού τελών
+
+Το συνολικό τέλος για μια συναλλαγή υπολογίζεται από τη
+[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72):
+
+```text title="Total fee formula"
+total_fee = base_fee + prioritization_fee
+```
+
+Οι είσοδοι είναι το μήνυμα συναλλαγής, το τρέχον `lamports_per_signature` (επί
+του παρόντος 5.000) και το τέλος προτεραιότητας που προκύπτει από τις οδηγίες
+προϋπολογισμού υπολογισμού. Το συνολικό τέλος αφαιρείται από τον πληρωτή τελών
+πριν ξεκινήσει η εκτέλεση. Αν η συναλλαγή αποτύχει, το τέλος εξακολουθεί να
+χρεώνεται.
+
+## Βασικό τέλος
+
+Το βασικό τέλος καλύπτει το κόστος επαλήθευσης υπογραφής Ed25519 συν τυχόν
+επαληθεύσεις υπογραφών precompile. Κάθε υπογραφή στη συναλλαγή χρεώνεται,
+συμπεριλαμβανομένων των υπογραφών που επαληθεύονται από τα προγράμματα
+precompile Ed25519, Secp256k1 και Secp256r1.
+
+Η συνάρτηση
+[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
+υπολογίζει:
+
+```text title="Base fee formula"
+signature_count = num_transaction_signatures
+                + num_ed25519_signatures
+                + num_secp256k1_signatures
+                + num_secp256r1_signatures   (if feature enabled)
+
+base_fee = signature_count * lamports_per_signature
+```
+
+- `num_transaction_signatures`: ο αριθμός των υπογραφών Ed25519 στη συναλλαγή
+  (συνήθως μία ανά υπογράφοντα).
+- `num_ed25519_signatures`, `num_secp256k1_signatures`,
+  `num_secp256r1_signatures`: υπογραφές που επαληθεύονται από τα αντίστοιχα
+  προγράμματα precompile.
+- `lamports_per_signature`: επί του παρόντος
+  [5.000 lamports](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210).
+
+### Κατανομή τελών
+
+Το βασικό τέλος και το τέλος προτεραιότητας κατανέμονται διαφορετικά. Η
+συνάρτηση
+[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
+στο runtime υπολογίζει:
+
+```text title="Fee distribution"
+burn_amount     = transaction_fee * 50 / 100
+validator_share = (transaction_fee - burn_amount) + priority_fee
+```
+
+- **Βασικό τέλος (transaction_fee)**: το 50%
+  [καίγεται](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
+  (αφαιρείται από την κυκλοφορούσα προσφορά) και το 50% πηγαίνει στον validator
+  που παράγει το block. Το ποσοστό καύσης είναι
+  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70).
+- **Τέλος προτεραιότητας**: το 100% πηγαίνει στον validator (τίποτα δεν
+  καίγεται), σύμφωνα με το
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md).
+
+Η συνολική ανταμοιβή του validator για μια συναλλαγή είναι:
+
+```text
+validator_reward = (base_fee / 2) + prioritization_fee
+```
+
+## Τέλος προτεραιότητας
+
+Το τέλος προτεραιότητας είναι ένα προαιρετικό τέλος που αυξάνει την
+προτεραιότητα προγραμματισμού μιας συναλλαγής. Μια μονάδα υπολογισμού (CU) είναι
+μια μονάδα υπολογιστικής ισχύος που το runtime μετρά κατά την εκτέλεση της
+συναλλαγής. Κάθε λειτουργία (αριθμητική, πρόσβαση μνήμης, syscall) κοστίζει έναν
+σταθερό αριθμό CU. Μπορείτε να ορίσετε το τέλος προτεραιότητας
+συμπεριλαμβάνοντας οδηγίες compute budget στη συναλλαγή σας. (Δείτε τον
+[οδηγό How to Use Priority Fees](/developers/guides/advanced/how-to-use-priority-fees)
+για λεπτομέρειες.)
+
+### Τύπος τέλους προτεραιότητας
+
+Η συνάρτηση
+[`get_prioritization_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L61-L69)
+υπολογίζει:
+
+```text title="Prioritization fee formula"
+micro_lamport_fee = compute_unit_price * compute_unit_limit
+prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
+```
+
+| Μεταβλητή            | Περιγραφή                                                                                                                                                                             | Προεπιλογή                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `compute_unit_price` | Micro-lamports ανά CU, ορίζεται μέσω `SetComputeUnitPrice`                                                                                                                            | 0 micro-lamports                |
+| `compute_unit_limit` | Μέγιστα CU που μπορεί να καταναλώσει η συναλλαγή, ορίζεται μέσω `SetComputeUnitLimit`                                                                                                 | Άθροισμα προεπιλογών ανά οδηγία |
+| `1,000,000`          | Συντελεστής μετατροπής από micro-lamports σε lamports ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)) | --                              |
+
+### Όριο μονάδων υπολογισμού
+
+Το όριο μονάδων υπολογισμού είναι ο μέγιστος αριθμός CU που μπορεί να
+καταναλώσει μια συναλλαγή. Εάν δεν συμπεριληφθεί οδηγία
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32),
+η προεπιλογή υπολογίζεται από τον αριθμό και τον τύπο των οδηγιών (200.000 CU
+ανά μη builtin οδηγία, 3.000 ανά builtin). Δείτε το
+[Compute Budget](/docs/core/fees/compute-budget) για λεπτομέρειες σχετικά με τον
+προεπιλεγμένο υπολογισμό.
+
+<Callout type="warn">
+  Το τέλος προτεραιότητας βασίζεται στο ζητούμενο όριο CU, όχι στην πραγματική
+  χρήση CU. Ο ορισμός υψηλότερου ορίου από το απαραίτητο σημαίνει πληρωμή για
+  αχρησιμοποίητες μονάδες υπολογισμού.
+</Callout>
+
+### Τιμή μονάδας υπολογισμού
+
+Η τιμή μονάδας υπολογισμού είναι ένα προαιρετικό ποσό micro-lamports που
+πληρώνεται για κάθε ζητούμενο CU. Η τιμή CU καθορίζει άμεσα το τέλος
+προτεραιότητας. Για να ορίσετε την τιμή CU, συμπεριλάβετε μια οδηγία
+[`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L35)
+στη συναλλαγή σας.
+
+<Callout>
+  Η προεπιλεγμένη τιμή CU είναι 0, που σημαίνει ότι η προεπιλεγμένη χρέωση
+  προτεραιότητας είναι επίσης 0.
+</Callout>
+
+Για εκτιμήσεις τιμής CU σε πραγματικό χρόνο, δείτε τους παρόχους API χρέωσης
+προτεραιότητας παρακάτω.
+
+| Πάροχος                                 | API χρέωσης προτεραιότητας                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| [Helius](https://www.helius.dev/)       | [Τεκμηρίωση](https://docs.helius.dev/solana-apis/priority-fee-api)             |
+| [QuickNode](https://www.quicknode.com/) | [Τεκμηρίωση](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
+| [Triton](https://triton.one/)           | [Τεκμηρίωση](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
+
+### Προτεραιότητα προγραμματισμού συναλλαγών
+
+Ο προγραμματιστής κατατάσσει τις συναλλαγές χρησιμοποιώντας τη συνάρτηση
+[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546):
+
+```text title="Transaction priority formula"
+Priority = reward * 1,000,000 / (cost + 1)
+```
+
+- **reward**: το εισόδημα από χρεώσεις του validator = χρέωση προτεραιότητας +
+  μη καμένο μέρος της βασικής χρέωσης. Υπολογίζεται από τη συνάρτηση
+  [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83).
+- **cost**: το
+  [εκτιμώμενο κόστος CU](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
+  του προγραμματιστή (κόστη υπογραφών + κόστη κλειδωμάτων εγγραφής + κόστη
+  δεδομένων εντολών + κόστη εκτέλεσης προγράμματος + κόστος μεγέθους δεδομένων
+  φορτωμένων λογαριασμών). Δείτε
+  [Compute Budget](/docs/core/fees/compute-budget#scheduler-cost-model) για
+  λεπτομέρειες.
+- **1.000.000**: πολλαπλασιαστής για διατήρηση ακρίβειας, καθώς το κόστος συχνά
+  υπερβαίνει την ανταμοιβή σε ακατέργαστα lamports.
+- **+1**: αποτρέπει τη διαίρεση με το μηδέν.
+
+Η προτεραιότητα καθορίζει τη σειρά με την οποία οι συναλλαγές αφαιρούνται από τη
+μνήμη buffer του προγραμματιστή για εκτέλεση.
+
+## Παράδειγμα: ορισμός του ορίου CU και της τιμής CU
+
+Τα παρακάτω παραδείγματα δείχνουν πώς να ορίσετε το όριο CU και την τιμή CU σε
+μια συναλλαγή χρησιμοποιώντας τα Solana SDKs.
+
+| SDK                            | Αναφορά πηγαίου κώδικα                                                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218)   |
+| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24) |
+
+<CodeTabs storage="compute-budget">
+
+```ts !! title="Typescript"
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+```
+
+```rust !! title="Rust"
+let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+
+let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+```
+
+</CodeTabs>
+
+<CodeTabs storage="compute-budget" flags="r">
+
+```ts !! title="Typescript"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection,
+  ComputeBudgetProgram,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Create compute budget instructions
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// Add the compute budget and transfer instructions to a new transaction
+const transaction = new Transaction()
+  .add(limitInstruction)
+  .add(priceInstruction)
+  .add(transferInstruction);
+
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  sender
+]);
+
+console.log("Transaction Signature:", signature);
+```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Create compute budget instructions
+    let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+    let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+
+    let transfer_amount = LAMPORTS_PER_SOL / 100;
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[limit_instruction, price_instruction, transfer_instruction],
+        Some(&sender.pubkey()),
+    );
+    transaction.sign(&[&sender], recent_blockhash);
+
+    let signature = client.send_and_confirm_transaction(&transaction).await?;
+    println!("Transaction Signature: {}", signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

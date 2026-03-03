@@ -1,0 +1,211 @@
+---
+title: CPI 실행 및 권한
+description:
+  Solana 런타임을 통한 11단계 CPI 실행 흐름, 권한 확장 규칙, 재진입 제한 및
+  승인된 프로그램 검사입니다.
+url: /docs/core/cpi/cpi-execution
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI execution flow, Privilege rules */}
+
+<Callout type="info" title="요약">
+  CPI는 권한 검사, 계정 변환 및 데이터 동기화를 포함한 11개의 런타임 단계를
+  거칩니다. 최대 호출 깊이: 5 (SIMD-0268에서는 9). 권한 규칙은 호출 대상이
+  호출자가 부여한 것 이상으로 권한을 확대하는 것을 방지합니다.
+</Callout>
+
+## 권한 규칙
+
+CPI는 호출자의 계정 권한을 엄격한 시행과 함께 호출 대상에게 확장합니다. 런타임은
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)에서
+이러한 규칙을 검사합니다:
+
+| 시나리오                                                                                                | 허용 여부 | 시행 지점                                                                                                                   | 오류                   |
+| ------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 호출자가 계정을 쓰기 가능으로 전달하고, 호출 대상이 쓰기 가능으로 표시                                  | 예        | --                                                                                                                          | --                     |
+| 호출자가 계정을 읽기 전용으로 전달하고, 호출 대상이 쓰기 가능으로 표시                                  | 아니오    | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| 호출자가 계정을 쓰기 가능으로 전달하고, 호출 대상이 읽기 전용으로 표시                                  | 예        | --                                                                                                                          | --                     |
+| 호출자가 계정을 서명자로 전달하고, 호출 대상이 서명자로 표시                                            | 예        | --                                                                                                                          | --                     |
+| 호출자가 계정을 비서명자로 전달하고, 호출 대상이 서명자로 표시하며, 계정이 호출자의 시드에서 파생된 PDA | 예        | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| 호출자가 계정을 비서명자로 전달하고, 호출 대상이 서명자로 표시하며, 계정이 호출자의 PDA가 아님          | 아니오    | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| 호출자가 계정을 서명자로 전달하고, 호출 대상이 비서명자로 표시                                          | 예        | --                                                                                                                          | --                     |
+| 프로그램 A가 자기 자신을 직접 호출 (A -> A)                                                             | 예        | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| 프로그램 A가 B를 호출하고 B가 A를 호출 (간접 재진입)                                                    | 아니오    | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| 네이티브 로더, bpf_loader, bpf_loader_deprecated 또는 프리컴파일로의 CPI                                | 아니오    | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| 트랜잭션에서 계정을 찾을 수 없음                                                                        | 아니오    | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+권한 규칙은 다음과 같이 요약할 수 있습니다:
+
+1. **쓰기 가능 권한은 상승할 수 없습니다.** 호출자가 계정을 읽기 전용으로
+   표시하면, 피호출자는 이를 쓰기 가능으로 표시할 수 없습니다.
+2. **서명자 권한은 승인이 필요합니다.** 계정은 다음의 경우에만 피호출자에서
+   서명자가 될 수 있습니다: (a) 호출자에서 이미 서명자였거나, (b)
+   *rs`invoke_signed`*를 통해 호출 프로그램의 시드에서 파생된 PDA인 경우.
+3. **권한 축소는 항상 허용됩니다.** 피호출자는 호출자가 부여한 것보다 적은
+   권한을 사용할 수 있습니다.
+
+## CPI 실행 흐름
+
+CPI는 여러 런타임 레이어를 통과합니다. 이 섹션에서는 프로그램 SDK 호출에서
+시스콜 경계를 통해 런타임으로 들어가고 다시 돌아오는 전체 파이프라인을
+문서화합니다. 각 단계는 이를 구현하는 소스 파일을 참조합니다.
+
+<Callout>
+  프로그램 명령 호출의 최대 높이는
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L66)라고 하며,
+  [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)
+  상수 값인 5로 설정되어 있습니다. [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)가 활성화되면 9로 증가합니다.
+
+스택 높이 1은 초기 트랜잭션 명령입니다. 각 CPI는 높이를 1씩 증가시킵니다. 최대
+5는 프로그램이 최대 4단계 깊이까지 CPI를 수행할 수 있음을
+의미합니다(SIMD-0268에서는 8단계 깊이).
+
+</Callout>
+
+### 1단계: 프로그램이 `invoke` 또는 `invoke_signed` 호출
+
+프로그램은
+[`invoke`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L26)
+또는
+[`invoke_signed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L51)를
+호출합니다. *rs`invoke`*는 빈 서명자 시드 배열로 *rs`invoke_signed`*를 호출하는
+얇은 래퍼입니다. SDK 함수는 _rs`Instruction`_, _rs`AccountInfo`_ 슬라이스,
+그리고 서명자 시드를 VM 메모리로 직렬화한 다음 시스콜을 트리거합니다.
+
+### 2단계: 시스콜 진입
+
+SBF VM은
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)
+시스콜 핸들러로 디스패치하며, 이는 공유 진입점인
+[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925)를
+호출합니다.
+
+### 3단계: 호출 비용 소비
+
+_rs`cpi_common`_ 내부의 첫 번째 작업은 공유 컴퓨트 미터에서
+[고정 호출 비용을 차감](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)하는
+것입니다:
+[`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108)
+= 1,000 CU (또는 SIMD-0339 적용 시 946 CU).
+
+### 4단계: VM 메모리에서 명령어 변환
+
+시스콜 핸들러는 프로그램의 VM 주소 공간에서 호스트 측 Rust 타입으로 명령어를
+[`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590)를
+통해 변환합니다. 이는 _rs`StableInstruction`_ 구조체를 읽고, 데이터 길이를
+[`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)
+(10,240바이트)에 대해 검증한 다음,
+[데이터 직렬화 비용](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569)을
+차감합니다.
+
+### 5단계: 서명자 seed 변환 및 PDA 파생
+
+핸들러는
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)를
+호출합니다. 각 서명자 seed 세트에 대해 런타임은 다음을 수행합니다:
+
+1. 서명자 seed 세트의 개수를
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16개)와 비교하여 확인합니다.
+2. 각 seed 세트의 길이를
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (세트당 16개 seed)와 비교하여 확인합니다.
+3. seed와 **호출자의** 프로그램 ID를 사용하여
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)를
+   호출합니다. seed가 유효한 PDA를 생성하지 못하면 CPI는
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36)
+   오류와 함께 실패합니다.
+4. 결과로 생성된 PDA 공개키를 `signers` 벡터에 수집합니다.
+
+이렇게 파생된 PDA는 피호출자 명령어에 대한 유효한 서명자로 취급됩니다.
+
+### 6단계: 승인된 프로그램 확인
+
+진행하기 전에 런타임은
+[`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)를
+호출하여 대상 프로그램이 CPI에 허용되는지 확인합니다. 다음 프로그램들은
+차단됩니다:
+
+- 네이티브 로더
+- `bpf_loader` 및 `bpf_loader_deprecated`
+- `bpf_loader_upgradeable` (특정 관리 명령어 제외: `upgrade`, `set_authority`,
+  `set_authority_checked` (기능 게이트 적용), `extend_program_checked` (기능
+  게이트 적용), `close`)
+- 프리컴파일 프로그램 (ed25519, secp256k1 등)
+
+위반 시
+[`ProgramNotSupported`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L55)를
+반환합니다.
+
+### 7단계: 권한 검증 (`prepare_next_instruction`)
+
+런타임은
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)를
+호출하여 피호출자의 _rs`InstructionAccount`_ 목록을 구성하고 권한 규칙을
+적용합니다. 전체 결정 테이블은 아래 [권한 규칙](#privilege-rules)을 참조하세요.
+
+### 8단계: 계정 정보 변환
+
+핸들러는 `translate_accounts`를 호출하며, 이는 다음을 수행합니다:
+
+1. [계정 정보 개수를 검증](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)하여
+   _rs`MAX_CPI_ACCOUNT_INFOS`_(128개, 또는 SIMD-0339에서는 255개)와 비교합니다.
+2. [계정 정보 변환 비용을 청구](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)합니다(SIMD-0339만
+   해당): `(num_account_infos * 80) / 250` CU.
+3. 실행 불가능하고 중복되지 않은 각 계정에 대해 VM 메모리에서 호스트 메모리로
+   포인터를 변환하여
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)를
+   구축합니다. 여기에는
+   [계정별 데이터 직렬화 비용 청구](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374)가
+   포함됩니다: `account_data_len / cpi_bytes_per_unit` CU.
+
+### 9단계: CPI 이전 계정 동기화 (호출자에서 피호출자로)
+
+피호출자를 실행하기 전에 런타임은 호출자의 계정 수정 사항을 동기화하여
+피호출자가 이를 볼 수 있도록 합니다. 변환된 각 계정에 대해
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+함수가 호출되어 lamport, 데이터 및 소유자를 복사합니다. 자세한 필드 매핑은
+[계정 데이터 동기화](/docs/core/cpi/cpi-cost-model#account-data-synchronization)를
+참조하세요.
+
+### 10단계: 명령어 컨텍스트 푸시, 피호출자 실행 및 팝
+
+런타임은
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488)를
+호출하며, 이는 다음을 수행합니다:
+
+1. [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)를
+   호출하여 명령어 스택에 새 프레임을 추가합니다. *rs`push()`*는
+   [재진입 규칙](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)을
+   적용합니다: 프로그램은 직접 호출자인 경우에만 자신을 호출할 수 있습니다(즉,
+   프로그램 A는 A를 호출할 수 있지만, A는 B를 호출하고 B가 다시 A를 호출할 수
+   없습니다). 위반 시 *rs`ReentrancyNotAllowed`*를 반환합니다.
+2. [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602)를
+   호출하여 피호출자의 프로그램 진입점을 확인하고 실행합니다. 피호출자는 동일한
+   공유 컴퓨팅 미터로 실행됩니다. 피호출자의 모든 CU 소비는 호출자의 남은 예산을
+   감소시킵니다.
+3. [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)를
+   호출하여 피호출자의 프레임을 제거하고 lamport 잔액이 변경되지 않았는지
+   확인합니다(변경된 경우 _rs`UnbalancedInstruction`_).
+
+### 11단계: CPI 이후 계정 동기화 (피호출자에서 호출자로)
+
+`process_instruction`가 반환된 후(팝 포함), 런타임은 쓰기 가능한 각 계정에 대해
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)를
+통해 변경 사항을 호출자에게 다시 동기화합니다. 또한
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)는
+데이터 영역이 변경된 계정에 대한 VM 메모리 영역 매핑을 업데이트합니다. 자세한
+필드 매핑은
+[계정 데이터 동기화](/docs/core/cpi/cpi-cost-model#account-data-synchronization)를
+참조하세요.
+
+CPI 시스템 콜은 호출자 프로그램에 `0`(성공)를 반환합니다.

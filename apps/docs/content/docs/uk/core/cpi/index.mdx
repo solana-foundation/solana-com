@@ -1,0 +1,92 @@
+---
+title: Cross Program Invocation
+description:
+  Cross Program Invocation (CPI) на Solana — як програми викликають інші
+  програми за допомогою invoke та invoke_signed, обробляють підписувачів PDA та
+  компонують функціональність у мережі.
+url: /docs/core/cpi
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/programs
+related:
+  - /docs/core/cpi/cpi-without-pda
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/pda
+---
+
+Cross Program Invocation (CPI) — це коли одна [програма](/docs/core/programs)
+викликає [інструкцію](/docs/core/instructions) іншої програми під час виконання.
+CPI забезпечують композиційність: інструкції будь-якої програми можуть бути
+викликані будь-якою іншою програмою в мережі.
+
+![Приклад міжпрограмного виклику](/assets/docs/core/cpi/cpi.svg)
+
+<Cards>
+  <Card title="CPI без підписувачів PDA" href="/docs/core/cpi/cpi-without-pda">
+    Використання функції invoke, Anchor CpiContext, приклади на нативному Rust,
+    приклади CPI для переказу SOL.
+  </Card>
+  <Card title="CPI з підписувачами PDA" href="/docs/core/cpi/cpi-with-pda">
+    Використання invoke_signed з сідами підписувача, Anchor CpiContext з PDA,
+    приклади підписання PDA на нативному Rust.
+  </Card>
+  <Card title="Виконання CPI та привілеї" href="/docs/core/cpi/cpi-execution">
+    11-кроковий процес виконання CPI, правила розширення привілеїв,
+    реентерабельність, валідація акаунтів.
+  </Card>
+  <Card
+    title="Модель вартості CPI та синхронізація даних"
+    href="/docs/core/cpi/cpi-cost-model"
+  >
+    Формула вартості CPI, витрати на серіалізацію, синхронізація даних акаунтів,
+    підписання PDA, повернення даних.
+  </Card>
+</Cards>
+
+## Ключові факти
+
+- **Дві функції**: _rs`invoke`_ (без підписання PDA) та _rs`invoke_signed`_ (з
+  підписанням PDA).
+- **Розширення привілеїв**: привілеї [акаунта](/docs/core/accounts) (підписувач,
+  доступний для запису) передаються від викликача до викликаного. Викликаний не
+  може підвищити привілеї понад те, що передав викликач.
+- **Спільний бюджет обчислень**: споживання CU викликаним зменшує залишковий
+  бюджет викликача.
+- **Реентерабельність**: пряма самостійна рекурсія дозволена (A->A->A). Непряма
+  реентерабельність заборонена (A->B->A повертає _rs`ReentrancyNotAllowed`_).
+
+## Обмеження
+
+| Обмеження                                | Значення                   | Джерело                                                                                                                                                                                                                                                         |
+| ---------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Макс. глибина стеку інструкцій           | 5 (9 з SIMD-0268)          | [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8), [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) |
+| Вартість виклику CPI                     | 1,000 CU (946 з SIMD-0339) | [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21), [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)              |
+| Макс. підписувачів PDA на CPI            | 16                         | [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)                                                                                                                                                                   |
+| Макс. розмір instruction data для CPI    | 10 КіБ (10,240 байтів)     | [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)                                                                                                                                                  |
+| Макс. розмір даних, що повертаються      | 1,024 байти                | [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)                                                                                                                                                             |
+| Макс. кількість account infos для CPI    | 128 (255 з SIMD-0339)\*    | [`MAX_CPI_ACCOUNT_INFOS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L122), [`MAX_CPI_ACCOUNT_INFOS_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L124)                                    |
+| Вартість серіалізації CPI                | 1 CU на 250 байтів         | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205)                                                                                                                                              |
+| Макс. зміна розміру даних акаунта на CPI | 10,240 байтів (10 КіБ)     | [`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)                                                                                                                                         |
+
+## `invoke` проти `invoke_signed`
+
+Solana надає дві функції для здійснення CPI:
+
+| Функція         | Випадок використання                                                              | Підписання PDA              |
+| --------------- | --------------------------------------------------------------------------------- | --------------------------- |
+| `invoke`        | CPI, де всі необхідні підписувачі вже підписали початкову транзакцію              | Ні                          |
+| `invoke_signed` | CPI, де програма, що викликає, повинна підписати від імені PDA, яким вона володіє | Так, через сіди підписувача |
+
+Під капотом _rs`invoke`_ просто викликає _rs`invoke_signed`_ з порожнім масивом
+сідів підписувача. Використовуйте _rs`invoke`_, коли вам не потрібне підписання
+PDA, і _rs`invoke_signed`_, коли програма повинна авторизувати дію від імені
+PDA.
+
+Обидві функції зрештою викликають один і той самий системний виклик
+([`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33))
+і проходять через один і той самий шлях виконання
+([`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925)).
+Єдина різниця полягає в тому, чи надаються сіди підписувача. Коли сіди
+надаються, середовище виконання виводить публічні ключі PDA та додає їх до
+набору дійсних підписувачів перед перевіркою привілеїв.

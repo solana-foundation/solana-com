@@ -1,0 +1,133 @@
+---
+title: وقت تشغيل الحساب
+description:
+  كيفية تحميل وقت تشغيل سولانا للحسابات والتحقق من صحتها قبل التنفيذ، وتنسيق
+  التسلسل المستخدم لتمرير بيانات الحساب إلى البرامج.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="ملخص">
+  قبل التنفيذ، يقوم وقت التشغيل بتحميل الحسابات، والتحقق من صحة دافع الرسوم،
+  وفحص الإعفاء من الإيجار، وتسلسل بيانات الحساب في تخطيط ذاكرة يمكن للبرامج
+  الوصول إليه.
+</Callout>
+
+<Callout>
+  تغطي هذه الصفحة التفاصيل الداخلية لوقت التشغيل. معظم المطورين لا يحتاجون هذه
+  المعلومات لبناء البرامج. راجع [بنية
+  الحساب](/docs/core/accounts/account-structure) للحصول على العرض الموجه
+  للمطورين.
+</Callout>
+
+## تحميل الحساب
+
+قبل تنفيذ المعاملة، يقوم وقت التشغيل بتحميل جميع الحسابات المشار إليها عبر
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+تقوم هذه العملية بإجراء عدة عمليات تحقق:
+
+1. **التحقق من صحة دافع الرسوم**: يجب أن يكون دافع الرسوم (الحساب الأول)
+   موجودًا، وأن يكون حساب نظام أو حساب nonce، وأن يحتوي على ما يكفي من lamports
+   لتغطية الرسوم
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   بعد دفع الرسوم، يجب أن يظل الحساب معفى من الإيجار أو ينتقل إلى 0 lamports
+   بالضبط. لا يمكن أن ينتهي بين 0 والحد الأدنى للإعفاء من الإيجار. يجب أن تحتفظ
+   حسابات nonce دائمًا بما يكفي من lamports لتظل معفاة من الإيجار. إذا لم يكن
+   الدافع حساب نظام ولا حساب nonce، تفشل المعاملة مع
+   _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **حد حجم البيانات المحملة**: يجب ألا يتجاوز الحجم الإجمالي لجميع الحسابات
+   المحملة (بما في ذلك
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   بمقدار 64 بايت لكل حساب)
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 ميجابايت). يؤدي تجاوز هذا الحد إلى
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_.
+
+3. **التحقق من صحة حساب البرنامج**: يجب أن يكون كل برنامج يتم استدعاؤه بواسطة
+   تعليمة موجودًا ومملوكًا لمحمل صالح: أحد
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable، BPF Loader، BPF Loader Deprecated، Loader V4) أو
+   المحمل الأصلي. إذا لم يكن حساب البرنامج موجودًا، تفشل المعاملة مع
+   _rs`TransactionError::ProgramAccountNotFound`_. إذا كان موجودًا ولكن لديه
+   مالك غير صالح، تفشل المعاملة مع
+   _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **الحسابات غير الموجودة**: يتم تحميل الحسابات التي لا توجد على السلسلة
+   كحسابات افتراضية (0 لامبورت، بيانات فارغة، مملوكة لبرنامج النظام) مع تعيين
+   `rent_epoch` إلى `u64::MAX`.
+
+## تنسيق تسلسل BPF
+
+عند استدعاء برنامج، يقوم وقت التشغيل بتسلسل الحسابات في مخزن ذاكرة متجاور ويمرره
+إلى BPF VM. يتم تعريف تنسيق التسلسل (للتنسيق المحاذي القياسي المستخدم من قبل
+جميع المحملات باستثناء loader-v1 المهمل) في
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+يبدأ المخزن بـ `u64` (8 بايتات، little-endian) يحتوي على عدد الحسابات. ثم، لكل
+حساب في التعليمة، يحتوي المخزن على:
+
+| الإزاحة       | الحجم           | الحقل                               | النوع                                                                                                            |
+| ------------- | --------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 0             | 1               | علامة التكرار                       | `u8` (`0xFF` = فريد، الفهرس = نسخة من ذلك الحساب)                                                                |
+| 1             | 1               | is_signer                           | `u8` (0 أو 1)                                                                                                    |
+| 2             | 1               | is_writable                         | `u8` (0 أو 1)                                                                                                    |
+| 3             | 1               | executable                          | `u8` (0 أو 1)                                                                                                    |
+| 4             | 4               | original_data_len (محجوز، دائماً 0) | `[0u8; 4]`                                                                                                       |
+| 8             | 32              | key                                 | `Pubkey`                                                                                                         |
+| 40            | 32              | owner                               | `Pubkey`                                                                                                         |
+| 72            | 8               | lamports                            | `u64` (little-endian)                                                                                            |
+| 80            | 8               | data_len                            | `u64` (little-endian)                                                                                            |
+| 88            | data_len        | data                                | `[u8]`                                                                                                           |
+| 88 + data_len | 10240 + padding | مساحة إعادة التخصيص + المحاذاة      | مملوء بالأصفار إلى `MAX_PERMITTED_DATA_INCREASE` (10 كيلوبايت) + حشو للمحاذاة إلى `BPF_ALIGN_OF_U128` (8 بايتات) |
+| ...           | 8               | rent_epoch                          | `u64` (little-endian)                                                                                            |
+
+بعد جميع الحسابات، يضيف المخزن المؤقت:
+
+| الحجم                | الحقل                                       |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`، little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+بالنسبة للحسابات المكررة، يتم كتابة بايت واحد فقط (علامة التكرار مع فهرس الحساب
+الأصلي) بالإضافة إلى 7 بايتات من الحشو.
+
+## إلغاء تكرار الحسابات
+
+عندما يظهر نفس المفتاح العام للحساب عدة مرات في مصفوفة `accounts` الخاصة
+بالتعليمة، يقوم وقت التشغيل
+[بإلغاء تكرارها](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623).
+يحصل كل إدخال في قائمة حسابات التعليمة على بنية
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+خاصة به، لكن الإدخالات التي تشير إلى نفس الحساب على مستوى المعاملة تشير إلى نفس
+البيانات الأساسية.
+
+تحدد طريقة
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+ما إذا كان فهرس حساب التعليمة المحدد هو الظهور الأول أم مكرر من خلال البحث عن
+فهرس الحساب على مستوى المعاملة وإيجاد أول فهرس على مستوى التعليمة يرتبط به:
+
+- إذا كان فهرس حساب التعليمة الحالي يساوي الفهرس المرتبط الأول، فهو **ليس**
+  مكرراً (يُرجع `None`).
+- وإلا، يُرجع `Some(first_index)`، حيث `first_index` هو فهرس الظهور الأول.
+
+نظراً لأن جميع المراجع لنفس الحساب تشترك في نفس _rs`AccountSharedData`_ الأساسي،
+فإن التعديلات من خلال أي مرجع تكون مرئية فوراً من خلال جميع المراجع الأخرى. ومع
+ذلك، يمكن الاحتفاظ باستعارة قابلة للتعديل واحدة فقط في كل مرة. محاولة استعارة
+نفس الحساب بشكل قابل للتعديل من خلال فهرسين مختلفين لحساب التعليمة في وقت واحد
+تُرجع _rs`InstructionError::AccountBorrowFailed`_. يجب على البرامج إسقاط استعارة
+واحدة قبل الحصول على أخرى على نفس الحساب الأساسي.
+
+بعد تنفيذ البرنامج، يقوم وقت التشغيل بإلغاء تسلسل المخزن المؤقت
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+ويطبق أي تغييرات على `lamports` و `data` (بما في ذلك تغييرات الطول حتى
+_rs`MAX_PERMITTED_DATA_INCREASE`_) و `owner`.

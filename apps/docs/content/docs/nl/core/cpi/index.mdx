@@ -1,0 +1,100 @@
+---
+title: Cross Program Invocation
+description:
+  Cross Program Invocation (CPI) op Solana — hoe programma's andere programma's
+  aanroepen met invoke en invoke_signed, PDA-ondertekenaars afhandelen en
+  on-chain functionaliteit samenstellen.
+url: /docs/core/cpi
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/programs
+related:
+  - /docs/core/cpi/cpi-without-pda
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/pda
+---
+
+Een Cross-Program Invocation (CPI) is wanneer één
+[programma](/docs/core/programs) een [instructie](/docs/core/instructions) op
+een ander programma aanroept tijdens uitvoering. CPI's maken composability
+mogelijk: de instructies van elk programma kunnen worden aangeroepen door elk
+ander programma op het netwerk.
+
+![Cross-program invocation voorbeeld](/assets/docs/core/cpi/cpi.svg)
+
+<Cards>
+  <Card
+    title="CPI's zonder PDA-ondertekenaars"
+    href="/docs/core/cpi/cpi-without-pda"
+  >
+    De invoke-functie gebruiken, Anchor CpiContext, Native Rust-voorbeelden, SOL
+    transfer CPI-voorbeelden.
+  </Card>
+  <Card title="CPI's met PDA-ondertekenaars" href="/docs/core/cpi/cpi-with-pda">
+    invoke_signed gebruiken met signer seeds, Anchor CpiContext met PDA, Native
+    Rust PDA-ondertekeningsvoorbeelden.
+  </Card>
+  <Card
+    title="CPI-uitvoering en privileges"
+    href="/docs/core/cpi/cpi-execution"
+  >
+    11-stappen CPI-uitvoeringsflow, privilege-extensieregels, reentrancy,
+    account validatie.
+  </Card>
+  <Card
+    title="CPI-kostenmodel en datasynchronisatie"
+    href="/docs/core/cpi/cpi-cost-model"
+  >
+    CPI-kostenformule, serialisatiekosten, accountdatasynchronisatie, PDA
+    ondertekening, return data.
+  </Card>
+</Cards>
+
+## Belangrijkste feiten
+
+- **Twee functies**: _rs`invoke`_ (geen PDA-ondertekening) en
+  _rs`invoke_signed`_ (met PDA-ondertekening).
+- **Privilege-extensie**: [Account](/docs/core/accounts)-privileges (signer,
+  writable) worden uitgebreid van aanroeper naar aangeroepene. Een aangeroepene
+  kan privileges niet escaleren buiten wat de aanroeper heeft doorgegeven.
+- **Gedeeld compute budget**: Het CU-verbruik van een aangeroepene vermindert
+  het resterende budget van de aanroeper.
+- **Reentrancy**: Directe zelfrecursie is toegestaan (A->A->A). Indirecte
+  reentrancy is niet toegestaan (A->B->A retourneert
+  _rs`ReentrancyNotAllowed`_).
+
+## Limieten
+
+| Limiet                           | Waarde                         | Bron                                                                                                                                                                                                                                                            |
+| -------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Max instruction stack depth      | 5 (9 met SIMD-0268)            | [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8), [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) |
+| CPI invocation cost              | 1.000 CU's (946 met SIMD-0339) | [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21), [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)              |
+| Max PDA-ondertekenaars per CPI   | 16                             | [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)                                                                                                                                                                   |
+| Max CPI instruction data         | 10 KiB (10.240 bytes)          | [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)                                                                                                                                                  |
+| Max return data                  | 1.024 bytes                    | [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)                                                                                                                                                             |
+| Max CPI account infos            | 128 (255 met SIMD-0339)\*      | [`MAX_CPI_ACCOUNT_INFOS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L122), [`MAX_CPI_ACCOUNT_INFOS_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L124)                                    |
+| CPI-serialisatiekosten           | 1 CU per 250 bytes             | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205)                                                                                                                                              |
+| Max account data realloc per CPI | 10.240 bytes (10 KiB)          | [`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)                                                                                                                                         |
+
+## `invoke` vs `invoke_signed`
+
+Solana biedt twee functies voor het maken van CPI's:
+
+| Functie         | Gebruikssituatie                                                                               | PDA-ondertekening    |
+| --------------- | ---------------------------------------------------------------------------------------------- | -------------------- |
+| `invoke`        | CPI's waarbij alle vereiste ondertekenaars de oorspronkelijke transactie al hebben ondertekend | Nee                  |
+| `invoke_signed` | CPI's waarbij het aanroepende programma namens een PDA die het bezit moet ondertekenen         | Ja, via signer seeds |
+
+Onder de motorkap roept _rs`invoke`_ simpelweg _rs`invoke_signed`_ aan met een
+lege signer seeds array. Gebruik _rs`invoke`_ wanneer je geen PDA-ondertekening
+nodig hebt, en _rs`invoke_signed`_ wanneer het programma een actie namens een
+PDA moet autoriseren.
+
+Beide functies activeren uiteindelijk dezelfde syscall
+([`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33))
+en doorlopen hetzelfde runtime-pad
+([`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925)).
+Het enige verschil is of signer seeds worden verstrekt. Wanneer seeds worden
+verstrekt, leidt de runtime PDA-pubkeys af en voegt deze toe aan de set van
+geldige ondertekenaars voordat de privilege-controle plaatsvindt.

@@ -1,0 +1,87 @@
+---
+title: Versionierte Transaktionen
+description:
+  Legacy- vs. versionierte (V0) Transaktionsformate auf Solana, einschließlich
+  Address Lookup Tables (ALTs), Versionserkennung, V0-Nachrichtenformat und
+  ALT-Auflösung.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="Zusammenfassung">
+  V0-Transaktionen fügen Address Lookup Tables (ALTs) hinzu, die Referenzen auf
+  Konten über 1-Byte-Indizes anstelle von 32-Byte-Schlüsseln ermöglichen. Dies
+  spart 31 Bytes pro ALT-aufgelöstem Konto.
+</Callout>
+
+Solana unterstützt zwei Transaktionsformate: **Legacy** und **versioniert**
+(v0).
+
+Der Validator bestimmt das Format durch Prüfung des ersten Bytes der Nachricht:
+
+- Wenn das erste Byte das
+  [Versionspräfix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)-Bit
+  gesetzt hat, handelt es sich um eine **versionierte Nachricht**. Derzeit wird
+  nur Version 0 unterstützt. Die nächsten 3 Bytes sind der _`MessageHeader`_.
+- Andernfalls handelt es sich um eine **Legacy-Nachricht**. Das erste Byte ist
+  `num_required_signatures`, und die nächsten 2 Bytes vervollständigen den
+  Header.
+
+<Callout type="info" title="Wann V0-Transaktionen verwendet werden sollten">
+  Verwenden Sie V0, wenn Ihre Transaktion viele Konten referenziert und sich dem
+  1.232-Byte-Paketlimit nähert. Wenn Ihre Transaktion mit allen inline
+  eingebetteten Konten innerhalb des Größenlimits passt, sind
+  Legacy-Transaktionen einfacher und haben eine breitere Tooling-Unterstützung.
+  V0 ist erforderlich, um Address Lookup Tables zu verwenden.
+</Callout>
+
+## V0-Nachrichtenformat
+
+Eine v0-Nachricht hat die gleichen Felder wie eine Legacy-Nachricht, plus ein
+zusätzliches `address_table_lookups`-Array, das nach den Anweisungen angehängt
+wird:
+
+| Feld                    | Größe                      | Beschreibung                                          |
+| ----------------------- | -------------------------- | ----------------------------------------------------- |
+| `0x80`                  | 1 Byte                     | Versionspräfix-Byte                                   |
+| `header`                | 3 Bytes                    | MessageHeader (wie bei Legacy)                        |
+| `static_account_keys`   | compact-u16 + N x 32 Bytes | Schlüssel, die wörtlich in der Transaktion erscheinen |
+| `recent_blockhash`      | 32 Bytes                   | Blockhash                                             |
+| `instructions`          | compact-u16 + variabel     | Gleiches Format wie Legacy                            |
+| `address_table_lookups` | compact-u16 + variabel     | ALT-Referenzen (siehe unten)                          |
+
+Jeder Eintrag in der Adress-Lookup-Tabelle enthält:
+
+| Feld               | Größe                    | Beschreibung                                    |
+| ------------------ | ------------------------ | ----------------------------------------------- |
+| `account_key`      | 32 Bytes                 | Der öffentliche Schlüssel des ALT-Kontos        |
+| `writable_indexes` | compact-u16 + N x 1 Byte | Indizes in die ALT für beschreibbare Konten     |
+| `readonly_indexes` | compact-u16 + N x 1 Byte | Indizes in die ALT für schreibgeschützte Konten |
+
+## Auflösung von Adress-Lookup-Tabellen
+
+Eine ALT ist ein On-Chain-Konto, das bis zu 256 öffentliche Schlüssel speichert.
+Durch die Referenzierung einer ALT kann eine Transaktion zusätzliche Konten
+mithilfe von 1-Byte-Indizes anstelle von 32-Byte-öffentlichen Schlüsseln
+einbeziehen, wodurch der Overhead pro Konto erheblich reduziert wird.
+
+Zur Laufzeit, vor Beginn der Ausführung, löst der Validator alle ALT-Referenzen
+in vollständige öffentliche Schlüssel auf. Die aufgelösten Adressen werden an
+die statischen Kontenschlüssel angehängt, um die vollständige Liste der
+Kontenschlüssel zu bilden. ALT-aufgelöste Konten folgen derselben Reihenfolge
+wie statische Konten: beschreibbare Lookups kommen vor schreibgeschützten
+Lookups.
+
+<Callout>
+  Adress-Lookup-Tabellen beeinflussen nur, wie Konten in der On-Wire-Transaktion
+  referenziert werden. Zur Ausführungszeit löst die Runtime alle Indizes in
+  vollständige Kontenadressen auf. ALT-aufgelöste Konten können nur beschreibbar
+  oder schreibgeschützt (nicht signierend) sein; sie können keine Signierer
+  sein.
+</Callout>

@@ -1,0 +1,89 @@
+---
+title: プログラムのデプロイ
+description:
+  Solanaプログラムのデプロイ、アップグレード、検証。Loader-v3
+  instructionリファレンス、9ステップのアップグレードメカニズム、ビルド検証、5つのローダープログラムタイプ。
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="概要">
+  loader-v3経由でデプロイされたプログラムは、アップグレード権限が設定されている場合にアップグレード可能です。権限を取り消すと、プログラムは不変になります。9ステップのアップグレードメカニズム、9つのloader-v3
+  instructions、ビルド検証、5つのローダータイプについて説明します。
+</Callout>
+
+## プログラムのデプロイ
+
+<Cards>
+  <Card title="ネイティブRust" href="/docs/programs/deploying">
+    `solana program deploy`を使用してSolana CLIでデプロイします。
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    `anchor deploy`を使用してAnchorフレームワークでデプロイします。
+  </Card>
+</Cards>
+
+## プログラムのアップグレード
+
+プログラムをアップグレードするには、アカウントがアップグレード権限を保持している必要があります(通常は、最初に[プログラムをデプロイした](/docs/programs/deploying)アカウント)。デプロイまたはアップグレード時に、新しいバイトコードが一時的なバッファアカウントにアップロードされ、その後programdata
+accountに書き込まれます。アップグレード権限を*rs`None`*に設定すると、プログラムは不変になり、今後の更新が永久に防止されます。
+
+### アップグレードメカニズム
+
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)が処理されると、ランタイムは以下を実行します:
+
+1. program
+   accountが書き込み可能で、loader-v3によって所有されていることを検証します。
+2. bufferアカウントに正しい権限を持つ*rs`Buffer`*状態が含まれていることを検証します。
+3. programdata
+   accountのINLINE*CODE_PLACEHOLDER_656439c4c8816e5cが一致し、\_rs`None`*でないことを検証します。
+4. プログラムが現在のslotで既にデプロイされていないことを検証します(`clock.slot != slot`)。
+5. バッファから新しいELFバイトをロードして検証します。
+6. バッファから新しいバイトコードをprogramdata
+   accountにコピーし、残りのバイトをゼロにします。
+7. programdata accountにレント免除のための資金を供給します。
+8. バッファアカウントを空にし(lamportsを0に設定)、そのデータを切り詰めます。
+9. 新しいバージョンは次のslotで有効になります(`deployment_slot + 1`)。
+
+`Program`アカウント自体(その状態と`programdata_address`ポインタ)は、アップグレード中に変更されません。*rs`ProgramData`*アカウントのバイトコードとslotメタデータのみが更新されます。
+
+## Loader-v3命令リファレンス
+
+Loader-v3(BPF Loader
+Upgradeable)は、Solana上でプログラムをデプロイするための現在のデフォルトローダーです。
+
+| 命令                                                                                                         | 説明                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | バッファアカウントの状態を指定された権限で`Buffer`に設定します。既に初期化されている場合は失敗します。                                                                                                                                         |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | バッファアカウント内の指定されたオフセットにバイトを書き込みます。権限による署名が必要です。                                                                                                                                                   |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | 新しいプログラムを作成します:ProgramDataアドレスを導出し、System ProgramへのCPIを介してProgramDataアカウントを作成し、バッファからELFを検証してデプロイし、Programアカウントの状態を設定して実行可能としてマークします。                       |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | 既存のプログラムのProgramDataアカウント内のバイトコードをバッファから置き換えます。                                                                                                                                                            |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | BufferまたはProgramDataアカウントの権限を変更します。ProgramDataで`None`に設定すると、プログラムは不変になります。Buffer権限は`None`に設定できません。                                                                                         |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | `SetAuthority`と同様ですが、新しい権限もトランザクションに署名する必要があります。                                                                                                                                                             |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | バッファ、未初期化、またはProgramDataアカウントを閉じ、そのlamportsを受取人に転送します。ProgramDataを閉じると、プログラムキャッシュに`Closed`トゥームストーンも書き込まれます。現在のslotでデプロイされたプログラムは閉じることができません。 |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | ProgramDataアカウントの割り当てを追加バイト分拡張し、支払者から追加のrentを資金調達します。                                                                                                                                                    |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | loader-v3プログラムをloader-v4に移行します。プログラムアカウントの所有権を転送し、バイトコードをコピーします。移行権限またはプログラムのアップグレード権限による署名が必要です。Loader-v4はまだメインネットでリリースされていません。          |
+
+## プログラムの検証
+
+Solanaは[検証可能なビルド](/docs/programs/verified-builds)をサポートしており、ユーザーはプログラムのオンチェーンバイトコードが公開されているソースコードと一致することを確認できます。Anchorフレームワークは、検証可能なビルドに対する[組み込みサポート](https://www.anchor-lang.com/docs/verifiable-builds)を提供しています。
+
+デプロイされたプログラムの検証ステータスを確認するには、[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY)でプログラムIDを検索するか、Ellipsis
+Labsの[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)を使用してオンチェーンプログラムを独自に検証してください。
+
+## ローダープログラム
+
+| ローダー                   | アドレス                                      | アップグレード可能                            | 説明                                                    |
+| -------------------------- | --------------------------------------------- | --------------------------------------------- | ------------------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | validatorソフトウェアのアップグレード経由のみ | ビルトイン(System、Vote、Stake)および他のローダーを所有 |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | 不可(ローダー管理が無効)                      | レガシープログラム                                      |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | 不可(ローダー管理が無効)                      | レガシープログラム                                      |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | 可、アップグレード権限が設定されている場合    | 新しくデプロイされたすべてのプログラムを所有            |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | 可、権限が設定されている場合                  | まだメインネットでリリースされていません                |

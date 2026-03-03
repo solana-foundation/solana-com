@@ -1,0 +1,90 @@
+---
+title: Durable Nonces
+description:
+  How durable nonces work on Solana for offline signing and delayed transaction
+  submission, including nonce lifecycle, detection, validation, and failure
+  behavior.
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="Summary">
+  Durable nonce transactions replace the recent blockhash with a stored nonce
+  value, removing the 150 slot expiry window for a transaction. This enables
+  offline signing and delayed submission.
+</Callout>
+
+<Callout type="warn">
+  Durable nonces may be deprecated in a future release. See [SIMD
+  discussion](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)
+  for details.
+</Callout>
+
+## Durable nonces
+
+A durable nonce transaction replaces the recent blockhash with a stored nonce
+value, removing the 150 slot expiry window. This enables offline signing and
+delayed submission.
+
+### How nonce transactions work
+
+A nonce account is a System Program-owned account that stores a
+_rs`State::Initialized`_ value containing three fields: an **authority** pubkey (who
+can advance the nonce), a **durable nonce** value (a hash derived from a recent
+blockhash), and **lamports per signature** (the fee rate when the nonce was last
+advanced).
+
+To use a durable nonce:
+
+1. Create and initialize a nonce account using _rs`CreateAccount`_ +
+   _rs`InitializeNonceAccount`_
+2. Build the transaction with _rs`AdvanceNonceAccount`_ as the **first instruction**
+   and the nonce value as the `recent_blockhash`
+3. Sign the transaction (can be done offline, since the nonce does not expire)
+4. Submit when ready
+
+### Nonce detection
+
+The runtime detects nonce transactions by checking whether the first instruction
+(index
+[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0) is a call to the System Program with the _rs`AdvanceNonceAccount`_ instruction.
+The nonce account must be the first account of that instruction and must be
+writable. See
+[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121).
+
+### Nonce validation flow
+
+When a transaction's `recent_blockhash` is not found in the `BlockhashQueue`,
+the validator checks if it is a valid nonce transaction via
+[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180):
+
+1. The nonce's stored `durable_nonce` must differ from the next durable nonce
+   (derived from the current blockhash). This ensures the nonce has not already
+   been used in this block
+2. The nonce account must be loaded and must parse as _rs`State::Initialized`_
+3. The stored `durable_nonce` must match the transaction's `recent_blockhash`
+
+The nonce authority signing check is performed later
+([`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)).
+
+If all checks pass, the nonce is advanced to the next durable nonce value before
+execution begins. On execution failure, the advanced nonce and the fee-deducted
+fee payer are still committed (preventing replay while collecting fees).
+
+### Nonce failure behavior
+
+If a nonce transaction **fails validation** (nonce already used, authority not
+signed, account not found), the entire transaction is dropped. No fees
+collected, no state changes.
+
+If a nonce transaction **passes validation but execution fails** (an instruction
+returns an error), the nonce is still advanced and fees are still collected.
+This prevents the transaction from being replayed while ensuring the validator
+is compensated.

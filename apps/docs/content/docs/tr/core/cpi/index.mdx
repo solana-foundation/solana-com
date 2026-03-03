@@ -1,0 +1,95 @@
+---
+title: Cross Program Invocation
+description:
+  Solana'da Cross Program Invocation (CPI) — programların invoke ve
+  invoke_signed kullanarak diğer programları nasıl çağırdığı, PDA imzalayıcıları
+  nasıl işlediği ve zincir üstü işlevselliği nasıl oluşturduğu.
+url: /docs/core/cpi
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/programs
+related:
+  - /docs/core/cpi/cpi-without-pda
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/pda
+---
+
+Cross Program Invocation (CPI), bir [programın](/docs/core/programs) yürütme
+sırasında başka bir programda bir [instruction](/docs/core/instructions)
+çağırmasıdır. CPI'lar birleştirilebilirliği sağlar: herhangi bir programın
+instruction'ları, ağdaki diğer herhangi bir program tarafından çağrılabilir.
+
+![Cross-program invocation örneği](/assets/docs/core/cpi/cpi.svg)
+
+<Cards>
+  <Card
+    title="PDA imzalayıcısı olmayan CPI'lar"
+    href="/docs/core/cpi/cpi-without-pda"
+  >
+    invoke fonksiyonunu kullanma, Anchor CpiContext, Native Rust örnekleri, SOL
+    transfer CPI örnekleri.
+  </Card>
+  <Card title="PDA imzalayıcılı CPI'lar" href="/docs/core/cpi/cpi-with-pda">
+    invoke_signed'ı imzalayıcı seed'leriyle kullanma, PDA ile Anchor CpiContext,
+    Native Rust PDA imzalama örnekleri.
+  </Card>
+  <Card title="CPI yürütme ve yetkiler" href="/docs/core/cpi/cpi-execution">
+    11 adımlı CPI yürütme akışı, yetki genişletme kuralları, yeniden giriş,
+    hesap doğrulama.
+  </Card>
+  <Card
+    title="CPI maliyet modeli ve veri senkronizasyonu"
+    href="/docs/core/cpi/cpi-cost-model"
+  >
+    CPI maliyet formülü, serileştirme maliyetleri, hesap verisi senkronizasyonu,
+    PDA imzalama, dönüş verisi.
+  </Card>
+</Cards>
+
+## Temel bilgiler
+
+- **İki fonksiyon**: _rs`invoke`_ (PDA imzalama yok) ve _rs`invoke_signed`_ (PDA
+  imzalama ile).
+- **Yetki genişletme**: [Hesap](/docs/core/accounts) yetkileri (imzalayıcı,
+  yazılabilir) çağıran programdan çağrılan programa uzanır. Çağrılan program,
+  çağıranın ilettiği yetkilerden daha fazla yetki elde edemez.
+- **Paylaşılan hesaplama bütçesi**: Çağrılan programın CU tüketimi, çağıranın
+  kalan bütçesini azaltır.
+- **Yeniden giriş**: Doğrudan öz-özyinelemeye izin verilir (A->A->A). Dolaylı
+  yeniden girişe izin verilmez (A->B->A, _rs`ReentrancyNotAllowed`_ döndürür).
+
+## Limitler
+
+| Limit                                            | Değer                        | Kaynak                                                                                                                                                                                                                                                          |
+| ------------------------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Maksimum instruction yığın derinliği             | 5 (SIMD-0268 ile 9)          | [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8), [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) |
+| CPI çağırma maliyeti                             | 1.000 CU (SIMD-0339 ile 946) | [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21), [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)              |
+| CPI başına maksimum PDA imzalayıcısı             | 16                           | [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)                                                                                                                                                                   |
+| Maksimum CPI instruction data                    | 10 KiB (10.240 bayt)         | [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)                                                                                                                                                  |
+| Maksimum dönüş verisi                            | 1.024 bayt                   | [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)                                                                                                                                                             |
+| Maksimum CPI hesap bilgileri                     | 128 (SIMD-0339 ile 255)\*    | [`MAX_CPI_ACCOUNT_INFOS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L122), [`MAX_CPI_ACCOUNT_INFOS_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L124)                                    |
+| CPI serileştirme maliyeti                        | 250 bayt başına 1 CU         | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205)                                                                                                                                              |
+| CPI başına maksimum hesap verisi yeniden tahsisi | 10.240 bayt (10 KiB)         | [`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)                                                                                                                                         |
+
+## `invoke` ve `invoke_signed`
+
+Solana, CPI yapmak için iki fonksiyon sağlar:
+
+| Fonksiyon       | Kullanım durumu                                                         | PDA imzalama                          |
+| --------------- | ----------------------------------------------------------------------- | ------------------------------------- |
+| `invoke`        | Tüm gerekli imzacıların orijinal işlemi zaten imzaladığı CPI'lar        | Hayır                                 |
+| `invoke_signed` | Çağıran programın sahip olduğu bir PDA adına imzalaması gereken CPI'lar | Evet, imzalayan seed'ler aracılığıyla |
+
+Arka planda, _rs`invoke`_ basitçe boş bir imzalayan seed'ler dizisi ile
+_rs`invoke_signed`_'i çağırır. PDA imzalamaya ihtiyacınız olmadığında
+_rs`invoke`_ kullanın ve program bir PDA adına bir eylemi yetkilendirmesi
+gerektiğinde _rs`invoke_signed`_ kullanın.
+
+Her iki fonksiyon da sonuçta aynı syscall'u
+([`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33))
+tetikler ve aynı çalışma zamanı yolundan
+([`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925))
+geçer. Tek fark, imzalayan seed'lerin sağlanıp sağlanmadığıdır. Seed'ler
+sağlandığında, çalışma zamanı PDA pubkey'lerini türetir ve ayrıcalık
+kontrolünden önce bunları geçerli imzacılar kümesine ekler.

@@ -1,0 +1,170 @@
+---
+title: Model biaya CPI dan sinkronisasi data
+description:
+  Biaya komputasi CPI, sinkronisasi data akun antara pemanggil dan yang
+  dipanggil, mekanisme penandatanganan PDA, dan return data pada Solana.
+url: /docs/core/cpi/cpi-cost-model
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/cpi/cpi-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/syscall-reference
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI cost model, Account data synchronization, PDA signing, Return data */}
+
+<Callout type="info" title="Ringkasan">
+  Setiap CPI memerlukan biaya ~1.000 CU dasar ditambah biaya serialisasi. Data
+  akun disinkronkan sebelum dan sesudah eksekusi callee. Penandatanganan PDA
+  menggunakan program ID pemanggil. Return data dibatasi hingga 1.024 byte.
+</Callout>
+
+## Model biaya CPI
+
+Biaya CPI diambil dari anggaran komputasi transaksi yang sama (meter bersama).
+Formula biaya lengkap untuk setiap pemanggilan _rs`invoke`_ /
+_rs`invoke_signed`_:
+
+```
+total_cpi_cost = invocation_cost
+               + instruction_data_cost
+               + account_meta_cost          (SIMD-0339 only)
+               + account_info_cost          (SIMD-0339 only)
+               + per_account_data_cost      (for each non-executable account)
+               + callee_execution_cost
+```
+
+### Rincian biaya
+
+| Komponen biaya                       | Formula                                                                                                                                        | Sumber                                                                                                                                                                                                                                                                                             |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invokasi (tetap)                     | [`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108) = 1.000 CU (946 dengan SIMD-0339) | Dibebankan pada [entri CPI](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)                                                                                                                                                                                    |
+| Serialisasi instruction data         | `instruction_data_len / cpi_bytes_per_unit`                                                                                                    | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205) = 250. Dibebankan di [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569).                                               |
+| Serialisasi account meta (SIMD-0339) | `(num_account_metas * 34) / cpi_bytes_per_unit`                                                                                                | Setiap `AccountMeta` berukuran 34 byte (32 pubkey + 1 is_signer + 1 is_writable). Dibebankan di [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L555-L567).                                                                                       |
+| Translasi account info (SIMD-0339)   | `(num_account_infos * 80) / cpi_bytes_per_unit`                                                                                                | [`ACCOUNT_INFO_BYTE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L63-L68) = 80 byte (32 key + 32 owner + 8 lamports + 8 data_len). Dibebankan di [translate_account_infos](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981). |
+| Data per-akun                        | `account_data_len / cpi_bytes_per_unit`                                                                                                        | Dibebankan per akun di [CallerAccount::from_account_info](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374) dan untuk [akun yang dapat dieksekusi](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1056-L1060).                        |
+| Eksekusi callee                      | Berapa pun CU yang dikonsumsi program callee                                                                                                   | Dikurangi dari meter bersama selama eksekusi callee.                                                                                                                                                                                                                                               |
+
+### Contoh perhitungan biaya
+
+Sebuah CPI dengan 100 byte instruction data, 5 account meta, 5 account info
+(masing-masing dengan 1.000 byte data), SIMD-0339 aktif:
+
+```
+invocation_cost        = 946
+instruction_data_cost  = 100 / 250 = 0  (integer division)
+account_meta_cost      = (5 * 34) / 250 = 0
+account_info_cost      = (5 * 80) / 250 = 1
+per_account_data_cost  = 5 * (1000 / 250) = 20
+total (before callee)  = 967 CUs
+```
+
+## Sinkronisasi data akun
+
+Status akun disinkronkan antara pemanggil dan yang dipanggil pada dua titik
+selama CPI. Ini memastikan kedua sisi melihat tampilan data akun yang konsisten.
+
+### Sinkronisasi pra-CPI (pemanggil ke yang dipanggil)
+
+Sebelum yang dipanggil dieksekusi,
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+menyalin modifikasi yang sedang berlangsung dari pemanggil ke tampilan akun yang
+dipanggil:
+
+| Field        | Arah                        | Kapan                                                                                                                       |
+| ------------ | --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Lamports     | Pemanggil -> Yang dipanggil | Jika nilainya berbeda dari tampilan yang dipanggil saat ini                                                                 |
+| Panjang data | Pemanggil -> Yang dipanggil | Jika pemanggil telah mengubah ukuran akun. Tidak boleh melebihi `original_data_len + MAX_PERMITTED_DATA_INCREASE` (10 KiB). |
+| Konten data  | Pemanggil -> Yang dipanggil | Jika data akun dapat dimodifikasi (`can_data_be_changed` lolos)                                                             |
+| Owner        | Pemanggil -> Yang dipanggil | Diatur terakhir, sehingga perubahan data/lamport diizinkan di bawah owner lama                                              |
+
+### Sinkronisasi pasca-CPI (yang dipanggil ke pemanggil)
+
+Setelah yang dipanggil kembali,
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+menyalin modifikasi yang dipanggil kembali ke tampilan pemanggil. Ini hanya
+berjalan untuk akun yang ditandai sebagai writable:
+
+| Field        | Arah                        | Kapan                                                                                                                                                                                                                                                        |
+| ------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lamports     | Yang dipanggil -> Pemanggil | Selalu disalin kembali                                                                                                                                                                                                                                       |
+| Owner        | Yang dipanggil -> Pemanggil | Selalu disalin kembali                                                                                                                                                                                                                                       |
+| Panjang data | Yang dipanggil -> Pemanggil | Jika berubah. Pointer slice data VM dan field panjang yang diserialisasi diperbarui. Jika akun diperkecil, memori yang dibebaskan dikosongkan. Jika panjang baru melebihi `original_data_len + MAX_PERMITTED_DATA_INCREASE`, mengembalikan `InvalidRealloc`. |
+| Konten data  | Yang dipanggil -> Pemanggil | Disalin dari buffer data yang dipanggil ke region data yang diserialisasi pemanggil                                                                                                                                                                          |
+
+### Batasan realloc
+
+Data akun dapat diubah ukurannya selama CPI hingga
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10.240 byte (10 KiB) melebihi panjang data akun pada awal instruksi tingkat
+atas saat ini. Batasan ini diterapkan baik di
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+(pra-CPI) maupun
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+(pasca-CPI). Melebihi batasan ini akan mengembalikan _rs`InvalidRealloc`_.
+
+## Penandatanganan PDA
+
+Ketika _rs`invoke_signed`_ dipanggil, runtime menurunkan alamat PDA dari seed
+yang diberikan dan ID program pemanggil. Ini terjadi di
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661):
+
+1. Array seed penandatangan divalidasi: maksimal
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16) set seed penandatangan.
+2. Setiap set seed divalidasi: maksimal
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16) seed per set, setiap seed maksimal
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   (32) byte.
+3. [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   dipanggil dengan seed dan **ID program pemanggil** (bukan ID program yang
+   dipanggil).
+4. Jika seed tidak menghasilkan PDA yang valid (yaitu, titik yang dihasilkan
+   berada pada kurva ed25519), CPI gagal dengan
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+5. Pubkey PDA yang diturunkan dikumpulkan dan diteruskan ke
+   `prepare_next_instruction` sebagai penandatangan yang valid. Selama
+   pemeriksaan hak istimewa, jika akun yang dipanggil ditandai sebagai
+   penandatangan dan pubkey-nya cocok dengan salah satu PDA yang diturunkan ini,
+   pemeriksaan penandatangan berhasil.
+
+<Callout>
+  PDA diturunkan menggunakan ID program **pemanggil**, bukan ID program yang
+  dipanggil. Ini berarti hanya program yang memiliki PDA (yang ID-nya digunakan
+  untuk menurunkannya) yang dapat menandatangani atas namanya. Sebuah program
+  tidak dapat menandatangani untuk PDA yang diturunkan dari program lain.
+</Callout>
+
+## Data pengembalian
+
+Program dapat mengirimkan data kembali ke pemanggil menggunakan mekanisme data
+pengembalian. Ini menggunakan dua syscall:
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439):
+  Mengatur hingga
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  (1.024) byte data pengembalian untuk instruksi saat ini. Biayanya adalah
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` CU.
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440):
+  Membaca data pengembalian yang diatur oleh instruksi yang terakhir dieksekusi.
+  Mengembalikan data beserta ID program yang mengaturnya. Biayanya adalah
+  `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost` CU (32 byte untuk
+  ID program).
+
+Data pengembalian disimpan per-transaksi dan ditimpa oleh setiap instruksi yang
+memanggil `sol_set_return_data`. Pada awal setiap pemanggilan program, runtime
+[mereset data pengembalian](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)
+menjadi kosong. Setelah CPI kembali, pemanggil dapat membaca data pengembalian
+apa pun yang terakhir ditetapkan oleh callee (atau program apa pun yang
+dipanggil oleh callee).
+
+<Callout>
+  Data pengembalian dibatasi hingga 1.024 byte. Hanya program **terakhir** yang
+  memanggil `sol_set_return_data` dalam rantai pemanggilan yang menentukan apa
+  yang dilihat pemanggil. Jika callee melakukan CPI lebih lanjut yang menetapkan
+  data pengembalian, data pengembalian callee sendiri akan ditimpa.
+</Callout>

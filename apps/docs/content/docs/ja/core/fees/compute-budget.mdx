@@ -1,0 +1,174 @@
+---
+title: 計算予算
+description: Solanaにおける計算ユニット制限、ComputeBudgetInstructionのバリエーション、スケジューラーコストモデル、ブロック制限、および実行予算定数について。
+url: /docs/core/fees/compute-budget
+type: reference
+prerequisites:
+  - /docs/core/fees
+  - /docs/core/fees/fee-structure
+related:
+  - /docs/core/programs/program-execution
+  - /docs/core/programs/syscall-reference
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/constants-reference
+---
+
+{/* TOC: 計算ユニット制限、計算予算instructions、スケジューラーコストモデル、ブロック制限、実行予算定数 */}
+
+<Callout type="info" title="概要">
+  デフォルトではinstructionごとに200K CU、トランザクションごとに最大1.4M
+  CU。最適化するには`SetComputeUnitLimit`および`SetComputeUnitPrice`のinstructionsを使用してください。
+  優先手数料は実際の使用量ではなく、リクエストされたCUに基づいて決定されます。
+</Callout>
+
+## 計算ユニット制限
+
+各instructionには
+[デフォルトで200,000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)が割り当てられ、各トランザクションは
+[1,400,000 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)に制限されています。明示的な*rs`SetComputeUnitLimit`*
+instructionが存在しない場合、instructionタイプに基づいて
+[デフォルトが計算されます](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L196-L219):
+
+```text title="Default CU limit calculation"
+default_cu_limit = (num_non_migratable_builtin_instructions * 3,000)
+                 + (num_not_migrated_builtin_instructions * 3,000)
+                 + (num_non_builtin_instructions * 200,000)
+                 + (num_migrated_builtin_instructions * 200,000)
+```
+
+- **ビルトインinstructions**(System
+  Program、Stake、Voteなど、SBFに移行されていないもの):それぞれ
+  [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47)
+  = 3,000
+  CUが割り当てられます([SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)による)。
+- **非ビルトインinstructions**(ユーザーがデプロイしたSBFプログラム):それぞれ
+  [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)
+  = 200,000 CUが割り当てられます。
+- **移行中のビルトイン**でSBFへの移行が完了したもの(機能ゲート付き): 非ビルトインとして扱われます(それぞれ200,000
+  CU)。
+
+結果は*rs`MAX_COMPUTE_UNIT_LIMIT`*(1,400,000)にクランプされます。
+
+トランザクションに
+[`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
+instructionを含めることで、このデフォルトを上書きできます。
+
+適切なCU制限を決定するには:
+
+1. トランザクションをシミュレートしてCU消費量を測定します。
+2. シミュレート値に10%の安全マージンを追加します。
+
+<Callout type="warn">
+  優先手数料は、実際に使用された計算ユニット数ではなく、トランザクションでリクエストされた計算ユニット制限によって決定されます。計算ユニット制限を高く設定しすぎたり、デフォルト量を使用したりすると、未使用の計算ユニットに対して料金を支払うことになります。
+</Callout>
+
+## コンピュートバジェットinstructions
+
+[コンピュートバジェットプログラム](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L155-L189)
+(`ComputeBudget111111111111111111111111111111`)には4つのinstructionsがあります。
+
+| バリアント                       | ディスクリミネーター | パラメーター     | 型    | 説明                                                                       |
+| -------------------------------- | -------------------- | ---------------- | ----- | -------------------------------------------------------------------------- |
+| `RequestHeapFrame`               | `1`                  | `bytes`          | `u32` | トランザクション内の各プログラムに対して要求されるヒープサイズ(バイト単位) |
+| `SetComputeUnitLimit`            | `2`                  | `units`          | `u32` | トランザクションが消費できる最大CU数                                       |
+| `SetComputeUnitPrice`            | `3`                  | `micro_lamports` | `u64` | マイクロlamports単位のCU価格                                               |
+| `SetLoadedAccountsDataSizeLimit` | `4`                  | `bytes`          | `u32` | トランザクションが読み込めるアカウントデータの最大合計バイト数             |
+
+[ソース: `ComputeBudgetInstruction` enum](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24)
+
+### 制約とエラー条件
+
+[コンピュートバジェットinstructionsの処理](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L101-L153)時には、以下のルールが適用されます:
+
+- **タイプごとに1つ**: 各instructionバリアントは、トランザクションごとに1つのみ許可されます。重複を含めると、*rs`DuplicateInstruction`*エラーが発生します(トランザクション全体が失敗します)。
+- **`RequestHeapFrame`**: 値は[`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)(32
+  KiB)から[`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)(256
+  KiB)の間で、かつ[1,024の倍数](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L192-L194)である必要があります。それ以外の場合、トランザクションは*rs`InvalidInstructionData`*で失敗します。ヒープサイズは、トランザクション内で呼び出されるすべてのプログラム(CPIを含む)に適用されます。
+- **`SetComputeUnitLimit`**: 任意の`u32`値が受け入れられます。有効な制限は[`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)(1,400,000)にクランプされます。
+- **`SetComputeUnitPrice`**: 任意の`u64`値が受け入れられます(0から`u64::MAX`まで)。
+- **`SetLoadedAccountsDataSizeLimit`**: 値は0より大きい必要があります(`NonZeroU32`)。値が0の場合、[`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget-instruction/src/compute_budget_instruction_details.rs#L141)が発生します。有効な制限は[`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)(64
+  MiB)にクランプされます。
+- **認識されないデータ**: コンピュートバジェットプログラムに送信されたinstructionで、既知のバリアントにデシリアライズできないものは、*rs`InvalidInstructionData`*で失敗します。
+
+<Callout>
+  以下のスケジューラーコストモデルは、validator内部の実行前コスト推定について説明しています。ほとんどの開発者は、上記のコンピュートバジェットinstructionsのみを必要とします。
+</Callout>
+
+## スケジューラーコストモデル
+
+validatorの[スケジューラー](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs)は、[コストモデル](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs)を使用して、**実行前**にトランザクションのリソース使用量を推定します。これらの実行前コスト推定は、トランザクションがブロックの残容量に収まるかどうかを判断します。これらは実行中に発生するCU計測とは別のものです。
+
+スケジューラーの総コストは、5つのコンポーネントの合計です([`UsageCostDetails::sum`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L168-L174)):
+
+```text title="Scheduler cost formula"
+total_cost = signature_cost
+           + write_lock_cost
+           + data_bytes_cost
+           + programs_execution_cost
+           + loaded_accounts_data_size_cost
+```
+
+### コストコンポーネント
+
+| コンポーネント                                                                                                                 | 説明                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| [**署名コスト**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L144-L179)                         | 各署名タイプごとの署名あたりのコスト                 |
+| [**書き込みロックコスト**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L182-L184)               | 書き込み可能なアカウントごと                         |
+| [**instruction dataコスト**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L211-L213)             | instruction dataの総バイト数に基づく                 |
+| [**プログラム実行コスト**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L187-L208)               | コンピュートバジェットからのCU制限またはデフォルト値 |
+| [**ロードされたアカウントデータコスト**](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L215-L219) | ロードされたアカウントデータの総サイズに基づく       |
+
+すべての値はコンピュートユニット単位です。
+
+### スケジューラーコスト定数
+
+| 定数                                                                                                                   | 値       |
+| ---------------------------------------------------------------------------------------------------------------------- | -------- |
+| [`COMPUTE_UNIT_TO_US_RATIO`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L8)     | 30       |
+| [`SIGNATURE_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L10)              | 720 CU   |
+| [`SECP256K1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L12)       | 6,690 CU |
+| [`ED25519_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L14)         | 2,280 CU |
+| [`ED25519_VERIFY_STRICT_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L16)  | 2,400 CU |
+| [`SECP256R1_VERIFY_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L18)       | 4,800 CU |
+| [`WRITE_LOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L20)            | 300 CU   |
+| [`INSTRUCTION_DATA_BYTES_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L22) | 4        |
+
+### 投票トランザクションコスト
+
+投票トランザクションは、実際の内容に関係なく、[静的コストの3,428 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/transaction_cost.rs#L21)を使用します。
+
+### ブロック制限
+
+スケジューラーはブロックごとの制限を適用します。トランザクションを追加することでいずれかの制限を超える場合、そのトランザクションはブロックに含まれません。
+
+| 制限                                                                                                                          | 値         |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| [`MAX_BLOCK_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L28)                    | 60,000,000 |
+| [`MAX_WRITABLE_ACCOUNT_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L35)         | 12,000,000 |
+| [`MAX_VOTE_UNITS`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L39)                     | 36,000,000 |
+| [`MAX_BLOCK_ACCOUNTS_DATA_SIZE_DELTA`](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/block_cost_limits.rs#L43) | 100 MB     |
+
+<Callout>
+  [SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-increase-block-limits.md)
+  は、_`MAX_BLOCK_UNITS`_を100,000,000に増加することを提案しています。
+</Callout>
+
+## 実行バジェット定数
+
+[`execution_budget.rs`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs)の以下の定数は、トランザクション実行中のランタイム制限を定義します:
+
+| 定数                                                                                                                                     | 値          | 説明                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------- |
+| [`MAX_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L39)                    | 1,400,000   | トランザクションあたりの最大CU制限                              |
+| [`DEFAULT_INSTRUCTION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L44)    | 200,000     | 非ビルトイン命令あたりのデフォルトCU                            |
+| [`MAX_BUILTIN_ALLOCATION_COMPUTE_UNIT_LIMIT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L47) | 3,000       | ビルトイン命令あたりのデフォルトCU (SIMD-0170)                  |
+| [`DEFAULT_HEAP_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L43)                         | 8 CU        | 32 KiBヒープページあたりのコスト                                |
+| [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21)                   | 1,000 CU    | 1回のCPI呼び出しのコスト                                        |
+| [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)               | 946 CU      | SIMD-0339でのCPI呼び出しコスト                                  |
+| [`MIN_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L49)                      | 32,768      | 最小ヒープサイズ (32 KiB)                                       |
+| [`MAX_HEAP_FRAME_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L48)                      | 262,144     | 最大ヒープサイズ (256 KiB)                                      |
+| [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)       | 67,108,864  | トランザクションあたりの最大ロード済みアカウントデータ (64 MiB) |
+| [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)                | 5           | 最大命令スタック深度 (トップレベル + CPI)                       |
+| [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10)     | 9           | 最大命令スタック深度 (トップレベル + CPI) SIMD-0268適用時       |
+| [`MAX_CALL_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L34)                            | 64          | プログラム内の最大SBF間呼び出し深度                             |
+| [`STACK_FRAME_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L37)                          | 4,096バイト | 1つのSBFスタックフレームのサイズ                                |

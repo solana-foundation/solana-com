@@ -1,0 +1,445 @@
+---
+title: Cấu trúc instruction
+description:
+  Cấu trúc instruction của Solana — các trường program_id, accounts và data, các
+  cờ AccountMeta is_signer và is_writable, compiled instructions, và ví dụ
+  chuyển SOL trong TypeScript và Rust.
+url: /docs/core/instructions/instruction-structure
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/cpi
+---
+
+<Callout type="info" title="Tóm tắt">
+  Một instruction có 3 trường: `program_id` (program nào sẽ được gọi),
+  `accounts` (danh sách AccountMeta với các cờ is_signer/is_writable), và `data`
+  (mảng byte dữ liệu mà program sẽ diễn giải).
+</Callout>
+
+<WithMentions>
+
+## Cấu trúc instruction
+
+Một
+[`Instruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/instruction/src/lib.rs#L97)
+bao gồm ba trường:
+
+- [`program_id`](mention:program-id): [ID](#program-id) của program đang được
+  gọi.
+- [`accounts`](mention:accounts): Một mảng
+  [metadata của account](#account-metadata)
+- [`data`](mention:instruction-data): Một mảng byte với [dữ liệu](#data) bổ sung
+  để instruction sử dụng.
+
+```rust title="Instruction struct"
+pub struct Instruction {
+    /// Pubkey of the program that executes this instruction.
+    // !mention program-id
+    pub program_id: Pubkey,
+    /// Metadata describing accounts that should be passed to the program.
+    // !mention accounts
+    pub accounts: Vec<AccountMeta>,
+    /// Opaque data passed to the program for its own interpretation.
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+### Program ID
+
+[`program_id`](/docs/references/terminology#program-id) của instruction là địa
+chỉ public key của program chứa logic thực thi của instruction. Runtime sử dụng
+trường này để định tuyến instruction đến đúng program để xử lý.
+
+### Metadata của account
+
+<WithMentions>
+
+Mảng `accounts` của instruction là một danh sách có thứ tự các struct
+[`AccountMeta`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/instruction/src/account_meta.rs#L25).
+Metadata phải được cung cấp cho mỗi account mà instruction tương tác. Validator
+sử dụng metadata này để xác định transaction nào có thể chạy song song. Các
+transaction ghi vào các account khác nhau có thể thực thi song song.
+
+Sơ đồ dưới đây mô tả một transaction chứa một instruction duy nhất. Mảng
+`accounts` của instruction chứa metadata cho hai account.
+
+![Một transaction với một instruction. Instruction chứa hai struct `AccountMeta` trong mảng `accounts` của nó.](/assets/docs/core/transactions/accountmeta.svg)
+
+Mỗi _rs`AccountMeta`_ có ba trường:
+
+- [pubkey](mention:pubkey): Địa chỉ public key của account
+- [is_signer](mention:is-signer): Đặt thành `true` nếu account phải ký
+  transaction
+- [is_writable](mention:is-writable): Đặt thành `true` nếu instruction sửa đổi
+  dữ liệu của account
+
+<Callout>
+  Để biết instruction yêu cầu những tài khoản nào, bao gồm tài khoản nào phải có
+  khả năng ghi, chỉ đọc, hoặc ký giao dịch, bạn phải tham khảo cách triển khai
+  của instruction, như được định nghĩa bởi chương trình.
+</Callout>
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// An account's public key.
+    // !mention pubkey
+    pub pubkey: Pubkey,
+    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
+    // !mention is-signer
+    pub is_signer: bool,
+    /// True if the account data or metadata may be mutated during program execution.
+    // !mention is-writable
+    pub is_writable: bool,
+}
+```
+
+</WithMentions>
+
+### Dữ liệu
+
+Trường `data` của instruction là một mảng byte cho chương trình biết hàm nào cần
+gọi và cung cấp các đối số cho hàm đó. Dữ liệu thường bắt đầu bằng discriminator
+hoặc (các) byte chỉ mục xác định hàm đích, theo sau là các đối số đã được
+serialize. Định dạng mã hóa được định nghĩa bởi từng chương trình (ví dụ: Borsh
+serialization hoặc layout tùy chỉnh).
+
+Các quy ước mã hóa phổ biến:
+
+- **Chương trình lõi** (System, Stake, Vote): Sử dụng chỉ mục biến thể enum được
+  serialize bằng Bincode, theo sau là các đối số đã serialize.
+- **Chương trình Anchor**: Sử dụng discriminator 8 byte (8 byte đầu tiên của
+  hash SHA-256 của `"global:<function_name>"`), theo sau là các đối số được
+  serialize bằng Borsh.
+
+Runtime không diễn giải trường `data`. Nó được truyền nguyên trạng đến
+entrypoint `process_instruction` của chương trình.
+
+## Compiled instruction
+
+Khi các instruction được serialize thành transaction message, chúng trở thành
+các struct
+[`CompiledInstruction`](/docs/core/transactions/transaction-structure#instructions)
+thay thế tất cả public key bằng các chỉ mục số nguyên nhỏ gọn trong mảng
+`account_keys` của message.
+
+## Ví dụ: instruction chuyển SOL
+
+Ví dụ dưới đây cho thấy cấu trúc của một instruction chuyển SOL.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair
+} from "@solana/web3.js";
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Define the amount to transfer
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    println!("{:#?}", transfer_instruction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<WithMentions>
+
+Đoạn code dưới đây cho thấy kết quả đầu ra từ các đoạn code trước. Định dạng sẽ
+khác nhau giữa các SDK, nhưng lưu ý rằng mỗi instruction đều chứa ba thông tin
+bắt buộc giống nhau: [`program_id`](mention:program-id),
+[`accounts`](mention:accounts), [`data`](mention:data).
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  // !mention(1:16) accounts
+  "accounts": [
+    {
+      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+      "role": 3,
+      "signer": {
+        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+        "keyPair": {
+          "privateKey": {},
+          "publicKey": {}
+        }
+      }
+    },
+    {
+      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
+      "role": 1
+    }
+  ],
+  // !mention program-id
+  "programAddress": "11111111111111111111111111111111",
+  // !mention(1:14) data
+  "data": {
+    "0": 2,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 128,
+    "5": 150,
+    "6": 152,
+    "7": 0,
+    "8": 0,
+    "9": 0,
+    "10": 0,
+    "11": 0
+  }
+}
+```
+
+```json !! title="Legacy"
+{
+  // !mention(1:12) accounts
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  // !mention program-id
+  "programId": "11111111111111111111111111111111",
+  // !mention data
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+```json !! title="Rust"
+{
+  // !mention program-id
+  "program_id": "11111111111111111111111111111111",
+  // !mention(1:12) accounts
+  "accounts": [
+    {
+      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
+      "is_signer": true,
+      "is_writable": true
+    },
+    {
+      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
+      "is_signer": false,
+      "is_writable": true
+    }
+  ],
+  // !mention data
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+</CodeTabs>
+
+</WithMentions>
+
+Các ví dụ dưới đây cho thấy cách xây dựng thủ công instruction chuyển token.
+(Tab `Expanded Instruction` về mặt chức năng tương đương với tab `Instruction`.)
+
+<Callout type="info">
+  Trong thực tế, bạn thường không cần phải xây dựng _rs`Instruction`_ một cách
+  thủ công. Hầu hết các chương trình đều cung cấp thư viện client với các hàm hỗ
+  trợ tạo instruction cho bạn. Nếu không có thư viện, bạn có thể xây dựng
+  instruction theo cách thủ công.
+</Callout>
+
+<Tabs items={['Kit', 'Legacy', 'Rust']}>
+
+<Tab value="Kit">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const TRANSFER_INSTRUCTION_INDEX = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
+instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
+
+const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
+
+// Manually create the transfer instruction
+const transferInstruction: IInstruction = {
+  programAddress: SYSTEM_PROGRAM_ADDRESS,
+  accounts: [
+    {
+      address: sender.address,
+      role: AccountRole.WRITABLE_SIGNER
+    },
+    {
+      address: recipient.address,
+      role: AccountRole.WRITABLE
+    }
+  ],
+  data: new Uint8Array(instructionData)
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Legacy">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const transferInstructionIndex = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// Manually create a transfer instruction
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Rust">
+
+<CodeTabs>
+
+```rs !! title="Instruction"
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+let transfer_instruction =
+    system_instruction::transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+```
+
+```rs !! title="Expanded Instruction"
+// Instruction index for the System Program's transfer instruction
+let transfer_instruction_index: u32 = 2;
+
+// Define the amount to transfer
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
+let mut instruction_data = Vec::with_capacity(12);
+instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
+instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
+
+// Manually create the transfer instruction
+let transfer_instruction = Instruction {
+    program_id: system_program::id(),
+    accounts: vec![
+        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
+        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
+    ],
+    data: instruction_data,
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+</Tabs>
