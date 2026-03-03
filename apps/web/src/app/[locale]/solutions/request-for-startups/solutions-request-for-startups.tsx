@@ -31,7 +31,7 @@ export function SolutionsRequestForStartupsPage() {
   };
 
   const contentBlocks = CONTENT_BLOCKS.map((block) => {
-    if (block.responsiveStyles) {
+    if ("responsiveStyles" in block) {
       return (
         <ResponsiveBox
           key={block.key}

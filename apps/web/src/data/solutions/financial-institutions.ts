@@ -1,7 +1,7 @@
 export const META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F42125017ac2e4a3aaff6aa493ce03f19.png",
-};
+} as const;
 
 export const HERO_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F84e49afac7964ab0a3c76d4ff3925ab5.png";
@@ -14,7 +14,7 @@ export const HERO_BUTTON = {
   size: "md",
   iconSize: "md",
   url: "https://solanafoundation.typeform.com/to/L2kwha4R",
-};
+} as const;
 
 export const TRUSTBAR_LOGOS = [
   {
@@ -40,7 +40,7 @@ export const TOOL_SPOTLIGHT_CARD = {
   callToAction: {
     url: "https://solana.com/solutions/token-extensions",
   },
-};
+} as const;
 
 export const SLIDER_CARDS = [
   {
@@ -73,7 +73,7 @@ export const SLIDER_CARDS = [
       url: "https://solana.com/solutions/digital-assets",
     },
   },
-];
+] as const;
 
 export const SWITCHBACKS = [
   {
@@ -107,12 +107,12 @@ export const SWITCHBACKS = [
       url: "https://solana.com/news/case-study-pyth",
     },
   },
-];
+] as const;
 
 export const CAROUSEL = {
   autoplay: true,
   autoplaySpeed: 4000,
-};
+} as const;
 
 export const CAROUSEL_SLIDES = [
   {
@@ -148,4 +148,4 @@ export const CAROUSEL_SLIDES = [
       endIcon: "arrow-up-right",
     },
   },
-];
+] as const;

@@ -116,9 +116,9 @@ export function DevelopersEvmToSvmErc4626Page() {
                     </span>
                   );
                 })
-              ) : (
+              ) : "purposeKey" in row ? (
                 <span>{t(row.purposeKey)}</span>
-              )}
+              ) : null}
             </td>
           </tr>
         ))}

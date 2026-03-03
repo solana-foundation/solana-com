@@ -1967,7 +1967,7 @@ export const rampData = [
       RampStatusOff: true,
     },
   },
-];
+] as const;
 
 export const fiatAssets = [
   { id: "AED", fields: { Name: "United Arab Emirates Dirham" } },
@@ -2076,7 +2076,7 @@ export const fiatAssets = [
   { id: "XOF", fields: { Name: "West African CFA Franc" } },
   { id: "ZAR", fields: { Name: "South African Rand" } },
   { id: "ZMW", fields: { Name: "Zambian Kwacha" } },
-];
+] as const;
 
 export const countries = [
   { id: "andorra", fields: { Name: "Andorra" } },
@@ -2208,7 +2208,7 @@ export const countries = [
   { id: "new-caledonia", fields: { Name: "New Caledonia" } },
   { id: "saint-helena", fields: { Name: "Saint Helena" } },
   { id: "south-georgia", fields: { Name: "South Georgia" } },
-];
+] as const;
 
 export const paymentRails = [
   { id: "7-eleven", fields: { Name: "7 Eleven" } },
@@ -2250,4 +2250,4 @@ export const paymentRails = [
   { id: "vietqr", fields: { Name: "VietQR" } },
   { id: "visa", fields: { Name: "Visa" } },
   { id: "wires", fields: { Name: "Wires" } },
-];
+] as const;

@@ -1121,4 +1121,4 @@ export const walletData = [
   //   hardware: false,
   //   private_key_infrastructure: false
   // }
-];
+] as const;

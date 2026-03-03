@@ -1,6 +1,6 @@
 export const META = {
   seoImage: "",
-};
+} as const;
 
 export const HERO_BUTTONS = [
   {
@@ -10,7 +10,7 @@ export const HERO_BUTTONS = [
     endIcon: "arrow-up-right",
     url: "https://www.paypalobjects.com/devdoc/community/PYUSD-Solana-White-Paper.pdf",
   },
-];
+] as const;
 
 export const PRIMARY_CARD_DECK_COLUMNS = 2;
 
@@ -106,7 +106,7 @@ export const PRIMARY_CARD_DECK_CARDS = [
       url: "",
     },
   },
-];
+] as const;
 
 export const SLIDER_CARDS = [
   {
@@ -141,7 +141,7 @@ export const SLIDER_CARDS = [
       url: "https://cointelegraph.com/news/paypal-expands-pyusd-solana-payment-use-cases",
     },
   },
-];
+] as const;
 
 export const SECONDARY_CARD_DECK_COLUMNS = 3;
 
@@ -197,4 +197,4 @@ export const SECONDARY_CARD_DECK_CARDS = [
       url: "/developers",
     },
   },
-];
+] as const;

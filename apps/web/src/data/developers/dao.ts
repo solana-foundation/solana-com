@@ -1,7 +1,7 @@
 export const META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ffa44c1ccb5c3419b945e9a3ddb82ccec.png",
-};
+} as const;
 
 export const HERO_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F13ad542787554aab904e31db8d478d95.png";
@@ -13,11 +13,11 @@ export const HERO_BUTTONS = [
     endIcon: "arrow-up-right",
     url: "https://github.com/solana-labs/solana-program-library/tree/master/governance",
   },
-];
+] as const;
 
 export const STATS_CONFIG = {
   contained: true,
-};
+} as const;
 
 export const CARD_DECK_COLUMNS = 3;
 
@@ -52,7 +52,7 @@ export const CARD_DECK_CARDS = [
     },
     backgroundGradient: "purple",
   },
-];
+] as const;
 
 export const SLIDER_CARDS = [
   {
@@ -139,7 +139,7 @@ export const SLIDER_CARDS = [
       alt: "",
     },
   },
-];
+] as const;
 
 export const CONVERSION_PANEL = {
   variant: "inline-centered",
@@ -158,4 +158,4 @@ export const CONVERSION_PANEL = {
       url: "https://forums.solana.com",
     },
   ],
-};
+} as const;
