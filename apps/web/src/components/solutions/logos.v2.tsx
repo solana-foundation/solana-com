@@ -28,7 +28,7 @@ export const Logos: React.FC<LogosProps> = ({
     <div
       key={`${logo.alt}-${i}`}
       className={cn(
-        "flex items-center justify-center relative mr-twd-8 md:mr-twd-12 xl:mr-twd-32 self-center h-[40px]",
+        "flex items-center justify-center relative mr-8 md:mr-12 xl:mr-32 self-center h-[40px]",
         itemClassName,
       )}
       style={{

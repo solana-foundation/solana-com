@@ -64,13 +64,13 @@ export default function UniversitiesSubjectsSection({
 
       <div className="container relative z-10">
         <div className="max-w-5xl mx-auto mb-12">
-          <div className="row align-items-center">
-            <div className="col-12 col-lg-6">
+          <div className="grid grid-cols-12 gap-5 md:gap-10 items-center">
+            <div className="col-span-12 lg:col-span-6">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight mb-8 lg:mb-0">
                 {translations.title}
               </h2>
             </div>
-            <div className="col-12 col-lg-6">
+            <div className="col-span-12 lg:col-span-6">
               <p className="text-lg text-gray-400 mb-8">
                 {translations.description}
               </p>
@@ -85,9 +85,9 @@ export default function UniversitiesSubjectsSection({
             </div>
           </div>
         </div>
-        <div className="row">
-          <div className="col-12">
-            <div className="px-0 mx-n3">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12">
+            <div className="px-0 -mx-4">
               <CarouselCards>
                 <UniversitiesSubjectCard
                   title={translations.cards.finance.title}

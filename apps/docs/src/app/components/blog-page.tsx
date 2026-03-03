@@ -41,13 +41,13 @@ export function BlogPage(props: {
   const href = `https://github.com/solana-foundation/solana-com/blob/main/apps/docs/content/${baseHref}/${filePath}`;
   return (
     <div className="container">
-      <div className="my-6">
+      <div className="my-8">
         <Breadcrumb root={props.baseHref} items={props.breadcrumb} />
       </div>
       <div>
         <HeroTitle record={record} baseHref={props.baseHref} />
       </div>
-      <div className="flex gap-8">
+      <div className="flex gap-12">
         <Toc
           className="max-xl:block max-[990px]:hidden"
           style={{ "--fd-toc-width": "268px" } as React.CSSProperties}
@@ -63,7 +63,7 @@ export function BlogPage(props: {
           </div>
         </Toc>
         <article className="min-w-0">
-          <DocsBody className="mb-6 text-lg">{props.children}</DocsBody>
+          <DocsBody className="mb-8 text-lg">{props.children}</DocsBody>
           <Footer pageTree={props.pageTree} pageUrl={props.href} />
         </article>
       </div>

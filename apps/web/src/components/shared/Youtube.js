@@ -1,6 +1,6 @@
 import { memo } from "react";
-import { Spinner } from "react-bootstrap";
 import styled from "styled-components";
+import Loader from "@@/public/src/img/icons/Loader.inline.svg";
 
 function getYoutubeVideoId(url) {
   const match = url.match(/[=/]([\w\d_-]{10,12})/);
@@ -19,13 +19,13 @@ function getYoutubeEmbedUrl(id, { autoplay }) {
 }
 
 const StyledSpinnerWrapper = styled.div`
-  position: absolute;
+  position: relative;
 
-  > div.spinner-wrapper {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  & .spinner-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
 `;
 
@@ -50,14 +50,10 @@ export const YoutubeIFrame = memo(function ({
       <link rel="preconnect" href="https://static.doubleclick.net" />
       <link rel="preconnect" href="https://googleads.g.doubleclick.net" />
       {!loaded && (
-        <>
+        <StyledSpinnerWrapper>
           <img src={thumbUrl} alt="" />
-          <StyledSpinnerWrapper>
-            <div className="spinner-wrapper">
-              <Spinner animation="border" role="status" variant="secondary" />
-            </div>
-          </StyledSpinnerWrapper>
-        </>
+          <Loader className="spinner-icon" />
+        </StyledSpinnerWrapper>
       )}
       {enabled && (
         <iframe

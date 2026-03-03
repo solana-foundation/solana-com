@@ -22,9 +22,9 @@ const NFTShowdownPartners = () => {
   const t = useTranslations();
 
   return (
-    <div className="my-10">
+    <div className="my-20">
       <div className={styles["nft-showdown-partners"]}>
-        <h2 className="mono section-title h6 fw-normal mb-5">
+        <h2 className="mono section-title h6 font-normal mb-6">
           {t("nft-showdown.partners.title")}:
         </h2>
 

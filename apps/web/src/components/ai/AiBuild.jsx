@@ -59,7 +59,7 @@ export default function AiBuild() {
 
   return (
     <section className={styles["build"]}>
-      <div className="container position-relative py-10">
+      <div className="container relative py-20">
         <Image className={styles["build__bg"]} src={bgImage} alt="" fill />
         <div className={styles["build__bg-effect"]}></div>
         <h2 className={styles["build__title"]}>

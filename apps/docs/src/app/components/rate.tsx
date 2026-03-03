@@ -254,7 +254,7 @@ function FeedbackResponseView({
   );
 
   return (
-    <div className="px-3 py-6 flex flex-col items-center gap-3 bg-fd-card text-sm text-center rounded-xl">
+    <div className="px-3 py-8 flex flex-col items-center gap-3 bg-fd-card text-sm text-center rounded-xl">
       <button className={buttonClasses} onClick={onMoreFeedback}>
         Have more feedback?
       </button>

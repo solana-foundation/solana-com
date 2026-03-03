@@ -10,7 +10,7 @@ export const PageNav = ({ nav }) => {
     <div
       className={classNames(
         styles["developers-content-page__nav"],
-        "d-flex flex-column flex-md-row justify-content-between mt-10 small",
+        "flex flex-col md:flex-row justify-between mt-20 small",
       )}
     >
       {nav.prev ? (

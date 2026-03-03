@@ -32,12 +32,12 @@ export const Projects: React.FC<ProjectsProps> = ({
   return (
     <section
       className={cn(
-        "relative overflow-hidden text-nd-high-em-text text-left m-twd-0",
+        "relative overflow-hidden text-nd-high-em-text text-left m-0",
         className,
       )}
     >
       <Container className="py-10 flex flex-col justify-between relative">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div className="xl:max-w-[70%] grow-0">
             {title && <h2 className="nd-heading-l">{title}</h2>}
           </div>
@@ -62,7 +62,7 @@ export const Projects: React.FC<ProjectsProps> = ({
             </div>
           )}
         </div>
-        <div className="mt-twd-10 xl:mt-twd-16 rounded-2xl border-nd-border-light border-[1px] bg-nd-inverse overflow-hidden relative">
+        <div className="mt-10 xl:mt-16 rounded-2xl border-nd-border-light border-[1px] bg-nd-inverse overflow-hidden relative">
           {bgSrc && (
             <Image
               className="opacity-30 blur-[40px]"
@@ -119,7 +119,7 @@ export const Projects: React.FC<ProjectsProps> = ({
         </div>
         {logos && logos.length > 0 && (
           <Logos
-            className="mt-twd-10 xl:mt-twd-16 -mx-5 md:-mx-8 xl:-mx-10 w-auto px-5 md:px-8 xl:px-10 h-[28px] xl:h-[40px] gap-twd-6 xl:gap-twd-12 justify-start md:justify-between"
+            className="mt-10 xl:mt-16 -mx-5 md:-mx-8 xl:-mx-10 w-auto px-5 md:px-8 xl:px-10 h-[28px] xl:h-[40px] gap-6 xl:gap-12 justify-start md:justify-between"
             itemClassName="h-full m-0"
             logos={logos}
             animation={false}

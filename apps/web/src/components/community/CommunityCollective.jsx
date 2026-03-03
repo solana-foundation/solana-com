@@ -41,17 +41,17 @@ const CommunityCollective = () => {
   const t = useTranslations();
 
   return (
-    <StyledCommunityCollective className="container align-items-center my-12 d-flex flex-column flex-md-row">
+    <StyledCommunityCollective className="container items-center my-12 flex flex-col md:flex-row">
       <Image
         src={collectiveImg}
         alt="Community Collective"
         objectPosition="center"
         objectFit="contain"
       />
-      <div className="card px-8 pt-8 pb-5 justify-content-end">
+      <div className="card px-12 pt-12 pb-6 justify-end">
         <div className="body">
           <h2 className="h1">Solana Collective</h2>
-          <p>{t("community.collective")}</p>
+          <p className="my-4">{t("community.collective")}</p>
           <Button to="https://www.solanacollective.com/" noBorder newTab>
             {t("community.apply")}
           </Button>

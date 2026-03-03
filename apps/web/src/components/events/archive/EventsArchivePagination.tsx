@@ -47,7 +47,7 @@ const EventsArchivePagination = ({
 
   return (
     <div className="container">
-      <div className="mt-5">
+      <div className="mt-6">
         {t("events.archive.event-count", {
           current: `${pageLowerBound + 1} - ${pageUpperBound}`,
           total: totalCount,
@@ -56,16 +56,16 @@ const EventsArchivePagination = ({
           <div className="progress-bar" />
         </StyledProgressBar>
       </div>
-      <div className="d-md-flex justify-content-between mt-5">
+      <div className="md:flex justify-between mt-6">
         <Button
           onClick={() =>
             setCurrentPage((prevPage) => (currentPage === 0 ? 0 : prevPage - 1))
           }
           variant="tertiary"
-          className="mt-5 mt-md-0"
+          className="mt-6 md:mt-0"
           disabled={currentPage === 0}
         >
-          <ArrowLeft className="me-2" />
+          <ArrowLeft className="mr-2" />
           {t("events.archive.previous-page")}
         </Button>
         <Button
@@ -75,11 +75,11 @@ const EventsArchivePagination = ({
             )
           }
           variant="tertiary"
-          className="mt-5 mt-md-0"
+          className="mt-6 md:mt-0"
           disabled={currentPage + 1 >= totalPages}
         >
           {t("events.archive.next-page")}
-          <ArrowRight className="ms-2" />
+          <ArrowRight className="ml-2" />
         </Button>
       </div>
     </div>

@@ -35,12 +35,12 @@ interface EventsListProps {
 const EventsList = ({ list, isCompact }: EventsListProps) => {
   return (
     <div className="my-6">
-      <div className="row">
+      <div className="grid grid-cols-12 gap-4">
         {isCompact ? (
           <>
             {list.map((event, index) => {
               return (
-                <div className="col-sm-6 my-2" key={index}>
+                <div className="col-span-12 sm:col-span-6 my-2" key={index}>
                   <EventsSingleRow event={event} />
                 </div>
               );
@@ -49,7 +49,10 @@ const EventsList = ({ list, isCompact }: EventsListProps) => {
         ) : (
           list.map((event, index) => {
             return (
-              <div className="col-lg-3 col-md-4 col-sm-6 mb-5" key={index}>
+              <div
+                className="col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-3 mb-6"
+                key={index}
+              >
                 <EventSingleCard event={event} />
               </div>
             );
