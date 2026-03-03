@@ -9,22 +9,22 @@
 
 ## 2. Convert utilities, hooks, lib, constants (Phase 2)
 
-- [ ] 2.1 `src/utils/Link.js` → `.ts`
-- [ ] 2.2 `src/utils/dateUtils.js` → `.ts`
-- [ ] 2.3 `src/utils/emailUtils.js` → `.ts`
-- [ ] 2.4 `src/utils/fetcher.js` → `.ts`
-- [ ] 2.5 `src/utils/followerFunctions.js` → `.ts`
-- [ ] 2.6 `src/utils/getNextRequestId.js` → `.ts`
-- [ ] 2.7 `src/utils/rpcUtils.js` → `.ts`
-- [ ] 2.8 `src/utils/stringUtils.js` → `.ts`
-- [ ] 2.9 `src/utils/ytUtils.js` → `.ts`
-- [ ] 2.10 `src/hooks/useIsomorphicLayoutEffect.js` → `.ts`
-- [ ] 2.11 `src/hooks/useReducedMotion.js` → `.ts`
-- [ ] 2.12 `src/hooks/useTransactionStats.js` → `.ts`
-- [ ] 2.13 `src/lib/markdown/index.js` → `.ts`
-- [ ] 2.14 `src/lib/podcast/index.js` → `.ts`
-- [ ] 2.15 `src/lib/sitemap/media-urls.js` → `.ts`
-- [ ] 2.16 `src/constants/developerContentConfig.js` → `.ts`
+- [x] 2.1 `src/utils/Link.js` → `.ts`
+- [x] 2.2 `src/utils/dateUtils.js` → `.ts`
+- [x] 2.3 `src/utils/emailUtils.js` → `.ts`
+- [x] 2.4 `src/utils/fetcher.js` → `.ts`
+- [x] 2.5 `src/utils/followerFunctions.js` → `.ts`
+- [x] 2.6 `src/utils/getNextRequestId.js` → `.ts`
+- [x] 2.7 `src/utils/rpcUtils.js` → `.ts`
+- [x] 2.8 `src/utils/stringUtils.js` → `.ts`
+- [x] 2.9 `src/utils/ytUtils.js` → `.ts`
+- [x] 2.10 `src/hooks/useIsomorphicLayoutEffect.js` → `.ts`
+- [x] 2.11 `src/hooks/useReducedMotion.js` → `.ts`
+- [x] 2.12 `src/hooks/useTransactionStats.js` → `.ts`
+- [x] 2.13 `src/lib/markdown/index.js` → `.ts`
+- [x] 2.14 `src/lib/podcast/index.js` → `.ts`
+- [ ] 2.15 `src/lib/sitemap/media-urls.js` → `.ts` (deferred — CJS required by `next-sitemap.config.js` at runtime; convert alongside that file in Phase 6)
+- [x] 2.16 `src/constants/developerContentConfig.js` → `.ts`
 
 ## 3. Convert data files (Phase 3)
 

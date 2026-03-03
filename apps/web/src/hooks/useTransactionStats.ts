@@ -13,26 +13,37 @@ if (!rpcNodeURL) {
 
 // Check for AbortController support
 const isAbortControllerSupported =
-  typeof window !== "undefined" && window.hasOwnProperty("AbortController");
-const noOp = () => null;
+  typeof window !== "undefined" && "AbortController" in window;
+const noOp = (): void => undefined;
 
 // Initializes an AbortController if supported
-const initAbortController = () =>
+const initAbortController = (): {
+  abort: () => void;
+  signal: AbortSignal | undefined;
+} =>
   isAbortControllerSupported
     ? new AbortController()
-    : { abort: noOp, signal: {} };
+    : { abort: noOp, signal: undefined };
+
+type VoteAccountsResult = {
+  result: { current: Array<{ activatedStake: string }> };
+};
+type PerformanceSamplesResult = {
+  result: Array<{ numTransactions: number; samplePeriodSecs: number }>;
+};
+type TransactionCountResult = { result: number };
 
 /**
  * Fetches the superminority count.
  *
- * @returns {Promise<number>} The count of superminority validators.
+ * @returns {Promise<number | null>} The count of superminority validators.
  */
-export const fetchSuperminority = async () => {
+export const fetchSuperminority = async (): Promise<number | null> => {
   try {
-    const voteAccounts = await makeRPCCall({
+    const voteAccounts = (await makeRPCCall({
       method: "getVoteAccounts",
-      rpcNodeURL,
-    });
+      rpcNodeURL: rpcNodeURL!,
+    })) as VoteAccountsResult;
 
     // Sort validators by stake in ascending order
     const sortedValidators = voteAccounts.result.current.sort((a, b) => {
@@ -75,7 +86,7 @@ export const fetchSuperminority = async () => {
  * @param {number} sampleHistoryHours         How many hours (60min.) the query should go back.
  * @param {boolean} getLiveTransactionCount
  * @param {boolean} getCurrentValidatorNodes
- * @returns {{availableStats: boolean, avgTps: number, validators: number, totalTransactionCount: number, superminority: number}}
+ * @returns {{availableStats: boolean, avgTps: number, validators: number, totalTransactionCount: number, superminority: number | null}}
  */
 export const useTransactionStats = ({
   visible,
@@ -83,27 +94,43 @@ export const useTransactionStats = ({
   sampleHistoryHours,
   getLiveTransactionCount = true,
   getCurrentValidatorNodes = true,
-}) => {
+}: {
+  visible: boolean;
+  performanceUpdateSeconds: number;
+  sampleHistoryHours: number;
+  getLiveTransactionCount?: boolean;
+  getCurrentValidatorNodes?: boolean;
+}): {
+  availableStats: boolean;
+  avgTps: number;
+  totalTransactionCount: number;
+  validators: number;
+  superminority: number | null;
+} => {
   const [availableStats, setAvailableStats] = useState(false);
   const [avgTps, setAvgTps] = useState(0);
   const [totalTransactionCount, setTotalTransactionCount] = useState(0);
   const [validators, setValidators] = useState(0);
-  const [superminority, setSuperminority] = useState(null);
+  const [superminority, setSuperminority] = useState<number | null>(null);
 
   const getRPCData = useCallback(
-    async (getValidatorNodes, getTransactionCount, abortSignal) => {
+    async (
+      getValidatorNodes: boolean,
+      getTransactionCount: boolean,
+      abortSignal: AbortSignal | undefined,
+    ): Promise<boolean> => {
       try {
         if (rpcNodeURL) {
           await Promise.all([
             (async () => {
-              const recentPerformanceSamples = await makeRPCCall({
+              const recentPerformanceSamples = (await makeRPCCall({
                 abortSignal,
                 method: "getRecentPerformanceSamples",
                 params: [60 * sampleHistoryHours],
                 rpcNodeURL,
-              });
+              })) as PerformanceSamplesResult;
               // Calculate average transactions per second
-              const short = recentPerformanceSamples.result.reduce(
+              const short = recentPerformanceSamples.result.reduce<number[]>(
                 (shortResults, sample) => {
                   if (sample.numTransactions !== 0) {
                     shortResults.push(
@@ -122,11 +149,11 @@ export const useTransactionStats = ({
               if (!getValidatorNodes) {
                 return;
               }
-              const voteAccounts = await makeRPCCall({
+              const voteAccounts = (await makeRPCCall({
                 abortSignal,
                 method: "getVoteAccounts",
                 rpcNodeURL,
-              });
+              })) as VoteAccountsResult;
               setValidators(voteAccounts.result.current.length);
               setAvailableStats(true);
             })(),
@@ -134,11 +161,11 @@ export const useTransactionStats = ({
               if (!getTransactionCount) {
                 return;
               }
-              const transactionCount = await makeRPCCall({
+              const transactionCount = (await makeRPCCall({
                 abortSignal,
                 method: "getTransactionCount",
                 rpcNodeURL,
-              });
+              })) as TransactionCountResult;
               setTotalTransactionCount(transactionCount.result);
               setAvailableStats(true);
             })(),
@@ -148,7 +175,10 @@ export const useTransactionStats = ({
         }
         return false;
       } catch (error) {
-        if (error.name === "AbortError" || error.name === "TypeError") {
+        if (
+          error instanceof Error &&
+          (error.name === "AbortError" || error.name === "TypeError")
+        ) {
           return false;
         }
         console.error("Error fetching RPC data:", error);

@@ -1,36 +1,27 @@
+import { PodcastEpisode } from "@/types/media";
+
 export default class PodcastApi {
-  static HEADERS = {
+  static HEADERS: Record<string, string> = {
     Authorization: `Bearer ${process.env.SIMPLECAST_API_KEY}`,
   };
 
-  static async getEpisodeBySlug(slug) {
+  static async getEpisodeBySlug(
+    slug: string,
+  ): Promise<{ episode: PodcastEpisode }> {
     if (!process.env.SIMPLECAST_API_KEY) {
       console.warn("SIMPLECAST_API_KEY is not set. Returning dummy data.");
       return {
         episode: {
           id: "dummy-id",
+          recordingId: "dummy-recording-id",
+          podcastSlug: slug,
           title: "Dummy Episode",
           description: "This is a dummy episode description.",
-          slug: slug,
-          published_at: "2024-01-01T00:00:00Z",
-          audio_file_url: "https://example.com/dummy.mp3",
-          podcast: {
-            href: "https://api.simplecast.com/podcasts/dummy-podcast-id",
-            title: "Dummy Podcast",
-            status: "published",
-            image_url: "https://example.com/dummy-podcast-cover.jpg",
-            id: "dummy-podcast-id",
-            episodes: { count: 10 },
-          },
-          dashboard_link: "https://example.com/dummy-dashboard-link",
+          publishedDate: "2024-01-01T00:00:00Z",
           duration: 1800,
-          audio_status: "transcoded",
-          audio_file: {
-            url: "https://example.com/dummy.mp3",
-            size: 44774820,
-          },
-          status: "published",
-          days_since_release: 2,
+          audioUrl: "https://example.com/dummy.mp3",
+          thumbnailUrl: "https://example.com/dummy-thumbnail.jpg",
+          status: "ready",
         },
       };
     }
@@ -59,44 +50,39 @@ export default class PodcastApi {
     offset = 0,
     query = "",
     sort = "desc",
-  }) {
+  }: {
+    limit?: number;
+    offset?: number;
+    query?: string;
+    sort?: string;
+  }): Promise<{ episodes: PodcastEpisode[]; hasMore: boolean }> {
     if (!process.env.SIMPLECAST_API_KEY) {
       console.warn("SIMPLECAST_API_KEY is not set. Returning dummy data.");
       return {
         episodes: [
           {
             id: "dummy-episode-1",
+            recordingId: "dummy-recording-1",
+            podcastSlug: "solana-podcast",
             title: "Dummy Episode 1",
             description: "Description for dummy episode 1",
-            slug: "dummy-episode-1",
-            published_at: "2024-05-28T02:00:00-07:00",
-            audio_file_url: "https://example.com/dummy1.mp3",
+            publishedDate: "2024-05-28T02:00:00-07:00",
             duration: 2798,
-            podcast: {
-              href: "https://api.simplecast.com/podcasts/dummy-podcast-id",
-              title: "Dummy Podcast",
-              status: "published",
-              image_url: "https://example.com/dummy-podcast-cover.jpg",
-              id: "dummy-podcast-id",
-              episodes: { count: 10 },
-            },
+            audioUrl: "https://example.com/dummy1.mp3",
+            thumbnailUrl: "https://example.com/dummy-thumbnail.jpg",
+            status: "ready",
           },
           {
             id: "dummy-episode-2",
+            recordingId: "dummy-recording-2",
+            podcastSlug: "solana-podcast",
             title: "Dummy Episode 2",
             description: "Description for dummy episode 2",
-            slug: "dummy-episode-2",
-            published_at: "2024-05-21T02:00:00-07:00",
-            audio_file_url: "https://example.com/dummy2.mp3",
+            publishedDate: "2024-05-21T02:00:00-07:00",
             duration: 2407,
-            podcast: {
-              href: "https://api.simplecast.com/podcasts/dummy-podcast-id",
-              title: "Dummy Podcast",
-              status: "published",
-              image_url: "https://example.com/dummy-podcast-cover.jpg",
-              id: "dummy-podcast-id",
-              episodes: { count: 10 },
-            },
+            audioUrl: "https://example.com/dummy2.mp3",
+            thumbnailUrl: "https://example.com/dummy-thumbnail.jpg",
+            status: "ready",
           },
         ],
         hasMore: false,
@@ -114,7 +100,10 @@ export default class PodcastApi {
       },
     );
 
-    const { pages, collection } = await response.json();
+    const { pages, collection } = (await response.json()) as {
+      pages: { current: number; total: number };
+      collection: PodcastEpisode[];
+    };
 
     return {
       episodes: collection,

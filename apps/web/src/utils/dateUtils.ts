@@ -1,9 +1,9 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { isString } from "./stringUtils";
-import { add, format } from "date-fns";
+import { add, format, type Duration } from "date-fns";
 import { parse as parseDurationString } from "tinyduration";
 
-export const defaultDateStringOptions = {
+export const defaultDateStringOptions: Intl.DateTimeFormatOptions = {
   weekday: "long",
   year: "numeric",
   month: "long",
@@ -19,10 +19,10 @@ export const defaultDateStringOptions = {
  * @returns {string}
  */
 export const toLocaleString = (
-  locale,
-  dateString,
-  dateStringOptions = defaultDateStringOptions,
-) => new Date(dateString).toLocaleDateString(locale, dateStringOptions);
+  locale: string,
+  dateString: string | Date,
+  dateStringOptions: Intl.DateTimeFormatOptions = defaultDateStringOptions,
+): string => new Date(dateString).toLocaleDateString(locale, dateStringOptions);
 
 /**
  * Formats a given date to MM/DD/YYYY HH:MM.
@@ -30,10 +30,10 @@ export const toLocaleString = (
  * @param {Date|string} date  The given date.
  * @returns {string}
  */
-export const formatDateTime = (date) => {
+export const formatDateTime = (date: Date | string): string => {
   const dateTime = new Date(date);
-  let hours = dateTime.getUTCHours();
-  let minutes = dateTime.getUTCMinutes();
+  let hours: number | string = dateTime.getUTCHours();
+  let minutes: number | string = dateTime.getUTCMinutes();
   hours = hours < 10 ? `0${hours}` : hours;
   minutes = minutes < 10 ? `0${minutes}` : minutes;
   return `${
@@ -47,7 +47,7 @@ export const formatDateTime = (date) => {
  * @param dateString
  * @returns {string}
  */
-export const switchMonthAndDay = (dateString) => {
+export const switchMonthAndDay = (dateString: string): string => {
   try {
     const dateArray = dateString.split("-");
     return [dateArray[0], dateArray[2], dateArray[1]].join("-");
@@ -63,7 +63,7 @@ export const switchMonthAndDay = (dateString) => {
  * @param {string}    dateString    The Date string to try to fix.
  * @returns {Date|string}
  */
-export const fixDate = (dateString) => {
+export const fixDate = (dateString: string): Date | string => {
   try {
     const parsedDate = new Date(dateString);
     if (Object.prototype.toString.call(parsedDate) === "[object Date]") {
@@ -99,7 +99,11 @@ export const fixDate = (dateString) => {
  * @param timezone
  * @returns {string}
  */
-export const formatDate = (date, dateFormat, timezone) =>
+export const formatDate = (
+  date: Date | string,
+  dateFormat: string,
+  timezone?: string,
+): string =>
   !!timezone && timezone !== "undefined"
     ? formatInTimeZone(date, timezone, dateFormat)
     : format(date, dateFormat);
@@ -110,7 +114,7 @@ export const formatDate = (date, dateFormat, timezone) =>
  * @param {string} duration ISO-8601 Duration String
  * @returns {(Duration|null)}
  */
-export function parseDuration(duration) {
+export function parseDuration(duration: string): Duration | null {
   try {
     return parseDurationString(duration);
   } catch (error) {
@@ -122,11 +126,11 @@ export function parseDuration(duration) {
 /**
  * Converts and adds ISO-8601 Duration to a given DateTime
  *
- * @param {DateTime} date
+ * @param {Date} date
  * @param {string} duration ISO-8601 Duration
- * @returns {(DateTime|null)}
+ * @returns {Date}
  */
-export function addDuration(date, duration) {
+export function addDuration(date: Date, duration: string): Date {
   const durationObj = parseDuration(duration);
   return durationObj ? add(date, durationObj) : date;
 }

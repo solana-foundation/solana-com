@@ -3,9 +3,9 @@ import { useMemo } from "react";
 /**
  * Hook to easily grab reduced motion media query.
  *
- * @returns {[unknown, unknown]}
+ * @returns {[boolean, MediaQueryList | false]}
  */
-const useReducedMotion = () => {
+const useReducedMotion = (): [boolean, MediaQueryList | false] => {
   // Grab the prefers reduced media query and memoize it.
   const reducedMotionMatch = useMemo(
     () =>
