@@ -6,7 +6,11 @@
  * @param {string}        append            Postfix (e.g. Ellipsis).
  * @returns {string}
  */
-export const truncateTextByWord = (text, truncateLength, append = "") => {
+export const truncateTextByWord = (
+  text: string,
+  truncateLength: number,
+  append = "",
+): string => {
   const textLength = text.length;
   const appendLength = append.length;
 
@@ -37,7 +41,7 @@ export const truncateTextByWord = (text, truncateLength, append = "") => {
  * @param {string}  str   Word to capitalize.
  * @returns {string}
  */
-export const capitalizeFirstChar = (str) =>
+export const capitalizeFirstChar = (str: string): string =>
   str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 
 /**
@@ -46,7 +50,7 @@ export const capitalizeFirstChar = (str) =>
  * @param {string}      text    String to capitalize.
  * @returns {string}
  */
-export const capitalize = (text) =>
+export const capitalize = (text: string): string =>
   text
     .trim()
     .toLowerCase()
@@ -55,10 +59,10 @@ export const capitalize = (text) =>
 /**
  * Checks if a given text is a string.
  *
- * @param {string?}   text  The text to check.
+ * @param {unknown}   text  The text to check.
  * @returns {boolean}
  */
-export const isString = (text) =>
+export const isString = (text: unknown): boolean =>
   typeof text === "string" || text instanceof String;
 
 /**
@@ -68,5 +72,5 @@ export const isString = (text) =>
  * @param replacement
  * @returns {string}
  */
-export const createSlugFromTitle = (title, replacement = "") =>
+export const createSlugFromTitle = (title: string, replacement = ""): string =>
   title.replace(/\s+/g, replacement).toLowerCase();

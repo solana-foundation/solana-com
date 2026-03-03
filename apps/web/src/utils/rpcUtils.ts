@@ -1,4 +1,4 @@
-import getNextRequestId from "./getNextRequestId.js";
+import getNextRequestId from "./getNextRequestId";
 
 /**
  * Sends an RPC request to a Solana RPC node.
@@ -6,7 +6,7 @@ import getNextRequestId from "./getNextRequestId.js";
  * @param rpcNodeURL
  * @param method
  * @param params
- * @returns {Promise<any>}
+ * @returns {Promise<unknown>}
  */
 
 const isDevelopment =
@@ -14,13 +14,15 @@ const isDevelopment =
 
 // Limit the number of concurrent requests
 class RequestQueue {
-  constructor(maxConcurrentRequests) {
-    this.queue = [];
-    this.concurrentRequests = 0;
+  private queue: Array<() => void> = [];
+  private concurrentRequests = 0;
+  private maxConcurrentRequests: number;
+
+  constructor(maxConcurrentRequests: number) {
     this.maxConcurrentRequests = maxConcurrentRequests;
   }
 
-  add(request) {
+  add(request: () => Promise<unknown>): void {
     this.queue.push(() =>
       request().finally(() => {
         this.concurrentRequests--;
@@ -30,12 +32,12 @@ class RequestQueue {
     this.next();
   }
 
-  next() {
+  next(): void {
     if (
       this.concurrentRequests < this.maxConcurrentRequests &&
       this.queue.length > 0
     ) {
-      const request = this.queue.shift();
+      const request = this.queue.shift()!;
       this.concurrentRequests++;
       request();
     }
@@ -45,7 +47,17 @@ class RequestQueue {
 // Create a single shared queue for all RPC calls if in development mode
 const sharedRequestQueue = isDevelopment ? new RequestQueue(3) : null; // Limit to 3 concurrent requests in development
 
-export async function makeRPCCall({ abortSignal, method, params, rpcNodeURL }) {
+export async function makeRPCCall({
+  abortSignal,
+  method,
+  params,
+  rpcNodeURL,
+}: {
+  abortSignal?: AbortSignal;
+  method: string;
+  params?: unknown[];
+  rpcNodeURL: string;
+}): Promise<unknown> {
   if (isDevelopment && sharedRequestQueue) {
     return new Promise((resolve, reject) => {
       sharedRequestQueue.add(async () => {

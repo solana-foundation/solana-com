@@ -10,9 +10,15 @@ const markdownPostsDir = join(process.cwd(), "src", "markdown");
  *
  * @param path
  * @param slug
- * @returns {{path, frontmatter: {date: (string|any)}, content: string}}
  */
-export function getPostBySlug(path, slug) {
+export function getPostBySlug(
+  path: string,
+  slug: string,
+): {
+  path: string;
+  frontmatter: Record<string, unknown> & { date: string | null };
+  content: string;
+} {
   const dir = join(markdownPostsDir, path);
   const realSlug = slug.replace(/\.md$/, "");
   const fullPath = join(dir, `${realSlug}.md`);
@@ -20,8 +26,8 @@ export function getPostBySlug(path, slug) {
   const { data, content } = matter(fileContents);
   const date =
     data.date && typeof data.date !== "string"
-      ? format(data.date, "MMMM dd, yyyy")
-      : (data.date ?? null);
+      ? format(data.date as Date, "MMMM dd, yyyy")
+      : ((data.date as string | null) ?? null);
   return {
     path: realSlug,
     frontmatter: { ...data, date, reviewed: true },
@@ -33,9 +39,10 @@ export function getPostBySlug(path, slug) {
  * Returns all posts from `markdownPostsDir`.
  *
  * @param path
- * @returns {{path: *, frontmatter: {date: *}, content: *|string}[]}
  */
-export function getAllPostsInDir(path) {
+export function getAllPostsInDir(
+  path: string,
+): ReturnType<typeof getPostBySlug>[] {
   const dir = join(markdownPostsDir, path);
   const slugs = fs.readdirSync(dir);
   const posts = slugs.map((slug) => getPostBySlug(path, slug));
