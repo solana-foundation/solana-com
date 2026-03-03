@@ -1,5 +1,7 @@
 import { languages } from "@workspace/i18n/config";
 import { config } from "@@/src/config";
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 
 const cleanPath = (pathString) => {
   try {
@@ -26,8 +28,8 @@ const MetaLinks = ({ localeNoEnDefault, asPathNoRedirect }) => {
   const cleanedAsPathNoRedirect = cleanPath(asPathNoRedirect);
   return (
     <>
-      <link rel="icon" href="/favicon.png" type="image/png" />
-      <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      <link rel="icon" href={faviconPng.src} type="image/png" />
+      <link rel="icon" href={faviconSvg} type="image/svg+xml" />
       <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       <link rel="manifest" href="/site.webmanifest" />
       {/* preferred canonical page */}

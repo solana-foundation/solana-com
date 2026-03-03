@@ -2,6 +2,7 @@ import { Feed } from "feed";
 import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
 import { contentDocumentToPlainText } from "@/lib/content-renderer";
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
 export const revalidate = 300;
 
@@ -65,8 +66,8 @@ export async function GET() {
       id: newsUrl,
       link: newsUrl,
       language: "en",
-      image: `${baseUrl}/favicon.png`,
-      favicon: `${baseUrl}/favicon.png`,
+      image: `${baseUrl}${faviconPng.src}`,
+      favicon: `${baseUrl}${faviconPng.src}`,
       copyright: `© ${new Date().getFullYear()} Solana Foundation. All rights reserved.`,
       updated: posts.length > 0 && posts[0]?.date ? posts[0].date : new Date(),
     });

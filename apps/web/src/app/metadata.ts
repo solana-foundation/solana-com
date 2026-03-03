@@ -2,6 +2,8 @@ import { Metadata } from "next";
 import { config } from "@@/src/config";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
 
 export function getBaseMetadata(locale: string) {
   const { siteMetadata, siteUrl } = config;
@@ -28,12 +30,12 @@ export function getBaseMetadata(locale: string) {
     metadataBase: new URL(siteUrl),
     icons: [
       {
-        url: "/favicon.png",
+        url: faviconPng.src,
         rel: "icon",
         type: "image/png",
       },
       {
-        url: "/favicon.svg",
+        url: faviconSvg,
         rel: "icon",
         type: "image/svg+xml",
       },
