@@ -2,13 +2,27 @@ import { useRef, useEffect, useState, Fragment } from "react";
 import styles from "./PossibleEcosystemGridRow.module.scss";
 import PossibleEcosystemGridItem from "./PossibleEcosystemGridItem";
 
-const PossibleEcosystemGridRow = ({ data, dir }) => {
-  const rowRef = useRef(null);
+type EcosystemItem = {
+  name: string;
+  logo: { src: string };
+  category: string;
+};
+
+type PossibleEcosystemGridRowProps = {
+  data: EcosystemItem[];
+  dir: "ltr" | "rtl";
+};
+
+const PossibleEcosystemGridRow = ({
+  data,
+  dir,
+}: PossibleEcosystemGridRowProps) => {
+  const rowRef = useRef<HTMLDivElement>(null);
   const [repeatCount, setRepeatCount] = useState(0);
   const [rowWidth, setRowWidth] = useState(0);
 
   // determine how many times you need to repeat the row for animation
-  const getRepeatCount = (width) => {
+  const getRepeatCount = (width: number) => {
     const containerWidth =
       typeof window !== "undefined" ? window.innerWidth : 0;
     const repeatCount = Math.ceil(containerWidth / width) * 2;
@@ -30,7 +44,7 @@ const PossibleEcosystemGridRow = ({ data, dir }) => {
   }, []);
 
   useEffect(() => {
-    const rowWidth = rowRef?.current.clientWidth || 0;
+    const rowWidth = rowRef.current?.clientWidth || 0;
     setRowWidth(rowWidth);
   }, [repeatCount]);
 

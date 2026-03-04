@@ -1,6 +1,12 @@
 import PossibleEcosystemGridRow from "./PossibleEcosystemGridRow";
 
-const PossibleEcosystemGrid = ({ data }) => {
+type EcosystemItem = {
+  name: string;
+  logo: { src: string };
+  category: string;
+};
+
+const PossibleEcosystemGrid = ({ data }: { data: EcosystemItem[] }) => {
   // convert array of objects into 6 equal chunks
   const chunkedData = divideIntoSixGroups(data, 6);
 
@@ -20,12 +26,11 @@ const PossibleEcosystemGrid = ({ data }) => {
 };
 
 // break array into groups
-function divideIntoSixGroups(inputObj, numGroups = 6) {
-  const arrays = Object.values(inputObj);
-  const output = Array.from({ length: numGroups }, () => []);
+function divideIntoSixGroups<T>(inputObj: T[], numGroups = 6): T[][] {
+  const output: T[][] = Array.from({ length: numGroups }, () => []);
 
-  arrays.forEach((array, index) => {
-    output[index % numGroups].push(array);
+  inputObj.forEach((item, index) => {
+    output[index % numGroups].push(item);
   });
 
   return output;

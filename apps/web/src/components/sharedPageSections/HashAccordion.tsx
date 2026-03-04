@@ -1,4 +1,4 @@
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Accordion,
@@ -8,7 +8,13 @@ import {
 } from "@workspace/ui";
 import slugify from "@sindresorhus/slugify";
 
-const HashAccordionItem = ({ question, answer }) => {
+const HashAccordionItem = ({
+  question,
+  answer,
+}: {
+  question: string;
+  answer: React.ReactNode;
+}) => {
   const id = slugify(question);
   return (
     <AccordionItem
@@ -26,31 +32,39 @@ const HashAccordionItem = ({ question, answer }) => {
   );
 };
 
-export default function HashAccordion({ prefix, children }) {
+export default function HashAccordion({
+  prefix,
+  children,
+}: {
+  prefix?: string;
+  children: React.ReactNode;
+}) {
   const router = useRouter();
-  const [activeKey, setActiveKey] = useState(null);
+  const pathname = usePathname();
+  const [activeKey, setActiveKey] = useState("");
 
   useEffect(() => {
-    if (router.isReady) {
-      const key = getItemKey(prefix, router.asPath);
+    const hash =
+      typeof window !== "undefined" ? window.location.hash.slice(1) : "";
+    const asPath = hash ? `${pathname}#${hash}` : pathname;
+    const key = getItemKey(prefix, asPath);
 
-      if (!key) {
-        return;
-      }
-
-      const keyWithoutPrefix = key.replace(`${prefix}/`, "");
-      const element = document.querySelector(`[data-id="${keyWithoutPrefix}"]`);
-
-      if (element) {
-        setActiveKey(keyWithoutPrefix);
-        element.scrollIntoView({ behavior: "smooth" });
-      }
+    if (!key) {
+      return;
     }
-  }, [router.isReady, prefix, router.asPath]);
 
-  const handleSelect = (eventKey) => {
+    const keyWithoutPrefix = key.replace(`${prefix}/`, "");
+    const element = document.querySelector(`[data-id="${keyWithoutPrefix}"]`);
+
+    if (element) {
+      setActiveKey(keyWithoutPrefix);
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [pathname, prefix]);
+
+  const handleSelect = (eventKey: string) => {
     setActiveKey(eventKey);
-    router.push(eventKey ? `#${eventKey}` : router.asPath.split("#")[0], {
+    router.push(eventKey ? `#${eventKey}` : pathname, {
       scroll: false,
     });
   };
@@ -68,12 +82,16 @@ export default function HashAccordion({ prefix, children }) {
 }
 
 // Helper function to get the item key from the URL
-function getItemKey(prefix, asPath) {
+function getItemKey(prefix: string | undefined, asPath: string): string | null {
   const [, itemKey] = asPath.split("#");
   if (!itemKey) {
     return null;
   }
-  if (itemKey.includes("/") && !itemKey.startsWith(prefix)) {
+  if (
+    itemKey.includes("/") &&
+    prefix !== undefined &&
+    !itemKey.startsWith(prefix)
+  ) {
     return null;
   }
   return itemKey;

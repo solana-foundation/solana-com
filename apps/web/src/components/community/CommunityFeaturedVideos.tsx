@@ -2,14 +2,13 @@ import Button from "../shared/Button";
 import { useTranslations } from "next-intl";
 import VideoCard from "./VideoCard";
 
-/**
- * List videos using VideoCard
- *
- * @param {Array} videos - Array of videos from YouTube channel
- * @returns {JSX.Element}
- * @constructor
- */
-export default function FeaturedVideos({ videos }) {
+type Video = {
+  id?: string;
+  contentDetails: { videoId: string };
+  snippet: { title: string };
+};
+
+export default function FeaturedVideos({ videos }: { videos: Video[] }) {
   const t = useTranslations();
 
   return videos.length ? (

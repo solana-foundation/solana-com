@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import type { StaticImageData } from "next/image";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import classNames from "classnames";
@@ -13,12 +14,25 @@ import PlayButton from "assets/possible/visionaries/play-button.png";
 import { PossibleVisionariesData } from "./PossibleVisionariesData";
 import { VideoTrigger } from "@/component-library/video-modal";
 
+type EpisodeItem = {
+  name: string;
+  title: string;
+  description: string;
+  poster: StaticImageData;
+  vimeoId: string;
+  speakers: Array<{ name: string; image: StaticImageData }>;
+};
+
+interface SliderInstance {
+  slickGoTo: (_index: number) => void;
+}
+
 const PossibleVisionaries = () => {
   const t = useTranslations();
-  const sliderRef = useRef(null);
+  const sliderRef = useRef<SliderInstance>(null);
   const [currentEpisode, setCurrentEpisode] = useState(0);
 
-  const handleAfterChange = (current) => {
+  const handleAfterChange = (current: number) => {
     setCurrentEpisode(current);
   };
 
@@ -74,7 +88,7 @@ const PossibleVisionaries = () => {
       >
         <div className="grid grid-cols-12 gap-5 md:gap-10 -mx-5 md:mx-0">
           <div className="col-span-12">
-            <Slider {...settings} ref={sliderRef}>
+            <Slider {...settings} ref={sliderRef as React.Ref<unknown>}>
               {data.map((item, index) => (
                 <div key={index}>
                   <div className="flex flex-wrap md:flex-nowrap md:flex-row-reverse pb-12">
@@ -112,8 +126,9 @@ const PossibleVisionaries = () => {
                       <p className="mb-6 copy text-white">{item.description}</p>
                       <VideoTrigger
                         platform="vimeo"
-                        id={index}
+                        id={String(index)}
                         title={item.title}
+                        bgColorClass=""
                         className="copy text-white uppercase font-normal flex items-center"
                         mode="button"
                       >
@@ -138,22 +153,30 @@ const PossibleVisionaries = () => {
   );
 };
 
+type PossibleEpisodeSelectionProps = {
+  sliderRef: React.RefObject<SliderInstance | null>;
+  episodeData: EpisodeItem[];
+  currentEpisode: number;
+};
+
 const PossibleEpisodeSelection = ({
   sliderRef,
   episodeData,
   currentEpisode,
-}) => {
+}: PossibleEpisodeSelectionProps) => {
   const t = useTranslations();
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectEpisode = (index) => {
-    sliderRef.current.slickGoTo(index);
+  const selectEpisode = (index: number) => {
+    sliderRef.current?.slickGoTo(index);
     scrollToButton(index);
   };
 
-  const scrollToButton = (index) => {
+  const scrollToButton = (index: number) => {
+    if (!containerRef.current) return;
     const containerLeft = containerRef.current.offsetLeft;
-    const buttonLeft = containerRef.current.children[index].offsetLeft;
+    const buttonLeft = (containerRef.current.children[index] as HTMLElement)
+      .offsetLeft;
     const scrollPosition = buttonLeft - containerLeft;
 
     containerRef.current.scroll({ left: scrollPosition, behavior: "smooth" });
@@ -229,7 +252,14 @@ const PossibleEpisodeSelection = ({
   );
 };
 
-const VideoModalButton = ({ poster, index, title }) => {
+type VideoModalButtonProps = {
+  poster: StaticImageData;
+  index: number;
+  title: string;
+  watchText?: string;
+};
+
+const VideoModalButton = ({ poster, index, title }: VideoModalButtonProps) => {
   return (
     <div className="relative block mx-auto w-full h-auto">
       <Image
@@ -241,7 +271,7 @@ const VideoModalButton = ({ poster, index, title }) => {
       />
       <VideoTrigger
         platform="vimeo"
-        id={index}
+        id={String(index)}
         title={title}
         bgColorClass="!bg-black/70"
         className={

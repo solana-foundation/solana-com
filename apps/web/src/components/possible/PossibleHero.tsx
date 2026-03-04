@@ -11,11 +11,11 @@ import { VideoTrigger } from "@/component-library/video-modal";
 
 const PossibleHero = () => {
   const t = useTranslations();
-  const heroVideoRef = useRef();
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
   const [prefersReducedMotion] = useReducedMotion();
 
   useEffect(() => {
-    prefersReducedMotion && heroVideoRef.current.pause();
+    prefersReducedMotion && heroVideoRef.current?.pause();
   }, [prefersReducedMotion]);
 
   return (
@@ -77,7 +77,7 @@ const PossibleHero = () => {
   );
 };
 
-const VideoModalButton = ({ title }) => {
+const VideoModalButton = ({ title }: { title: string }) => {
   return (
     <div
       className={classNames(

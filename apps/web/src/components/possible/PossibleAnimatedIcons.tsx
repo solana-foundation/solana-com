@@ -1,12 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 
+type PossibleAnimatedIconsProps = {
+  videoSrc: string;
+  fallbackImage: string;
+  fallbackImageAlt: string;
+};
+
 const PossibleAnimatedIcons = ({
   videoSrc,
   fallbackImage,
   fallbackImageAlt,
-}) => {
+}: PossibleAnimatedIconsProps) => {
   const [showFallback, setShowFallback] = useState(false);
-  const videoRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

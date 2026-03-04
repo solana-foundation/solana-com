@@ -50,6 +50,7 @@ export default defineConfig([
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
+          ignoreUsingDeclarations: true,
         },
       ],
 
@@ -58,6 +59,12 @@ export default defineConfig([
       "react/prop-types": 0,
       "react/react-in-jsx-scope": 0,
       "import/no-anonymous-default-export": 0,
+    },
+  },
+  {
+    files: ["**/*.d.ts"],
+    rules: {
+      "no-unused-vars": "off",
     },
   },
   eslintPluginPrettierRecommended,
