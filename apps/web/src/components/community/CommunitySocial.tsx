@@ -12,14 +12,29 @@ import News from "../../../public/src/img/community/socials-news.inline.svg";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/component-library/badge";
 
-/**
- * Display social network cards
- *
- * @param {object} data - Social network meta information
- * @returns {JSX.Element}
- * @constructor
- */
-const CommunitySocial = ({ data }) => {
+type SocialData = {
+  telegram?: number;
+  twitter?: number;
+  github?: number;
+  discord?: number;
+  meetup?: number;
+  weibo?: number;
+  youtube?: number;
+  news?: number;
+  reddit?: number;
+};
+
+type SocialAccount = {
+  link: string;
+  category: string;
+  renderIcon: () => React.ReactNode;
+  nameId: string;
+  memberStrId?: string;
+  members?: number;
+  membersStr?: string;
+};
+
+const CommunitySocial = ({ data }: { data: SocialData }) => {
   const t = useTranslations();
 
   const {
@@ -34,7 +49,7 @@ const CommunitySocial = ({ data }) => {
     reddit = 344000,
   } = data;
 
-  const socialAccounts = [
+  const socialAccounts: SocialAccount[] = [
     {
       link: "/telegram",
       category: "Announcements",
@@ -144,8 +159,8 @@ const CommunitySocial = ({ data }) => {
                   item.membersStr
                 ) : (
                   <>
-                    <FormattedNumber value={item.members} />
-                    <span> {t(item.memberStrId)}</span>
+                    <FormattedNumber value={item.members ?? 0} />
+                    <span> {t(item.memberStrId ?? "")}</span>
                   </>
                 )}
               </p>

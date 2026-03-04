@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { StaticImageData } from "next/image";
 import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import Link from "next/link";
@@ -59,7 +60,21 @@ const PossibleStartBuilding = () => {
   );
 };
 
-const StartBuildingColumn = ({ image, title, copy, cta, url }) => {
+type StartBuildingColumnProps = {
+  image: StaticImageData;
+  title: string;
+  copy: string;
+  cta: string;
+  url: string;
+};
+
+const StartBuildingColumn = ({
+  image,
+  title,
+  copy,
+  cta,
+  url,
+}: StartBuildingColumnProps) => {
   return (
     <div className="col-span-12 md:col-span-4 mb-12 md:mb-0 md:flex md:flex-col md:grow">
       <div

@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import HeroImage from "../../../public/src/img/validators/validators_geometry.png";
 import Button from "../shared/Button";
 
-const ValidatorsHero = forwardRef((_, ref) => {
+const ValidatorsHero = forwardRef<HTMLElement>((_, ref) => {
   const t = useTranslations();
 
   return (
@@ -55,5 +55,7 @@ const ValidatorsHero = forwardRef((_, ref) => {
     </section>
   );
 });
+
+ValidatorsHero.displayName = "ValidatorsHero";
 
 export default ValidatorsHero;

@@ -36,12 +36,12 @@
 
 ## 4. Convert simple components (Phase 4)
 
-- [ ] 4.1 `src/components/validators/*.js` (5 files) → `.tsx`
-- [ ] 4.2 `src/components/ecdr/*.js` (3 files) → `.tsx`
-- [ ] 4.3 `src/components/branding/*.jsx` (4 files) → `.tsx`
-- [ ] 4.4 `src/components/community/*.jsx` (4 files) → `.tsx`
-- [ ] 4.5 `src/components/possible/*.js/jsx` (16 files) → `.tsx`
-- [ ] 4.6 `src/components/sharedPageSections/HashAccordion.js` → `.tsx`
+- [x] 4.1 `src/components/validators/*.js` (5 files) → `.tsx`
+- [x] 4.2 `src/components/ecdr/*.js` (3 files) → `.tsx`
+- [x] 4.3 `src/components/branding/*.jsx` (4 files) → `.tsx`
+- [x] 4.4 `src/components/community/*.jsx` (4 files) → `.tsx`
+- [x] 4.5 `src/components/possible/*.js/jsx` (16 files) → `.tsx`
+- [x] 4.6 `src/components/sharedPageSections/HashAccordion.js` → `.tsx`
 
 ## 5. Convert page-feature components (Phase 5)
 

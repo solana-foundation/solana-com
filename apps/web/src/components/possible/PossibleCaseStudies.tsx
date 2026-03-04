@@ -49,7 +49,14 @@ const PossibleCaseStudies = () => {
   );
 };
 
-const CaseStudyCard = ({ title, copy, cta, url }) => {
+type CaseStudyCardProps = {
+  title: string;
+  copy: string;
+  cta: string;
+  url: string;
+};
+
+const CaseStudyCard = ({ title, copy, cta, url }: CaseStudyCardProps) => {
   return (
     <div
       className={classNames(styles["caseStudies__card"], "p-8 pb-16 relative")}

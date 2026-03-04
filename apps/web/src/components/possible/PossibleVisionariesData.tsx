@@ -17,9 +17,15 @@ import dialectPoster from "assets/possible/visionaries/Dialect_poster.jpg";
 import heliusSpeaker01 from "assets/possible/visionaries/Helius_speaker_01.png";
 import heliusPoster from "assets/possible/visionaries/Helius_poster.jpg";
 
+type Episode = {
+  name: string;
+  title: string;
+  description: string;
+};
+
 export const PossibleVisionariesData = () => {
   const t = useTranslations();
-  const episodes = t.raw("possible.visionaries.episodes");
+  const episodes = t.raw("possible.visionaries.episodes") as Episode[];
 
   return [
     {

@@ -1,11 +1,17 @@
 import { useState, useRef } from "react";
 import styles from "./PossibleEcosystemGridItem.module.scss";
 
-const PossibleEcosystemGridItem = ({ data }) => {
+type EcosystemItem = {
+  name: string;
+  logo: { src: string };
+  category: string;
+};
+
+const PossibleEcosystemGridItem = ({ data }: { data: EcosystemItem }) => {
   const [tooltipPosition, setTooltipPosition] = useState(
     "top-full left-1/2 -translate-x-1/2",
   );
-  const itemRef = useRef(null);
+  const itemRef = useRef<HTMLDivElement>(null);
 
   const handleTooltipPosition = () => {
     if (itemRef.current) {

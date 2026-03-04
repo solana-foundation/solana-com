@@ -14,7 +14,13 @@ import {
 import { FormattedNumber } from "../SolFormattedMessage";
 import AnimatedTransactionCountup from "../shared/AnimatedTransactionCountup";
 
-const StatsNo = ({ value, description, className }) => {
+type StatsNoProps = {
+  value: React.ReactNode;
+  description: string;
+  className?: string;
+};
+
+const StatsNo = ({ value, description, className }: StatsNoProps) => {
   return (
     <>
       <div
@@ -34,6 +40,15 @@ const StatsNo = ({ value, description, className }) => {
   );
 };
 
+type StatsCardProps = {
+  title: string;
+  description: React.ReactNode;
+  value: React.ReactNode;
+  valueName: string;
+  border: string;
+  className?: string;
+};
+
 const StatsCard = ({
   title,
   description,
@@ -41,7 +56,7 @@ const StatsCard = ({
   valueName,
   border,
   className,
-}) => {
+}: StatsCardProps) => {
   return (
     <div className={`col-span-12 md:col-span-6 mb-2 ${className}`}>
       <div className={classNames("p-8", styles["index-stats__card"])}>
@@ -54,7 +69,7 @@ const StatsCard = ({
         <p className="small subdued">{description}</p>
         <div className="mt-8">
           {/* Check for the static 0% value of the carbon impact section */}
-          {parseInt(value) !== 0 ? (
+          {parseInt(value as string) !== 0 ? (
             <div
               className={classNames(
                 "h5 font-normal",
@@ -82,7 +97,12 @@ const StatsCard = ({
   );
 };
 
-const PossibleStats = ({ visible, showKPIs = true }) => {
+type PossibleStatsProps = {
+  visible: boolean;
+  showKPIs?: boolean;
+};
+
+const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
   const { avgTps, validators, totalTransactionCount, availableStats } =
     useTransactionStats({
       visible,

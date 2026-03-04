@@ -8,7 +8,7 @@ import {
   useTransactionStats,
 } from "../../hooks/useTransactionStats";
 
-const ValidatorsCards = ({ visible }) => {
+const ValidatorsCards = ({ visible }: { visible: boolean }) => {
   const { validators, availableStats, superminority } = useTransactionStats({
     visible,
     performanceUpdateSeconds: PERF_UPDATE_SEC,

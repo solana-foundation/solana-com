@@ -8,7 +8,9 @@ import faqLogo from "../../../public/src/img/validators/validators_geometry_smal
 
 const ValidatorsFAQ = () => {
   const t = useTranslations();
-  const questionsAndAnswers = t.raw("validators.qa.items");
+  const questionsAndAnswers = t.raw("validators.qa.items") as Array<{
+    question: string;
+  }>;
 
   return (
     <section className="mt-20 min-[567px]:mt-32">

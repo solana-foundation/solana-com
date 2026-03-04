@@ -5,7 +5,19 @@ import { FormattedNumber } from "../SolFormattedMessage";
 import styles from "./ECDRStats.module.scss";
 import ClipboardIcon from "../../../public/src/img/ecdr/clipboard.inline.svg";
 
-const StatCard = ({ value, description = "", note = "", className }) => (
+type StatCardProps = {
+  value: string | number;
+  description?: string;
+  note?: string;
+  className?: string;
+};
+
+const StatCard = ({
+  value,
+  description = "",
+  note = "",
+  className,
+}: StatCardProps) => (
   <div className={classNames("text-center", styles["ecdr-stats__card"])}>
     <div
       className={classNames(
