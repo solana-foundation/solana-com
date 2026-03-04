@@ -40,7 +40,7 @@ export function BlogPage(props: {
   const filePath = props.filePath?.replace(/^\//, "");
   const href = `https://github.com/solana-foundation/solana-com/blob/main/apps/docs/content/${baseHref}/${filePath}`;
   return (
-    <div className="container">
+    <div className="mx-auto w-full px-5">
       <div className="my-8">
         <Breadcrumb root={props.baseHref} items={props.breadcrumb} />
       </div>
