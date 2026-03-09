@@ -88,39 +88,20 @@ export function HomepageHero() {
 
       {/* Main content */}
       <div className="relative z-10 mx-auto max-w-[1920px] px-6 lg:px-[60px]">
-        {/* Accelerate Logo - positioned to match Figma left:395px */}
+        {/* Solana Accelerate Logo - single combined SVG */}
         <motion.div
           initial="hidden"
           animate="visible"
           variants={stagger}
-          className="pt-[100px] md:pt-[150px] lg:ml-[335px] lg:pt-[196px]"
+          className="pt-[100px] md:pt-[150px] lg:ml-[200px] lg:pt-[196px]"
         >
-          <motion.div variants={fadeInUp} className="flex flex-col">
-            {/* Solana mark + text - matches Figma logo component top portion */}
-            <div className="mb-1 flex items-center gap-1.5">
-              <Image
-                src={getImagePath("/images/solana-logo.svg")}
-                alt=""
-                width={16}
-                height={14}
-                className="h-[10px] w-auto md:h-[12px] lg:h-[14px]"
-              />
-              <span
-                className="text-[10px] font-normal uppercase tracking-[1.5px] text-white md:text-[12px] lg:text-[14px]"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                }}
-              >
-                Solana
-              </span>
-            </div>
+          <motion.div variants={fadeInUp}>
             <Image
-              src={getImagePath("/images/accelerate-logo.svg")}
+              src={getImagePath("/images/solana-accelerate-logo.svg")}
               alt="Solana Accelerate"
               width={488}
               height={276}
-              className="h-[120px] w-auto md:h-[180px] lg:h-[240px]"
+              className="h-[140px] w-auto md:h-[200px] lg:h-[276px]"
               priority
             />
           </motion.div>

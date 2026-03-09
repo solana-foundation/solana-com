@@ -6,8 +6,28 @@ import { getImagePath } from "@/config";
 
 export function HomepageFooter() {
   return (
-    <footer className="relative bg-black pb-8 pt-12 lg:pb-12 lg:pt-16">
-      <div className="mx-auto max-w-[1480px] px-6">
+    <footer className="relative overflow-hidden bg-black pb-16 pt-20 lg:pb-16 lg:pt-[82px]">
+      {/* Planet dots decoration - clipped container showing only top arc of sphere */}
+      {/* Figma: 1345×359 container, image 1110×1109 at (117, 8) */}
+      <div
+        className="pointer-events-none absolute bottom-0 left-1/2 z-0 -translate-x-1/2 overflow-hidden"
+        style={{ width: 1345, height: 359 }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={getImagePath("/images/homepage/planet-dots.png")}
+          alt=""
+          style={{
+            position: "absolute",
+            left: 117,
+            top: -40,
+            width: 1110,
+            height: 1109,
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-[1480px] px-6">
         <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
           {/* Left: Solana mark + event links */}
           <div className="flex items-center gap-10">
@@ -104,7 +124,7 @@ export function HomepageFooter() {
 
         {/* Copyright - ABC Diatype Regular 20px */}
         <p
-          className="mt-10 text-center text-[16px] text-[#b3b2bc] lg:mt-16 lg:text-[20px]"
+          className="mt-16 text-center text-[16px] text-[#b3b2bc] lg:mt-[101px] lg:text-[20px]"
           style={{
             fontFamily: "'ABC Diatype', sans-serif",
             fontWeight: 400,

@@ -165,7 +165,7 @@ export function StayUpdated() {
                 </div>
 
                 {/* Consent checkbox */}
-                <div className="mt-6 flex w-[445px] max-w-full items-start gap-[11px] self-center">
+                <div className="mx-auto mt-6 flex w-[445px] max-w-full items-start gap-[11px]">
                   <input
                     type="checkbox"
                     checked={consent}
