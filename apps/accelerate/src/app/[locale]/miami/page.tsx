@@ -9,6 +9,7 @@ import {
   HashScroll,
   Tickets,
 } from "@/components";
+import { MiamiHeroSymbols } from "./MiamiHeroSymbols";
 
 export default function MiamiPage() {
   return (
@@ -16,9 +17,9 @@ export default function MiamiPage() {
       <HashScroll />
       <Hero
         translationPrefix="accelerate.miami"
-        skylineImage="/images/miami-skyline.svg"
         agendaPath={null}
         showVideo={false}
+        backgroundContent={<MiamiHeroSymbols />}
       />
       <EventDetails
         translationPrefix="accelerate.miami.eventDetails"
