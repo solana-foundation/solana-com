@@ -1,6 +1,6 @@
 export { HomepageNav } from "./HomepageNav";
 export { HomepageHero } from "./HomepageHero";
-export { AuroraWave } from "./AuroraWave";
+export { AuroraWave, HeroWaveWrapper } from "./AuroraWave";
 export { EventLineup } from "./EventLineup";
 export { EventCard } from "./EventCard";
 export { Highlights } from "./Highlights";

@@ -1,7 +1,7 @@
 import {
   HomepageNav,
   HomepageHero,
-  AuroraWave,
+  HeroWaveWrapper,
   EventLineup,
   Highlights,
   VideoCarousel,
@@ -13,8 +13,9 @@ export default function HomePage() {
   return (
     <>
       <HomepageNav />
-      <HomepageHero />
-      <AuroraWave />
+      <HeroWaveWrapper>
+        <HomepageHero />
+      </HeroWaveWrapper>
       <EventLineup />
       <Highlights />
       <VideoCarousel />

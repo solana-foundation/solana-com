@@ -28,9 +28,23 @@ const navLinkStyle = {
   fontSize: "16px",
 };
 
-export function Hero() {
+interface HeroProps {
+  translationPrefix?: string;
+  skylineImage?: string;
+  agendaPath?: string | null;
+  showVideo?: boolean;
+  ctaLabel?: string;
+}
+
+export function Hero({
+  translationPrefix = "accelerate",
+  skylineImage = "/images/hk-skyline.svg",
+  agendaPath = "/accelerate/hong-kong/agenda",
+  showVideo = true,
+  ctaLabel,
+}: HeroProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const t = useTranslations("accelerate");
+  const t = useTranslations(translationPrefix);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -63,7 +77,7 @@ export function Hero() {
         style={{ transform: "translateX(-50%) scaleY(-1) rotate(180deg)" }}
       >
         <Image
-          src={getImagePath("/images/hk-skyline.svg")}
+          src={getImagePath(skylineImage)}
           alt=""
           fill
           className="object-contain"
@@ -149,16 +163,18 @@ export function Hero() {
           >
             {t("nav.speakers")}
           </a>
-          <Link
-            href="/accelerate/hong-kong/agenda"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
-            {t("nav.agenda")}
-          </Link>
+          {agendaPath && (
+            <Link
+              href={agendaPath}
+              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: "16px",
+              }}
+            >
+              {t("nav.agenda")}
+            </Link>
+          )}
           <a
             href="#sponsors"
             className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
@@ -192,7 +208,7 @@ export function Hero() {
                 border: "1px solid transparent",
               }}
             >
-              <span>{t("nav.requestToJoin")}</span>
+              <span>{ctaLabel || t("nav.requestToJoin")}</span>
               <svg
                 width="8"
                 height="8"
@@ -284,14 +300,16 @@ export function Hero() {
                 >
                   {t("nav.speakers")}
                 </a>
-                <Link
-                  href="/accelerate/hong-kong/agenda"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t("nav.agenda")}
-                </Link>
+                {agendaPath && (
+                  <Link
+                    href={agendaPath}
+                    className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
+                    style={navLinkStyle}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {t("nav.agenda")}
+                  </Link>
+                )}
                 <a
                   href="#sponsors"
                   className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
@@ -323,7 +341,7 @@ export function Hero() {
                       border: "1px solid transparent",
                     }}
                   >
-                    <span>{t("nav.requestToJoin")}</span>
+                    <span>{ctaLabel || t("nav.requestToJoin")}</span>
                     <svg
                       width="8"
                       height="8"
@@ -378,9 +396,11 @@ export function Hero() {
           </motion.div>
 
           {/* YouTube embed */}
-          <motion.div variants={fadeInUp} className="w-full">
-            <YoutubeEmbed id="LsfnC62q8oE" title={t("hero.title")} />
-          </motion.div>
+          {showVideo && (
+            <motion.div variants={fadeInUp} className="w-full">
+              <YoutubeEmbed id="LsfnC62q8oE" title={t("hero.title")} />
+            </motion.div>
+          )}
         </motion.div>
       </div>
     </section>

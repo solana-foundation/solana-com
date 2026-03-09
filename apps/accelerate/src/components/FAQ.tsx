@@ -87,11 +87,18 @@ function FAQAccordionItem({
   );
 }
 
-export function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
-  const t = useTranslations("accelerate.faq");
+interface FAQProps {
+  faqKeys?: string[];
+  translationPrefix?: string;
+}
 
-  const faqKeys = ["q1", "q2", "q3", "q4"] as const;
+export function FAQ({
+  faqKeys = ["q1", "q2", "q3", "q4"],
+  translationPrefix = "accelerate.faq",
+}: FAQProps = {}) {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const t = useTranslations(translationPrefix);
+
   const faqs: FAQItem[] = faqKeys.map((key) => ({
     question: t(`items.${key}.question`),
     answer: t(`items.${key}.answer`),

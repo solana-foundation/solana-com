@@ -19,8 +19,18 @@ const stagger = {
   },
 };
 
-export function FooterCTA() {
-  const t = useTranslations("accelerate.footerCta");
+interface FooterCTAProps {
+  translationPrefix?: string;
+  backgroundImage?: string;
+  lumaId?: string;
+}
+
+export function FooterCTA({
+  translationPrefix = "accelerate.footerCta",
+  backgroundImage = "/images/hk-characters.png",
+  lumaId = "accelerate-miami",
+}: FooterCTAProps = {}) {
+  const t = useTranslations(translationPrefix);
 
   return (
     <section className="relative overflow-hidden bg-black py-12 lg:py-16">
@@ -28,7 +38,7 @@ export function FooterCTA() {
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="relative h-full w-full max-w-[1464px]">
           <Image
-            src={getImagePath("/images/hk-characters.png")}
+            src={getImagePath(backgroundImage)}
             alt=""
             fill
             className="object-contain opacity-[0.8]"
@@ -85,7 +95,7 @@ export function FooterCTA() {
 
           {/* CTA Button */}
           <motion.div variants={fadeInUp} className="mb-6 sm:mb-8">
-            <LumaModal lumaId="accelerate-miami">
+            <LumaModal lumaId={lumaId}>
               <button
                 className="group inline-flex h-[56px] w-full max-w-[480px] items-center justify-center rounded-[32px] px-5 text-black transition-all hover:opacity-90 sm:h-[66px] sm:px-7"
                 style={{

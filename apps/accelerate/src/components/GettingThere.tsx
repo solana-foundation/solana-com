@@ -73,8 +73,14 @@ function InfoRow({ label, value, subValue, link }: InfoRowProps) {
   );
 }
 
-export function GettingThere() {
-  const t = useTranslations("accelerate.gettingThere");
+interface GettingThereProps {
+  translationPrefix?: string;
+}
+
+export function GettingThere({
+  translationPrefix = "accelerate.gettingThere",
+}: GettingThereProps = {}) {
+  const t = useTranslations(translationPrefix);
 
   return (
     <section id="getting-there" className="bg-black py-12 lg:py-16">
@@ -108,21 +114,35 @@ export function GettingThere() {
             <InfoRow
               label={t("accommodationsLabel")}
               value={t("accommodationsValue")}
-              subValue={t("accommodationsSubValue")}
-              link={{
-                text: t("viewDetailsHere"),
-                href: "https://consensus-hongkong.coindesk.com/travel/",
-              }}
+              subValue={
+                t.has("accommodationsSubValue")
+                  ? t("accommodationsSubValue")
+                  : undefined
+              }
+              link={
+                t.has("viewDetailsHere")
+                  ? {
+                      text: t("viewDetailsHere"),
+                      href: t.has("viewDetailsLink")
+                        ? t("viewDetailsLink")
+                        : "https://consensus-hongkong.coindesk.com/travel/",
+                    }
+                  : undefined
+              }
             />
-            <InfoRow
-              label=""
-              value={t("nomadzValue")}
-              subValue={t("nomadzSubValue")}
-              link={{
-                text: "nomadz.xyz",
-                href: "https://nomadz.xyz",
-              }}
-            />
+            {t.has("nomadzValue") && (
+              <InfoRow
+                label=""
+                value={t("nomadzValue")}
+                subValue={
+                  t.has("nomadzSubValue") ? t("nomadzSubValue") : undefined
+                }
+                link={{
+                  text: "nomadz.xyz",
+                  href: "https://nomadz.xyz",
+                }}
+              />
+            )}
           </div>
         </motion.div>
       </div>

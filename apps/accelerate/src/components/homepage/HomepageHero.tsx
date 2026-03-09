@@ -63,7 +63,7 @@ export function HomepageHero() {
   return (
     <section
       ref={sectionRef}
-      className="relative h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1000px]"
+      className="relative z-[1] h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1000px]"
     >
       {/* Globe video background - sized down and offset right */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
@@ -120,16 +120,6 @@ export function HomepageHero() {
             "linear-gradient(to bottom, rgba(0,0,0,0) 15.35%, black 73.26%)",
         }}
       />
-
-      {/* Aurora wave lines decoration */}
-      <div className="pointer-events-none absolute left-[-181px] top-[735px] z-[3] hidden h-[978px] w-[2219px] lg:block">
-        <Image
-          src={getImagePath("/images/wave-lines.svg")}
-          alt=""
-          fill
-          className="object-contain"
-        />
-      </div>
 
       {/* Scroll-driven logo — shrinks from hero size toward the header slot */}
       <motion.div
