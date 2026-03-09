@@ -1,25 +1,70 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { getImagePath } from "@/config";
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.15,
-    },
-  },
-};
-
 export function HomepageHero() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollY } = useScroll();
+
+  // Responsive breakpoint values for the logo animation path.
+  // Stored in a ref so the useTransform mapper always reads latest values.
+  const dims = useRef({
+    heroTop: 196,
+    heroLeft: 260,
+    heroHeight: 276,
+    navTop: 33,
+    navLeft: 60,
+    navHeight: 80,
+    scrollEnd: 300,
+  });
+
+  useEffect(() => {
+    function update() {
+      const lg = window.innerWidth >= 1024;
+      const md = window.innerWidth >= 768;
+      dims.current = {
+        heroTop: lg ? 196 : md ? 150 : 100,
+        heroLeft: lg ? 260 : 24,
+        heroHeight: lg ? 276 : md ? 200 : 140,
+        navTop: lg ? 33 : 16,
+        navLeft: lg ? 60 : 24,
+        navHeight: lg ? 80 : md ? 50 : 40,
+        scrollEnd: lg ? 300 : 200,
+      };
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  function ease(t: number) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+  function progress(v: number) {
+    return ease(Math.min(Math.max(v / dims.current.scrollEnd, 0), 1));
+  }
+  function lerp(a: number, b: number, t: number) {
+    return a + (b - a) * t;
+  }
+
+  const logoTop = useTransform(scrollY, (v) =>
+    lerp(dims.current.heroTop, dims.current.navTop, progress(v)),
+  );
+  const logoLeft = useTransform(scrollY, (v) =>
+    lerp(dims.current.heroLeft, dims.current.navLeft, progress(v)),
+  );
+  const logoHeight = useTransform(scrollY, (v) =>
+    lerp(dims.current.heroHeight, dims.current.navHeight, progress(v)),
+  );
+
   return (
-    <section className="relative h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1000px]">
+    <section
+      ref={sectionRef}
+      className="relative h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1000px]"
+    >
       {/* Globe video background - sized down and offset right */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         <div className="absolute left-[400px] top-1/2 h-[80%] w-[80%] -translate-y-1/2">
@@ -86,26 +131,24 @@ export function HomepageHero() {
         />
       </div>
 
+      {/* Scroll-driven logo — shrinks from hero size toward the header slot */}
+      <motion.div
+        className="pointer-events-none absolute z-10"
+        style={{ top: logoTop, left: logoLeft }}
+      >
+        <motion.img
+          src={getImagePath("/images/solana-accelerate-logo.svg")}
+          alt="Solana Accelerate"
+          style={{ height: logoHeight, width: "auto" }}
+        />
+      </motion.div>
+
       {/* Main content */}
       <div className="relative z-10 mx-auto max-w-[1920px] px-6 lg:px-[60px]">
-        {/* Solana Accelerate Logo - single combined SVG */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={stagger}
-          className="pt-[100px] md:pt-[150px] lg:ml-[200px] lg:pt-[196px]"
-        >
-          <motion.div variants={fadeInUp}>
-            <Image
-              src={getImagePath("/images/solana-accelerate-logo.svg")}
-              alt="Solana Accelerate"
-              width={488}
-              height={276}
-              className="h-[140px] w-auto md:h-[200px] lg:h-[276px]"
-              priority
-            />
-          </motion.div>
-        </motion.div>
+        {/* Logo spacer — reserves the space where the logo starts */}
+        <div className="pt-[100px] md:pt-[150px] lg:ml-[200px] lg:pt-[196px]">
+          <div className="h-[140px] md:h-[200px] lg:h-[276px]" />
+        </div>
 
         {/* Next Event card - positioned right */}
         <motion.div

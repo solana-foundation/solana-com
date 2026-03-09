@@ -7,6 +7,23 @@ import { getImagePath } from "@/config";
 export function HomepageFooter() {
   return (
     <footer className="relative overflow-hidden bg-black pb-16 pt-20 lg:pb-16 lg:pt-[82px]">
+      {/* acc-hero 2 - inverted globe glow behind planet dots */}
+      <div className="pointer-events-none absolute inset-0 -scale-y-100 opacity-50">
+        <Image
+          src={getImagePath("/images/homepage/acc-hero-bg.png")}
+          alt=""
+          fill
+          className="object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(0,0,0,0) 84.583%, #000000 100%)",
+          }}
+        />
+      </div>
+
       {/* Planet dots decoration - clipped container showing only top arc of sphere */}
       {/* Figma: 1345×359 container, image 1110×1109 at (117, 8) */}
       <div

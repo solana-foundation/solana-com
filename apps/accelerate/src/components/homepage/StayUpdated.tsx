@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useCallback, FormEvent, ChangeEvent } from "react";
-import Image from "next/image";
 import { motion } from "framer-motion";
-import { getImagePath } from "@/config";
 
 const ITERABLE_BASE_URL =
   "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
@@ -72,23 +70,6 @@ export function StayUpdated() {
 
   return (
     <section className="relative bg-black py-16 lg:py-24">
-      {/* Background hero image (inverted, for ambiance) */}
-      <div className="pointer-events-none absolute inset-0 -scale-y-100 opacity-50">
-        <Image
-          src={getImagePath("/images/homepage/acc-hero-bg.png")}
-          alt=""
-          fill
-          className="object-cover"
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, rgba(0,0,0,0) 84.583%, #000000 100%)",
-          }}
-        />
-      </div>
-
       <div className="relative z-10 mx-auto flex max-w-[616px] flex-col items-center gap-10 px-6 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

@@ -18,14 +18,12 @@ async function check() {
   await desktop.waitForTimeout(2000);
   await triggerAnimations(desktop);
 
-  // Scroll to very bottom
-  await desktop.evaluate(() =>
-    window.scrollTo(0, document.body.scrollHeight - 360),
-  );
+  // Scroll to bottom to capture stay updated + footer
+  const totalHeight = await desktop.evaluate(() => document.body.scrollHeight);
+  await desktop.evaluate((h: number) => window.scrollTo(0, h), totalHeight);
   await desktop.waitForTimeout(500);
   await desktop.screenshot({
     path: "/tmp/check-footer-only.png",
-    clip: { x: 100, y: 680, width: 1720, height: 400 },
   });
 
   await desktop.close();

@@ -4,12 +4,17 @@ import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { getImagePath } from "@/config";
 
+/**
+ * Top navigation bar — sits absolutely over the hero and scrolls with the page.
+ * The logo slot is intentionally empty; the animated logo in HomepageHero
+ * visually fills this space as the user scrolls.
+ */
 export function HomepageNav() {
   return (
     <header className="absolute left-0 right-0 top-0 z-20">
       <div className="mx-auto flex h-[80px] max-w-[1920px] items-center justify-between px-6 py-4 lg:h-[147px] lg:px-[60px] lg:py-[33px]">
-        {/* Logo - hidden in nav, shown in hero */}
-        <div />
+        {/* Logo space — the animated logo in HomepageHero lands here */}
+        <div className="h-[40px] w-[70px] md:h-[50px] md:w-[88px] lg:h-[80px] lg:w-[141px]" />
 
         {/* Right nav */}
         <nav className="flex items-center gap-10">
@@ -40,7 +45,7 @@ export function HomepageNav() {
             Miami (USA)
           </a>
 
-          {/* LIVE NOW button - single green container matching Figma */}
+          {/* LIVE NOW button */}
           <a
             href="https://lu.ma/accelerate-miami"
             target="_blank"
@@ -56,8 +61,9 @@ export function HomepageNav() {
                 <span className="text-[18px] font-bold uppercase tracking-[0.9px] text-black">
                   Live Now
                 </span>
-                {/* Animated dot indicator */}
-                <span className="relative ml-0.5 inline-block h-[8px] w-[8px] rounded-full bg-black" />
+                <span className="relative ml-0.5 inline-block h-[8px] w-[8px] rounded-full bg-black">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-black/75" />
+                </span>
               </div>
               <Image
                 src={getImagePath("/images/homepage/cta-arrow.svg")}
