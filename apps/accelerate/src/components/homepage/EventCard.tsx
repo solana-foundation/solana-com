@@ -22,7 +22,7 @@ function CardContent({
   active = true,
 }: Omit<EventCardProps, "href" | "external">) {
   return (
-    <div className="group flex h-[736px] w-full flex-col overflow-hidden rounded-[22px] bg-[#0c0c0c]">
+    <div className="group flex h-[520px] w-full flex-col overflow-hidden rounded-[22px] bg-[#0c0c0c] md:h-[620px] lg:h-[736px]">
       {/* Photo top half with gradient overlay */}
       <div className="relative aspect-[529/352] w-full overflow-hidden rounded-t-[22px]">
         <Image
@@ -36,7 +36,7 @@ function CardContent({
       </div>
 
       {/* Bottom half - info */}
-      <div className="flex flex-1 flex-col gap-8 p-10">
+      <div className="flex flex-1 flex-col gap-6 p-6 md:gap-8 md:p-10">
         <div className="flex flex-col gap-6">
           {/* City name - ABC Diatype Bold 60px */}
           <div

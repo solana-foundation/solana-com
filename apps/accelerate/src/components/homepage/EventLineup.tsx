@@ -59,7 +59,7 @@ export function EventLineup() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[1920px] px-6 lg:px-[60px]">
+      <div className="relative z-10 mx-auto max-w-[1480px] px-6">
         {/* Heading - Space Grotesk Light 80px */}
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
@@ -118,7 +118,7 @@ export function EventLineup() {
           <div
             ref={scrollRef}
             onScroll={checkScroll}
-            className="scrollbar-hide flex snap-x snap-mandatory justify-center gap-6 overflow-x-auto pb-4"
+            className="scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 lg:justify-center"
           >
             {events.map((event) => (
               <motion.div

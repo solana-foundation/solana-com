@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { getImagePath } from "@/config";
@@ -37,9 +37,114 @@ const getYoutubeEmbedUrl = (id: string) => {
   return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
 };
 
+function VideoModal({
+  videoId,
+  title,
+  onClose,
+}: {
+  videoId: string;
+  title: string;
+  onClose: () => void;
+}) {
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [handleKeyDown]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="relative w-full max-w-[1080px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute -right-2 -top-10 flex h-8 w-8 items-center justify-center text-white/70 transition-colors hover:text-white"
+          aria-label="Close video"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M18 6L6 18M6 6l12 12"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+        <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+          <iframe
+            src={getYoutubeEmbedUrl(videoId)}
+            title={title}
+            className="h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* Circular arrow button matching Figma ArrowScrol component */
+function ArrowButton({
+  direction,
+  onClick,
+}: {
+  direction: "left" | "right";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex h-9 w-9 items-center justify-center rounded-full border border-[#8d8d8d] transition-colors hover:border-white/60"
+      aria-label={`Scroll ${direction}`}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        className={direction === "left" ? "rotate-180" : ""}
+      >
+        <path
+          d="M6 3l5 5-5 5"
+          stroke="#8d8d8d"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
+
 export function VideoCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [modalVideo, setModalVideo] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   const scroll = (direction: "left" | "right") => {
     const el = scrollRef.current;
@@ -49,125 +154,95 @@ export function VideoCarousel() {
   };
 
   return (
-    <section className="relative bg-black py-10 lg:py-16">
-      {/* Divider line - matches Figma Line 22 (full width) + Line 23 (accent) */}
-      <div className="mx-auto max-w-[1920px] px-6 lg:px-[60px]">
-        <div className="relative mb-10 lg:mb-14">
-          <div className="h-px bg-white/10" />
-          {/* Green accent line on the left ~1/3 width */}
-          <div className="absolute left-0 top-0 h-px w-1/3 bg-[#19fb9b]/30" />
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-[1920px] px-6 lg:px-[60px]">
-        {/* Header row */}
-        <div className="mb-6 flex items-center justify-between">
-          {/* Title - Space Grotesk Regular 40px */}
-          <h3
-            className="text-[24px] font-normal uppercase leading-[1.1] tracking-[2px] text-[#b3b2bc] md:text-[32px] lg:text-[40px]"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            }}
-          >
-            Accelerate APAC 2026
-          </h3>
-
-          {/* Navigation arrows */}
-          <div className="flex items-center gap-10">
-            <button
-              onClick={() => scroll("left")}
-              className="flex h-9 w-9 -scale-x-100 items-center justify-center transition-opacity hover:opacity-70"
-              aria-label="Scroll left"
-            >
-              <Image
-                src={getImagePath("/images/homepage/arrow-scroll.svg")}
-                alt=""
-                width={36}
-                height={36}
-              />
-            </button>
-            <button
-              onClick={() => scroll("right")}
-              className="flex h-9 w-9 items-center justify-center transition-opacity hover:opacity-70"
-              aria-label="Scroll right"
-            >
-              <Image
-                src={getImagePath("/images/homepage/arrow-scroll.svg")}
-                alt=""
-                width={36}
-                height={36}
-              />
-            </button>
+    <>
+      <section className="relative bg-black py-10 lg:py-16">
+        {/* Divider line */}
+        <div className="mx-auto max-w-[1480px] px-6">
+          <div className="relative mb-10 lg:mb-14">
+            <div className="h-px bg-white/10" />
+            <div className="absolute left-0 top-0 h-px w-1/3 bg-[#19fb9b]/30" />
           </div>
         </div>
 
-        {/* Video thumbnails - 524px wide each with gaps */}
-        <div
-          ref={scrollRef}
-          className="scrollbar-hide flex snap-x gap-3 overflow-x-auto pb-4"
-        >
-          {videos.map((video) => (
-            <div
-              key={video.id}
-              className="w-[300px] flex-shrink-0 snap-start md:w-[400px] lg:w-[524px]"
+        <div className="mx-auto max-w-[1480px] px-6">
+          {/* Header row */}
+          <div className="mb-6 flex items-center justify-between">
+            <h3
+              className="text-[24px] font-normal uppercase leading-[1.1] tracking-[2px] text-[#b3b2bc] md:text-[32px] lg:text-[40px]"
+              style={{
+                fontFamily:
+                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+              }}
             >
-              <div className="group relative aspect-[524/295] cursor-pointer overflow-hidden rounded-none bg-white/5">
-                <AnimatePresence mode="wait">
-                  {playingId === video.id ? (
-                    <motion.iframe
-                      key="iframe"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      src={getYoutubeEmbedUrl(video.id)}
-                      title={video.title}
-                      className="absolute inset-0 h-full w-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <motion.div
-                      key="thumbnail"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="relative h-full w-full"
-                      onClick={() => setPlayingId(video.id)}
-                    >
-                      <Image
-                        src={video.thumbnail}
-                        alt={video.title}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                      {/* Play button overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
-                        <div
-                          className="flex h-14 w-14 items-center justify-center rounded-full"
-                          style={{
-                            background:
-                              "linear-gradient(135deg, rgba(153, 69, 255, 0.85) 0%, rgba(25, 251, 155, 0.85) 100%)",
-                          }}
-                        >
-                          <svg
-                            width="18"
-                            height="20"
-                            viewBox="0 0 22 26"
-                            fill="none"
-                            className="ml-0.5"
-                          >
-                            <path d="M22 13L0 26V0L22 13Z" fill="white" />
-                          </svg>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              Accelerate APAC 2026
+            </h3>
+
+            {/* Circular navigation arrows */}
+            <div className="flex items-center gap-10">
+              <ArrowButton direction="left" onClick={() => scroll("left")} />
+              <ArrowButton direction="right" onClick={() => scroll("right")} />
             </div>
-          ))}
+          </div>
+
+          {/* Video thumbnails */}
+          <div
+            ref={scrollRef}
+            className="scrollbar-hide flex snap-x gap-3 overflow-x-auto pb-4"
+          >
+            {videos.map((video) => (
+              <div
+                key={video.id}
+                className="w-[300px] flex-shrink-0 snap-start md:w-[400px] lg:w-[524px]"
+              >
+                <div
+                  className="group relative aspect-[524/295] cursor-pointer overflow-hidden bg-white/5"
+                  onClick={() =>
+                    setModalVideo({ id: video.id, title: video.title })
+                  }
+                >
+                  <Image
+                    src={video.thumbnail}
+                    alt={video.title}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  {/* Play button overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
+                    <div
+                      className="flex h-14 w-14 items-center justify-center rounded-full"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, rgba(153, 69, 255, 0.85) 0%, rgba(25, 251, 155, 0.85) 100%)",
+                      }}
+                    >
+                      <svg
+                        width="18"
+                        height="20"
+                        viewBox="0 0 22 26"
+                        fill="none"
+                        className="ml-0.5"
+                      >
+                        <path d="M22 13L0 26V0L22 13Z" fill="white" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* Video modal */}
+      <AnimatePresence>
+        {modalVideo && (
+          <VideoModal
+            videoId={modalVideo.id}
+            title={modalVideo.title}
+            onClose={() => setModalVideo(null)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }

@@ -20,38 +20,28 @@ const stagger = {
 export function HomepageHero() {
   return (
     <section className="relative h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1000px]">
-      {/* Background hero image (globe scene) - flipped, 50% opacity, gradient to black */}
-      <div className="pointer-events-none absolute inset-0 z-0 -scale-y-100 opacity-50">
+      {/* Globe video background - centered, full hero coverage */}
+      <div className="pointer-events-none absolute inset-0 z-0 flex items-start justify-center">
+        {/* Placeholder image shown while video loads */}
         <Image
-          src={getImagePath("/images/homepage/acc-hero-bg.png")}
+          src={getImagePath("/images/globe-bg.webp")}
           alt=""
           fill
           className="object-cover"
           priority
         />
-        {/* Gradient overlay - fades to black at bottom (which is top when flipped) */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, rgba(0,0,0,0) 84.583%, #000000 100%)",
-          }}
-        />
-      </div>
-
-      {/* Video background layer with mix-blend-screen */}
-      <div className="pointer-events-none absolute inset-0 z-[1] mix-blend-screen">
+        {/* Globe video */}
         <video
           autoPlay
           loop
           muted
           playsInline
-          className="absolute left-[16%] top-[8%] h-[85%] w-[82%] object-contain"
+          className="absolute inset-0 h-full w-full object-cover"
           controlsList="nodownload"
+          poster={getImagePath("/images/globe-bg.webp")}
         >
-          {/* Video source - replace with actual hosted video URL */}
           <source
-            src={getImagePath("/images/homepage/hero-bg.mp4")}
+            src={getImagePath("/video/globe-export.mp4")}
             type="video/mp4"
           />
         </video>
@@ -59,7 +49,7 @@ export function HomepageHero() {
 
       {/* Left edge fade */}
       <div
-        className="pointer-events-none absolute left-0 top-0 z-[2] h-full w-[473px]"
+        className="pointer-events-none absolute left-0 top-0 z-[2] h-full w-[250px] lg:w-[473px]"
         style={{
           background:
             "linear-gradient(to right, black 15.35%, rgba(0,0,0,0) 73.26%)",
@@ -68,7 +58,7 @@ export function HomepageHero() {
 
       {/* Right edge fade */}
       <div
-        className="pointer-events-none absolute right-0 top-0 z-[2] h-full w-[473px]"
+        className="pointer-events-none absolute right-0 top-0 z-[2] h-full w-[250px] lg:w-[473px]"
         style={{
           background:
             "linear-gradient(to left, black 15.35%, rgba(0,0,0,0) 73.26%)",
@@ -86,7 +76,6 @@ export function HomepageHero() {
 
       {/* Aurora wave lines decoration */}
       <div className="pointer-events-none absolute left-[-181px] top-[735px] z-[3] hidden h-[978px] w-[2219px] lg:block">
-        {/* Using the existing wave component SVG patterns */}
         <Image
           src={getImagePath("/images/wave-lines.svg")}
           alt=""
@@ -97,12 +86,12 @@ export function HomepageHero() {
 
       {/* Main content */}
       <div className="relative z-10 mx-auto max-w-[1920px] px-6 lg:px-[60px]">
-        {/* Accelerate Logo */}
+        {/* Accelerate Logo - positioned to match Figma left:395px */}
         <motion.div
           initial="hidden"
           animate="visible"
           variants={stagger}
-          className="pt-[100px] md:pt-[150px] lg:pt-[196px]"
+          className="pt-[100px] md:pt-[150px] lg:ml-[335px] lg:pt-[196px]"
         >
           <motion.div variants={fadeInUp} className="flex flex-col">
             {/* Solana mark + text - matches Figma logo component top portion */}
@@ -140,11 +129,11 @@ export function HomepageHero() {
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="absolute right-6 top-[300px] z-10 w-[320px] md:right-[60px] md:top-[400px] md:w-[420px] lg:right-[60px] lg:top-[520px] lg:w-[500px]"
+          className="absolute right-6 top-[300px] z-10 w-[320px] md:right-[60px] md:top-[400px] md:w-[420px] lg:right-[220px] lg:top-[520px] lg:w-[500px]"
         >
           {/* "NEXT EVENT" label */}
           <p
-            className="mb-4 text-right font-normal uppercase tracking-[0.8px] text-white"
+            className="mb-6 text-right font-normal uppercase tracking-[0.8px] text-white"
             style={{
               fontFamily:
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -217,7 +206,7 @@ export function HomepageHero() {
           </div>
 
           {/* Learn More link */}
-          <div className="mt-4 flex items-center justify-end gap-3">
+          <div className="mt-6 flex items-center justify-end gap-3">
             <a
               href="https://lu.ma/accelerate-miami"
               target="_blank"

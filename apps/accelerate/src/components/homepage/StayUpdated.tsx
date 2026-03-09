@@ -89,16 +89,6 @@ export function StayUpdated() {
         />
       </div>
 
-      {/* Planet dots decoration */}
-      <div className="pointer-events-none absolute bottom-0 left-[15%] h-[359px] w-[70%] opacity-60">
-        <Image
-          src={getImagePath("/images/dots.svg")}
-          alt=""
-          fill
-          className="object-contain"
-        />
-      </div>
-
       <div className="relative z-10 mx-auto flex max-w-[616px] flex-col items-center gap-10 px-6 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -140,7 +130,7 @@ export function StayUpdated() {
             <>
               {/* Email input + subscribe button - rounded pill */}
               <form onSubmit={handleSubmit} className="w-full">
-                <div className="flex w-full items-center justify-between rounded-[66px] border border-[#8d8d8d] p-4">
+                <div className="flex w-full flex-col items-stretch gap-4 rounded-[32px] border border-[#8d8d8d] p-4 md:flex-row md:items-center md:justify-between md:rounded-[66px]">
                   <div className="flex items-center justify-center p-2.5">
                     <input
                       type="email"
@@ -148,7 +138,7 @@ export function StayUpdated() {
                       placeholder="Your Email"
                       value={email}
                       onChange={handleEmailChange}
-                      className="bg-transparent text-[16px] font-medium uppercase tracking-[0.8px] text-white placeholder-white outline-none"
+                      className="w-full bg-transparent text-[16px] font-medium uppercase tracking-[0.8px] text-white placeholder-white outline-none"
                       style={{
                         fontFamily:
                           "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -159,7 +149,7 @@ export function StayUpdated() {
                   <button
                     type="submit"
                     disabled={status === "submitting"}
-                    className="flex h-[48px] min-w-[240px] items-center justify-center rounded-[32px] border border-[#3d3d3d] px-7 py-6 text-center transition-colors hover:border-white/40 disabled:opacity-50"
+                    className="flex h-[48px] items-center justify-center rounded-[32px] border border-[#3d3d3d] px-7 py-6 text-center transition-colors hover:border-white/40 disabled:opacity-50 md:min-w-[240px]"
                   >
                     <span
                       className="text-[18px] font-semibold uppercase tracking-[0.9px] text-[#3d3d3d]"

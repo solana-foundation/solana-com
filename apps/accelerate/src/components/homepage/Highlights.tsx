@@ -7,7 +7,7 @@ import { getImagePath } from "@/config";
 export function Highlights() {
   return (
     <section className="relative bg-black py-16 lg:py-24">
-      <div className="mx-auto max-w-[1920px] px-6 lg:px-[60px]">
+      <div className="mx-auto max-w-[1480px] px-6">
         {/* Section heading - Space Grotesk Light 56px */}
         <motion.h2
           initial={{ opacity: 0, y: 20 }}

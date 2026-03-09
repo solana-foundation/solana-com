@@ -7,7 +7,7 @@ import { getImagePath } from "@/config";
 export function HomepageFooter() {
   return (
     <footer className="relative bg-black pb-8 pt-12 lg:pb-12 lg:pt-16">
-      <div className="mx-auto max-w-[1920px] px-6 lg:px-[60px]">
+      <div className="mx-auto max-w-[1480px] px-6">
         <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
           {/* Left: Solana mark + event links */}
           <div className="flex items-center gap-10">
@@ -52,7 +52,12 @@ export function HomepageFooter() {
           {/* Right: Social links - with divider */}
           <div className="flex items-center">
             {/* X / Solana */}
-            <div className="flex items-center gap-2 border-r border-[#3d3d3d] pr-4">
+            <a
+              href="https://x.com/solana"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 border-r border-[#3d3d3d] pr-4 transition-colors hover:opacity-80"
+            >
               <Image
                 src={getImagePath("/images/x-social.svg")}
                 alt="X"
@@ -69,9 +74,14 @@ export function HomepageFooter() {
               >
                 Solana
               </span>
-            </div>
+            </a>
             {/* X / Solana Conf */}
-            <div className="flex items-center gap-2 pl-4">
+            <a
+              href="https://x.com/SolanaConf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 pl-4 transition-colors hover:opacity-80"
+            >
               <Image
                 src={getImagePath("/images/x-social.svg")}
                 alt="X"
@@ -88,7 +98,7 @@ export function HomepageFooter() {
               >
                 Solana Conf
               </span>
-            </div>
+            </a>
           </div>
         </div>
 

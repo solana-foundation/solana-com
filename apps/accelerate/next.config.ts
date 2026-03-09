@@ -91,6 +91,10 @@ const nextConfig: NextConfig = {
           source: "/accelerate-assets/images/:path+",
           destination: "/images/:path+",
         },
+        {
+          source: "/accelerate-assets/video/:path+",
+          destination: "/video/:path+",
+        },
         // Rewrite /accelerate routes for proxy compatibility
         {
           source: "/accelerate",
