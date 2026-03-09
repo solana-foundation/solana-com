@@ -19,7 +19,7 @@ const events = [
   {
     image: getImagePath("/images/homepage/miami-card-photo.jpg"),
     city: "Miami",
-    subtitle: "Solana Accelerate APAC",
+    subtitle: "Solana Accelerate USA",
     dateLocation: "May 5 / Miami",
     href: "https://lu.ma/accelerate-miami",
     external: true,

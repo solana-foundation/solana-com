@@ -13,7 +13,7 @@ export function Highlights() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-10 text-[32px] font-light uppercase tracking-[2.8px] text-[#b3b2bc] md:text-[44px] lg:mb-14 lg:text-[56px]"
+          className="mb-10 text-[32px] font-light uppercase tracking-[2.5px] text-[#b3b2bc] md:text-[44px] lg:mb-14 lg:text-[50px]"
           style={{
             fontFamily:
               "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -49,13 +49,13 @@ export function Highlights() {
               href="https://www.youtube.com/@SolanaFndn"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-[64px] w-[300px] items-center justify-between rounded-[32px] px-7 py-6"
+              className="inline-flex h-[66px] w-[240px] items-center justify-between rounded-[32px] px-7 py-6"
               style={{
                 background: "linear-gradient(to right, #9945FF, #19FB9B)",
               }}
             >
               <span
-                className="text-[16px] font-medium uppercase tracking-[0.8px] text-black"
+                className="text-[18px] font-semibold uppercase tracking-[0.9px] text-black"
                 style={{
                   fontFamily:
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -67,8 +67,8 @@ export function Highlights() {
               <Image
                 src={getImagePath("/images/homepage/cta-arrow.svg")}
                 alt=""
-                width={10}
-                height={10}
+                width={12}
+                height={12}
               />
             </a>
           </div>

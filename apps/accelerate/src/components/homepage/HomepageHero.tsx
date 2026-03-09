@@ -19,7 +19,7 @@ const stagger = {
 
 export function HomepageHero() {
   return (
-    <section className="relative h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1052px]">
+    <section className="relative h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1000px]">
       {/* Background hero image (globe scene) - flipped, 50% opacity, gradient to black */}
       <div className="pointer-events-none absolute inset-0 z-0 -scale-y-100 opacity-50">
         <Image
@@ -104,13 +104,32 @@ export function HomepageHero() {
           variants={stagger}
           className="pt-[100px] md:pt-[150px] lg:pt-[196px]"
         >
-          <motion.div variants={fadeInUp}>
+          <motion.div variants={fadeInUp} className="flex flex-col">
+            {/* Solana mark + text - matches Figma logo component top portion */}
+            <div className="mb-1 flex items-center gap-1.5">
+              <Image
+                src={getImagePath("/images/solana-logo.svg")}
+                alt=""
+                width={16}
+                height={14}
+                className="h-[10px] w-auto md:h-[12px] lg:h-[14px]"
+              />
+              <span
+                className="text-[10px] font-normal uppercase tracking-[1.5px] text-white md:text-[12px] lg:text-[14px]"
+                style={{
+                  fontFamily:
+                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                }}
+              >
+                Solana
+              </span>
+            </div>
             <Image
               src={getImagePath("/images/accelerate-logo.svg")}
               alt="Solana Accelerate"
               width={488}
               height={276}
-              className="h-[140px] w-auto md:h-[200px] lg:h-[276px]"
+              className="h-[120px] w-auto md:h-[180px] lg:h-[240px]"
               priority
             />
           </motion.div>
@@ -169,22 +188,22 @@ export function HomepageHero() {
                 href="https://lu.ma/accelerate-miami"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex w-[160px] items-center justify-between rounded-[32px] px-5 py-5 text-black md:w-[200px] md:px-7 lg:w-[220px]"
+                className="inline-flex w-[160px] items-center justify-between rounded-[32px] px-5 py-5 text-black md:w-[200px] md:px-7 lg:w-[240px]"
                 style={{
                   background: "linear-gradient(to right, #9945FF, #19FB9B)",
                 }}
               >
                 <span
-                  className="text-sm font-medium uppercase tracking-[0.8px] md:text-[16px]"
+                  className="text-sm font-semibold uppercase tracking-[0.9px] md:text-[18px]"
                   style={{
                     fontFamily:
                       "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
                     lineHeight: 1,
                   }}
                 >
-                  GET Tickets
+                  GET TICKETS
                 </span>
-                <svg width="10" height="10" viewBox="0 0 11 11" fill="none">
+                <svg width="12" height="12" viewBox="0 0 11 11" fill="none">
                   <path
                     d="M2 9L9 2M9 2H4M9 2V7"
                     stroke="currentColor"

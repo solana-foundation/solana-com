@@ -24,7 +24,7 @@ export function HomepageFooter() {
             <div className="flex items-center gap-8">
               <Link
                 href="/accelerate/hong-kong"
-                className="text-[18px] font-semibold uppercase tracking-[1.2px] text-white transition-colors hover:text-white/80 lg:text-[24px]"
+                className="text-[18px] font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 lg:text-[20px]"
                 style={{
                   fontFamily:
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -37,7 +37,7 @@ export function HomepageFooter() {
                 href="https://lu.ma/accelerate-miami"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[18px] font-semibold uppercase tracking-[1.2px] text-white transition-colors hover:text-white/80 lg:text-[24px]"
+                className="text-[18px] font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 lg:text-[20px]"
                 style={{
                   fontFamily:
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",

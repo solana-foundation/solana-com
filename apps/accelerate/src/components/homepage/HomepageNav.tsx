@@ -15,11 +15,11 @@ export function HomepageNav() {
         <nav className="flex items-center gap-10">
           <Link
             href="/accelerate/hong-kong"
-            className="hidden font-semibold uppercase tracking-[1.1px] text-white transition-colors hover:text-white/80 md:inline"
+            className="hidden font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 md:inline"
             style={{
               fontFamily:
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              fontSize: "22px",
+              fontSize: "20px",
               lineHeight: 1,
             }}
           >
@@ -29,11 +29,11 @@ export function HomepageNav() {
             href="https://lu.ma/accelerate-miami"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden font-semibold uppercase tracking-[1.1px] text-white transition-colors hover:text-white/80 md:inline"
+            className="hidden font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 md:inline"
             style={{
               fontFamily:
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              fontSize: "22px",
+              fontSize: "20px",
               lineHeight: 1,
             }}
           >
@@ -54,7 +54,7 @@ export function HomepageNav() {
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
               }}
             >
-              <span className="text-[18px] font-semibold uppercase tracking-[0.9px] text-black">
+              <span className="text-[18px] font-bold uppercase tracking-[0.9px] text-black">
                 Live Now
               </span>
               <Image

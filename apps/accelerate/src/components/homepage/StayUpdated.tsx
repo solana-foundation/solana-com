@@ -159,13 +159,10 @@ export function StayUpdated() {
                   <button
                     type="submit"
                     disabled={status === "submitting"}
-                    className="flex h-[48px] min-w-[240px] items-center justify-center rounded-[32px] px-7 py-6 text-center disabled:opacity-50"
-                    style={{
-                      background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                    }}
+                    className="flex h-[48px] min-w-[240px] items-center justify-center rounded-[32px] border border-[#3d3d3d] px-7 py-6 text-center transition-colors hover:border-white/40 disabled:opacity-50"
                   >
                     <span
-                      className="text-[18px] font-semibold uppercase tracking-[0.9px] text-black"
+                      className="text-[18px] font-semibold uppercase tracking-[0.9px] text-[#3d3d3d]"
                       style={{
                         fontFamily:
                           "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
