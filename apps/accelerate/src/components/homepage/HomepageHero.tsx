@@ -20,31 +20,33 @@ const stagger = {
 export function HomepageHero() {
   return (
     <section className="relative h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1000px]">
-      {/* Globe video background - centered, full hero coverage */}
-      <div className="pointer-events-none absolute inset-0 z-0 flex items-start justify-center">
-        {/* Placeholder image shown while video loads */}
-        <Image
-          src={getImagePath("/images/globe-bg.webp")}
-          alt=""
-          fill
-          className="object-cover"
-          priority
-        />
-        {/* Globe video */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-          controlsList="nodownload"
-          poster={getImagePath("/images/globe-bg.webp")}
-        >
-          <source
-            src={getImagePath("/video/globe-export.mp4")}
-            type="video/mp4"
+      {/* Globe video background - sized down and offset right */}
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+        <div className="absolute left-[400px] top-1/2 h-[80%] w-[80%] -translate-y-1/2">
+          {/* Placeholder image shown while video loads */}
+          <Image
+            src={getImagePath("/images/globe-bg.webp")}
+            alt=""
+            fill
+            className="object-contain"
+            priority
           />
-        </video>
+          {/* Globe video */}
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 h-full w-full object-contain"
+            controlsList="nodownload"
+            poster={getImagePath("/images/globe-bg.webp")}
+          >
+            <source
+              src={getImagePath("/video/globe-export.mp4")}
+              type="video/mp4"
+            />
+          </video>
+        </div>
       </div>
 
       {/* Left edge fade */}
