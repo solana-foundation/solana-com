@@ -1,9 +1,17 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useLayoutEffect } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
-import { motion, useScroll, useTransform } from "framer-motion";
+
+const useBrowserLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+import {
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useScroll,
+} from "framer-motion";
 import { getImagePath } from "@/config";
 import { LumaModal } from "@/components/LumaModal";
 
@@ -12,18 +20,50 @@ export function HomepageHero() {
   const { scrollY } = useScroll();
 
   // Responsive breakpoint values for the logo animation path.
-  // Stored in a ref so the useTransform mapper always reads latest values.
+  // Stored in a ref so the resize handler and scroll handler share state.
+  // Defaults to mobile values so SSR / first-paint is correct on small screens.
   const dims = useRef({
-    heroTop: 196,
-    heroLeft: 260,
-    heroHeight: 276,
-    navTop: 33,
-    navLeft: 60,
-    navHeight: 80,
-    scrollEnd: 300,
+    heroTop: 113,
+    heroLeft: 48,
+    heroHeight: 124,
+    navTop: 16,
+    navLeft: 24,
+    navHeight: 40,
+    scrollEnd: 200,
   });
 
-  useEffect(() => {
+  function ease(t: number) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+  function progress(v: number) {
+    return ease(Math.min(Math.max(v / dims.current.scrollEnd, 0), 1));
+  }
+  function lerp(a: number, b: number, t: number) {
+    return a + (b - a) * t;
+  }
+
+  // Explicit MotionValues so we can imperatively set them on both scroll
+  // *and* resize — useTransform only re-evaluates when scrollY changes,
+  // which left desktop showing mobile dims until the first scroll.
+  const logoTop = useMotionValue(dims.current.heroTop);
+  const logoLeft = useMotionValue(dims.current.heroLeft);
+  const logoHeight = useMotionValue(dims.current.heroHeight);
+
+  function recalc(sv: number) {
+    const p = progress(sv);
+    logoTop.set(lerp(dims.current.heroTop, dims.current.navTop, p));
+    logoLeft.set(lerp(dims.current.heroLeft, dims.current.navLeft, p));
+    logoHeight.set(lerp(dims.current.heroHeight, dims.current.navHeight, p));
+  }
+
+  // Re-derive on every scroll tick.
+  useMotionValueEvent(scrollY, "change", recalc);
+
+  // On mount + resize: update breakpoint dims, then immediately recalc so
+  // the logo snaps to the right position for the viewport width.
+  // useLayoutEffect ensures this runs before the browser paints, preventing
+  // a flash of the mobile-default position on desktop screens.
+  useBrowserLayoutEffect(() => {
     function update() {
       const xl = window.innerWidth >= 1536;
       const lg = window.innerWidth >= 1024;
@@ -37,31 +77,12 @@ export function HomepageHero() {
         navHeight: lg ? 80 : md ? 50 : 40,
         scrollEnd: xl ? 300 : lg ? 240 : 200,
       };
+      recalc(scrollY.get());
     }
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, []);
-
-  function ease(t: number) {
-    return 1 - Math.pow(1 - t, 3);
-  }
-  function progress(v: number) {
-    return ease(Math.min(Math.max(v / dims.current.scrollEnd, 0), 1));
-  }
-  function lerp(a: number, b: number, t: number) {
-    return a + (b - a) * t;
-  }
-
-  const logoTop = useTransform(scrollY, (v) =>
-    lerp(dims.current.heroTop, dims.current.navTop, progress(v)),
-  );
-  const logoLeft = useTransform(scrollY, (v) =>
-    lerp(dims.current.heroLeft, dims.current.navLeft, progress(v)),
-  );
-  const logoHeight = useTransform(scrollY, (v) =>
-    lerp(dims.current.heroHeight, dims.current.navHeight, progress(v)),
-  );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section
@@ -127,6 +148,9 @@ export function HomepageHero() {
       {/* Scroll-driven logo — shrinks from hero size toward the header slot */}
       <motion.div
         className="pointer-events-none absolute z-10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
         style={{ top: logoTop, left: logoLeft }}
       >
         <motion.img
