@@ -13,6 +13,7 @@ const config: Config = {
     "^@@/(.*)$": "<rootDir>/$1",
     "^src/(.*)$": "<rootDir>/src/$1",
     "\\.svg$": "<rootDir>/src/__mocks__/svgMock.js",
+    "@workspace/ui/(.*)": "<rootDir>/../../packages/ui/src/components/$1.tsx",
     "@solana-com/ui-chrome": "<rootDir>/../../packages/ui-chrome/src/$1",
   },
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],

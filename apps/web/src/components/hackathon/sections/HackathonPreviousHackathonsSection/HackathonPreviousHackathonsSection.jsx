@@ -22,11 +22,11 @@ function PreviousHackathonCard({ date, title, description, to, image }) {
       <div
         className={classNames(
           styles["previous-hackathons__card--content"],
-          "d-flex flex-column",
+          "flex flex-col",
         )}
       >
         <span>{date}</span>
-        <div className={"d-flex justify-content-between"}>
+        <div className={"flex justify-between"}>
           <h3>{title}</h3>
           <button className="btn btn-sm btn-link p-0">
             <ArrowRightCircle strokeWidth={1} />
@@ -41,7 +41,7 @@ function PreviousHackathonCard({ date, title, description, to, image }) {
 export default function HackathonPreviousHackathonsSection() {
   const t = useTranslations();
   return (
-    <section className="mt-12">
+    <section className="mt-32">
       <div className="container">
         <h2 className="text-center">
           {t("hackathon.previousHackathons.title")}

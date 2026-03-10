@@ -19,9 +19,9 @@ const ValidatorsCards = ({ visible }) => {
   return (
     <section className="cards mt-4">
       <div className="container">
-        <div className="row align-items-center">
-          <div className="col-lg-6">
-            <RoundedDepthCard className="px-5 py-8" shadow="bottom">
+        <div className="grid grid-cols-12 gap-5 md:gap-10 items-center">
+          <div className="col-span-12 lg:col-span-6">
+            <RoundedDepthCard className="px-6 py-12" shadow="bottom">
               <div className="h1 text-black">
                 {availableStats ? (
                   <FormattedNumber value={validators} />
@@ -34,8 +34,8 @@ const ValidatorsCards = ({ visible }) => {
               </p>
             </RoundedDepthCard>
           </div>
-          <div className="col-lg-6 mt-4 mt-lg-0">
-            <RoundedDepthCard className="px-5 py-8" shadow="bottom">
+          <div className="col-span-12 lg:col-span-6 mt-4 lg:mt-0">
+            <RoundedDepthCard className="px-6 py-12" shadow="bottom">
               <div className="h1 text-black">
                 {superminority !== null ? (
                   <FormattedNumber value={superminority} />

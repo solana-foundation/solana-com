@@ -55,7 +55,7 @@ function OneColumnStep(props: { step: Steps[number] }) {
   return (
     <CodePlaceholderProvider codeblocks={codeblocks}>
       <div>
-        <h2 className="mt-8 text-xl">{step.title}</h2>
+        <h2 className="mt-12 text-xl">{step.title}</h2>
         <div>{step.children}</div>
       </div>
     </CodePlaceholderProvider>
@@ -84,7 +84,7 @@ function TwoColumnLayout(props: { steps: Steps; className?: string }) {
                 key={i}
                 index={i}
                 selectOn={["click", "scroll"]}
-                className="px-5 py-2 mb-8 rounded data-[selected=true]:bg-fd-primary/10 transition-colors duration-300"
+                className="px-6 py-2 mb-12 rounded data-[selected=true]:bg-fd-primary/10 transition-colors duration-300"
               >
                 <h2 className="mt-4 text-xl">{step.title}</h2>
                 <div>{step.children}</div>

@@ -11,7 +11,7 @@ interface DocsHeroProps {
 
 export function DocsHero({ title, description, markdown }: DocsHeroProps) {
   return (
-    <section className="relative mb-4 overflow-hidden rounded-xl border border-[hsl(var(--fd-border))] bg-gradient-to-b from-[hsl(var(--background))] via-[hsl(var(--background))] to-[hsl(var(--fd-muted-foreground)/0.06)] dark:to-[hsl(var(--fd-muted-foreground)/0.08)] px-6 py-12 md:px-10 md:py-16">
+    <section className="relative mb-4 overflow-hidden rounded-xl border border-[hsl(var(--fd-border))] bg-gradient-to-b from-[hsl(var(--background))] via-[hsl(var(--background))] to-[hsl(var(--fd-muted-foreground)/0.06)] dark:to-[hsl(var(--fd-muted-foreground)/0.08)] px-8 py-32 md:px-20 md:py-32">
       {/* Subtle grid pattern */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.02] dark:opacity-[0.015]"
@@ -28,12 +28,12 @@ export function DocsHero({ title, description, markdown }: DocsHeroProps) {
         <p className="mt-3 text-base text-[hsl(var(--fd-muted-foreground))] md:text-lg">
           {description}
         </p>
-        <div className="mt-6 flex w-full justify-center">
+        <div className="mt-8 flex w-full justify-center">
           <div className="w-full max-w-2xl">
             <InkeepSearchBar className="!w-full !max-w-none" expanded />
           </div>
         </div>
-        <div className="mt-5 flex flex-row justify-center gap-2">
+        <div className="mt-6 flex flex-row justify-center gap-2">
           <LLMCopyButton markdown={markdown} />
           <ViewOptions markdown={markdown} />
         </div>

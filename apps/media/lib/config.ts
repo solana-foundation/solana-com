@@ -1,3 +1,5 @@
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+
 export const config = {
   siteMetadata: {
     title: `Solana Media`,
@@ -44,5 +46,5 @@ export const config = {
       },
     },
   },
-  siteIcon: `https://solana.com/favicon.png`,
+  siteIcon: faviconPng.src,
 };

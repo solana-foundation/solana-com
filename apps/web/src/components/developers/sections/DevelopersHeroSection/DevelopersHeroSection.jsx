@@ -11,9 +11,12 @@ const HeroSection = ({
 }) => {
   return (
     <section
-      className={classNames("pt-7 pt-lg-12 pb-md-12", styles["hero-section"])}
+      className={classNames(
+        "pt-10 lg:pt-32 pb-10 md:pb-32",
+        styles["hero-section"],
+      )}
     >
-      <div className="container position-relative">
+      <div className="container relative">
         <div className={styles["hero-section__image"]}>
           <Image src={src} alt={alt} placeholder="blur" priority />
         </div>

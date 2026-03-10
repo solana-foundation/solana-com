@@ -2,7 +2,7 @@ import Image from "next/legacy/image";
 
 export default function HackathonSponsorCard({ logo, alt, width, height }) {
   return (
-    <div className={"d-flex justify-content-center align-items-center"}>
+    <div className={"flex justify-center items-center"}>
       <Image
         alt={alt}
         src={logo}

@@ -171,10 +171,10 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
   const isDesktop = useMediaQuery("(min-width: 1280px)");
 
   return (
-    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-twd-0">
+    <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0">
       <div className="py-10">
         <Container className="flex flex-col justify-between relative">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-twd-4">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div className="xl:max-w-[70%] grow-0">
               {title && <h2 className="nd-heading-l">{title}</h2>}
             </div>
@@ -201,15 +201,15 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
           </div>
         </Container>
         <div
-          className="border-t border-b border-nd-border-light mt-twd-10 xl:mt-twd-16"
+          className="border-t border-b border-nd-border-light mt-10 xl:mt-16"
           ref={ref}
         >
           <Container>
-            <div className="xl:border-l xl:border-r border-nd-border-light -mx-twd-5 md:-mx-twd-8 xl:mx-0 divide-x divide-nd-border-light flex flex-col xl:flex-row">
-              <div className="xl:w-[220px] border-b xl:border-b-0 border-nd-border-light shrink-0 mb-twd-2 xl:mb-twd-0 overflow-hidden relative">
+            <div className="xl:border-l xl:border-r border-nd-border-light -mx-5 md:-mx-8 xl:mx-0 divide-x divide-nd-border-light flex flex-col xl:flex-row">
+              <div className="xl:w-[220px] border-b xl:border-b-0 border-nd-border-light shrink-0 mb-2 xl:mb-0 overflow-hidden relative">
                 <div
                   className={cn(
-                    "h-16 px-twd-6 items-center justify-between flex gap-twd-3 border-b xl:border-b-0 border-nd-border-light mb-twd-2 xl:mb-twd-0",
+                    "h-16 px-6 items-center justify-between flex gap-3 border-b xl:border-b-0 border-nd-border-light mb-2 xl:mb-0",
                     { "animate-curtain-left-to-right": isIntersecting },
                   )}
                   style={
@@ -220,7 +220,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                     <SolanaMono className={cn("w-3 h-3 -mt-0.5 mr-[7px]")} />
                     TERMINAL
                   </span>
-                  <div className="flex gap-twd-1">
+                  <div className="flex gap-1">
                     <div
                       className={cn("terminal-loader", {
                         animate: isLoading,
@@ -230,7 +230,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                 </div>
                 <div
                   className={cn(
-                    "h-48 p-twd-6 items-end justify-start hidden xl:flex border-t border-nd-border-light",
+                    "h-48 p-6 items-end justify-start hidden xl:flex border-t border-nd-border-light",
                     { "animate-curtain-left-to-right": isIntersecting },
                   )}
                   style={
@@ -254,7 +254,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                     <button
                       key={category.id}
                       className={cn(
-                        "p-twd-3 xl:px-twd-5 flex flex-col xl:flex-row items-start xl:items-center justify-start gap-twd-2.5 w-full xl:min-h-16 hover:bg-nd-border-light/20 relative",
+                        "p-3 xl:px-5 flex flex-col xl:flex-row items-start xl:items-center justify-start gap-2.5 w-full xl:min-h-16 hover:bg-nd-border-light/20 relative",
                         "border-r border-b border-nd-border-light xl:border-b-0 xl:border-r-0",
                         activeCategory === category.id
                           ? "!bg-nd-primary !text-nd-inverse xl:before:absolute xl:before:top-1.5 xl:before:left-1.5 xl:before:bottom-1.5 xl:before:w-[3px] xl:before:bg-nd-inverse"
@@ -299,7 +299,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                       <div
                         key={item.id}
                         className={cn(
-                          "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 divide-x divide-nd-border-light",
+                          "flex flex-row gap-4 xl:gap-0 p-4 xl:p-0 w-full xl:min-h-16 divide-x divide-nd-border-light",
                           {
                             "animate-stretch-in": isIntersecting && firstRender,
                           },
@@ -346,16 +346,16 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                               </span>
                             </div>
                           </div>
-                          <div className="w-auto grow xl:px-twd-5 flex items-center justify-start min-w-0 xl:!border-l-0">
+                          <div className="w-auto grow xl:px-5 flex items-center justify-start min-w-0 xl:!border-l-0">
                             <div className="xl:text-ellipsis xl:text-nowrap overflow-hidden max-w-full nd-body-l leading-[1.5]">
                               {item.title}
                             </div>
                           </div>
-                          <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[180px]">
+                          <div className="shrink-0 grow-0 px-5 hidden xl:flex items-center justify-start w-[180px]">
                             {CategoryIcon && (
                               <CategoryIcon
                                 className={cn(
-                                  "w-4 h-4 mr-twd-2.5 -mt-0.5",
+                                  "w-4 h-4 mr-2.5 -mt-0.5",
                                   category?.color,
                                 )}
                               />
@@ -365,7 +365,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                             </span>
                           </div>
                           {/* Date temporarily removed
-                          <div className="shrink-0 grow-0 px-twd-5 hidden xl:flex items-center justify-start w-[160px]">
+                          <div className="shrink-0 grow-0 px-5 hidden xl:flex items-center justify-start w-[160px]">
                             <span className="font-brand-mono font-medium text-nd-mid-em-text text-[14px] leading-[1.42] uppercase">
                               {item.date &&
                                 dayjs
@@ -385,7 +385,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                             target="_blank"
                             rel="noopener noreferrer"
                             className={cn(
-                              "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light hover:bg-nd-border-light/10 transition-colors text-white cursor-pointer",
+                              "flex flex-row gap-4 xl:gap-0 p-4 xl:p-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light hover:bg-nd-border-light/10 transition-colors text-white cursor-pointer",
                               {
                                 "animate-stretch-in": isIntersecting,
                               },
@@ -419,7 +419,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                             opacity: { duration: 0.1 },
                           }}
                           className={cn(
-                            "flex flex-row gap-twd-4 xl:gap-twd-0 p-twd-4 xl:p-twd-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light hover:bg-nd-border-light/10 transition-colors text-white cursor-pointer",
+                            "flex flex-row gap-4 xl:gap-0 p-4 xl:p-0 w-full xl:min-h-16 xl:divide-x xl:divide-nd-border-light hover:bg-nd-border-light/10 transition-colors text-white cursor-pointer",
                             {
                               "animate-flash-background": isNewItem && !allNew,
                             },
@@ -441,7 +441,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
               <div className="flex flex-1 flex-row divide-x divide-nd-border-light border-t border-nd-border-light xl:hidden">
                 <button
                   className={cn(
-                    "py-twd-3 px-twd-5 flex flex-col items-start justify-start gap-twd-2.5 w-full hover:bg-nd-border-light/20 disabled:opacity-50 disabled:cursor-not-allowed",
+                    "py-3 px-5 flex flex-col items-start justify-start gap-2.5 w-full hover:bg-nd-border-light/20 disabled:opacity-50 disabled:cursor-not-allowed",
                   )}
                   type="button"
                   disabled={page === 1}
@@ -456,7 +456,7 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                 </button>
                 <button
                   className={cn(
-                    "py-twd-3 px-twd-5 flex flex-col items-end justify-end gap-twd-2.5 w-full hover:bg-nd-border-light/20 disabled:opacity-50 disabled:cursor-not-allowed",
+                    "py-3 px-5 flex flex-col items-end justify-end gap-2.5 w-full hover:bg-nd-border-light/20 disabled:opacity-50 disabled:cursor-not-allowed",
                   )}
                   type="button"
                   disabled={page === 2 || items?.length <= 5}

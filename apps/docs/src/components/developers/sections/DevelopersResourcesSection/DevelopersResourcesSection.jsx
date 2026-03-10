@@ -15,9 +15,9 @@ export default function DevelopersResourcesSection({
   const t = useTranslations();
 
   return (
-    <section className="mt-10 mt-md-12" id={translationKey}>
+    <section className="mt-20 md:mt-32" id={translationKey}>
       <div className="container">
-        <div className="d-md-flex align-items-center justify-content-between mb-6">
+        <div className="md:flex items-center justify-between mb-8">
           <div>
             <DevelopersSectionTitle
               titleId={`developers.${translationKey}.title`}
@@ -26,7 +26,7 @@ export default function DevelopersResourcesSection({
               {t(`developers.${translationKey}.description`)}
             </p>
           </div>
-          <Button className="text-nowrap ms-md-4" to={baseHref}>
+          <Button className="text-nowrap md:ml-4" to={baseHref}>
             {t("developers.documents.view-all")}
           </Button>
         </div>

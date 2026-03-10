@@ -14,20 +14,20 @@ export default memo(function DevelopersFeaturedResourcesList({
       id="featured"
       className={classNames(
         styles["developers-featured-resources-list"],
-        "pb-10 mb-10 container",
+        "pb-20 mb-20",
       )}
     >
-      <div className="row">
-        <div className="col-md-12 col-lg-4 p-0">
-          <h1 className="mb-5">{t(`developers.${translationTag}.title`)}</h1>
-          <p className="mb-7">
+      <div className="grid grid-cols-12 gap-5 md:gap-10">
+        <div className="col-span-12 lg:col-span-4 p-0">
+          <h1 className="mb-6">{t(`developers.${translationTag}.title`)}</h1>
+          <p className="mb-10">
             {t(`developers.${translationTag}.description`)}
           </p>
         </div>
         <div
           className={classNames(
             styles["developers-featured-resources-list__resources"],
-            "col-md-12 col-lg-8 p-0",
+            "col-span-12 lg:col-span-8 p-0",
           )}
         >
           {items.map((item, id) => (

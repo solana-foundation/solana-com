@@ -19,14 +19,14 @@ const NFTShowdownFooter = () => {
           <u>{t("nft-showdown.disclaimer.rules")}</u>
         </InlineLink>
 
-        <h3 className="h6 mt-4 text-uppercase">
+        <h3 className="h6 mt-4 uppercase">
           {t("nft-showdown.disclaimer.title")}
         </h3>
         <p>{t("nft-showdown.disclaimer.description-line-1")}</p>
-        <p className={showParagraphs ? "d-block" : "d-none d-md-block"}>
+        <p className={showParagraphs ? "block" : "hidden md:block"}>
           {t("nft-showdown.disclaimer.description-line-2")}
         </p>
-        <div className="d-md-none py-2">
+        <div className="md:hidden py-2">
           <Button size="small" onClick={showMore}>
             {t(
               `nft-showdown.disclaimer.${

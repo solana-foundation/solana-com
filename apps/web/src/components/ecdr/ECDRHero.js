@@ -12,7 +12,7 @@ const ECDRHero = () => {
   const [showTypeformModal, setShowTypeformModal] = useState(false);
 
   return (
-    <div className={classNames("pb-10", styles["ecdr-hero"])}>
+    <div className={classNames("pb-20", styles["ecdr-hero"])}>
       <div className="container text-center">
         <div className={styles["ecdr-hero__inner"]}>
           <div className={styles["ecdr-hero__ring--effect1"]} />
@@ -32,23 +32,21 @@ const ECDRHero = () => {
           <h1 className={classNames("mb-2", styles["ecdr-hero__heading"])}>
             {t("ecdr.hero.headline")}
           </h1>
-          <div className="row">
-            <div className="col-md-8 mx-auto">
-              <p
-                className={classNames(
-                  "mt-2 mb-5",
-                  styles["ecdr-hero__subHeading"],
-                )}
-              >
-                {t("ecdr.hero.subheadline")}
-              </p>
-              <p className={classNames("my-1", styles["ecdr-hero__note"])}>
-                {t("ecdr.hero.note")}
-              </p>
-            </div>
+          <div className="w-full md:w-8/12 mx-auto">
+            <p
+              className={classNames(
+                "mt-2 mb-6",
+                styles["ecdr-hero__subHeading"],
+              )}
+            >
+              {t("ecdr.hero.subheadline")}
+            </p>
+            <p className={classNames("my-1", styles["ecdr-hero__note"])}>
+              {t("ecdr.hero.note")}
+            </p>
           </div>
           <IndexBtn
-            className="d-inline-block mt-2 mt-md-4 px-md-6 py-md-4 me-2"
+            className="btn inline-block mt-2 md:mt-4 md:px-8 md:py-4 mr-2"
             variant="secondary"
             size="large"
             onClick={() => {

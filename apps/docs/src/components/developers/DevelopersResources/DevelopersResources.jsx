@@ -100,7 +100,7 @@ export default memo(function DevelopersResources({ items, title = "" }) {
 
   return (
     <>
-      <h2 className="mb-7">{title}</h2>
+      <h2 className="mb-10">{title}</h2>
       <div className={classNames(styles["developers-resources"])}>
         <div className={classNames(styles["developers-resources__grid"])}>
           <DevelopersResourcesGrid items={items} />

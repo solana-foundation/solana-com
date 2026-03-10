@@ -11,15 +11,15 @@ const HeroSection = ({
 }) => {
   return (
     <section
-      className={classNames("pt-7 pt-lg-12 pb-md-12", styles["hero-section"])}
+      className={classNames("pt-10 lg:pt-32 md:pb-32", styles["hero-section"])}
     >
-      <div className="container position-relative">
+      <div className="container relative">
         <div className={styles["hero-section__image"]}>
           <Image src={src} alt={alt} placeholder="blur" priority />
         </div>
         <div className={styles["hero-section__light"]} />
         <div className={styles["content"]}>
-          <h1>{title}</h1>
+          <h1 className="h2">{title}</h1>
           <p className="h6 subdued">{description}</p>
           {buttons && (
             <div className={styles["content__hero-buttons"]}>
@@ -36,7 +36,9 @@ const HeroSection = ({
                 <Button
                   to={buttons.secondary.href}
                   newTab={buttons.secondary.href?.startsWith("http")}
-                  className={styles["content__btn-icon"]}
+                  className={
+                    buttons.secondary.icon ? styles["content__btn-icon"] : null
+                  }
                 >
                   <span>{buttons.secondary.label}</span>
                   {buttons.secondary.icon || null}

@@ -1,5 +1,4 @@
 import { FormattedNumber } from "../SolFormattedMessage";
-import { Badge } from "react-bootstrap";
 import Telegram from "../../../public/src/img/community/socials-telegram.inline.svg";
 import Twitter from "../../../public/src/img/community/socials-twitter.inline.svg";
 import Youtube from "../../../public/src/img/community/socials-youtube.inline.svg";
@@ -11,6 +10,7 @@ import Mail from "../../../public/src/img/community/socials-mail.inline.svg";
 import Reddit from "../../../public/src/img/community/socials-reddit.inline.svg";
 import News from "../../../public/src/img/community/socials-news.inline.svg";
 import { useTranslations } from "next-intl";
+import { Badge } from "@/component-library/badge";
 
 /**
  * Display social network cards
@@ -117,19 +117,29 @@ const CommunitySocial = ({ data }) => {
   ];
 
   return (
-    <section className="community-socials container">
+    <section className="community-socials container mt-16">
       <div>
-        <h2>{t("community.socials.hero")}</h2>
-        <p className="text-white w-md-50">{t("community.socials.subheader")}</p>
+        <h2 className="mb-4">{t("community.socials.hero")}</h2>
+        <p className="text-white md:w-1/2">
+          {t("community.socials.subheader")}
+        </p>
       </div>
-      <div className="row community-socials-content">
+      <div className="grid grid-cols-12 gap-x-5 md:gap-x-10 mt-8 [row-gap:3rem]">
         {socialAccounts.map((item) => (
-          <div className="col-12 col-sm-6 col-md-3" key={item.nameId}>
-            <a href={item.link} className="community-socials-item">
-              <Badge className="bg-black fw-light">{item.category}</Badge>
-              <div className="community-socials-icon">{item.renderIcon()}</div>
-              <p className="fw-bold w-100 mb-6">{t(item.nameId)}</p>
-              <p className="community-socials-amount">
+          <div
+            className="col-span-12 sm:col-span-6 md:col-span-3"
+            key={item.nameId}
+          >
+            <a
+              href={item.link}
+              className="group rounded-[0.5rem] cursor-pointer p-4 text-[#f9f9fb] bg-[#232323] transition-colors duration-[350ms] flex flex-col items-start no-underline hover:no-underline hover:bg-[#f9f9fb] hover:text-[#232323]"
+            >
+              <Badge className="bg-black font-light" title={item.category} />
+              <div className="w-8 h-8 mt-6 mb-2 [&_svg]:fill-[#f9f9fb] [&_svg]:stroke-[#232323] [&_svg]:[stroke-width:0] [&_svg]:[transition:fill_0.3s] group-hover:[&_svg]:fill-[#232323] group-hover:[&_svg]:stroke-[#f9f9fb]">
+                {item.renderIcon()}
+              </div>
+              <p className="font-bold w-full mb-8">{t(item.nameId)}</p>
+              <p className="mb-0 break-words">
                 {item.membersStr ? (
                   item.membersStr
                 ) : (

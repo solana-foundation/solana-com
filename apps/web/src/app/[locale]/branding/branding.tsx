@@ -1,6 +1,5 @@
 "use client";
 
-import styled from "styled-components";
 import Script from "next/script";
 
 import BrandingWelcome from "@/components/branding/BrandingWelcome";
@@ -12,37 +11,6 @@ import BrandingAssets from "@/components/branding/BrandingAssets";
 import BrandingPress from "@/components/branding/BrandingPress";
 import BrandingAnchorTags from "@/components/branding/BrandingAnchorTags";
 import SimpleHero from "@/components/sharedPageSections/SimpleHero";
-
-const StyledMainContainer = styled.div`
-  display: flex;
-  flex-direction: column-reverse;
-  column-gap: 4rem;
-  row-gap: 2rem;
-  @media (min-width: 750px) {
-    flex-direction: row;
-    justify-content: space-between;
-  }
-
-  .left-content {
-    display: flex;
-    flex-direction: column;
-    row-gap: 4rem;
-    flex: 1;
-    max-width: 680px;
-  }
-
-  .right-content {
-    min-width: 240px;
-    max-width: 100%;
-    @media (min-width: 750px) {
-      max-width: 240px;
-      & > section {
-        position: sticky;
-        top: 3rem;
-      }
-    }
-  }
-`;
 
 interface BrandingPageProps {
   translations: {
@@ -58,8 +26,8 @@ export function BrandingPage({ translations }: BrandingPageProps) {
           title: translations.title,
         }}
       />
-      <StyledMainContainer className="container pt-8">
-        <div className="left-content">
+      <div className="container pt-12 pb-10 flex flex-col-reverse gap-x-16 gap-y-8 min-[750px]:flex-row min-[750px]:justify-between">
+        <div className="flex flex-col gap-y-16 flex-1 max-w-[680px] pb-10">
           <BrandingWelcome />
           <BrandingLogo />
           <BrandingClearspace />
@@ -68,10 +36,10 @@ export function BrandingPage({ translations }: BrandingPageProps) {
           <BrandingAssets />
           <BrandingPress />
         </div>
-        <div className="right-content">
+        <div className="min-w-[240px] max-w-full min-[750px]:max-w-[240px] min-[750px]:[&>section]:sticky min-[750px]:[&>section]:top-12">
           <BrandingAnchorTags />
         </div>
-      </StyledMainContainer>
+      </div>
 
       <Script id="branding-schema" type="application/ld+json">
         {JSON.stringify({
