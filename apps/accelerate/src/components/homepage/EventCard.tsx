@@ -76,13 +76,13 @@ function CardContent({
 
         {/* Learn More button - Space Grotesk SemiBold 16px */}
         <div
-          className="inline-flex h-[48px] w-[186px] items-center justify-between rounded-[26px] border px-7 py-4"
+          className="flex w-[186px] items-center justify-between rounded-[26px] border border-solid px-[28px] py-[16px]"
           style={{
             borderColor: active ? "#9945ff" : "#3d3d3d",
           }}
         >
           <span
-            className="text-[16px] font-semibold uppercase tracking-[0.8px]"
+            className="whitespace-nowrap text-[16px] font-semibold uppercase tracking-[0.8px]"
             style={{
               fontFamily:
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -93,14 +93,11 @@ function CardContent({
             Learn More
           </span>
           <Image
-            src={getImagePath(
-              active
-                ? "/images/homepage/header-arrow.svg"
-                : "/images/homepage/cta-arrow.svg",
-            )}
+            src={getImagePath("/images/homepage/header-arrow.svg")}
             alt=""
             width={8}
             height={8}
+            className="flex-shrink-0"
             style={{ opacity: active ? 1 : 0.3 }}
           />
         </div>

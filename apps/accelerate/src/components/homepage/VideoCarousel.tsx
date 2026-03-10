@@ -6,27 +6,109 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getImagePath } from "@/config";
 
 const videos = [
+  { id: "mIGoTSdkEww", title: "Welcome to Solana Accelerate APAC" },
+  { id: "rmSoC2H4-64", title: "Opening" },
+  { id: "HBLEqLRpSiA", title: "Opening Fireside" },
   {
-    id: "LsfnC62q8oE",
-    title: "Welcome to Solana Accelerate APAC",
-    thumbnail: getImagePath("/images/homepage/video-thumb-1.jpg"),
+    id: "3RRrMEq3TKY",
+    title:
+      "Partnering to Build Next-Gen Financial Infrastructure For Onchain Assets",
+  },
+  { id: "lr_KBUzQ_os", title: "ETF from East to West" },
+  { id: "BobmmVMD_M4", title: "Bridging The Gap" },
+  { id: "LplcpJ3pPOQ", title: "SGB – Lightning Product Talk" },
+  {
+    id: "B_ZIRsr669g",
+    title: "Anza - Engineering Internet Capital Markets",
+  },
+  { id: "F2qbEHmXr-E", title: "2WA - Lightning Product Talk" },
+  {
+    id: "EH8NWFbex3k",
+    title: "Sunrise - Day One, Minute One, How Assets List On Solana",
+  },
+  { id: "t4LwRDDM2F4", title: "DFlow Product Lightning Talk" },
+  { id: "G2SwIv9hh6s", title: "Safepal Lightning Product Talk" },
+  {
+    id: "qCk5aAbtrfc",
+    title: "Digital Assets Trading And Liquidity in 2026",
+  },
+  { id: "JS_gdZLMt4g", title: "Trends.Fun" },
+  { id: "-jgT62zTZ1Y", title: "Building New Financial Rails" },
+  {
+    id: "Q_BSNleN3u0",
+    title: "Solana Stablecoins: How Solana Can Win Cards",
   },
   {
-    id: "mIGoTSdkEww",
-    title: "Accelerate APAC Opening",
-    thumbnail: getImagePath("/images/homepage/video-thumb-2.jpg"),
+    id: "I_qRlEObdeY",
+    title: "Beyond The Hype: Building Compliant And Scalable Stablecoin Rails",
   },
   {
-    id: "7GynS0cj_rA",
-    title: "Opening Fireside",
-    thumbnail: getImagePath("/images/homepage/video-thumb-3.jpg"),
+    id: "m1bzEGvDPBI",
+    title:
+      "ByReal - Transforming Liquidity & Infra for Internet Capital Markets Era",
   },
   {
-    id: "dQw4w9WgXcQ",
-    title: "Panel Discussion",
-    thumbnail: getImagePath("/images/homepage/video-thumb-4.jpg"),
+    id: "d_tOrVEpBeY",
+    title: "Institutional Finance Accelerating Tokenization",
   },
-];
+  {
+    id: "X70DIWMrppA",
+    title: "Korean STO Market Outlook & Global Partnership Strategy",
+  },
+  { id: "ac6upzfmwGY", title: "Jupiter - The Onchain Super App" },
+  {
+    id: "O1rHOAVg4Is",
+    title: "Jito - Building The Market Layer of Solana",
+  },
+  { id: "0WYpENQFS40", title: "Tokenize Everything on Solana" },
+  { id: "TjWJxWq501A", title: "Accelerate APAC 2026" },
+  { id: "eHHPKk2cWBA", title: "Matrixdock - Digital Gold on Solana" },
+  {
+    id: "23v5QTyYeLg",
+    title: "Solana DeFi: The Execution Layer For Global Finance",
+  },
+  {
+    id: "ovM3u1q563Q",
+    title: "DeBridge Universal Execution To Make Infrastructure Disappear",
+  },
+  { id: "6jVYIAlzvr0", title: "Solflare" },
+  { id: "9kJU_dtXOa8", title: "ICM Infrastructure Talk" },
+  {
+    id: "pMobZ1uMJBQ",
+    title:
+      "The New Global Reserve: Why Solana is the OS for Digital Asset Treasuries",
+  },
+  {
+    id: "lyi48CMrC2E",
+    title: "HSDT Solana Company - The Solana Supercycle Starts in Asia",
+  },
+  {
+    id: "Fe4ZETLDfaE",
+    title: "Bitcoin Is the Asset, Solana is the Infrastructure",
+  },
+  { id: "pJlWEd0n0pY", title: "Infrastructure of AI" },
+  { id: "k9a6emVTxLY", title: "Introducing Lightspeed" },
+  {
+    id: "nNWrGePQLqk",
+    title: "Fosun Finloop and Finchain Introduction",
+  },
+  {
+    id: "iKQp-Y3v4BI",
+    title: "Consumer App And Creator Economy on Solana",
+  },
+  { id: "RpHfsh5TJhU", title: "Internet Capital Showcase" },
+  {
+    id: "R0OPT-EExrQ",
+    title: "DoubleZero - The Internet in Internet Capital Markets",
+  },
+  {
+    id: "9mK84MOIyns",
+    title: "What Wall Street Wants: Metrics That Matter",
+  },
+].map((v) => ({
+  ...v,
+  thumbnail: getImagePath(`/images/homepage/videos/${v.id}.jpg`),
+}));
 
 const getYoutubeEmbedUrl = (id: string) => {
   const params = new URLSearchParams({

@@ -46,7 +46,7 @@ export function Highlights() {
 
             {/* Watch Now CTA - gradient button */}
             <a
-              href="https://www.youtube.com/@SolanaFndn"
+              href="https://www.youtube.com/playlist?list=PLilwLeBwGuK4EO5mZ7IDM1zZApataXukG"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[66px] w-[240px] items-center justify-between rounded-[32px] px-7 py-6"

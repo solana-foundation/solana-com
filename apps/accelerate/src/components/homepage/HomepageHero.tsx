@@ -2,8 +2,10 @@
 
 import { useRef, useEffect } from "react";
 import Image from "next/image";
+import { Link } from "@workspace/i18n/routing";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { getImagePath } from "@/config";
+import { LumaModal } from "@/components/LumaModal";
 
 export function HomepageHero() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -113,12 +115,12 @@ export function HomepageHero() {
         }}
       />
 
-      {/* Bottom fade */}
+      {/* Bottom fade — tall multi-stop gradient for a smooth video blend */}
       <div
-        className="pointer-events-none absolute bottom-0 left-0 z-[2] h-[165px] w-full"
+        className="pointer-events-none absolute bottom-0 left-0 z-[2] h-[50%] w-full"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(0,0,0,0) 15.35%, black 73.26%)",
+            "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 30%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.85) 75%, black 100%)",
         }}
       />
 
@@ -190,44 +192,41 @@ export function HomepageHero() {
               </div>
 
               {/* Right: GET TICKETS CTA */}
-              <a
-                href="https://lu.ma/accelerate-miami"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex w-[160px] items-center justify-between rounded-[32px] px-5 py-5 text-black md:w-[200px] md:px-7 lg:w-[240px]"
-                style={{
-                  background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                }}
-              >
-                <span
-                  className="text-sm font-semibold uppercase tracking-[0.9px] md:text-[18px]"
+              <LumaModal lumaId="accelerate-miami">
+                <button
+                  className="inline-flex w-[160px] items-center justify-between rounded-[32px] px-5 py-5 text-black transition-all hover:opacity-90 md:w-[200px] md:px-7 lg:w-[240px]"
                   style={{
-                    fontFamily:
-                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    lineHeight: 1,
+                    background: "linear-gradient(to right, #9945FF, #19FB9B)",
                   }}
                 >
-                  GET TICKETS
-                </span>
-                <svg width="12" height="12" viewBox="0 0 11 11" fill="none">
-                  <path
-                    d="M2 9L9 2M9 2H4M9 2V7"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a>
+                  <span
+                    className="text-sm font-semibold uppercase tracking-[0.9px] md:text-[18px]"
+                    style={{
+                      fontFamily:
+                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                      lineHeight: 1,
+                    }}
+                  >
+                    GET TICKETS
+                  </span>
+                  <svg width="12" height="12" viewBox="0 0 11 11" fill="none">
+                    <path
+                      d="M2 9L9 2M9 2H4M9 2V7"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </LumaModal>
             </div>
           </div>
 
           {/* Learn More link */}
           <div className="mt-6 flex items-center justify-end gap-3">
-            <a
-              href="https://lu.ma/accelerate-miami"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/accelerate/miami"
               className="inline-flex items-center gap-3 font-normal uppercase tracking-[0.8px] text-white transition-colors hover:text-white/80"
               style={{
                 fontFamily:
@@ -243,7 +242,7 @@ export function HomepageHero() {
                 width={24}
                 height={24}
               />
-            </a>
+            </Link>
           </div>
         </motion.div>
       </div>

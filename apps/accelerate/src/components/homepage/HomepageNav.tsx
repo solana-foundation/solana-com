@@ -45,10 +45,8 @@ export function HomepageNav() {
             >
               Hong Kong (APAC)
             </Link>
-            <a
-              href="https://lu.ma/accelerate-miami"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/accelerate/miami"
               className="hidden font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 xl:inline"
               style={{
                 fontFamily:
@@ -58,13 +56,11 @@ export function HomepageNav() {
               }}
             >
               Miami (USA)
-            </a>
+            </Link>
 
             {/* LIVE NOW button */}
-            <a
-              href="https://lu.ma/accelerate-miami"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/accelerate/miami"
               className="hidden items-center bg-[#19fb9b] p-2.5 xl:flex"
               style={{
                 fontFamily:
@@ -88,7 +84,7 @@ export function HomepageNav() {
                   className="flex-shrink-0"
                 />
               </div>
-            </a>
+            </Link>
 
             <button
               type="button"
