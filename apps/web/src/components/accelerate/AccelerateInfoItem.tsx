@@ -1,13 +1,14 @@
 import { FC } from "react";
 import styles from "./AccelerateInfoItem.module.scss";
 import classNames from "classnames";
+import type { SolanaLibAttributes } from "@/types/solana-lib";
 
 export const AccelerateInfoItem: FC<{
   term: string;
   value: string;
   subtitle?: string;
   padSubtitle?: boolean;
-  attributes?: any;
+  attributes?: SolanaLibAttributes;
 }> = ({ term, value, subtitle, padSubtitle = false, attributes }) => {
   const shouldPad = !subtitle?.trim() && padSubtitle;
   return (

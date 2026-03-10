@@ -58,19 +58,29 @@ export const AccelerateStories: FC<{ urls: { url: string }[] }> = ({
   );
 };
 
-const CustomPrevArrow = (props: any) => {
+const CustomPrevArrow = (props: React.ComponentProps<"div">) => {
   const { style, onClick } = props;
   return (
-    <div className={styles.arrowLeft} style={{ ...style }} onClick={onClick}>
+    <div
+      role="button"
+      className={styles.arrowLeft}
+      style={{ ...style }}
+      onClick={onClick}
+    >
       <ArrowLeft size={28} />
     </div>
   );
 };
 
-const CustomNextArrow = (props: any) => {
+const CustomNextArrow = (props: React.ComponentProps<"div">) => {
   const { style, onClick } = props;
   return (
-    <div className={styles.arrowRight} style={{ ...style }} onClick={onClick}>
+    <div
+      role="button"
+      className={styles.arrowRight}
+      style={{ ...style }}
+      onClick={onClick}
+    >
       <ArrowRight size={28} />
     </div>
   );

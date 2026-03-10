@@ -79,4 +79,4 @@ export const walletFiltersData = [
     filterKey: "private_key_infrastructure",
     description: "",
   },
-] as const;
+];

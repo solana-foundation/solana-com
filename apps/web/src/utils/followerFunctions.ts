@@ -105,15 +105,16 @@ const getGHStargazers = async (): Promise<number> => {
   return jsonData?.stargazers_count || 0;
 };
 
-type YTVideoItem = {
+export type YTVideoItem = {
+  id?: string;
   snippet: {
-    thumbnails: Record<string, unknown>;
-    title?: string;
+    thumbnails: Record<string, { url: string } | undefined>;
+    title: string;
     description?: string;
     playlistId?: string;
     resourceId?: { videoId?: string };
   };
-  contentDetails?: { videoId?: string };
+  contentDetails: { videoId: string };
 };
 
 const getYTVideos = async (

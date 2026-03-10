@@ -2,14 +2,14 @@ import { useMemo } from "react";
 import findKey from "lodash/findKey";
 
 interface EventVenue {
-  address?: string;
-  city_state?: string;
-  [key: string]: string | undefined;
+  address?: string | null;
+  city_state?: string | null;
+  [key: string]: string | undefined | null;
 }
 
 interface EventsSingleLocationProps {
   event?: {
-    venue?: EventVenue;
+    venue?: EventVenue | null;
   };
 }
 
