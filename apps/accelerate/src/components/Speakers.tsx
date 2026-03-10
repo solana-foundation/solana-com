@@ -27,7 +27,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
     >
-      {/* Image - full width on mobile, fixed sizes on tablet/desktop */}
+      {/* Image - constrained on mobile, fixed sizes on tablet/desktop */}
       <motion.div
         className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#a0a0a0] sm:aspect-auto sm:h-[140px] sm:w-[140px] lg:h-[145px] lg:w-[145px]"
         whileHover={{ scale: 1.05 }}
@@ -61,7 +61,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
       <div className="relative flex w-full flex-col gap-1.5 sm:w-[140px] sm:gap-2 lg:w-[145px]">
         {/* Name - uppercase, multi-line */}
         <motion.div
-          className="text-[18px] uppercase leading-none sm:text-[16px] lg:text-[18px]"
+          className="text-[14px] uppercase leading-none sm:text-[16px] lg:text-[18px]"
           animate={{
             color: isHovered ? "#19fb9b" : "#9945ff",
           }}
@@ -75,7 +75,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
         <div className="flex flex-col gap-0.5 sm:gap-1">
           {/* Company */}
           <motion.p
-            className="text-[16px] sm:text-[14px] lg:text-[16px]"
+            className="text-[13px] sm:text-[14px] lg:text-[16px]"
             animate={{
               color: isHovered ? "#d2d2d2" : "#ffffff",
             }}
@@ -85,7 +85,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
           </motion.p>
 
           {/* Title */}
-          <p className="text-sm text-white/80 sm:text-sm">{speaker.title}</p>
+          <p className="text-xs text-white/80 sm:text-sm">{speaker.title}</p>
         </div>
       </div>
     </motion.div>
@@ -306,7 +306,7 @@ function AllSpeakersSection() {
                 ))}
               </motion.div>
 
-              {/* Mobile: show first 10, then accordion for rest */}
+              {/* Mobile: show first 10 in 2-col grid, then accordion for rest */}
               <div className="sm:hidden">
                 <motion.div
                   key="speakers-grid-mobile"
@@ -314,7 +314,7 @@ function AllSpeakersSection() {
                   animate="visible"
                   exit="hidden"
                   variants={stagger}
-                  className="grid grid-cols-1 gap-6 pb-6"
+                  className="grid grid-cols-2 gap-4 pb-6"
                 >
                   {filteredSpeakers
                     .slice(0, MOBILE_INITIAL_COUNT)
@@ -349,7 +349,7 @@ function AllSpeakersSection() {
                             initial="hidden"
                             animate="visible"
                             variants={stagger}
-                            className="grid grid-cols-1 gap-6 pb-6"
+                            className="grid grid-cols-2 gap-4 pb-6"
                           >
                             {filteredSpeakers
                               .slice(MOBILE_INITIAL_COUNT)

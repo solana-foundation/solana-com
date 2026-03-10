@@ -368,7 +368,7 @@ export function Sponsors() {
             {/* Desktop: Styled button */}
             <a
               href="mailto:events@solana.org"
-              className="btn-outline-gradient hidden px-8 py-4 text-button lg:inline-flex"
+              className="btn-outline-gradient !hidden px-8 py-4 text-button lg:!inline-flex"
             >
               <span>{t("becomeSponsor")}</span>
               <svg
@@ -405,10 +405,10 @@ export function Sponsors() {
                 <div
                   className={`flex flex-wrap items-center justify-center ${
                     tier.level === "headline"
-                      ? "gap-16"
+                      ? "gap-8 sm:gap-16"
                       : tier.level === "signature"
-                        ? "gap-12 lg:gap-[60px]"
-                        : "gap-8 lg:gap-12"
+                        ? "gap-6 sm:gap-12 lg:gap-[60px]"
+                        : "gap-4 sm:gap-8 lg:gap-12"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
@@ -420,10 +420,10 @@ export function Sponsors() {
                       aria-label={t("openProfile", { name: sponsor.name })}
                       className={`flex items-center justify-center bg-transparent p-0 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accelerate-purple/60 ${
                         tier.level === "headline"
-                          ? "h-[168px] w-[400px]"
+                          ? "h-[100px] w-[260px] sm:h-[168px] sm:w-[400px]"
                           : tier.level === "signature"
-                            ? "h-[134px] w-[320px]"
-                            : "h-[80px] w-[200px]"
+                            ? "h-[80px] w-[200px] sm:h-[134px] sm:w-[320px]"
+                            : "h-[56px] w-[150px] sm:h-[80px] sm:w-[200px]"
                       }`}
                     >
                       <SponsorLogo sponsor={sponsor} />
