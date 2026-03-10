@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import { getImagePath } from "@/config";
 import { fadeInUp, staggerFast } from "@/lib/animations";
 
@@ -38,15 +39,19 @@ function FAQAccordionItem({
         </span>
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
           {isOpen ? (
-            <img
+            <Image
               src={getImagePath("/images/faq-arrow-expanded.svg")}
               alt=""
+              width={36}
+              height={36}
               className="h-9 w-9"
             />
           ) : (
-            <img
+            <Image
               src={getImagePath("/images/faq-arrow.svg")}
               alt=""
+              width={36}
+              height={36}
               className="h-9 w-9"
             />
           )}

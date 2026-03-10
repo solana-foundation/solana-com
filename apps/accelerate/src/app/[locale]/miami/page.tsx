@@ -1,7 +1,6 @@
 import {
   Hero,
   EventDetails,
-  Speakers,
   Sponsors,
   FAQ,
   GettingThere,
