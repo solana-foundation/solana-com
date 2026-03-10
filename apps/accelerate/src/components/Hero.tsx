@@ -167,13 +167,7 @@ export function Hero({
           <LumaModal lumaId="accelerate-miami">
             <button className="btn-outline-gradient px-7 py-4 text-button">
               <span>{ctaLabel || t("nav.requestToJoin")}</span>
-              <svg
-                width="8"
-                height="8"
-                viewBox="0 0 11 11"
-                fill="none"
-                className="ml-2"
-              >
+              <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
                 <path
                   d="M2 9L9 2M9 2H4M9 2V7"
                   stroke="currentColor"
@@ -289,13 +283,7 @@ export function Hero({
                     className="btn-outline-gradient mt-2 w-full px-7 py-4 text-button"
                   >
                     <span>{ctaLabel || t("nav.requestToJoin")}</span>
-                    <svg
-                      width="8"
-                      height="8"
-                      viewBox="0 0 11 11"
-                      fill="none"
-                      className="ml-2"
-                    >
+                    <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
                       <path
                         d="M2 9L9 2M9 2H4M9 2V7"
                         stroke="currentColor"

@@ -156,7 +156,7 @@ export function GetInvolved({
                           {t(`${key}.cta`)}
                         </span>
                         <svg
-                          className="ml-2 h-4 w-4 transition-transform duration-300 group-hover/btn:translate-x-0.5"
+                          className="h-4 w-4 transition-transform duration-300 group-hover/btn:translate-x-0.5"
                           fill="none"
                           viewBox="0 0 16 16"
                           stroke="currentColor"

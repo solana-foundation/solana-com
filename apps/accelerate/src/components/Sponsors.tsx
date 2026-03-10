@@ -371,13 +371,7 @@ export function Sponsors() {
               className="btn-outline-gradient !hidden px-8 py-4 text-button lg:!inline-flex"
             >
               <span>{t("becomeSponsor")}</span>
-              <svg
-                width="8"
-                height="8"
-                viewBox="0 0 11 11"
-                fill="none"
-                className="ml-2"
-              >
+              <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
                 <path
                   d="M2 9L9 2M9 2H4M9 2V7"
                   stroke="#19FB9B"

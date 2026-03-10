@@ -63,8 +63,9 @@ function CardContent({
 
         {/* Learn More button */}
         <div
-          className="flex w-[157px] items-center justify-between rounded-[26px] border border-solid px-6 py-[13px] md:w-[186px] md:px-[28px] md:py-[16px]"
-          style={{ borderColor: active ? "#9945ff" : "#3d3d3d" }}
+          className={`btn-outline-gradient flex w-[157px] items-center justify-between px-6 py-[13px] md:w-[186px] md:px-[28px] md:py-[16px] ${
+            !active ? "!border-[#3d3d3d] !bg-none" : ""
+          }`}
         >
           <span
             className="whitespace-nowrap text-[13.5px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[16px] md:tracking-[0.8px]"

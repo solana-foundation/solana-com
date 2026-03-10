@@ -114,7 +114,7 @@ export function AgendaBanner() {
                 height="16"
                 viewBox="0 0 16 16"
                 fill="none"
-                className="ml-2 transition-transform group-hover:translate-x-1"
+                className="transition-transform group-hover:translate-x-1"
               >
                 <path
                   d="M6 12L10 8L6 4"
