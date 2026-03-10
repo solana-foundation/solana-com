@@ -30,7 +30,7 @@ export default function MiamiPage() {
         showTicketsRow={false}
       />
       <GetInvolved translationPrefix="accelerate.miami.getInvolved" />
-      <Speakers />
+      {/* <Speakers /> */}
       <Sponsors />
       <FAQ
         faqKeys={["q1", "q2", "q3", "q4"]}
