@@ -83,6 +83,15 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Keystatic redirects localhost → 127.0.0.1 (RedirectToLoopback).
+    // Ensure login and cookies use the same domain to avoid cookie loss.
+    if (window.location.hostname === "localhost") {
+      window.location.href = window.location.href.replace(
+        "localhost",
+        "127.0.0.1"
+      );
+      return;
+    }
     setMounted(true);
   }, []);
 

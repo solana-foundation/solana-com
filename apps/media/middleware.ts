@@ -42,7 +42,12 @@ export default async function middleware(req: NextRequest) {
     if (isAuthEnabled()) {
       const authed = await isAuthenticated(req);
       if (!authed) {
-        return NextResponse.redirect(new URL("/keystatic/login", req.url));
+        const loginUrl = new URL("/keystatic/login", req.url);
+        // Use 127.0.0.1 to match Keystatic's RedirectToLoopback cookie domain
+        if (loginUrl.hostname === "localhost") {
+          loginUrl.hostname = "127.0.0.1";
+        }
+        return NextResponse.redirect(loginUrl);
       }
     }
 
