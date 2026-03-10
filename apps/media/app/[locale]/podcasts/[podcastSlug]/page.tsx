@@ -7,7 +7,7 @@ import {
   fetchEpisodesForPodcast,
 } from "@/lib/podcast-data";
 import PodcastShowClientPage from "./client-page";
-import { config } from "@/lib/config";
+import { podcastShowMetadata } from "@/lib/metadata";
 
 export const revalidate = 1800; // 30 minutes - cache to avoid rate limits
 export const dynamicParams = true;
@@ -50,52 +50,5 @@ export async function generateMetadata({
   params,
 }: PodcastShowPageProps): Promise<Metadata> {
   const resolvedParams = await params;
-  const podcast = await fetchPodcastBySlug(resolvedParams.podcastSlug);
-
-  if (!podcast) {
-    return {
-      title: "Podcast Not Found",
-    };
-  }
-
-  const title = `${podcast.title} | Podcasts`;
-  const description =
-    typeof podcast.description === "string"
-      ? podcast.description
-      : `Listen to ${podcast.title} podcast`;
-  const canonicalUrl = `${config.publicUrl}/podcasts/${resolvedParams.podcastSlug}`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      type: "website",
-      siteName: config.siteMetadata.title,
-      images: podcast.coverImage
-        ? [podcast.coverImage]
-        : [
-            {
-              url: config.siteMetadata.socialShare,
-              width: 1200,
-              height: 630,
-              alt: title,
-            },
-          ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: podcast.coverImage
-        ? [podcast.coverImage]
-        : [config.siteMetadata.socialShare],
-      creator: `@${config.social.twitter.name}`,
-    },
-    alternates: {
-      canonical: canonicalUrl,
-    },
-  };
+  return podcastShowMetadata(resolvedParams.podcastSlug);
 }

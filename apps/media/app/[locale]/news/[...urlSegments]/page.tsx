@@ -10,7 +10,7 @@ import { CallToAction } from "@/components/ui/call-to-action";
 import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
-import { config } from "@/lib/config";
+import { newsPostMetadata } from "@/lib/metadata";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -192,108 +192,5 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const slug = resolvedParams.urlSegments.join("/");
-
-  const post = await reader.collections.posts.read(slug);
-
-  if (!post) {
-    return {
-      title: "Post Not Found",
-      description: "",
-    };
-  }
-
-  // Get author name for meta
-  let authorName: string | undefined;
-  if (post.author) {
-    const author = await reader.collections.authors.read(post.author);
-    if (author) {
-      authorName = String(author.name);
-    }
-  }
-
-  // Resolve category name for article:section
-  let categoryName: string | undefined;
-  if (post.category) {
-    const category = await reader.collections.categories.read(post.category);
-    if (category) {
-      categoryName = String(category.name);
-    }
-  }
-
-  // Resolve tag names for article:tag
-  const tagNames: string[] = [];
-  if (post.tags && Array.isArray(post.tags)) {
-    for (const tagRef of post.tags) {
-      if (tagRef) {
-        const tag = await reader.collections.tags.read(tagRef);
-        if (tag) {
-          tagNames.push(String(tag.name));
-        }
-      }
-    }
-  }
-
-  // Derive SEO from post title, description, and hero image
-  const title = String(post.title);
-
-  // Description is a plain text field, not a content document, so access it directly
-  const description = post.description
-    ? String(post.description).trim()
-    : undefined;
-
-  // Use hero image for OG and Twitter images
-  const ogImage = post.heroImage || config.siteMetadata.socialShare;
-
-  // Build canonical URL
-  const canonicalUrl = `${config.publicUrl}/news/${slug}`;
-
-  return {
-    title,
-    description: description || undefined,
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-video-preview": -1,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-      },
-    },
-    openGraph: {
-      title,
-      description: description || undefined,
-      url: canonicalUrl,
-      type: "article",
-      siteName: config.siteMetadata.title,
-      images: ogImage
-        ? [
-            {
-              url: ogImage,
-              width: 1200,
-              height: 630,
-              alt: title,
-            },
-          ]
-        : undefined,
-      publishedTime: post.date || undefined,
-      authors: authorName ? [authorName] : undefined,
-      section: categoryName,
-      tags: tagNames.length > 0 ? tagNames : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description: description || undefined,
-      images: ogImage ? [ogImage] : undefined,
-      creator: config.social.twitter.name
-        ? `@${config.social.twitter.name}`
-        : undefined,
-    },
-    authors: authorName ? [{ name: authorName }] : undefined,
-    alternates: {
-      canonical: canonicalUrl,
-    },
-  };
+  return newsPostMetadata(slug);
 }
