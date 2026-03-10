@@ -327,7 +327,7 @@ const HeaderListSolutions = ({ isMobile = false }) => {
                 />
               </Link>
               <Link
-                to="/ai"
+                to="/solutions/ai"
                 className="block no-underline text-inherit group/link"
                 activeClassName="active"
               >
