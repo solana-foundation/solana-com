@@ -132,10 +132,10 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  const { siteMetadata, siteUrl, siteIcon, social } = config;
+  const { siteMetadata, publicUrl, siteIcon, social } = config;
 
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(publicUrl),
     title: {
       default: siteMetadata.title,
       template: `%s | ${siteMetadata.title}`,
@@ -148,7 +148,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       type: "website",
       locale,
-      url: siteUrl,
+      url: publicUrl,
       siteName: siteMetadata.title,
       title: siteMetadata.title,
       description: siteMetadata.shortDescription,
@@ -186,7 +186,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     },
     alternates: {
-      canonical: siteUrl,
+      canonical: publicUrl,
     },
   };
 }
