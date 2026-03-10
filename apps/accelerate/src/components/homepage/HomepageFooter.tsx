@@ -64,14 +64,12 @@ export function HomepageFooter() {
               >
                 Hong Kong
               </Link>
-              <a
-                href="https://lu.ma/accelerate-miami"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                href="/accelerate/miami"
                 className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
               >
                 Miami
-              </a>
+              </Link>
             </div>
           </div>
 

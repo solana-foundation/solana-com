@@ -130,17 +130,15 @@ export function HomepageNav() {
               <br />
               (APAC)
             </Link>
-            <a
-              href="https://lu.ma/accelerate-miami"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/accelerate/miami"
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
             >
               Miami
               <br />
               (USA)
-            </a>
+            </Link>
           </nav>
         </div>
       )}
