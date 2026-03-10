@@ -7,6 +7,7 @@ import {
   fetchEpisodesForPodcast,
 } from "@/lib/podcast-data";
 import PodcastShowClientPage from "./client-page";
+import { config } from "@/lib/config";
 
 export const revalidate = 1800; // 30 minutes - cache to avoid rate limits
 export const dynamicParams = true;
@@ -62,6 +63,7 @@ export async function generateMetadata({
     typeof podcast.description === "string"
       ? podcast.description
       : `Listen to ${podcast.title} podcast`;
+  const canonicalUrl = `${config.publicUrl}/podcasts/${resolvedParams.podcastSlug}`;
 
   return {
     title,
@@ -69,14 +71,31 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
+      url: canonicalUrl,
       type: "website",
-      images: podcast.coverImage ? [podcast.coverImage] : undefined,
+      siteName: config.siteMetadata.title,
+      images: podcast.coverImage
+        ? [podcast.coverImage]
+        : [
+            {
+              url: config.siteMetadata.socialShare,
+              width: 1200,
+              height: 630,
+              alt: title,
+            },
+          ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: podcast.coverImage ? [podcast.coverImage] : undefined,
+      images: podcast.coverImage
+        ? [podcast.coverImage]
+        : [config.siteMetadata.socialShare],
+      creator: `@${config.social.twitter.name}`,
+    },
+    alternates: {
+      canonical: canonicalUrl,
     },
   };
 }

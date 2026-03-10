@@ -211,6 +211,28 @@ export async function generateMetadata({
     }
   }
 
+  // Resolve category name for article:section
+  let categoryName: string | undefined;
+  if (post.category) {
+    const category = await reader.collections.categories.read(post.category);
+    if (category) {
+      categoryName = String(category.name);
+    }
+  }
+
+  // Resolve tag names for article:tag
+  const tagNames: string[] = [];
+  if (post.tags && Array.isArray(post.tags)) {
+    for (const tagRef of post.tags) {
+      if (tagRef) {
+        const tag = await reader.collections.tags.read(tagRef);
+        if (tag) {
+          tagNames.push(String(tag.name));
+        }
+      }
+    }
+  }
+
   // Derive SEO from post title, description, and hero image
   const title = String(post.title);
 
@@ -223,7 +245,7 @@ export async function generateMetadata({
   const ogImage = post.heroImage || config.siteMetadata.socialShare;
 
   // Build canonical URL
-  const canonicalUrl = `${config.siteUrl}/news/${slug}`;
+  const canonicalUrl = `${config.publicUrl}/news/${slug}`;
 
   return {
     title,
@@ -257,6 +279,8 @@ export async function generateMetadata({
         : undefined,
       publishedTime: post.date || undefined,
       authors: authorName ? [authorName] : undefined,
+      section: categoryName,
+      tags: tagNames.length > 0 ? tagNames : undefined,
     },
     twitter: {
       card: "summary_large_image",

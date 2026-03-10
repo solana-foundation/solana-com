@@ -7,6 +7,7 @@ import {
   fetchEpisodesForPodcast,
 } from "@/lib/podcast-data";
 import EpisodeClientPage from "./client-page";
+import { config } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800; // 30 minutes
@@ -78,6 +79,8 @@ export async function generateMetadata({
 
   const title = `${episode.title} | ${podcast.title}`;
   const description = episode.description || `Listen to ${episode.title}`;
+  const canonicalUrl = `${config.publicUrl}/podcasts/${resolvedParams.podcastSlug}/episodes/${resolvedParams.episodeId}`;
+  const image = episode.thumbnailUrl || podcast.coverImage || null;
 
   return {
     title,
@@ -85,23 +88,30 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
-      type: "music.song",
-      images: episode.thumbnailUrl
-        ? [episode.thumbnailUrl]
-        : podcast.coverImage
-          ? [podcast.coverImage]
-          : undefined,
+      url: canonicalUrl,
+      type: "article",
+      siteName: config.siteMetadata.title,
+      images: image
+        ? [image]
+        : [
+            {
+              url: config.siteMetadata.socialShare,
+              width: 1200,
+              height: 630,
+              alt: title,
+            },
+          ],
       audio: episode.audioUrl ? [episode.audioUrl] : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: episode.thumbnailUrl
-        ? [episode.thumbnailUrl]
-        : podcast.coverImage
-          ? [podcast.coverImage]
-          : undefined,
+      images: image ? [image] : [config.siteMetadata.socialShare],
+      creator: `@${config.social.twitter.name}`,
+    },
+    alternates: {
+      canonical: canonicalUrl,
     },
   };
 }
