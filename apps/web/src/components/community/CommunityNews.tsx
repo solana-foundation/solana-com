@@ -1,14 +1,8 @@
 import { useTranslations } from "next-intl";
 import PostCard from "../community/PostCard";
+import type { PostItem } from "@/types/media";
 
-type Post = {
-  id: string | number;
-  url?: string;
-  heroImage?: string;
-  title?: string;
-};
-
-const CommunityNews = ({ posts }: { posts: Post[] }) => {
+const CommunityNews = ({ posts }: { posts: PostItem[] }) => {
   const t = useTranslations();
 
   return (

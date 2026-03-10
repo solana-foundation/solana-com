@@ -40,7 +40,10 @@ export default async function Page(_props: Props) {
     limit: 20,
   });
 
-  const sortInstructions = [[(x: any) => x.schedule.from], ["asc"]];
+  const sortInstructions = [
+    [(x: { schedule: { from: string | null } }) => x.schedule.from],
+    ["asc"],
+  ];
 
   // sorted and unique main events
   const sorted = orderBy([...mainEvents], ...sortInstructions);
@@ -54,7 +57,7 @@ export default async function Page(_props: Props) {
 
   // Set featured event: prefer explicitly marked featured, else first by date
   const featuredEvent =
-    unique.find((e: any) => e.featured === true) || unique[0] || null;
+    unique.find((e) => e.featured === true) || unique[0] || null;
   const events = [...unique];
 
   const t = await getTranslations();

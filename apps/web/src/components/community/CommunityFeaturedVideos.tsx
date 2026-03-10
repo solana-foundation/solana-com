@@ -1,14 +1,9 @@
 import Button from "../shared/Button";
 import { useTranslations } from "next-intl";
 import VideoCard from "./VideoCard";
+import type { YTVideoItem } from "@/utils/followerFunctions";
 
-type Video = {
-  id?: string;
-  contentDetails: { videoId: string };
-  snippet: { title: string };
-};
-
-export default function FeaturedVideos({ videos }: { videos: Video[] }) {
+export default function FeaturedVideos({ videos }: { videos: YTVideoItem[] }) {
   const t = useTranslations();
 
   return videos.length ? (

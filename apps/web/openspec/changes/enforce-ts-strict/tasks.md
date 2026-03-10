@@ -45,37 +45,37 @@
 
 ## 5. Convert page-feature components (Phase 5)
 
-- [ ] 5.1 `src/components/ramps/*.jsx` (6 files) → `.tsx`
-- [ ] 5.2 `src/components/wallets/*.jsx` (4 files) → `.tsx`
-- [ ] 5.3 `src/components/hackathon/**/*.jsx` (7 files) → `.tsx`
-- [ ] 5.4 `src/components/nft-showdown/*.jsx` (4 files) → `.tsx`
-- [ ] 5.5 `src/components/playgg/*.jsx` (4 files) → `.tsx`
-- [ ] 5.6 `src/components/ai/*.jsx` (3 files) → `.tsx`
-- [ ] 5.7 `src/components/accelerate/*.jsx` (3 files) → `.tsx`
-- [ ] 5.8 `src/components/developers/**/*.jsx` (3 files) → `.tsx`
-- [ ] 5.9 `src/components/shared/EmailSubscribeForm/IterableEmailSubscribeForm.jsx` → `.tsx`
-- [ ] 5.10 `src/components/shared/EmailSubscribeForm/index.js` → `.ts`
-- [ ] 5.11 `src/components/shared/Iterable/useIterableSignUp.jsx` → `.tsx`
+- [x] 5.1 `src/components/ramps/*.jsx` (6 files) → `.tsx`
+- [x] 5.2 `src/components/wallets/*.jsx` (4 files) → `.tsx`
+- [x] 5.3 `src/components/hackathon/**/*.jsx` (7 files) → `.tsx`
+- [x] 5.4 `src/components/nft-showdown/*.jsx` (4 files) → `.tsx`
+- [x] 5.5 `src/components/playgg/*.jsx` (4 files) → `.tsx`
+- [x] 5.6 `src/components/ai/*.jsx` (3 files) → `.tsx`
+- [x] 5.7 `src/components/accelerate/*.jsx` (3 files) → `.tsx`
+- [x] 5.8 `src/components/developers/**/*.jsx` (3 files) → `.tsx`
+- [x] 5.9 `src/components/shared/EmailSubscribeForm/IterableEmailSubscribeForm.jsx` → `.tsx`
+- [x] 5.10 `src/components/shared/EmailSubscribeForm/index.js` → `.ts`
+- [x] 5.11 `src/components/shared/Iterable/useIterableSignUp.jsx` → `.tsx`
 
 ## 6. Convert misc files (Phase 6)
 
-- [ ] 6.1 `src/components/layout.js` → `.tsx`
-- [ ] 6.2 `src/components/CookieConsent/CookieConsent.jsx` → `.tsx`
-- [ ] 6.3 `src/components/GTMTrackingSnippet.js` → `.tsx`
-- [ ] 6.4 `src/components/ModalLauncher/ModalLauncher.js` → `.tsx`
-- [ ] 6.5 `src/components/SolFormattedMessage/index.js` → `.tsx`
-- [ ] 6.6 `src/components/newsletter/artistsAndCreators/index.js` → `.tsx`
-- [ ] 6.7 `src/app/api/podcast/episodes/route.js` → `.ts`
-- [ ] 6.8 `src/__tests__/utils/fetcher.test.js` → `.ts`
+- [x] 6.1 `src/components/layout.js` → `.tsx`
+- [x] 6.2 `src/components/CookieConsent/CookieConsent.jsx` → `.tsx`
+- [x] 6.3 `src/components/GTMTrackingSnippet.js` → `.tsx`
+- [x] 6.4 `src/components/ModalLauncher/ModalLauncher.js` → `.tsx`
+- [x] 6.5 `src/components/SolFormattedMessage/index.js` → `.tsx`
+- [x] 6.6 `src/components/newsletter/artistsAndCreators/index.js` → `.tsx`
+- [x] 6.7 `src/app/api/podcast/episodes/route.js` → `.ts`
+- [x] 6.8 `src/__tests__/utils/fetcher.test.js` → `.ts`
 
 ## 7. Fix explicit any usages (Phase 7)
 
-- [ ] 7.1 Create `src/types/solana-lib.ts` — `SolanaLibAttributes` interface for accelerate component `attributes` props
-- [ ] 7.2 Replace `attributes: any` in all `src/components/accelerate/*.tsx` with `SolanaLibAttributes`
-- [ ] 7.3 Type react-slick arrow callbacks: `(props: any)` → `(props: CustomArrowProps)` from `react-slick`
-- [ ] 7.4 Add `CalendarEvent` interface in `src/types/` and replace `any` in `src/app/[locale]/events/`
-- [ ] 7.5 Add `CommunityPost` interface and replace `any` in `src/app/[locale]/community/`
-- [ ] 7.6 Replace `error: any` in catch blocks with `unknown` + type narrowing
+- [x] 7.1 Create `src/types/solana-lib.ts` — `SolanaLibAttributes` interface for accelerate component `attributes` props
+- [x] 7.2 Replace `attributes: any` in all `src/components/accelerate/*.tsx` with `SolanaLibAttributes`
+- [x] 7.3 Type react-slick arrow callbacks: `(props: any)` → `(props: CustomArrowProps)` from `react-slick`
+- [x] 7.4 Add `CalendarEvent` interface in `src/types/` and replace `any` in `src/app/[locale]/events/`
+- [x] 7.5 Add `CommunityPost` interface and replace `any` in `src/app/[locale]/community/`
+- [x] 7.6 Replace `error: any` in catch blocks with `unknown` + type narrowing
 
 ## 8. Remove solana-lib stubs after upstream types land (Phase 8 — deferred)
 

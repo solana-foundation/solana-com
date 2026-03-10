@@ -33,7 +33,10 @@ export default async function Page(_props: Props) {
     limit: 20,
   });
 
-  const sortInstructions = [[(x: any) => x.schedule.from], ["desc"]];
+  const sortInstructions = [
+    [(x: { schedule: { from: string | null } }) => x.schedule.from],
+    ["desc"],
+  ];
   const sorted = orderBy(
     [...mainEvents, ...hhEvents, ...communityEvents, ...communityRiverEvents],
     ...sortInstructions,

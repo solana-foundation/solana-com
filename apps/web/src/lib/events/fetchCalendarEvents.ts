@@ -44,6 +44,7 @@ export type CalendarEvent = {
   description: string;
   platform?: string;
   rsvp: string;
+  lumaUrl?: string;
   /** When true, this event is shown as the featured event on the events page */
   featured?: boolean;
   schedule: {
@@ -62,6 +63,7 @@ export type CalendarEvent = {
     country: string | null;
     address: string | null;
   };
+  type?: string;
 };
 
 const dummyEvent = [
@@ -136,12 +138,13 @@ export async function fetchCalendarEvents(
     });
 
     clearTimeout(timeoutId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle network errors, timeouts, and other fetch failures
-    if (error.name === "AbortError" || error.code === "ETIMEDOUT") {
+    const err = error as { name?: string; code?: string; message?: string };
+    if (err.name === "AbortError" || err.code === "ETIMEDOUT") {
       console.warn("LUMA API request timed out. Returning empty array.");
     } else {
-      console.warn("LUMA API request failed:", error.message || error);
+      console.warn("LUMA API request failed:", err.message || error);
     }
     return [];
   }
@@ -279,12 +282,13 @@ export async function fetchCalendarRiverEvents(options: Record<string, any>) {
     });
 
     clearTimeout(timeoutId);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle network errors, timeouts, and other fetch failures
-    if (error.name === "AbortError" || error.code === "ETIMEDOUT") {
+    const err = error as { name?: string; code?: string; message?: string };
+    if (err.name === "AbortError" || err.code === "ETIMEDOUT") {
       console.warn("River API request timed out. Returning empty array.");
     } else {
-      console.warn("River API request failed:", error.message || error);
+      console.warn("River API request failed:", err.message || error);
     }
     return [];
   }
