@@ -11,7 +11,7 @@ import {
 
 export default function HomePage() {
   return (
-    <>
+    <main className="relative overflow-x-clip bg-black text-white">
       <HomepageNav />
       <HeroWaveWrapper>
         <HomepageHero />
@@ -21,6 +21,6 @@ export default function HomePage() {
       <VideoCarousel />
       <StayUpdated />
       <HomepageFooter />
-    </>
+    </main>
   );
 }

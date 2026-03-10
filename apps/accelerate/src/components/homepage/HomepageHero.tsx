@@ -23,16 +23,17 @@ export function HomepageHero() {
 
   useEffect(() => {
     function update() {
+      const xl = window.innerWidth >= 1536;
       const lg = window.innerWidth >= 1024;
       const md = window.innerWidth >= 768;
       dims.current = {
         heroTop: lg ? 196 : md ? 150 : 100,
-        heroLeft: lg ? 260 : 24,
-        heroHeight: lg ? 276 : md ? 200 : 140,
+        heroLeft: xl ? 395 : lg ? 260 : 24,
+        heroHeight: xl ? 276 : lg ? 220 : md ? 200 : 140,
         navTop: lg ? 33 : 16,
         navLeft: lg ? 60 : 24,
         navHeight: lg ? 80 : md ? 50 : 40,
-        scrollEnd: lg ? 300 : 200,
+        scrollEnd: xl ? 300 : lg ? 240 : 200,
       };
     }
     update();
@@ -65,7 +66,7 @@ export function HomepageHero() {
       ref={sectionRef}
       className="relative z-[1] h-[600px] w-full overflow-hidden bg-black md:h-[800px] lg:h-[1000px]"
     >
-      {/* Globe video background - sized down and offset right */}
+      {/* Globe video background */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         <div className="absolute left-[400px] top-1/2 h-[80%] w-[80%] -translate-y-1/2">
           {/* Placeholder image shown while video loads */}
@@ -73,7 +74,7 @@ export function HomepageHero() {
             src={getImagePath("/images/globe-bg.webp")}
             alt=""
             fill
-            className="object-contain"
+            className="object-cover object-top"
             priority
           />
           {/* Globe video */}
@@ -82,7 +83,7 @@ export function HomepageHero() {
             loop
             muted
             playsInline
-            className="absolute inset-0 h-full w-full object-contain"
+            className="absolute inset-0 h-full w-full object-cover"
             controlsList="nodownload"
             poster={getImagePath("/images/globe-bg.webp")}
           >
@@ -136,7 +137,7 @@ export function HomepageHero() {
       {/* Main content */}
       <div className="relative z-10 mx-auto max-w-[1920px] px-6 lg:px-[60px]">
         {/* Logo spacer — reserves the space where the logo starts */}
-        <div className="pt-[100px] md:pt-[150px] lg:ml-[200px] lg:pt-[196px]">
+        <div className="pt-[100px] md:pt-[150px] lg:ml-[200px] lg:pt-[196px] 2xl:ml-[335px]">
           <div className="h-[140px] md:h-[200px] lg:h-[276px]" />
         </div>
 
