@@ -235,10 +235,12 @@ function HotelCard({
 
 interface GettingThereProps {
   translationPrefix?: string;
+  showHotelDeals?: boolean;
 }
 
 export function GettingThere({
   translationPrefix = "accelerate.gettingThere",
+  showHotelDeals = false,
 }: GettingThereProps = {}) {
   const t = useTranslations(translationPrefix);
 
@@ -267,76 +269,78 @@ export function GettingThere({
             />
           </div>
 
-          {/* Accommodations section */}
-          <motion.div variants={fadeInUp} className="mt-12 lg:mt-16">
-            {/* Accommodations header */}
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="gradient-text text-h2">
-                  {t("accommodationsLabel")}
-                </p>
-                <p className="text-p mt-2 !text-base text-white/50">
-                  Curated deals near the venue &middot; May 4&ndash;7
-                </p>
+          {/* Accommodations section (Nomadz hotel deals — Miami only) */}
+          {showHotelDeals && (
+            <motion.div variants={fadeInUp} className="mt-12 lg:mt-16">
+              {/* Accommodations header */}
+              <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="gradient-text text-h2">
+                    {t("accommodationsLabel")}
+                  </p>
+                  <p className="text-p mt-2 !text-base text-white/50">
+                    Curated deals near the venue &middot; May 4&ndash;7
+                  </p>
+                </div>
+                <a
+                  href="https://nomadz.xyz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/nomadz flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white/70"
+                >
+                  Powered by
+                  <span className="font-semibold tracking-wide text-white/60 transition-colors group-hover/nomadz:text-white">
+                    NOMADZ
+                  </span>
+                  <svg
+                    className="h-3 w-3 opacity-40 transition-all duration-300 group-hover/nomadz:translate-x-0.5 group-hover/nomadz:opacity-70"
+                    fill="none"
+                    viewBox="0 0 16 16"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      d="M3 8h10M9 4l4 4-4 4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </a>
               </div>
-              <a
-                href="https://nomadz.xyz"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group/nomadz flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white/70"
-              >
-                Powered by
-                <span className="font-semibold tracking-wide text-white/60 transition-colors group-hover/nomadz:text-white">
-                  NOMADZ
-                </span>
-                <svg
-                  className="h-3 w-3 opacity-40 transition-all duration-300 group-hover/nomadz:translate-x-0.5 group-hover/nomadz:opacity-70"
-                  fill="none"
-                  viewBox="0 0 16 16"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    d="M3 8h10M9 4l4 4-4 4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a>
-            </div>
 
-            {/* Hotel cards grid */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
-              {HOTEL_DEALS.map((hotel, i) => (
-                <HotelCard key={hotel.name} hotel={hotel} index={i} />
-              ))}
-            </div>
+              {/* Hotel cards grid */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+                {HOTEL_DEALS.map((hotel, i) => (
+                  <HotelCard key={hotel.name} hotel={hotel} index={i} />
+                ))}
+              </div>
 
-            {/* More stays link */}
-            <div className="mt-6 flex justify-center">
-              <a
-                href={NOMADZ_MORE_STAYS}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-outline-gradient group/btn flex h-[48px] items-center gap-2 px-8 text-sm font-semibold uppercase tracking-[0.05em]"
-              >
-                More stays
-                <svg
-                  className="h-3.5 w-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5"
-                  fill="none"
-                  viewBox="0 0 16 16"
-                  stroke="currentColor"
-                  strokeWidth="2"
+              {/* More stays link */}
+              <div className="mt-6 flex justify-center">
+                <a
+                  href={NOMADZ_MORE_STAYS}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-outline-gradient group/btn flex h-[48px] items-center gap-2 px-8 text-sm font-semibold uppercase tracking-[0.05em]"
                 >
-                  <path
-                    d="M3 8h10M9 4l4 4-4 4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a>
-            </div>
-          </motion.div>
+                  More stays
+                  <svg
+                    className="h-3.5 w-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5"
+                    fill="none"
+                    viewBox="0 0 16 16"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      d="M3 8h10M9 4l4 4-4 4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </a>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       </div>
     </section>

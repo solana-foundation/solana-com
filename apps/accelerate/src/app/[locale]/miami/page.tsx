@@ -36,7 +36,10 @@ export default function MiamiPage() {
         faqKeys={["q1", "q2", "q3", "q4"]}
         translationPrefix="accelerate.miami.faq"
       />
-      <GettingThere translationPrefix="accelerate.miami.gettingThere" />
+      <GettingThere
+        translationPrefix="accelerate.miami.gettingThere"
+        showHotelDeals
+      />
       <FooterCTA
         translationPrefix="accelerate.miami.footerCta"
         backgroundImage="/images/palm-trees.svg"
