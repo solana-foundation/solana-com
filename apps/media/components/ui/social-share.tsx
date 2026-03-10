@@ -84,10 +84,20 @@ export function SocialShare({
     setMounted(true);
   }, []);
 
-  // Use provided URL or fallback to current page URL (only on client after mount)
-  const shareUrl =
-    url ||
-    (mounted && typeof window !== "undefined" ? window.location.href : "");
+  // Resolve the share URL to an absolute URL only after mount to avoid hydration mismatch
+  const shareUrl = React.useMemo(() => {
+    if (!mounted || typeof window === "undefined") {
+      return url || "";
+    }
+    if (!url) {
+      return window.location.href;
+    }
+    // Convert relative URLs to absolute
+    if (url.startsWith("/")) {
+      return `${window.location.origin}${url}`;
+    }
+    return url;
+  }, [url, mounted]);
   const shareTitle = title || "";
 
   const handleCopyLink = React.useCallback(() => {
