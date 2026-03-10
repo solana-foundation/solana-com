@@ -24,6 +24,9 @@ export function HomepageNav() {
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
+  const navLinkClass =
+    "font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80";
+
   return (
     <>
       <header className="absolute left-0 right-0 top-0 z-20">
@@ -35,25 +38,13 @@ export function HomepageNav() {
           <nav className="flex items-center gap-4 xl:gap-10">
             <Link
               href="/accelerate/hong-kong"
-              className="hidden font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 xl:inline"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontSize: "20px",
-                lineHeight: 1,
-              }}
+              className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
               Hong Kong (APAC)
             </Link>
             <Link
               href="/accelerate/miami"
-              className="hidden font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 xl:inline"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontSize: "20px",
-                lineHeight: 1,
-              }}
+              className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
               Miami (USA)
             </Link>
@@ -61,11 +52,7 @@ export function HomepageNav() {
             {/* LIVE NOW button */}
             <Link
               href="/accelerate/miami"
-              className="flex items-center bg-[#19fb9b] px-2 py-1 xl:p-2.5"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
+              className="flex items-center bg-accelerate-green px-2 py-1 xl:p-2.5"
             >
               <div className="flex w-full items-center gap-2 xl:gap-8">
                 <div className="flex items-center gap-1">
@@ -89,7 +76,7 @@ export function HomepageNav() {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="inline-flex h-[44px] w-[44px] items-center justify-center border border-[#2e2e2e] text-[#19fb9b] transition-colors hover:border-[#19fb9b] xl:hidden"
+              className="inline-flex h-[44px] w-[44px] items-center justify-center border border-[#2e2e2e] text-accelerate-green transition-colors hover:border-accelerate-green xl:hidden"
               aria-label="Open navigation menu"
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -119,7 +106,7 @@ export function HomepageNav() {
             <button
               type="button"
               onClick={closeMobileMenu}
-              className="inline-flex h-[44px] w-[44px] items-center justify-center text-[#19fb9b]"
+              className="inline-flex h-[44px] w-[44px] items-center justify-center text-accelerate-green"
               aria-label="Close navigation menu"
             >
               <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
@@ -138,10 +125,6 @@ export function HomepageNav() {
               href="/accelerate/hong-kong"
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
             >
               Hong Kong
               <br />
@@ -153,10 +136,6 @@ export function HomepageNav() {
               rel="noopener noreferrer"
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
             >
               Miami
               <br />

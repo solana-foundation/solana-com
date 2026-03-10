@@ -25,7 +25,6 @@ export function HomepageFooter() {
       </div>
 
       {/* Planet dots decoration - clipped container showing only top arc of sphere */}
-      {/* Figma: 1345×359 container, image 1110×1109 at (117, 8) */}
       <div
         className="pointer-events-none absolute bottom-0 left-1/2 z-0 -translate-x-1/2 overflow-hidden"
         style={{ width: 1345, height: 359 }}
@@ -61,12 +60,7 @@ export function HomepageFooter() {
             <div className="flex flex-col items-center gap-8 md:flex-row">
               <Link
                 href="/accelerate/hong-kong"
-                className="text-[20px] font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                  lineHeight: 1,
-                }}
+                className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
               >
                 Hong Kong
               </Link>
@@ -74,12 +68,7 @@ export function HomepageFooter() {
                 href="https://lu.ma/accelerate-miami"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[20px] font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                  lineHeight: 1,
-                }}
+                className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
               >
                 Miami
               </a>
@@ -93,7 +82,7 @@ export function HomepageFooter() {
               href="https://x.com/solana"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-[6px] border-r border-[#3d3d3d] pr-5 transition-colors hover:opacity-80"
+              className="flex items-center gap-[6px] border-r border-accelerate-gray-dark pr-5 transition-colors hover:opacity-80"
             >
               <Image
                 src={getImagePath("/images/x-social.svg")}
@@ -102,14 +91,7 @@ export function HomepageFooter() {
                 height={18}
                 className="h-[18px] w-[18px]"
               />
-              <span
-                className="text-[15px] tracking-[0.75px] text-[#8d8d8d]"
-                style={{
-                  fontFamily: "'ABC Diatype', sans-serif",
-                  fontWeight: 300,
-                  lineHeight: 1,
-                }}
-              >
+              <span className="font-diatype text-[15px] font-light leading-none tracking-[0.75px] text-accelerate-gray-200">
                 Solana
               </span>
             </a>
@@ -127,14 +109,7 @@ export function HomepageFooter() {
                 height={18}
                 className="h-[18px] w-[18px]"
               />
-              <span
-                className="text-[15px] tracking-[0.75px] text-[#8d8d8d]"
-                style={{
-                  fontFamily: "'ABC Diatype', sans-serif",
-                  fontWeight: 300,
-                  lineHeight: 1,
-                }}
-              >
+              <span className="font-diatype text-[15px] font-light leading-none tracking-[0.75px] text-accelerate-gray-200">
                 Solana Conf
               </span>
             </a>
@@ -142,14 +117,7 @@ export function HomepageFooter() {
         </div>
 
         {/* Copyright */}
-        <p
-          className="mt-16 text-center text-[13px] text-[#b3b2bc] lg:mt-[101px] lg:text-[20px]"
-          style={{
-            fontFamily: "'ABC Diatype', sans-serif",
-            fontWeight: 400,
-            lineHeight: 1.4,
-          }}
-        >
+        <p className="mt-16 text-center font-diatype text-[13px] font-normal leading-[1.4] text-accelerate-gray-100 lg:mt-[101px] lg:text-[20px]">
           &copy; Solana Foundation 2026
         </p>
       </div>

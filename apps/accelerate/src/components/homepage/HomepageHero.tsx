@@ -151,62 +151,30 @@ export function HomepageHero() {
           className="absolute left-[37px] top-[501px] z-10 w-[316px] md:left-auto md:right-[60px] md:top-[400px] md:w-[420px] lg:right-[220px] lg:top-[520px] lg:w-[500px]"
         >
           {/* "NEXT EVENT" label */}
-          <p
-            className="mb-5 text-right font-normal uppercase tracking-[0.8px] text-white"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
+          <p className="mb-5 text-right text-[16px] font-normal uppercase tracking-[0.8px] text-white">
             Next Event
           </p>
 
           {/* Card container */}
           <div
-            className="rounded-lg border border-[#3d3d3d] p-6"
+            className="rounded-lg border border-accelerate-gray-dark p-6"
             style={{ background: "rgba(0, 0, 0, 0.6)" }}
           >
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               {/* City + Date */}
               <div className="flex flex-col gap-[2.5px]">
-                <p
-                  className="text-[25px] font-light uppercase tracking-[1.25px] text-[#d2d2d2] md:text-2xl lg:text-[28px]"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    lineHeight: 1,
-                  }}
-                >
+                <p className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-accelerate-gray-light md:text-2xl lg:text-[28px]">
                   Miami
                 </p>
-                <p
-                  className="text-[22px] text-[#19fb9b] md:text-xl lg:text-[24px]"
-                  style={{
-                    fontFamily: "'ABC Diatype', sans-serif",
-                    lineHeight: 1.2,
-                  }}
-                >
+                <p className="font-diatype text-[22px] leading-[1.2] text-accelerate-green md:text-xl lg:text-[24px]">
                   May 5
                 </p>
               </div>
 
               {/* GET TICKETS CTA */}
               <LumaModal lumaId="accelerate-miami">
-                <button
-                  className="inline-flex h-[48px] w-full items-center justify-between rounded-[32px] px-5 text-black transition-all hover:opacity-90 md:w-[200px] md:px-7 lg:w-[240px]"
-                  style={{
-                    background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                  }}
-                >
-                  <span
-                    className="text-[13.43px] font-semibold uppercase tracking-[0.67px] md:text-[18px]"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                      lineHeight: 1,
-                    }}
-                  >
+                <button className="btn-cta h-[48px] w-full justify-between px-5 md:w-[200px] md:px-7 lg:w-[240px]">
+                  <span className="text-[13.43px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[18px]">
                     GET TICKETS
                   </span>
                   <svg width="9" height="9" viewBox="0 0 11 11" fill="none">
@@ -227,13 +195,7 @@ export function HomepageHero() {
           <div className="mt-5 flex items-center justify-end gap-3">
             <Link
               href="/accelerate/miami"
-              className="inline-flex items-center gap-3 font-normal uppercase tracking-[0.8px] text-white transition-colors hover:text-white/80"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontSize: "16px",
-                lineHeight: 1,
-              }}
+              className="inline-flex items-center gap-3 text-[16px] font-normal uppercase tracking-[0.8px] leading-none text-white transition-colors hover:text-white/80"
             >
               Learn More
               <Image

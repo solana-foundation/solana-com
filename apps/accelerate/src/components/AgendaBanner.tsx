@@ -5,19 +5,7 @@ import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { getImagePath } from "@/config";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
+import { fadeInUp, stagger } from "@/lib/animations";
 
 export function AgendaBanner() {
   const t = useTranslations("accelerate.agendaBanner");
@@ -62,7 +50,7 @@ export function AgendaBanner() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+      <div className="container-accelerate relative z-10">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -81,12 +69,7 @@ export function AgendaBanner() {
           {/* Heading */}
           <motion.h2
             variants={fadeInUp}
-            className="mb-6 text-3xl font-light sm:text-4xl md:text-5xl lg:text-6xl"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              color: "#D2D2D2",
-            }}
+            className="mb-6 text-3xl font-light text-accelerate-gray-light sm:text-4xl md:text-5xl lg:text-6xl"
           >
             {t("heading")}{" "}
             <span className="gradient-text">{t("headingHighlight")}</span>
@@ -107,13 +90,7 @@ export function AgendaBanner() {
           >
             {highlights.map((item) => (
               <div key={item.label} className="text-center">
-                <p
-                  className="gradient-text text-4xl font-semibold lg:text-5xl"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                  }}
-                >
+                <p className="gradient-text text-4xl font-semibold lg:text-5xl">
                   {item.count}
                 </p>
                 <p className="mt-1 text-sm uppercase tracking-wider text-white/50">
@@ -127,19 +104,9 @@ export function AgendaBanner() {
           <motion.div variants={fadeInUp}>
             <Link
               href="/accelerate/hong-kong/agenda"
-              className="group inline-flex h-[56px] items-center justify-center rounded-[32px] px-8 text-black transition-all hover:opacity-90 sm:h-[66px]"
-              style={{
-                background: "linear-gradient(to right, #9945FF, #19FB9B)",
-              }}
+              className="btn-cta h-[56px] px-8 sm:h-[66px]"
             >
-              <span
-                className="text-sm uppercase sm:text-base sm:tracking-[0.9px]"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                  fontWeight: 600,
-                }}
-              >
+              <span className="text-sm uppercase font-semibold sm:text-base sm:tracking-[0.9px]">
                 {t("viewFullAgenda")}
               </span>
               <svg

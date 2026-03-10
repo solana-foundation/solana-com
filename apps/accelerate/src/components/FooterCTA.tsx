@@ -5,19 +5,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { LumaModal } from "./LumaModal";
 import { getImagePath } from "@/config";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
+import { fadeInUp, stagger } from "@/lib/animations";
 
 interface FooterCTAProps {
   translationPrefix?: string;
@@ -109,7 +97,7 @@ export function FooterCTA({
         }}
       />
 
-      <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+      <div className="container-accelerate relative z-10">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -122,14 +110,7 @@ export function FooterCTA({
             {/* "Don't miss" subtitle */}
             <motion.p
               variants={fadeInUp}
-              className="text-xl sm:text-2xl md:text-3xl lg:text-hero"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontWeight: 300,
-                lineHeight: 1,
-                color: "#D2D2D2",
-              }}
+              className="text-xl font-light leading-none text-accelerate-gray-light sm:text-2xl md:text-3xl lg:text-hero"
             >
               {t("dontMiss")}
             </motion.p>
@@ -137,13 +118,7 @@ export function FooterCTA({
             {/* "SOLANA ACCELERATE" heading with gradient */}
             <motion.h2
               variants={fadeInUp}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-hero"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontWeight: 300,
-                lineHeight: 1,
-              }}
+              className="text-4xl font-light leading-none sm:text-5xl md:text-6xl lg:text-hero"
             >
               <span
                 className="bg-clip-text text-transparent"
@@ -162,21 +137,8 @@ export function FooterCTA({
             {/* CTA Button */}
             <motion.div variants={fadeInUp}>
               <LumaModal lumaId={lumaId}>
-                <button
-                  className="group inline-flex h-[56px] w-[320px] items-center justify-between rounded-[32px] px-[20px] text-black transition-all hover:opacity-90 sm:h-[66px] sm:w-[480px] sm:px-[28px]"
-                  style={{
-                    background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                  }}
-                >
-                  <span
-                    className="text-sm uppercase tracking-[0.9px] sm:text-lg"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                      fontWeight: 600,
-                      lineHeight: 1,
-                    }}
-                  >
+                <button className="btn-cta group h-[56px] w-[320px] justify-between px-[20px] sm:h-[66px] sm:w-[480px] sm:px-[28px]">
+                  <span className="text-sm uppercase tracking-[0.9px] font-semibold leading-none sm:text-lg">
                     {t("requestToJoin")}
                   </span>
                   <Image
@@ -193,13 +155,7 @@ export function FooterCTA({
             {/* "Limited tickets available" text */}
             <motion.p
               variants={fadeInUp}
-              className="text-lg text-[#19FB9B] sm:text-xl md:text-[32px]"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontWeight: 400,
-                lineHeight: 1.1,
-              }}
+              className="text-lg text-accelerate-green font-normal leading-[1.1] sm:text-xl md:text-[32px]"
             >
               {t("limitedTickets")}
             </motion.p>

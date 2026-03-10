@@ -2,24 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const listItemVariants = {
-  hidden: { opacity: 0, x: -10 },
-  visible: { opacity: 1, x: 0 },
-};
+import { fadeInUp, stagger, listItemVariants } from "@/lib/animations";
 
 interface EventDetailRowProps {
   label: string;
@@ -74,8 +57,8 @@ export function EventDetails({
   ] as const;
 
   return (
-    <section id="event-details" className="bg-black py-12 lg:py-16">
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+    <section id="event-details" className="section-accelerate">
+      <div className="container-accelerate">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -121,15 +104,12 @@ export function EventDetails({
             </motion.div>
           )}
           {/* Section heading */}
-          <motion.h2
-            variants={fadeInUp}
-            className="text-h1 mb-8 font-space-grotesk text-accelerate-gray-100 lg:mb-12"
-          >
+          <motion.h2 variants={fadeInUp} className="section-heading">
             {t("heading")}
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-8 border-t border-white/10 lg:mb-10" />
+          <div className="section-divider" />
 
           <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:gap-[80px]">
             {/* Details list */}
@@ -149,7 +129,7 @@ export function EventDetails({
               )}
             </div>
 
-            {/* Embedded Map - Hong Kong Convention and Exhibition Centre */}
+            {/* Embedded Map */}
             <motion.div
               variants={fadeInUp}
               className="relative order-2 aspect-[4/3] -mx-6 w-[calc(100%+3rem)] overflow-hidden border-0 md:mx-0 md:w-full md:aspect-[3/4] md:border md:border-white/10 lg:aspect-[600/500] lg:h-[500px]"

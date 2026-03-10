@@ -9,16 +9,7 @@ import { Agenda } from "@/components/Agenda";
 import { LumaModal } from "@/components/LumaModal";
 import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const navLinkStyle = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontSize: "16px",
-};
+import { fadeInUp, stagger } from "@/lib/animations";
 
 export default function AgendaPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -39,7 +30,7 @@ export default function AgendaPage() {
     <div className="min-h-screen bg-black">
       {/* Header Navigation */}
       <header className="relative z-20">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-6 py-5 lg:px-[60px] lg:py-5">
+        <div className="container-accelerate flex items-center justify-between py-5 lg:py-5">
           {/* Logo */}
           <Link href="/accelerate" className="flex items-center">
             <Image
@@ -56,44 +47,31 @@ export default function AgendaPage() {
           <nav className="hidden items-center gap-[38px] md:flex">
             <Link
               href="/accelerate#speakers"
-              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-              style={navLinkStyle}
+              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button"
             >
               {t("nav.speakers")}
             </Link>
             <Link
               href="/accelerate/agenda"
-              className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80"
-              style={navLinkStyle}
+              className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80 text-button"
             >
               {t("nav.agenda")}
             </Link>
             <Link
               href="/accelerate#sponsors"
-              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-              style={navLinkStyle}
+              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button"
             >
               {t("nav.sponsors")}
             </Link>
             <Link
               href="/accelerate#faq"
-              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-              style={navLinkStyle}
+              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button"
             >
               {t("nav.faq")}
             </Link>
             <LanguageSelector className="!text-white/60 hover:!text-white" />
             <LumaModal lumaId="accelerate-miami">
-              <button
-                className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
-                style={{
-                  ...navLinkStyle,
-                  minWidth: "186px",
-                  background:
-                    "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                  border: "1px solid transparent",
-                }}
-              >
+              <button className="btn-outline-gradient px-7 py-4 text-button">
                 <span>{t("nav.requestToJoin")}</span>
                 <svg
                   width="8"
@@ -154,7 +132,7 @@ export default function AgendaPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: "100%" }}
               transition={{ type: "tween", duration: 0.25 }}
-              className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-[#0D0D0D] px-6 py-5"
+              className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-accelerate-dark px-6 py-5"
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-white/60">
@@ -181,32 +159,28 @@ export default function AgendaPage() {
               <nav className="mt-8 flex flex-col gap-6">
                 <Link
                   href="/accelerate#speakers"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.speakers")}
                 </Link>
                 <Link
                   href="/accelerate/agenda"
-                  className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80"
-                  style={navLinkStyle}
+                  className="font-semibold uppercase tracking-[0.05em] text-accelerate-green transition-colors hover:text-accelerate-green/80 text-button"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.agenda")}
                 </Link>
                 <Link
                   href="/accelerate#sponsors"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.sponsors")}
                 </Link>
                 <Link
                   href="/accelerate#faq"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.faq")}
@@ -217,14 +191,7 @@ export default function AgendaPage() {
                 <LumaModal lumaId="accelerate-miami">
                   <button
                     type="button"
-                    className="relative mt-2 inline-flex w-full items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
-                    style={{
-                      ...navLinkStyle,
-                      minWidth: "186px",
-                      background:
-                        "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                      border: "1px solid transparent",
-                    }}
+                    className="btn-outline-gradient mt-2 w-full px-7 py-4 text-button"
                   >
                     <span>{t("nav.requestToJoin")}</span>
                     <svg
@@ -264,14 +231,8 @@ export default function AgendaPage() {
           />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={{
-              visible: { transition: { staggerChildren: 0.1 } },
-            }}
-          >
+        <div className="container-accelerate relative z-10">
+          <motion.div initial="hidden" animate="visible" variants={stagger}>
             <motion.div variants={fadeInUp}>
               <Link
                 href="/accelerate"
@@ -299,24 +260,13 @@ export default function AgendaPage() {
             <motion.p
               variants={fadeInUp}
               className="mb-3 text-lg font-medium text-accelerate-green md:text-xl"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
             >
               {t("agendaPage.dateLocation")}
             </motion.p>
 
             <motion.h1
               variants={fadeInUp}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px]"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontWeight: 300,
-                lineHeight: 1,
-                color: "#D2D2D2",
-              }}
+              className="text-4xl font-light leading-none text-accelerate-gray-light sm:text-5xl md:text-6xl lg:text-[72px]"
             >
               {t("agendaPage.conference")}{" "}
               <span className="gradient-text">
@@ -339,22 +289,16 @@ export default function AgendaPage() {
 
       {/* Footer CTA */}
       <section className="relative bg-black py-16 lg:py-24">
-        <div className="mx-auto max-w-[1440px] px-6 text-center lg:px-[60px]">
+        <div className="container-accelerate text-center">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            variants={{
-              visible: { transition: { staggerChildren: 0.1 } },
-            }}
+            variants={stagger}
           >
             <motion.h2
               variants={fadeInUp}
               className="mb-6 text-3xl font-light text-white sm:text-4xl md:text-5xl"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
             >
               {t("agendaPage.readyTo")}{" "}
               <span className="gradient-text">
@@ -365,20 +309,8 @@ export default function AgendaPage() {
 
             <motion.div variants={fadeInUp}>
               <LumaModal lumaId="accelerate-miami">
-                <button
-                  className="group inline-flex h-[56px] items-center justify-center rounded-[32px] px-8 text-black transition-all hover:opacity-90 sm:h-[66px]"
-                  style={{
-                    background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                  }}
-                >
-                  <span
-                    className="text-sm uppercase sm:text-base sm:tracking-[0.9px]"
-                    style={{
-                      fontFamily:
-                        "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                      fontWeight: 600,
-                    }}
-                  >
+                <button className="btn-cta h-[56px] px-8 sm:h-[66px]">
+                  <span className="text-sm font-semibold uppercase sm:text-base sm:tracking-[0.9px]">
                     {t("agendaPage.requestToJoin")}
                   </span>
                   <Image

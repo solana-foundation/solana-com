@@ -60,16 +60,12 @@ export function EventLineup() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-[1480px] px-6">
-        {/* Heading - Space Grotesk Light 80px */}
+        {/* Heading */}
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-12 text-center text-[40px] font-light uppercase leading-[1.2] tracking-[4px] text-[#b3b2bc] md:text-[60px] lg:mb-16 lg:text-[80px]"
-          style={{
-            fontFamily:
-              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-          }}
+          className="mb-12 text-center text-[40px] font-light uppercase leading-[1.2] tracking-[4px] text-accelerate-gray-100 md:text-[60px] lg:mb-16 lg:text-[80px]"
         >
           2026 Accelerate
           <br />
@@ -78,7 +74,7 @@ export function EventLineup() {
 
         {/* Cards with scroll arrows */}
         <div className="relative">
-          {/* Left arrow — rotated 180° per Figma */}
+          {/* Left arrow — rotated 180deg per Figma */}
           <button
             onClick={() => scroll("left")}
             className={`absolute -left-2 top-1/2 z-10 hidden -translate-y-1/2 md:block lg:-left-4 ${

@@ -9,24 +9,10 @@ import { LumaModal } from "./LumaModal";
 import { YoutubeEmbed } from "./YoutubeEmbed";
 import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
+import { fadeInUp, stagger } from "@/lib/animations";
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const navLinkStyle = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontSize: "16px",
-};
+const navLinkStyle =
+  "font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button";
 
 interface HeroProps {
   translationPrefix?: string;
@@ -163,61 +149,23 @@ export function Hero({
 
         {/* Navigation */}
         <nav className="hidden items-center gap-[38px] md:flex">
-          <a
-            href="#speakers"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
+          <a href="#speakers" className={navLinkStyle}>
             {t("nav.speakers")}
           </a>
           {agendaPath && (
-            <Link
-              href={agendaPath}
-              className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: "16px",
-              }}
-            >
+            <Link href={agendaPath} className={navLinkStyle}>
               {t("nav.agenda")}
             </Link>
           )}
-          <a
-            href="#sponsors"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
+          <a href="#sponsors" className={navLinkStyle}>
             {t("nav.sponsors")}
           </a>
-          <a
-            href="#faq"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
+          <a href="#faq" className={navLinkStyle}>
             {t("nav.faq")}
           </a>
           <LanguageSelector className="!text-white/60 hover:!text-white" />
           <LumaModal lumaId="accelerate-miami">
-            <button
-              className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: "16px",
-                minWidth: "186px",
-                background:
-                  "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                border: "1px solid transparent",
-              }}
-            >
+            <button className="btn-outline-gradient px-7 py-4 text-button">
               <span>{ctaLabel || t("nav.requestToJoin")}</span>
               <svg
                 width="8"
@@ -277,7 +225,7 @@ export function Hero({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: "100%" }}
               transition={{ type: "tween", duration: 0.25 }}
-              className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-[#0D0D0D] px-6 py-5"
+              className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-accelerate-dark px-6 py-5"
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-white/60">
@@ -304,8 +252,7 @@ export function Hero({
               <nav className="mt-8 flex flex-col gap-6">
                 <a
                   href="#speakers"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.speakers")}
@@ -313,8 +260,7 @@ export function Hero({
                 {agendaPath && (
                   <Link
                     href={agendaPath}
-                    className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                    style={navLinkStyle}
+                    className={navLinkStyle}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {t("nav.agenda")}
@@ -322,16 +268,14 @@ export function Hero({
                 )}
                 <a
                   href="#sponsors"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.sponsors")}
                 </a>
                 <a
                   href="#faq"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.faq")}
@@ -342,14 +286,7 @@ export function Hero({
                 <LumaModal lumaId="accelerate-miami">
                   <button
                     type="button"
-                    className="relative mt-2 w-full inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
-                    style={{
-                      ...navLinkStyle,
-                      minWidth: "186px",
-                      background:
-                        "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                      border: "1px solid transparent",
-                    }}
+                    className="btn-outline-gradient mt-2 w-full px-7 py-4 text-button"
                   >
                     <span>{ctaLabel || t("nav.requestToJoin")}</span>
                     <svg
@@ -390,18 +327,10 @@ export function Hero({
                 variants={fadeInUp}
                 className="flex items-center justify-center"
               >
-                <h1
-                  className="text-center text-lg font-semibold uppercase tracking-[0.15em] sm:text-xl md:text-2xl"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    lineHeight: 1,
-                    color: "#D2D2D2",
-                  }}
-                >
+                <h1 className="text-center text-lg font-semibold uppercase tracking-[0.15em] text-accelerate-gray-light sm:text-xl md:text-2xl leading-none">
                   {t("hero.title")}
-                  <span className="ml-2 text-[#19FB9B]">/</span>
-                  <span className="ml-2 text-[#19FB9B]">
+                  <span className="ml-2 text-accelerate-green">/</span>
+                  <span className="ml-2 text-accelerate-green">
                     {t("hero.dateLocation")}
                   </span>
                 </h1>
@@ -419,27 +348,10 @@ export function Hero({
                 variants={fadeInUp}
                 className="flex flex-col items-center gap-[20px] text-center"
               >
-                <p
-                  className="text-lg sm:text-xl md:text-2xl lg:text-[32px]"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    fontWeight: 400,
-                    lineHeight: 1.1,
-                    color: "#19FB9B",
-                  }}
-                >
+                <p className="text-lg text-accelerate-green font-normal leading-[1.1] sm:text-xl md:text-2xl lg:text-[32px]">
                   {t("hero.dateLocation")}
                 </p>
-                <h1
-                  className="text-3xl sm:text-4xl md:text-5xl lg:text-[60px]"
-                  style={{
-                    fontFamily: "var(--font-inter), 'Inter', sans-serif",
-                    fontWeight: 300,
-                    lineHeight: 1,
-                    color: "#D2D2D2",
-                  }}
-                >
+                <h1 className="text-3xl font-light leading-none text-accelerate-gray-light font-diatype sm:text-4xl md:text-5xl lg:text-[60px]">
                   {t("hero.title")}
                 </h1>
               </motion.div>
@@ -447,21 +359,8 @@ export function Hero({
               {/* CTA Button */}
               <motion.div variants={fadeInUp}>
                 <LumaModal lumaId="accelerate-miami">
-                  <button
-                    className="group inline-flex h-[56px] w-[320px] items-center justify-between rounded-[32px] px-[28px] py-[24px] text-black transition-all hover:opacity-90 sm:h-[66px] sm:w-[480px]"
-                    style={{
-                      background: "linear-gradient(to right, #9945FF, #19FB9B)",
-                    }}
-                  >
-                    <span
-                      className="text-sm uppercase tracking-[0.9px] sm:text-lg"
-                      style={{
-                        fontFamily:
-                          "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                        fontWeight: 600,
-                        lineHeight: 1,
-                      }}
-                    >
+                  <button className="btn-cta group h-[56px] w-[320px] justify-between px-[28px] py-[24px] sm:h-[66px] sm:w-[480px]">
+                    <span className="text-sm uppercase tracking-[0.9px] font-semibold leading-none sm:text-lg">
                       {ctaLabel || t("nav.requestToJoin")}
                     </span>
                     <Image

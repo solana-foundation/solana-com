@@ -5,19 +5,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { LumaModal } from "./LumaModal";
 import { getImagePath } from "@/config";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
+import { fadeInUp, stagger } from "@/lib/animations";
 
 interface TicketCardProps {
   title: string;
@@ -47,22 +35,10 @@ function TicketCard({
       style={{ borderColor }}
     >
       <div className="mb-6 flex items-baseline justify-between">
-        <h3
-          className="text-xl font-medium text-white lg:text-2xl"
-          style={{
-            fontFamily:
-              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-          }}
-        >
-          {title}
-        </h3>
+        <h3 className="text-xl font-medium text-white lg:text-2xl">{title}</h3>
         <span
           className="text-3xl font-bold lg:text-4xl"
-          style={{
-            fontFamily:
-              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            color: priceColor,
-          }}
+          style={{ color: priceColor }}
         >
           {price}
         </span>
@@ -72,19 +48,8 @@ function TicketCard({
 
       <div className="mt-auto space-y-4">
         <LumaModal lumaId={lumaId}>
-          <button
-            className="group inline-flex h-[56px] w-full items-center justify-center rounded-[32px] px-5 text-black transition-all hover:opacity-90"
-            style={{
-              background: "linear-gradient(to right, #9945FF, #19FB9B)",
-            }}
-          >
-            <span
-              className="text-sm font-semibold uppercase tracking-[0.9px]"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
-            >
+          <button className="btn-cta h-[56px] w-full px-5">
+            <span className="text-sm font-semibold uppercase tracking-[0.9px]">
               {ctaLabel}
             </span>
             <Image
@@ -106,8 +71,8 @@ export function Tickets() {
   const t = useTranslations("accelerate.miami.tickets");
 
   return (
-    <section id="tickets" className="relative bg-black py-12 lg:py-16">
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+    <section id="tickets" className="section-accelerate relative">
+      <div className="container-accelerate">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -115,19 +80,12 @@ export function Tickets() {
           variants={stagger}
         >
           {/* Section heading */}
-          <motion.h2
-            variants={fadeInUp}
-            className="text-h1 mb-8 text-accelerate-gray-100 lg:mb-12"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            }}
-          >
+          <motion.h2 variants={fadeInUp} className="section-heading">
             {t("heading")}
           </motion.h2>
 
           {/* Divider line */}
-          <div className="mb-8 border-t border-white/10 lg:mb-10" />
+          <div className="section-divider" />
 
           {/* Ticket cards with Solana mark */}
           <div className="relative">
@@ -161,10 +119,6 @@ export function Tickets() {
                       <a
                         href="mailto:events@solana.org?subject=Student%20Discount%20-%20Accelerate%20Miami"
                         className="text-sm font-semibold uppercase tracking-wide text-accelerate-green underline underline-offset-4 transition-colors hover:text-white"
-                        style={{
-                          fontFamily:
-                            "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                        }}
                       >
                         {t("applyForDiscount")}
                       </a>

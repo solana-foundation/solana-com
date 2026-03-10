@@ -199,7 +199,7 @@ function ArrowButton({
   return (
     <button
       onClick={onClick}
-      className="flex h-9 w-9 items-center justify-center rounded-full border border-[#8d8d8d] transition-colors hover:border-white/60"
+      className="flex h-9 w-9 items-center justify-center rounded-full border border-accelerate-gray-200 transition-colors hover:border-white/60"
       aria-label={`Scroll ${direction}`}
     >
       <svg
@@ -242,20 +242,14 @@ export function VideoCarousel() {
         <div className="mx-auto max-w-[1480px] px-6">
           <div className="relative mb-10 lg:mb-14">
             <div className="h-px bg-white/10" />
-            <div className="absolute left-0 top-0 h-px w-1/3 bg-[#19fb9b]/30" />
+            <div className="absolute left-0 top-0 h-px w-1/3 bg-accelerate-green/30" />
           </div>
         </div>
 
         <div className="mx-auto max-w-[1480px] px-6">
           {/* Header row */}
           <div className="mb-6 flex items-center justify-between">
-            <h3
-              className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-[#b3b2bc] md:text-[32px] lg:text-[40px]"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
-            >
+            <h3 className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-accelerate-gray-100 md:text-[32px] lg:text-[40px]">
               Accelerate APAC 2026
             </h3>
 
@@ -290,13 +284,7 @@ export function VideoCarousel() {
                   />
                   {/* Play button overlay */}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
-                    <div
-                      className="flex h-14 w-14 items-center justify-center rounded-full"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, rgba(153, 69, 255, 0.85) 0%, rgba(25, 251, 155, 0.85) 100%)",
-                      }}
-                    >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accelerate-gradient">
                       <svg
                         width="18"
                         height="20"

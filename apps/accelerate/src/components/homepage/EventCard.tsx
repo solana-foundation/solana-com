@@ -40,34 +40,21 @@ function CardContent({
         <div className="flex flex-col gap-3 md:gap-6">
           {/* City name */}
           <div
-            className="text-[25px] font-bold uppercase leading-[1.06] md:text-[50px] lg:text-[60px]"
-            style={{
-              fontFamily: "'ABC Diatype', sans-serif",
-              color: active ? "#ffffff" : "#8d8d8d",
-            }}
+            className="font-diatype text-[25px] font-bold uppercase leading-[1.06] md:text-[50px] lg:text-[60px]"
+            style={{ color: active ? "#ffffff" : "#8d8d8d" }}
           >
             {city}
           </div>
 
           <div className="flex flex-col gap-[2px]">
             {/* Subtitle */}
-            <p
-              className="text-[16px] font-normal leading-[1.1] text-[#b3b2bc] md:text-[30px]"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
-            >
+            <p className="text-[16px] font-normal leading-[1.1] text-accelerate-gray-100 md:text-[30px]">
               {subtitle}
             </p>
             {/* Date/location */}
             <p
               className="text-[14px] font-light leading-[1.2] md:text-[24px]"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                color: active ? "#19fb9b" : "#8d8d8d",
-              }}
+              style={{ color: active ? "#19fb9b" : "#8d8d8d" }}
             >
               {dateLocation}
             </p>
@@ -77,18 +64,11 @@ function CardContent({
         {/* Learn More button */}
         <div
           className="flex w-[157px] items-center justify-between rounded-[26px] border border-solid px-6 py-[13px] md:w-[186px] md:px-[28px] md:py-[16px]"
-          style={{
-            borderColor: active ? "#9945ff" : "#3d3d3d",
-          }}
+          style={{ borderColor: active ? "#9945ff" : "#3d3d3d" }}
         >
           <span
-            className="whitespace-nowrap text-[13.5px] font-semibold uppercase tracking-[0.67px] md:text-[16px] md:tracking-[0.8px]"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              lineHeight: 1,
-              color: active ? "#ffffff" : "#3d3d3d",
-            }}
+            className="whitespace-nowrap text-[13.5px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[16px] md:tracking-[0.8px]"
+            style={{ color: active ? "#ffffff" : "#3d3d3d" }}
           >
             Learn More
           </span>
