@@ -82,10 +82,11 @@ Currently:
 
 **How it works**:
 
-- Keystatic's `@keystatic/next/route-handler` accepts a `config` with GitHub storage
-- The route handler uses the GitHub API to read/write content
-- We pass the token via Keystatic's config (not GitHub OAuth)
-- Keystatic natively supports a `KEYSTATIC_GITHUB_TOKEN` env var for token-based auth (bypassing OAuth)
+- Keystatic's client-side reads a `keystatic-gh-access-token` cookie for GitHub API auth
+- On successful email login, we set this cookie with the value of `KEYSTATIC_GITHUB_TOKEN` (a fine-grained PAT with `contents: write` scope on the repo)
+- Keystatic then uses this token for all GitHub API calls (reading/writing content)
+- On logout, we clear both the session JWT and the GitHub token cookie
+- Note: Despite the env var name, this must be a GitHub PAT (not an SSH deploy key) because Keystatic uses the GitHub REST API, not git SSH
 
 **Alternative considered**: Local storage + custom Git push — rejected because Keystatic already has robust GitHub storage mode that handles commits, conflict resolution, and branch management.
 

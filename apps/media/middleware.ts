@@ -4,6 +4,8 @@ import {
 } from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
+import { verifyJwt } from "./lib/auth/jwt";
+import { isAuthEnabled } from "./lib/auth/config";
 
 const MARKDOWN_PREFIXES = ["/news"] as const;
 
@@ -19,17 +21,51 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
   preserveProxiedLocaleCookie: true,
 });
 
+async function isAuthenticated(req: NextRequest): Promise<boolean> {
+  const token = req.cookies.get("keystatic_session")?.value;
+  if (!token) return false;
+  const payload = await verifyJwt(token);
+  return payload !== null;
+}
+
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
-  // Handle Keystatic admin routes
-  // Keystatic uses GitHub OAuth for authentication
+  // Handle Keystatic admin routes — apply JWT auth if enabled
   if (pathname.startsWith("/keystatic")) {
+    // Login page is always accessible
+    if (pathname.startsWith("/keystatic/login")) {
+      return NextResponse.next();
+    }
+
+    // If auth is enabled, check JWT
+    if (isAuthEnabled()) {
+      const authed = await isAuthenticated(req);
+      if (!authed) {
+        return NextResponse.redirect(new URL("/keystatic/login", req.url));
+      }
+    }
+
     return NextResponse.next();
   }
 
-  // Skip i18n for API routes
+  // Skip i18n for API routes, but apply auth to Keystatic API
   if (pathname.startsWith("/api")) {
+    // Auth API routes are always public
+    if (pathname.startsWith("/api/auth/")) {
+      return NextResponse.next();
+    }
+
+    // Protect Keystatic API routes
+    if (pathname.startsWith("/api/keystatic")) {
+      if (isAuthEnabled()) {
+        const authed = await isAuthenticated(req);
+        if (!authed) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+      }
+    }
+
     return NextResponse.next();
   }
 
@@ -80,6 +116,8 @@ export const config = {
     // Allow .md files through so middleware can serve them as markdown
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?!md$).*|uploads).*)",
     "/api/markdown/:path*",
+    "/api/keystatic/:path*",
+    "/api/auth/:path*",
   ],
   runtime: "nodejs",
 };
