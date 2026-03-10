@@ -31,17 +31,21 @@ const navLinkStyle = {
 interface HeroProps {
   translationPrefix?: string;
   skylineImage?: string;
+  logoImage?: string;
   agendaPath?: string | null;
   showVideo?: boolean;
   ctaLabel?: string;
+  backgroundContent?: React.ReactNode;
 }
 
 export function Hero({
   translationPrefix = "accelerate",
   skylineImage = "/images/hk-skyline.svg",
+  logoImage = "/images/accelerate-logo.svg",
   agendaPath = "/accelerate/hong-kong/agenda",
   showVideo = true,
   ctaLabel,
+  backgroundContent,
 }: HeroProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = useTranslations(translationPrefix);
@@ -71,19 +75,25 @@ export function Hero({
         />
       </div>
 
-      {/* Hong Kong Skyline - centered, flipped (z-1: bottom layer) */}
-      <div
-        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[600px] md:h-[750px] lg:h-[932px] w-[1187px] -translate-x-1/2"
-        style={{ transform: "translateX(-50%) scaleY(-1) rotate(180deg)" }}
-      >
-        <Image
-          src={getImagePath(skylineImage)}
-          alt=""
-          fill
-          className="object-contain"
-          priority
-        />
-      </div>
+      {/* Background content (Miami symbols) or default skyline */}
+      {backgroundContent ? (
+        <div className="pointer-events-none absolute inset-0 z-[1]">
+          {backgroundContent}
+        </div>
+      ) : (
+        <div
+          className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[600px] md:h-[750px] lg:h-[932px] w-[1187px] -translate-x-1/2"
+          style={{ transform: "translateX(-50%) scaleY(-1) rotate(180deg)" }}
+        >
+          <Image
+            src={getImagePath(skylineImage)}
+            alt=""
+            fill
+            className="object-contain"
+            priority
+          />
+        </div>
+      )}
 
       {/* Dots pattern (z-2: between skyline and wave) */}
       <div className="pointer-events-none absolute bottom-0 right-0 z-[2] h-[200px] md:h-[250px] lg:h-[322px] w-full">
@@ -142,7 +152,7 @@ export function Hero({
         {/* Logo */}
         <Link href="/" className="flex items-center">
           <Image
-            src={getImagePath("/images/accelerate-logo.svg")}
+            src={getImagePath(logoImage)}
             alt="Accelerate APAC"
             width={197}
             height={100}
@@ -365,7 +375,7 @@ export function Hero({
         )}
       </AnimatePresence>
 
-      {/* Main Content - YouTube Video */}
+      {/* Main Content */}
       <div className="absolute inset-x-0 bottom-0 top-[120px] z-10 flex flex-col items-center justify-center px-4 md:top-[140px] md:px-8 lg:top-[160px]">
         <motion.div
           initial="hidden"
@@ -373,33 +383,98 @@ export function Hero({
           variants={stagger}
           className="flex w-full max-w-[960px] flex-col items-center gap-4 md:gap-6"
         >
-          {/* Title row */}
-          <motion.div
-            variants={fadeInUp}
-            className="flex items-center justify-center"
-          >
-            <h1
-              className="text-center text-lg font-semibold uppercase tracking-[0.15em] sm:text-xl md:text-2xl"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                lineHeight: 1,
-                color: "#D2D2D2",
-              }}
-            >
-              {t("hero.title")}
-              <span className="ml-2 text-[#19FB9B]">/</span>
-              <span className="ml-2 text-[#19FB9B]">
-                {t("hero.dateLocation")}
-              </span>
-            </h1>
-          </motion.div>
+          {showVideo ? (
+            <>
+              {/* Title row */}
+              <motion.div
+                variants={fadeInUp}
+                className="flex items-center justify-center"
+              >
+                <h1
+                  className="text-center text-lg font-semibold uppercase tracking-[0.15em] sm:text-xl md:text-2xl"
+                  style={{
+                    fontFamily:
+                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                    lineHeight: 1,
+                    color: "#D2D2D2",
+                  }}
+                >
+                  {t("hero.title")}
+                  <span className="ml-2 text-[#19FB9B]">/</span>
+                  <span className="ml-2 text-[#19FB9B]">
+                    {t("hero.dateLocation")}
+                  </span>
+                </h1>
+              </motion.div>
 
-          {/* YouTube embed */}
-          {showVideo && (
-            <motion.div variants={fadeInUp} className="w-full">
-              <YoutubeEmbed id="LsfnC62q8oE" title={t("hero.title")} />
-            </motion.div>
+              {/* YouTube embed */}
+              <motion.div variants={fadeInUp} className="w-full">
+                <YoutubeEmbed id="LsfnC62q8oE" title={t("hero.title")} />
+              </motion.div>
+            </>
+          ) : (
+            <>
+              {/* Centered hero content — matches Figma layout */}
+              <motion.div
+                variants={fadeInUp}
+                className="flex flex-col items-center gap-[20px] text-center"
+              >
+                <p
+                  className="text-lg sm:text-xl md:text-2xl lg:text-[32px]"
+                  style={{
+                    fontFamily:
+                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                    fontWeight: 400,
+                    lineHeight: 1.1,
+                    color: "#19FB9B",
+                  }}
+                >
+                  {t("hero.dateLocation")}
+                </p>
+                <h1
+                  className="text-3xl sm:text-4xl md:text-5xl lg:text-[60px]"
+                  style={{
+                    fontFamily: "var(--font-inter), 'Inter', sans-serif",
+                    fontWeight: 300,
+                    lineHeight: 1,
+                    color: "#D2D2D2",
+                  }}
+                >
+                  {t("hero.title")}
+                </h1>
+              </motion.div>
+
+              {/* CTA Button */}
+              <motion.div variants={fadeInUp}>
+                <LumaModal lumaId="accelerate-miami">
+                  <button
+                    className="group inline-flex h-[56px] w-[320px] items-center justify-between rounded-[32px] px-[28px] py-[24px] text-black transition-all hover:opacity-90 sm:h-[66px] sm:w-[480px]"
+                    style={{
+                      background: "linear-gradient(to right, #9945FF, #19FB9B)",
+                    }}
+                  >
+                    <span
+                      className="text-sm uppercase tracking-[0.9px] sm:text-lg"
+                      style={{
+                        fontFamily:
+                          "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                        fontWeight: 600,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {ctaLabel || t("nav.requestToJoin")}
+                    </span>
+                    <Image
+                      src={getImagePath("/images/ticket-icon.svg")}
+                      alt=""
+                      width={18}
+                      height={12}
+                      className="flex-shrink-0"
+                    />
+                  </button>
+                </LumaModal>
+              </motion.div>
+            </>
           )}
         </motion.div>
       </div>

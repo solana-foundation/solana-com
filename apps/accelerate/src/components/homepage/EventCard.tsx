@@ -22,9 +22,9 @@ function CardContent({
   active = true,
 }: Omit<EventCardProps, "href" | "external">) {
   return (
-    <div className="group flex h-[520px] w-full flex-col overflow-hidden rounded-[22px] bg-[#0c0c0c] md:h-[620px] lg:h-[736px]">
+    <div className="group flex h-[398px] w-full flex-col overflow-hidden rounded-[10px] bg-[#0c0c0c] md:h-[620px] md:rounded-[22px] lg:h-[736px]">
       {/* Photo top half with gradient overlay */}
-      <div className="relative aspect-[529/352] w-full overflow-hidden rounded-t-[22px]">
+      <div className="relative aspect-[242/191] w-full overflow-hidden rounded-t-[10px] md:aspect-[529/352] md:rounded-t-[22px]">
         <Image
           src={image}
           alt={city}
@@ -36,11 +36,11 @@ function CardContent({
       </div>
 
       {/* Bottom half - info */}
-      <div className="flex flex-1 flex-col gap-6 p-6 md:gap-8 md:p-10">
-        <div className="flex flex-col gap-6">
-          {/* City name - ABC Diatype Bold 60px */}
+      <div className="flex flex-1 flex-col gap-4 p-[18px] md:gap-8 md:p-10">
+        <div className="flex flex-col gap-3 md:gap-6">
+          {/* City name */}
           <div
-            className="text-[40px] font-bold uppercase leading-[0.96] md:text-[50px] lg:text-[60px]"
+            className="text-[25px] font-bold uppercase leading-[1.06] md:text-[50px] lg:text-[60px]"
             style={{
               fontFamily: "'ABC Diatype', sans-serif",
               color: active ? "#ffffff" : "#8d8d8d",
@@ -49,10 +49,10 @@ function CardContent({
             {city}
           </div>
 
-          <div className="flex flex-col gap-1">
-            {/* Subtitle - Space Grotesk Regular 30px */}
+          <div className="flex flex-col gap-[2px]">
+            {/* Subtitle */}
             <p
-              className="text-[24px] font-normal leading-[1.1] text-[#b3b2bc] md:text-[30px]"
+              className="text-[16px] font-normal leading-[1.1] text-[#b3b2bc] md:text-[30px]"
               style={{
                 fontFamily:
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -60,9 +60,9 @@ function CardContent({
             >
               {subtitle}
             </p>
-            {/* Date/location - Space Grotesk Light 24px */}
+            {/* Date/location */}
             <p
-              className="text-[20px] font-light leading-[1.2] md:text-[24px]"
+              className="text-[14px] font-light leading-[1.2] md:text-[24px]"
               style={{
                 fontFamily:
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -74,15 +74,15 @@ function CardContent({
           </div>
         </div>
 
-        {/* Learn More button - Space Grotesk SemiBold 16px */}
+        {/* Learn More button */}
         <div
-          className="flex w-[186px] items-center justify-between rounded-[26px] border border-solid px-[28px] py-[16px]"
+          className="flex w-[157px] items-center justify-between rounded-[26px] border border-solid px-6 py-[13px] md:w-[186px] md:px-[28px] md:py-[16px]"
           style={{
             borderColor: active ? "#9945ff" : "#3d3d3d",
           }}
         >
           <span
-            className="whitespace-nowrap text-[16px] font-semibold uppercase tracking-[0.8px]"
+            className="whitespace-nowrap text-[13.5px] font-semibold uppercase tracking-[0.67px] md:text-[16px] md:tracking-[0.8px]"
             style={{
               fontFamily:
                 "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -97,7 +97,7 @@ function CardContent({
             alt=""
             width={8}
             height={8}
-            className="flex-shrink-0"
+            className="h-[7px] w-[7px] flex-shrink-0 md:h-[8px] md:w-[8px]"
             style={{ opacity: active ? 1 : 0.3 }}
           />
         </div>

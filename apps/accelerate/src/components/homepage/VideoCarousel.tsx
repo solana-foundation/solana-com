@@ -250,7 +250,7 @@ export function VideoCarousel() {
           {/* Header row */}
           <div className="mb-6 flex items-center justify-between">
             <h3
-              className="text-[24px] font-normal uppercase leading-[1.1] tracking-[2px] text-[#b3b2bc] md:text-[32px] lg:text-[40px]"
+              className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-[#b3b2bc] md:text-[32px] lg:text-[40px]"
               style={{
                 fontFamily:
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",

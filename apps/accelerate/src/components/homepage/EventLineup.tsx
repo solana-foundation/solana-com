@@ -81,7 +81,7 @@ export function EventLineup() {
           {/* Left arrow — rotated 180° per Figma */}
           <button
             onClick={() => scroll("left")}
-            className={`absolute -left-2 top-1/2 z-10 -translate-y-1/2 lg:-left-4 ${
+            className={`absolute -left-2 top-1/2 z-10 hidden -translate-y-1/2 md:block lg:-left-4 ${
               canScrollLeft ? "opacity-100" : "opacity-30"
             }`}
             aria-label="Scroll left"
@@ -107,7 +107,7 @@ export function EventLineup() {
           {/* Right arrow */}
           <button
             onClick={() => scroll("right")}
-            className={`absolute -right-2 top-1/2 z-10 -translate-y-1/2 lg:-right-4 ${
+            className={`absolute -right-2 top-1/2 z-10 hidden -translate-y-1/2 md:block lg:-right-4 ${
               canScrollRight ? "opacity-100" : "opacity-30"
             }`}
             aria-label="Scroll right"
@@ -137,7 +137,7 @@ export function EventLineup() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5 }}
-                className="w-[calc(100vw-48px)] max-w-[529px] flex-shrink-0 snap-center"
+                className="w-[242px] max-w-[529px] flex-shrink-0 snap-center md:w-[calc(100vw-48px)]"
               >
                 <EventCard {...event} />
               </motion.div>

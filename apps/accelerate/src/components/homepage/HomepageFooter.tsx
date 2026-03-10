@@ -45,23 +45,23 @@ export function HomepageFooter() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-[1480px] px-6">
-        <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
-          {/* Left: Solana mark + event links */}
-          <div className="flex items-center gap-10">
+        <div className="flex flex-col items-center gap-16 md:flex-row md:items-center md:justify-between">
+          {/* Solana mark + event links */}
+          <div className="flex flex-col items-center gap-16 md:flex-row md:gap-10">
             {/* Solana Mark */}
             <Image
               src={getImagePath("/images/solana-logo.svg")}
               alt="Solana"
               width={98}
               height={84}
-              className="h-[50px] w-auto lg:h-[84px]"
+              className="h-[42px] w-auto md:h-[50px] lg:h-[84px]"
             />
 
-            {/* Event links - Space Grotesk SemiBold 24px */}
-            <div className="flex items-center gap-8">
+            {/* Event links */}
+            <div className="flex flex-col items-center gap-8 md:flex-row">
               <Link
                 href="/accelerate/hong-kong"
-                className="text-[18px] font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 lg:text-[20px]"
+                className="text-[20px] font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80"
                 style={{
                   fontFamily:
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -74,7 +74,7 @@ export function HomepageFooter() {
                 href="https://lu.ma/accelerate-miami"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[18px] font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80 lg:text-[20px]"
+                className="text-[20px] font-semibold uppercase tracking-[1px] text-white transition-colors hover:text-white/80"
                 style={{
                   fontFamily:
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -86,23 +86,24 @@ export function HomepageFooter() {
             </div>
           </div>
 
-          {/* Right: Social links - with divider */}
+          {/* Social links - with divider */}
           <div className="flex items-center">
             {/* X / Solana */}
             <a
               href="https://x.com/solana"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 border-r border-[#3d3d3d] pr-4 transition-colors hover:opacity-80"
+              className="flex items-center gap-[6px] border-r border-[#3d3d3d] pr-5 transition-colors hover:opacity-80"
             >
               <Image
                 src={getImagePath("/images/x-social.svg")}
                 alt="X"
-                width={24}
-                height={24}
+                width={18}
+                height={18}
+                className="h-[18px] w-[18px]"
               />
               <span
-                className="text-[20px] tracking-[1px] text-[#8d8d8d]"
+                className="text-[15px] tracking-[0.75px] text-[#8d8d8d]"
                 style={{
                   fontFamily: "'ABC Diatype', sans-serif",
                   fontWeight: 300,
@@ -117,16 +118,17 @@ export function HomepageFooter() {
               href="https://x.com/SolanaConf"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 pl-4 transition-colors hover:opacity-80"
+              className="flex items-center gap-[6px] pl-3 transition-colors hover:opacity-80"
             >
               <Image
                 src={getImagePath("/images/x-social.svg")}
                 alt="X"
-                width={24}
-                height={24}
+                width={18}
+                height={18}
+                className="h-[18px] w-[18px]"
               />
               <span
-                className="text-[20px] tracking-[1px] text-[#8d8d8d]"
+                className="text-[15px] tracking-[0.75px] text-[#8d8d8d]"
                 style={{
                   fontFamily: "'ABC Diatype', sans-serif",
                   fontWeight: 300,
@@ -139,9 +141,9 @@ export function HomepageFooter() {
           </div>
         </div>
 
-        {/* Copyright - ABC Diatype Regular 20px */}
+        {/* Copyright */}
         <p
-          className="mt-16 text-center text-[16px] text-[#b3b2bc] lg:mt-[101px] lg:text-[20px]"
+          className="mt-16 text-center text-[13px] text-[#b3b2bc] lg:mt-[101px] lg:text-[20px]"
           style={{
             fontFamily: "'ABC Diatype', sans-serif",
             fontWeight: 400,

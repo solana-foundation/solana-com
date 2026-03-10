@@ -13,11 +13,11 @@ export function MiamiHeroSymbols() {
     <div className="absolute inset-0 overflow-hidden">
       {/* Centered reference container matching the 1440px design frame */}
       <div className="absolute left-1/2 top-0 h-full w-[1440px] -translate-x-1/2">
-        {/* Freedom Tower — center-right, nearly full height */}
+        {/* Freedom Tower — centered, nearly full height */}
         <div
           className="absolute"
           style={{
-            left: 842,
+            left: 622,
             top: 52,
             width: 202,
             height: 880,
@@ -32,11 +32,11 @@ export function MiamiHeroSymbols() {
           />
         </div>
 
-        {/* Palms — right side with sun/moon */}
+        {/* Palms — right of center with sun/moon */}
         <div
           className="absolute"
           style={{
-            left: 1074,
+            left: 854,
             top: 261,
             width: 498,
             height: 671,
@@ -51,11 +51,11 @@ export function MiamiHeroSymbols() {
           />
         </div>
 
-        {/* Lifeguard Tower — left-center, lower half */}
+        {/* Lifeguard Tower — left of center, lower half */}
         <div
           className="absolute"
           style={{
-            left: 416,
+            left: 196,
             top: 427,
             width: 417,
             height: 505,

@@ -28,13 +28,13 @@ export function Highlights() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="flex flex-col gap-8 lg:flex-row lg:items-center lg:gap-[145px]"
+          className="flex flex-col gap-12 lg:flex-row lg:items-center lg:gap-[145px]"
         >
           {/* Left - text + CTA */}
           <div className="flex flex-col gap-10">
             {/* Title text - Space Grotesk Regular 40px, with green highlight */}
             <p
-              className="text-[28px] font-normal uppercase leading-[1.1] tracking-[2px] text-[#d2d2d2] md:text-[34px] lg:w-[605px] lg:text-[40px]"
+              className="text-[25px] font-normal uppercase leading-[1.1] tracking-[1.25px] text-[#d2d2d2] md:text-[34px] lg:w-[605px] lg:text-[40px]"
               style={{
                 fontFamily:
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -49,13 +49,13 @@ export function Highlights() {
               href="https://www.youtube.com/playlist?list=PLilwLeBwGuK4EO5mZ7IDM1zZApataXukG"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-[66px] w-[240px] items-center justify-between rounded-[32px] px-7 py-6"
+              className="inline-flex h-[48px] w-[208px] items-center justify-between rounded-[32px] px-5 py-[17.9px] md:h-[66px] md:w-[240px] md:px-7 md:py-6"
               style={{
                 background: "linear-gradient(to right, #9945FF, #19FB9B)",
               }}
             >
               <span
-                className="text-[18px] font-semibold uppercase tracking-[0.9px] text-black"
+                className="text-[13.43px] font-semibold uppercase tracking-[0.67px] text-black md:text-[18px] md:tracking-[0.9px]"
                 style={{
                   fontFamily:
                     "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -74,7 +74,7 @@ export function Highlights() {
           </div>
 
           {/* Right - event photo */}
-          <div className="relative h-[250px] w-full overflow-hidden rounded-[20px] md:h-[340px] lg:h-[410px] lg:w-[730px] lg:flex-shrink-0">
+          <div className="relative h-[308px] w-[350px] overflow-hidden rounded-[10px] md:h-[340px] md:w-full lg:h-[410px] lg:w-[730px] lg:flex-shrink-0 lg:rounded-[20px]">
             <Image
               src={getImagePath("/images/homepage/highlights-photo.jpg")}
               alt="Accelerate APAC Hong Kong 2026 highlights"

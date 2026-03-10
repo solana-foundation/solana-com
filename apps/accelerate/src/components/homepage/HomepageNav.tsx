@@ -29,7 +29,7 @@ export function HomepageNav() {
       <header className="absolute left-0 right-0 top-0 z-20">
         <div className="mx-auto flex h-[80px] max-w-[1920px] items-center justify-between px-6 py-4 lg:h-[147px] lg:px-[60px] lg:py-[33px]">
           {/* Logo space — the animated logo in HomepageHero lands here */}
-          <div className="h-[40px] w-[70px] md:h-[50px] md:w-[88px] lg:h-[80px] lg:w-[141px]" />
+          <div className="h-0 w-0 md:h-[50px] md:w-[88px] lg:h-[80px] lg:w-[141px]" />
 
           {/* Right nav */}
           <nav className="flex items-center gap-4 xl:gap-10">
@@ -61,27 +61,27 @@ export function HomepageNav() {
             {/* LIVE NOW button */}
             <Link
               href="/accelerate/miami"
-              className="hidden items-center bg-[#19fb9b] p-2.5 xl:flex"
+              className="flex items-center bg-[#19fb9b] px-2 py-1 xl:p-2.5"
               style={{
                 fontFamily:
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
               }}
             >
-              <div className="flex w-full items-center gap-8">
+              <div className="flex w-full items-center gap-2 xl:gap-8">
                 <div className="flex items-center gap-1">
-                  <span className="text-[18px] font-bold uppercase tracking-[0.9px] text-black">
+                  <span className="text-[11.75px] font-bold uppercase tracking-[0.6px] text-black xl:text-[18px] xl:tracking-[0.9px]">
                     Live Now
                   </span>
-                  <span className="relative ml-0.5 inline-block h-[8px] w-[8px] rounded-full bg-black">
+                  <span className="relative ml-0.5 inline-block h-[6px] w-[6px] rounded-full bg-black xl:h-[8px] xl:w-[8px]">
                     <span className="absolute inset-0 animate-ping rounded-full bg-black/75" />
                   </span>
                 </div>
                 <Image
                   src={getImagePath("/images/homepage/cta-arrow.svg")}
                   alt=""
-                  width={19}
-                  height={19}
-                  className="flex-shrink-0"
+                  width={11}
+                  height={11}
+                  className="h-[11px] w-[11px] flex-shrink-0 xl:h-[19px] xl:w-[19px]"
                 />
               </div>
             </Link>

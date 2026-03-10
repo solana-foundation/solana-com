@@ -43,7 +43,7 @@ function TicketCard({
   return (
     <motion.div
       variants={fadeInUp}
-      className="flex flex-1 flex-col rounded-2xl border bg-black/40 p-8 lg:p-10"
+      className="flex flex-1 flex-col border bg-black/40 p-8 lg:p-10"
       style={{ borderColor }}
     >
       <div className="mb-6 flex items-baseline justify-between">
@@ -129,57 +129,58 @@ export function Tickets() {
           {/* Divider line */}
           <div className="mb-8 border-t border-white/10 lg:mb-10" />
 
-          {/* Ticket cards */}
-          <div className="relative mx-auto max-w-4xl">
-            {/* Solana mark decoration */}
-            <div className="pointer-events-none absolute -right-8 -top-4 hidden opacity-10 lg:block">
-              <Image
-                src={getImagePath("/images/solana-logo.svg")}
-                alt=""
-                width={80}
-                height={80}
-              />
-            </div>
+          {/* Ticket cards with Solana mark */}
+          <div className="relative">
+            <div className="flex items-start gap-6 md:gap-8 lg:gap-[80px]">
+              <div className="grid flex-1 gap-6 md:grid-cols-2 md:gap-8 lg:gap-[80px]">
+                {/* General Admission */}
+                <TicketCard
+                  title={t("generalAdmission")}
+                  price={t("generalPrice")}
+                  priceColor="#19FB9B"
+                  borderColor="#19FB9B"
+                  description={t("generalDesc")}
+                  ctaLabel={t("getTickets")}
+                  lumaId="accelerate-miami"
+                />
 
-            <div className="grid gap-6 md:grid-cols-2 md:gap-8 lg:gap-[80px]">
-              {/* General Admission */}
-              <TicketCard
-                title={t("generalAdmission")}
-                price={t("generalPrice")}
-                priceColor="#19FB9B"
-                borderColor="#19FB9B"
-                description={t("generalDesc")}
-                ctaLabel={t("getTickets")}
-                lumaId="accelerate-miami"
-              />
-
-              {/* Student */}
-              <TicketCard
-                title={t("student")}
-                price={t("studentPrice")}
-                priceColor="#9945FF"
-                borderColor="#9945FF"
-                description={t("studentDesc")}
-                ctaLabel={t("getTickets")}
-                lumaId="accelerate-miami"
-                extra={
-                  <div className="text-center">
-                    <p className="mb-1 text-sm text-white/60">
-                      {t("areYouStudent")}
-                    </p>
-                    <a
-                      href="mailto:events@solana.org?subject=Student%20Discount%20-%20Accelerate%20Miami"
-                      className="text-sm font-semibold uppercase tracking-wide text-accelerate-green underline underline-offset-4 transition-colors hover:text-white"
-                      style={{
-                        fontFamily:
-                          "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                      }}
-                    >
-                      {t("applyForDiscount")}
-                    </a>
-                  </div>
-                }
-              />
+                {/* Student */}
+                <TicketCard
+                  title={t("student")}
+                  price={t("studentPrice")}
+                  priceColor="#9945FF"
+                  borderColor="#9945FF"
+                  description={t("studentDesc")}
+                  ctaLabel={t("getTickets")}
+                  lumaId="accelerate-miami"
+                  extra={
+                    <div className="text-center">
+                      <p className="mb-1 text-sm text-white/60">
+                        {t("areYouStudent")}
+                      </p>
+                      <a
+                        href="mailto:events@solana.org?subject=Student%20Discount%20-%20Accelerate%20Miami"
+                        className="text-sm font-semibold uppercase tracking-wide text-accelerate-green underline underline-offset-4 transition-colors hover:text-white"
+                        style={{
+                          fontFamily:
+                            "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
+                        }}
+                      >
+                        {t("applyForDiscount")}
+                      </a>
+                    </div>
+                  }
+                />
+              </div>
+              {/* Solana gradient mark — right-aligned per Figma */}
+              <div className="hidden shrink-0 self-center lg:block">
+                <Image
+                  src={getImagePath("/images/solana-mark-gradient.svg")}
+                  alt=""
+                  width={120}
+                  height={99}
+                />
+              </div>
             </div>
           </div>
         </motion.div>

@@ -77,10 +77,10 @@ export function StayUpdated() {
           viewport={{ once: true }}
           className="flex flex-col items-center gap-10"
         >
-          <div className="flex w-[586px] max-w-full flex-col gap-10 text-center">
-            {/* Heading - Space Grotesk Light 50px */}
+          <div className="flex w-[345px] max-w-full flex-col gap-6 text-center md:w-[586px] md:gap-10">
+            {/* Heading */}
             <h2
-              className="text-[32px] font-light uppercase tracking-[2.5px] text-[#b3b2bc] md:text-[42px] lg:text-[50px]"
+              className="text-[29px] font-light uppercase tracking-[1.5px] text-[#b3b2bc] md:text-[42px] lg:text-[50px]"
               style={{
                 fontFamily:
                   "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -89,7 +89,7 @@ export function StayUpdated() {
             >
               Stay Updated
             </h2>
-            {/* Subtitle - ABC Diatype Light 24px */}
+            {/* Subtitle */}
             <p
               className="text-[18px] leading-[1.2] text-[#d2d2d2] md:text-[24px]"
               style={{
@@ -97,9 +97,8 @@ export function StayUpdated() {
                 fontWeight: 300,
               }}
             >
-              Be the first to know about speaker announcements,
-              <br />
-              schedule releases, and exclusive offers.
+              Be the first to know about speaker announcements, schedule
+              releases, and exclusive offers.
             </p>
           </div>
 
@@ -109,17 +108,21 @@ export function StayUpdated() {
             </p>
           ) : (
             <>
-              {/* Email input + subscribe button - rounded pill */}
-              <form onSubmit={handleSubmit} className="w-full">
-                <div className="flex w-full flex-col items-stretch gap-4 rounded-[32px] border border-[#8d8d8d] p-4 md:flex-row md:items-center md:justify-between md:rounded-[66px]">
-                  <div className="flex items-center justify-center p-2.5">
+              {/* Email input + subscribe button */}
+              <form
+                onSubmit={handleSubmit}
+                className="w-full max-w-[296px] md:max-w-full"
+              >
+                <div className="flex w-full flex-col items-stretch gap-4 md:flex-row md:items-center md:justify-between md:gap-0 md:rounded-[66px] md:border md:border-[#8d8d8d] md:p-4">
+                  {/* Email input - separate pill on mobile */}
+                  <div className="flex h-[48px] items-center justify-center rounded-[39px] border border-[#8d8d8d] px-4 md:border-0 md:p-2.5">
                     <input
                       type="email"
                       name="email"
                       placeholder="Your Email"
                       value={email}
                       onChange={handleEmailChange}
-                      className="w-full bg-transparent text-[16px] font-medium uppercase tracking-[0.8px] text-white placeholder-white outline-none"
+                      className="w-full bg-transparent text-center text-[13px] font-medium uppercase tracking-[0.65px] text-white placeholder-white outline-none md:text-left md:text-[16px] md:tracking-[0.8px]"
                       style={{
                         fontFamily:
                           "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -127,13 +130,14 @@ export function StayUpdated() {
                       }}
                     />
                   </div>
+                  {/* Subscribe button - separate pill on mobile */}
                   <button
                     type="submit"
                     disabled={status === "submitting"}
-                    className="flex h-[48px] items-center justify-center rounded-[32px] border border-[#3d3d3d] px-7 py-6 text-center transition-colors hover:border-white/40 disabled:opacity-50 md:min-w-[240px]"
+                    className="flex h-[48px] items-center justify-center rounded-[32px] border border-[#3d3d3d] px-5 py-[17.5px] text-center transition-colors hover:border-white/40 disabled:opacity-50 md:min-w-[240px] md:px-7 md:py-6"
                   >
                     <span
-                      className="text-[18px] font-semibold uppercase tracking-[0.9px] text-[#3d3d3d]"
+                      className="text-[9.5px] font-semibold uppercase tracking-[0.48px] text-[#3d3d3d] md:text-[18px] md:tracking-[0.9px]"
                       style={{
                         fontFamily:
                           "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
@@ -146,15 +150,17 @@ export function StayUpdated() {
                 </div>
 
                 {/* Consent checkbox */}
-                <div className="mx-auto mt-6 flex w-[445px] max-w-full items-start gap-[11px]">
-                  <input
-                    type="checkbox"
-                    checked={consent}
-                    onChange={(e) => setConsent(e.target.checked)}
-                    className="mt-0 h-[22px] w-[22px] flex-shrink-0 cursor-pointer rounded-none border border-[#8d8d8d] bg-black"
-                  />
+                <div className="mx-auto mt-8 flex max-w-full items-start gap-3 md:mt-6 md:w-[445px]">
+                  <div className="flex items-center py-[2px]">
+                    <input
+                      type="checkbox"
+                      checked={consent}
+                      onChange={(e) => setConsent(e.target.checked)}
+                      className="mt-0 h-[19px] w-[19px] flex-shrink-0 cursor-pointer rounded-none border border-[#8d8d8d] bg-black md:h-[22px] md:w-[22px]"
+                    />
+                  </div>
                   <p
-                    className="text-left text-[16px] tracking-[0.8px] text-[#8d8d8d]"
+                    className="text-left text-[12px] tracking-[0.6px] text-[#8d8d8d] md:text-[16px] md:tracking-[0.8px]"
                     style={{
                       fontFamily: "'ABC Diatype', sans-serif",
                       fontWeight: 300,
@@ -169,7 +175,7 @@ export function StayUpdated() {
                       rel="noopener noreferrer"
                       className="underline transition-colors hover:text-white"
                     >
-                      privacy policy
+                      Privacy policy
                     </a>
                   </p>
                 </div>
