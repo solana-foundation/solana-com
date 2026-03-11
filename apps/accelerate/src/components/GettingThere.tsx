@@ -236,11 +236,16 @@ function HotelCard({
 interface GettingThereProps {
   translationPrefix?: string;
   showHotelDeals?: boolean;
+  hotelDealsLink?: {
+    text: string;
+    href: string;
+  };
 }
 
 export function GettingThere({
   translationPrefix = "accelerate.gettingThere",
   showHotelDeals = false,
+  hotelDealsLink,
 }: GettingThereProps = {}) {
   const t = useTranslations(translationPrefix);
 
@@ -269,7 +274,19 @@ export function GettingThere({
             />
           </div>
 
-          {/* Accommodations section (Nomadz hotel deals — Miami only) */}
+          {/* Accommodations link (simple single-link variant) */}
+          {hotelDealsLink && !showHotelDeals && (
+            <div className="mx-auto max-w-4xl">
+              <InfoRow
+                label={t("accommodationsLabel")}
+                value={t("accommodationsValue")}
+                subValue={t("accommodationsSubValue")}
+                link={hotelDealsLink}
+              />
+            </div>
+          )}
+
+          {/* Accommodations section (Nomadz hotel deals card grid) */}
           {showHotelDeals && (
             <motion.div variants={fadeInUp} className="mt-12 lg:mt-16">
               {/* Accommodations header */}
