@@ -24,6 +24,7 @@ const githubStorage: GitHubConfig["storage"] = {
     owner: "solana-foundation",
     name: "solana-com",
   },
+  branchPrefix: "news/",
   pathPrefix: "apps/media",
 };
 
