@@ -1,6 +1,8 @@
 import { makeRouteHandler } from "@keystatic/next/route-handler";
 import keystatic from "../../../../keystatic.config";
 
+const isLocal = process.env.KEYSTATIC_LOCAL === "true";
+
 const { GET: _GET, POST: _POST } = makeRouteHandler({
   config: keystatic,
 });
@@ -9,6 +11,10 @@ const { GET: _GET, POST: _POST } = makeRouteHandler({
  * Inject the GitHub token from env into the request cookie header
  * so Keystatic's server-side handler can read it — without ever
  * exposing the PAT in a client-readable cookie.
+ *
+ * Only used in GitHub mode. In local mode, requests are passed
+ * directly to avoid unnecessary Request object wrapping that can
+ * cause body stream issues.
  */
 function withGitHubToken(request: Request): Request {
   const token = process.env.KEYSTATIC_GITHUB_TOKEN;
@@ -40,10 +46,14 @@ function isRefreshTokenRequest(request: Request): boolean {
 }
 
 export async function GET(request: Request) {
+  if (isLocal) return _GET(request);
   return _GET(withGitHubToken(request));
 }
 
 export async function POST(request: Request) {
+  // In local mode, pass requests directly to Keystatic's handler
+  if (isLocal) return _POST(request);
+
   // For refresh-token requests, set a short-lived cookie so Keystatic's
   // client can authenticate its direct GitHub API calls
   if (isRefreshTokenRequest(request)) {
