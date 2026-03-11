@@ -22,14 +22,8 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
 export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
-  // Handle Keystatic admin routes
-  // Keystatic uses GitHub OAuth for authentication
-  if (pathname.startsWith("/keystatic")) {
-    return NextResponse.next();
-  }
-
-  // Skip i18n for API routes
-  if (pathname.startsWith("/api")) {
+  // Skip i18n for Keystatic admin and API routes
+  if (pathname.startsWith("/keystatic") || pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
@@ -76,10 +70,7 @@ export default async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all paths except static files and API routes
-    // Allow .md files through so middleware can serve them as markdown
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?!md$).*|uploads).*)",
     "/api/markdown/:path*",
   ],
-  runtime: "nodejs",
 };

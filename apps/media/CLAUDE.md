@@ -1,25 +1,3 @@
-<!-- OPENSPEC:START -->
-
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->
-
 # Solana Media - Blog & News
 
 > See root `/CLAUDE.md` for monorepo-wide configuration and shared tooling.
@@ -51,9 +29,8 @@ apps/media/
 │   │   ├── news/              # Blog posts listing
 │   │   ├── podcast/           # Podcast episodes
 │   │   └── [...slug]/         # Dynamic content pages
-│   ├── admin/                 # Legacy admin interface
 │   ├── keystatic/             # Keystatic admin interface
-│   └── api/                   # API routes (RSS, etc.)
+│   └── api/                   # API routes (RSS, Keystatic, etc.)
 ├── components/
 │   ├── blocks/                # Content block components
 │   ├── layout/                # Layout components
@@ -123,16 +100,28 @@ Access the CMS at `/keystatic`:
 
 - Visual editing interface
 - Media management (uploads to `public/uploads/`)
-- GitHub mode for production, local mode for development
+- **Local mode** for development (filesystem storage, no auth needed)
+- **GitHub mode** for production (users authenticate via GitHub OAuth)
+
+### Authentication
+
+Keystatic uses standard GitHub OAuth for production access:
+
+1. Users visit `/keystatic` and are redirected to GitHub to authorize
+2. After authorizing, GitHub redirects back with an access token
+3. Keystatic uses the token to read/write content via the GitHub API
+4. Users with repo write access can edit directly; others create PRs via forks
 
 ### Environment Variables
 
 ```bash
-KEYSTATIC_LOCAL              # Set "true" for local mode (filesystem storage)
-KEYSTATIC_GITHUB_CLIENT_ID   # GitHub OAuth client ID (production)
-KEYSTATIC_GITHUB_CLIENT_SECRET # GitHub OAuth client secret (production)
-KEYSTATIC_SECRET             # Session signing secret (production)
+KEYSTATIC_LOCAL                # Set "true" for local mode (filesystem storage)
+KEYSTATIC_GITHUB_CLIENT_ID     # GitHub OAuth App client ID
+KEYSTATIC_GITHUB_CLIENT_SECRET # GitHub OAuth App client secret
+KEYSTATIC_SECRET               # Secret for signing Keystatic session cookies
 ```
+
+To set up GitHub mode, create a GitHub OAuth App (Settings > Developer settings > OAuth Apps) with callback URL: `https://your-domain/api/keystatic/github/oauth/callback`
 
 ## Content Authoring
 
@@ -186,7 +175,7 @@ Podcast episodes link to Simplecast:
 ## API Routes
 
 - `/api/rss` - RSS feed generation
-- Keystatic API routes (auto-generated via `@keystatic/next`)
+- `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content operations)
 
 ## Build Process
 
@@ -214,5 +203,6 @@ Pre-commit formatting:
 ## Gotchas
 
 1. **Local Mode**: Set `KEYSTATIC_LOCAL=true` to use filesystem storage (no GitHub auth needed)
-2. **GitHub Mode**: Requires `KEYSTATIC_GITHUB_CLIENT_ID`, `KEYSTATIC_GITHUB_CLIENT_SECRET`, and `KEYSTATIC_SECRET`
-3. **Asset Prefix**: All assets served from `/media-assets/` path
+2. **GitHub Mode**: Requires a GitHub OAuth App — set `KEYSTATIC_GITHUB_CLIENT_ID`, `KEYSTATIC_GITHUB_CLIENT_SECRET`, and `KEYSTATIC_SECRET`
+3. **Public Repo**: Since the repo is public, any GitHub user can authenticate. Users with write access edit directly; others fork and create PRs
+4. **Asset Prefix**: All assets served from `/media-assets/` path

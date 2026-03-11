@@ -8,13 +8,8 @@ import {
 } from "@keystatic/core";
 import { componentBlocks } from "./lib/keystatic/components";
 
-// Determine if we're in local mode or if GitHub credentials are missing
-const hasGitHubCredentials =
-  process.env.KEYSTATIC_GITHUB_CLIENT_ID &&
-  process.env.KEYSTATIC_GITHUB_CLIENT_SECRET &&
-  process.env.KEYSTATIC_SECRET;
-
-const isLocal = process.env.KEYSTATIC_LOCAL === "true" || !hasGitHubCredentials;
+// Local mode uses filesystem storage; GitHub mode uses the standard OAuth flow
+const isLocal = process.env.KEYSTATIC_LOCAL === "true";
 
 // Storage configuration
 const localStorage: LocalConfig["storage"] = {
@@ -24,10 +19,9 @@ const localStorage: LocalConfig["storage"] = {
 const githubStorage: GitHubConfig["storage"] = {
   kind: "github",
   repo: {
-    owner: process.env.GITHUB_OWNER || process.env.VERCEL_GIT_REPO_OWNER || "",
-    name: process.env.GITHUB_REPO || process.env.VERCEL_GIT_REPO_SLUG || "",
+    owner: "solana-foundation",
+    name: "solana-com",
   },
-  branchPrefix: "keystatic-",
   pathPrefix: "apps/media",
 };
 
