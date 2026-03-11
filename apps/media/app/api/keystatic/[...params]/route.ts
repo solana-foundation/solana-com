@@ -2,12 +2,18 @@ import { makeRouteHandler } from "@keystatic/next/route-handler";
 import keystatic from "../../../../keystatic.config";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const isLocal = process.env.KEYSTATIC_LOCAL === "true";
 
-const { GET: _GET, POST: _POST } = makeRouteHandler({
-  config: keystatic,
-});
+let _handler: ReturnType<typeof makeRouteHandler> | undefined;
+
+function getHandler() {
+  if (!_handler) {
+    _handler = makeRouteHandler({ config: keystatic });
+  }
+  return _handler;
+}
 
 /**
  * Inject the GitHub token from env into the request cookie header
@@ -48,11 +54,13 @@ function isRefreshTokenRequest(request: Request): boolean {
 }
 
 export async function GET(request: Request) {
+  const { GET: _GET } = getHandler();
   if (isLocal) return _GET(request);
   return _GET(withGitHubToken(request));
 }
 
 export async function POST(request: Request) {
+  const { POST: _POST } = getHandler();
   // In local mode, pass requests directly to Keystatic's handler
   if (isLocal) return _POST(request);
 
