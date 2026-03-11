@@ -1,6 +1,8 @@
 import { makeRouteHandler } from "@keystatic/next/route-handler";
 import keystatic from "../../../../keystatic.config";
 
+export const dynamic = "force-dynamic";
+
 const isLocal = process.env.KEYSTATIC_LOCAL === "true";
 
 const { GET: _GET, POST: _POST } = makeRouteHandler({
