@@ -8,15 +8,6 @@ import { getImagePath } from "@/config";
 
 const events = [
   {
-    image: getImagePath("/images/homepage/hk-card-photo.jpg"),
-    city: "Hong Kong",
-    subtitle: "Solana Accelerate APAC",
-    dateLocation: "Feb 11 / Hong Kong @ Consensus",
-    href: "/accelerate/hong-kong",
-    external: false,
-    active: true,
-  },
-  {
     image: getImagePath("/images/homepage/miami-card-photo.jpg"),
     city: "Miami",
     subtitle: "Solana Accelerate USA",
@@ -24,6 +15,15 @@ const events = [
     href: "/accelerate/miami",
     external: false,
     active: true,
+  },
+  {
+    image: getImagePath("/images/homepage/hk-card-photo.jpg"),
+    city: "Hong Kong",
+    subtitle: "Solana Accelerate APAC",
+    dateLocation: "Feb 11 / Hong Kong @ Consensus",
+    href: "/accelerate/hong-kong",
+    external: false,
+    active: false,
   },
 ];
 
@@ -67,9 +67,7 @@ export function EventLineup() {
           viewport={{ once: true }}
           className="mb-12 text-center text-[40px] font-light uppercase leading-[1.2] tracking-[4px] text-accelerate-gray-100 md:text-[60px] lg:mb-16 lg:text-[80px]"
         >
-          2026 Accelerate
-          <br />
-          Lineup
+          2026 Accelerate Lineup
         </motion.h2>
 
         {/* Cards with scroll arrows */}

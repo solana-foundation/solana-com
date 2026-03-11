@@ -19,13 +19,6 @@ const CARDS = [
     accentRgb: "25, 251, 155",
     ordinal: "02",
   },
-  {
-    key: "press",
-    href: null,
-    accent: "#00D4FF",
-    accentRgb: "0, 212, 255",
-    ordinal: "03",
-  },
 ] as const;
 
 const cardVariants = {
@@ -80,7 +73,7 @@ export function GetInvolved({
           </div>
 
           {/* Cards grid */}
-          <div className="grid gap-6 md:grid-cols-3 md:gap-5 lg:gap-7">
+          <div className="grid gap-6 md:grid-cols-2 md:gap-5 lg:gap-7">
             {CARDS.map(({ key, href, accent, accentRgb, ordinal }, i) => (
               <motion.div
                 key={key}
