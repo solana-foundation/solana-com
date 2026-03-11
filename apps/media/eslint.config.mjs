@@ -41,7 +41,7 @@ const config = [
   {
     files: ["content/**/*.mdx"],
     rules: {
-      "prettier/prettier": "error",
+      "prettier/prettier": "off",
       "react/no-unescaped-entities": "off",
       "react/jsx-no-undef": "off",
       "no-unused-expressions": "off",

@@ -8,8 +8,10 @@ import {
 } from "@keystatic/core";
 import { componentBlocks } from "./lib/keystatic/components";
 
-// Local mode uses filesystem storage; GitHub mode uses the standard OAuth flow
-const isLocal = process.env.KEYSTATIC_LOCAL === "true";
+// Keep local filesystem mode for local development only.
+// On Vercel, always use GitHub mode so /keystatic can bootstrap GitHub App setup.
+const isVercel = process.env.VERCEL === "1";
+const isLocal = process.env.KEYSTATIC_LOCAL === "true" && !isVercel;
 
 // Storage configuration
 const localStorage: LocalConfig["storage"] = {
@@ -22,6 +24,7 @@ const githubStorage: GitHubConfig["storage"] = {
     owner: "solana-foundation",
     name: "solana-com",
   },
+  branchPrefix: "staging",
   pathPrefix: "apps/media",
 };
 
