@@ -8,6 +8,8 @@ import {
   HashScroll,
   GetInvolved,
 } from "@/components";
+import sponsorsData from "@/data/miami/sponsors.json";
+import type { Sponsor } from "@/types/sponsors";
 import { MiamiHeroSymbols } from "./MiamiHeroSymbols";
 
 export default function MiamiPage() {
@@ -30,7 +32,7 @@ export default function MiamiPage() {
       />
       <GetInvolved translationPrefix="accelerate.miami.getInvolved" />
       {/* <Speakers /> */}
-      <Sponsors />
+      <Sponsors sponsors={sponsorsData.sponsors as Sponsor[]} />
       <FAQ
         faqKeys={["q1", "q2", "q3", "q4"]}
         translationPrefix="accelerate.miami.faq"

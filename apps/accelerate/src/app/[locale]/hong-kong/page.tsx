@@ -9,6 +9,8 @@ import {
   FooterCTA,
   HashScroll,
 } from "@/components";
+import sponsorsData from "@/data/hong-kong/sponsors.json";
+import type { Sponsor } from "@/types/sponsors";
 
 export default function HongKongPage() {
   return (
@@ -18,7 +20,7 @@ export default function HongKongPage() {
       <EventDetails />
       <AgendaBanner />
       <Speakers />
-      <Sponsors />
+      <Sponsors sponsors={sponsorsData.sponsors as Sponsor[]} />
       <FAQ />
       <GettingThere />
       <FooterCTA />

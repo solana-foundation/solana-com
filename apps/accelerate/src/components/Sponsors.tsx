@@ -23,7 +23,6 @@ import {
   DialogTitle,
   VisuallyHidden,
 } from "@workspace/ui";
-import sponsorsData from "@/data/sponsors.json";
 import { getSponsorsByTier } from "@/lib/sponsors";
 import type { GridProfile, Sponsor, SponsorTier } from "@/types/sponsors";
 import { getImagePath } from "@/config";
@@ -225,8 +224,8 @@ type ActiveSponsor = {
   tier: SponsorTier;
 };
 
-export function Sponsors() {
-  const sponsorTiers = getSponsorsByTier(sponsorsData.sponsors as Sponsor[]);
+export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
+  const sponsorTiers = getSponsorsByTier(sponsors);
   const [activeSponsor, setActiveSponsor] = useState<ActiveSponsor | null>(
     null,
   );
