@@ -3,6 +3,19 @@ import keystatic from "../../../../keystatic.config";
 
 export const dynamic = "force-dynamic";
 
-export const { GET, POST } = makeRouteHandler({
-  config: keystatic,
-});
+let handler: ReturnType<typeof makeRouteHandler> | undefined;
+
+function getHandler() {
+  if (!handler) {
+    handler = makeRouteHandler({ config: keystatic });
+  }
+  return handler;
+}
+
+export async function GET(req: Request) {
+  return getHandler().GET(req);
+}
+
+export async function POST(req: Request) {
+  return getHandler().POST(req);
+}

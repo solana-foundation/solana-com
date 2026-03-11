@@ -8,8 +8,12 @@ import {
 } from "@keystatic/core";
 import { componentBlocks } from "./lib/keystatic/components";
 
-// Local mode uses filesystem storage; GitHub mode uses the standard OAuth flow
-const isLocal = process.env.KEYSTATIC_LOCAL === "true";
+// Fall back to local mode when GitHub App env vars aren't configured yet
+const hasGitHubApp =
+  Boolean(process.env.KEYSTATIC_GITHUB_CLIENT_ID) &&
+  Boolean(process.env.KEYSTATIC_GITHUB_CLIENT_SECRET) &&
+  Boolean(process.env.KEYSTATIC_SECRET);
+const isLocal = process.env.KEYSTATIC_LOCAL === "true" || !hasGitHubApp;
 
 // Storage configuration
 const localStorage: LocalConfig["storage"] = {
