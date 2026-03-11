@@ -8,9 +8,8 @@ import {
 } from "@keystatic/core";
 import { componentBlocks } from "./lib/keystatic/components";
 
-// Determine if we're in local mode or if GitHub token is missing
-const hasGitHubToken = Boolean(process.env.KEYSTATIC_GITHUB_TOKEN);
-const isLocal = process.env.KEYSTATIC_LOCAL === "true" || !hasGitHubToken;
+// Local mode uses filesystem storage; GitHub mode uses the standard OAuth flow
+const isLocal = process.env.KEYSTATIC_LOCAL === "true";
 
 // Storage configuration
 const localStorage: LocalConfig["storage"] = {
