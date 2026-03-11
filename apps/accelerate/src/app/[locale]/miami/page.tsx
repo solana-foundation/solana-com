@@ -39,7 +39,7 @@ export default function MiamiPage() {
       />
       <GettingThere
         translationPrefix="accelerate.miami.gettingThere"
-        showHotelDeals
+        showHotelDeals={false}
       />
       <FooterCTA
         translationPrefix="accelerate.miami.footerCta"
