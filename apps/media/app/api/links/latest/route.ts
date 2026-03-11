@@ -34,7 +34,9 @@ const CATEGORY_NAME_TO_ID: Record<string, string> = {
 
 interface LinkConnectionParams {
   limit?: number;
+  cursor?: string;
   category?: string;
+  tag?: string;
 }
 
 /**
@@ -75,7 +77,9 @@ async function fetchLinks(params: LinkConnectionParams) {
 
     const { links } = await fetchLatestLinks({
       limit: params.limit ?? DEFAULT_LIMIT,
+      cursor: params.cursor,
       category: categoryName,
+      tag: params.tag,
     });
 
     // Transform links to terminal format
@@ -109,6 +113,16 @@ function parseQueryParams(searchParams: URLSearchParams): LinkConnectionParams {
     params.category = categoryParam;
   }
 
+  const cursorParam = searchParams.get("cursor");
+  if (cursorParam) {
+    params.cursor = cursorParam;
+  }
+
+  const tagParam = searchParams.get("tag");
+  if (tagParam && tagParam !== "all") {
+    params.tag = tagParam;
+  }
+
   return params;
 }
 
@@ -118,7 +132,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.category ?? "all"}`;
+    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.cursor ?? "start"}-${params.category ?? "all"}-${params.tag ?? "all"}`;
     const data = await unstable_cache(() => fetchLinks(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,

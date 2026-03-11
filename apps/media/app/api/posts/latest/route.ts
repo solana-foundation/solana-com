@@ -12,6 +12,7 @@ interface PostConnectionParams {
   limit?: number;
   cursor?: string;
   category?: string;
+  tag?: string;
 }
 
 /**
@@ -23,6 +24,7 @@ async function fetchPosts(params: PostConnectionParams) {
       limit: params.limit ?? DEFAULT_LIMIT,
       cursor: params.cursor,
       category: params.category,
+      tag: params.tag,
     });
 
     return {
@@ -67,6 +69,11 @@ function parseQueryParams(searchParams: URLSearchParams): PostConnectionParams {
     params.category = categoryParam;
   }
 
+  const tagParam = searchParams.get("tag");
+  if (tagParam) {
+    params.tag = tagParam;
+  }
+
   return params;
 }
 
@@ -76,7 +83,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `posts-${params.limit ?? DEFAULT_LIMIT}-${params.cursor || "start"}-${params.category || "all"}`;
+    const cacheKey = `posts-${params.limit ?? DEFAULT_LIMIT}-${params.cursor || "start"}-${params.category || "all"}-${params.tag || "all"}`;
     const data = await unstable_cache(() => fetchPosts(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,
