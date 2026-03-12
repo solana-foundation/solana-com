@@ -7,7 +7,6 @@ import { getLangDir } from "rtl-detect";
 import { Space_Grotesk } from "next/font/google";
 import localFont from "next/font/local";
 import { getBaseMetadata } from "../metadata";
-import { config } from "@@/src/config";
 import "@@/src/scss/index.scss";
 import "../globals.css";
 
@@ -140,33 +139,6 @@ export default async function RootLayout({ children, params }: Props) {
     }
   }
 
-  // Structured data for Event schema
-  const eventStructuredData = {
-    "@context": "https://schema.org",
-    "@type": "Event",
-    name: config.event.name,
-    description: config.event.description,
-    startDate: config.event.startDate,
-    endDate: config.event.endDate,
-    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-    eventStatus: "https://schema.org/EventScheduled",
-    location: {
-      "@type": "Place",
-      name: config.event.location.name,
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: config.event.location.name,
-      },
-    },
-    organizer: {
-      "@type": "Organization",
-      name: "Solana Foundation",
-      url: "https://solana.com",
-    },
-    image: config.siteMetadata.socialShare,
-    url: config.siteUrl,
-  };
-
   return (
     <html
       lang={locale}
@@ -175,13 +147,6 @@ export default async function RootLayout({ children, params }: Props) {
       suppressHydrationWarning
     >
       <body className={spaceGrotesk.className} suppressHydrationWarning>
-        {/* Structured Data for Event (JSON-LD) */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(eventStructuredData, null, 2),
-          }}
-        />
         {/* Google tag (gtag.js) */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-1YDTXXYYQ4"

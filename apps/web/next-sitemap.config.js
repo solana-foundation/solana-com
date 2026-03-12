@@ -3,6 +3,7 @@ const {
   getMediaPodcastUrls,
 } = require("./src/lib/sitemap/media-urls");
 const https = require("https");
+const accelerateSitemapRoutes = require("../accelerate/src/app/sitemap-routes.json");
 
 async function fetchTemplates() {
   return new Promise((resolve) => {
@@ -68,6 +69,18 @@ module.exports = {
       })),
     ];
 
-    return [...mediaPostUrls, ...mediaPodcastUrls, ...templateUrls];
+    const accelerateUrls = accelerateSitemapRoutes.map((route) => ({
+      loc: `/accelerate${route.path}`,
+      lastmod: new Date().toISOString(),
+      changefreq: route.changeFrequency,
+      priority: route.priority,
+    }));
+
+    return [
+      ...mediaPostUrls,
+      ...mediaPodcastUrls,
+      ...templateUrls,
+      ...accelerateUrls,
+    ];
   },
 };

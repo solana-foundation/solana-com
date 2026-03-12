@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   Hero,
   EventDetails,
@@ -11,10 +12,41 @@ import {
 import sponsorsData from "@/data/miami/sponsors.json";
 import type { Sponsor } from "@/types/sponsors";
 import { MiamiHeroSymbols } from "./MiamiHeroSymbols";
+import { config } from "@/config";
+import { SeoJsonLd } from "@/components/SeoJsonLd";
+import { getPageMetadata } from "../../metadata";
+import { buildEventStructuredData } from "../../seo";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return getPageMetadata({
+    locale,
+    path: "/miami",
+    title: "Solana Accelerate Miami 2026",
+    description:
+      "Attend Solana Accelerate Miami on May 5, 2026 at the Miami Beach Convention Center and connect with builders, sponsors, media, and the wider Solana ecosystem.",
+    keywords: [
+      "Solana Accelerate Miami",
+      "Miami blockchain conference",
+      "Solana Miami 2026",
+      "Solana USA event",
+    ],
+  });
+}
 
 export default function MiamiPage() {
   return (
     <>
+      <SeoJsonLd
+        data={buildEventStructuredData(config.events.miami, "/miami")}
+      />
       <HashScroll />
       <Hero
         translationPrefix="accelerate.miami"
