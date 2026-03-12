@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import {
   Category,
   CATEGORY_MAP,
@@ -35,23 +36,24 @@ export function SkillCard({
       href={skill.githubUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className={`flex flex-col gap-3 group cursor-pointer border-t-2 ${category.accent} bg-white/[0.03] hover:bg-white/[0.07] transition-colors p-5 rounded-sm`}
+      className={`flex flex-col gap-3 group cursor-pointer border-l-2 ${category.accent} bg-white/5 hover:bg-white/[0.08] backdrop-blur-sm transition-all duration-200 p-[20px] md:p-[24px] rounded-xl h-full`}
     >
       <span
-        className={`self-start text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full ${category.badge}`}
+        className={`self-start text-[11px] font-medium uppercase tracking-[0.05em] px-2 py-0.5 rounded-full ${category.badge}`}
       >
         {label}
       </span>
-      <h3 className="text-base font-semibold group-hover:underline text-white leading-snug">
+      <h3 className="font-medium text-base md:text-lg leading-snug tracking-[-0.18px] text-white">
         {skill.title}
       </h3>
       {skill.description && (
-        <p className="text-white/50 text-sm grow leading-relaxed">
+        <p className="text-[#ABABBA] text-sm grow leading-relaxed">
           {skill.description}
         </p>
       )}
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-white/30 group-hover:text-white/60 transition-colors w-fit mt-auto pt-1">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-[#ABABBA] group-hover:text-white transition-colors w-fit mt-auto pt-1">
         {linkLabel}
+        <ChevronRight size={14} aria-hidden={true} />
       </span>
     </Link>
   );

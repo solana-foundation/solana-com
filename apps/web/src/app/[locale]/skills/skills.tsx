@@ -3,6 +3,8 @@ import { getTranslations } from "next-intl/server";
 import { SkillItem } from "@/components/skills/SkillCard";
 import { SkillsGrid } from "@/components/skills/SkillsGrid";
 import { SkillsInstallCommand } from "@/components/skills/SkillsInstallCommand";
+import { SkillsHeroBackground } from "@/components/skills/SkillsHeroBackground";
+import { Divider } from "@/components/solutions/divider.v2";
 import { COMMUNITY_SKILLS } from "@/data/skills/communitySkills";
 
 function parseSkillMarkdown(filename: string, content: string): SkillItem {
@@ -86,45 +88,47 @@ export async function SkillsPage() {
   };
 
   return (
-    <div className="overflow-hidden">
-      <div className="relative w-full overflow-hidden bg-[#070b14] text-white shadow-[0_60px_120px_-60px_rgba(7,12,28,0.9)] px-6 py-16 md:px-12 md:py-24">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
-        <div className="relative z-10 max-w-6xl mx-auto flex flex-col gap-6">
-          <span className="text-xs font-medium uppercase tracking-widest text-sky-300/80">
-            {translations.tagline}
-          </span>
-          <h1 className="text-4xl font-bold leading-tight md:text-6xl">
-            {translations.title}
-          </h1>
-          <p className="text-white/70 max-w-2xl text-lg">
-            {translations.description}
-          </p>
-          <SkillsInstallCommand copyLabel={translations.copyInstallCommand} />
+    <div className="bg-black text-white overflow-hidden">
+      <section className="relative overflow-hidden">
+        <SkillsHeroBackground />
+        <div className="relative z-10 max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">
+          <div className="py-[64px] md:py-[112px] xl:py-[160px] flex flex-col gap-6">
+            <span className="text-xs font-medium uppercase tracking-widest text-sky-300/80">
+              {translations.tagline}
+            </span>
+            <h1 className="font-brand font-medium text-[40px] md:text-[56px] xl:text-[88px] leading-[1.1] tracking-[-1.6px] md:tracking-[-2.24px] xl:tracking-[-3.52px]">
+              {translations.title}
+            </h1>
+            <p className="text-[#ABABBA] max-w-2xl text-lg md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
+              {translations.description}
+            </p>
+            <SkillsInstallCommand copyLabel={translations.copyInstallCommand} />
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="bg-[#070b14] px-6 py-16 md:px-12">
-        {skills.length > 0 || COMMUNITY_SKILLS.length > 0 ? (
-          <SkillsGrid
-            endorsedSkills={skills}
-            communitySkills={COMMUNITY_SKILLS}
-            translations={{
-              filterAll: translations.filterAll,
-              viewOnGitHub: translations.viewOnGitHub,
-              viewSkill: translations.viewSkill,
-              endorsedTitle: translations.endorsedTitle,
-              endorsedDescription: translations.endorsedDescription,
-              communityTitle: translations.communityTitle,
-              communityDescription: translations.communityDescription,
-              categories: translations.categories,
-            }}
-          />
-        ) : (
-          <p className="text-white/40 text-center max-w-6xl mx-auto">
-            {translations.errorLoading}
-          </p>
-        )}
-      </div>
+      <Divider />
+
+      {skills.length > 0 || COMMUNITY_SKILLS.length > 0 ? (
+        <SkillsGrid
+          endorsedSkills={skills}
+          communitySkills={COMMUNITY_SKILLS}
+          translations={{
+            filterAll: translations.filterAll,
+            viewOnGitHub: translations.viewOnGitHub,
+            viewSkill: translations.viewSkill,
+            endorsedTitle: translations.endorsedTitle,
+            endorsedDescription: translations.endorsedDescription,
+            communityTitle: translations.communityTitle,
+            communityDescription: translations.communityDescription,
+            categories: translations.categories,
+          }}
+        />
+      ) : (
+        <p className="text-[#ABABBA] text-center max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px]">
+          {translations.errorLoading}
+        </p>
+      )}
     </div>
   );
 }

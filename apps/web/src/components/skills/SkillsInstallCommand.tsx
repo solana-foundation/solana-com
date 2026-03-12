@@ -19,7 +19,7 @@ export function SkillsInstallCommand({ copyLabel }: { copyLabel: string }) {
   const CopyIconToUse = copied ? CopyConfirmIcon : CopyIcon;
 
   return (
-    <div className="flex items-center gap-3 bg-black/40 border border-white/10 rounded-md px-4 py-3 font-mono text-sm w-fit max-w-full">
+    <div className="flex items-center gap-3 bg-black/40 border border-white/10 rounded-xl px-4 py-3 font-mono text-sm w-fit max-w-full">
       <span className="text-green-400 select-none">$</span>
       <span className="text-white/80 truncate">{COMMAND}</span>
       <button
