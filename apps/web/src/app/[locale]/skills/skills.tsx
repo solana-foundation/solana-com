@@ -2,6 +2,7 @@ import matter from "gray-matter";
 import { getTranslations } from "next-intl/server";
 import { SkillItem } from "@/components/skills/SkillCard";
 import { SkillsGrid } from "@/components/skills/SkillsGrid";
+import { SkillsAudienceToggle } from "@/components/skills/SkillsAudienceToggle";
 import { SkillsInstallCommand } from "@/components/skills/SkillsInstallCommand";
 import { SkillsHeroBackground } from "@/components/skills/SkillsHeroBackground";
 import { Divider } from "@/components/solutions/divider.v2";
@@ -115,6 +116,7 @@ export async function SkillsPage() {
             <p className="text-[#ABABBA] max-w-2xl text-lg md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
               {translations.description}
             </p>
+            <SkillsAudienceToggle />
             <SkillsInstallCommand copyLabel={translations.copyInstallCommand} />
           </div>
         </div>
