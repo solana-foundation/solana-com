@@ -199,7 +199,7 @@ export function HomepageHero() {
               <LumaModal lumaId="accelerate-miami">
                 <button className="btn-cta h-[48px] w-full justify-between px-5 md:w-[200px] md:px-7 lg:w-[240px]">
                   <span className="text-[13.43px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[18px]">
-                    GET TICKETS
+                    Request to Join
                   </span>
                   <svg width="9" height="9" viewBox="0 0 11 11" fill="none">
                     <path

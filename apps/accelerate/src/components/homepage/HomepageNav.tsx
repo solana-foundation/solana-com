@@ -50,7 +50,7 @@ export function HomepageNav() {
             </Link>
 
             {/* LIVE NOW button */}
-            <Link
+            {/* <Link
               href="/accelerate/miami"
               className="flex items-center bg-accelerate-green px-2 py-1 xl:p-2.5"
             >
@@ -71,7 +71,7 @@ export function HomepageNav() {
                   className="h-[11px] w-[11px] flex-shrink-0 xl:h-[19px] xl:w-[19px]"
                 />
               </div>
-            </Link>
+            </Link> */}
 
             <button
               type="button"

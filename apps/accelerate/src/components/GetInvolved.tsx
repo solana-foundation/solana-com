@@ -7,7 +7,7 @@ import { fadeInUp, stagger } from "@/lib/animations";
 const CARDS = [
   {
     key: "speakers",
-    href: "https://airtable.com/apph4y5MDXBxJ9uZy/pagRLZbQJSUsyz3Tn/form",
+    href: "https://airtable.com/apph4y5MDXBxJ2uZy/pagRLZbQJSUsyz3Tn/form",
     accent: "#9945FF",
     accentRgb: "153, 69, 255",
     ordinal: "01",
