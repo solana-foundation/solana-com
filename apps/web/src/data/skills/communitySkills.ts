@@ -1,10 +1,8 @@
 import {
   Category,
-  SKILL,
   DEFI,
   INFRASTRUCTURE,
   TOOLING,
-  REFERENCE,
   TESTING,
   PROGRAMS,
 } from "@/components/skills/skillCategories";
