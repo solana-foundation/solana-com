@@ -25,4 +25,4 @@ Breakpoint currently exists outside this workspace as a separate Next.js project
 
 - Affected code: new `apps/breakpoint` Next.js app, shared workspace configuration, and any imported font, color, or texture assets approved from the existing Breakpoint codebase.
 - Affected systems: monorepo app registry, shared localization package integration, package dependencies, and any local routing or deployment configuration needed to serve the dedicated Breakpoint app.
-- Source material: visual references from `/Users/karambit/Sites/solana-com-breakpoint` plus current public Breakpoint marketing content.
+- Source material: visual references from `~/Sites/solana-com-breakpoint` plus current public Breakpoint marketing content.

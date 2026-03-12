@@ -1,8 +1,8 @@
 ## Context
 
-`apps/breakpoint` is currently empty apart from OpenSpec configuration, while the existing Breakpoint experience lives in `/Users/karambit/Sites/solana-com-breakpoint` as a standalone Next.js app with Sanity-backed dynamic pages, a large custom component surface, and multi-page event content. The new request is narrower and materially different: create a monorepo-native Breakpoint 2026 app in `apps/breakpoint` as a single-page brochure site with a completely new layout and build, using the legacy project only as reference material for fonts, colors, and texture direction.
+`apps/breakpoint` is currently empty apart from OpenSpec configuration, while the existing Breakpoint experience lives in `~/Sites/solana-com-breakpoint` as a standalone Next.js app with Sanity-backed dynamic pages, a large custom component surface, and multi-page event content. The new request is narrower and materially different: create a monorepo-native Breakpoint 2026 app in `apps/breakpoint` as a single-page brochure site with a completely new layout and build, using the legacy project only as reference material for fonts, colors, and texture direction.
 
-The current monorepo conventions favor Next.js 15, TypeScript, App Router, workspace dependencies, and Tailwind-based styling. The monorepo also includes a shared `@workspace/i18n` package that provides locale configuration, routing helpers, middleware wrappers, and message-loading utilities on top of `next-intl`. The 2026 brochure content is already defined in PM copy and only needs to be shaped into a compelling single-page narrative rather than a CMS-driven experience.
+The current monorepo conventions favor Next.js 16, TypeScript, App Router, workspace dependencies, and Tailwind-based styling. The monorepo also includes a shared `@workspace/i18n` package that provides locale configuration, routing helpers, middleware wrappers, and message-loading utilities on top of `next-intl`. The 2026 brochure content is already defined in PM copy and only needs to be shaped into a compelling single-page narrative rather than a CMS-driven experience.
 
 ## Goals / Non-Goals
 
@@ -26,9 +26,9 @@ The current monorepo conventions favor Next.js 15, TypeScript, App Router, works
 
 ### 1. Build a standalone app-router Next.js app in `apps/breakpoint`
 
-The new app should follow the monorepo pattern used by `apps/accelerate` and `apps/docs`: dedicated `package.json`, Next.js 15, React 19, TypeScript, and Tailwind styling. This keeps the build aligned with workspace tooling and avoids importing the legacy project's separate dependency stack, Sanity runtime, Prisma, or Storybook setup.
+The new app should follow the monorepo pattern used by `apps/accelerate` and `apps/docs`: dedicated `package.json`, Next.js 16, React 19, TypeScript, and Tailwind styling. This keeps the build aligned with workspace tooling and avoids importing the legacy project's separate dependency stack, Sanity runtime, Prisma, or Storybook setup.
 
-Alternative considered: fork or partially transplant `/Users/karambit/Sites/solana-com-breakpoint`.
+Alternative considered: fork or partially transplant `~/Sites/solana-com-breakpoint`.
 Reason rejected: that codebase is optimized for a CMS-driven multi-page event site and would pull in substantial complexity that does not match the 2026 brochure scope.
 
 ### 2. Use an app-owned shell and new section components instead of legacy component reuse
@@ -42,7 +42,7 @@ Reason rejected: even selective reuse would bias the outcome toward the old info
 
 The legacy repo exposes concrete brand tokens that are worth preserving: `ABCDiatype`, `FH Lecturis`, and `Macan Mono`, plus the core palette built around `#11081b`, `#ab66fd`, `#e7d2f9`, `#c9ff7c`, `#14f195`, and `#59b8fe`. The new app should define its own local design tokens and CSS variables using those references, and it should copy any approved textures or assets into `apps/breakpoint` so the app does not depend on files outside the workspace at runtime.
 
-Alternative considered: import styles or assets directly from `/Users/karambit/Sites/solana-com-breakpoint`.
+Alternative considered: import styles or assets directly from `~/Sites/solana-com-breakpoint`.
 Reason rejected: cross-repo runtime coupling is brittle and makes the new app non-portable.
 
 ### 4. Use static curated content for the first version
@@ -107,5 +107,5 @@ Rollback strategy:
 
 ## Open Questions
 
-- What exact video ID, asset URL, or embed source from the current Breakpoint site should be treated as the canonical sizzle video reference in the new app?
-- Should the first version include any content blocks beyond the PM narrative and featured video, such as sponsor logos, media proof points, or FAQ content sourced from the current Breakpoint site?
+- What exact video ID, asset URL, or embed source from the current Breakpoint site should be treated as the canonical sizzle video reference in the new app? - https://www.youtube.com/watch?v=394wb968J68
+- Should the first version include any content blocks beyond the PM narrative and featured video, such as sponsor logos, media proof points, or FAQ content sourced from the current Breakpoint site? - No
