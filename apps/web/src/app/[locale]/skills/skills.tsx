@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { SkillItem } from "@/components/skills/SkillCard";
 import { SkillsGrid } from "@/components/skills/SkillsGrid";
 import { SkillsInstallCommand } from "@/components/skills/SkillsInstallCommand";
+import { COMMUNITY_SKILLS } from "@/data/skills/communitySkills";
 
 function parseSkillMarkdown(filename: string, content: string): SkillItem {
   const slug = filename.replace(/\.md$/, "");
@@ -62,8 +63,13 @@ export async function SkillsPage() {
     description: t("description"),
     errorLoading: t("errorLoading"),
     viewOnGitHub: t("viewOnGitHub"),
+    viewSkill: t("viewSkill"),
     filterAll: t("filterAll"),
     copyInstallCommand: t("copyInstallCommand"),
+    endorsedTitle: t("endorsed.title"),
+    endorsedDescription: t("endorsed.description"),
+    communityTitle: t("community.title"),
+    communityDescription: t("community.description"),
     categories: {
       skill: t("categories.skill"),
       programs: t("categories.programs"),
@@ -74,6 +80,10 @@ export async function SkillsPage() {
       tokens: t("categories.tokens"),
       payments: t("categories.payments"),
       reference: t("categories.reference"),
+      defi: t("categories.defi"),
+      infrastructure: t("categories.infrastructure"),
+      agents: t("categories.agents"),
+      devtools: t("categories.devtools"),
     },
   };
 
@@ -96,12 +106,18 @@ export async function SkillsPage() {
       </div>
 
       <div className="bg-[#070b14] px-6 py-16 md:px-12">
-        {skills.length > 0 ? (
+        {skills.length > 0 || COMMUNITY_SKILLS.length > 0 ? (
           <SkillsGrid
-            skills={skills}
+            endorsedSkills={skills}
+            communitySkills={COMMUNITY_SKILLS}
             translations={{
               filterAll: translations.filterAll,
               viewOnGitHub: translations.viewOnGitHub,
+              viewSkill: translations.viewSkill,
+              endorsedTitle: translations.endorsedTitle,
+              endorsedDescription: translations.endorsedDescription,
+              communityTitle: translations.communityTitle,
+              communityDescription: translations.communityDescription,
               categories: translations.categories,
             }}
           />

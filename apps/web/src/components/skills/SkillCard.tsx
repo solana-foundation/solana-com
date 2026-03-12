@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Category,
   CATEGORY_MAP,
   DEFAULT_CATEGORY,
   CategoryTranslations,
@@ -14,12 +15,19 @@ export type SkillItem = {
 
 type SkillCardProps = {
   skill: SkillItem;
-  viewOnGitHub: string;
+  linkLabel: string;
   categories: CategoryTranslations;
+  categoryOverride?: Category;
 };
 
-export function SkillCard({ skill, viewOnGitHub, categories }: SkillCardProps) {
-  const category = CATEGORY_MAP[skill.slug] ?? DEFAULT_CATEGORY;
+export function SkillCard({
+  skill,
+  linkLabel,
+  categories,
+  categoryOverride,
+}: SkillCardProps) {
+  const category =
+    categoryOverride ?? CATEGORY_MAP[skill.slug] ?? DEFAULT_CATEGORY;
   const label = categories[category.labelKey] ?? category.labelKey;
 
   return (
@@ -43,7 +51,7 @@ export function SkillCard({ skill, viewOnGitHub, categories }: SkillCardProps) {
         </p>
       )}
       <span className="inline-flex items-center gap-1 text-xs font-medium text-white/30 group-hover:text-white/60 transition-colors w-fit mt-auto pt-1">
-        {viewOnGitHub}
+        {linkLabel}
       </span>
     </Link>
   );
