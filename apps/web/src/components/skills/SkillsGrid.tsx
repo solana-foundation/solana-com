@@ -84,10 +84,10 @@ export function SkillsGrid({
     <div className="flex flex-col">
       <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] w-full py-[32px] md:py-[48px]">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+          <div className="relative group/search">
             <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within/search:text-white/50 transition-colors pointer-events-none"
               aria-hidden={true}
             />
             <input
@@ -95,7 +95,7 @@ export function SkillsGrid({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={translations.searchPlaceholder}
-              className="h-[28px] pl-8 pr-3 text-xs bg-transparent border border-white/15 rounded-full text-white placeholder:text-white/30 outline-none focus:border-white/40 transition-colors w-[160px] md:w-[200px]"
+              className="h-[28px] pl-8 pr-3 text-xs bg-white/5 border border-white/15 rounded-full text-white placeholder:text-white/30 outline-none focus:border-white/40 focus:bg-white/[0.08] focus:shadow-[0_0_0_1px_rgba(255,255,255,0.05)] transition-all duration-200 w-[160px] md:w-[200px] backdrop-blur-sm"
             />
           </div>
           <button
