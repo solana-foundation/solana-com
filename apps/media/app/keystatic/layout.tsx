@@ -7,11 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Layout() {
-  return (
-    <html>
-      <body>
-        <KeystaticApp />
-      </body>
-    </html>
-  );
+  return <KeystaticApp />;
 }
