@@ -51,14 +51,20 @@ export function SkillsGrid({
   const searchLower = query.toLowerCase().trim();
 
   const filteredEndorsed = endorsedSkills.filter((s) => {
-    if (selected && (CATEGORY_MAP[s.slug] ?? DEFAULT_CATEGORY).labelKey !== selected) return false;
-    if (searchLower && !s.title.toLowerCase().includes(searchLower)) return false;
+    if (
+      selected &&
+      (CATEGORY_MAP[s.slug] ?? DEFAULT_CATEGORY).labelKey !== selected
+    )
+      return false;
+    if (searchLower && !s.title.toLowerCase().includes(searchLower))
+      return false;
     return true;
   });
 
   const filteredCommunity = communitySkills.filter((s) => {
     if (selected && s.category.labelKey !== selected) return false;
-    if (searchLower && !s.title.toLowerCase().includes(searchLower)) return false;
+    if (searchLower && !s.title.toLowerCase().includes(searchLower))
+      return false;
     return true;
   });
 
