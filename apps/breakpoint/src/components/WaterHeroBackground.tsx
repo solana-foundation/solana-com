@@ -13,30 +13,49 @@ function paintSource(width: number, height: number) {
     return null;
   }
 
+  // Deep purple-black diagonal gradient
   const gradient = sourceContext.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "#140d1d");
-  gradient.addColorStop(0.35, "#2c1247");
-  gradient.addColorStop(0.7, "#0f1f34");
-  gradient.addColorStop(1, "#08141a");
+  gradient.addColorStop(0, "#0b0614");
+  gradient.addColorStop(0.3, "#1a0a35");
+  gradient.addColorStop(0.6, "#2c1247");
+  gradient.addColorStop(1, "#0b0614");
 
   sourceContext.fillStyle = gradient;
   sourceContext.fillRect(0, 0, width, height);
 
+  // Purple glow orb — concentrated, not diffuse
   const orb = sourceContext.createRadialGradient(
-    width * 0.32,
-    height * 0.3,
+    width * 0.35,
+    height * 0.25,
     10,
-    width * 0.32,
-    height * 0.3,
-    width * 0.4,
+    width * 0.35,
+    height * 0.25,
+    width * 0.38,
   );
-  orb.addColorStop(0, "rgba(201,255,124,0.55)");
-  orb.addColorStop(0.25, "rgba(89,184,254,0.24)");
-  orb.addColorStop(1, "rgba(171,102,253,0)");
+  orb.addColorStop(0, "rgba(98,58,196,0.5)");
+  orb.addColorStop(0.3, "rgba(123,79,214,0.2)");
+  orb.addColorStop(0.6, "rgba(68,44,110,0.08)");
+  orb.addColorStop(1, "rgba(11,6,20,0)");
   sourceContext.fillStyle = orb;
   sourceContext.fillRect(0, 0, width, height);
 
-  sourceContext.strokeStyle = "rgba(231,210,249,0.08)";
+  // Second subtle orb — lower right
+  const orb2 = sourceContext.createRadialGradient(
+    width * 0.72,
+    height * 0.7,
+    8,
+    width * 0.72,
+    height * 0.7,
+    width * 0.28,
+  );
+  orb2.addColorStop(0, "rgba(98,58,196,0.25)");
+  orb2.addColorStop(0.5, "rgba(68,44,110,0.06)");
+  orb2.addColorStop(1, "rgba(11,6,20,0)");
+  sourceContext.fillStyle = orb2;
+  sourceContext.fillRect(0, 0, width, height);
+
+  // Subtle purple grid lines
+  sourceContext.strokeStyle = "rgba(236,214,249,0.04)";
   sourceContext.lineWidth = 1;
   for (let x = 0; x < width; x += 48) {
     sourceContext.beginPath();
@@ -151,14 +170,16 @@ export function WaterHeroBackground() {
   }, []);
 
   return (
-    <div className="absolute inset-0 overflow-hidden rounded-[2rem]">
+    <div className="absolute inset-0 overflow-hidden rounded-2xl">
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="h-full w-full opacity-80"
+        className="h-full w-full opacity-70"
       />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_38%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,7,18,0.06),rgba(10,7,18,0.5))]" />
+      {/* Top-center purple glow */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_0%,rgba(98,58,196,0.12),transparent)]" />
+      {/* Bottom fade to black */}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgba(5,5,5,0.7)_100%)]" />
     </div>
   );
 }

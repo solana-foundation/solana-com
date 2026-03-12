@@ -11,12 +11,12 @@ export function ButtonLink({
 }: Props) {
   const palette =
     variant === "primary"
-      ? "bg-[var(--bp-lime)] text-[var(--bp-ink)] hover:bg-white"
-      : "border border-[var(--bp-border)] bg-white/5 text-[var(--bp-lilac)] hover:border-[var(--bp-lime)] hover:text-white";
+      ? "bg-bp-purple text-white hover:bg-bp-purple-light active:bg-bp-purple-dark"
+      : "border border-[var(--bp-border-strong)] text-[var(--bp-text)] hover:border-bp-purple hover:text-white";
 
   return (
     <a
-      className={`inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-sm font-medium transition ${palette} ${className}`.trim()}
+      className={`inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-sm font-medium tracking-wide uppercase transition-all duration-200 ${palette} ${className}`.trim()}
       {...props}
     />
   );
