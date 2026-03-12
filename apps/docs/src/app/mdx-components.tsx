@@ -19,6 +19,7 @@ import { Mermaid } from "./components/code/mermaid";
 import { Download, Rocket, Coins } from "lucide-react";
 import { ScrollyCoding } from "./components/code/scrollycoding";
 import { CodePlaceholder } from "./components/code/scrollycoding.client";
+import { SideBySide } from "./components/side-by-side";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -40,6 +41,7 @@ export const mdxComponents = {
   TerminalPicker,
   ScrollyCoding,
   CodePlaceholder,
+  SideBySide,
   // Icons
   Download,
   Rocket,

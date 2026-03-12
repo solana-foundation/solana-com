@@ -33,10 +33,11 @@ export function MultiCode({
 
   const tabs = (
     <Tabs
+      ch-container="true"
       value={currentTitle}
       onValueChange={setCurrentTitle}
       className={cn(
-        "border rounded selection:bg-ch-selection border-ch-border overflow-hidden relative flex flex-col max-h-full min-h-0",
+        "border rounded selection:bg-ch-selection border-ch-border overflow-hidden relative flex flex-col max-h-full min-h-0 !bg-ch-background",
         runnable ? "h-full" : "my-4",
         className,
       )}
