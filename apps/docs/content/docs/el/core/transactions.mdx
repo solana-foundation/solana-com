@@ -1,0 +1,568 @@
+---
+title: Συναλλαγές
+description:
+  Μάθετε για τις συναλλαγές Solana—τα θεμελιώδη δομικά στοιχεία για
+  αλληλεπίδραση με το blockchain του Solana. Κατανοήστε τη δομή των συναλλαγών
+  και τη σύνθεση των οδηγιών με πρακτικά παραδείγματα.
+---
+
+Για να αλληλεπιδράσετε με το δίκτυο Solana, πρέπει να στείλετε μια συναλλαγή.
+Μπορείτε να σκεφτείτε μια συναλλαγή ως έναν φάκελο που περιέχει αρκετές φόρμες.
+Κάθε φόρμα είναι μια οδηγία που λέει στο δίκτυο τι να κάνει. Η αποστολή της
+συναλλαγής είναι σαν να ταχυδρομείτε τον φάκελο ώστε να μπορούν να επεξεργαστούν
+οι φόρμες.
+
+Το παρακάτω παράδειγμα δείχνει μια απλοποιημένη έκδοση δύο συναλλαγών. Όταν η
+πρώτη συναλλαγή επεξεργαστεί, θα εκτελέσει μια μόνο οδηγία. Όταν η δεύτερη
+συναλλαγή επεξεργαστεί, θα εκτελέσει τρεις οδηγίες **με διαδοχική σειρά**: πρώτα
+την οδηγία 1, ακολουθούμενη από την οδηγία 2, ακολουθούμενη από την οδηγία 3.
+
+<Callout type="warn">
+  Οι συναλλαγές είναι **ατομικές**: Αν μια μόνο οδηγία αποτύχει, ολόκληρη η
+  συναλλαγή θα αποτύχει και δεν θα πραγματοποιηθούν αλλαγές.
+</Callout>
+
+![Ένα απλοποιημένο διάγραμμα που δείχνει δύο συναλλαγές](/assets/docs/core/transactions/transaction-simple.svg)
+
+Μια
+[`Transaction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+αποτελείται από τις ακόλουθες πληροφορίες:
+
+<WithMentions>
+
+- [`signatures`](mention:signatures): Ένας πίνακας [υπογραφών](#signatures)
+- [`message`](mention:message): Πληροφορίες συναλλαγής, συμπεριλαμβανομένης της
+  λίστας εντολών που θα επεξεργαστούν
+
+```rust title="Transaction"
+pub struct Transaction {
+    #[wasm_bindgen(skip)]
+    #[serde(with = "short_vec")]
+    // !mention signatures
+    pub signatures: Vec<Signature>,
+
+    #[wasm_bindgen(skip)]
+    // !mention message
+    pub message: Message,
+}
+```
+
+</WithMentions>
+
+![Διάγραμμα που δείχνει τα δύο μέρη μιας συναλλαγής](/assets/docs/core/transactions/tx_format.png)
+
+Οι συναλλαγές έχουν συνολικό όριο μεγέθους
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+bytes. Αυτό το όριο περιλαμβάνει τόσο τον πίνακα [`signatures`](#signatures) όσο
+και τη δομή [`message`](#message).
+
+<Callout>
+  Αυτό το όριο έχει σχεδιαστεί για να αποφεύγεται ο κατακερματισμός πακέτων στις
+  τυπικές υποδομές διαδικτύου. Ενώ το IPv6 υποστηρίζει MTUs μεγαλύτερα από 9000
+  bytes, οι περισσότεροι δρομολογητές διαδικτύου χρησιμοποιούν προεπιλεγμένο MTU
+  1500 bytes (τυπικό Ethernet). Για να διασφαλιστεί ότι οι συναλλαγές χωράνε σε
+  ένα μόνο πακέτο χωρίς κατακερματισμό, η Solana χρησιμοποιεί 1280 bytes (το
+  ελάχιστο MTU που απαιτείται για το IPv6) μείον 48 bytes για τις κεφαλίδες
+  δικτύου (40 bytes IPv6 + 8 bytes κεφαλίδα κατακερματισμού/UDP), με αποτέλεσμα
+  το όριο μεγέθους συναλλαγής των 1232 bytes.
+</Callout>
+
+![Διάγραμμα που δείχνει τη μορφή συναλλαγής και τα όρια μεγέθους](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+## Υπογραφές
+
+Ο πίνακας `signatures` της συναλλαγής περιέχει δομές `Signature`. Κάθε
+[`Signature`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
+είναι 64 bytes και δημιουργείται υπογράφοντας το `Message` της συναλλαγής με το
+ιδιωτικό κλειδί του λογαριασμού. Πρέπει να παρέχεται μια υπογραφή για κάθε
+[λογαριασμό υπογράφοντα](#account-addresses) που περιλαμβάνεται σε οποιαδήποτε
+από τις εντολές της συναλλαγής.
+
+Η πρώτη υπογραφή ανήκει στον λογαριασμό που θα πληρώσει το
+[βασικό τέλος](/docs/core/fees#base-fee) της συναλλαγής και είναι η υπογραφή της
+συναλλαγής. Η υπογραφή της συναλλαγής μπορεί να χρησιμοποιηθεί για την αναζήτηση
+των λεπτομερειών της συναλλαγής στο δίκτυο.
+
+## Μήνυμα
+
+Το `message` της συναλλαγής είναι μια δομή
+[`Message`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131)
+που περιέχει τις ακόλουθες πληροφορίες:
+
+<WithMentions>
+
+- [`header`](mention:message-header): Η [κεφαλίδα](#header) του μηνύματος
+- [`account_keys`](mention:account-addresses): Ένας πίνακας
+  [διευθύνσεων λογαριασμών](#account-addresses) που απαιτούνται από τις εντολές
+  της συναλλαγής
+- [`recent_blockhash`](mention:recent-blockhash): Ένα
+  [blockhash](#recent-blockhash) που λειτουργεί ως χρονική σήμανση για τη
+  συναλλαγή
+- [`instructions`](mention:instructions): Ένας πίνακας [εντολών](#instructions)
+
+<Callout>
+  Για εξοικονόμηση χώρου, η συναλλαγή δεν αποθηκεύει δικαιώματα για κάθε
+  λογαριασμό ξεχωριστά. Αντίθετα, τα δικαιώματα λογαριασμών καθορίζονται
+  χρησιμοποιώντας το `header` και το `account_keys`.
+</Callout>
+
+```rust title="Message"
+pub struct Message {
+    /// The message header, identifying signed and read-only `account_keys`.
+    // !mention message-header
+    pub header: MessageHeader,
+
+    /// All the account keys used by this transaction.
+    #[serde(with = "short_vec")]
+    // !mention account-addresses
+    pub account_keys: Vec<Pubkey>,
+
+    /// The id of a recent ledger entry.
+    // !mention recent-blockhash
+    pub recent_blockhash: Hash,
+
+    /// Programs that will be executed in sequence and committed in
+    /// one atomic transaction if all succeed.
+    #[serde(with = "short_vec")]
+    // !mention instructions
+    pub instructions: Vec<CompiledInstruction>,
+}
+```
+
+</WithMentions>
+
+### Κεφαλίδα
+
+<WithMentions>
+
+Το `header` του μηνύματος είναι μια δομή
+[`MessageHeader`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97).
+Περιέχει τις ακόλουθες πληροφορίες:
+
+- [`num_required_signatures`](mention:num_required_signatures): Ο συνολικός
+  αριθμός υπογραφών που απαιτούνται από τη συναλλαγή
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): Ο
+  συνολικός αριθμός λογαριασμών μόνο για ανάγνωση που απαιτούν υπογραφές
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts): Ο
+  συνολικός αριθμός λογαριασμών μόνο για ανάγνωση που δεν απαιτούν υπογραφές
+
+```rust title="MessageHeader"
+pub struct MessageHeader {
+    /// The number of signatures required for this message to be considered
+    /// valid. The signers of those signatures must match the first
+    /// `num_required_signatures` of [`Message::account_keys`].
+    // !mention num_required_signatures
+    pub num_required_signatures: u8,
+
+    /// The last `num_readonly_signed_accounts` of the signed keys are read-only
+    /// accounts.
+    // !mention num_readonly_signed_accounts
+    pub num_readonly_signed_accounts: u8,
+
+    /// The last `num_readonly_unsigned_accounts` of the unsigned keys are
+    /// read-only accounts.
+    // !mention num_readonly_unsigned_accounts
+    pub num_readonly_unsigned_accounts: u8,
+}
+```
+
+</WithMentions>
+
+![Διάγραμμα που δείχνει τα τρία μέρη της κεφαλίδας μηνύματος](/assets/docs/core/transactions/message_header.png)
+
+### Διευθύνσεις λογαριασμών
+
+Το
+[`account_keys`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+του μηνύματος είναι ένας πίνακας διευθύνσεων λογαριασμών, που αποστέλλεται σε
+[μορφή συμπαγούς πίνακα](/docs/references/terminology#compact-array-format). Το
+πρόθεμα του πίνακα υποδεικνύει το μήκος του. Κάθε στοιχείο στον πίνακα είναι ένα
+δημόσιο κλειδί, που δείχνει σε έναν λογαριασμό που χρησιμοποιείται από τις
+εντολές του. Ο πίνακας `accounts_keys` πρέπει να είναι πλήρης και αυστηρά
+ταξινομημένος, ως εξής:
+
+1. Υπογράφων + Εγγράψιμος
+2. Υπογράφων + Μόνο για ανάγνωση
+3. Μη υπογράφων + Εγγράψιμος
+4. Μη υπογράφων + Μόνο για ανάγνωση
+
+<Callout>
+  Η αυστηρή ταξινόμηση επιτρέπει στον πίνακα `account_keys` να συνδυαστεί με τις
+  πληροφορίες στο [`header`](#header) του μηνύματος για να προσδιοριστούν τα
+  δικαιώματα για κάθε λογαριασμό.
+</Callout>
+
+![Διάγραμμα που δείχνει τη σειρά του πίνακα διευθύνσεων λογαριασμών](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### Πρόσφατο blockhash
+
+Το `recent_blockhash` του μηνύματος είναι μια τιμή hash που λειτουργεί ως
+χρονική σήμανση συναλλαγής και αποτρέπει διπλότυπες συναλλαγές. Ένα blockhash
+λήγει μετά από
+[150 blocks](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134).
+(Ισοδυναμεί με ένα λεπτό—υποθέτοντας ότι κάθε block είναι 400ms.) Μετά τη λήξη
+του block, η συναλλαγή λήγει και δεν μπορεί να επεξεργαστεί.
+
+<Callout>
+  Η μέθοδος RPC [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) σας
+  επιτρέπει να λάβετε το τρέχον blockhash και το τελευταίο ύψος block στο οποίο
+  το blockhash θα είναι έγκυρο.
+</Callout>
+
+### Οδηγίες
+
+Το
+[`instructions`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+του μηνύματος είναι ένας πίνακας όλων των εντολών που θα επεξεργαστούν, που
+αποστέλλεται σε
+[μορφή συμπαγούς πίνακα](/docs/references/terminology#compact-array-format). Το
+πρόθεμα του πίνακα υποδεικνύει το μήκος του. Κάθε στοιχείο στον πίνακα είναι μια
+δομή
+[`CompiledInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+και περιλαμβάνει τις ακόλουθες πληροφορίες:
+
+<WithMentions>
+
+1. [`program_id_index`](mention:program-id-index): Ένας δείκτης που δείχνει σε
+   μια διεύθυνση στον πίνακα [`account_keys`](#account-addresses). Αυτή η τιμή
+   υποδεικνύει τη διεύθυνση του προγράμματος που επεξεργάζεται την εντολή.
+2. [`accounts`](mention:account-indexes): Ένας πίνακας δεικτών που δείχνουν σε
+   διευθύνσεις στον πίνακα `account_keys`. Κάθε δείκτης δείχνει στη διεύθυνση
+   ενός λογαριασμού που απαιτείται για αυτήν την εντολή.
+3. [`data`](mention:instruction-data): Ένας πίνακας byte που καθορίζει ποια
+   εντολή θα κληθεί στο πρόγραμμα. Περιλαμβάνει επίσης οποιαδήποτε πρόσθετα
+   δεδομένα απαιτούνται από την εντολή. (Για παράδειγμα, ορίσματα συνάρτησης)
+
+```rust title="CompiledInstruction"
+pub struct CompiledInstruction {
+    /// Index into the transaction keys array indicating the program account that executes this instruction.
+    // !mention program-id-index
+    pub program_id_index: u8,
+    /// Ordered indices into the transaction keys array indicating which accounts to pass to the program.
+    #[serde(with = "short_vec")]
+    // !mention account-indexes
+    pub accounts: Vec<u8>,
+    /// The program input data.
+    #[serde(with = "short_vec")]
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+![Συμπαγής πίνακας οδηγιών](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+## Παράδειγμα δομής συναλλαγής
+
+Το ακόλουθο παράδειγμα δείχνει τη δομή μιας συναλλαγής που περιέχει μια μόνο
+οδηγία μεταφοράς SOL.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import {
+  createSolanaRpc,
+  generateKeyPairSigner,
+  lamports,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstructions,
+  pipe,
+  signTransactionMessageWithSigners,
+  getCompiledTransactionMessageDecoder
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const rpc = createSolanaRpc("http://localhost:8899");
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Decode the messageBytes
+const compiledTransactionMessage =
+  getCompiledTransactionMessageDecoder().decode(signedTransaction.messageBytes);
+
+console.log(JSON.stringify(compiledTransactionMessage, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const { blockhash, lastValidBlockHeight } =
+  await connection.getLatestBlockhash();
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+const transaction = new Transaction({
+  blockhash,
+  lastValidBlockHeight,
+  feePayer: sender.publicKey
+}).add(transferInstruction);
+transaction.sign(sender);
+
+const compiledMessage = transaction.compileMessage();
+console.log(JSON.stringify(compiledMessage, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Fetch the latest blockhash and last valid block height
+    let blockhash = connection.get_latest_blockhash().await?;
+
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(
+        &sender.pubkey(),
+        &recipient.pubkey(),
+        LAMPORTS_PER_SOL / 100, // 0.01 SOL
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    transaction.sign(&[&sender], blockhash);
+
+    println!("{:#?}", transaction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<WithMentions>
+Ο παρακάτω κώδικας δείχνει την έξοδο από τα προηγούμενα αποσπάσματα κώδικα.
+Η μορφή διαφέρει μεταξύ των SDK,
+αλλά παρατηρήστε ότι κάθε οδηγία περιέχει τις ίδιες απαιτούμενες πληροφορίες.
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  "version": 0,
+  // !mention header
+  "header": {
+    "numSignerAccounts": 1,
+    "numReadonlySignerAccounts": 0,
+    "numReadonlyNonSignerAccounts": 1
+  },
+  // !mention account_keys
+  "staticAccounts": [
+    "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
+    "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
+    "11111111111111111111111111111111"
+  ],
+  // !mention recent_blockhash
+  "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  // !mention instructions
+  "instructions": [
+    {
+      "programAddressIndex": 2,
+      "accountIndices": [0, 1],
+      "data": {
+        "0": 2,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 128,
+        "5": 150,
+        "6": 152,
+        "7": 0,
+        "8": 0,
+        "9": 0,
+        "10": 0,
+        "11": 0
+      }
+    }
+  ]
+}
+```
+
+```json !! title="Legacy"
+{
+  // !mention header
+  "header": {
+    "numRequiredSignatures": 1,
+    "numReadonlySignedAccounts": 0,
+    "numReadonlyUnsignedAccounts": 1
+  },
+  // !mention account_keys
+  "accountKeys": [
+    "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
+    "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
+    "11111111111111111111111111111111"
+  ],
+  "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  // !mention instructions
+  "instructions": [
+    {
+      "programIdIndex": 2,
+      "accounts": [0, 1],
+      "data": "3Bxs4NN8M2Yn4TLb"
+    }
+  ],
+  "indexToProgramIds": {}
+}
+```
+
+```json !! title="Rust"
+{
+  "signatures": [
+    "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
+  ],
+  "message": {
+    // !mention header
+    "header": {
+      "num_required_signatures": 1,
+      "num_readonly_signed_accounts": 0,
+      "num_readonly_unsigned_accounts": 1
+    },
+    "account_keys": [
+      "9CpbtdXfUTgLMJL8DEAeEm8thERJPwDuruohjvUuzY7m",
+      "6jELNgS8Q35sF4QZCvwgyKGaKrbcm8P5QcNWUyAb5ekJ",
+      "11111111111111111111111111111111"
+    ],
+    "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    // !mention instructions
+    "instructions": [
+      {
+        "program_id_index": 2,
+        "accounts": [0, 1],
+        "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+      }
+    ]
+  }
+}
+```
+
+</CodeTabs>
+</WithMentions>
+
+Μετά την υποβολή μιας συναλλαγής, μπορείτε να ανακτήσετε τις λεπτομέρειές της
+χρησιμοποιώντας την υπογραφή της συναλλαγής και τη μέθοδο RPC
+[getTransaction](/docs/rpc/http/gettransaction). Η απάντηση θα έχει μια δομή
+παρόμοια με το ακόλουθο απόσπασμα.
+
+<Callout>
+  Μπορείτε επίσης να βρείτε τη συναλλαγή χρησιμοποιώντας τον [Solana
+  Explorer](https://explorer.solana.com).
+</Callout>
+
+```json title="Transaction Data"
+{
+  "blockTime": 1745196488,
+  "meta": {
+    "computeUnitsConsumed": 150,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success"
+    ],
+    "postBalances": [989995000, 10000000, 1],
+    "postTokenBalances": [],
+    "preBalances": [1000000000, 0, 1],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 13049,
+  "transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "8PLdpLxkuv9Nt8w3XcGXvNa663LXDjSrSNon4EK7QSjQ",
+        "7GLg7bqgLBv1HVWXKgWAm6YoPf1LoWnyWGABbgk487Ma",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "7ZCxc2SDhzV2bYgEQqdxTpweYJkpwshVSDtXuY7uPtjf",
+      "instructions": [
+        {
+          "accounts": [0, 1],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX"
+    ]
+  },
+  "version": "legacy"
+}
+```

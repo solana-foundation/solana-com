@@ -1,0 +1,207 @@
+---
+title: "@solana/react-hooks"
+description:
+  "@solana/client durumunu kullanıma hazır hook'larla React uygulamanız
+  genelinde paylaşın."
+---
+
+`@solana/react-hooks`, `@solana/client` üzerine bir React sağlayıcı, hook'lar ve
+suspense uyumlu sorgu yardımcıları katmanı ekler. Hala tek bir istemci
+yapılandırırsınız, ancak hook'lar cüzdan durumunu, bakiyeleri, işlemleri ve
+program sorgularını manuel olarak store veya abonelik bağlamadan sunar.
+
+## Kurulum
+
+```terminal
+$ npm install @solana/client @solana/react-hooks
+```
+
+Her iki paket de gereklidir çünkü hook'lar cüzdanları, RPC'yi ve önbellekleri
+yönetmek için istemci çalışma zamanını yeniden kullanır.
+
+## Ağacınızı bir kez sarın
+
+İstemciyi oluşturun, isteğe bağlı olarak cüzdan bağlayıcılarını seçin, ardından
+React ağacınızı `SolanaProvider` ile sarın. Her hook paylaşılan istemci
+örneğinden okur.
+
+```tsx
+"use client";
+
+import { autoDiscover, createClient } from "@solana/client";
+import { SolanaProvider } from "@solana/react-hooks";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <SolanaProvider client={client}>{children}</SolanaProvider>;
+}
+```
+
+## Hook'lar istemci çalışma zamanını yansıtır
+
+- **Cüzdan + bağlayıcılar**: `useWallet`, `useWalletConnection`,
+  `useConnectWallet` ve `useDisconnectWallet`, istemciyi güçlendiren aynı kayıt
+  defterini sunar.
+- **Bakiye + hesap izleyicileri**: `useBalance`, `useAccount`, `useSolBalance`
+  ve `useProgramAccounts`, alttaki izleyicilerden güncellemeleri akışa alır ve
+  önbelleği eylemlerle paylaşır.
+- **İşlemler + SPL yardımcıları**: `useSolTransfer`, `useSplToken`,
+  `useTransactionPool` ve `useSendTransaction`, istemcinin yardımcı paketine
+  dayanır, böylece hook'lar blockhash yenileme, ücret ödeyici çözümlemesi ve
+  günlüklemeyi miras alır.
+
+```tsx
+function WalletPanel() {
+  const { connectors, connect, disconnect, wallet, status } =
+    useWalletConnection();
+  const balance = useBalance(wallet?.account.address);
+
+  if (status === "connected") {
+    return (
+      <div>
+        <p>{wallet?.account.address.toString()}</p>
+        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
+        <button onClick={disconnect}>Disconnect</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {connectors.map((connector) => (
+        <button key={connector.id} onClick={() => connect(connector.id)}>
+          Connect {connector.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+## Sorgu + önbellekleme kalıpları
+
+`SolanaQueryProvider`, istemci deposunun üzerine React Query uyumlu ilkeller
+katmanı ekler, böylece Solana'ya özgü sorgular askıya alınabilir, yeniden
+getirilebilir ve program abonelikleriyle senkronize olabilir.
+
+```tsx
+import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
+
+function ProgramAccounts({ program }: { program: string }) {
+  const query = useProgramAccounts(program);
+
+  if (query.isLoading) return <p>Loading…</p>;
+  if (query.isError) return <p role="alert">RPC error</p>;
+
+  return (
+    <div>
+      <button onClick={() => query.refresh()}>Refresh</button>
+      <ul>
+        {query.accounts.map(({ pubkey }) => (
+          <li key={pubkey.toString()}>{pubkey.toString()}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ProgramAccountsSection({ program }: { program: string }) {
+  return (
+    <SolanaQueryProvider>
+      <ProgramAccounts program={program} />
+    </SolanaQueryProvider>
+  );
+}
+```
+
+## İşlem akışları bildirimsel hale getirildi
+
+Hook'lar istemciyle aynı işlem yardımcılarını sunar ancak yükleme ve hata
+durumlarını sizin için yönetir. Bunları SOL transferleri, SPL token akışları
+veya rastgele talimat grupları için kullanın.
+
+```tsx
+import { useSolTransfer } from "@solana/react-hooks";
+
+function SolTransferForm({ destination }: { destination: string }) {
+  const transfer = useSolTransfer();
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void transfer.send({ destination, lamports: 100_000_000n });
+      }}
+    >
+      <button type="submit" disabled={transfer.isSending}>
+        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
+      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
+    </form>
+  );
+}
+```
+
+Bunun yerine ham talimatlar mı gerekiyor? `useSendTransaction`, `instructions`
+kabul eder ve isteğe bağlı `prepare` geçersiz kılmaları ile istek
+tamamlandığında size imza ve durum takibi sağlar.
+
+```tsx
+import { useSendTransaction, useWallet } from "@solana/react-hooks";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
+
+function CustomTransactionForm({ destination }: { destination: string }) {
+  const wallet = useWallet();
+  const { send, isSending, signature, error } = useSendTransaction();
+
+  async function handleSend() {
+    if (wallet.status !== "connected") return;
+
+    const instruction = getTransferSolInstruction({
+      source: wallet.session.account,
+      destination: address(destination),
+      amount: lamports(100_000_000n)
+    });
+
+    await send({ instructions: [instruction] });
+  }
+
+  return (
+    <div>
+      <button onClick={handleSend} disabled={isSending}>
+        {isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {signature ? <p>Signature: {signature}</p> : null}
+      {error ? <p role="alert">{String(error)}</p> : null}
+    </div>
+  );
+}
+```
+
+## Solana geliştiricileri için yaygın desenler
+
+- **Paylaşılan çalışma zamanı, birden fazla uygulama**: İstemciyi bir kez
+  yapılandırın (belki bir çekirdek pakette) ve web, mobil web veya gömülü React
+  adalarında kullanın.
+- **Kullanıcı arayüzü öncelikli geliştirme**: Hook'lar en yaygın Solana
+  akışlarını yansıtır (cüzdan bağlama, bakiye getirme, SOL gönderme, SPL
+  bakiyelerini okuma), böylece RPC altyapısı yerine kullanıcı deneyimine
+  odaklanabilirsiniz.
+- **Aşamalı geliştirme**: `@solana/client` ile başsız başlayın, ardından React
+  durumu ve suspense dostu veri getirme istediğiniz alanlara hook'lar ekleyin.
+- **Test**: Birim testlerinde cüzdanları, RPC başarılarını veya hatalarını
+  simüle etmek için hook dönüş değerlerini taklit edin veya `SolanaProvider`
+  için taklit edilmiş bir istemci geçirin.
+- **Sunucu bileşenleri farkında**: Yalnızca hook'ları çağıran yaprak bileşenleri
+  `"use client"` ile işaretleyin; diğer her şey sunucuda kalabilir ve hook
+  destekli alt bileşenlerden hidrate edilmiş prop'lar alabilir.
+
+Her hook'un üzerine inşa edildiği çalışma zamanını anlamak için bu kılavuzu
+[@solana/client genel bakış](/docs/frontend/client) ile eşleştirin.

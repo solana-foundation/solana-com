@@ -1,0 +1,424 @@
+---
+title: اشتقاق PDA
+description:
+  كيفية اشتقاق PDAs في سولانا باستخدام SHA-256 مع البذور وقيم bump ومعرف
+  البرنامج. خوارزمية الاشتقاق، البحث عن bump القانوني، تكاليف الحوسبة، وأمثلة
+  SDK في TypeScript و Rust.
+url: /docs/core/pda/pda-derivation
+type: conceptual
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/pda/pda-accounts
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="ملخص">
+  يتم اشتقاق PDAs عن طريق تجزئة البذور + معرف البرنامج + bump عبر SHA-256 حتى
+  تكون النتيجة خارج منحنى Ed25519. قيمة bump القانونية هي أول قيمة تنتج عنوانًا
+  خارج المنحنى. الحد الأقصى 16 بذرة، والحد الأقصى 32 بايت لكل بذرة.
+</Callout>
+
+## الخلفية
+
+قيم
+[`Keypair`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/keypair/src/lib.rs#L26)
+في سولانا هي نقاط على [منحنى Ed25519](https://ed25519.cr.yp.to/). يتكون زوج
+المفاتيح من مفتاح عام (يُستخدم كعنوان الحساب) ومفتاح سري (يُستخدم لإنتاج
+التوقيعات). يمكن لأي شخص لديه المفتاح السري التوقيع على المعاملات لذلك العنوان.
+
+![حسابان بعناوين على المنحنى](/assets/docs/core/pda/address-on-curve.svg)
+
+يتم اشتقاق PDA عمدًا ليقع _خارج_ منحنى Ed25519. نظرًا لأنه ليس نقطة منحنى صالحة،
+فلا يوجد مفتاح سري، ولا يمكن لأي طرف خارجي إنتاج توقيع. يمكن فقط للبرنامج المشتق
+أن يصرح بالعمليات على PDA من خلال _`invoke_signed`_.
+
+![عنوان خارج المنحنى](/assets/docs/core/pda/address-off-curve.svg)
+
+### حسابات PDA مقابل حسابات زوج المفاتيح
+
+| الخاصية                     | حساب زوج المفاتيح                        | حساب PDA                          |
+| --------------------------- | ---------------------------------------- | --------------------------------- |
+| نوع العنوان                 | على منحنى Ed25519                        | خارج منحنى Ed25519                |
+| يحتوي على مفتاح خاص         | نعم                                      | لا                                |
+| يمكنه التوقيع على المعاملات | نعم (باستخدام المفتاح الخاص)             | لا                                |
+| يمكنه التوقيع أثناء CPI     | لا (ما لم يتم تضمين التوقيع في المعاملة) | نعم (عبر `invoke_signed`)         |
+| الاشتقاق                    | توليد زوج مفاتيح Ed25519                 | حتمي من البذور + معرف البرنامج    |
+| الاستخدام النموذجي          | محافظ المستخدمين، معرف البرنامج          | حسابات البيانات المملوكة للبرنامج |
+
+## البذور الاختيارية
+
+البذور الاختيارية هي سلاسل بايتات يحددها المستخدم وتعمل كمدخلات لاشتقاق عنوان
+PDA. تنشئ عناوين فريدة وحتمية مرتبطة ببرنامج معين. على سبيل المثال، استخدام
+`["user", user_pubkey]` كبذور يشتق عنوان PDA مختلف لكل مستخدم.
+
+يجب أن تتبع البذور هذه القيود:
+
+- حد أقصى 16 بذرة لكل اشتقاق (_rs`MAX_SEEDS`_)
+- حد أقصى 32 بايت لكل بذرة (_rs`MAX_SEED_LEN`_)
+
+## بذرة Bump
+
+بذرة bump هي بايت واحد (0-255) يُضاف إلى البذور الاختيارية أثناء الاشتقاق.
+[`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L800)
+يبحث من 255 نزولاً إلى 0، مستدعياً _rs`create_program_address`_ مع كل قيمة حتى
+تخرج النتيجة عن منحنى Ed25519. القيمة الأولى التي تنجح هي **bump القانوني**.
+
+يجب على البرامج دائماً استخدام bump القانوني لضمان تعيين فريد وحتمي من البذور
+إلى العنوان.
+
+<Callout type="warn">
+  استخدم دائماً bump القانوني عند اشتقاق عناوين PDA. استخدام bump غير قانوني
+  ينشئ عنواناً ثانياً صالحاً لنفس البذور، مما قد يؤدي إلى ثغرات أمنية حيث يمكن
+  للمهاجم استبدال حساب مختلف عن المتوقع.
+</Callout>
+
+![اشتقاق PDA](/assets/docs/core/pda/pda-derivation.svg)
+
+## خوارزمية الاشتقاق
+
+يتم تنفيذ اشتقاق PDA في دالة
+[`create_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L911)
+الخاصة بـ SDK. تعمل الخوارزمية على النحو التالي:
+
+1. التحقق من أن عدد البذور لا يتجاوز _rs`MAX_SEEDS`_ (16) وأن أي بذرة فردية لا
+   تتجاوز _rs`MAX_SEED_LEN`_ (32 بايت). إذا فشل أي من الفحصين، يتم إرجاع
+   _rs`PubkeyError::MaxSeedLengthExceeded`_.
+2. إجراء تجزئة SHA-256 لجميع البذور ومعرف البرنامج والسلسلة النصية
+   `"ProgramDerivedAddress"` معاً لإنتاج نتيجة بحجم 32 بايت.
+3. التحقق مما إذا كانت النتيجة نقطة صالحة على منحنى Ed25519.
+4. إذا كانت النتيجة على المنحنى، يتم إرجاع _rs`PubkeyError::InvalidSeeds`_
+   (سيكون للعنوان مفتاح خاص مقابل، مما ينتهك خاصية أمان PDA).
+5. إذا لم تكن النتيجة على المنحنى، يتم إرجاعها كعنوان PDA.
+
+## تكاليف وحدة الحوسبة
+
+تفرض
+[استدعاء النظام على السلسلة](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L798-L834)
+لـ _rs`create_program_address`_
+[1,500 وحدة حوسبة](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L200)
+لكل استدعاء.
+
+يفرض
+[استدعاء النظام `try_find_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L836-L886)
+1,500 وحدة حوسبة عند الدخول (قبل الحلقة)، ثم 1,500 وحدة حوسبة إضافية لكل محاولة
+bump فاشلة داخل الحلقة.
+
+## أنماط seed الشائعة
+
+تكون seeds خاصة بالتطبيق. تشمل الأنماط الشائعة:
+
+| النمط               | Seeds                                             | حالة الاستخدام                     |
+| ------------------- | ------------------------------------------------- | ---------------------------------- |
+| مفرد عام            | `["global"]`                                      | حساب تكوين واحد على مستوى البرنامج |
+| حساب لكل مستخدم     | `["user", user_pubkey]`                           | حساب واحد لكل مستخدم لكل برنامج    |
+| لكل مستخدم لكل كيان | `["vault", user_pubkey, mint_pubkey]`             | خزائن الرموز، لكل مستخدم لكل رمز   |
+| عداد / تسلسلي       | `["order", user_pubkey, &order_id.to_le_bytes()]` | سجلات تسلسلية لكل مستخدم           |
+
+<Callout type="warn">
+  يتم دمج seeds قبل التجزئة، لذا فإن `["ab", "cd"]` و `["abcd"]` ينتجان نفس PDA.
+  استخدم seeds ذات طول ثابت أو فاصل لتجنب التصادمات. على سبيل المثال، `["ab",
+  "-", "cd"]` واضح لا لبس فيه.
+</Callout>
+
+## أمثلة: اشتقاق PDA
+
+اشتقاق PDA يحسب عنواناً فقط. لا ينشئ حساباً على السلسلة عند هذا العنوان. يجب
+إنشاء الحساب صراحةً من خلال تعليمة منفصلة (عادةً _rs`create_account`_ عبر CPI).
+
+توفر مجموعات تطوير سولانا دوال لاشتقاق PDA. تأخذ كل دالة:
+
+- **معرّف البرنامج**: عنوان البرنامج المستخدم لاشتقاق PDA. يمكن لهذا البرنامج
+  التوقيع نيابةً عن PDA.
+- **seeds اختيارية**: مدخلات محددة مسبقاً مثل السلاسل النصية، الأرقام، أو عناوين
+  الحسابات الأخرى.
+
+| SDK                            | الدالة                                                                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/kit` (TypeScript)     | [`getProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L157) |
+| `@solana/web3.js` (TypeScript) | [`findProgramAddressSync`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/publickey.ts#L212)               |
+| `solana_sdk` (Rust)            | [`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L800)                      |
+
+تشتق الأمثلة أدناه PDA باستخدام مجموعات تطوير سولانا. انقر **&#9655; تشغيل**
+لتنفيذ الكود.
+
+### اشتقاق PDA باستخدام seed نصي
+
+يوضح المثال أدناه اشتقاق PDA باستخدام معرف البرنامج وseed نصي اختياري.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let seeds: &[&[u8]] = &[b"helloWorld"];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### اشتقاق PDA باستخدام seed عنوان
+
+يوضح المثال أدناه اشتقاق PDA باستخدام معرف البرنامج وseed عنوان اختياري.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:4)
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+// !focus(1:3)
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### اشتقاق PDA باستخدام seeds متعددة
+
+يوضح المثال أدناه اشتقاق PDA باستخدام معرف البرنامج وseeds اختيارية متعددة.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:5)
+const optionalSeedString = "helloWorld";
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedString, optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus(1:4)
+const optionalSeedString = "helloWorld";
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus(1:2)
+    let optional_seed_bytes = b"helloWorld";
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### التكرار عبر جميع قيم Bump
+
+توضح الأمثلة التالية اشتقاق PDA باستخدام جميع قيم bump seed الممكنة (من 255 إلى
+0)، مما يوضح كيف تُرجع _`find_program_address`_ قيمة
+[bump القياسية](#bump-seed-search):
+
+<Callout type="info">
+  لم يتم تضمين مثال Kit لأن دالة
+  [`createProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L101)
+  غير مُصدَّرة.
+</Callout>
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const optionalSeed = "helloWorld";
+
+// Loop through all bump seeds (255 down to 0)
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(optionalSeed), Buffer.from([bump])],
+      programId
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_id = Pubkey::from_str("11111111111111111111111111111111")?;
+    let optional_seed = b"helloWorld";
+
+    // Loop through all bump seeds (255 down to 0)
+    for bump in (0..=255).rev() {
+        match Pubkey::create_program_address(&[optional_seed.as_ref(), &[bump]], &program_id) {
+            Ok(pda) => println!("bump {}: {}", bump, pda),
+            Err(err) => println!("bump {}: {}", bump, err),
+        }
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<CodeTabs>
+
+```sh !! title="Expected TS Output"
+bump 255: Error: Invalid seeds, address must fall off the curve
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Error: Invalid seeds, address must fall off the curve
+...
+// remaining bump outputs
+```
+
+```sh !! title="Expected Rust Output"
+bump 255: Provided seeds do not result in a valid address
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Provided seeds do not result in a valid address
+...
+// remaining bump outputs
+```
+
+</CodeTabs>
+
+في هذا المثال، ينتج bump 255 عنوانًا على المنحنى ويفشل. أول bump صالح هو 254،
+مما يجعله الـ bump القانوني.

@@ -1,5 +1,5 @@
 import { createRef } from "react";
-import Accordion from "react-bootstrap/Accordion";
+import { Accordion } from "@workspace/ui";
 import Link from "@/utils/Link";
 import compressNFTImage from "../../../assets/possible/innovation-compressed-nft.png";
 import scalableImage from "../../../assets/possible/innovation-scalable.png";
@@ -15,25 +15,25 @@ const PossibleInnovation = () => {
   const t = useTranslations();
 
   return (
-    <Accordion alwaysOpen>
+    <Accordion type="multiple">
       <section
         id={`possible-innovation`}
-        className="container pt-12 pb-8 pt-md-6 pb-md-0 position-relative z-3"
+        className="container pt-12 pb-8 md:pt-8 md:pb-0 relative z-[3]"
       >
-        <div className={`row d-flex`}>
-          <div className="col-12 col-md-6">
-            <h2 className="h2 mb-0 mb-md-11 pt-md-11">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12 md:col-span-6">
+            <h2 className="h2 mb-0 md:mb-24 md:pt-24">
               {t("possible.innovations.title")}
             </h2>
           </div>
         </div>
-        <div className={`row d-flex`}>
-          <div className="col-12 col-md-6">
+        <div className="grid grid-cols-12 gap-5 md:gap-10">
+          <div className="col-span-12 md:col-span-6">
             {/* MINT */}
             <InnovationAccordion
               ref={refs[0]}
               index={0}
-              image={compressNFTImage}
+              image={compressNFTImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864508527/rendition/360p/file.mp4?loc=external&signature=5feb0751138c0f6136f1c44152011a42ff5c5f53b40a8dd46bfdae04823909ae"
               }
@@ -48,7 +48,7 @@ const PossibleInnovation = () => {
                 docsLink: (chunks) => (
                   <Link
                     href="/news/state-compression-compressed-nfts-solana"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -60,7 +60,7 @@ const PossibleInnovation = () => {
             <InnovationAccordion
               ref={refs[1]}
               index={1}
-              image={scalableImage}
+              image={scalableImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864519842/rendition/360p/file.mp4?loc=external&signature=eace99a0edcd8889feba26bfb91a5c80b46ff9660f2eb690c219b58a5cef338b"
               }
@@ -72,7 +72,7 @@ const PossibleInnovation = () => {
                 gamingLink: (chunks) => (
                   <Link
                     href="/developers/gaming"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -84,7 +84,7 @@ const PossibleInnovation = () => {
                 heliumLink: (chunks) => (
                   <Link
                     href="/news/helium-upgrades-to-solana"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -92,16 +92,13 @@ const PossibleInnovation = () => {
                 hivemapperLink: (chunks) => (
                   <Link
                     href="/news/case-study-hivemapper"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
                 ),
                 aiLink: (chunks) => (
-                  <Link
-                    href="/ai"
-                    className="text-decoration-underline copy__link"
-                  >
+                  <Link href="/ai" className="underline copy__link">
                     {chunks}
                   </Link>
                 ),
@@ -112,7 +109,7 @@ const PossibleInnovation = () => {
             <InnovationAccordion
               ref={refs[2]}
               index={2}
-              image={lowcarbonImage}
+              image={lowcarbonImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864519832/rendition/360p/file.mp4?loc=external&signature=568925fd9fee65dc791fd69c0abf8a0ac670f49bb8e41575d653df5a83ae099e"
               }
@@ -122,17 +119,14 @@ const PossibleInnovation = () => {
             >
               {t.rich("possible.innovations.climate.description1", {
                 environmentLink: (chunks) => (
-                  <Link
-                    href="/environment"
-                    className="text-decoration-underline copy__link"
-                  >
+                  <Link href="/environment" className="underline copy__link">
                     {chunks}
                   </Link>
                 ),
                 emissionsLink: (chunks) => (
                   <Link
                     href="/news/announcing-real-time-emissions-measurement-on-the-solana-blockchain"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -143,12 +137,12 @@ const PossibleInnovation = () => {
               {t("possible.innovations.climate.description2")}
             </InnovationAccordion>
           </div>
-          <div className="col-12 col-md-6">
+          <div className="col-span-12 md:col-span-6">
             {/* Payment */}
             <InnovationAccordion
               ref={refs[3]}
               index={3}
-              image={concensusImage}
+              image={concensusImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864508546/rendition/360p/file.mp4?loc=external&signature=fb9b841e28c0665848f84f11e306d3f2de6d872b6aaa79d3d008f13a91b94fb0"
               }
@@ -160,7 +154,7 @@ const PossibleInnovation = () => {
                 paymentsLink: (chunks) => (
                   <Link
                     href="/developers/payments"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -169,7 +163,7 @@ const PossibleInnovation = () => {
                   <Link
                     target={"_blank"}
                     href="https://solanapay.com/"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>
@@ -184,7 +178,7 @@ const PossibleInnovation = () => {
             <InnovationAccordion
               ref={refs[4]}
               index={4}
-              image={sagaImage}
+              image={sagaImage.src}
               animatedIcon={
                 "https://player.vimeo.com/progressive_redirect/playback/864508562/rendition/360p/file.mp4?loc=external&signature=71c5045ecdf9c5dd57a32dd758d6da6b738a89d557c8cbdc6c107360899d15da"
               }
@@ -197,7 +191,7 @@ const PossibleInnovation = () => {
                   <Link
                     target={"_blank"}
                     href="https://solanamobile.com/"
-                    className="text-decoration-underline copy__link"
+                    className="underline copy__link"
                   >
                     {chunks}
                   </Link>

@@ -1,0 +1,80 @@
+---
+title: Versioned Transactions
+description:
+  Legacy vs versioned (V0) transaction formats on Solana, including Address
+  Lookup Tables (ALTs), version detection, V0 message format, and ALT
+  resolution.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="Summary">
+  V0 transactions add Address Lookup Tables (ALTs), allowing references to
+  accounts via 1-byte indices instead of 32-byte keys. This saves 31 bytes per
+  ALT-resolved account.
+</Callout>
+
+Solana supports two transaction formats: **legacy** and **versioned** (v0).
+
+The validator determines the format by inspecting the first byte of the message:
+
+- If the first byte has the
+  [version prefix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
+  bit set, it's a **versioned message**. Currently only version 0 is supported.
+  The next 3 bytes are the _rs`MessageHeader`_.
+- Otherwise, it's a **legacy message**. The first byte is
+  `num_required_signatures`, and the next 2 bytes complete the header.
+
+<Callout type="info" title="When to use V0 transactions">
+  Use V0 when your transaction references many accounts and approaches the
+  1,232-byte packet limit. If your transaction fits within the size limit with
+  all accounts inline, legacy transactions are simpler and have wider tooling
+  support. V0 is required to use Address Lookup Tables.
+</Callout>
+
+## V0 message format
+
+A v0 message has the same fields as a legacy message, plus an additional
+`address_table_lookups` array appended after the instructions:
+
+| Field                   | Size                       | Description                                   |
+| ----------------------- | -------------------------- | --------------------------------------------- |
+| `0x80`                  | 1 byte                     | Version prefix byte                           |
+| `header`                | 3 bytes                    | MessageHeader (same as legacy)                |
+| `static_account_keys`   | compact-u16 + N x 32 bytes | Keys that appear literally in the transaction |
+| `recent_blockhash`      | 32 bytes                   | Blockhash                                     |
+| `instructions`          | compact-u16 + variable     | Same format as legacy                         |
+| `address_table_lookups` | compact-u16 + variable     | ALT references (see below)                    |
+
+Each address table lookup entry contains:
+
+| Field              | Size                     | Description                                 |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| `account_key`      | 32 bytes                 | The ALT account's public key                |
+| `writable_indexes` | compact-u16 + N x 1 byte | Indices into the ALT for writable accounts  |
+| `readonly_indexes` | compact-u16 + N x 1 byte | Indices into the ALT for read-only accounts |
+
+## Address lookup table resolution
+
+An ALT is an on-chain account that stores up to 256 public keys. By referencing
+an ALT, a transaction can include additional accounts using 1-byte indices
+instead of 32-byte public keys, significantly reducing per-account overhead.
+
+At runtime, before execution begins, the validator resolves all ALT references
+into full public keys. The resolved addresses are appended to the static account
+keys to form the complete account keys list. ALT-resolved accounts follow the
+same ordering as static accounts: writable lookups come before read-only
+lookups.
+
+<Callout>
+  Address lookup tables only affect how accounts are referenced in the on-wire
+  transaction. At execution time, the runtime resolves all indices to full
+  account addresses. ALT-resolved accounts can only be writable or read-only
+  (non-signer); they cannot be signers.
+</Callout>

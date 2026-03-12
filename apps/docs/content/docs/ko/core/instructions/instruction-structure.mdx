@@ -1,0 +1,438 @@
+---
+title: 명령어 구조
+description:
+  Solana 명령어 구조 — program_id, accounts, data 필드, AccountMeta 플래그
+  is_signer 및 is_writable, 컴파일된 명령어, TypeScript 및 Rust의 SOL 전송 예제.
+url: /docs/core/instructions/instruction-structure
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/cpi
+---
+
+<Callout type="info" title="요약">
+  명령어는 3개의 필드를 가집니다: `program_id` (호출할 프로그램), `accounts`
+  (is_signer/is_writable 플래그가 있는 AccountMeta 목록), 그리고 `data`
+  (프로그램이 해석하는 데이터의 바이트 배열).
+</Callout>
+
+<WithMentions>
+
+## 명령어 구조
+
+[`Instruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/instruction/src/lib.rs#L97)는
+세 개의 필드로 구성됩니다:
+
+- [`program_id`](mention:program-id): 호출되는 프로그램의 [ID](#program-id).
+- [`accounts`](mention:accounts): [계정 메타데이터](#account-metadata) 배열
+- [`data`](mention:instruction-data): 명령어에서 사용할 추가 [데이터](#data)가
+  포함된 바이트 배열
+
+```rust title="Instruction struct"
+pub struct Instruction {
+    /// Pubkey of the program that executes this instruction.
+    // !mention program-id
+    pub program_id: Pubkey,
+    /// Metadata describing accounts that should be passed to the program.
+    // !mention accounts
+    pub accounts: Vec<AccountMeta>,
+    /// Opaque data passed to the program for its own interpretation.
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+### 프로그램 ID
+
+명령어의 [`program_id`](/docs/references/terminology#program-id)는 명령어의 실행
+로직을 포함하는 프로그램의 공개 키 주소입니다. 런타임은 이 필드를 사용하여
+명령어를 처리할 올바른 프로그램으로 라우팅합니다.
+
+### 계정 메타데이터
+
+<WithMentions>
+
+명령어의 `accounts` 배열은
+[`AccountMeta`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/instruction/src/account_meta.rs#L25)
+구조체의 순서가 지정된 목록입니다. 명령어가 상호작용하는 각 계정에 대해
+메타데이터를 제공해야 합니다. validator는 이 메타데이터를 사용하여 어떤
+트랜잭션을 병렬로 실행할 수 있는지 결정합니다. 서로 다른 계정에 쓰는 트랜잭션은
+병렬로 실행될 수 있습니다.
+
+아래 다이어그램은 단일 명령어를 포함하는 트랜잭션을 나타냅니다. 명령어의
+`accounts` 배열에는 두 개의 계정에 대한 메타데이터가 포함되어 있습니다.
+
+![하나의 명령어가 있는 트랜잭션. 명령어의 `accounts` 배열에 두 개의 `AccountMeta` 구조체가 포함되어 있습니다.](/assets/docs/core/transactions/accountmeta.svg)
+
+각 *rs`AccountMeta`*는 세 개의 필드를 가집니다:
+
+- [pubkey](mention:pubkey): 계정의 공개 키 주소
+- [is_signer](mention:is-signer): 계정이 트랜잭션에 서명해야 하는 경우 `true`로
+  설정
+- [is_writable](mention:is-writable): 명령어가 계정의 데이터를 수정하는 경우
+  `true`로 설정
+
+<Callout>
+  명령어가 필요로 하는 계정, 쓰기 가능 여부, 읽기 전용 여부, 트랜잭션 서명 필요
+  여부를 알려면 프로그램에 정의된 명령어 구현을 참조해야 합니다.
+</Callout>
+
+```rust title="AccountMeta"
+pub struct AccountMeta {
+    /// An account's public key.
+    // !mention pubkey
+    pub pubkey: Pubkey,
+    /// True if an `Instruction` requires a `Transaction` signature matching `pubkey`.
+    // !mention is-signer
+    pub is_signer: bool,
+    /// True if the account data or metadata may be mutated during program execution.
+    // !mention is-writable
+    pub is_writable: bool,
+}
+```
+
+</WithMentions>
+
+### 데이터
+
+명령어의 `data` 필드는 프로그램에 어떤 함수를 호출할지 알려주고 해당 함수의
+인수를 제공하는 바이트 배열입니다. 데이터는 일반적으로 대상 함수를 식별하는
+판별자 또는 인덱스 바이트로 시작하고, 그 뒤에 직렬화된 인수가 따라옵니다. 인코딩
+형식은 각 프로그램에서 정의합니다(예: Borsh 직렬화 또는 사용자 정의 레이아웃).
+
+일반적인 인코딩 규칙:
+
+- **코어 프로그램**(System, Stake, Vote): Bincode로 직렬화된 열거형 변형
+  인덱스와 직렬화된 인수를 사용합니다.
+- **Anchor 프로그램**: 8바이트 판별자(`"global:<function_name>"`의 SHA-256
+  해시의 처음 8바이트)와 Borsh로 직렬화된 인수를 사용합니다.
+
+런타임은 `data` 필드를 해석하지 않습니다. 프로그램의 `process_instruction`
+진입점에 그대로 전달됩니다.
+
+## 컴파일된 명령어
+
+명령어가 트랜잭션 메시지로 직렬화되면 모든 공개 키를 메시지의 `account_keys`
+배열에 대한 압축 정수 인덱스로 대체하는
+[`CompiledInstruction`](/docs/core/transactions/transaction-structure#instructions)
+구조체가 됩니다.
+
+## 예시: SOL 전송 명령어
+
+아래 예시는 SOL 전송 명령어의 구조를 보여줍니다.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair
+} from "@solana/web3.js";
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+console.log(JSON.stringify(transferInstruction, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Define the amount to transfer
+    let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    println!("{:#?}", transfer_instruction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<WithMentions>
+
+아래 코드는 이전 코드 스니펫의 출력을 보여줍니다. SDK마다 형식은 다르지만, 각
+명령어에는 동일한 세 가지 필수 정보가 포함되어 있습니다:
+[`program_id`](mention:program-id), [`accounts`](mention:accounts),
+[`data`](mention:data).
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  // !mention(1:16) accounts
+  "accounts": [
+    {
+      "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+      "role": 3,
+      "signer": {
+        "address": "Hu28vRMGWpQXN56eaE7jRiDDRRz3vCXEs7EKHRfL6bC",
+        "keyPair": {
+          "privateKey": {},
+          "publicKey": {}
+        }
+      }
+    },
+    {
+      "address": "2mBY6CTgeyJNJDzo6d2Umipw2aGUquUA7hLdFttNEj7p",
+      "role": 1
+    }
+  ],
+  // !mention program-id
+  "programAddress": "11111111111111111111111111111111",
+  // !mention(1:14) data
+  "data": {
+    "0": 2,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 128,
+    "5": 150,
+    "6": 152,
+    "7": 0,
+    "8": 0,
+    "9": 0,
+    "10": 0,
+    "11": 0
+  }
+}
+```
+
+```json !! title="Legacy"
+{
+  // !mention(1:12) accounts
+  "keys": [
+    {
+      "pubkey": "3z9vL1zjN6qyAFHhHQdWYRTFAcy69pJydkZmSFBKHg1R",
+      "isSigner": true,
+      "isWritable": true
+    },
+    {
+      "pubkey": "BpvxsLYKQZTH42jjtWHZpsVSa7s6JVwLKwBptPSHXuZc",
+      "isSigner": false,
+      "isWritable": true
+    }
+  ],
+  // !mention program-id
+  "programId": "11111111111111111111111111111111",
+  // !mention data
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+```json !! title="Rust"
+{
+  // !mention program-id
+  "program_id": "11111111111111111111111111111111",
+  // !mention(1:12) accounts
+  "accounts": [
+    {
+      "pubkey": "Hhh6vrA6xUNwaNftJVAXSTzfHiRiAKFKLGmHdcRH6Pmo",
+      "is_signer": true,
+      "is_writable": true
+    },
+    {
+      "pubkey": "6RYMY3mFLixELbfNCMA7zNtzgNfRyEZs5YYkZQb8aK4t",
+      "is_signer": false,
+      "is_writable": true
+    }
+  ],
+  // !mention data
+  "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+}
+```
+
+</CodeTabs>
+
+</WithMentions>
+
+아래 예제는 전송 명령어를 수동으로 구성하는 방법을 보여줍니다.
+(`Expanded Instruction` 탭은 `Instruction` 탭과 기능적으로 동일합니다.)
+
+<Callout type="info">
+  실제로는 일반적으로 _rs`Instruction`_를 수동으로 구성할 필요가 없습니다.
+  대부분의 프로그램은 명령어를 생성하는 헬퍼 함수가 포함된 클라이언트
+  라이브러리를 제공합니다. 라이브러리를 사용할 수 없는 경우 명령어를 수동으로
+  구성할 수 있습니다.
+</Callout>
+
+<Tabs items={['Kit', 'Legacy', 'Rust']}>
+
+<Tab value="Kit">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const TRANSFER_INSTRUCTION_INDEX = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(TRANSFER_INSTRUCTION_INDEX, 0);
+instructionData.writeBigUInt64LE(transferAmount * LAMPORTS_PER_SOL, 4);
+
+const SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111" as Address;
+
+// Manually create the transfer instruction
+const transferInstruction: IInstruction = {
+  programAddress: SYSTEM_PROGRAM_ADDRESS,
+  accounts: [
+    {
+      address: sender.address,
+      role: AccountRole.WRITABLE_SIGNER
+    },
+    {
+      address: recipient.address,
+      role: AccountRole.WRITABLE
+    }
+  ],
+  data: new Uint8Array(instructionData)
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Legacy">
+
+<CodeTabs>
+
+```ts !! title="Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: receiver.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL
+});
+```
+
+```ts !! title="Expanded Instruction"
+const transferAmount = 0.01; // 0.01 SOL
+
+// Instruction index for the System Program's transfer instruction
+const transferInstructionIndex = 2;
+
+// Create a buffer for the data to include in the instruction
+const instructionData = Buffer.alloc(4 + 8); // uint32 + uint64
+instructionData.writeUInt32LE(transferInstructionIndex, 0);
+instructionData.writeBigUInt64LE(BigInt(transferAmount * LAMPORTS_PER_SOL), 4);
+
+// Manually create a transfer instruction
+const transferInstruction = new TransactionInstruction({
+  keys: [
+    { pubkey: sender.publicKey, isSigner: true, isWritable: true }, // from account, is signer and is writable
+    { pubkey: receiver.publicKey, isSigner: false, isWritable: true } // to account, is not signer but is writable
+  ],
+  programId: SystemProgram.programId,
+  data: instructionData
+});
+```
+
+</CodeTabs>
+
+</Tab>
+
+<Tab value="Rust">
+
+<CodeTabs>
+
+```rs !! title="Instruction"
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+let transfer_instruction =
+    system_instruction::transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+```
+
+```rs !! title="Expanded Instruction"
+// Instruction index for the System Program's transfer instruction
+let transfer_instruction_index: u32 = 2;
+
+// Define the amount to transfer
+let transfer_amount = LAMPORTS_PER_SOL / 100; // 0.01 SOL
+
+// Create instruction data manually (12 bytes: 4 for u32 index + 8 for u64 lamports)
+let mut instruction_data = Vec::with_capacity(12);
+instruction_data.extend_from_slice(&transfer_instruction_index.to_le_bytes());
+instruction_data.extend_from_slice(&transfer_amount.to_le_bytes());
+
+// Manually create the transfer instruction
+let transfer_instruction = Instruction {
+    program_id: system_program::id(),
+    accounts: vec![
+        AccountMeta::new(sender.pubkey(), true), // from account, is signer and is writable
+        AccountMeta::new(recipient.pubkey(), false), // to account, is not signer but is writable
+    ],
+    data: instruction_data,
+};
+```
+
+</CodeTabs>
+
+</Tab>
+
+</Tabs>

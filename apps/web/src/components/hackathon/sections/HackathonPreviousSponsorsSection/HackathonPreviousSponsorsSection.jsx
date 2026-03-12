@@ -37,7 +37,7 @@ export default function HackathonPreviousSponsorsSection() {
     <section className={styles["previous-sponsors"]}>
       <div
         className={classNames(
-          "container position-relative",
+          "container relative",
           styles["previous-sponsors__content"],
         )}
       >

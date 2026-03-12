@@ -1,0 +1,103 @@
+---
+title: "@solana/client"
+description: 使用无界面 Solana 客户端运行时，构建精简的 Solana 前端。
+---
+
+`@solana/client`
+保持运行时接口精简。一个 store，一个 RPC 栈，以及一个钱包注册表为不同的辅助工具提供支持，因此同一个实例可以为 CLI、脚本或完整 UI 提供服务。actions、watchers 和 helpers 都通过这个单一客户端共享缓存、订阅和钱包会话。
+
+<Callout type="info">
+  如果你正在构建纯 React 体验，通常建议直接从
+  [`@solana/react-hooks`](/docs/frontend/react-hooks) 开始，这样速度更快。hooks
+  包封装了同样的客户端运行时，并提供现成的
+  hooks，只有在需要更高控制时才需要使用无界面客户端。
+</Callout>
+
+## 安装
+
+```terminal
+$ npm install @solana/client
+```
+
+可使用任意包管理器；该客户端可运行于浏览器、worker、React、Svelte 或服务端运行时环境。
+
+## 只需创建一个客户端
+
+选择 Wallet
+Standard 连接器（自动发现是最快的启动方式），然后创建客户端。这个单一对象暴露了 store、actions、watchers 和 helpers。
+
+```ts
+import { autoDiscover, createClient } from "@solana/client";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+await client.actions.connectWallet("wallet-standard:phantom");
+const balance = await client.actions.fetchBalance("Fke...address");
+console.log(balance.lamports?.toString());
+```
+
+客户端 store 跟踪集群配置、订阅、待处理交易和钱包会话。如果你需要持久化或多标签页协同，也可以自定义 Zustand
+store。
+
+## 钱包编排
+
+连接器封装了 Wallet Standard 元数据以及连接/断开逻辑。你可以注册内置的
+`phantom()`、`solflare()`、`backpack()` 或 `autoDiscover()` 辅助工具，或用
+`createWalletStandardConnector`
+封装自定义 provider。所有钱包操作（连接、断开、签名、发送）都通过客户端注册表流转，确保每个使用者都保持同步。
+
+## Actions、watchers 和 helpers
+
+- **Actions** 封装常见的 RPC 读写操作，并自动更新 store（如
+  `fetchAccount`、`requestAirdrop`、`setCluster`）。
+- **Watchers**
+  复用 websocket 订阅，将更新流式写入 store，并为你提供中止句柄以便清理。
+- **Helpers** 提供更高层的流程，比如 SOL 转账、SPL
+  token 辅助、签名轮询和交易池。
+
+```ts
+const abortWatcher = client.watchers.watchBalance(
+  { address: "Fke...address" },
+  (lamports) => {
+    console.log("live balance", lamports.toString());
+  }
+);
+
+// Later when the component unmounts or the flow ends
+abortWatcher.abort();
+```
+
+## 交易助手模式
+
+交易助手负责刷新区块哈希、解决手续费支付者以及签名。你可以根据自己的用户体验需求进行准备、检查和发送。
+
+```ts
+const prepared = await client.helpers.transaction.prepare({
+  authority: client.store.getState().wallet.session!,
+  instructions: [instructionA, instructionB]
+});
+
+await client.helpers.transaction.simulate(prepared, {
+  commitment: "processed"
+});
+const signature = await client.helpers.transaction.send(prepared);
+console.log("submitted", signature.toString());
+```
+
+使用 `prepareAndSend` 可获得预设流程（模拟加日志），或者调用 `sign` / `toWire`
+手动收集签名，再自行转发 wire 格式。
+
+## Solana 开发者常用模式
+
+- **无头状态机**：在 API 路由、脚本或 worker 中运行客户端，复用驱动 UI 的同一套钱包和 RPC 协作逻辑。
+- **实时看板**：结合 watcher（余额、账户、签名）与你喜欢的 UI 库；客户端负责 websocket 分发和缓存失效。
+- **自定义存储**：注入你自己的 Zustand
+  store，从 IndexedDB/localStorage 进行数据注入、将状态同步到服务器会话，或在浏览器标签页间协调。
+- **桥接 React
+  hooks**：当你需要在同一运行时上获得更易用的 hooks 时，将已配置的客户端实例传递给
+  `@solana/react-hooks`。
+- **可测试性**：单一客户端接口可在单元测试中 mock，便于模拟 RPC 响应或钱包会话，无需浏览器钱包。

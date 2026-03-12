@@ -40,6 +40,7 @@ interface PrivacyHackPageProps {
     }>;
     sponsorBountiesTitle: string;
     sponsorBountiesSubtitle: string;
+    sponsorBountiesDisclaimer: string;
     sponsorBounties: Array<{
       sponsor: string;
       logo: string;
@@ -443,9 +444,9 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                 <div className="text-gray-300">
                   dates: jan_12-30_2026
                   <br />
-                  tracks: [private_payments, private_launchpad, privacy_tooling]
+                  tracks: [private_payments, privacy_tooling, open_track]
                   <br />
-                  total prizes: $60,000+
+                  total prizes: $100,000+
                 </div>
                 <div className="mt-2">
                   <span className="text-green-400">$</span> cat manifesto.txt
@@ -670,29 +671,92 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               <p className="text-lg text-gray-400">
                 {translations.sponsorBountiesSubtitle}
               </p>
+              <p className="text-sm text-gray-500 mt-3 italic">
+                {translations.sponsorBountiesDisclaimer}
+              </p>
             </div>
-            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-              {translations.sponsorBounties.map((bounty, index) => (
+            {/* Featured Sponsors - First 2 (Privacy Cash & Radr Labs) */}
+            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {translations.sponsorBounties.slice(0, 2).map((bounty, index) => (
                 <div
                   key={index}
-                  className={`bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all group cursor-pointer flex flex-col ${
+                  className={`bg-black/50 border-2 border-green-400/40 rounded-xl p-8 flex flex-col ${
                     sponsorReveal.isVisible
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-8"
                   }`}
                   style={{ transitionDelay: `${index * 150 + 200}ms` }}
                 >
-                  <div className="text-green-400 text-xs font-mono uppercase tracking-wider mb-3">
-                    {bounty.sponsor}
+                  <div className="text-green-400 text-sm font-mono uppercase tracking-wider mb-4 font-bold">
+                    ⭐ {bounty.sponsor}
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-3 group-hover:text-green-400 transition-colors">
+                  <h3 className="text-2xl font-bold text-white mb-4">
                     {bounty.title}
                   </h3>
-                  <p className="text-gray-400 text-sm mb-6 whitespace-pre-line">
+                  <p className="text-gray-300 text-base mb-6 whitespace-pre-line flex-grow">
                     {bounty.description}
                   </p>
                   {bounty.prizeAmount && (
-                    <div className="pt-4 border-t border-green-500/20 mb-4">
+                    <div className="pt-4 border-t border-green-500/30 mb-4 mt-auto">
+                      <span className="text-3xl font-bold text-green-400 font-mono">
+                        {bounty.prizeAmount}
+                      </span>
+                      <span className="text-gray-400 text-sm ml-2">prize</span>
+                    </div>
+                  )}
+                  {bounty.url && (
+                    <a
+                      href={bounty.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-auto inline-flex items-center text-green-400 font-semibold hover:text-green-300 transition-colors"
+                    >
+                      Learn more about {bounty.sponsor}
+                      <ArrowUpRight size={16} className="ml-1" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Other Sponsors */}
+            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+              {translations.sponsorBounties.slice(2).map((bounty, index) => (
+                <div
+                  key={index + 2}
+                  className={`bg-black/50 border border-green-500/20 rounded-xl p-6 flex flex-col ${
+                    sponsorReveal.isVisible
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-8"
+                  }`}
+                  style={{ transitionDelay: `${(index + 2) * 150 + 200}ms` }}
+                >
+                  <div className="text-green-400 text-xs font-mono uppercase tracking-wider mb-3">
+                    {bounty.sponsor}
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-3">
+                    {bounty.title}
+                  </h3>
+                  <p className="text-gray-400 text-sm mb-6 whitespace-pre-line flex-grow">
+                    {bounty.description.includes("View full details") ? (
+                      <>
+                        {bounty.description.split("View full details")[0]}
+                        <a
+                          href="https://bananahq.notion.site/Hackathon-Sponsor-Tracks-2e2283a1bc748055b28cdc838a4d98be"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-400 hover:text-green-300 transition-colors"
+                        >
+                          View full details
+                        </a>
+                        {bounty.description.split("View full details")[1]}
+                      </>
+                    ) : (
+                      bounty.description
+                    )}
+                  </p>
+                  {bounty.prizeAmount && (
+                    <div className="pt-4 border-t border-green-500/20 mb-4 mt-auto">
                       <span className="text-2xl font-bold text-green-400 font-mono">
                         {bounty.prizeAmount}
                       </span>
@@ -821,14 +885,14 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
           </div>
 
           <div className="mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex flex-wrap justify-center gap-6">
               {translations.resources.map((resource, index) => (
                 <a
                   key={index}
                   href={resource.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`group bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all cursor-pointer ${
+                  className={`group bg-black/50 border border-green-500/20 rounded-xl p-6 hover:border-green-400/50 hover:scale-[1.02] transition-all cursor-pointer w-full md:w-[calc(33.333%-1rem)] ${
                     resourcesReveal.isVisible
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-8"
@@ -890,7 +954,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                     rel="noopener noreferrer"
                     className="mt-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-green-400 text-green-400 hover:bg-green-400 hover:text-black transition-all font-semibold text-sm"
                   >
-                    Watch on YouTube
+                    Watch on 𝕏
                     <ArrowUpRight size={14} />
                   </a>
                 </div>

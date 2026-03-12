@@ -1,9 +1,9 @@
-const { getAllUrls } = require("./src/lib/builder/getUrls");
 const {
   getMediaPostUrls,
   getMediaPodcastUrls,
-} = require("./src/lib/builder/media-urls");
+} = require("./src/lib/sitemap/media-urls");
 const https = require("https");
+const accelerateSitemapRoutes = require("../accelerate/src/app/sitemap-routes.json");
 
 async function fetchTemplates() {
   return new Promise((resolve) => {
@@ -46,8 +46,6 @@ module.exports = {
     };
   },
   additionalPaths: async () => {
-    const builderUrls = await getAllUrls();
-
     // Fetch media app posts (replaces old Builder post model)
     const mediaPostUrls = getMediaPostUrls();
 
@@ -71,11 +69,18 @@ module.exports = {
       })),
     ];
 
+    const accelerateUrls = accelerateSitemapRoutes.map((route) => ({
+      loc: `/accelerate${route.path}`,
+      lastmod: new Date().toISOString(),
+      changefreq: route.changeFrequency,
+      priority: route.priority,
+    }));
+
     return [
-      ...builderUrls,
       ...mediaPostUrls,
       ...mediaPodcastUrls,
       ...templateUrls,
+      ...accelerateUrls,
     ];
   },
 };

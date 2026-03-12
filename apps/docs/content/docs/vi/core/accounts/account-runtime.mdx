@@ -1,0 +1,139 @@
+---
+title: Runtime tài khoản
+description:
+  Cách runtime Solana tải và xác thực các tài khoản trước khi thực thi, cùng
+  định dạng tuần tự hóa được sử dụng để truyền dữ liệu tài khoản đến các chương
+  trình.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Tóm tắt">
+  Trước khi thực thi, runtime tải các tài khoản, xác thực người trả phí, kiểm
+  tra miễn phí thuê, và tuần tự hóa dữ liệu tài khoản thành bố cục bộ nhớ mà các
+  chương trình có thể truy cập.
+</Callout>
+
+<Callout>
+  Trang này đề cập đến các chi tiết nội bộ của runtime. Hầu hết các nhà phát
+  triển không cần thông tin này để xây dựng chương trình. Xem [Cấu trúc tài
+  khoản](/docs/core/accounts/account-structure) để có cái nhìn hướng đến nhà
+  phát triển.
+</Callout>
+
+## Tải tài khoản
+
+Trước khi một giao dịch được thực thi, runtime tải tất cả các tài khoản được
+tham chiếu thông qua
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+Quá trình này thực hiện một số xác thực:
+
+1. **Xác thực người trả phí**: Người trả phí (tài khoản đầu tiên) phải tồn tại,
+   là tài khoản hệ thống hoặc tài khoản nonce, và có đủ lamport để chi trả phí
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   Sau khi trả phí, tài khoản phải giữ được trạng thái miễn phí thuê hoặc về
+   chính xác 0 lamport. Nó không thể kết thúc ở giữa 0 và mức tối thiểu miễn phí
+   thuê. Các tài khoản nonce phải luôn giữ đủ lamport để duy trì trạng thái miễn
+   phí thuê. Nếu người trả phí không phải là tài khoản hệ thống cũng không phải
+   tài khoản nonce, giao dịch sẽ thất bại với lỗi
+   _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **Giới hạn kích thước dữ liệu được tải**: Tổng kích thước của tất cả các tài
+   khoản được tải (bao gồm
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   là 64 byte cho mỗi tài khoản) không được vượt quá
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 MiB). Vượt quá giới hạn này sẽ tạo ra lỗi
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_.
+
+3. **Xác thực tài khoản chương trình**: Mọi chương trình được gọi bởi một lệnh
+   phải tồn tại và được sở hữu bởi một loader hợp lệ: một trong các
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) hoặc
+   native loader. Nếu tài khoản chương trình không tồn tại, giao dịch sẽ thất
+   bại với lỗi _rs`TransactionError::ProgramAccountNotFound`_. Nếu nó tồn tại
+   nhưng có chủ sở hữu không hợp lệ, giao dịch sẽ thất bại với lỗi
+   _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **Tài khoản không tồn tại**: Các tài khoản không tồn tại trên chuỗi được tải
+   dưới dạng tài khoản mặc định (0 lamport, dữ liệu trống, thuộc sở hữu của
+   system program) với `rent_epoch` được đặt thành `u64::MAX`.
+
+## Định dạng tuần tự hóa BPF
+
+Khi một chương trình được gọi, runtime tuần tự hóa các tài khoản thành một bộ
+đệm bộ nhớ liền kề và truyền nó đến BPF VM. Định dạng tuần tự hóa (cho định dạng
+căn chỉnh tiêu chuẩn được sử dụng bởi tất cả các loader ngoại trừ loader-v1 đã
+lỗi thời) được định nghĩa trong
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+Bộ đệm bắt đầu bằng một `u64` (8 byte, little-endian) chứa số lượng tài khoản.
+Sau đó, đối với mỗi tài khoản trong lệnh, bộ đệm chứa:
+
+| Offset        | Kích thước      | Trường                                    | Kiểu                                                                                                                        |
+| ------------- | --------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 0             | 1               | duplicate marker                          | `u8` (`0xFF` = duy nhất, index = bản sao của tài khoản đó)                                                                  |
+| 1             | 1               | is_signer                                 | `u8` (0 hoặc 1)                                                                                                             |
+| 2             | 1               | is_writable                               | `u8` (0 hoặc 1)                                                                                                             |
+| 3             | 1               | executable                                | `u8` (0 hoặc 1)                                                                                                             |
+| 4             | 4               | original_data_len (dành riêng, luôn là 0) | `[0u8; 4]`                                                                                                                  |
+| 8             | 32              | key                                       | `Pubkey`                                                                                                                    |
+| 40            | 32              | owner                                     | `Pubkey`                                                                                                                    |
+| 72            | 8               | lamports                                  | `u64` (little-endian)                                                                                                       |
+| 80            | 8               | data_len                                  | `u64` (little-endian)                                                                                                       |
+| 88            | data_len        | data                                      | `[u8]`                                                                                                                      |
+| 88 + data_len | 10240 + padding | realloc space + alignment                 | Được điền bằng số không đến `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + padding để căn chỉnh theo `BPF_ALIGN_OF_U128` (8 byte) |
+| ...           | 8               | rent_epoch                                | `u64` (little-endian)                                                                                                       |
+
+Sau tất cả các tài khoản, bộ đệm sẽ thêm vào:
+
+| Kích thước           | Trường                                      |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+Đối với các tài khoản trùng lặp, chỉ có 1 byte (dấu hiệu trùng lặp với chỉ mục
+của tài khoản gốc) cộng với 7 byte padding được ghi.
+
+## Loại bỏ trùng lặp tài khoản
+
+Khi cùng một khóa công khai của tài khoản xuất hiện nhiều lần trong mảng
+`accounts` của một instruction, runtime sẽ
+[loại bỏ trùng lặp](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)
+chúng. Mỗi mục trong danh sách tài khoản của instruction có struct
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+riêng, nhưng các mục tham chiếu đến cùng một tài khoản cấp giao dịch sẽ trỏ đến
+cùng một dữ liệu cơ bản.
+
+Phương thức
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+xác định liệu một chỉ mục tài khoản instruction nhất định có phải là lần xuất
+hiện đầu tiên hay là bản sao bằng cách tra cứu chỉ mục tài khoản cấp giao dịch
+và tìm chỉ mục cấp instruction đầu tiên ánh xạ đến nó:
+
+- Nếu chỉ mục tài khoản instruction hiện tại bằng với chỉ mục ánh xạ đầu tiên,
+  nó **không phải** là bản sao (trả về `None`).
+- Ngược lại, nó trả về `Some(first_index)`, trong đó `first_index` là chỉ mục
+  của lần xuất hiện đầu tiên.
+
+Bởi vì tất cả các tham chiếu đến cùng một tài khoản chia sẻ cùng một
+_rs`AccountSharedData`_ cơ bản, các thay đổi thông qua bất kỳ tham chiếu nào đều
+ngay lập tức hiển thị thông qua tất cả các tham chiếu khác. Tuy nhiên, chỉ có
+thể giữ một mượn có thể thay đổi tại một thời điểm. Cố gắng mượn cùng một tài
+khoản có thể thay đổi thông qua hai chỉ mục tài khoản instruction khác nhau đồng
+thời sẽ trả về _rs`InstructionError::AccountBorrowFailed`_. Các chương trình
+phải thả một mượn trước khi lấy một mượn khác trên cùng một tài khoản cơ bản.
+
+Sau khi chương trình thực thi, runtime sẽ giải tuần tự hóa bộ đệm trở lại
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+và áp dụng mọi thay đổi cho `lamports`, `data` (bao gồm thay đổi độ dài lên đến
+_rs`MAX_PERMITTED_DATA_INCREASE`_), và `owner`.

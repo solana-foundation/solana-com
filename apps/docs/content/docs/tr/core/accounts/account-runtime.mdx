@@ -1,0 +1,139 @@
+---
+title: Hesap çalışma zamanı
+description:
+  Solana çalışma zamanının hesapları yürütmeden önce nasıl yüklediği ve
+  doğruladığı ile hesap verilerini programlara aktarmak için kullanılan
+  serileştirme formatı.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Özet">
+  Yürütmeden önce, çalışma zamanı hesapları yükler, ücret ödeyiciyi doğrular,
+  kira muafiyetini kontrol eder ve hesap verilerini programların erişebileceği
+  bir bellek düzenine serileştirir.
+</Callout>
+
+<Callout>
+  Bu sayfa çalışma zamanı iç yapısını kapsar. Çoğu geliştirici program
+  oluşturmak için bu bilgiye ihtiyaç duymaz. Geliştirici odaklı görünüm için
+  [Hesap Yapısı](/docs/core/accounts/account-structure) sayfasına bakın.
+</Callout>
+
+## Hesap yükleme
+
+Bir işlem yürütülmeden önce, çalışma zamanı tüm referans verilen hesapları
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519)
+aracılığıyla yükler. Bu süreç birkaç doğrulama gerçekleştirir:
+
+1. **Ücret ödeyici doğrulaması**: Ücret ödeyici (ilk hesap) mevcut olmalı, bir
+   sistem hesabı veya nonce hesabı olmalı ve ücretleri karşılamak için yeterli
+   lamport'a sahip olmalıdır
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   Ücretleri ödedikten sonra, hesap ya kira muafiyetini korumalı ya da tam
+   olarak 0 lamport'a düşmelidir. 0 ile kira muafiyeti minimumu arasında
+   kalamaz. Nonce hesapları her zaman kira muafiyetini korumak için yeterli
+   lamport'u tutmalıdır. Ödeyici ne bir sistem hesabı ne de bir nonce hesabı
+   ise, işlem _rs`TransactionError::InvalidAccountForFee`_ ile başarısız olur.
+
+2. **Yüklenen veri boyutu sınırı**: Yüklenen tüm hesapların toplam boyutu (hesap
+   başına
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   64 bayt dahil)
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   değerini (64 MiB) aşmamalıdır. Bu sınırın aşılması
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_ üretir.
+
+3. **Program hesabı doğrulaması**: Bir talimat tarafından çağrılan her program
+   mevcut olmalı ve geçerli bir yükleyiciye ait olmalıdır:
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) veya
+   native loader'dan biri. Program hesabı mevcut değilse, işlem
+   _rs`TransactionError::ProgramAccountNotFound`_ ile başarısız olur. Mevcut
+   ancak geçersiz bir sahibi varsa, işlem
+   _rs`TransactionError::InvalidProgramForExecution`_ ile başarısız olur.
+
+4. **Var olmayan hesaplar**: Zincir üzerinde bulunmayan hesaplar, `rent_epoch`
+   değeri `u64::MAX` olarak ayarlanmış varsayılan hesaplar (0 lamport, boş veri,
+   sistem programına ait) olarak yüklenir.
+
+## BPF serileştirme formatı
+
+Bir program çağrıldığında, çalışma zamanı hesapları bitişik bir bellek
+arabelleğine serileştirir ve BPF VM'ye iletir. Serileştirme formatı (kullanımdan
+kaldırılan loader-v1 hariç tüm yükleyiciler tarafından kullanılan standart
+hizalanmış format için)
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578)
+içinde tanımlanmıştır.
+
+Arabellek, hesap sayısını içeren bir `u64` (8 bayt, little-endian) ile başlar.
+Ardından, talimattaki her hesap için arabellek şunları içerir:
+
+| Ofset         | Boyut         | Alan                                      | Tür                                                                                                                    |
+| ------------- | ------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 0             | 1             | tekrar işaretleyici                       | `u8` (`0xFF` = benzersiz, indeks = o hesabın kopyası)                                                                  |
+| 1             | 1             | is_signer                                 | `u8` (0 veya 1)                                                                                                        |
+| 2             | 1             | is_writable                               | `u8` (0 veya 1)                                                                                                        |
+| 3             | 1             | executable                                | `u8` (0 veya 1)                                                                                                        |
+| 4             | 4             | original_data_len (ayrılmış, her zaman 0) | `[0u8; 4]`                                                                                                             |
+| 8             | 32            | key                                       | `Pubkey`                                                                                                               |
+| 40            | 32            | owner                                     | `Pubkey`                                                                                                               |
+| 72            | 8             | lamports                                  | `u64` (little-endian)                                                                                                  |
+| 80            | 8             | data_len                                  | `u64` (little-endian)                                                                                                  |
+| 88            | data_len      | data                                      | `[u8]`                                                                                                                 |
+| 88 + data_len | 10240 + dolgu | realloc alanı + hizalama                  | `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + `BPF_ALIGN_OF_U128` (8 bayt) hizalaması için dolgu ile sıfırlarla doldurulmuş |
+| ...           | 8             | rent_epoch                                | `u64` (little-endian)                                                                                                  |
+
+Tüm hesaplardan sonra, tampon şunları ekler:
+
+| Boyut                | Alan                                        |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+Yinelenen hesaplar için, yalnızca 1 bayt (orijinalin indeksini içeren yineleme
+işaretleyicisi) artı 7 bayt dolgu yazılır.
+
+## Hesap tekilleştirme
+
+Aynı hesap genel anahtarı bir talimatın `accounts` dizisinde birden fazla kez
+göründüğünde, çalışma zamanı bunları
+[tekilleştirir](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623).
+Talimatın hesap listesindeki her giriş kendi
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75)
+yapısına sahiptir, ancak aynı işlem düzeyindeki hesaba atıfta bulunan girişler
+aynı temel verilere işaret eder.
+
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+metodu, belirli bir talimat hesap indeksinin ilk oluşum mu yoksa yineleme mi
+olduğunu, işlem düzeyindeki hesap indeksini arayarak ve ona eşlenen ilk talimat
+düzeyindeki indeksi bularak belirler:
+
+- Mevcut talimat hesap indeksi, ilk eşlenen indekse eşitse, bu bir yineleme
+  **değildir** (`None` döndürür).
+- Aksi takdirde, `Some(first_index)` döndürür; burada `first_index`, ilk
+  oluşumun indeksidir.
+
+Aynı hesaba yapılan tüm referanslar aynı temel _rs`AccountSharedData`_'i
+paylaştığından, herhangi bir referans aracılığıyla yapılan değişiklikler diğer
+tüm referanslar aracılığıyla anında görünür. Ancak, aynı anda yalnızca bir
+değiştirilebilir ödünç alma tutulabilir. Aynı hesabı iki farklı talimat hesap
+indeksi aracılığıyla eşzamanlı olarak değiştirilebilir şekilde ödünç almaya
+çalışmak _rs`InstructionError::AccountBorrowFailed`_ döndürür. Programlar, aynı
+temel hesapta başka bir ödünç alma işlemi yapmadan önce bir ödünç almayı
+bırakmalıdır.
+
+Program çalıştırıldıktan sonra, çalışma zamanı tamponu geri serileştirir
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+ve `lamports`, `data` (uzunluk değişiklikleri dahil,
+_rs`MAX_PERMITTED_DATA_INCREASE`_'e kadar) ve `owner`'deki tüm değişiklikleri
+uygular.

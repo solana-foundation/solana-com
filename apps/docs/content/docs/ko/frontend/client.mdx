@@ -1,0 +1,115 @@
+---
+title: "@solana/client"
+description:
+  헤드리스 Solana 클라이언트 런타임으로 가벼운 Solana 프론트엔드를 구축하세요.
+---
+
+`@solana/client`는 런타임 표면을 가볍게 유지합니다. 하나의 스토어, 하나의 RPC
+스택, 그리고 지갑 레지스트리가 다양한 헬퍼를 지원하므로 동일한 인스턴스가 CLI,
+스크립트 또는 전체 UI를 지원할 수 있습니다. 액션, 워처, 헬퍼는 모두 단일
+클라이언트를 통해 캐시, 구독, 지갑 세션을 공유합니다.
+
+<Callout type="info">
+  순수한 React 환경을 구축하는 경우
+  [`@solana/react-hooks`](/docs/frontend/react-hooks)로 시작하는 것이 일반적으로
+  더 빠릅니다. 훅 패키지는 동일한 클라이언트 런타임을 래핑하고 즉시 사용 가능한
+  훅을 제공하므로 추가 제어가 필요할 때만 헤드리스 클라이언트를 사용하면 됩니다.
+</Callout>
+
+## 설치
+
+```terminal
+$ npm install @solana/client
+```
+
+모든 패키지 매니저를 사용할 수 있습니다. 클라이언트는 브라우저, 워커, React,
+Svelte 또는 서버 사이드 런타임에서 실행됩니다.
+
+## 클라이언트를 한 번만 생성
+
+Wallet Standard 커넥터를 선택한 다음(자동 검색이 시작하는 가장 빠른 방법입니다)
+클라이언트를 생성합니다. 이 단일 객체는 스토어, 액션, 워처, 헬퍼를 노출합니다.
+
+```ts
+import { autoDiscover, createClient } from "@solana/client";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+await client.actions.connectWallet("wallet-standard:phantom");
+const balance = await client.actions.fetchBalance("Fke...address");
+console.log(balance.lamports?.toString());
+```
+
+클라이언트 스토어는 클러스터 구성, 구독, 대기 중인 트랜잭션, 지갑 세션을
+추적합니다. 지속성이나 다중 탭 조정이 필요한 경우 자체 Zustand 스토어를 제공할
+수 있습니다.
+
+## 지갑 오케스트레이션
+
+커넥터는 Wallet Standard 메타데이터와 연결/연결 해제 로직을 캡슐화합니다. 내장된
+`phantom()`, `solflare()`, `backpack()` 또는 `autoDiscover()` 헬퍼를 등록하거나
+`createWalletStandardConnector`로 커스텀 프로바이더를 래핑하세요. 모든 지갑
+액션(연결, 연결 해제, 서명, 전송)은 클라이언트 레지스트리를 통해 흐르므로 모든
+소비자가 동기화 상태를 유지합니다.
+
+## 액션, 워처, 헬퍼
+
+- **액션**은 스토어를 업데이트하면서 일반적인 RPC 읽기 및 쓰기를 래핑합니다(예:
+  `fetchAccount`, `requestAirdrop`, `setCluster`).
+- **워처**는 웹소켓 구독을 다중화하고, 업데이트를 스토어로 스트리밍하며, 정리를
+  위한 중단 핸들을 제공합니다.
+- **헬퍼**는 SOL 전송, SPL 토큰 헬퍼, 서명 폴링, 트랜잭션 풀과 같은 상위 수준
+  플로우를 노출합니다.
+
+```ts
+const abortWatcher = client.watchers.watchBalance(
+  { address: "Fke...address" },
+  (lamports) => {
+    console.log("live balance", lamports.toString());
+  }
+);
+
+// Later when the component unmounts or the flow ends
+abortWatcher.abort();
+```
+
+## 트랜잭션 헬퍼 패턴
+
+트랜잭션 헬퍼는 블록해시 갱신, 수수료 지불자 확인, 서명을 담당합니다. 원하는
+UX로 준비, 검사, 전송할 수 있습니다.
+
+```ts
+const prepared = await client.helpers.transaction.prepare({
+  authority: client.store.getState().wallet.session!,
+  instructions: [instructionA, instructionB]
+});
+
+await client.helpers.transaction.simulate(prepared, {
+  commitment: "processed"
+});
+const signature = await client.helpers.transaction.send(prepared);
+console.log("submitted", signature.toString());
+```
+
+`prepareAndSend`를 사용하여 사전 구축된 플로우(시뮬레이션 및 로깅)를 실행하거나,
+`sign` / `toWire`를 호출하여 와이어 포맷을 직접 릴레이하기 전에 수동으로 서명을
+수집할 수 있습니다.
+
+## Solana 개발자를 위한 일반적인 패턴
+
+- **헤드리스 상태 머신**: API 라우트, 스크립트 또는 워커 내에서 클라이언트를
+  실행하여 UI를 구동하는 동일한 지갑 + RPC 오케스트레이션 로직을 재사용합니다.
+- **실시간 대시보드**: 워처(잔액, 계정, 서명)를 선호하는 UI 라이브러리와
+  결합합니다. 클라이언트가 웹소켓 팬아웃과 캐시 무효화를 처리합니다.
+- **커스텀 스토어**: 자체 Zustand 스토어를 주입하여 IndexedDB/localStorage에서
+  하이드레이트하거나, 서버 세션에 상태를 미러링하거나, 브라우저 탭 간에 조정할
+  수 있습니다.
+- **React 훅과의 브리지**: 동일한 런타임 위에 인체공학적 훅을 원할 때 구성된
+  클라이언트 인스턴스를 `@solana/react-hooks`에 전달합니다.
+- **테스트 가능성**: 단일 클라이언트 인터페이스는 단위 테스트에서 모킹할 수
+  있어, 브라우저 지갑 없이도 RPC 응답이나 지갑 세션을 쉽게 시뮬레이션할 수
+  있습니다.

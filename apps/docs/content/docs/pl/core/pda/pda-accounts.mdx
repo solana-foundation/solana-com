@@ -1,0 +1,201 @@
+---
+title: Konta PDA
+description:
+  Twórz konta on-chain na adresach PDA Solany, używając invoke_signed oraz
+  constraintu init w Anchorze. Przepływ weryfikacji invoke_signed i wzorce
+  tworzenia PDA w Anchorze z przykładami kodu.
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: Podpisywanie PDA przez invoke_signed, Tworzenie konta PDA */}
+
+<Callout type="info" title="Podsumowanie">
+  Twórz konta PDA za pomocą _rs`invoke_signed`_ z seedami PDA. Tylko program
+  będący właścicielem może podpisywać za PDA. Constraint _rs`init`_ w Anchorze
+  automatyzuje tworzenie kont PDA.
+</Callout>
+
+## Podpisywanie PDA przez `invoke_signed`
+
+Gdy program musi podpisać się w imieniu PDA podczas CPI, używa
+_rs`invoke_signed`_ z seedami PDA. Środowisko uruchomieniowe weryfikuje, czy
+seedy wyprowadzają oczekiwany PDA, używając **ID wywołującego programu**,
+zapewniając, że tylko program będący właścicielem może podpisać. Pełny przepływ
+weryfikacji znajdziesz w
+[PDA Signing](/docs/core/cpi/cpi-cost-model#pda-signing).
+
+## Tworzenie konta PDA
+
+Wyprowadzenie PDA i utworzenie konta na PDA to osobne operacje. Po wyprowadzeniu
+adresu musisz jawnie utworzyć konto.
+
+Aby utworzyć konto na PDA, program wyprowadzający wywołuje instrukcję System
+Programu _rs`create_account`_ przez [`invoke_signed`](/docs/core/cpi),
+przekazując seedy PDA, aby środowisko uruchomieniowe mogło zweryfikować
+uprawnienia programu do tego adresu.
+
+<WithMentions>
+
+Poniższy przykład wykorzystuje
+[framework Anchor](https://www.anchor-lang.com/docs) do utworzenia nowego konta
+z adresem wyprowadzonym przez program. Program zawiera pojedynczą instrukcję
+[`initialize`](mention:initialize) do utworzenia nowego konta, które będzie
+przechowywać [adres użytkownika](mention:user-address) oraz
+[bump seed](mention:bump) użyte do wyprowadzenia PDA.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Constraint [`init`](mention:init) informuje Anchor, aby
+[wywołał System Program](/docs/core/programs/builtin-programs#the-system-program)
+i utworzył nowe konto, używając PDA jako adresu. Użyte do tego seedy
+(mention:seeds) to:
+
+- Stały ciąg znaków: "data"
+- Adres konta użytkownika podany w instrukcji
+- Kanoniczny [bump seed](mention:bump)
+
+W tym przykładzie ograniczenie bump nie ma przypisanej wartości, więc Anchor
+użyje _rs`find_program_address`_, aby wyprowadzić PDA i znaleźć bump.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Poniższy plik testowy zawiera transakcję, która wywołuje instrukcję
+[`initialize`](mention:initialize) w celu utworzenia nowego konta z adresem
+pochodnym programu (PDA). Plik zawiera kod do [wyprowadzenia PDA](mention:pda).
+
+Przykład pokazuje również, jak [pobrać](mention:fetch) nowe konto, które
+zostanie utworzone.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  Jeśli ponownie wywołasz instrukcję `initialize` z tym samym adresem seed
+  `user`, transakcja zakończy się niepowodzeniem. Dzieje się tak, ponieważ konto
+  już istnieje pod wyprowadzonym adresem.
+</Callout>

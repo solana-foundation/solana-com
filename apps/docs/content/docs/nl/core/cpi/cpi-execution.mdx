@@ -1,0 +1,224 @@
+---
+title: CPI-uitvoering en privileges
+description:
+  Het 11-stappen CPI-uitvoeringsproces door de Solana runtime, regels voor
+  privilege-uitbreiding, reentrancy-beperkingen en geautoriseerde
+  programmacontroles.
+url: /docs/core/cpi/cpi-execution
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/cpi/cpi-cost-model
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI execution flow, Privilege rules */}
+
+<Callout type="info" title="Samenvatting">
+  CPI's doorlopen 11 runtime-stappen, waaronder privilege-controle,
+  account-vertaling en data-synchronisatie. Maximale aanroepdiepte: 5 (9 met
+  SIMD-0268). Privilege-regels voorkomen dat de aangeroepene verder escaleert
+  dan wat de aanroeper heeft toegestaan.
+</Callout>
+
+## Privilege-regels
+
+CPI's breiden de account-privileges van de aanroeper uit naar de aangeroepene
+met strikte handhaving. De runtime controleert deze regels in
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432):
+
+| Scenario                                                                                                                                          | Toegestaan? | Handhavingspunt                                                                                                             | Fout                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Aanroeper geeft account door als schrijfbaar, aangeroepene markeert als schrijfbaar                                                               | Ja          | --                                                                                                                          | --                     |
+| Aanroeper geeft account door als alleen-lezen, aangeroepene markeert als schrijfbaar                                                              | Nee         | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L388-L390) | `PrivilegeEscalation`  |
+| Aanroeper geeft account door als schrijfbaar, aangeroepene markeert als alleen-lezen                                                              | Ja          | --                                                                                                                          | --                     |
+| Aanroeper geeft account door als ondertekenaar, aangeroepene markeert als ondertekenaar                                                           | Ja          | --                                                                                                                          | --                     |
+| Aanroeper geeft account door als niet-ondertekenaar, aangeroepene markeert als ondertekenaar, account is een PDA afgeleid van seeds van aanroeper | Ja          | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | --                     |
+| Aanroeper geeft account door als niet-ondertekenaar, aangeroepene markeert als ondertekenaar, account is GEEN PDA van aanroeper                   | Nee         | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L395-L399) | `PrivilegeEscalation`  |
+| Aanroeper geeft account door als ondertekenaar, aangeroepene markeert als niet-ondertekenaar                                                      | Ja          | --                                                                                                                          | --                     |
+| Programma A roept zichzelf direct aan (A -> A)                                                                                                    | Ja          | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | --                     |
+| Programma A roept B aan, dat A aanroept (indirecte reentrancy)                                                                                    | Nee         | [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259)                   | `ReentrancyNotAllowed` |
+| CPI naar native loader, bpf_loader, bpf_loader_deprecated of precompile                                                                           | Nee         | [`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)            | `ProgramNotSupported`  |
+| Account niet gevonden in transactie                                                                                                               | Nee         | [`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L310-L321) | `MissingAccount`       |
+
+De privilege-regels kunnen als volgt worden samengevat:
+
+1. **Schrijfbaar privilege kan niet escaleren.** Als de aanroeper een account
+   als alleen-lezen markeert, kan de aangeroepene het niet als schrijfbaar
+   markeren.
+2. **Ondertekenaar privilege vereist autorisatie.** Een account kan alleen een
+   ondertekenaar zijn in de aangeroepene als (a) het al een ondertekenaar was in
+   de aanroeper, OF (b) het een PDA is afgeleid van de seeds van het aanroepende
+   programma via _rs`invoke_signed`_.
+3. **Privilege-vermindering is altijd toegestaan.** De aangeroepene mag minder
+   privileges gebruiken dan de aanroeper heeft verleend.
+
+## CPI uitvoeringsflow
+
+Een CPI passeert verschillende runtime-lagen. Deze sectie documenteert de
+volledige pipeline vanaf de programma SDK-aanroep door de syscall-grens naar de
+runtime en terug. Elke stap verwijst naar het bronbestand dat het implementeert.
+
+<Callout>
+  De maximale hoogte van de programma-instructie-aanroep wordt de
+  [`max_instruction_stack_depth`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L66)
+  genoemd en is ingesteld op de
+  [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8)
+  constante van 5. Met [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) actief, neemt dit toe tot 9.
+
+Stack-hoogte 1 is de initiële transactie-instructie. Elke CPI verhoogt de hoogte
+met 1. Een maximum van 5 betekent dat een programma CPI's tot 4 niveaus diep kan
+maken (8 niveaus diep met SIMD-0268).
+
+</Callout>
+
+### Stap 1: Programma roept `invoke` of `invoke_signed` aan
+
+Het programma roept
+[`invoke`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L26)
+of
+[`invoke_signed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/program/src/program.rs#L51)
+aan. _rs`invoke`_ is een dunne wrapper die _rs`invoke_signed`_ aanroept met een
+lege ondertekenaar seeds-array. De SDK-functie serialiseert de
+_rs`Instruction`_, _rs`AccountInfo`_ slice, en ondertekenaar seeds naar
+VM-geheugen, en triggert vervolgens de syscall.
+
+### Stap 2: Syscall-entry
+
+De SBF VM dispatcht naar de
+[`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33)
+syscall-handler, die aanroept naar het gedeelde entry point:
+[`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925).
+
+### Stap 3: Invocatiekosten verbruiken
+
+De eerste actie binnen _rs`cpi_common`_ is om
+[de vaste invocatiekosten in rekening te brengen](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)
+van de gedeelde compute meter:
+[`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108)
+= 1.000 CU's (of 946 CU's met SIMD-0339).
+
+### Stap 4: Instructie vertalen vanuit VM-geheugen
+
+De syscall handler vertaalt de instructie vanuit de adresruimte van de VM van
+het programma naar host-side Rust types via
+[`translate_instruction_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L529-L590),
+die een _rs`StableInstruction`_ struct leest, de datalengte valideert tegen
+[`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)
+(10.240 bytes), en vervolgens de
+[kosten voor dataserialisatie](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569)
+in rekening brengt.
+
+### Stap 5: Signer seeds vertalen en PDA's afleiden
+
+De handler roept
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)
+aan. Voor elke set signer seeds doet de runtime het volgende:
+
+1. Controleert het aantal signer seed sets tegen
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16).
+2. Controleert de lengte van elke seed set tegen
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16 seeds per set).
+3. Roept
+   [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   aan met de seeds en de programma-ID van de **aanroeper**. Als de seeds geen
+   geldige PDA opleveren, mislukt de CPI met
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+4. Verzamelt de resulterende PDA pubkeys in een `signers` vec.
+
+Deze afgeleide PDA's worden behandeld als geldige signers voor de callee
+instructie.
+
+### Stap 6: Geautoriseerd programma controleren
+
+Voordat wordt doorgegaan, roept de runtime
+[`check_authorized_program`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L193-L222)
+aan om te verifiëren dat het doelprogramma is toegestaan voor CPI. De volgende
+programma's zijn geblokkeerd:
+
+- De native loader
+- `bpf_loader` en `bpf_loader_deprecated`
+- `bpf_loader_upgradeable` (behalve specifieke beheerinstructies: `upgrade`,
+  `set_authority`, `set_authority_checked` (feature-gated),
+  `extend_program_checked` (feature-gated), `close`)
+- Precompile programma's (ed25519, secp256k1, etc.)
+
+Overtreding retourneert
+[`ProgramNotSupported`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L55).
+
+### Stap 7: Privilege verificatie (`prepare_next_instruction`)
+
+De runtime roept
+[`prepare_next_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L293-L432)
+aan die de _rs`InstructionAccount`_ lijst van de callee opbouwt en privilege
+regels afdwingt. Zie [Privilege regels](#privilege-rules) hieronder voor de
+volledige beslissingstabel.
+
+### Stap 8: Vertaal accountinformatie
+
+De handler roept `translate_accounts` aan die:
+
+1. [Valideert het aantal accountinformatie](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L164-L190)
+   tegen _rs`MAX_CPI_ACCOUNT_INFOS`_ (128, of 255 met SIMD-0339).
+2. [Brengt kosten voor accountinformatievertaling in rekening](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)
+   (alleen SIMD-0339): `(num_account_infos * 80) / 250` CU's.
+3. Voor elk niet-uitvoerbaar, niet-duplicaat account, bouwt een
+   [`CallerAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L228-L246)
+   door pointers te vertalen van VM-geheugen naar hostgeheugen. Dit omvat
+   [het in rekening brengen van dataserialisatiekosten per account](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374):
+   `account_data_len / cpi_bytes_per_unit` CU's.
+
+### Stap 9: Pre-CPI accountsynchronisatie (aanroeper naar aangeroepene)
+
+Voordat de aangeroepene wordt uitgevoerd, synchroniseert de runtime de
+accountwijzigingen van de aanroeper zodat de aangeroepene deze kan zien. De
+functie
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)
+wordt aangeroepen voor elk vertaald account, waarbij lamports, data en eigenaar
+worden gekopieerd. Zie
+[Accountdatasynchronisatie](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+voor de gedetailleerde veldtoewijzing.
+
+### Stap 10: Push instructiecontext, voer aangeroepene uit en pop
+
+De runtime roept
+[`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477-L488)
+aan, die:
+
+1. Roept
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233-L265)
+   aan om een nieuw frame toe te voegen aan de instructiestack. _rs`push()`_
+   handhaaft de
+   [reentrancy-regel](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L243-L259):
+   een programma mag zichzelf alleen aanroepen als het de directe aanroeper is
+   (d.w.z. programma A kan A aanroepen, maar A kan niet B aanroepen die A
+   aanroept). Overtreding retourneert _rs`ReentrancyNotAllowed`_.
+2. Roept
+   [`process_executable_chain`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507-L602)
+   aan die het toegangspunt van het aangeroepen programma oplost en aanroept. De
+   aangeroepene draait met dezelfde gedeelde compute meter. Al het CU-verbruik
+   door de aangeroepene vermindert het resterende budget van de aanroeper.
+3. Roept
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   aan om het frame van de aangeroepene te verwijderen en te verifiëren dat
+   lamport-saldi ongewijzigd zijn (_rs`UnbalancedInstruction`_ indien niet).
+
+### Stap 11: Post-CPI accountsynchronisatie (aangeroepene naar aanroeper)
+
+Nadat `process_instruction` terugkeert (wat de pop omvat), synchroniseert de
+runtime wijzigingen terug naar de aanroeper via
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)
+voor elk schrijfbaar account. Daarnaast werkt
+[`update_caller_account_region`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1217-L1252)
+VM-geheugenregiotoewijzingen bij voor accounts waarvan de dataregio's zijn
+gewijzigd. Zie
+[Accountdatasynchronisatie](/docs/core/cpi/cpi-cost-model#account-data-synchronization)
+voor de gedetailleerde veldtoewijzing.
+
+De CPI syscall retourneert `0` (succes) naar het aanroepende programma.

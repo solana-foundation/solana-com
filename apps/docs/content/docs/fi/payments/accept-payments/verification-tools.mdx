@@ -1,0 +1,235 @@
+---
+title: Vahvistustyökalut
+description: Vahvista saapuvat stablecoin-maksut ja täsmäytä ne tilauksiisi.
+---
+
+Tokenit saapuvat lompakkoosi heti, kun transaktio vahvistuu. Vastaanottajan ei
+tarvitse tehdä mitään. Solana kasvattaa atomaarisesti vastaanottajan token
+account -saldoa ja vähentää lähettäjän saldoa. Tässä oppaassa käsittelemme
+hyödyllisiä työkaluja token account -saldosi ymmärtämiseen ja saapuvien maksujen
+seuraamiseen.
+
+## Token-saldon kysely
+
+Tarkista stablecoin-saldosi käyttämällä
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) RPC-metodia:
+
+```typescript
+import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function getBalance(walletAddress: Address) {
+  // Derive the token account address
+  const [ata] = await findAssociatedTokenPda({
+    mint: USDC_MINT,
+    owner: walletAddress,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Query balance via RPC
+  const { value } = await rpc.getTokenAccountBalance(ata).send();
+
+  return {
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
+  };
+}
+```
+
+## Saapuvien siirtojen seuraaminen
+
+Tilaa token account -tilauksen reaaliaikaiset maksuilmoitukset käyttämällä
+`accountNotifications` RPC-metodia:
+
+```typescript
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
+  const abortController = new AbortController();
+
+  const subscription = await rpcSubscriptions
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
+    .subscribe({ abortSignal: abortController.signal });
+
+  let previousBalance = 0n;
+
+  for await (const notification of subscription) {
+    const [data] = notification.value.data;
+    const dataBytes = getBase64Codec().encode(data);
+    const token = getTokenCodec().decode(dataBytes);
+    if (token.amount > previousBalance) {
+      const received = token.amount - previousBalance;
+      onPayment(received);
+    }
+    previousBalance = token.amount;
+  }
+  abortController.abort();
+}
+```
+
+Huomaa, että käytämme tässä RPC-tilauksia ja websocket-yhteyttä Solana-verkkoon.
+
+Jokainen ilmoitus sisältää base64-koodatun merkkijonon token account -datasta.
+Koska tiedämme, että tarkasteltu tili on token account, voimme purkaa datan
+käyttämällä `getTokenCodec` -metodia `@solana-program/token` -paketista.
+
+Huomaa, että tuotantosovelluksissa kannattaa harkita robustimpaa
+striimausratkaisua. Vaihtoehtoja ovat muun muassa:
+
+- [Alchemy](https://docs.alchemy.com/reference/subscription-api)
+- [Triton](https://docs.triton.one/chains/solana/streaming)
+- [Helius](https://www.helius.dev/docs/data-streaming)
+- [QuickNode](https://www.quicknode.com/docs/solana/subscriptions)
+
+## Transaktiohistorian jäsentäminen
+
+Solanassa on RPC-metodit, joiden avulla voit hakea tilin transaktiohistorian
+([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) ja saada
+transaktion tiedot ([`getTransaction`](/docs/rpc/http/gettransaction)).
+Transaktiohistorian jäsentämiseksi haemme viimeisimmät allekirjoitukset token
+account -tilillemme ja noudamme sitten kunkin transaktion token-saldot ennen ja
+jälkeen. Vertaamalla ATA:mme saldoa ennen ja jälkeen kunkin transaktion voimme
+määrittää maksun määrän ja suunnan (saapuva vs. lähtevä).
+
+```typescript
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
+  const payments: ParsedPayment[] = [];
+
+  for (const sig of signatures) {
+    const tx = await rpc
+      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+      .send();
+
+    if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
+
+    // Find our ATA's index in the transaction
+    const accountKeys = tx.transaction.message.accountKeys;
+    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    if (ataIndex === -1) continue;
+
+    // Compare pre/post balances for our ATA
+    const pre = tx.meta.preTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+    const post = tx.meta.postTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+
+    const preAmount = BigInt(pre?.uiTokenAmount.amount ?? "0");
+    const postAmount = BigInt(post?.uiTokenAmount.amount ?? "0");
+    const diff = postAmount - preAmount;
+
+    if (diff !== 0n) {
+      payments.push({
+        signature: sig.signature,
+        timestamp: tx.blockTime,
+        amount: diff > 0n ? diff : -diff,
+        type: diff > 0n ? "incoming" : "outgoing"
+      });
+    }
+  }
+
+  return payments;
+}
+```
+
+Vastapuolen tunnistamiseksi voit skannata tapahtuman token-saldot toisen tilin
+osalta, jonka saldo muuttui vastakkaiseen suuntaan – jos sait varoja, etsi
+tiliä, jonka saldo väheni samalla määrällä.
+
+Koska SPL-token-siirrot voivat olla muutakin kuin vain maksuja käyttäjien
+välillä, tämä lähestymistapa saattaa tuottaa joitakin tapahtumia, jotka eivät
+ole maksuja. Hyvä vaihtoehto tässä on käyttää muistioita.
+
+### Esi-/jälkisaldon jäsentämisen rajoitukset
+
+Yllä oleva lähestymistapa toimii hyvin yksinkertaisissa maksuvirroissa.
+Kuitenkin yritykset, jotka käsittelevät maksuja laajassa mittakaavassa,
+tarvitsevat usein yksityiskohtaisempaa ja reaaliaikaisempaa dataa:
+
+- **Ohjekohtainen erittely:** Yksittäinen tapahtuma voi sisältää useita
+  siirtoja. Esi-/jälkisaldot näyttävät vain nettomuutoksen, eivät yksittäisiä
+  siirtoja.
+- **Moniosapuolitapahtumat:** Monimutkaiset tapahtumat (vaihdot, eräsiirrot)
+  koskevat useita tilejä. Saldoerot eivät paljasta varojen täydellistä kulkua.
+- **Tarkastusvaatimukset:** Taloudellinen vaatimustenmukaisuus edellyttää usein
+  tarkkojen siirtosekvenssien rekonstruointia, ei vain loppusaldoja.
+
+Suuria määriä käsitteleville tuotantojärjestelmille harkitse omistettuja
+[indeksointiratkaisuja](/docs/payments/accept-payments/indexing), jotka
+jäsentävät yksittäisiä siirto-ohjeita ja tarjoavat tapahtumatason
+yksityiskohdat.
+
+## Täsmäytä maksut muistioiden avulla
+
+Kun lähettäjät sisällyttävät muistioita (laskutunnukset, tilausnumerot), voit
+poimia ne tapahtuman viestistä käyttämällä `getTransaction` RPC-metodia ja
+`jsonParsed` -koodausta:
+
+```typescript
+function extractMemos(transaction): string | null {
+  const { instructions } = transaction.transaction.message;
+  let memos = "";
+  for (const instruction of instructions) {
+    if (instruction.program !== "spl-memo") continue;
+    memos += instruction.parsed + "; ";
+  }
+  return memos;
+}
+
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
+  const tx = await rpc
+    .getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      encoding: "jsonParsed"
+    })
+    .send();
+  if (!tx) return null;
+  return extractMemos(tx);
+}
+```
+
+## Suojaukset
+
+Muutamia vältettäviä vikatiloja:
+
+- **Käyttöliittymään luottaminen.** Kassasivu sanoo "maksu suoritettu" – mutta
+  saapuiko tapahtuma todella perille? Varmista aina palvelinpuolella kyselemällä
+  RPC:ltä. Käyttöliittymän vahvistukset voidaan väärentää.
+
+- **Toimiminen "processed"-tilan perusteella.** Solana-tapahtumat käyvät läpi
+  kolme vaihetta: processed → confirmed → finalized. "Processed"-tapahtuma
+  voidaan vielä hylätä haarautumisten aikana. Odota "confirmed" (1–2 sekuntia)
+  ennen tilausten lähettämistä tai "finalized" (~13 sekuntia) arvokkaiden
+  tapahtumien osalta.
+
+- **Mintin huomiotta jättäminen.** Kuka tahansa voi luoda tokenin nimeltä
+  "USDC". Varmista, että token accountin mint vastaa oikean stablecoinin
+  mint-osoitetta ja token-ohjelmaa, ei pelkästään tokenin nimeä.
+
+- **Kaksinkertainen täyttäminen.** Webhookisi laukeaa, lähetät tilauksen.
+  Verkkohäiriö, webhook laukeaa uudelleen. Nyt olet lähettänyt kahdesti.
+  Tallenna käsitellyt transaktioallekirjoitukset ja tarkista ennen täyttämistä.

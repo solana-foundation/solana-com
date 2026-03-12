@@ -7,8 +7,9 @@ import VideoDialog from "@/components/ui/VideoDialog";
 import { NextIntlClientProvider } from "next-intl";
 import { getLangDir } from "rtl-detect";
 import { Header, Footer, ThemeProvider } from "@solana-com/ui-chrome";
+import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { LayoutProvider } from "@/components/layout/layout-context";
-import client from "@/tina/__generated__/client";
+import { reader } from "@/lib/reader";
 import { staticLocales } from "@workspace/i18n/config";
 import { GTMTrackingSnippet } from "@/components/GTMTrackingSnippet";
 import { CookieConsent } from "@/components/CookieConsent/CookieConsent";
@@ -131,10 +132,10 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  const { siteMetadata, siteUrl, siteIcon, social } = config;
+  const { siteMetadata, publicUrl, siteIcon, social } = config;
 
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(publicUrl),
     title: {
       default: siteMetadata.title,
       template: `%s | ${siteMetadata.title}`,
@@ -147,7 +148,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       type: "website",
       locale,
-      url: siteUrl,
+      url: publicUrl,
       siteName: siteMetadata.title,
       title: siteMetadata.title,
       description: siteMetadata.shortDescription,
@@ -171,7 +172,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     icons: {
       icon: siteIcon,
       shortcut: siteIcon,
-      apple: siteIcon,
+      apple: appleTouchIcon.src,
     },
     robots: {
       index: true,
@@ -185,7 +186,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     },
     alternates: {
-      canonical: siteUrl,
+      canonical: publicUrl,
     },
   };
 }
@@ -201,18 +202,17 @@ export default async function LocaleLayout({ children, params }: Props) {
   );
 
   // Fetch global data for LayoutProvider
-  const { data: globalData } = await client.queries.global(
-    {
-      relativePath: "index.json",
-    },
-    {
-      fetchOptions: {
-        next: {
-          revalidate: 60,
-        },
-      },
-    }
-  );
+  const globalSettings = await reader.singletons.global.read();
+  const globalData = {
+    global: globalSettings
+      ? {
+          theme: {
+            color: globalSettings.theme?.color || null,
+            darkMode: globalSettings.theme?.darkMode || "system",
+          },
+        }
+      : null,
+  };
 
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
 

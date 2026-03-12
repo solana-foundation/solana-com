@@ -1,0 +1,196 @@
+---
+title: トランザクション手数料
+description: Solanaのトランザクション手数料について学びます。基本手数料と優先手数料、それぞれの適用方法、トランザクションにおける計算ユニット管理のベストプラクティスを解説します。
+---
+
+すべてのSolanaトランザクションには、SOLで支払われるトランザクション手数料が必要です。トランザクション手数料は、基本手数料と優先手数料の2つの部分に分かれています。基本手数料は、トランザクションを処理するバリデータへの報酬です。優先手数料は任意の手数料で、現在のリーダーがあなたのトランザクションを処理する可能性を高めるためのものです。
+
+## 基本手数料
+
+すべてのトランザクションは、含まれる署名ごとに5000[lamports](/docs/references/terminology#lamport)のコストがかかります。この手数料は、トランザクションの最初の署名者によって支払われます。System
+Programが所有するアカウントのみがトランザクション手数料を支払うことができます。基本手数料は次のように分配されます。
+
+- **50%バーン:**
+  半分は[バーン](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/fee-calculator/src/lib.rs#L70)(流通しているSOL供給量から除外)されます。
+- **50%分配:**
+  半分は、トランザクションを処理した[バリデータに支払われます](https://github.com/anza-xyz/agave/blob/e621336acad4f5d6e5b860eaa1b074b01c99253c/runtime/src/bank/fee_distribution.rs#L58-L62)。
+
+## 優先手数料
+
+[優先手数料](https://github.com/anza-xyz/agave/blob/v2.2.14/compute-budget/src/compute_budget_limits.rs#L47-L48)は、現在のリーダー(validator)があなたのトランザクションを処理する可能性を高めるための任意の手数料です。validatorは[優先手数料の100%を受け取ります](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md)。優先手数料は、トランザクションの[計算ユニット](/docs/references/terminology#compute-units)(CU)価格とCU制限を調整することで設定できます。(優先手数料の詳細については、[優先手数料の使用方法ガイド](/developers/guides/advanced/how-to-use-priority-fees)を参照してください。)
+
+優先手数料は次のように計算されます。
+
+```text title="Prioritization fee formula"
+Prioritization fee = CU limit * CU price
+```
+
+優先手数料は、他のトランザクションと比較して、[トランザクションの優先度](https://github.com/anza-xyz/agave/blob/v2.2.14/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L646)を決定するために使用されます。次の式を使用して計算されます。
+
+```text title="Transaction priority formula"
+Priority = (Prioritization fee + Base fee) / (1 + CU limit + Signature CUs + Write lock CUs)
+```
+
+#### 計算ユニット制限
+
+[デフォルト](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget.rs#L149-L197)では、各命令には[200,000 CU](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget_limits.rs#L10)が割り当てられ、各トランザクションには[140万CU](https://github.com/anza-xyz/agave/blob/v2.1.13/compute-budget/src/compute_budget_limits.rs#L14)が割り当てられます。トランザクションに[`SetComputeUnitLimit`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/compute_budget.rs#L42-L44)命令を含めることで、これらのデフォルト値を変更できます。
+
+トランザクションに適切なCU制限を計算するには、以下の手順を推奨します。
+
+1. トランザクションを[シミュレート](/developers/guides/advanced/how-to-request-optimal-compute)して、必要なCUユニットを見積もる
+2. この見積もりに10%の安全マージンを追加する
+
+<Callout type="warn">
+  優先手数料は、トランザクションで要求されたコンピュートユニット制限によって決定され、実際に使用されたコンピュートユニット数では*ありません*。コンピュートユニット制限を高く設定しすぎたり、デフォルト量を使用したりすると、未使用のコンピュートユニットに対して料金を支払う可能性があります。
+</Callout>
+
+#### コンピュートユニット価格
+
+コンピュートユニット価格は、要求された各CUに対して支払われる[マイクロlamport](/docs/references/terminology#micro-lamports)のオプション金額です。CU価格は、バリデーターにトランザクションを優先するよう促すチップと考えることができます。CU価格を設定するには、トランザクションに[`SetComputeUnitPrice`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/compute_budget.rs#L48-L50)命令を含めます。
+
+<Callout>デフォルトのCU価格は0であり、デフォルトの優先手数料も0です。</Callout>
+
+トランザクションに最適なCU価格を決定するには、以下の表に記載されているリアルタイムのCU価格推奨を参照してください。
+
+| プロバイダー                            | 優先手数料API                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------------- |
+| [Helius](https://www.helius.dev/)       | [ドキュメント](https://docs.helius.dev/solana-apis/priority-fee-api)             |
+| [QuickNode](https://www.quicknode.com/) | [ドキュメント](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
+| [Triton](https://triton.one/)           | [ドキュメント](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
+
+#### 例
+
+以下の例は、Solana
+SDKを使用してトランザクションにCU制限とCU価格を設定する方法を示しています。
+
+| SDK                            | ソースコードリファレンス                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218) |
+| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/compute_budget.rs#L17-L31)                 |
+
+<CodeTabs storage="compute-budget">
+
+```ts !! title="Typescript"
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+```
+
+```rust !! title="Rust"
+let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+
+let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+```
+
+</CodeTabs>
+
+<CodeTabs storage="compute-budget" flags="r">
+
+```ts !! title="Typescript"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection,
+  ComputeBudgetProgram,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+const airdropSignature = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Create compute budget instructions
+const limitInstruction = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 300_000
+});
+const priceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 0.01 * LAMPORTS_PER_SOL
+});
+
+// Add the compute budget and transfer instructions to a new transaction
+const transaction = new Transaction()
+  .add(limitInstruction)
+  .add(priceInstruction)
+  .add(transferInstruction);
+
+const signature = await sendAndConfirmTransaction(connection, transaction, [
+  sender
+]);
+
+console.log("Transaction Signature:", signature);
+```
+
+```rust !! title="Rust"
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&sender.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Create compute budget instructions
+    let limit_instruction = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+    let price_instruction = ComputeBudgetInstruction::set_compute_unit_price(1);
+
+    let transfer_amount = LAMPORTS_PER_SOL / 100;
+    let transfer_instruction = transfer(&sender.pubkey(), &recipient.pubkey(), transfer_amount);
+
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    let mut transaction = Transaction::new_with_payer(
+        &[limit_instruction, price_instruction, transfer_instruction],
+        Some(&sender.pubkey()),
+    );
+    transaction.sign(&[&sender], recent_blockhash);
+
+    let signature = client.send_and_confirm_transaction(&transaction).await?;
+    println!("Transaction Signature: {}", signature);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

@@ -1,0 +1,149 @@
+---
+title: プログラムの実行
+description:
+  Solanaがプログラムをコンパイルして実行する方法。sBPF
+  VM、コンピュートユニットモデル、プログラムキャッシュ、システムコールについて説明します。
+url: /docs/core/programs/program-execution
+type: conceptual
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/programs/syscall-reference
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/program-deployment
+  - /docs/core/cpi/cpi-execution
+---
+
+{/* TOC: Compilation, Write programs, Program execution model, Program cache, Syscalls */}
+
+<Callout type="info" title="概要">
+  プログラムはLLVMを介してsBPFにコンパイルされ、トランザクションあたり1.4M
+  CUの予算を持つサンドボックス化されたVM内で実行されます。ランタイムは最大512個のコンパイル済みプログラムをキャッシュし、ログ記録、CPI、暗号化、メモリ用のシステムコールを提供し、新しいデプロイメントを1
+  slot遅延させます。
+</Callout>
+
+## コンパイル
+
+Solanaは[LLVM](https://llvm.org/)を使用して、プログラムをSolana Bytecode
+Format(sBPF)を含む[ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)バイナリにコンパイルします。ELFバイナリは実行可能なアカウント内にオンチェーンで保存されます。
+
+<Callout>
+  sBPFはSolanaランタイム向けにカスタマイズされた[eBPF](https://en.wikipedia.org/wiki/EBPF)バイトコードのSolana独自のバリアントです。標準のeBPFではなく、Solana固有の変更が加えられています。
+</Callout>
+
+## プログラムの記述
+
+Solanaプログラムは主に[Rust](https://rust-book.cs.brown.edu/title-page.html)を使用して、2つのアプローチのいずれかで記述されます。
+
+<Cards>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs">
+    Rustマクロを使用してボイラープレートを削減するフレームワーク。ほとんどの開発者に推奨されます。
+  </Card>
+  <Card title="ネイティブRust" href="/docs/programs/rust">
+    フレームワークを使用しない直接的なRust。完全な制御を提供しますが、より多くの手動実装が必要です。
+  </Card>
+</Cards>
+
+## プログラム実行モデル
+
+トランザクションが処理されると、ランタイムは[`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)を通じて各命令を順次実行します。各命令について、ランタイムは次のことを行います。
+
+1. **命令コンテキストを準備します。**
+   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)を呼び出して、命令のアカウントインデックスをマッピングし、署名者フラグと書き込み可能フラグを設定し、[`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467)を構成します。
+
+2. **プリコンパイルをチェックします。**
+   プログラムが[プリコンパイル](/docs/core/programs/precompiles)の場合、ランタイムは[`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491)を呼び出します。これは依然としてスタックフレームをプッシュおよびポップします(*rs`push()`*と*rs`pop()`*を介して)が、sBPF
+   VMとプログラムキャッシュのルックアップをバイパスし、ネイティブコードを直接実行します。
+
+3. **スタックフレームをプッシュします。**(ステップ3〜6は
+   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
+   および
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   内で実行され、*rs`process_message()`*から呼び出されます。)
+   [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184)
+   上で
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
+   を呼び出し、命令スタックの高さをインクリメントし、再入規則を強制します。プログラムは、**直接の**呼び出し元(命令スタックの現在のトップにあるプログラム)が同じプログラムである場合にのみ、自身に再入できます。深い自己再帰(A
+   -> A ->
+   A)は、スタック深度の制限に従って許可されます。その他の再入パターン(例:AがBを呼び出し、BがAを呼び出す)は
+   *rs`InstructionError::ReentrancyNotAllowed`*を返します。
+
+4. **プログラムを解決します。**ランタイムは
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   を呼び出し、ローダーを決定します。program accountの所有者が
+   [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517)
+   である場合、プログラムはビルトインであり、そのエントリーポイント関数は
+   [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706)
+   から直接検索されます。所有者がBPFローダーのいずれか(`bpf_loader_deprecated`、
+   `bpf_loader`、`bpf_loader_upgradeable`、または`loader_v4`)である場合、代わりにローダー自身のビルトインエントリーポイントが呼び出されます。
+
+5. **BPFプログラムを実行します。**BPFプログラムの場合、
+   [loader entrypoint](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+   はプログラムキャッシュからコンパイル済み実行可能ファイルを検索します。
+   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)
+   関数は次の処理を行います:
+   - アカウントデータをフラットなパラメータバッファにシリアライズ
+   - スタック、ヒープ、メモリ領域を持つsBPF VMを作成
+   - コンパイル済みコードを実行し、実行中にコンピュートユニットを消費します。予算を超えた場合は
+     *rs`ComputationalBudgetExceeded`*を返します。
+   - バッファからアカウントデータをデシリアライズし、アカウント状態に戻します
+
+6. **スタックフレームをポップします。**
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)
+   を呼び出し、命令がランタイムの会計規則に違反していないことを検証します(lamport残高がバランスしている、読み取り専用アカウントが変更されていない、アカウントデータサイズが制限内である)。
+
+7. **コンピュートユニットを累積します。**命令によって消費されたコンピュートユニットは、
+   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53)
+   を介してトランザクション合計に追加されます。
+
+## プログラムキャッシュ
+
+ランタイムは、検証済みおよびコンパイル済みプログラムを格納するグローバルな
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)
+を保持します。これはフォークグラフを認識し、デプロイメントの可視性ルール、削除、およびエポック境界での再コンパイルを処理します。
+
+### キャッシュエントリタイプ
+
+キャッシュされた各プログラムには、ランタイムの動作を決定する
+[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132)
+があります。
+
+| タイプ                                                                                                            | 説明                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | 検証済みおよびコンパイル済みプログラムで、実行準備が完了しています。                                                                                                                                                                                                                                              |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | validatorバイナリにコンパイルされたネイティブプログラム(System、Stake、Voteなど)。オンチェーンには保存されません。                                                                                                                                                                                                |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | 以前に検証されたプログラムで、コンパイル済み実行可能ファイルがメモリから削除されてスペースを解放したもの。使用統計は引き続き追跡されます。再検証なしで再ロード可能です。                                                                                                                                          |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | 現在の機能セットの下でsBPF検証に合格しなかったプログラムのトゥームストーン。機能のアクティベーションによって検証ルールが変更された場合、`Loaded`になる可能性があります。                                                                                                                                          |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | 明示的にクローズされたか、デプロイされなかったプログラムのトゥームストーン。ローダーに属するが実行可能コードを含まないアカウント(バッファアカウントなど)にも使用されます。                                                                                                                                        |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755)によって返される合成トゥームストーンで、`Loaded`エントリが存在するがまだ有効でない場合(その`effective_slot`が将来の場合)に使用されます。キャッシュに直接保存されることはありません。 |
+
+### 可視性遅延
+
+新しくデプロイまたはアップグレードされたプログラムは、すぐには有効になりません。
+[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
+定数は`1`であり、スロットNでデプロイされたプログラムはスロットN+1で有効になることを意味します。デプロイメントスロット中に新しいバージョンを呼び出そうとすると、
+*rs`DelayVisibility`*が返され、ランタイムは「プログラムはデプロイされていません」と報告します。
+
+### 退避ポリシー
+
+キャッシュは最大
+[`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)
+(512)個のコンパイル済みプログラムエントリを保持します。上限に達すると、最も使用頻度の低いプログラムが*rs`Unloaded`*状態に退避されます。使用状況は
+[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)
+(トランザクションがプログラムを参照するたびに増加)と
+[`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199)によって追跡されます。
+
+### Epoch境界での再コンパイル
+
+機能の有効化によってepoch境界で
+[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)
+が変更された場合、キャッシュされたすべてのプログラムが新しい環境に対して
+[再コンパイル](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L1494)
+されます。
+
+## 戻り値データ
+
+プログラムは`sol_set_return_data`システムコールを介して戻り値データを設定できます。データはトランザクションレベルの
+[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499)
+構造体に格納され、データバイトとシステムコールを呼び出した命令のプログラムの`program_id`を保持します。最大サイズは1,024バイト (_rs`MAX_RETURN_DATA`_)です。

@@ -1,0 +1,625 @@
+---
+title: Комісії за переказ
+description: Дізнайтеся, як реалізувати TransferFeeExtension.
+---
+
+## Як реалізувати TransferFeeExtension
+
+[`TransferFeeExtension`](https://github.com/solana-program/token-2022/blob/6f2473344d70271f632c3e9b7e945be00186c536/interface/src/instruction.rs#L579)
+дозволяє автоматичний збір комісій при кожному переказі токенів. Комісії
+накопичуються в токен-акаунтах одержувачів і можуть бути виведені уповноваженою
+особою для зняття коштів, встановленою на міnt-акаунті.
+
+### Typescript
+
+<CodeTabs storage="token-ts" flags="r">
+
+```ts !! title="Kit"
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  extension,
+  getInitializeAccountInstruction,
+  getInitializeMintInstruction,
+  getInitializeTransferFeeConfigInstruction,
+  getMintSize,
+  getTokenSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate the authority for the mint (also acts as fee payer)
+const authority = await generateKeyPairSigner();
+
+// Fund authority/fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: authority.address,
+  lamports: lamports(5_000_000_000n), // 5 SOL
+  commitment: "confirmed"
+});
+
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
+
+// And a transfer fee config extension.
+const transferFees = {
+  epoch: 0n,
+  maximumFee: 1_000_000n,
+  transferFeeBasisPoints: 150 // 1.5%
+};
+
+const transferFeeConfigExtension = extension("TransferFeeConfig", {
+  transferFeeConfigAuthority: authority.address,
+  withdrawWithheldAuthority: authority.address,
+  withheldAmount: 0n,
+  newerTransferFee: transferFees,
+  // Used for transitioning configs. Starts by being the same as newerTransferFee.
+  olderTransferFee: transferFees
+});
+
+// Get mint account size with transfer fee extension
+const space = BigInt(getMintSize([transferFeeConfigExtension]));
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Instruction to create new account for mint (token program)
+// Invokes the system program
+const createMintAccountInstruction = getCreateAccountInstruction({
+  payer: authority,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize transfer fee config extension
+const initializeTransferFeeConfigInstruction =
+  getInitializeTransferFeeConfigInstruction({
+    mint: mint.address,
+    transferFeeConfigAuthority: authority.address,
+    withdrawWithheldAuthority: authority.address,
+    transferFeeBasisPoints: 100, // 1% fee
+    maximumFee: 1_000_000n // Maximum fee of 1 token
+  });
+
+// Instruction to initialize mint account data
+// Invokes the token22 program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 6,
+  mintAuthority: authority.address,
+  freezeAuthority: authority.address
+});
+
+// Generate keypair to use as address of token account
+const tokenAccount = await generateKeyPairSigner();
+
+// get token account size
+const tokenAccountLen = BigInt(getTokenSize([transferFeeConfigExtension]));
+
+// Get minimum balance for rent exemption
+const tokenAccountRent = await rpc
+  .getMinimumBalanceForRentExemption(tokenAccountLen)
+  .send();
+
+// Instruction to create new account for the token account
+// Invokes the system program
+const createTokenAccountInstruction = getCreateAccountInstruction({
+  payer: authority,
+  newAccount: tokenAccount,
+  lamports: tokenAccountRent,
+  space: tokenAccountLen,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize the created token account
+const initializeTokenAccountInstruction = getInitializeAccountInstruction({
+  account: tokenAccount.address,
+  mint: mint.address,
+  owner: authority.address
+});
+
+console.log("token account", tokenAccount.address); // ! debug
+
+const instructions = [
+  createMintAccountInstruction,
+  initializeTransferFeeConfigInstruction,
+  initializeMintInstruction,
+  createTokenAccountInstruction,
+  initializeTokenAccountInstruction
+];
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions(instructions, tx)
+);
+
+// Sign transaction message with all required signers
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed", skipPreflight: true }
+);
+
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address with Transfer Fees:", mint.address.toString());
+console.log("Token Account:", tokenAccount.address.toString());
+console.log("Transfer Fee: 1.5% (150 basis points)");
+console.log("Maximum Fee: 1 token");
+console.log("Withdraw Authority:", authority.address.toString());
+console.log("Transaction Signature:", transactionSignature);
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  ExtensionType,
+  createInitializeMintInstruction,
+  createInitializeTransferFeeConfigInstruction,
+  getMintLen,
+  TOKEN_2022_PROGRAM_ID,
+  createInitializeAccountInstruction,
+  getAccountLen,
+  AccountLayout
+} from "@solana/spl-token";
+
+// Create Connection, local validator in this example
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Generate the authority for the mint (also acts as fee payer)
+const authority = Keypair.generate();
+
+// Fund authority/fee payer
+const airdropSignature = await connection.requestAirdrop(
+  authority.publicKey,
+  5_000_000_000 // 5 SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+// Generate keypair to use as address of mint
+const mint = Keypair.generate();
+
+// Define the transfer fee extension configuration
+const transferFeeConfigExtensions = [ExtensionType.TransferFeeConfig];
+
+// Get mint account size with transfer fee extension
+const mintLen = getMintLen(transferFeeConfigExtensions);
+
+// Get minimum balance for rent exemption
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLen);
+
+// Get latest blockhash to include in transaction
+const { blockhash } = await connection.getLatestBlockhash();
+
+// Instruction to create new account for mint (token program)
+// Invokes the system program
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: authority.publicKey,
+  newAccountPubkey: mint.publicKey,
+  lamports: mintRent,
+  space: mintLen,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+// Instruction to initialize transfer fee config extension
+const initializeTransferFeeConfigInstruction =
+  createInitializeTransferFeeConfigInstruction(
+    mint.publicKey, // mint
+    authority.publicKey, // transferFeeConfigAuthority
+    authority.publicKey, // withdrawWithheldAuthority
+    150, // transferFeeBasisPoints (1% = 100 basis points)
+    1_000_000n, // maximumFee (1 token with 6 decimals)
+    TOKEN_2022_PROGRAM_ID
+  );
+
+// Instruction to initialize mint account data
+// Invokes the token22 program
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint
+  6, // decimals
+  authority.publicKey, // mintAuthority
+  authority.publicKey, // freezeAuthority
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Generate keypair to use as address of token account
+const tokenAccount = Keypair.generate();
+
+// Get token account size
+const tokenAccountLen = getAccountLen(transferFeeConfigExtensions);
+
+// Get minimum balance for rent exemption
+const tokenAccountRent =
+  await connection.getMinimumBalanceForRentExemption(tokenAccountLen);
+
+// Instruction to create new account for the token account
+// Invokes the system program
+const createTokenAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: authority.publicKey,
+  newAccountPubkey: tokenAccount.publicKey,
+  lamports: tokenAccountRent,
+  space: tokenAccountLen,
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+// Instruction to initialize the created token account
+const initializeTokenAccountInstruction = createInitializeAccountInstruction(
+  tokenAccount.publicKey, // account
+  mint.publicKey, // mint
+  authority.publicKey, // owner
+  TOKEN_2022_PROGRAM_ID
+);
+
+// Create transaction and add instructions
+const transaction = new Transaction({
+  feePayer: authority.publicKey,
+  recentBlockhash: blockhash
+}).add(
+  createMintAccountInstruction,
+  initializeTransferFeeConfigInstruction,
+  initializeMintInstruction,
+  createTokenAccountInstruction,
+  initializeTokenAccountInstruction
+);
+
+// Sign and send transaction
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [authority, mint, tokenAccount], // signers
+  { commitment: "confirmed", skipPreflight: true }
+);
+
+console.log("Mint Address with Transfer Fees:", mint.publicKey.toString());
+console.log("Token Account:", tokenAccount.publicKey.toString());
+console.log("Transfer Fee: 1.5% (150 basis points)");
+console.log("Maximum Fee: 1 token");
+console.log("Withdraw Authority:", authority.publicKey.toString());
+console.log("Transaction Signature:", transactionSignature);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address_with_program_id,
+    instruction::create_associated_token_account,
+};
+use spl_token_2022_interface::{
+    extension::{
+        transfer_fee::{
+            instruction::{
+                harvest_withheld_tokens_to_mint, initialize_transfer_fee_config,
+                withdraw_withheld_tokens_from_mint,
+            },
+            TransferFeeAmount, TransferFeeConfig,
+        },
+        BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+    },
+    instruction::{initialize_mint, mint_to, transfer_checked},
+    state::{Account, Mint},
+    ID as TOKEN_2022_PROGRAM_ID,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let latest_blockhash = client.get_latest_blockhash().await?;
+
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
+
+    // Airdrop 5 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair for the mint
+    let mint = Keypair::new();
+
+    // Calculate space for mint with transfer fee extension
+    let mint_space =
+        ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::TransferFeeConfig])?;
+
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_space)
+        .await?;
+
+    // Instruction to create new account for mint (token22)
+    let create_mint_account_instruction = create_account(
+        &fee_payer.pubkey(),    // payer
+        &mint.pubkey(),         // new account (mint)
+        mint_rent,              // lamports
+        mint_space as u64,      // space
+        &TOKEN_2022_PROGRAM_ID, // program id
+    );
+
+    // Instruction to initialize transfer fee config extension
+    let initialize_transfer_fee_config_instruction = initialize_transfer_fee_config(
+        &TOKEN_2022_PROGRAM_ID,    // program_id
+        &mint.pubkey(),            // mint
+        Some(&fee_payer.pubkey()), // transfer_fee_config_authority
+        Some(&fee_payer.pubkey()), // withdraw_withheld_authority
+        100,                       // transfer_fee_basis_points (1% = 100 basis points)
+        1_000_000,                 // maximum_fee (1 token with 6 decimals)
+    )?;
+
+    // Instruction to initialize mint account data
+    let initialize_mint_instruction = initialize_mint(
+        &TOKEN_2022_PROGRAM_ID,    // program id
+        &mint.pubkey(),            // mint
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        6,                         // decimals
+    )?;
+
+    // Construct transaction with all instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[
+            create_mint_account_instruction,
+            initialize_transfer_fee_config_instruction,
+            initialize_mint_instruction,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        latest_blockhash,
+    );
+
+    client.send_and_confirm_transaction(&transaction).await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+
+    // Fetch mint account
+    let mint_account = client.get_account(&mint.pubkey()).await?;
+    // Deserialize the mint account with extensions
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_account.data)?;
+
+    // Get all extension types enabled on this mint
+    let extension_types = mint_state.get_extension_types()?;
+    println!("\nExtensions enabled: {:?}", extension_types);
+
+    // Deserialize the TransferFeeConfig extension data
+    let transfer_fee_config = mint_state.get_extension::<TransferFeeConfig>()?;
+    println!("\n{:#?}", transfer_fee_config);
+
+    // Create two associated token accounts
+    let owner1 = Keypair::new();
+    let owner2 = Keypair::new();
+
+    let ata1 = get_associated_token_address_with_program_id(
+        &owner1.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let ata2 = get_associated_token_address_with_program_id(
+        &owner2.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let create_ata1_instruction = create_associated_token_account(
+        &fee_payer.pubkey(),
+        &owner1.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let create_ata2_instruction = create_associated_token_account(
+        &fee_payer.pubkey(),
+        &owner2.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    // Mint tokens to the first account
+    let mint_amount = 10_000_000; // 10 tokens with 6 decimals
+    let mint_to_instruction = mint_to(
+        &TOKEN_2022_PROGRAM_ID,
+        &mint.pubkey(),
+        &ata1,
+        &fee_payer.pubkey(),
+        &[],
+        mint_amount,
+    )?;
+
+    // Transfer tokens from ata1 to ata2 (will incur transfer fee)
+    let transfer_amount = 5_000_000; // 5 tokens with 6 decimals
+    let transfer_instruction = transfer_checked(
+        &TOKEN_2022_PROGRAM_ID,
+        &ata1,
+        &mint.pubkey(),
+        &ata2,
+        &owner1.pubkey(),
+        &[],
+        transfer_amount,
+        6,
+    )?;
+
+    let transaction = Transaction::new_signed_with_payer(
+        &[
+            create_ata1_instruction,
+            create_ata2_instruction,
+            mint_to_instruction,
+            transfer_instruction,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &owner1],
+        latest_blockhash,
+    );
+
+    client.send_and_confirm_transaction(&transaction).await?;
+
+    // Fetch and deserialize the recipient token account
+    let ata2_account = client.get_account(&ata2).await?;
+    let ata2_state = StateWithExtensions::<Account>::unpack(&ata2_account.data)?;
+
+    // Deserialize the TransferFeeAmount extension (withheld amount)
+    let transfer_fee_amount = ata2_state.get_extension::<TransferFeeAmount>()?;
+    println!("\n1. Transferred {} tokens", transfer_amount,);
+    println!(
+        "   Recipient Token Account withheld amount: {}",
+        u64::from(transfer_fee_amount.withheld_amount)
+    );
+
+    // Harvest withheld tokens to mint
+    println!("\n2. Harvesting from Token Account to Mint...");
+    let harvest_instruction =
+        harvest_withheld_tokens_to_mint(&TOKEN_2022_PROGRAM_ID, &mint.pubkey(), &[&ata2])?;
+
+    let harvest_transaction = Transaction::new_signed_with_payer(
+        &[harvest_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    client
+        .send_and_confirm_transaction(&harvest_transaction)
+        .await?;
+
+    // Fetch and deserialize ATA2 again to see the withheld amount after harvest
+    let ata2_account = client.get_account(&ata2).await?;
+    let ata2_state = StateWithExtensions::<Account>::unpack(&ata2_account.data)?;
+    let transfer_fee_amount_after = ata2_state.get_extension::<TransferFeeAmount>()?;
+    println!(
+        "   Token Account withheld amount after harvest: {}",
+        u64::from(transfer_fee_amount_after.withheld_amount)
+    );
+
+    // Fetch and deserialize mint to see the withheld amount now stored on mint
+    let mint_account = client.get_account(&mint.pubkey()).await?;
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_account.data)?;
+    let mint_transfer_fee_config = mint_state.get_extension::<TransferFeeConfig>()?;
+    println!(
+        "   Mint withheld amount after harvest: {}",
+        u64::from(mint_transfer_fee_config.withheld_amount)
+    );
+
+    // Create a destination token account for the withdraw authority to receive the fees
+    let withdraw_destination_ata = get_associated_token_address_with_program_id(
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let create_withdraw_ata_instruction = create_associated_token_account(
+        &fee_payer.pubkey(),
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let create_withdraw_ata_transaction = Transaction::new_signed_with_payer(
+        &[create_withdraw_ata_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    client
+        .send_and_confirm_transaction(&create_withdraw_ata_transaction)
+        .await?;
+
+    // Withdraw withheld tokens from mint to the destination token account
+    println!("\n3. Withdrawing from Mint to Token Account...");
+    let withdraw_instruction = withdraw_withheld_tokens_from_mint(
+        &TOKEN_2022_PROGRAM_ID,
+        &mint.pubkey(),
+        &withdraw_destination_ata,
+        &fee_payer.pubkey(), // withdraw_withheld_authority
+        &[],
+    )?;
+
+    let withdraw_transaction = Transaction::new_signed_with_payer(
+        &[withdraw_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        latest_blockhash,
+    );
+
+    client
+        .send_and_confirm_transaction(&withdraw_transaction)
+        .await?;
+
+    // Fetch and deserialize mint to see withheld amount after withdraw
+    let mint_account = client.get_account(&mint.pubkey()).await?;
+    let mint_state = StateWithExtensions::<Mint>::unpack(&mint_account.data)?;
+    let mint_transfer_fee_config_after = mint_state.get_extension::<TransferFeeConfig>()?;
+    println!(
+        "   Mint withheld amount after withdraw: {}",
+        u64::from(mint_transfer_fee_config_after.withheld_amount)
+    );
+
+    // Fetch and deserialize destination account to see received fees
+    let withdraw_destination_account = client.get_account(&withdraw_destination_ata).await?;
+    let withdraw_destination_state =
+        StateWithExtensions::<Account>::unpack(&withdraw_destination_account.data)?;
+    println!(
+        "   Withdraw destination account balance: {}",
+        withdraw_destination_state.base.amount
+    );
+
+    Ok(())
+}
+```
+
+</CodeTabs>

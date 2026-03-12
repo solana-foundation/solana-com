@@ -3,10 +3,7 @@ import { cva } from "class-variance-authority";
 import Image, { ImageProps } from "next/image";
 import { Button, ButtonProps } from "./button";
 import { cn } from "@/lib/utils";
-
-import { Template } from "tinacms";
-import { tinaField } from "tinacms/dist/react";
-import { Section, sectionBlockSchemaField } from "../layout/section";
+import { Section } from "../layout/section";
 import { Link } from "@workspace/i18n/routing";
 import { InfiniteSlider } from "./infinite-slider";
 
@@ -120,107 +117,10 @@ export const Gallery: FC<GalleryProps> = ({ background, images }) => {
           }}
         >
           {images?.map((img, i) => (
-            <GalleryImage
-              key={i}
-              {...img}
-              index={i}
-              data-tina-field={tinaField(images?.[i])}
-            />
+            <GalleryImage key={i} {...img} index={i} />
           ))}
         </div>
       </InfiniteSlider>
     </Section>
   );
-};
-
-export const galleryBlockSchema: Template = {
-  name: "gallery",
-  label: "Gallery",
-  ui: {
-    previewSrc: "/blocks/gallery.png",
-  },
-  fields: [
-    sectionBlockSchemaField as any,
-    {
-      type: "object",
-      label: "Images",
-      name: "images",
-      list: true,
-      ui: {
-        itemProps: (item: { heading?: string }) => ({
-          label: item?.heading || "Gallery Image",
-        }),
-      },
-      fields: [
-        {
-          type: "string",
-          label: "Heading",
-          name: "heading",
-        },
-        {
-          type: "string",
-          label: "Body",
-          name: "body",
-        },
-        {
-          type: "object",
-          label: "Button",
-          name: "button",
-          fields: [
-            {
-              type: "string",
-              label: "Label",
-              name: "label",
-            },
-            {
-              type: "string",
-              label: "Type",
-              name: "type",
-              options: [
-                { label: "Default", value: "default" },
-                { label: "Link", value: "link" },
-              ],
-            },
-            {
-              type: "string",
-              label: "Link",
-              name: "link",
-            },
-          ],
-        },
-        {
-          type: "string",
-          label: "Size",
-          name: "size",
-          options: [
-            { value: "small", label: "Small" },
-            { value: "large", label: "Large" },
-            { value: "skinny", label: "Skinny" },
-          ],
-        },
-        {
-          type: "object",
-          label: "Image",
-          name: "image",
-          fields: [
-            {
-              type: "image",
-              label: "Image Source",
-              name: "src",
-            },
-            {
-              type: "string",
-              label: "Alt Text",
-              name: "alt",
-            },
-          ],
-        },
-        {
-          type: "boolean",
-          label: "Square",
-          name: "square",
-        },
-      ],
-    },
-  ],
 };

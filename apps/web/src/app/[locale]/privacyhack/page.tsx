@@ -19,6 +19,10 @@ export default async function Page(_props: Props) {
     timelineDateHeader: t("privacyhack.timeline.dateHeader"),
     timelineEvents: [
       {
+        phase: t("privacyhack.timeline.events.opening.phase"),
+        date: t("privacyhack.timeline.events.opening.date"),
+      },
+      {
         phase: t("privacyhack.timeline.events.registration.phase"),
         date: t("privacyhack.timeline.events.registration.date"),
       },
@@ -61,6 +65,7 @@ export default async function Page(_props: Props) {
 
     sponsorBountiesTitle: t("privacyhack.sponsorBounties.title"),
     sponsorBountiesSubtitle: t("privacyhack.sponsorBounties.subtitle"),
+    sponsorBountiesDisclaimer: t("privacyhack.sponsorBounties.disclaimer"),
     sponsorBounties: t.raw("privacyhack.sponsorBounties.items") as Array<{
       sponsor: string;
       logo: string;
@@ -108,13 +113,31 @@ export default async function Page(_props: Props) {
         title: t("privacyhack.resources.items.templates.title"),
         description: t("privacyhack.resources.items.templates.description"),
         category: t("privacyhack.resources.items.templates.category"),
-        url: "https://solana.com/templates",
+        url: "https://solana.com/developers/templates",
       },
       {
         title: t("privacyhack.resources.items.privacyRepo.title"),
         description: t("privacyhack.resources.items.privacyRepo.description"),
         category: t("privacyhack.resources.items.privacyRepo.category"),
         url: "https://github.com/catmcgee/privacy-on-solana",
+      },
+      {
+        title: t("privacyhack.resources.items.triton.title"),
+        description: t("privacyhack.resources.items.triton.description"),
+        category: t("privacyhack.resources.items.triton.category"),
+        url: "https://triton.one/solana",
+      },
+      {
+        title: t("privacyhack.resources.items.quicknode.title"),
+        description: t("privacyhack.resources.items.quicknode.description"),
+        category: t("privacyhack.resources.items.quicknode.category"),
+        url: "https://quicknode.com",
+      },
+      {
+        title: t("privacyhack.resources.items.extractor.title"),
+        description: t("privacyhack.resources.items.extractor.description"),
+        category: t("privacyhack.resources.items.extractor.category"),
+        url: "https://www.extractor.live/",
       },
     ],
   };

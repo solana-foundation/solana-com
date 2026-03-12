@@ -1,0 +1,183 @@
+---
+title: Execução de programas
+description:
+  Como a Solana compila e executa programas, incluindo a VM sBPF, modelo de
+  unidades de computação, cache de programas e syscalls.
+url: /docs/core/programs/program-execution
+type: conceptual
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/programs/syscall-reference
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/program-deployment
+  - /docs/core/cpi/cpi-execution
+---
+
+{/* TOC: Compilation, Write programs, Program execution model, Program cache, Syscalls */}
+
+<Callout type="info" title="Resumo">
+  Os programas são compilados para sBPF via LLVM e executados numa VM isolada
+  com um orçamento de 1,4M CU por transação. O runtime mantém em cache até 512
+  programas compilados, fornece syscalls para logging, CPI, criptografia e
+  memória, e atrasa novas implementações em 1 slot.
+</Callout>
+
+## Compilação
+
+A Solana usa [LLVM](https://llvm.org/) para compilar programas em binários
+[ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) contendo
+Solana Bytecode Format (sBPF). O binário ELF é armazenado on-chain numa conta
+executável.
+
+<Callout>
+  sBPF é a variante personalizada da Solana do bytecode
+  [eBPF](https://en.wikipedia.org/wiki/EBPF), adaptada para o runtime da Solana.
+  Não é eBPF padrão e possui modificações específicas da Solana.
+</Callout>
+
+## Escrever programas
+
+Os programas Solana são escritos principalmente em
+[Rust](https://rust-book.cs.brown.edu/title-page.html) usando uma de duas
+abordagens:
+
+<Cards>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs">
+    Uma framework que usa macros Rust para reduzir código repetitivo.
+    Recomendada para a maioria dos programadores.
+  </Card>
+  <Card title="Rust nativo" href="/docs/programs/rust">
+    Rust direto sem frameworks. Oferece controlo total mas requer mais
+    implementação manual.
+  </Card>
+</Cards>
+
+## Modelo de execução de programas
+
+Quando uma transação é processada, o runtime executa cada instrução
+sequencialmente através de
+[`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15).
+Para cada instrução, o runtime:
+
+1. **Prepara o contexto da instrução.** Chama
+   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)
+   para mapear os índices de conta da instrução, definir flags de signatário e
+   escrita, e configurar o
+   [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467).
+
+2. **Verifica precompilações.** Se o programa for uma
+   [precompilação](/docs/core/programs/precompiles), o runtime chama
+   [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491),
+   que ainda adiciona e remove um stack frame (via _rs`push()`_ e _rs`pop()`_)
+   mas ignora a VM sBPF e a pesquisa na cache de programas, executando código
+   nativo diretamente.
+
+3. **Empurra um stack frame.** (Os passos 3-6 acontecem dentro de
+   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
+   e
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507),
+   chamados de _rs`process_message()`_.) Chama
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
+   em
+   [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184),
+   que incrementa a altura da pilha de instruções e aplica a regra de reentrada:
+   um programa só pode reentrar em si mesmo se o chamador **imediato** (o
+   programa no topo atual da pilha de instruções) for o mesmo programa.
+   Auto-recursão profunda (A -> A -> A) é permitida, sujeita aos limites de
+   profundidade da pilha. Outros padrões de reentrada (por exemplo, A chama B
+   chama A) retornam _rs`InstructionError::ReentrancyNotAllowed`_.
+
+4. **Resolve o programa.** O runtime chama
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   que determina o loader. Se o proprietário da conta do programa for o
+   [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517),
+   o programa é um builtin e sua função de entrypoint é procurada diretamente no
+   [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706).
+   Se o proprietário for um dos loaders BPF (`bpf_loader_deprecated`,
+   `bpf_loader`, `bpf_loader_upgradeable`, ou `loader_v4`), o entrypoint builtin
+   do próprio loader é invocado.
+
+5. **Executa o programa BPF.** Para programas BPF, o
+   [entrypoint do loader](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+   procura o executável compilado no cache de programas. A função
+   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)
+   então:
+   - Serializa os dados da conta num buffer de parâmetros plano
+   - Cria a VM sBPF com regiões de pilha, heap e memória
+   - Executa o código compilado, consumindo unidades de computação durante a
+     execução. Retorna _rs`ComputationalBudgetExceeded`_ se o orçamento for
+     excedido.
+   - Desserializa os dados da conta do buffer de volta para o estado da conta
+
+6. **Remove o stack frame.** Chama
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)
+   que verifica se a instrução não violou as regras de contabilidade do runtime
+   (saldos de lamport estão equilibrados, contas somente leitura não foram
+   modificadas, tamanhos de dados de conta estão dentro dos limites).
+
+7. **Acumula unidades de computação.** As unidades de computação consumidas pela
+   instrução são adicionadas ao total da transação via
+   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53).
+
+## Cache de programas
+
+O runtime mantém um
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)
+global que armazena programas verificados e compilados. Ele reconhece o grafo de
+bifurcações e lida com regras de visibilidade de implantação, remoção e
+recompilação no limite de epoch.
+
+### Tipos de entrada de cache
+
+Cada programa em cache possui um
+[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132)
+que determina seu comportamento em tempo de execução:
+
+| Tipo                                                                                                              | Descrição                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | Programa verificado e compilado, pronto para execução.                                                                                                                                                                                                                                                     |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | Programa nativo compilado no binário do validador (System, Stake, Vote, etc.). Não armazenado on-chain.                                                                                                                                                                                                    |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | Programa previamente verificado cujo executável compilado foi removido da memória para liberar espaço. Ainda rastreia estatísticas de uso. Pode ser recarregado sem reverificação.                                                                                                                         |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Marcador para programas que não passaram no verificador sBPF sob o conjunto de recursos atual. Pode tornar-se `Loaded` se as ativações de recursos alterarem as regras de verificação.                                                                                                                     |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | Marcador para programas que foram explicitamente fechados ou nunca implantados. Também usado para contas (como contas de buffer) que pertencem a um carregador mas não contêm código executável.                                                                                                           |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | Marcador sintético retornado por [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) quando uma entrada `Loaded` existe mas ainda não está efetiva (seu `effective_slot` está no futuro). Nunca armazenado diretamente no cache. |
+
+### Atraso de visibilidade
+
+Programas recém-implantados ou atualizados não são efetivos imediatamente. A
+constante
+[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
+é `1`, o que significa que um programa implantado no slot N torna-se efetivo no
+slot N+1. Durante o slot de implantação, qualquer tentativa de invocar a nova
+versão retorna _rs`DelayVisibility`_, fazendo com que o runtime reporte
+"Programa não está implantado."
+
+### Política de remoção
+
+O cache armazena até
+[`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)
+(512) entradas de programas compilados. Quando o limite é atingido, os programas
+menos utilizados são removidos para o estado _rs`Unloaded`_. O uso é rastreado
+por
+[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)
+(incrementado cada vez que uma transação referencia o programa) e
+[`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199).
+
+### Recompilação no limite de epoch
+
+Se uma ativação de funcionalidade alterar o
+[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)
+no limite de um epoch, todos os programas em cache são
+[recompilados](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L1494)
+contra o novo ambiente.
+
+## Dados de retorno
+
+Os programas podem definir dados de retorno através da syscall
+`sol_set_return_data`. Os dados são armazenados numa estrutura
+[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499)
+ao nível da transação que contém os bytes de dados e o `program_id` do programa
+cuja instrução chamou a syscall. O tamanho máximo é de 1.024 bytes
+(_rs`MAX_RETURN_DATA`_).

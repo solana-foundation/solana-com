@@ -1,0 +1,972 @@
+---
+title: Quyền chi tiêu
+description:
+  Ủy quyền chi tiêu token cho bên thứ ba để thực hiện thanh toán tự động và ký
+  quỹ
+---
+
+Các Token Program của Solana hỗ trợ **ủy quyền**—cấp cho một tài khoản khác
+quyền chuyển token từ token account của bạn trong giới hạn được chỉ định. Điều
+này cho phép các trường hợp sử dụng như thanh toán tự động, dịch vụ ký quỹ và xử
+lý thanh toán qua bên thứ ba mà không cần từ bỏ quyền giữ quỹ của bạn.
+
+## Cách thức hoạt động của ủy quyền
+
+Khi bạn phê duyệt một đại diện ủy quyền, bạn đang cho phép một tài khoản cụ thể
+chuyển token thay mặt bạn:
+
+- **Chủ sở hữu vẫn giữ quyền kiểm soát**: Bạn vẫn sở hữu token và có thể chuyển
+  hoặc thu hồi bất cứ lúc nào
+- **Giới hạn chi tiêu**: Đại diện ủy quyền chỉ có thể chuyển tối đa số lượng đã
+  được phê duyệt
+- **Một đại diện ủy quyền cho mỗi tài khoản**: Mỗi token account chỉ có thể có
+  một đại diện ủy quyền đang hoạt động
+- **Phê duyệt mới thay thế phê duyệt cũ**: Phê duyệt đại diện ủy quyền mới sẽ tự
+  động thu hồi đại diện trước đó
+
+<Callout type="info">
+  Ủy quyền không phải là hình thức giữ hộ. Đại diện ủy quyền có thể chi tiêu
+  token trong giới hạn, nhưng không thể truy cập hoặc rút cạn tài khoản vượt quá
+  số lượng đã được phê duyệt. Chủ sở hữu có thể thu hồi bất cứ lúc nào.
+</Callout>
+
+## Các trường hợp sử dụng trong kinh doanh
+
+| Trường hợp sử dụng      | Cách ủy quyền hỗ trợ                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| **Bộ xử lý thanh toán** | Người bán cấp quyền cho bộ xử lý để thanh toán giao dịch                             |
+| **Bảng lương tự động**  | Kho bạc phê duyệt dịch vụ bảng lương để chi trả lương                                |
+| **Dịch vụ ký quỹ**      | Người mua ủy quyền cho đại lý ký quỹ để giải ngân có điều kiện                       |
+| **Nền tảng giao dịch**  | Người dùng phê duyệt sàn giao dịch để thực hiện giao dịch thay mặt họ                |
+| **Phát hành thẻ**       | Người dùng phê duyệt nhà phát hành thẻ để tính phí mua hàng vào token account của họ |
+
+## Phê duyệt đại diện ủy quyền
+
+Cấp quyền cho tài khoản khác để chi tiêu token từ tài khoản của bạn:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getApproveCheckedInstruction } from "@solana-program/token";
+
+// Approve delegate to spend up to 1,000 USDC (6 decimals)
+const approveInstruction = getApproveCheckedInstruction({
+  source: tokenAccountAddress, // Your token account
+  mint: usdcMintAddress, // USDC mint
+  delegate: delegateAddress, // Account receiving permission
+  owner: ownerKeypair, // You (must sign)
+  amount: 1_000_000_000n, // 1,000 USDC in base units
+  decimals: 6
+});
+```
+
+```bash !! title="CLI"
+spl-token approve <TOKEN_ACCOUNT> <AMOUNT> <DELEGATE_ADDRESS>
+# Example: Approve 1000 USDC to a delegate
+spl-token approve 7v45Foih... 1000 DeLe9ate...
+```
+
+</CodeTabs>
+
+**Tham số:**
+
+- `source`: Token account cấp quyền
+- `delegate`: Tài khoản sẽ có quyền chi tiêu
+- `owner`: Chủ sở hữu hiện tại của token account (phải ký giao dịch)
+- `amount`: Số lượng token tối đa mà delegate có thể chuyển
+- `decimals`: Số chữ số thập phân của token để xác thực (ngăn ngừa lỗi thập
+  phân)
+
+### Demo
+
+<CodeTabs flags="r">
+
+```ts !! title="Approve Delegate"
+// !collapse(1:15) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getApproveCheckedInstruction,
+  fetchToken,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Generate keypairs for sender and delegate
+const sender = (await generateKeypair()).signer;
+const delegate = (await generateKeypair()).signer;
+
+console.log("Sender Address:", sender.address);
+console.log("Delegate Address:", delegate.address);
+
+// Demo Setup: Create client, mint account, token account, and fund with initial tokens
+const { client, mint, senderAta } = await demoSetup(sender);
+
+console.log("\nMint Address:", mint.address);
+console.log("Sender ATA:", senderAta);
+
+// =============================================================================
+// Approve Delegate
+// =============================================================================
+
+// Create instruction to approve delegate
+// !mark(1:8)
+const approveInstruction = getApproveCheckedInstruction({
+  source: senderAta,
+  mint: mint.address,
+  delegate: delegate.address,
+  owner: sender,
+  amount: 1_000_000n, // 1.0 tokens with 6 decimals
+  decimals: 6
+});
+
+// Send approve transaction
+// !mark(1:4)
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  instructions: [approveInstruction]
+});
+
+console.log("\n=== Approve Delegate ===");
+console.log("Transaction Signature:", signature);
+
+// Fetch token account data to show delegate is set
+const tokenData = await fetchToken(client.runtime.rpc, senderAta);
+console.log("\nSender Token Account Data:", tokenData.data);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a delegate demo:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to sender for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token account for sender
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @returns Returns client instance, mint, and ATA address
+ */
+async function demoSetup(sender: ServerKeypair["signer"]) {
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund sender with SOL for transaction fees
+  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token 2022 program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 2_000_000n // Mint 2.00 tokens (2,000,000 base units with 6 decimals)
+  });
+
+  // Combine all instructions and send using @solana/client transaction helper
+  const setupInstructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Prepare and send transaction using @solana/client
+  await client.transaction.prepareAndSend({
+    authority: sender,
+    instructions: setupInstructions
+  });
+
+  return {
+    client,
+    mint,
+    senderAta
+  };
+}
+```
+
+</CodeTabs>
+
+## Thu hồi quyền của người được ủy quyền
+
+Xóa tất cả quyền chi tiêu khỏi người được ủy quyền hiện tại:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { getRevokeInstruction } from "@solana-program/token";
+
+const revokeInstruction = getRevokeInstruction({
+  source: tokenAccountAddress, // Your token account
+  owner: ownerKeypair // You (must sign)
+});
+```
+
+```bash !! title="CLI"
+spl-token revoke <TOKEN_ACCOUNT>
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  Thu hồi sẽ xóa **tất cả** quyền của người được ủy quyền—không có thu hồi một
+  phần. Nếu bạn cần giảm hạn mức, hãy phê duyệt lại cùng người được ủy quyền với
+  số lượng thấp hơn.
+</Callout>
+
+### Demo
+
+<CodeTabs flags="r">
+
+```ts !! title="Revoke Delegate"
+// !collapse(1:16) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getApproveCheckedInstruction,
+  getRevokeInstruction,
+  fetchToken,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Generate keypairs for sender and delegate
+const sender = (await generateKeypair()).signer;
+const delegate = (await generateKeypair()).signer;
+
+console.log("Sender Address:", sender.address);
+console.log("Delegate Address:", delegate.address);
+
+// Demo Setup: Create client, mint account, token account, and fund with initial tokens
+const { client, mint, senderAta } = await demoSetup(sender);
+
+console.log("\nMint Address:", mint.address);
+console.log("Sender ATA:", senderAta);
+
+// =============================================================================
+// Transaction 1: Approve Delegate
+// =============================================================================
+
+// Create instruction to approve delegate
+// !mark(1:8)
+const approveInstruction = getApproveCheckedInstruction({
+  source: senderAta,
+  mint: mint.address,
+  delegate: delegate.address,
+  owner: sender,
+  amount: 1_000_000n, // 1.0 tokens with 6 decimals
+  decimals: 6
+});
+
+// Send approve transaction
+// !mark(1:5)
+const approveSignature = await client.transaction.prepareAndSend({
+  authority: sender,
+  instructions: [approveInstruction]
+});
+
+console.log("\n=== Transaction 1: Approve Delegate ===");
+console.log("Transaction Signature:", approveSignature);
+
+// Fetch token account data to show delegate is set
+const tokenDataAfterApprove = await fetchToken(client.runtime.rpc, senderAta);
+console.log("\nSender Token Account Data:", tokenDataAfterApprove.data);
+
+// =============================================================================
+// Transaction 2: Revoke Delegate
+// =============================================================================
+
+// Create instruction to revoke delegate
+// !mark(1:4)
+const revokeInstruction = getRevokeInstruction({
+  source: senderAta,
+  owner: sender
+});
+
+// Send revoke transaction
+// !mark(1:5)
+const revokeSignature = await client.transaction.prepareAndSend({
+  authority: sender,
+  instructions: [revokeInstruction]
+});
+
+console.log("\n=== Transaction 2: Revoke Delegate ===");
+console.log("Transaction Signature:", revokeSignature);
+
+// Fetch token account data to show delegate is revoked
+const tokenDataAfterRevoke = await fetchToken(client.runtime.rpc, senderAta);
+console.log("\nSender Token Account Data:", tokenDataAfterRevoke.data);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a delegate demo:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to sender for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token account for sender
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @returns Returns client instance, mint, and ATA address
+ */
+async function demoSetup(sender: ServerKeypair["signer"]) {
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund sender with SOL for transaction fees
+  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token 2022 program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 2_000_000n // Mint 2.00 tokens (2,000,000 base units with 6 decimals)
+  });
+
+  // Combine all instructions and send using @solana/client transaction helper
+  const setupInstructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Prepare and send transaction using @solana/client
+  await client.transaction.prepareAndSend({
+    authority: sender,
+    instructions: setupInstructions
+  });
+
+  return {
+    client,
+    mint,
+    senderAta
+  };
+}
+```
+
+</CodeTabs>
+
+## Chuyển token với tư cách người được ủy quyền
+
+Khi hoạt động với tư cách người được ủy quyền, sử dụng lệnh chuyển tiêu chuẩn
+nhưng ký bằng keypair của người được ủy quyền thay vì chủ sở hữu:
+
+```ts title="Transfer as Delegate"
+import { getTransferCheckedInstruction } from "@solana-program/token";
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: ownerTokenAccount, // The account you have permission to spend from
+  mint: usdcMintAddress,
+  destination: recipientTokenAccount,
+  authority: delegateKeypair, // You (the delegate) sign, not the owner
+  amount: 100_000_000n, // 100 USDC
+  decimals: 6
+});
+```
+
+Giao dịch chuyển sẽ thành công nếu:
+
+- Tài khoản nguồn có đủ số dư
+- Người được ủy quyền ký giao dịch
+
+Mỗi lần chuyển sẽ giảm hạn mức còn lại. Khi hạn mức về không, người được ủy
+quyền không thể chuyển token nữa.
+
+### Demo
+
+<CodeTabs flags="r">
+
+```ts !! title="Transfer as Delegate"
+// !collapse(1:16) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getApproveCheckedInstruction,
+  getTransferCheckedInstruction,
+  fetchToken,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Generate keypairs for sender, delegate, and recipient
+const sender = (await generateKeypair()).signer;
+const delegate = (await generateKeypair()).signer;
+const recipient = (await generateKeypair()).signer;
+
+console.log("Sender Address:", sender.address);
+console.log("Delegate Address:", delegate.address);
+console.log("Recipient Address:", recipient.address);
+
+// Demo Setup: Create client, mint account, token accounts, and fund with initial tokens
+const { client, mint, senderAta, recipientAta } = await demoSetup(
+  sender,
+  delegate,
+  recipient
+);
+
+console.log("\nMint Address:", mint.address);
+console.log("Sender ATA:", senderAta);
+console.log("Recipient ATA:", recipientAta);
+
+// =============================================================================
+// Transaction 1: Approve Delegate
+// =============================================================================
+
+// Create instruction to approve delegate
+// !mark(1:8)
+const approveInstruction = getApproveCheckedInstruction({
+  source: senderAta,
+  mint: mint.address,
+  delegate: delegate.address,
+  owner: sender,
+  amount: 1_000_000n, // 1.0 tokens with 6 decimals
+  decimals: 6
+});
+
+// Send approve transaction
+const approveSignature = await client.transaction.prepareAndSend({
+  authority: sender,
+  instructions: [approveInstruction]
+});
+
+console.log("\n=== Transaction 1: Approve Delegate ===");
+console.log("Delegate Address:", delegate.address);
+console.log("Transaction Signature:", approveSignature);
+
+// =============================================================================
+// Fetch Token Account Data to Demonstrate Delegate is Set
+// =============================================================================
+
+const tokenAccountData = await fetchToken(client.runtime.rpc, senderAta);
+console.log("\nSender Token Account Data:", tokenAccountData.data);
+
+// =============================================================================
+// Transaction 2: Transfer Using Delegate
+// =============================================================================
+
+// Create instruction to transfer tokens using delegate
+// Note: delegate is the authority here, not the owner
+const transferInstruction = getTransferCheckedInstruction({
+  source: senderAta,
+  mint: mint.address,
+  destination: recipientAta,
+  // !mark
+  authority: delegate, // Delegate signs this transaction
+  amount: 500_000n, // 0.5 tokens with 6 decimals
+  decimals: 6
+});
+
+// Send transfer transaction
+// Delegate pays for the transaction and authorizes the transfer (sender not needed)
+const transferSignature = await client.transaction.prepareAndSend({
+  // !mark
+  authority: delegate, // Delegate pays fee and signs
+  instructions: [transferInstruction]
+});
+
+// =============================================================================
+// Fetch Final Token Account Balances
+// =============================================================================
+
+const finalSenderToken = await fetchToken(client.runtime.rpc, senderAta);
+const finalRecipientToken = await fetchToken(client.runtime.rpc, recipientAta);
+
+console.log("\n=== Transaction 2: Transfer Using Delegate ===");
+console.log("Transaction Signature:", transferSignature);
+console.log("\nSender Token Account Data:", finalSenderToken.data);
+console.log("\nRecipient Token Account Data:", finalRecipientToken.data);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a delegate transfer demo:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to sender and delegate for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token accounts for sender and recipient
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param delegate - The delegate's keypair (will be funded for transaction fees)
+ * @param recipient - The recipient's keypair
+ * @returns Returns client instance, mint, and ATA addresses
+ */
+async function demoSetup(
+  sender: ServerKeypair["signer"],
+  delegate: ServerKeypair["signer"],
+  recipient: ServerKeypair["signer"]
+) {
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund sender and delegate with SOL for transaction fees
+  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+  await client.actions.requestAirdrop(
+    delegate.address,
+    lamports(1_000_000_000n)
+  );
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token 2022 program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Derive recipient's associated token account address (ATA)
+  const [recipientAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: recipient.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction for recipient's ATA
+  const createRecipientAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 2_000_000n // Mint 2.00 tokens (2,000,000 base units with 6 decimals)
+  });
+
+  // Combine all instructions and send using @solana/client transaction helper
+  const setupInstructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    createRecipientAtaInstruction, // Create recipient's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Prepare and send transaction using @solana/client
+  await client.transaction.prepareAndSend({
+    authority: sender,
+    instructions: setupInstructions
+  });
+
+  return {
+    client,
+    mint,
+    senderAta,
+    recipientAta
+  };
+}
+```
+
+</CodeTabs>
+
+## Kiểm tra trạng thái ủy quyền
+
+Truy vấn token account để xem delegate hiện tại và hạn mức còn lại:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { fetchToken } from "@solana-program/token";
+
+const tokenAccount = await fetchToken(rpc, tokenAccountAddress);
+
+if (tokenAccount.data.delegate) {
+  console.log("Delegate:", tokenAccount.data.delegate);
+  console.log("Remaining allowance:", tokenAccount.data.delegatedAmount);
+} else {
+  console.log("No delegate set");
+}
+```
+
+```bash !! title="CLI"
+spl-token display <TOKEN_ACCOUNT>
+# Look for "Delegate" and "Delegated Amount" fields
+```
+
+</CodeTabs>
+
+### Demo
+
+<CodeTabs flags="r">
+
+```ts !! title="Check Delegation Status"
+// !collapse(1:15) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getApproveCheckedInstruction,
+  fetchToken,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+// Demo Setup: Create client, mint, two token accounts (one with delegate, one without)
+const { client, ataWithDelegate, ataWithoutDelegate } = await demoSetup();
+
+// =============================================================================
+// Fetch Token Accounts
+// =============================================================================
+
+// Fetch token account with delegate
+// !mark
+const tokenWithDelegate = await fetchToken(client.runtime.rpc, ataWithDelegate);
+console.log("Token Account with Delegate:", tokenWithDelegate);
+
+// Fetch token account without delegate
+// !mark
+const tokenWithoutDelegate = await fetchToken(
+  client.runtime.rpc,
+  ataWithoutDelegate
+);
+console.log("\nToken Account without Delegate:", tokenWithoutDelegate);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up two token accounts for comparison:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to owner for transaction fees
+ * - Creates mint and two token accounts
+ * - Approves delegate on one token account
+ *
+ * @returns Returns client and both ATA addresses
+ */
+async function demoSetup() {
+  // Generate keypairs
+  const owner = (await generateKeypair()).signer;
+  const owner2 = (await generateKeypair()).signer;
+  const delegate = (await generateKeypair()).signer;
+
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund owner with SOL for transaction fees
+  await client.actions.requestAirdrop(owner.address, lamports(1_000_000_000n));
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: owner,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: owner.address
+  });
+
+  // Derive ATAs for both owners
+  const [ataWithDelegate] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: owner.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  const [ataWithoutDelegate] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: owner2.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create ATA instructions
+  const createAta1Instruction = await getCreateAssociatedTokenInstructionAsync({
+    payer: owner,
+    mint: mint.address,
+    owner: owner.address
+  });
+
+  const createAta2Instruction = await getCreateAssociatedTokenInstructionAsync({
+    payer: owner,
+    mint: mint.address,
+    owner: owner2.address
+  });
+
+  // Mint tokens to both ATAs
+  const mintTo1Instruction = getMintToInstruction({
+    mint: mint.address,
+    token: ataWithDelegate,
+    mintAuthority: owner.address,
+    amount: 1_000_000n // 1.0 tokens
+  });
+
+  const mintTo2Instruction = getMintToInstruction({
+    mint: mint.address,
+    token: ataWithoutDelegate,
+    mintAuthority: owner.address,
+    amount: 1_000_000n // 1.0 tokens
+  });
+
+  // Approve delegate on first ATA
+  const approveInstruction = getApproveCheckedInstruction({
+    source: ataWithDelegate,
+    mint: mint.address,
+    delegate: delegate.address,
+    owner: owner,
+    amount: 500_000n, // 0.5 tokens
+    decimals: 6
+  });
+
+  // Send setup transaction
+  await client.transaction.prepareAndSend({
+    authority: owner,
+    instructions: [
+      createAccountInstruction,
+      initializeMintInstruction,
+      createAta1Instruction,
+      createAta2Instruction,
+      mintTo1Instruction,
+      mintTo2Instruction,
+      approveInstruction
+    ]
+  });
+
+  return {
+    client,
+    ataWithDelegate,
+    ataWithoutDelegate
+  };
+}
+```
+
+</CodeTabs>
+
+## Các vấn đề bảo mật cần lưu ý
+
+**Đối với chủ sở hữu tài khoản:**
+
+- Chỉ phê duyệt các delegate đáng tin cậy
+- Đặt hạn mức chi tiêu tối thiểu cần thiết
+- Thu hồi ủy quyền khi không còn cần thiết nữa
+- Giám sát tài khoản của bạn để phát hiện các giao dịch chuyển không mong muốn
+
+**Đối với nhà cung cấp dịch vụ (delegate):**
+
+- Thông báo rõ ràng hạn mức chi tiêu được yêu cầu cho người dùng
+- Triển khai quản lý khóa phù hợp cho tài khoản delegate của bạn
+- Theo dõi mức tiêu thụ hạn mức để yêu cầu phê duyệt lại trước khi hết hạn mức
+
+## Ủy quyền so với giữ hộ
+
+| Khía cạnh            | Ủy quyền                          | Giữ hộ toàn phần                          |
+| -------------------- | --------------------------------- | ----------------------------------------- |
+| Quyền sở hữu token   | Người dùng giữ quyền              | Người dùng chuyển cho bên giữ hộ          |
+| Kiểm soát chi tiêu   | Giới hạn ở số tiền được phê duyệt | Toàn quyền truy cập vào số tiền đã chuyển |
+| Thu hồi              | Ngay lập tức, bởi chủ sở hữu      | Yêu cầu sự hợp tác của bên giữ hộ         |
+| Rủi ro               | Giới hạn ở số tiền được phê duyệt | Toàn bộ số dư                             |
+| Mức độ tin tưởng cần | Hạn chế                           | Cao                                       |
+
+Ủy quyền cung cấp một giải pháp trung gian—cho phép thanh toán tự động trong khi
+giới hạn rủi ro ở mức số tiền được phê duyệt.
+
+## Tài nguyên liên quan
+
+| Tài nguyên                                               | Mô tả                                                                   |
+| -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [Approve Delegate](/docs/tokens/basics/approve-delegate) | Cách cấp quyền cho tài khoản khác để chi tiêu từ token account của bạn. |
+| [Revoke Delegate](/docs/tokens/basics/revoke-delegate)   | Cách xóa delegate hiện có và thu hồi quyền chi tiêu của nó.             |
+| [Transfer Token](/docs/tokens/basics/transfer-tokens)    | Cách chuyển token giữa các token account.                               |

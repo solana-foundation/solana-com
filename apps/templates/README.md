@@ -30,30 +30,11 @@ pnpm --filter solana-templates check-types
 
 ## Deployment
 
-This app is deployed at
-**[templates.solana.com](https://templates.solana.com)**.
+This app is deployed separately and accessed via the main site's rewrites at
+`/developers/templates/*`.
 
-The app is designed to be deployed separately from the main solana.com website.
-The main site rewrites `/templates` routes to this app's deployment URL via
-Next.js rewrites configuration.
-
-To enable the rewrite in production, set the `TEMPLATES_APP_URL` environment
-variable in the main web app's deployment.
-
-### Environment Variables
-
-#### `NEXT_PUBLIC_MAIN_SITE_URL`
-
-This environment variable should be set when deploying the templates app to a
-subdomain. It enables header links to navigate back to the main solana.com site.
-
-- **Production**: `https://solana.com`
-- **Preview/Staging**: Your preview URL (e.g., `https://preview.solana.com`)
-- **Local Development**: `http://localhost:3000` (if main site runs on
-  port 3000)
-- **Main Site**: Leave empty or unset
-
-See `.env.example` for more details.
+The main site (`apps/web`) proxies requests to this app's Vercel deployment via
+Next.js rewrites. Users always access the templates through `solana.com`.
 
 ## Architecture
 
@@ -70,3 +51,14 @@ See `.env.example` for more details.
 
 - `/[locale]/` - Template list page
 - `/[locale]/[id]/` - Individual template detail page
+
+## Header Navigation
+
+The shared header uses `NEXT_PUBLIC_APP_NAME` (set to `"templates"` in
+`next.config.ts`) to determine link behavior:
+
+- Links to template routes use Next.js Link (client navigation)
+- Links to other routes (e.g., `/docs`, `/validators`) use `<a>` tags (full page
+  load back through the proxy)
+
+See `packages/ui-chrome/src/url-config.ts` for the routing logic.

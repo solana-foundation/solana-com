@@ -1,0 +1,249 @@
+---
+title: Outils de vérification
+description:
+  Vérifiez les paiements entrants en stablecoins et rapprochez-les avec vos
+  commandes.
+---
+
+Les tokens arrivent dans votre portefeuille au moment où une transaction est
+confirmée. Aucune action n'est requise de la part du destinataire. Solana
+incrémente de manière atomique le solde du compte de tokens du destinataire et
+décrémente le solde de l'expéditeur. Dans ce guide, nous présentons quelques
+outils utiles pour comprendre le solde de votre compte de tokens et surveiller
+les paiements entrants.
+
+## Interroger le solde de tokens
+
+Vérifiez votre solde de stablecoins en utilisant la méthode RPC
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) :
+
+```typescript
+import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function getBalance(walletAddress: Address) {
+  // Derive the token account address
+  const [ata] = await findAssociatedTokenPda({
+    mint: USDC_MINT,
+    owner: walletAddress,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS
+  });
+
+  // Query balance via RPC
+  const { value } = await rpc.getTokenAccountBalance(ata).send();
+
+  return {
+    raw: BigInt(value.amount), // "1000000" -> 1000000n
+    formatted: value.uiAmountString, // "1.00"
+    decimals: value.decimals // 6
+  };
+}
+```
+
+## Surveiller les transferts entrants
+
+Abonnez-vous à votre compte de tokens pour recevoir des notifications de
+paiement en temps réel en utilisant la méthode RPC `accountNotifications` :
+
+```typescript
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+
+async function watchPayments(
+  tokenAccountAddress: Address,
+  onPayment: (amount: bigint) => void
+) {
+  const abortController = new AbortController();
+
+  const subscription = await rpcSubscriptions
+    .accountNotifications(tokenAccountAddress, {
+      commitment: "confirmed",
+      encoding: "base64"
+    })
+    .subscribe({ abortSignal: abortController.signal });
+
+  let previousBalance = 0n;
+
+  for await (const notification of subscription) {
+    const [data] = notification.value.data;
+    const dataBytes = getBase64Codec().encode(data);
+    const token = getTokenCodec().decode(dataBytes);
+    if (token.amount > previousBalance) {
+      const received = token.amount - previousBalance;
+      onPayment(received);
+    }
+    previousBalance = token.amount;
+  }
+  abortController.abort();
+}
+```
+
+Notez ici que nous utilisons les abonnements RPC et une connexion websocket au
+réseau Solana.
+
+Chaque notification contient une chaîne encodée en base64 des données du compte
+de tokens. Comme nous savons que le compte que nous examinons est un compte de
+tokens, nous pouvons décoder les données en utilisant la méthode `getTokenCodec`
+du package `@solana-program/token`.
+
+Notez que pour les applications de production, vous devriez envisager une
+solution de streaming plus robuste. Voici quelques options :
+
+- [Alchemy](https://docs.alchemy.com/reference/subscription-api)
+- [Triton](https://docs.triton.one/chains/solana/streaming)
+- [Helius](https://www.helius.dev/docs/data-streaming)
+- [QuickNode](https://www.quicknode.com/docs/solana/subscriptions)
+
+## Analyser l'historique des transactions
+
+Solana dispose de méthodes RPC qui vous permettent de récupérer l'historique des
+transactions d'un compte
+([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) et
+d'obtenir les détails d'une transaction
+([`getTransaction`](/docs/rpc/http/gettransaction)). Pour analyser l'historique
+des transactions, nous récupérons les signatures récentes pour notre compte de
+tokens, puis nous récupérons les soldes de tokens avant/après de chaque
+transaction. En comparant le solde de notre ATA avant et après chaque
+transaction, nous pouvons déterminer le montant du paiement et la direction
+(entrant ou sortant).
+
+```typescript
+async function getRecentPayments(
+  tokenAccountAddress: Address,
+  limit = 100
+): Promise<Payment[]> {
+  const signatures = await rpc
+    .getSignaturesForAddress(tokenAccountAddress, { limit })
+    .send();
+  const payments: ParsedPayment[] = [];
+
+  for (const sig of signatures) {
+    const tx = await rpc
+      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 0 })
+      .send();
+
+    if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
+
+    // Find our ATA's index in the transaction
+    const accountKeys = tx.transaction.message.accountKeys;
+    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    if (ataIndex === -1) continue;
+
+    // Compare pre/post balances for our ATA
+    const pre = tx.meta.preTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+    const post = tx.meta.postTokenBalances.find(
+      (b) => b.accountIndex === ataIndex && b.mint === USDC_MINT
+    );
+
+    const preAmount = BigInt(pre?.uiTokenAmount.amount ?? "0");
+    const postAmount = BigInt(post?.uiTokenAmount.amount ?? "0");
+    const diff = postAmount - preAmount;
+
+    if (diff !== 0n) {
+      payments.push({
+        signature: sig.signature,
+        timestamp: tx.blockTime,
+        amount: diff > 0n ? diff : -diff,
+        type: diff > 0n ? "incoming" : "outgoing"
+      });
+    }
+  }
+
+  return payments;
+}
+```
+
+Pour identifier la contrepartie, vous pouvez analyser les soldes de jetons de la
+transaction pour trouver un autre compte dont le solde a changé dans la
+direction opposée — si vous avez reçu des fonds, recherchez un compte dont le
+solde a diminué du même montant.
+
+Étant donné que les transferts de jetons SPL peuvent exister au-delà des simples
+paiements entre utilisateurs, cette approche peut générer certaines transactions
+qui ne sont pas des paiements. Une bonne alternative ici est d'utiliser les
+mémos.
+
+### Limitations de l'analyse des soldes avant/après
+
+L'approche ci-dessus fonctionne bien pour les flux de paiement simples.
+Cependant, les entreprises traitant des paiements à grande échelle ont souvent
+besoin de données plus granulaires et en temps réel :
+
+- **Détail par instruction :** une seule transaction peut contenir plusieurs
+  transferts. Les soldes avant/après ne montrent que le changement net, pas les
+  transferts individuels.
+- **Transactions multi-parties :** les transactions complexes (échanges,
+  paiements groupés) impliquent plusieurs comptes. Les différences de solde ne
+  révèlent pas le flux complet des fonds.
+- **Exigences d'audit :** la conformité financière nécessite souvent de
+  reconstituer les séquences de transfert exactes, pas seulement les soldes
+  finaux.
+
+Pour les systèmes de production gérant des volumes élevés, envisagez des
+[solutions d'indexation](/docs/payments/accept-payments/indexing) dédiées qui
+analysent les instructions de transfert individuelles et fournissent des détails
+au niveau de la transaction.
+
+## Rapprocher les paiements avec les mémos
+
+Lorsque les expéditeurs incluent des mémos (identifiants de facture, numéros de
+commande), vous pouvez les extraire du message de la transaction en utilisant la
+méthode RPC `getTransaction` et l'encodage `jsonParsed` :
+
+```typescript
+function extractMemos(transaction): string | null {
+  const { instructions } = transaction.transaction.message;
+  let memos = "";
+  for (const instruction of instructions) {
+    if (instruction.program !== "spl-memo") continue;
+    memos += instruction.parsed + "; ";
+  }
+  return memos;
+}
+
+async function getTransactionMemo(
+  signature: Signature
+): Promise<string | null> {
+  const tx = await rpc
+    .getTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      encoding: "jsonParsed"
+    })
+    .send();
+  if (!tx) return null;
+  return extractMemos(tx);
+}
+```
+
+## Protections
+
+Quelques modes de défaillance à éviter :
+
+- **Faire confiance au frontend.** Une page de paiement indique « paiement
+  terminé » — mais la transaction a-t-elle réellement abouti ? Vérifiez toujours
+  côté serveur en interrogeant le RPC. Les confirmations frontend peuvent être
+  falsifiées.
+
+- **Agir sur le statut « traité ».** Les transactions Solana passent par trois
+  étapes : traité → confirmé → finalisé. Une transaction « traitée » peut encore
+  être abandonnée lors de bifurcations. Attendez « confirmé » (1-2 secondes)
+  avant d'expédier les commandes, ou « finalisé » (~13 secondes) pour les
+  transactions de grande valeur.
+
+- **Ignorer le mint.** N'importe qui peut créer un token appelé « USDC ».
+  Validez que le mint du token account correspond à l'adresse réelle du mint du
+  stablecoin et au programme de token, pas seulement au nom du token.
+
+- **Double exécution.** Votre webhook se déclenche, vous expédiez la commande.
+  Problème réseau, le webhook se déclenche à nouveau. Vous avez maintenant
+  expédié deux fois. Stockez les signatures de transaction traitées et vérifiez
+  avant d'exécuter.

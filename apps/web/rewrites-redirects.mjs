@@ -1,4 +1,43 @@
-import { MEDIA_APP_URL, TEMPLATES_APP_URL } from "./apps-urls";
+import {
+  MEDIA_APP_URL,
+  DOCS_APP_URL,
+  TEMPLATES_APP_URL,
+  ACCELERATE_APP_URL,
+} from "./apps-urls";
+import { locales } from "@workspace/i18n/config";
+
+const LOCALE_REGEX = locales.join("|");
+
+/**
+ * Generates both bare-path and locale-prefixed versions of each redirect.
+ * - For internal destinations: `:locale` param is prepended to both source and destination
+ * - For external destinations (http/https): `:locale` param is only prepended to source
+ * - All generated redirects use `locale: false` for explicit path control
+ */
+function withLocaleRedirects(redirects) {
+  return redirects.flatMap(({ source, destination, ...rest }) => {
+    const isExternalDest =
+      destination.startsWith("https://") || destination.startsWith("http://");
+
+    const localeDestination = isExternalDest
+      ? destination
+      : destination.startsWith("/")
+        ? `/:locale${destination}`
+        : `/:locale/${destination}`;
+
+    return [
+      // Bare path (e.g. /brand → /branding)
+      { source, destination, locale: false, ...rest },
+      // Locale-prefixed (e.g. /:locale/brand → /:locale/branding)
+      {
+        source: `/:locale(${LOCALE_REGEX})${source}`,
+        destination: localeDestination,
+        locale: false,
+        ...rest,
+      },
+    ];
+  });
+}
 
 export default {
   rewrites: {
@@ -13,6 +52,19 @@ export default {
         source: "/breakpoint/:path*",
         destination:
           "https://solana-com-breakpoint.vercel.app/breakpoint/:path*",
+        locale: false,
+      },
+      // Breakpoint app – locale-prefixed (so local pages can be removed)
+      {
+        source: "/:locale/breakpoint",
+        destination:
+          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint",
+        locale: false,
+      },
+      {
+        source: "/:locale/breakpoint/:path*",
+        destination:
+          "https://solana-com-breakpoint.vercel.app/:locale/breakpoint/:path*",
         locale: false,
       },
       // Media app rewrites - new routes
@@ -71,6 +123,15 @@ export default {
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
+      // Proxy /_next/image requests for /uploads/* to the media app's image
+      // optimizer. The web app's /_next/image reads from its own filesystem,
+      // but /uploads/ files live in the media app's deployment.
+      {
+        source: "/_next/image",
+        has: [{ type: "query", key: "url", value: "/uploads/(.*)" }],
+        destination: `${MEDIA_APP_URL}/media-assets/_next/image`,
+        locale: false,
+      },
       // Media app assets (required for static assets with assetPrefix: "/media-assets")
       {
         source: "/media-assets/uploads/:path+",
@@ -83,19 +144,206 @@ export default {
         locale: false,
       },
       {
-        source: "/uploads/builder/:path+",
-        destination: `${MEDIA_APP_URL}/media-assets/uploads/builder/:path+`,
+        source: "/uploads/:path+",
+        destination: `${MEDIA_APP_URL}/media-assets/uploads/:path+`,
         locale: false,
       },
+      // Templates app assets (required for static assets with assetPrefix: "/templates-assets")
+      {
+        source: "/templates-assets/:path+",
+        destination: `${TEMPLATES_APP_URL}/templates-assets/:path+`,
+        locale: false,
+      },
+      // Accelerate app rewrites
+      {
+        source: "/accelerate",
+        destination: `${ACCELERATE_APP_URL}/accelerate`,
+        locale: false,
+      },
+      {
+        source: "/accelerate/:path*",
+        destination: `${ACCELERATE_APP_URL}/accelerate/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/accelerate",
+        destination: `${ACCELERATE_APP_URL}/:locale/accelerate`,
+        locale: false,
+      },
+      {
+        source: "/:locale/accelerate/:path*",
+        destination: `${ACCELERATE_APP_URL}/:locale/accelerate/:path*`,
+        locale: false,
+      },
+      {
+        source: "/accelerate-assets/:path+",
+        destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,
+        locale: false,
+      },
+      // Accelerate app Next.js optimizer/static (_next/*) paths
+      {
+        source: "/accelerate-assets/_next/:path+",
+        destination: `${ACCELERATE_APP_URL}/_next/:path+`,
+        locale: false,
+      },
+      // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",
         destination: `${TEMPLATES_APP_URL}/developers/templates`,
         locale: false,
       },
-      // everything underneath
       {
         source: "/developers/templates/:path*",
         destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
+        locale: false,
+      },
+      // Accelerate app assets (required for static assets with assetPrefix: "/accelerate-assets")
+      {
+        source: "/accelerate-assets/images/:path+",
+        destination: `${ACCELERATE_APP_URL}/images/:path+`,
+        locale: false,
+      },
+      {
+        source: "/accelerate-assets/:path+",
+        destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,
+        locale: false,
+      },
+      // Docs app assets (required for static assets with assetPrefix: "/docs-assets")
+      {
+        source: "/docs-assets/:path+",
+        destination: `${DOCS_APP_URL}/docs-assets/:path+`,
+        locale: false,
+      },
+      // Docs app rewrites
+      {
+        source: "/opengraph/:path+",
+        destination: `${DOCS_APP_URL}/opengraph/:path+`,
+        locale: false,
+      },
+      {
+        source: "/docs",
+        destination: `${DOCS_APP_URL}/docs`,
+        locale: false,
+      },
+      {
+        source: "/docs.md",
+        destination: `${DOCS_APP_URL}/docs.md`,
+        locale: false,
+      },
+      {
+        source: "/docs/:path*.md",
+        destination: `${DOCS_APP_URL}/docs/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/docs/:path*",
+        destination: `${DOCS_APP_URL}/docs/:path*`,
+        locale: false,
+      },
+      {
+        source: "/learn",
+        destination: `${DOCS_APP_URL}/learn`,
+        locale: false,
+      },
+      {
+        source: "/learn/:path*.md",
+        destination: `${DOCS_APP_URL}/learn/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/learn/:path*",
+        destination: `${DOCS_APP_URL}/learn/:path*`,
+        locale: false,
+      },
+      {
+        source: "/developers",
+        destination: `${DOCS_APP_URL}/developers`,
+        locale: false,
+      },
+      {
+        source: "/developers/:path*.md",
+        destination: `${DOCS_APP_URL}/developers/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/developers/cookbook",
+        destination: `${DOCS_APP_URL}/developers/cookbook`,
+        locale: false,
+      },
+      {
+        source: "/developers/cookbook/:path*",
+        destination: `${DOCS_APP_URL}/developers/cookbook/:path*`,
+        locale: false,
+      },
+      {
+        source: "/developers/guides",
+        destination: `${DOCS_APP_URL}/developers/guides`,
+        locale: false,
+      },
+      {
+        source: "/developers/guides/:path*",
+        destination: `${DOCS_APP_URL}/developers/guides/:path*`,
+        locale: false,
+      },
+      // Docs app with locale
+      {
+        source: "/:locale/docs",
+        destination: `${DOCS_APP_URL}/:locale/docs`,
+        locale: false,
+      },
+      {
+        source: "/:locale/docs/:path*.md",
+        destination: `${DOCS_APP_URL}/:locale/docs/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/:locale/docs/:path*",
+        destination: `${DOCS_APP_URL}/:locale/docs/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/learn",
+        destination: `${DOCS_APP_URL}/:locale/learn`,
+        locale: false,
+      },
+      {
+        source: "/:locale/learn/:path*.md",
+        destination: `${DOCS_APP_URL}/:locale/learn/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/:locale/learn/:path*",
+        destination: `${DOCS_APP_URL}/:locale/learn/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers",
+        destination: `${DOCS_APP_URL}/:locale/developers`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/:path*.md",
+        destination: `${DOCS_APP_URL}/:locale/developers/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/cookbook",
+        destination: `${DOCS_APP_URL}/:locale/developers/cookbook`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/cookbook/:path*",
+        destination: `${DOCS_APP_URL}/:locale/developers/cookbook/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/guides",
+        destination: `${DOCS_APP_URL}/:locale/developers/guides`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/guides/:path*",
+        destination: `${DOCS_APP_URL}/:locale/developers/guides/:path*`,
         locale: false,
       },
     ],
@@ -103,7 +351,7 @@ export default {
     fallback: [],
   },
 
-  redirects: [
+  redirects: withLocaleRedirects([
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     // TODO: set to newws/upgrades when we have articles
@@ -129,7 +377,13 @@ export default {
       source: "/skyline",
       destination: "https://lu.ma/solana-nyc",
     },
+    {
+      source: "/solana_token_extensions_paper",
+      destination:
+        "https://drive.google.com/file/d/13u20-ItOcNXQpqlO3JHrC1eYhtz1PilE/view?usp=sharing",
+    },
     { source: "/blog", destination: "/news" },
+    { source: "/rss.xml", destination: "/news/rss.xml" },
     { source: "/news/tag/:path*", destination: "/news" },
     {
       source: "/news/solana-scaffold-part-1-wallet-adapter",
@@ -848,7 +1102,7 @@ export default {
       destination: "/accelerate",
     },
     {
-      source: "/accelerate/ship-or-die",
+      source: "/accelerate/tickets",
       destination: "/accelerate",
     },
     {
@@ -1166,5 +1420,5 @@ export default {
         "/developers/cookbook/development/using-mainnet-accounts-programs",
       destination: "/docs/intro/installation/surfpool-cli-basics",
     },
-  ],
+  ]),
 };

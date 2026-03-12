@@ -1,0 +1,197 @@
+---
+title: Tài khoản PDA
+description:
+  Tạo tài khoản on-chain tại địa chỉ Solana PDA bằng invoke_signed và ràng buộc
+  init của Anchor. Luồng xác minh invoke_signed và các mẫu tạo PDA của Anchor
+  với ví dụ mã nguồn.
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: PDA Signing via invoke_signed, Create a PDA Account */}
+
+<Callout type="info" title="Tóm tắt">
+  Tạo tài khoản PDA thông qua _rs`invoke_signed`_ với các seed của PDA. Chỉ
+  chương trình sở hữu mới có thể ký cho PDA. Ràng buộc _rs`init`_ của Anchor tự
+  động hóa việc tạo tài khoản PDA.
+</Callout>
+
+## Ký PDA thông qua `invoke_signed`
+
+Khi một chương trình cần ký thay mặt cho PDA trong quá trình CPI, nó sử dụng
+_rs`invoke_signed`_ với các seed của PDA. Runtime xác minh các seed dẫn xuất PDA
+mong đợi bằng cách sử dụng **ID chương trình gọi**, đảm bảo chỉ chương trình sở
+hữu mới có thể ký. Để xem luồng xác minh đầy đủ, hãy xem
+[PDA Signing](/docs/core/cpi/cpi-cost-model#pda-signing).
+
+## Tạo tài khoản PDA
+
+Dẫn xuất PDA và tạo tài khoản tại PDA là hai thao tác riêng biệt. Bạn phải tạo
+tài khoản một cách rõ ràng sau khi dẫn xuất địa chỉ.
+
+Để tạo tài khoản tại PDA, chương trình dẫn xuất gọi lệnh _rs`create_account`_
+của System Program thông qua [`invoke_signed`](/docs/core/cpi), truyền các seed
+của PDA để runtime có thể xác minh quyền của chương trình đối với địa chỉ đó.
+
+<WithMentions>
+
+Ví dụ dưới đây sử dụng [Anchor framework](https://www.anchor-lang.com/docs) để
+tạo tài khoản mới với địa chỉ dẫn xuất từ chương trình. Chương trình bao gồm một
+lệnh [`initialize`](mention:initialize) duy nhất để tạo tài khoản mới, tài khoản
+này sẽ lưu trữ [địa chỉ người dùng](mention:user-address) và
+[bump seed](mention:bump) được sử dụng để dẫn xuất PDA.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Ràng buộc [`init`](mention:init) yêu cầu Anchor
+[gọi System Program](/docs/core/programs/builtin-programs#the-system-program) để
+tạo tài khoản mới sử dụng PDA làm địa chỉ. Các [seed](mention:seeds) được sử
+dụng để tạo PDA là:
+
+- Chuỗi cố định: "data"
+- Địa chỉ của tài khoản người dùng được cung cấp trong lệnh
+- [Bump seed](mention:bump) chính tắc
+
+Trong ví dụ này, ràng buộc bump không được gán giá trị, do đó Anchor sẽ sử dụng
+_`find_program_address`_ để suy ra PDA và tìm bump.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Tệp kiểm thử bên dưới chứa một giao dịch gọi lệnh
+[`initialize`](mention:initialize) để tạo một tài khoản mới với địa chỉ suy ra
+từ chương trình. Tệp này chứa mã để [suy ra PDA](mention:pda).
+
+Ví dụ cũng cho thấy cách [lấy](mention:fetch) tài khoản mới sẽ được tạo.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  Nếu bạn gọi lệnh `initialize` lần nữa với cùng seed địa chỉ `user`, giao dịch
+  sẽ thất bại. Điều này xảy ra vì một tài khoản đã tồn tại tại địa chỉ đã suy
+  ra.
+</Callout>

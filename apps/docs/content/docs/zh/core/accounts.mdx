@@ -1,0 +1,926 @@
+---
+title: 账户
+description:
+  了解 Solana
+  的账户模型，包括账户如何存储数据和程序、租金机制、账户所有权，以及程序与数据账户之间的关系。理解
+  Solana 键值存储系统的核心概念。
+---
+
+Solana 网络上的所有数据都存储在账户中。您可以将 Solana 网络视为一个包含单一账户表的公共数据库。账户与其地址之间的关系类似于键值对，其中键是地址，值是账户。
+
+每个账户都有相同的基本[结构](#account-structure)，并且可以通过其[地址](#account-address)找到。
+
+![三个账户及其地址的示意图，包括账户结构定义。](/assets/docs/core/accounts/accounts.png)
+
+## 账户地址
+
+账户地址是一个 32 字节的唯一 ID，用于在 Solana 区块链上定位账户。账户地址通常以 base58 编码字符串的形式显示。大多数账户使用
+[Ed25519](https://ed25519.cr.yp.to/) [公钥](#public-key)
+作为其地址，但这并不是强制性的，因为 Solana 还支持[程序派生地址](#program-derived-address)。
+
+![一个账户及其 base58 编码的公钥地址](/assets/docs/core/accounts/account-address.svg)
+
+### 公钥
+
+下面的示例演示了如何使用 Solana SDK 创建一个 keypair。 `Keypair` 包含：
+
+- 一个作为账户地址的公钥
+- 一个用于签署交易的私钥
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### 程序派生地址
+
+[程序派生地址](/docs/core/pda)（PDA）是一个通过程序 ID 和一个或多个可选输入（种子）确定性派生的地址。下面的示例演示了如何使用 Solana
+SDK 创建一个程序派生地址。
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## 账户结构
+
+每个
+[`Account`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/account/src/lib.rs#L48-L60)
+最大容量为
+[10MiB](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/system_instruction.rs#L85)，包含以下信息：
+
+<WithMentions>
+
+- [`lamports`](mention:lamports)：账户中的 lamports 数量
+- [`data`](mention:data)：账户数据
+- [`owner`](mention:owner)：拥有该账户的 program 的 ID
+- [`executable`](mention:executable)：指示账户是否包含可执行二进制文件
+- [`rent_epoch`](mention:rent_epoch)：已弃用的 rent epoch 字段
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// the epoch at which this account will next owe rent
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamports
+
+账户的余额以 [lamports](/docs/references/terminology#lamport) 为单位。
+
+每个账户必须有一个最低 lamport 余额，称为
+[租金](/docs/references/terminology#rent)，这允许其数据存储在链上。租金与账户的大小成正比。
+
+<Callout type="info">
+  虽然这个余额被称为
+  rent，但它更像是押金，因为当账户关闭时，可以全额取回余额。（"rent"
+  这个名称来源于现已弃用的 rent epoch 字段。）
+</Callout>
+
+（请参阅[最低余额](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L93-L97)公式和适用的[常量](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/rent/src/lib.rs#L47-L70)。）
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 数据
+
+该字段通常被称为“账户数据”。此字段中的 `data`
+被视为任意内容，因为它可以包含任意字节序列。每个 program 会定义此字段中存储数据的结构。
+
+- 程序账户：此字段包含可执行程序代码或[程序数据账户](#program-data-accounts)的地址，该账户存储可执行程序代码。
+- 数据账户：此字段通常存储状态数据，供读取使用。
+
+从 Solana 账户读取数据涉及两个步骤：
+
+1. 通过 [address](#account-address) 获取账户
+2. 将账户的 `data`
+   字段从原始字节反序列化为相应的数据结构，具体结构由拥有该账户的 program 定义。
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 所有者
+
+此字段包含账户所有者的程序 ID。
+
+每个 Solana 账户都有一个 [program](/docs/core/programs)
+作为其 owner。只有该账户的 owner program 可以更改账户的 `data`
+或根据 program 指令扣除 lamports。
+
+（对于程序账户，其所有者是其[加载程序](https://solana.com/docs/core/programs#loader-programs)。）
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 可执行
+
+此字段指示账户是[程序账户](#program-accounts)还是[数据账户](#data-accounts)。
+
+- 如果 `true`：该账户是 program account
+- 如果 `false`：该账户是 data account
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 租赁 epoch
+
+**`rent_epoch` 字段已弃用。**
+
+过去，此字段用于跟踪账户何时需要支付租金。然而，此租金收取机制现已被弃用。
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>
+
+## 账户类型
+
+账户分为两大类：
+
+- [程序账户](#program-accounts)：包含可执行代码的账户
+- [数据账户](#data-accounts)：不包含可执行代码的账户
+
+程序代码与其状态的分离是 Solana 账户模型的一个关键特性。（类似于操作系统，通常将程序和其数据分为不同的文件。）
+
+### 程序账户
+
+每个程序都由一个[加载器程序](/docs/core/programs#loader-programs)拥有，用于部署和管理账户。当部署一个新的[程序](/docs/core/programs)时，会创建一个账户来存储其[可执行](#executable)代码。这被称为程序账户。（为了简化，可以将程序账户视为程序本身。）
+
+在下图中，你可以看到一个 loader program 被用来部署一个 program account。program
+account 的 `data` 字段包含可执行的程序代码。
+
+![程序账户、其四个组成部分及其加载器程序的示意图](/assets/docs/core/accounts/program-account-simple.svg)
+
+#### 程序数据账户
+
+使用 loader-v3 部署的 Programs 在其 `data` 字段中不包含程序代码。相反，它们的
+`data` 指向一个单独的 **program data account**，其中包含程序代码。（见下图。）
+
+![一个程序账户及其数据。数据指向一个单独的程序数据账户](/assets/docs/core/accounts/program-account-expanded.svg)
+
+<Callout>在程序部署或升级期间，缓冲账户用于临时存储上传内容。</Callout>
+
+下面的示例获取了 Token Program account。请注意，`executable` 字段被设置为
+`true`，表示该账户是一个 program。
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+
+const programId = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address;
+
+const accountInfo = await rpc
+  .getAccountInfo(programId, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const connection = new Connection(
+  "https://api.mainnet.solana.com",
+  "confirmed"
+);
+
+const programId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+const accountInfo = await connection.getAccountInfo(programId);
+// !collapse(1:17) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::pubkey;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let program_id = pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let account_info = connection.get_account(&program_id).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### 数据账户
+
+数据账户不包含可执行代码，而是用于存储信息。
+
+#### 程序状态账户
+
+程序使用数据账户来维护其状态。为此，必须先创建一个新的数据账户。虽然创建程序状态账户的过程通常被抽象化，但了解其底层流程会很有帮助。
+
+为了管理其状态，一个新程序必须：
+
+1. 调用 [System Program](/docs/core/programs#the-system-program)
+   来创建一个账户。（然后 System Program 将所有权转移给新程序。）
+2. 根据其 [instructions](/docs/core/instructions) 初始化账户数据。
+
+![由程序账户拥有的数据账户示意图](/assets/docs/core/accounts/data-account.svg)
+
+下面的示例创建并获取一个由 Token 2022 程序拥有的 Token Mint 账户。
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  fetchMint
+} from "@solana-program/token-2022";
+
+// Create Connection, local validator in this example
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate keypairs for fee payer
+const feePayer = await generateKeyPairSigner();
+
+// Fund fee payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: feePayer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Generate keypair to use as address of mint
+const mint = await generateKeyPairSigner();
+
+// Get default mint account size (in bytes), no extensions enabled
+const space = BigInt(getMintSize());
+
+// Get minimum balance for rent exemption
+const rent = await rpc.getMinimumBalanceForRentExemption(space).send();
+
+// Instruction to create new account for mint (token 2022 program)
+// Invokes the system program
+const createAccountInstruction = getCreateAccountInstruction({
+  payer: feePayer,
+  newAccount: mint,
+  lamports: rent,
+  space,
+  programAddress: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// Instruction to initialize mint account data
+// Invokes the token 2022 program
+const initializeMintInstruction = getInitializeMintInstruction({
+  mint: mint.address,
+  decimals: 9,
+  mintAuthority: feePayer.address
+});
+
+const instructions = [createAccountInstruction, initializeMintInstruction];
+
+// Get latest blockhash to include in transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }), // Create transaction message
+  (tx) => setTransactionMessageFeePayerSigner(feePayer, tx), // Set fee payer
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), // Set transaction blockhash
+  (tx) => appendTransactionMessageInstructions(instructions, tx) // Append instructions
+);
+
+// Sign transaction message with required signers (fee payer and mint keypair)
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Send and confirm transaction
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+// Get transaction signature
+const transactionSignature = getSignatureFromTransaction(signedTransaction);
+
+console.log("Mint Address:", mint.address);
+console.log("Transaction Signature:", transactionSignature);
+
+const accountInfo = await rpc.getAccountInfo(mint.address).send();
+console.log(accountInfo);
+
+const mintAccount = await fetchMint(rpc, mint.address);
+console.log(mintAccount);
+```
+
+```ts !! title="Legacy"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  TOKEN_2022_PROGRAM_ID,
+  MINT_SIZE,
+  getMinimumBalanceForRentExemptMint,
+  getMint
+} from "@solana/spl-token";
+
+// Create connection to local validator
+const connection = new Connection("http://localhost:8899", "confirmed");
+const recentBlockhash = await connection.getLatestBlockhash();
+
+// Generate a new keypair for the fee payer
+const feePayer = Keypair.generate();
+
+// Airdrop 1 SOL to fee payer
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: recentBlockhash.blockhash,
+  lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+// Generate keypair to use as address of mint
+const mint = Keypair.generate();
+
+const createAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey,
+  newAccountPubkey: mint.publicKey,
+  space: MINT_SIZE,
+  lamports: await getMinimumBalanceForRentExemptMint(connection),
+  programId: TOKEN_2022_PROGRAM_ID
+});
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // mint pubkey
+  9, // decimals
+  feePayer.publicKey, // mint authority
+  feePayer.publicKey, // freeze authority
+  TOKEN_2022_PROGRAM_ID
+);
+
+const transaction = new Transaction().add(
+  createAccountInstruction,
+  initializeMintInstruction
+);
+
+const transactionSignature = await sendAndConfirmTransaction(
+  connection,
+  transaction,
+  [feePayer, mint] // Signers
+);
+
+console.log("Mint Address: ", mint.publicKey.toBase58());
+console.log("Transaction Signature: ", transactionSignature);
+
+const accountInfo = await connection.getAccountInfo(mint.publicKey);
+
+// !collapse(1:16) collapsed
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+console.log(mintAccount);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    program_pack::Pack,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_token_2022_interface::{
+    id as token_2022_program_id, instruction::initialize_mint, state::Mint,
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create connection to local validator
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let recent_blockhash = client.get_latest_blockhash().await?;
+
+    // Generate a new keypair for the fee payer
+    let fee_payer = Keypair::new();
+
+    // Airdrop 1 SOL to fee payer
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 1_000_000_000)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    // Generate keypair to use as address of mint
+    let mint = Keypair::new();
+
+    let space = Mint::LEN;
+    let rent = client.get_minimum_balance_for_rent_exemption(space).await?;
+
+    // Create account instruction
+    let create_account_instruction = create_account(
+        &fee_payer.pubkey(),      // fee payer
+        &mint.pubkey(),           // mint address
+        rent,                     // rent
+        space as u64,             // space
+        &token_2022_program_id(), // program id
+    );
+
+    // Initialize mint instruction
+    let initialize_mint_instruction = initialize_mint(
+        &token_2022_program_id(),
+        &mint.pubkey(),            // mint address
+        &fee_payer.pubkey(),       // mint authority
+        Some(&fee_payer.pubkey()), // freeze authority
+        9,                         // decimals
+    )?;
+
+    // Create transaction and add instructions
+    let transaction = Transaction::new_signed_with_payer(
+        &[create_account_instruction, initialize_mint_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        recent_blockhash,
+    );
+
+    // Send and confirm transaction
+    let transaction_signature = client.send_and_confirm_transaction(&transaction).await?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!("Transaction Signature: {}", transaction_signature);
+
+    let account_info = client.get_account(&mint.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    let mint_account = Mint::unpack(&account_info.data)?;
+    println!("{:#?}", mint_account);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+#### 系统账户
+
+并非所有账户在由 System Program 创建后都会被分配新的所有者。由 System
+Program 拥有的账户被称为系统账户。所有钱包账户都是系统账户，这使它们能够支付
+[交易手续费](/docs/core/fees)。
+
+![一个由 System Program 拥有的钱包，包含 1,000,000 lamports](/assets/docs/core/accounts/system-account.svg)
+
+当 SOL 第一次被发送到一个新地址时，会在该地址创建一个由 System
+Program 拥有的账户。
+
+在下面的示例中，会生成一个新的 keypair 并用 SOL 进行资助。运行代码后，你可以看到账户的
+`owner` 地址是 `11111111111111111111111111111111`（即
+[System Program](/docs/core/programs#the-system-program)）。
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPairSigner,
+  lamports
+} from "@solana/kit";
+
+// Create a connection to Solana cluster
+const rpc = createSolanaRpc("http://localhost:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+
+// Generate a new keypair
+const keypair = await generateKeyPairSigner();
+console.log(`Public Key: ${keypair.address}`);
+
+// Funding an address with SOL automatically creates an account
+const signature = await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: keypair.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+const accountInfo = await rpc.getAccountInfo(keypair.address).send();
+console.log(accountInfo);
+```
+
+```ts !! title="Legacy"
+import { Keypair, Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+// Generate a new keypair
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+
+// Create a connection to the Solana cluster
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+// Funding an address with SOL automatically creates an account
+const signature = await connection.requestAirdrop(
+  keypair.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(signature, "confirmed");
+
+const accountInfo = await connection.getAccountInfo(keypair.publicKey);
+console.log(JSON.stringify(accountInfo, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL,
+    signer::{keypair::Keypair, Signer},
+};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Generate a new keypair
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+
+    // Create a connection to Solana cluster
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Funding an address with SOL automatically creates an account
+    let signature = connection
+        .request_airdrop(&keypair.pubkey(), LAMPORTS_PER_SOL)
+        .await?;
+
+    loop {
+        let confirmed = connection.confirm_transaction(&signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    let account_info = connection.get_account(&keypair.pubkey()).await?;
+    println!("{:#?}", account_info);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+#### Sysvar 账户
+
+Sysvar 账户存在于预定义的地址，并提供对集群状态数据的访问。它们会动态更新网络集群的相关数据。查看完整列表：[Sysvar Accounts](https://docs.anza.xyz/runtime/sysvars)。
+
+下面的示例从 Sysvar Clock 账户中获取并反序列化数据。
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { createSolanaRpc } from "@solana/kit";
+import { fetchSysvarClock, SYSVAR_CLOCK_ADDRESS } from "@solana/sysvars";
+
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
+
+const accountInfo = await rpc
+  .getAccountInfo(SYSVAR_CLOCK_ADDRESS, { encoding: "base64" })
+  .send();
+console.log(accountInfo);
+
+// Automatically fetch and deserialize the account data
+const clock = await fetchSysvarClock(rpc);
+console.log(clock);
+```
+
+```ts !! title="Legacy"
+import { Connection, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+import { getSysvarClockCodec } from "@solana/sysvars";
+
+const connection = new Connection(
+  "https://api.mainnet.solana.com",
+  "confirmed"
+);
+
+const accountInfo = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
+
+// Deserialize the account data
+const decodedClock = getSysvarClockCodec().decode(
+  new Uint8Array(accountInfo?.data ?? [])
+);
+console.log(
+  JSON.stringify(
+    accountInfo,
+    (key, value) => {
+      if (key === "data" && value && value.length > 1) {
+        return [
+          value[0],
+          "...truncated, total bytes: " + value.length + "...",
+          value[value.length - 1]
+        ];
+      }
+      return value;
+    },
+    2
+  )
+);
+console.log(decodedClock);
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use bincode::deserialize;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::sysvar::{self, clock::Clock};
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "https://api.mainnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let account = connection.get_account(&sysvar::clock::ID).await?;
+    // Deserialize the account data
+    let clock: Clock = deserialize(&account.data)?;
+
+    println!("{:#?}", account);
+    println!("{:#?}", clock);
+
+    Ok(())
+}
+```
+
+</CodeTabs>

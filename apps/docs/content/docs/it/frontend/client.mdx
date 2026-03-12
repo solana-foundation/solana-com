@@ -1,0 +1,121 @@
+---
+title: "@solana/client"
+description:
+  Costruisci frontend Solana leggeri con il runtime client Solana headless.
+---
+
+`@solana/client` mantiene la superficie del runtime leggera. Un unico store, uno
+stack RPC e un registry di wallet alimentano i diversi helper in modo che la
+stessa istanza possa supportare CLI, script o UI complete. Actions, watcher e
+helper condividono tutti cache, subscription e sessioni wallet attraverso quel
+singolo client.
+
+<Callout type="info">
+  Quando stai costruendo un'esperienza puramente React è solitamente più veloce
+  iniziare con [`@solana/react-hooks`](/docs/frontend/react-hooks). Il pacchetto
+  hooks avvolge questo stesso runtime client ed espone hook pronti all'uso così
+  da ricorrere al client headless solo quando hai bisogno di controllo extra.
+</Callout>
+
+## Installazione
+
+```terminal
+$ npm install @solana/client
+```
+
+Usa qualsiasi package manager; il client funziona in browser, worker, React,
+Svelte o runtime server-side.
+
+## Crea un client una volta sola
+
+Scegli i connector Wallet Standard (l'auto discovery è il modo più veloce per
+iniziare), poi crea il client. Questo singolo oggetto espone lo store, le
+actions, i watcher e gli helper.
+
+```ts
+import { autoDiscover, createClient } from "@solana/client";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+await client.actions.connectWallet("wallet-standard:phantom");
+const balance = await client.actions.fetchBalance("Fke...address");
+console.log(balance.lamports?.toString());
+```
+
+Lo store del client tiene traccia della configurazione del cluster, delle
+subscription, delle transazioni in sospeso e delle sessioni wallet. Puoi fornire
+il tuo store Zustand se hai bisogno di persistenza o coordinamento multi-tab.
+
+## Orchestrazione wallet
+
+I connector incapsulano i metadata Wallet Standard più la logica di
+connect/disconnect. Registra gli helper integrati `phantom()`, `solflare()`,
+`backpack()`, o `autoDiscover()`, oppure avvolgi provider personalizzati con
+`createWalletStandardConnector`. Tutte le azioni wallet (connect, disconnect,
+sign, send) passano attraverso il registry del client così ogni consumer rimane
+sincronizzato.
+
+## Actions, watcher e helper
+
+- **Actions** avvolgono letture e scritture RPC comuni aggiornando lo store
+  (es., `fetchAccount`, `requestAirdrop`, `setCluster`).
+- **Watcher** multiplexano le subscription websocket, trasmettono aggiornamenti
+  nello store e ti forniscono handle di abort per la pulizia.
+- **Helper** espongono flussi di livello superiore come trasferimenti SOL,
+  helper per token SPL, polling delle signature e pool di transazioni.
+
+```ts
+const abortWatcher = client.watchers.watchBalance(
+  { address: "Fke...address" },
+  (lamports) => {
+    console.log("live balance", lamports.toString());
+  }
+);
+
+// Later when the component unmounts or the flow ends
+abortWatcher.abort();
+```
+
+## Pattern helper per transazioni
+
+L'helper per transazioni gestisce l'aggiornamento del blockhash, la risoluzione
+del fee payer e la firma. Puoi preparare, ispezionare e inviare con la UX che
+preferisci.
+
+```ts
+const prepared = await client.helpers.transaction.prepare({
+  authority: client.store.getState().wallet.session!,
+  instructions: [instructionA, instructionB]
+});
+
+await client.helpers.transaction.simulate(prepared, {
+  commitment: "processed"
+});
+const signature = await client.helpers.transaction.send(prepared);
+console.log("submitted", signature.toString());
+```
+
+Usa `prepareAndSend` per un flusso preconfigurato (simulazione più logging)
+oppure chiama `sign` / `toWire` per raccogliere le firme manualmente prima di
+trasmettere il formato wire tu stesso.
+
+## Pattern comuni per sviluppatori Solana
+
+- **State machine headless**: esegui il client all'interno di route API, script
+  o worker per riutilizzare la stessa logica di orchestrazione wallet + RPC che
+  alimenta la tua UI.
+- **Dashboard realtime**: combina watcher (saldi, account, firme) con la tua
+  libreria UI preferita; il client gestisce il fan-out websocket e
+  l'invalidazione della cache.
+- **Store personalizzati**: inietta il tuo store Zustand per idratare da
+  IndexedDB/localStorage, replicare lo stato nelle sessioni server o coordinare
+  tra schede del browser.
+- **Bridge verso hook React**: passa un'istanza client configurata a
+  `@solana/react-hooks` quando vuoi hook ergonomici sopra lo stesso runtime.
+- **Testabilità**: l'interfaccia client singola può essere mockata nei test
+  unitari, rendendo facile simulare risposte RPC o sessioni wallet senza un
+  wallet browser presente.

@@ -1,0 +1,73 @@
+---
+title: Durable Nonce
+description:
+  オフライン署名と遅延トランザクション送信のためのSolanaにおけるdurable
+  nonceの仕組み。nonceのライフサイクル、検出、検証、失敗時の動作について説明します。
+url: /docs/core/transactions/durable-nonces
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/builtin-programs
+---
+
+<Callout type="info" title="概要">
+  Durable
+  nonceトランザクションは、最近のブロックハッシュを保存されたnonce値に置き換えることで、トランザクションの150スロットの有効期限を削除します。これにより、オフライン署名と遅延送信が可能になります。
+</Callout>
+
+<Callout type="warn">
+  Durable
+  nonceは将来のリリースで非推奨になる可能性があります。詳細は[SIMDディスカッション](https://github.com/solana-foundation/solana-improvement-documents/discussions/415)を参照してください。
+</Callout>
+
+## Durable nonce
+
+Durable
+nonceトランザクションは、最近のブロックハッシュを保存されたnonce値に置き換えることで、150スロットの有効期限を削除します。これにより、オフライン署名と遅延送信が可能になります。
+
+### Nonceトランザクションの仕組み
+
+Nonceアカウントは、System
+Programが所有するアカウントで、3つのフィールドを含む*rs`State::Initialized`*値を保存します:**authority**
+pubkey(nonceを進めることができる者)、**durable
+nonce**値(最近のブロックハッシュから派生したハッシュ)、**lamports per
+signature**(nonceが最後に進められたときの手数料レート)です。
+
+Durable nonceを使用するには:
+
+1. _rs`CreateAccount`_ +
+   *rs`InitializeNonceAccount`*を使用してnonceアカウントを作成し初期化する
+2. *rs`AdvanceNonceAccount`*を**最初のインストラクション**として、nonce値を`recent_blockhash`としてトランザクションを構築する
+3. トランザクションに署名する(nonceは期限切れにならないため、オフラインで実行可能)
+4. 準備ができたら送信する
+
+### Nonceの検出
+
+ランタイムは、最初のインストラクション(インデックス[`NONCED_TX_MARKER_IX_INDEX`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L20)
+= 0)が*rs`AdvanceNonceAccount`*インストラクションを使用したSystem
+Programへの呼び出しであるかどうかをチェックすることで、nonceトランザクションを検出します。Nonceアカウントは、そのインストラクションの最初のアカウントである必要があり、書き込み可能である必要があります。[`get_durable_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm-transaction/src/svm_message.rs#L89-L121)を参照してください。
+
+### Nonce検証フロー
+
+トランザクションの`recent_blockhash`が`BlockhashQueue`に見つからない場合、validatorは[`check_transaction_age`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L152-L180)を介して、それが有効なnonceトランザクションであるかを確認します。
+
+1. nonceに保存されている`durable_nonce`は、次のdurable
+   nonce(現在のblockhashから派生)と異なる必要があります。これにより、nonceがこのブロックで既に使用されていないことが保証されます
+2. nonceアカウントは読み込まれている必要があり、*rs`State::Initialized`*として解析できる必要があります
+3. 保存されている`durable_nonce`は、トランザクションの`recent_blockhash`と一致する必要があります
+
+nonce
+authorityの署名チェックは後で実行されます([`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729))。
+
+すべてのチェックに合格すると、実行が開始される前にnonceが次のdurable
+nonce値に進められます。実行が失敗した場合でも、進められたnonceと手数料が差し引かれたfee
+payerはコミットされます(リプレイを防ぎながら手数料を徴収します)。
+
+### Nonce失敗時の動作
+
+nonceトランザクションが**検証に失敗**した場合(nonceが既に使用されている、authorityが署名していない、アカウントが見つからない)、トランザクション全体が破棄されます。手数料は徴収されず、状態変更もありません。
+
+nonceトランザクションが**検証に合格したが実行に失敗**した場合(命令がエラーを返す)、nonceは進められ、手数料は徴収されます。これにより、トランザクションのリプレイを防ぎながら、validatorが報酬を受け取ることが保証されます。

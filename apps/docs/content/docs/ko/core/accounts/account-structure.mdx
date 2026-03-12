@@ -1,0 +1,360 @@
+---
+title: 계정 구조
+description:
+  계정 주소, 모든 Solana 계정이 포함하는 5개의 필드 — lamports, data, owner,
+  executable, rent_epoch — 및 대화형 코드 안내.
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+<Callout type="info" title="요약">
+  계정은 5개의 필드를 가집니다: lamports, data, owner, executable, rent_epoch.
+  각 계정은 고유한 32바이트 주소로 식별됩니다. 계정은 온체인에 유지되기 위해
+  데이터 크기에 비례하는 최소 lamport 잔액을 보유해야 합니다.
+</Callout>
+
+## 계정 주소
+
+모든 계정 주소는 32바이트 값이며, base58로 인코딩된 문자열로 표시됩니다. 주소는
+두 가지 유형 중 하나일 수 있습니다:
+
+1. **공개 키**: [Ed25519](https://ed25519.cr.yp.to/) keypair에 해당 (개인 키
+   보유)
+2. **Program Derived Address (PDA)**: 프로그램 ID와 시드로부터 결정론적으로 파생
+   (개인 키 없음)
+
+![base58로 인코딩된 공개 키 주소를 가진 계정](/assets/docs/core/accounts/account-address.svg)
+
+### 공개 키
+
+*rs`Keypair`*는 공개 키(계정 주소로 사용)와 개인 키(트랜잭션 서명에 사용)로
+구성됩니다. 다음 예제는 Solana SDK를 사용하여 keypair를 생성합니다.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program Derived Address
+
+[Program Derived Address](/docs/core/pda) (PDA)는 프로그램 ID와 하나 이상의
+선택적 시드로부터 결정론적으로 파생됩니다. PDA는 해당하는 개인 키가 없습니다.
+다음 예제는 Solana SDK를 사용하여 PDA를 파생합니다.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## 계정 필드
+
+모든
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+는 최대 크기가
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+(10 MiB, *rs`MAX_PERMITTED_DATA_LENGTH`*와 동일)이며 다섯 개의 필드를
+포함합니다:
+
+<WithMentions>
+
+| 필드                               | 타입      | 설명                                                                           |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------ |
+| [`lamports`](mention:lamports)     | `u64`     | lamport 단위의 잔액. 소유자는 차감 가능하며, 모든 프로그램은 입금 가능합니다.  |
+| [`data`](mention:data)             | `Vec<u8>` | 계정 상태 또는 프로그램 바이트코드. 최대 10 MiB. 소유자만 쓰기 가능합니다.     |
+| [`owner`](mention:owner)           | `Pubkey`  | 쓰기 권한을 가진 프로그램. 데이터가 0으로 초기화된 경우에만 재할당 가능합니다. |
+| [`executable`](mention:executable) | `bool`    | True = 프로그램 계정입니다.                                                    |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | 더 이상 사용되지 않습니다. rent 면제 계정의 경우 `u64::MAX`로 설정됩니다.      |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamport
+
+`lamports` 필드는 계정의 잔액을 [lamport](/docs/references/terminology#lamport)
+단위로 보유합니다 (1 SOL = 1,000,000,000 lamport).
+
+모든 계정은 데이터를 온체인에 저장하기 위해 rent 면제 잔액이라고 하는 최소
+lamport 잔액을 유지해야 합니다. 이 잔액은 계정의 데이터 크기에 비례합니다.
+
+<Callout type="info">
+  "rent"라고 자주 불리지만, rent 면제 잔액은 환불 가능한 보증금으로 작동하며,
+  계정이 닫힐 때 전체 잔액이 회수됩니다.
+</Callout>
+
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+및 rent
+[상수](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80)를
+참조하세요.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Data
+
+`data` 필드는 임의의 바이트 배열을 저장합니다. 그 내용은 계정 유형에 따라
+다릅니다:
+
+- **프로그램 계정**: 실행 가능한 바이트코드 또는 바이트코드를 저장하는
+  [프로그램 데이터 계정](/docs/core/accounts/account-types#program-data-accounts)의
+  주소를 포함합니다.
+- **데이터 계정**: 프로그램 정의 상태 데이터를 포함합니다. 소유 프로그램이
+  직렬화 형식을 정의합니다.
+
+계정 데이터를 읽으려면 두 단계가 필요합니다:
+
+1. [주소](#account-address)로 계정을 가져옵니다.
+2. `data` 필드를 원시 바이트에서 프로그램 정의 데이터 구조로 역직렬화합니다.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 소유자
+
+`owner` 필드는 이 계정을 소유한 프로그램의 프로그램 ID(공개 키)를 포함합니다.
+
+소유자 프로그램만이 다음을 수행할 수 있습니다:
+
+- 계정의 `data` 필드 수정
+- 계정의 `lamports` 필드에서 램포트 차감
+
+모든 프로그램은 다른 계정에 램포트를 추가할 수 있지만, 소유자만이 계정에서
+램포트를 차감할 수 있습니다.
+
+프로그램 계정의 경우, 소유자는 계정의
+[로더 프로그램](/docs/core/programs/builtin-programs#loader-programs)입니다.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps 실행 가능
+
+`executable` 필드는 계정이
+[프로그램 계정](/docs/core/accounts/account-types#program-accounts)인지
+[데이터 계정](/docs/core/accounts/account-types#data-accounts)인지를 결정하는
+불리언 값입니다:
+
+- `true` = 프로그램 계정(실행 가능한 코드 포함)
+- `false` = 데이터 계정(상태 저장)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Rent epoch
+
+**`rent_epoch` 필드는 더 이상 사용되지 않습니다.**
+
+이전에는 계정의 온체인 데이터 유지 비용을 지불하기 위해 램포트가 자동으로
+차감되는 시점을 추적했습니다. rent 수집이 더 이상 사용되지 않으므로,
+`rent_epoch`는 모든 새로운 rent 면제 계정에 대해 `u64::MAX`로 설정됩니다.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

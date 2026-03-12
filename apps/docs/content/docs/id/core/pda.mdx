@@ -1,0 +1,547 @@
+---
+title: Alamat Turunan Program
+description:
+  Pelajari tentang Alamat Turunan Program (PDA) Solana — alamat akun
+  deterministik yang memungkinkan penandatanganan program yang aman. Pahami
+  derivasi PDA, bump kanonik, dan cara membuat akun PDA.
+---
+
+Alamat [akun](/docs/core/accounts#account-address) Solana menunjuk ke lokasi
+akun di blockchain. Banyak alamat akun adalah kunci publik dari keypair, dalam
+hal ini kunci privat yang sesuai digunakan untuk menandatangani transaksi yang
+melibatkan akun tersebut.
+
+Alternatif yang berguna untuk alamat kunci publik adalah alamat turunan program
+(PDA). PDA menyediakan metode mudah untuk menyimpan, memetakan, dan mengambil
+status program. PDA adalah alamat yang dibuat secara deterministik menggunakan
+ID program dan kombinasi input yang telah ditentukan sebelumnya yang bersifat
+opsional. PDA terlihat mirip dengan alamat kunci publik, tetapi tidak memiliki
+kunci privat yang sesuai.
+
+Runtime Solana memungkinkan program untuk menandatangani PDA tanpa memerlukan
+kunci privat. Menggunakan PDA menghilangkan kebutuhan untuk melacak alamat akun.
+Sebagai gantinya, Anda dapat mengingat input spesifik yang digunakan untuk
+derivasi PDA. (Untuk mempelajari bagaimana program menggunakan PDA untuk
+penandatanganan, lihat bagian [Pemanggilan Lintas Program](/docs/core/cpi).)
+
+## Latar Belakang
+
+[Keypair](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/keypair/src/lib.rs#L26)
+Solana adalah titik pada [kurva Ed25519](https://ed25519.cr.yp.to/) (kriptografi
+kurva eliptik). Keypair terdiri dari kunci publik dan kunci privat. Kunci publik
+menjadi alamat akun, dan kunci privat digunakan untuk menghasilkan
+[tanda tangan](/docs/core/transactions#signatures) yang valid untuk akun.
+
+![Dua akun dengan alamat pada kurva](/assets/docs/core/pda/address-on-curve.svg)
+
+PDA sengaja diturunkan agar berada di luar kurva Ed25519. Ini berarti PDA tidak
+memiliki kunci privat yang sesuai yang valid dan tidak dapat melakukan operasi
+kriptografi. (Seperti menyediakan tanda tangan.) Namun, Solana memungkinkan
+program untuk menandatangani PDA tanpa memerlukan kunci privat.
+
+![Off Curve Address](/assets/docs/core/pda/address-off-curve.svg)
+
+Anda dapat menganggap PDA sebagai cara untuk membuat struktur seperti hashmap di
+on-chain menggunakan serangkaian input yang telah ditentukan sebelumnya.
+(Misalnya, string, angka, dan alamat akun lainnya.)
+
+![Program Derived Address](/assets/docs/core/pda/pda.svg)
+
+## Menurunkan PDA
+
+Sebelum membuat akun dengan PDA, Anda harus terlebih dahulu menurunkan
+alamatnya. Menurunkan PDA _tidak_ secara otomatis membuat akun on-chain di
+alamat tersebut— akun harus secara eksplisit dibuat melalui program yang
+digunakan untuk menurunkan PDA. Anda dapat menganggap PDA seperti alamat pada
+peta: hanya karena alamat itu ada tidak berarti ada sesuatu yang dibangun di
+sana.
+
+SDK Solana mendukung pembuatan PDA dengan fungsi yang ditunjukkan dalam tabel di
+bawah ini. Setiap fungsi menerima input berikut:
+
+- **Program ID**: Alamat program yang digunakan untuk menurunkan PDA. Program
+  ini dapat menandatangani atas nama PDA.
+- **Optional seeds**: Input yang telah ditentukan sebelumnya, seperti string,
+  angka atau alamat akun lainnya.
+
+| SDK                            | Fungsi                                                                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/kit` (Typescript)     | [`getProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L157) |
+| `@solana/web3.js` (Typescript) | [`findProgramAddressSync`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/publickey.ts#L212)               |
+| `solana_sdk` (Rust)            | [`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/sdk%40v2.2.2/pubkey/src/lib.rs#L617)                        |
+
+Fungsi ini menggunakan program ID dan optional seeds, kemudian melakukan iterasi
+melalui nilai bump untuk mencoba membuat alamat program yang valid. Iterasi
+nilai bump dimulai dari 255 dan berkurang sebesar 1 hingga PDA yang valid
+ditemukan. Setelah PDA yang valid ditemukan, fungsi mengembalikan PDA dan bump
+seed.
+
+<Callout>
+  Bump seed adalah byte tambahan yang ditambahkan ke optional seeds untuk
+  memastikan alamat off-curve yang valid dihasilkan.
+</Callout>
+
+![Derivasi PDA](/assets/docs/core/pda/pda-derivation.svg)
+
+### Canonical bump
+
+Bump seed adalah byte tambahan yang ditambahkan pada seeds opsional. Fungsi
+derivasi melakukan iterasi melalui nilai-nilai bump, dimulai dari 255 dan
+dikurangi 1, hingga menghasilkan alamat off-curve yang valid. Nilai bump pertama
+yang menghasilkan alamat off-curve yang valid disebut "canonical bump."
+
+Contoh berikut menunjukkan derivasi PDA menggunakan semua kemungkinan bump seed
+(255 hingga 0):
+
+<Callout type="info">
+  Contoh Kit tidak disertakan karena fungsi
+  [createProgramDerivedAddress](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L101)
+  tidak diekspor.
+</Callout>
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const optionalSeed = "helloWorld";
+
+// Loop through all bump seeds (255 down to 0)
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(optionalSeed), Buffer.from([bump])],
+      programId
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_id = Pubkey::from_str("11111111111111111111111111111111")?;
+    let optional_seed = b"helloWorld";
+
+    // Loop through all bump seeds (255 down to 0)
+    for bump in (0..=255).rev() {
+        match Pubkey::create_program_address(&[optional_seed.as_ref(), &[bump]], &program_id) {
+            Ok(pda) => println!("bump {}: {}", bump, pda),
+            Err(err) => println!("bump {}: {}", bump, err),
+        }
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<CodeTabs>
+
+```sh !! title="Expected TS Output"
+bump 255: Error: Invalid seeds, address must fall off the curve
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Error: Invalid seeds, address must fall off the curve
+...
+// remaining bump outputs
+```
+
+```sh !! title="Expected Rust Output"
+bump 255: Provided seeds do not result in a valid address
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Provided seeds do not result in a valid address
+...
+// remaining bump outputs
+```
+
+</CodeTabs>
+
+Dalam contoh ini, bump seed pertama menghasilkan error. Bump seed pertama yang
+menghasilkan PDA valid adalah 254. Bump seed 253-251 juga menghasilkan PDA valid
+yang unik.
+
+Ini berarti bahwa dengan seed opsional yang sama dan `programId`, bump seed
+dengan nilai yang berbeda masih dapat menurunkan PDA yang valid.
+
+<Callout type="warn">
+  Selalu sertakan pemeriksaan keamanan untuk memastikan PDA yang diteruskan ke
+  program diturunkan dari canonical bump. Kegagalan melakukan hal ini dapat
+  memunculkan kerentanan yang memungkinkan akun yang tidak diharapkan digunakan
+  dalam instruksi program. Praktik terbaik adalah hanya menggunakan canonical
+  bump saat menurunkan PDA.
+</Callout>
+
+### Contoh
+
+Contoh di bawah ini menurunkan PDA menggunakan Solana SDK. Klik **&#9655; Run**
+untuk menjalankan kode.
+
+#### Menurunkan PDA dengan string seed
+
+Contoh di bawah ini menurunkan PDA menggunakan program ID dan string seed
+opsional.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let seeds: &[&[u8]] = &[b"helloWorld"];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+#### Menurunkan PDA dengan seed alamat
+
+Contoh di bawah ini menurunkan PDA menggunakan ID program dan seed alamat
+opsional.
+
+<CodeTabs storage="pda-examples"flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:4)
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+// !focus(1:3)
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+#### Menurunkan PDA dengan beberapa seed
+
+Contoh di bawah ini menurunkan PDA menggunakan ID program dan beberapa seed
+opsional.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:5)
+const optionalSeedString = "helloWorld";
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedString, optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus(1:4)
+const optionalSeedString = "helloWorld";
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus(1:2)
+    let optional_seed_bytes = b"helloWorld";
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+## Membuat akun PDA
+
+<WithMentions>
+
+Contoh di bawah ini menggunakan
+[Anchor framework](https://www.anchor-lang.com/docs) untuk membuat akun baru
+dengan program-derived address. Program ini mencakup satu instruksi
+[`initialize`](mention:initialize) untuk membuat akun baru, yang akan menyimpan
+[alamat pengguna](mention:user-address) dan [bump seed](mention:bump) yang
+digunakan untuk menurunkan PDA.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bumpd
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Constraint [`init`](mention:init) memberi tahu Anchor untuk
+[memanggil System Program](/docs/core/programs#the-system-program) untuk membuat
+akun baru menggunakan PDA sebagai alamatnya. [Seed](mention:seeds) yang
+digunakan untuk membuat PDA adalah:
+
+- Alamat akun pengguna yang disediakan dalam instruksi
+- String tetap: "data"
+- [Bump seed](mention:bump) kanonik
+
+Dalam contoh ini, constraint bump tidak diberi nilai, sehingga Anchor akan
+menggunakan `find_program_address` untuk menurunkan PDA dan menemukan bump.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+File pengujian di bawah ini berisi transaksi yang memanggil instruksi
+[`initialize`](mention:initialize) untuk membuat akun baru dengan
+program-derived address. File ini berisi kode untuk
+[menurunkan PDA](mention:pda).
+
+Contoh ini juga menunjukkan cara [mengambil](mention:fetch) akun baru yang akan
+dibuat.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  Jika Anda memanggil instruksi `initialize` lagi dengan seed alamat `user` yang
+  sama, transaksi akan gagal. Ini terjadi karena akun sudah ada di alamat yang
+  diturunkan.
+</Callout>

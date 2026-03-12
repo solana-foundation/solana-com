@@ -1,0 +1,273 @@
+---
+title: "Understanding Proprietary AMMs"
+description: >-
+  A guide to how PropAMMs solve the fundamental problem of market making on-chain.
+date: "2026-01-20"
+categories:
+  - category: defi
+heroImage: /uploads/posts/propamm-explainer/prop-amms.webp
+status: published
+author: brian-li
+tags:
+  - tag: defi
+  - tag: tech
+  - tag: smart-contracts
+  - tag: ecosystem
+---
+
+_Highlights_
+
+- _Market makers must constantly update prices to avoid losses from informed traders, but on-chain transaction fees make traditional order book market making unprofitable_
+- _Previous AMMs (e.g. Uniswap) solved transaction fee costs but lost money to arbitrageurs because they couldn't actively update prices when markets moved_
+- _Proprietary AMMs, aka PropAMMs, use predictive price feeds to update minimal data on-chain, rivaling traditional market making efficiency at a fraction of the cost_
+- _Despite the breakthrough, PropAMMs face challenges: leader-dependent transaction inclusion, ongoing transaction fees, permissioned aggregator integration, and closed-source implementations_
+
+---
+
+## The Problem: Market Makers Need to Update Prices Constantly
+
+To understand PropAMMs, you need to know one thing: **market makers constantly update their prices**.
+
+On centralized exchanges like Binance, when the price of Bitcoin drops from $100,000 to $98,000, market makers cancel their old orders and place new ones at the updated price. This protects them from informed traders who would otherwise profit at their expense.
+
+![Market makers updating orders](/uploads/posts/propamm-explainer/image.png)
+
+### Why Market Makers Update Their Orders
+
+Market makers make money by providing liquidity and earning the spread between buys and sells. Here's how it works:
+
+- They place a **buy order** at $99,999.99
+- They place a **sell order** at $100,000.01
+- Each time they match with a trader, they earn a penny
+
+This works great with **uninformed traders** (retail users who just want to buy or sell at market price). The market maker buys low, sells high, and the price stays relatively stable around $100,000.
+
+But then **informed traders** show up. These are traders who get information before others—maybe news breaks about a war in Iran. They know Bitcoin should be $98,000, not $100,000. So they start shorting aggressively.
+
+The market maker keeps matching with this informed trader, buying Bitcoin from them at $100,000 when it should be $98,000. **They're losing money and this is also known as being "picked off" or "having the market move against you".**
+
+To avoid being picked off, the market maker needs to
+
+1. **Cancel** all their old buy orders above $98,000
+2. **Place** new buy orders below $98,000
+3. Place new sell orders above $98,000
+
+This constant updating is how market makers avoid being the "chump" in trades with informed participants.
+
+---
+
+## Why Traditional Market Making Doesn't Work On-Chain
+
+On Binance, placing and canceling orders is free. You only pay fees when your orders are filled (and you're already making money on the spread, so that's fine).
+
+**But on-chain, all transactions incur fees.**
+
+Every order placement, cancellation, and update costs money. Even on Solana where transaction fees are low, these costs add up quickly. Furthermore, market making profits follow a power law distribution. The top market maker captures most of the profits, while second and third place earn significantly less.
+
+When you have to pay transaction fees for every update, traditional order book market making becomes unprofitable on blockchains.
+
+---
+
+## Previous Solutions: Automated Market Makers
+
+### Uniswap v1/v2 (2018-2020): The First AMM
+
+![Uniswap v1/v2 diagram](/uploads/posts/propamm-explainer/uniswap-v1-v2.svg)
+
+Uniswap solved the transaction fee problem with a clever innovation: **no orders at all**.
+
+Instead of placing orders, you pair Bitcoin and USDC in a pool. The pool uses a simple formula (x \* y = k) to automatically calculate prices based on the ratio of assets. When traders buy Bitcoin, the price goes up. When they sell, it goes down.
+
+No order placement. No cancellations. No transaction fees for market makers.
+
+### The Fatal Flaw
+
+Great, liquidity providers (LPs) can passively provide liquidity. So, who is updating the bid/ask prices when the market moves?
+
+And herein lies the fundamental issue with passive LP. If the Uniswap LP pool is offering Bitcoin at $100,000 but the price on all the other markets is $98,000, arbitrageurs will buy Bitcoin on all the other exchanges and sell into the Uniswap liquidity pool, earning a profit at the expense of the LPs.
+
+Relying on arbitrage to update LP pricing is the equivalent of being "picked off" on a traditional orderbook.
+
+### Uniswap v3 (2021): Concentrated Liquidity
+
+![Uniswap v3 diagram](/uploads/posts/propamm-explainer/uniswap-v3.svg)
+
+Uniswap v3 introduced concentrated liquidity—the same constant product formula, but in different price ranges. Instead of providing liquidity from $0 to infinity, you could concentrate it between $99,000 and $101,000.
+
+This made capital more efficient, but **it didn't solve the fundamental problem**: the AMM still doesn't know the real market price, and liquidity providers still lose money to informed traders unless they remove their liquidity at current prices and place new liquidity at new prices.
+
+---
+
+## The Breakthrough: PropAMMs
+
+PropAMMs solve both problems with one mechanism: **real-time price feeds**.
+
+### How PropAMMs Work
+
+Instead of placing orders or waiting for trades to update the price, a PropAMM:
+
+1. Maintains a predictive price model for the asset off-chain
+   - For example, updating the price of BTC when a critical news event happens
+2. Constantly sends the market price on-chain to the PropAMM
+
+Here is a matrix to illustrate the differences:
+
+| Aspect | Uniswap V1/V2 | Uniswap V3 | Orderbook | PropAMM |                                                                                                                                     
+|--------|---------------|------------|-----------|---------|                                                                                                                                     
+| **LP Update Frequency** | None | Medium-High | High (single-digit ms) | High (multiple per slot) |                                                                                              
+| **Data to Update** | None | Medium | High | Low |                                                                                                                                               
+| **MM Type** | Passive (picked off) | Semi-active (picked off unless rebalancing) | Active (can react to toxic flow) | Active (can react to toxic flow) |                                        
+| **Liquidity Expression** | Forced xy=k | Expressive buckets, forced intra-bucket | Different liquidity per price | Fully programmable |     
+
+PropAMMs are able to actively manage their liquidity on-chain like they can on orderbooks because it's much cheaper to send price updates than it is to replace N number of orders.
+
+### The Smart Contract Strategy
+
+You deploy a smart contract on Solana with Bitcoin and USDC. The contract has logic like this:
+
+"When a trader wants to buy Bitcoin from me, I'll check:"
+
+- What's the current market price?
+- What's the current asset / market volatility?
+- Who am I trading against?
+- Which aggregator sent me this trade?
+- What was the recent trade history in my pool?
+- How recent was the last update?
+
+Based on this information, the smart contract will provide a quote.
+
+For example, when the market price is $100,000, the contract might offer:
+
+- **Buy from traders** at $99,999.99
+- **Sell to traders** at $100,000.01
+
+Later, the price updates to $98,000, and the contract immediately adjusts:
+
+- **Buy from traders** at $97,999.99
+- **Sell to traders** at $98,000.01
+
+To update liquidity:
+
+- PropAMM operators can update a single number, 8 bytes for a u64
+- Orderbook operators must update all their orders and prices
+  - 10 \* 8 = 80 bytes
+    - 10 orders with u64 order IDs to cancel
+  - 10 \* 8 + 10 \* 3 \* 8 = 320 bytes
+    - 10 new orders with u64 order IDs to cancel
+    - 10 new orders with (ID/price/size) u64s to place
+  - For each order, it needs to be updated in a sorted database, so extra compute overhead in the CEX.
+
+_NOTE: Some PropAMMs may have several variables, not just a single price. Even then, updates are significantly cheaper than replacing multiple orders on-chain._
+
+### Why This Is Revolutionary
+
+PropAMMs leverage the fact that **Solana is a computer**, not just an order book. You can write sophisticated logic that:
+
+- Takes several, minimal inputs such as current price, predictive price, market volatility etc.
+- Adjusts strategy based on model inputs as well as trade metadata
+- Expresses liquidity programmatically as opposed to being restricted to fixed prices/sizes
+
+Meanwhile, Binance is just an order book with the ability to place and cancel orders.
+
+> **The Key Insight**: By publishing market prices and encoding the market making strategy into a smart contract, PropAMMs achieve what was previously impossible: quoting as tightly and deeply as Binance—fully on-chain.
+
+---
+
+## The Downsides of PropAMMs Today
+
+While PropAMMs represent a major breakthrough in on-chain market making, they come with new challenges that don't exist in traditional orderbook systems.
+
+### Leader-Dependent Price Update Inclusion
+
+Binance, despite being centralized, doesn't play favorites—no market maker has an advantage over another when it comes to order execution. **Solana is fundamentally different.**
+
+Every time there's a new validator leader, the dynamics change:
+
+- **First-come-first-served validators** behave like Binance, processing transactions fairly in the order they arrive
+- **PropAMM-operated validators** are incentivized to include their own price updates and censor price updates from competitors
+- **MEV-extracting validators** may include your price update at the very end of the slots they control, making your price as stale as possible to extract maximum MEV
+
+This creates an uneven playing field where the same PropAMM can perform very differently depending on which validator is currently the leader. Thankfully, this is a known problem that is actively being worked on by the Anza team (hint: MCP).
+
+### Price Updates Still Cost Fees
+
+While PropAMMs dramatically reduce costs compared to traditional market making, **price updates still require transaction fees**. There's likely a theoretical minimum, but this will never be zero cost. PropAMMs can only operate on assets that make more money from spreads than on the transaction fees. This excludes many long-tail assets from being profitably market made using AMMs.
+
+### Integration Is Not Permissionless
+
+Today, each PropAMM must individually approach aggregators like Jupiter and say: "I have a PropAMM, here's how it works, please include it in your aggregator."
+
+On the flip side, developers looking to integrate PropAMMs find it challenging/impossible because they are closed-source and/or forced to access via aggregator.
+
+This creates several problems:
+
+**Permissioned**: adding a PropAMM to an aggregator or integrating a PropAMM into a product is a permissioned process.
+
+**Quoting**: when the code is closed source, PropAMM quotes can only be derived by closed API or simulation. These quotes are often stale by the time the order is executed on-chain.
+
+**Lack of transparency**: Users have no way to verify they're actually getting the best price available.
+
+### No Price-Time Priority
+
+On a single orderbook, price-time priority is straightforward to enforce: if you place an order at $99 and someone else places an order at $99 after you, your order gets filled first.
+
+**But there's no concept of price-time priority when multiple PropAMMs quote the same price.**
+
+Jupiter and other aggregators have no on-chain enforcement mechanism to determine which quote was updated first. This creates a lack of transparency and fairness—when two PropAMMs offer identical prices, the selection process is opaque.
+
+### Closed Source Creates Black Boxes
+
+All PropAMMs on Solana today are closed source. While the predictive price models are off-chain and represent a significant source of alpha, there's also substantial alpha in the actual smart contract logic deployed on mainnet.
+
+Teams have strong incentives to keep their code private, which means:
+
+**Black box systems**: Most PropAMMs are opaque except to swap aggregators like Jupiter and the teams that develop them.
+
+**No user verification**: Without transparency, users cannot verify how these PropAMMs actually work or whether they're operating fairly.
+
+**Trust requirements**: Users must trust both the PropAMM operators and the aggregators without being able to independently audit the system.
+
+This stands in contrast to the open-source ethos of much of DeFi, where users can inspect and verify the behavior of protocols before using them.
+
+### No Open Liquidity
+
+This is a comparison vs. Uniswap and not vs. orderbooks.
+
+In Uniswap, anyone can contribute to LPs, democratizing access. Today, PropAMMs are not set up to accept permissionless deposits, and liquidity comes mainly from the PropAMM deployer.
+
+---
+
+## Summary
+
+The evolution of on-chain market making:
+
+1. **Traditional market making** (Binance) - Efficient but requires constant order updates
+2. **First-gen AMMs** (Uniswap) - Automated but loses to informed traders
+3. **Concentrated liquidity** (Uniswap v3) - More active than Uniswap V1/V2, still less efficient and expressive vs. PropAMMs
+4. **PropAMMs** - 99% of the ability of traditional market making, but magnitudes of compute cheaper (IBRL)
+
+The result: Market makers can finally provide competitive liquidity on-chain, narrowing the gap between DeFi and centralized exchanges.
+
+### Learn More
+
+- [Experiments | Solana MEV | Sandwiched.me](https://sandwiched.me/experiments)
+- [PropAMM Explainer Video](https://www.youtube.com/watch?v=Psu4W8XCkP0)
+- [PropAMM Deep Dive](https://www.youtube.com/watch?v=47fzkScJyDE)
+- [PropAMM Technical Overview](https://www.youtube.com/watch?v=_VPQHv5WRP4)
+- [Benedict's PropAMM Guide](https://www.benedict.dev/prop-amm)
+
+_Special thanks to [@0xIchigo](https://x.com/0xIchigo), [@__lostin__](https://x.com/__lostin__), [@slashdowntown](https://x.com/slashdowntown), [@pkxro](https://x.com/pkxro), and [@a_milz](https://x.com/a_milz) for reviewing this post._
+
+---
+
+## Appendix
+
+### Note on Informed vs. Uninformed Traders
+
+The distinction between informed and uninformed traders is fundamental to understanding market making dynamics. Informed traders have information advantages (news, analysis, etc.) and profit by trading against stale quotes, while uninformed traders (typically retail) simply want to execute at market price. Mechanisms like taker speed bumps (popularized by Hyperliquid) and Application-Controlled Execution (ACE) aim to help makers protect themselves from informed flow while serving uninformed flow. Proponents argue that speed bumps enable market makers to provide tighter spreads and deeper liquidity, since makers can outrun informed takers while still serving retail users. Maker speed bumps appear to work well on exchanges with mixed flow like Hyperliquid. In equity markets, results have been mixed and controversial—while IEX operates with a 350μs speed bump and has grown volume, debates continue around the tradeoffs between price discovery and liquidity in HFT-dominated environments.
+
+ACE aims to bring this type of transaction prioritization to Solana natively, using technologies like TEEs or Jito block building to allow makers to update prices before informed traders can execute. While tangential to PropAMMs specifically, these concepts relate to the broader maker-taker dynamics discussed throughout this document.
+
+### What is the "Real Price"?
+
+The price you see on an exchange is the price that all the market participants agree on at that very specific moment in time. If, for instance, a critical event like war breaking out in the Middle East happens, the real price of Bitcoin may be very different than what you see on Binance or Bybit.

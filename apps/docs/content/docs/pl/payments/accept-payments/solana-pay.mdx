@@ -1,0 +1,196 @@
+---
+title: Solana Pay
+description: Generuj adresy URL płatności, kody QR i transakcje
+draft: true
+---
+
+<Callout type="caution">
+  Commerce Kit jest obecnie w wersji beta. API mogą się zmienić przed wydaniem
+  stabilnej wersji. Więcej informacji znajdziesz w [dokumentacji Commerce
+  Kit](https://launch.solana.com/docs/commerce-kit).
+</Callout>
+
+[Solana Pay](https://solanapay.com) to standardowy protokół do kodowania żądań
+płatności jako adresów URL. Takie adresy można udostępniać jako linki, kodować
+jako kody QR do portfeli mobilnych lub wykorzystywać programistycznie do
+budowania transakcji płatniczych.
+
+Pakiet `@solana-commerce/solana-pay` umożliwia kodowanie i parsowanie adresów
+URL, generowanie kodów QR oraz budowanie transakcji—jest kompatybilny z
+[@solana/kit](https://github.com/anza-xyz/kit).
+
+## Instalacja
+
+```bash
+pnpm add @solana-commerce/solana-pay
+```
+
+## Tworzenie adresów URL płatności
+
+Użyj `encodeURL`, aby utworzyć adres URL protokołu `solana:`, który portfele
+mogą odczytać:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet-address"),
+  amount: 100000000n, // 0.1 SOL in lamports
+  label: "Coffee Shop",
+  message: "Thanks for your order!"
+});
+
+console.log(url.toString());
+// solana:merchant...?amount=0.1&label=Coffee%20Shop&message=...
+```
+
+### Parametry URL
+
+| Parametr    | Typ         | Opis                                                    |
+| ----------- | ----------- | ------------------------------------------------------- |
+| `recipient` | `Address`   | Adres portfela sprzedawcy (wymagany)                    |
+| `amount`    | `bigint`    | Kwota w lamportach lub najmniejszych jednostkach tokena |
+| `splToken`  | `Address`   | Adres mint SPL tokena (pomiń dla SOL)                   |
+| `reference` | `Address[]` | Unikalne referencje do śledzenia płatności              |
+| `label`     | `string`    | Nazwa sprzedawcy wyświetlana w portfelu                 |
+| `message`   | `string`    | Wiadomość wyświetlana przed płatnością                  |
+| `memo`      | `string`    | Memo on-chain dołączone do transakcji                   |
+
+### Płatności tokenami SPL
+
+Aby przyjmować płatności w stablecoinach, podaj adres mint tokena:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+
+const url = encodeURL({
+  recipient: address("merchant-wallet"),
+  amount: 25000000n, // 25 USDC (6 decimals)
+  splToken: USDC_MINT,
+  label: "My Store"
+});
+```
+
+### Śledzenie płatności za pomocą referencji
+
+Wygeneruj unikalny identyfikator referencyjny, aby rozpoznać konkretne
+płatności:
+
+```typescript
+import { encodeURL } from "@solana-commerce/solana-pay";
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+const orderReference = (await generateKeyPairSigner()).address;
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 500000000n, // 0.5 SOL
+  reference: orderReference,
+  memo: `Order-${Date.now()}`
+});
+
+// Query the blockchain later for transactions containing this reference
+```
+
+## Generowanie kodów QR
+
+Użyj `createQR`, aby wygenerować skanowalne kody QR dla portfeli mobilnych:
+
+```typescript
+import { createQR, encodeURL } from "@solana-commerce/solana-pay";
+import { address } from "@solana/kit";
+
+const url = encodeURL({
+  recipient: address(MERCHANT_WALLET_ADDRESS),
+  amount: 100000000n,
+  label: "Coffee Shop"
+});
+
+const qrCode = await createQR(
+  url.toString(),
+  400, // size in pixels
+  "white", // background
+  "black" // foreground
+);
+
+// Use as image source
+document.getElementById("qr").src = qrCode;
+```
+
+### Stylizowane kody QR
+
+Aby uzyskać markowe kody QR z logo i własnym stylem:
+
+```typescript
+import { createStyledQRCode, encodeURL } from "@solana-commerce/solana-pay";
+
+const qr = await createStyledQRCode(url.toString(), {
+  width: 600,
+  margin: 3,
+  color: {
+    dark: "#9945FF", // Solana purple
+    light: "#FFFFFF"
+  },
+  errorCorrectionLevel: "H",
+  dotStyle: "dots",
+  cornerStyle: "extra-rounded",
+  logo: "/your-logo.png",
+  logoSize: 120
+});
+```
+
+## Budowanie transakcji
+
+Użyj `createTransfer`, aby zbudować kompletną transakcję do podpisania:
+
+```typescript
+import { createTransfer } from "@solana-commerce/solana-pay";
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 100000000n, // 0.1 SOL
+    memo: "Coffee purchase"
+  }
+);
+```
+
+Dla tokenów SPL dołącz adres mint:
+
+```typescript
+const USDC_MINT = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+const transaction = await createTransfer(
+  client.rpc,
+  address(SENDER_WALLET_ADDRESS),
+  {
+    recipient: address(MERCHANT_WALLET_ADDRESS),
+    amount: 25000000n, // 25 USDC
+    splToken: USDC_MINT,
+    reference: [orderReference],
+    memo: "Order #12345"
+  }
+);
+```
+
+## Parsowanie adresów URL
+
+Zweryfikuj i wyodrębnij dane z adresów URL Solana Pay:
+
+```typescript
+import { parseURL, ParseURLError } from "@solana-commerce/solana-pay";
+
+try {
+  const parsed = parseURL("solana:merchant...?amount=1.5&label=Store");
+
+  console.log(parsed.recipient); // Address
+  console.log(parsed.amount); // 1500000000n (lamports)
+  console.log(parsed.label); // "Store"
+} catch (error) {
+  if (error instanceof ParseURLError) {
+    console.error("Invalid URL:", error.message);
+  }
+}
+```

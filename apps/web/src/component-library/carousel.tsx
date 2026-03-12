@@ -72,7 +72,7 @@ type CarouselProps = {
 };
 
 const NAV_BUTTON_BASE_CLASS =
-  "rounded-full w-12 h-12 p-twd-1 border-[1px] border-nd-border-prominent transition flex items-center justify-center not-hover:bg-black hover:bg-nd-border-prominent";
+  "rounded-full w-12 h-12 p-1 border-[1px] border-nd-border-prominent transition flex items-center justify-center not-hover:bg-black hover:bg-nd-border-prominent";
 
 // Reusable CarouselNavButton component
 type CarouselNavButtonProps = {

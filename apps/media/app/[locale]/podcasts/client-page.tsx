@@ -11,7 +11,7 @@ import {
   getPodcastCategories,
   formatDuration,
   formatEpisodeDate,
-} from "@/lib/podcast-data";
+} from "@/lib/podcast-utils";
 import type { PodcastShow } from "@/lib/podcast-types";
 import ErrorBoundary from "@/components/error-boundary";
 

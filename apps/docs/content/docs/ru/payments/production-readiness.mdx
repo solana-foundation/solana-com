@@ -1,0 +1,558 @@
+---
+title: Готовность к продакшену
+description: Переход от тестирования в devnet к развертыванию в mainnet
+---
+
+Локальная разработка и тестирование в devnet — отличные способы начать работу с
+платежами в Solana. Однако при переходе к развертыванию в Mainnet важно
+учитывать его особенности. Devnet прощает ошибки. Mainnet — нет. В этом
+руководстве рассматриваются ключевые различия, чтобы ваши пользователи получили
+максимально плавный опыт.
+
+| Devnet                      | Mainnet                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Бесплатные SOL из кранов    | [Получите настоящие SOL](https://solana.com/ecosystem/explore?categories=exchange) для оплаты комиссий |
+| Низкая конкуренция за блоки | Приоритетные комиссии имеют значение                                                                   |
+| Транзакции проходят легко   | Важно правильно настраивать транзакции                                                                 |
+| Публичный RPC подходит      | Для продакшена требуется выделенный RPC                                                                |
+| Ключи и токены devnet       | Используйте другие ключи и токены — обновите конфиг                                                    |
+
+## Инфраструктура RPC
+
+[Публичные endpoints](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet-beta.solana.com`) имеют ограничения по количеству запросов и не
+гарантируют SLA. Они подходят для разработки, но не для продакшен-платежей — это
+как запускать платежный процессор через общий API без гарантии доступности.
+
+<Callout
+  type="caution"
+  title="Никогда не используйте публичный RPC в продакшене"
+>
+  Используйте [частного провайдера RPC](https://solana.com/rpc) для надежного и
+  быстрого доступа.
+</Callout>
+
+При выборе провайдера RPC обратите внимание на:
+
+- **Надежность**: SLA с гарантией доступности (99,9% и выше)
+- **Задержки**: Географическая близость к вашим пользователям
+- **Функциональность**: Возможности по обработке транзакций, индексация, API для
+  приоритетных комиссий
+
+Полный список провайдеров RPC смотрите в руководстве
+[Поставщики инфраструктуры RPC](https://solana.com/rpc).
+
+### Резервная конфигурация RPC
+
+Как и любой сетевой сервис, провайдеры RPC могут сталкиваться с перебоями или
+снижением производительности. Чтобы ваше приложение было устойчивым, настройте
+его на работу с несколькими провайдерами RPC.
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+предоставляет библиотеку для кастомизации RPC-транспортов, что позволяет
+создавать собственный отказоустойчивый RPC-клиент. Вот пример того, как можно
+использовать её для создания отказоустойчивого RPC-клиента:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Если вы не хотите создавать собственные инструменты маршрутизации, вы можете
+воспользоваться сторонним сервисом, например,
+[Iron Forge](https://www.ironforge.sanctum.so/), который возьмёт маршрутизацию
+на себя.
+
+## Завершение транзакции
+
+В Devnet транзакции проходят довольно легко. В Mainnet вы конкурируете за место
+в блоке. Чтобы увеличить шансы включения вашей транзакции в блок, убедитесь, что
+вы правильно собрали транзакцию. Это значит:
+
+- добавить свежий blockhash перед отправкой транзакции
+- добавить инструкцию с приоритетной комиссией в транзакцию с конкурентной
+  приоритетной комиссией
+- добавить инструкцию с лимитом вычислительных единиц в транзакцию с лимитом,
+  основанным на оценке требуемых вычислительных единиц для транзакции
+
+Кроме того, стоит рассмотреть другие инструменты, такие как Jito Bundles, чтобы
+повысить шансы включения вашей транзакции в блок. Давайте рассмотрим эти
+инструменты подробнее.
+
+### Конфигурация отправки транзакции
+
+При отправке транзакций в Mainnet настройте эти параметры для оптимального
+попадания в блок:
+
+**Управление blockhash:**
+
+- Получайте с помощью `confirmed` commitment
+- Сохраняйте `lastValidBlockHeight`, возвращённый `getLatestBlockhash` — это
+  покажет, когда истекает срок действия вашей транзакции
+- Blockhash истекает примерно через 150 блоков (60–90 секунд)
+
+**Параметры отправки:**
+
+- `maxRetries: 0` — отключить автоматические повторные попытки RPC.
+  Обрабатывайте повторные попытки самостоятельно, чтобы при необходимости
+  обновлять blockhash.
+- `skipPreflight: true` — пропустить симуляцию перед отправкой. Используйте это,
+  если вы уже проверили транзакцию и хотите минимальную задержку. Оставьте
+  `false` во время разработки, чтобы раньше выявлять ошибки.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Используйте приоритетные комиссии
+
+Каждая транзакция в Solana требует уплаты комиссии, которая оплачивается в SOL.
+Комиссия за транзакцию состоит из двух частей: базовой комиссии и приоритетной
+комиссии. Базовая комиссия вознаграждает валидаторов за обработку транзакции.
+Приоритетная комиссия — это необязательный платеж, который увеличивает
+вероятность того, что текущий лидер обработает вашу транзакцию. Представьте это
+как экспресс-доставку: вы платите больше за более быструю и надёжную доставку.
+
+**Как работают комиссии:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**Реальные затраты:**
+
+- Простой перевод USDC: ~$0.001-0.005 при нормальных условиях
+- Во время перегрузки: ~$0.01-0.05
+- Пиковая перегрузка: может быть выше
+
+**Пример реализации:**
+
+Пакет
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+предоставляет вспомогательную функцию для простого обновления или добавления
+инструкции по цене вычислительных единиц (в микролампортах) в транзакцию.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Получение оценок комиссий:** большинство RPC-провайдеров предлагают API для
+приоритетных комиссий:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Полную механику комиссий смотрите в разделе
+[Комиссии за транзакции](/docs/core/fees) и в нашем гиде:
+[Как добавить приоритетные комиссии в транзакцию](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Оптимизация вычислительных единиц
+
+Вычисления в Solana — это по сути мера объёма работы, которую выполняет
+программа. Существует лимит на количество вычислений, которое может быть
+использовано в одной транзакции (в настоящее время 1,4 миллиона вычислительных
+единиц), а также лимит на количество вычислений на один аккаунт в одном блоке
+(сейчас 100 миллионов вычислительных единиц).
+
+Когда вы отправляете транзакцию, необходимо оценить, сколько вычислительных
+единиц будет использовано, и установить соответствующий лимит — это по сути
+запрос на то, сколько общей мощности должно быть зарезервировано для вашей
+транзакции. На практике это означает, что правильная оценка необходимых
+вычислительных единиц критически важна для включения вашей транзакции в блок (и
+важна для управления приоритетными комиссиями).
+
+JSON RPC API Solana содержит метод
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction), который можно
+использовать для оценки необходимого количества вычислительных единиц для
+транзакции, включая их предполагаемое использование. Пакет
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+предоставляет вспомогательную функцию для простой оценки вычислительных единиц,
+необходимых для транзакции (которая использует метод `simulatetransaction` под
+капотом).
+
+```ts
+import {
+  estimateComputeUnitLimitFactory,
+  updateOrAppendSetComputeUnitLimitInstruction
+} from "@solana-program/compute-budget";
+
+const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
+const computeUnitLimit = await estimateComputeUnitLimit(tx);
+const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
+  computeUnitLimit,
+  tx
+);
+```
+
+В продакшене, если вы многократно выполняете один и тот же тип транзакции,
+рекомендуется кэшировать оценку вычислительных единиц для этого типа транзакций,
+чтобы избежать избыточных вычислений при каждом запросе.
+
+### Jito Bundles
+
+Jito bundles — это инструмент для управления атомарным выполнением нескольких
+транзакций. Это достигается отправкой нескольких транзакций в сеть Jito с
+чаевыми (tip). Чаевые можно использовать для мотивации сети Jito включить ваши
+транзакции в блок.
+
+**Ресурсы:**
+
+- [Документация Jito](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Видео: Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [Гайд QuickNode по Jito bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Стратегии повторных попыток
+
+Транзакции могут завершиться неудачей по разным причинам. В отличие от
+традиционных платёжных API, которые сразу возвращают успех или ошибку, для
+блокчейн-транзакций требуется отслеживание подтверждения.
+
+**Ключевые понятия:**
+
+- **Истечение срока действия blockhash**: Транзакции действительны примерно 150
+  блоков (60–90 секунд)
+- **Идемпотентность**: Одна и та же подписанная транзакция всегда даёт одну и ту
+  же подпись — повторная отправка безопасна
+- **Экспоненциальная задержка (backoff)**: Не перегружайте сеть частыми
+  повторными попытками
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`sendAndConfirmTransactionFactory` из `@solana/kit` автоматически обрабатывает
+опрос подтверждения и отслеживание высоты блока. Он выбрасывает исключение
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED`, когда blockhash транзакции истекает,
+сигнализируя о необходимости пересобрать транзакцию с новым blockhash.
+
+### Дополнительные ресурсы
+
+- [Гайд: Подтверждение и истечение срока транзакции](https://solana.com/developers/guides/advanced/confirmation)
+- [Helius: Как проводить транзакции в Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Стратегии оптимизации транзакций в Solana](https://www.quicknode.com/docs/solana/transactions)
+
+## Понимание уровней подтверждения
+
+В Solana есть три уровня подтверждения. Если сравнивать с традиционными
+финансами:
+
+| Уровень     | Определение в Solana          | Эквивалент в традиционных финансах | Пример использования             |
+| ----------- | ----------------------------- | ---------------------------------- | -------------------------------- |
+| `processed` | В блоке, ещё не проголосовано | Ожидает авторизации                | Обновления UI в реальном времени |
+| `confirmed` | Проголосовано супермножеством | Средства зачислены                 | **Большинство платежей**         |
+| `finalized` | Зафиксировано, необратимо     | Средства окончательно зачислены    | Крупные суммы, комплаенс         |
+
+**Когда использовать каждый уровень:**
+
+- **Обновления UI**: Показывайте `processed` для мгновенной обратной связи
+  ("Платёж отправлен")
+- **Зачисление на аккаунт пользователя**: Дождитесь `confirmed` (безопасно для
+  большинства транзакций)
+- **Отправка физических товаров**: Дождитесь `finalized`
+- **Крупные выводы**: Дождитесь `finalized`
+- **Комплаенс/аудит**: Всегда фиксируйте статус `finalized`
+
+Подробнее о проверке статуса транзакции смотрите в разделе
+[Взаимодействие с Solana](/docs/payments/interacting-with-solana).
+
+## Обработка ошибок
+
+Solana Kit предоставляет типизированные ошибки через `isSolanaError()`.
+Используйте конкретные коды ошибок вместо поиска по строкам:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Распространённые коды ошибок:**
+
+| Код ошибки                   | Причина                   | Решение                                                                                                                                   |
+| ---------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Истёк blockhash           | Пересоберите с новым blockhash                                                                                                            |
+| `BLOCKHASH_NOT_FOUND`        | Blockhash не найден       | Пересоберите с новым blockhash                                                                                                            |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | Недостаточно SOL          | Пополните аккаунт плательщика комиссии или используйте [fee abstraction](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Недостаточно токенов      | Пользователю нужно больше баланса                                                                                                         |
+| `ACCOUNT_NOT_FOUND`          | Отсутствует token account | Создайте ATA в транзакции                                                                                                                 |
+
+## Транзакции без газа
+
+Пользователи ожидают оплачивать комиссии в стейблкоинах, а не приобретать SOL
+для оплаты сетевых сборов. Транзакции без газа решают эту проблему — аналогично
+тому, как пользователи Venmo не задумываются о комиссиях ACH. Полную реализацию
+смотрите в разделе
+[Абстракция комиссий](/docs/payments/send-payments/payment-processing/fee-abstraction).
+
+## Безопасность
+
+### Управление ключами
+
+- **Никогда не раскрывайте приватные ключи в коде фронтенда.** Используйте
+  подпись на бэкенде, аппаратные кошельки, мультиподписи или сервисы управления
+  ключами.
+- **Разделяйте горячие и холодные кошельки.** Горячий — для операций, холодный —
+  для хранения средств.
+- **Делайте резервные копии всех продакшн-ключей.** Храните зашифрованные копии
+  в нескольких безопасных местах. Потеря ключа означает безвозвратную потерю
+  доступа.
+- **Используйте разные ключи для devnet и mainnet.** Ваши ключи для devnet не
+  должны использоваться в mainnet. Настройте окружения так, чтобы для каждой
+  сети загружались свои ключи.
+
+### Инфраструктура подписания
+
+Для подписания на производственном бэкенде рассмотрите использование
+[solana-keychain](https://github.com/solana-foundation/solana-keychain) — единой
+библиотеки подписания, которая абстрагирует несколько бэкендов управления
+ключами через один интерфейс: Memory, Vault, AWS KMS, Privy, Turnkey,
+Fireblocks, CDP, Dfns, Para. Это позволяет разрабатывать локально с ключами в
+памяти, а затем переключаться на производственные бэкенды без изменения кода
+приложения.
+
+Доступно для [Rust](https://crates.io/crates/solana-keychain) и
+[TypeScript](https://www.npmjs.com/package/@solana/keychain).
+
+Ознакомьтесь с
+[руководством по добавлению подписантов](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+для интеграции дополнительных сервисов управления ключами.
+
+### Безопасность RPC
+
+Относитесь к RPC-эндпоинтам как к API-ключам — не раскрывайте их во
+фронтенд-коде, откуда они могут быть извлечены и использованы не по назначению.
+Используйте бэкенд-прокси или переменные окружения, которые не встраиваются в
+клиентский код.
+
+- [QuickNode: Лучшие практики безопасности эндпоинтов](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius: Защитите свои API-ключи Solana: лучшие практики безопасности](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### Мониторинг
+
+Отслеживайте эти метрики в продакшене:
+
+| Метрика                         | Зачем                      |
+| ------------------------------- | -------------------------- |
+| Процент успешных транзакций     | Раннее обнаружение проблем |
+| Задержка подтверждения          | Мониторинг здоровья сети   |
+| Расход на приоритетные комиссии | Управление затратами       |
+| Частота ошибок RPC              | Здоровье провайдера        |
+
+Настройте оповещения для:
+
+- Переводов выше порога из казначейства
+- Всплесков частоты неудачных транзакций
+- Необычных паттернов получателей
+- Увеличения частоты ошибок RPC
+
+Для мониторинга транзакций в реальном времени в масштабе см. наше
+[руководство по индексированию](/docs/payments/accept-payments/indexing).
+
+### Проверяйте адреса
+
+Каждый токен и программа имеют ровно один корректный адрес в мейннете.
+Поддельные токены, имитирующие USDC или другие стейблкоины, встречаются часто —
+у них будет то же название и символ, но другой адрес эмиссии. Ваше приложение
+должно жёстко задавать или включать в белый список адреса эмиссии (в зависимости
+от ваших требований), никогда не принимайте их динамически из ненадёжных
+источников.
+
+**Конфигурация в зависимости от окружения:** Devnet и Mainnet часто используют
+совершенно разные минты токенов. Настройте конфигурацию вашего приложения на
+загрузку правильных адресов для каждого окружения — не используйте жёстко
+заданные адреса mainnet и не забывайте менять их во время тестирования, или, что
+ещё хуже, не отправляйте адреса devnet в продакшен.
+
+Некоторые распространённые минты стейблкоинов:
+
+| Токен | Эмитент | Адрес минта                                    |
+| ----- | ------- | ---------------------------------------------- |
+| USDC  | Circle  | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether  | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal  | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos   | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+Адреса программ также имеют значение. Отправка инструкций не в ту программу
+приведёт к сбою — или, что ещё хуже, к безвозвратной потере средств. Адреса
+Token Program:
+
+| Программа          | Адрес                                         |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+## Контрольный список перед запуском
+
+- [ ] SOL в Mainnet приобретён для комиссий и rent
+- [ ] Настроен продакшн RPC (не публичная конечная точка)
+- [ ] Настроена резервная конечная точка RPC
+- [ ] Реализованы приоритетные комиссии с динамическим ценообразованием
+- [ ] Логика повторных попыток обрабатывает истечение blockhash
+- [ ] Уровень подтверждения соответствует вашему случаю использования
+- [ ] Все распространённые ошибки обрабатываются корректно
+- [ ] Настроен Gasless (если применимо)
+- [ ] Адреса токенов Mainnet проверены (не минты devnet)
+- [ ] Все ключи надёжно сохранены в резервной копии
+- [ ] Управление ключами проверено (ключей нет во фронтенде)
+- [ ] Мониторинг и оповещение о транзакциях активны
+- [ ] Проведено нагрузочное тестирование при ожидаемом объёме
+
+## Развёртывание программ
+
+Если вы развертываете пользовательскую программу Solana в рамках вашей платежной
+инфраструктуры, существуют дополнительные соображения.
+
+### Перед развертыванием
+
+- **Версия Solana CLI:** Убедитесь, что вы используете последнюю версию
+  [Solana CLI](https://solana.com/docs/intro/installation).
+- **Keypair программы:** Ваша программа будет иметь другой адрес в mainnet, чем
+  в devnet (если только вы не используете тот же keypair повторно). Обновите все
+  ссылки в конфигурации вашего приложения. Храните keypair программы в
+  безопасном месте (обратите внимание, что выполнение `cargo clean`, вероятно,
+  удалит keypair вашей программы).
+- **Инициализация аккаунтов:** Если вашей программе требуются административные
+  аккаунты, PDA или другие аккаунты состояния, убедитесь, что они созданы в
+  mainnet до того, как пользователи начнут взаимодействовать с вашим
+  приложением. То же самое касается любых Associated Token Accounts (ATA),
+  которые нужны вашей программе.
+
+### Процесс развертывания
+
+- **Буферные аккаунты:** Большие программы развертываются через буферные
+  аккаунты. Команда `solana program deploy` обрабатывает это автоматически, но
+  имейте в виду, что развертывание не является атомарным — если процесс прерван,
+  вам может потребоваться восстановить или закрыть буферные аккаунты. См.
+  [Deploying Programs](https://solana.com/docs/programs/deploying).
+- **Права на обновление:** Решите, должна ли ваша программа подлежать обновлению
+  после запуска. Для неизменяемости отзовите права на обновление после
+  развертывания. Для гибкости обеспечьте надлежащую защиту ключа прав на
+  обновление.
+- **Аренда:** Убедитесь, что в вашем кошельке для развертывания достаточно SOL
+  для покрытия минимумов, освобожденных от аренды, для всех program account.
+- **Верификация:**
+  [Верифицируйте](https://solana.com/docs/programs/verified-builds) свою
+  программу, чтобы убедиться, что исполняемая программа, которую вы
+  развертываете в сети Solana, соответствует исходному коду в вашем репозитории
+
+Для получения полного руководства по развертыванию программ см.
+[Deploying Programs](https://solana.com/docs/programs/deploying).

@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   assetPrefix: "/media-assets",
 
+  env: {
+    NEXT_PUBLIC_APP_NAME: "media",
+  },
+
   images: {
     localPatterns: [
       {
@@ -17,13 +21,11 @@ const nextConfig: NextConfig = {
       {
         pathname: "/media-assets/uploads/**",
       },
+      {
+        pathname: "/builder/**",
+      },
     ],
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "assets.tina.io",
-        port: "",
-      },
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
@@ -117,6 +119,10 @@ const nextConfig: NextConfig = {
         },
       ],
     };
+  },
+
+  outputFileTracingIncludes: {
+    "/*": ["./content/**/*", "./keystatic.config.tsx"],
   },
 
   experimental: {

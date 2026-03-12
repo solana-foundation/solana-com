@@ -6,26 +6,11 @@ import {
   fetchLatestEpisodeForPodcast,
 } from "@/lib/podcast-data";
 import PodcastsClientPage from "./client-page";
+import { podcastsListingMetadata } from "@/lib/metadata";
 
 export const revalidate = 1800; // 30 minutes
 
-export const metadata: Metadata = {
-  title: "Podcasts",
-  description:
-    "Explore our collection of podcasts covering blockchain technology, web3, and the Solana ecosystem.",
-  openGraph: {
-    title: "Podcasts | Solana Media",
-    description:
-      "Explore our collection of podcasts covering blockchain technology, web3, and the Solana ecosystem.",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Podcasts | Solana Media",
-    description:
-      "Explore our collection of podcasts covering blockchain technology, web3, and the Solana ecosystem.",
-  },
-};
+export const metadata: Metadata = podcastsListingMetadata();
 
 export default async function PodcastsPage({
   params,

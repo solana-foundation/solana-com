@@ -1,0 +1,434 @@
+---
+title: Виведення PDA
+description:
+  Як виводяться PDA Solana за допомогою SHA-256 із seeds, значеннями bump та
+  program ID. Алгоритм виведення, пошук канонічного bump, витрати обчислень та
+  приклади SDK на TypeScript і Rust.
+url: /docs/core/pda/pda-derivation
+type: conceptual
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/pda/pda-accounts
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Підсумок">
+  PDA виводяться шляхом хешування seeds + program ID + bump через SHA-256, доки
+  результат не опиниться поза кривою Ed25519. Канонічний bump — це перше
+  значення, яке створює адресу поза кривою. Максимум 16 seeds, максимум 32 байти
+  на один seed.
+</Callout>
+
+## Передумови
+
+Значення
+[`Keypair`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/keypair/src/lib.rs#L26)
+у Solana є точками на [кривій Ed25519](https://ed25519.cr.yp.to/). Keypair
+складається з публічного ключа (використовується як адреса акаунта) та
+секретного ключа (використовується для створення підписів). Будь-хто, хто має
+секретний ключ, може підписувати транзакції для цієї адреси.
+
+![Два акаунти з адресами на кривій](/assets/docs/core/pda/address-on-curve.svg)
+
+PDA навмисно виводиться так, щоб опинитися _поза_ кривою Ed25519. Оскільки це не
+є дійсною точкою кривої, секретний ключ не існує, і жодна зовнішня сторона не
+може створити підпис. Тільки програма, що виводить PDA, може авторизувати
+операції з PDA через _rs`invoke_signed`_.
+
+![Адреса поза кривою](/assets/docs/core/pda/address-off-curve.svg)
+
+### PDA проти keypair-акаунтів
+
+| Властивість                  | Keypair-акаунт                            | PDA-акаунт                          |
+| ---------------------------- | ----------------------------------------- | ----------------------------------- |
+| Тип адреси                   | На кривій Ed25519                         | Поза кривою Ed25519                 |
+| Має приватний ключ           | Так                                       | Ні                                  |
+| Може підписувати транзакції  | Так (з приватним ключем)                  | Ні                                  |
+| Може підписувати під час CPI | Ні (якщо підпис не включено в транзакцію) | Так (через `invoke_signed`)         |
+| Виведення                    | Генерація keypair Ed25519                 | Детерміноване з seeds + program ID  |
+| Типове використання          | Гаманці користувачів, program ID          | Акаунти даних, що належать програмі |
+
+## Опціональні seeds
+
+Опціональні seeds — це визначені користувачем байтові рядки, які служать
+вхідними даними для виведення PDA. Вони створюють унікальні детерміновані адреси
+в межах програми. Наприклад, використання `["user", user_pubkey]` як seeds
+виводить різні PDA для кожного користувача.
+
+Seeds повинні відповідати таким обмеженням:
+
+- Максимум 16 seeds на виведення (_rs`MAX_SEEDS`_)
+- Максимум 32 байти на seed (_rs`MAX_SEED_LEN`_)
+
+## Bump seed
+
+Bump seed — це один байт (0-255), який додається до опціональних seeds під час
+виведення.
+[`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L800)
+шукає від 255 до 0, викликаючи _rs`create_program_address`_ з кожним значенням,
+доки результат не вийде за межі кривої Ed25519. Перше значення, яке спрацює, є
+**канонічним bump**.
+
+Програми завжди повинні використовувати канонічний bump, щоб забезпечити
+унікальне детерміноване відображення від seeds до адреси.
+
+<Callout type="warn">
+  Завжди використовуйте канонічний bump при виведенні PDA. Використання
+  неканонічного bump створює другу валідну адресу для тих самих seeds, що може
+  призвести до вразливостей, коли зловмисник підставляє інший акаунт замість
+  очікуваного.
+</Callout>
+
+![Виведення PDA](/assets/docs/core/pda/pda-derivation.svg)
+
+## Алгоритм виведення
+
+Виведення PDA реалізовано у функції SDK
+[`create_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L911).
+Алгоритм працює наступним чином:
+
+1. Перевірити, що кількість seeds не перевищує _rs`MAX_SEEDS`_ (16) і жоден
+   окремий seed не перевищує _rs`MAX_SEED_LEN`_ (32 байти). Якщо будь-яка
+   перевірка не пройдена, повернути _rs`PubkeyError::MaxSeedLengthExceeded`_.
+2. Хешувати SHA-256 усі seeds, ID програми та рядок `"ProgramDerivedAddress"`
+   разом, щоб отримати 32-байтовий результат.
+3. Перевірити, чи є результат валідною точкою на кривій Ed25519.
+4. Якщо результат Є на кривій, повернути _rs`PubkeyError::InvalidSeeds`_ (адреса
+   матиме відповідний приватний ключ, що порушує властивість безпеки PDA).
+5. Якщо результат НЕ на кривій, повернути його як PDA.
+
+## Вартість обчислювальних одиниць
+
+[Системний виклик на ланцюзі](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L798-L834)
+для _rs`create_program_address`_ стягує
+[1 500 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L200)
+за кожен виклик.
+
+[Системний виклик `try_find_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L836-L886)
+стягує 1 500 CU на вході (перед циклом), а потім додаткові 1 500 CU за кожну
+невдалу спробу збільшення bump у циклі.
+
+## Поширені шаблони seed
+
+Seed є специфічними для застосунку. Поширені шаблони включають:
+
+| Шаблон                         | Seeds                                             | Випадок використання                            |
+| ------------------------------ | ------------------------------------------------- | ----------------------------------------------- |
+| Глобальний singleton           | `["global"]`                                      | Єдиний обліковий запис конфігурації програми    |
+| Обліковий запис на користувача | `["user", user_pubkey]`                           | Один обліковий запис на користувача на програму |
+| На користувача на сутність     | `["vault", user_pubkey, mint_pubkey]`             | Токен-сховища, на користувача на токен          |
+| Лічильник / послідовний        | `["order", user_pubkey, &order_id.to_le_bytes()]` | Послідовні записи на користувача                |
+
+<Callout type="warn">
+  Seeds конкатенуються перед хешуванням, тому `["ab", "cd"]` і `["abcd"]`
+  створюють однаковий PDA. Використовуйте seed фіксованої довжини або
+  роздільник, щоб уникнути колізій. Наприклад, `["ab", "-", "cd"]` є
+  однозначним.
+</Callout>
+
+## Приклади: виведення PDA
+
+Виведення PDA обчислює лише адресу. Воно не створює обліковий запис на ланцюзі
+за цією адресою. Обліковий запис має бути явно створений через окрему інструкцію
+(зазвичай _rs`create_account`_ через CPI).
+
+SDK Solana надають функції для виведення PDA. Кожна функція приймає:
+
+- **ID програми**: адреса програми, яка використовується для виведення PDA. Ця
+  програма може підписувати від імені PDA.
+- **Опціональні seeds**: попередньо визначені вхідні дані, такі як рядки, числа
+  або інші адреси облікових записів.
+
+| SDK                            | Функція                                                                                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/kit` (TypeScript)     | [`getProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L157) |
+| `@solana/web3.js` (TypeScript) | [`findProgramAddressSync`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/publickey.ts#L212)               |
+| `solana_sdk` (Rust)            | [`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L800)                      |
+
+Приклади нижче виводять PDA за допомогою SDK Solana. Натисніть **&#9655;
+Запустити**, щоб виконати код.
+
+### Виведення PDA з рядковим seed
+
+Приклад нижче виводить PDA, використовуючи ідентифікатор програми та
+опціональний рядковий seed.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let seeds: &[&[u8]] = &[b"helloWorld"];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Виведення PDA з адресним seed
+
+Приклад нижче виводить PDA, використовуючи ідентифікатор програми та
+опціональний адресний seed.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:4)
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+// !focus(1:3)
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Виведення PDA з кількома seeds
+
+Приклад нижче виводить PDA, використовуючи ідентифікатор програми та кілька
+опціональних seeds.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:5)
+const optionalSeedString = "helloWorld";
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedString, optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus(1:4)
+const optionalSeedString = "helloWorld";
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus(1:2)
+    let optional_seed_bytes = b"helloWorld";
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Ітерація всіх bumps
+
+Наступні приклади показують виведення PDA з використанням усіх можливих bump
+seeds (від 255 до 0), ілюструючи, як _rs`find_program_address`_ повертає
+[канонічний bump](#bump-seed-search):
+
+<Callout type="info">
+  Приклад Kit не включено, оскільки функція
+  [`createProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L101)
+  не експортується.
+</Callout>
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const optionalSeed = "helloWorld";
+
+// Loop through all bump seeds (255 down to 0)
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(optionalSeed), Buffer.from([bump])],
+      programId
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_id = Pubkey::from_str("11111111111111111111111111111111")?;
+    let optional_seed = b"helloWorld";
+
+    // Loop through all bump seeds (255 down to 0)
+    for bump in (0..=255).rev() {
+        match Pubkey::create_program_address(&[optional_seed.as_ref(), &[bump]], &program_id) {
+            Ok(pda) => println!("bump {}: {}", bump, pda),
+            Err(err) => println!("bump {}: {}", bump, err),
+        }
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<CodeTabs>
+
+```sh !! title="Expected TS Output"
+bump 255: Error: Invalid seeds, address must fall off the curve
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Error: Invalid seeds, address must fall off the curve
+...
+// remaining bump outputs
+```
+
+```sh !! title="Expected Rust Output"
+bump 255: Provided seeds do not result in a valid address
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Provided seeds do not result in a valid address
+...
+// remaining bump outputs
+```
+
+</CodeTabs>
+
+У цьому прикладі bump 255 створює адресу на кривій і завершується невдачею.
+Перший валідний bump — 254, що робить його канонічним bump.

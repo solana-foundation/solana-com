@@ -1,0 +1,83 @@
+---
+title: Transazioni con versione
+description:
+  Formati di transazione legacy vs con versione (V0) su Solana, incluse le
+  Address Lookup Tables (ALT), rilevamento della versione, formato del messaggio
+  V0 e risoluzione delle ALT.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="Riepilogo">
+  Le transazioni V0 aggiungono le Address Lookup Tables (ALT), consentendo
+  riferimenti agli account tramite indici a 1 byte invece di chiavi a 32 byte.
+  Questo risparmia 31 byte per ogni account risolto tramite ALT.
+</Callout>
+
+Solana supporta due formati di transazione: **legacy** e **con versione** (v0).
+
+Il validator determina il formato ispezionando il primo byte del messaggio:
+
+- Se il primo byte ha il bit di
+  [prefisso versione](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
+  impostato, si tratta di un **messaggio con versione**. Attualmente è
+  supportata solo la versione 0. I successivi 3 byte sono il _`MessageHeader`_.
+- Altrimenti, si tratta di un **messaggio legacy**. Il primo byte è
+  `num_required_signatures`, e i successivi 2 byte completano l'header.
+
+<Callout type="info" title="Quando usare le transazioni V0">
+  Usa V0 quando la tua transazione fa riferimento a molti account e si avvicina
+  al limite di 1.232 byte del pacchetto. Se la tua transazione rientra nel
+  limite di dimensione con tutti gli account inline, le transazioni legacy sono
+  più semplici e hanno un supporto più ampio negli strumenti. V0 è richiesto per
+  utilizzare le Address Lookup Tables.
+</Callout>
+
+## Formato del messaggio V0
+
+Un messaggio v0 ha gli stessi campi di un messaggio legacy, più un array
+`address_table_lookups` aggiuntivo accodato dopo le istruzioni:
+
+| Campo                   | Dimensione                | Descrizione                                         |
+| ----------------------- | ------------------------- | --------------------------------------------------- |
+| `0x80`                  | 1 byte                    | Byte di prefisso versione                           |
+| `header`                | 3 byte                    | MessageHeader (uguale al legacy)                    |
+| `static_account_keys`   | compact-u16 + N x 32 byte | Chiavi che appaiono letteralmente nella transazione |
+| `recent_blockhash`      | 32 byte                   | Blockhash                                           |
+| `instructions`          | compact-u16 + variabile   | Stesso formato del legacy                           |
+| `address_table_lookups` | compact-u16 + variabile   | Riferimenti ALT (vedi sotto)                        |
+
+Ogni voce della tabella di ricerca degli indirizzi contiene:
+
+| Campo              | Dimensione               | Descrizione                                     |
+| ------------------ | ------------------------ | ----------------------------------------------- |
+| `account_key`      | 32 byte                  | La chiave pubblica dell'account ALT             |
+| `writable_indexes` | compact-u16 + N x 1 byte | Indici nell'ALT per gli account scrivibili      |
+| `readonly_indexes` | compact-u16 + N x 1 byte | Indici nell'ALT per gli account di sola lettura |
+
+## Risoluzione della tabella di ricerca degli indirizzi
+
+Un ALT è un account on-chain che memorizza fino a 256 chiavi pubbliche. Facendo
+riferimento a un ALT, una transazione può includere account aggiuntivi
+utilizzando indici di 1 byte anziché chiavi pubbliche di 32 byte, riducendo
+significativamente l'overhead per account.
+
+Durante l'esecuzione, prima che inizi l'elaborazione, il validator risolve tutti
+i riferimenti ALT in chiavi pubbliche complete. Gli indirizzi risolti vengono
+aggiunti alle chiavi account statiche per formare l'elenco completo delle chiavi
+account. Gli account risolti tramite ALT seguono lo stesso ordinamento degli
+account statici: le ricerche scrivibili precedono quelle di sola lettura.
+
+<Callout>
+  Le tabelle di ricerca degli indirizzi influenzano solo il modo in cui gli
+  account vengono referenziati nella transazione on-wire. Durante l'esecuzione,
+  il runtime risolve tutti gli indici in indirizzi account completi. Gli account
+  risolti tramite ALT possono essere solo scrivibili o di sola lettura (non
+  firmatari); non possono essere firmatari.
+</Callout>

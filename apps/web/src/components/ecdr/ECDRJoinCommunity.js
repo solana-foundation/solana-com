@@ -9,7 +9,7 @@ const ECDRJoinCommunity = () => {
 
   return (
     <div
-      className={classNames("mb-10 container", styles["ecdr-join-community"])}
+      className={classNames("mb-20 container", styles["ecdr-join-community"])}
     >
       <div className={styles["ecdr-join-community__signup"]}>
         <h5 className={styles["ecdr-join-community__signup--title"]}>
@@ -17,13 +17,13 @@ const ECDRJoinCommunity = () => {
         </h5>
         <p
           className={classNames(
-            "mt-5",
+            "mt-6",
             styles["ecdr-join-community__signup--description"],
           )}
         >
           {t("ecdr.join-community.description")}
         </p>
-        <div className="d-flex mt-6">
+        <div className="flex mt-8">
           <EmailSubscribeForm formId="c54770ae-9976-4ab8-8b7f-21d288659efe" />
         </div>
       </div>
@@ -31,7 +31,7 @@ const ECDRJoinCommunity = () => {
         to="/grizzlython"
         className={styles["ecdr-join-community__background"]}
       >
-        <span className="visually-hidden">Grizzlython hackathon</span>
+        <span className="sr-only">Grizzlython hackathon</span>
       </Link>
     </div>
   );

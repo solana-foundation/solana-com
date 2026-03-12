@@ -1,0 +1,366 @@
+---
+title: Cấu trúc tài khoản
+description:
+  Địa chỉ tài khoản, năm trường mà mọi tài khoản Solana đều chứa — lamports,
+  data, owner, executable và rent_epoch — với hướng dẫn code tương tác.
+url: /docs/core/accounts/account-structure
+type: conceptual
+prerequisites:
+  - /docs/core/accounts
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/accounts/modification-rules
+  - /docs/core/pda
+  - /docs/core/constants-reference
+---
+
+{/* TOC: Account Address, Account Fields, ScrollyCoding walkthrough (Lamports, Data, Owner, Executable, Rent Epoch), AccountSharedData, Rent State Machine */}
+
+<Callout type="info" title="Tóm tắt">
+  Tài khoản có 5 trường: lamports, data, owner, executable và rent_epoch. Mỗi
+  tài khoản được xác định bởi một địa chỉ 32-byte duy nhất. Tài khoản phải giữ
+  một số dư lamport tối thiểu tỷ lệ với kích thước dữ liệu của chúng để tồn tại
+  trên chuỗi.
+</Callout>
+
+## Địa chỉ tài khoản
+
+Mỗi địa chỉ tài khoản là một giá trị 32-byte, được hiển thị dưới dạng chuỗi mã
+hóa base58. Một địa chỉ có thể thuộc một trong hai loại:
+
+1. **Public key**: tương ứng với một [Ed25519](https://ed25519.cr.yp.to/)
+   keypair (có private key)
+2. **Program Derived Address (PDA)**: được tạo ra một cách xác định từ một
+   program ID và các seed (không có private key)
+
+![Một tài khoản với địa chỉ public key được mã hóa base58](/assets/docs/core/accounts/account-address.svg)
+
+### Public key
+
+Một _rs`Keypair`_ bao gồm một public key (được sử dụng làm địa chỉ tài khoản) và
+một private key (được sử dụng để ký giao dịch). Ví dụ sau tạo ra một keypair
+bằng Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { generateKeyPairSigner } from "@solana/kit";
+
+// Kit does not enable extractable private keys
+const keypairSigner = await generateKeyPairSigner();
+console.log(keypairSigner);
+```
+
+```ts !! title="Legacy"
+import { Keypair } from "@solana/web3.js";
+
+const keypair = Keypair.generate();
+console.log(`Public Key: ${keypair.publicKey}`);
+console.log(`Secret Key: ${keypair.secretKey}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::signer::{keypair::Keypair, Signer};
+
+#[tokio::main]
+async fn main() {
+    let keypair = Keypair::new();
+    println!("Public Key: {}", keypair.pubkey());
+    println!("Secret Key: {:?}", keypair.to_bytes());
+}
+```
+
+</CodeTabs>
+
+### Program Derived Address
+
+Một [Program Derived Address](/docs/core/pda) (PDA) được tạo ra một cách xác
+định từ một program ID và một hoặc nhiều seed tùy chọn. PDA không có private key
+tương ứng. Ví dụ sau tạo ra một PDA bằng Solana SDK.
+
+<CodeTabs storage="accounts" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey; // macro
+use solana_sdk::pubkey::Pubkey;
+
+#[tokio::main]
+async fn main() {
+    let program_address = pubkey!("11111111111111111111111111111111");
+    let seeds = [b"helloWorld".as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(&seeds, &program_address);
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+}
+```
+
+</CodeTabs>
+
+## Các trường của tài khoản
+
+Mỗi
+[`Account`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L32-L56)
+có kích thước tối đa là
+[`MAX_ACCOUNT_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L34)
+(10 MiB, tương đương _rs`MAX_PERMITTED_DATA_LENGTH`_) và chứa năm trường:
+
+<WithMentions>
+
+| Trường                             | Kiểu      | Mô tả                                                                                          |
+| ---------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
+| [`lamports`](mention:lamports)     | `u64`     | Số dư tính bằng lamport. Chủ sở hữu có thể trừ; bất kỳ chương trình nào cũng có thể cộng.      |
+| [`data`](mention:data)             | `Vec<u8>` | Trạng thái tài khoản hoặc bytecode chương trình. Tối đa 10 MiB. Chỉ chủ sở hữu mới có thể ghi. |
+| [`owner`](mention:owner)           | `Pubkey`  | Chương trình có quyền ghi. Chỉ có thể gán lại khi dữ liệu được xóa về không.                   |
+| [`executable`](mention:executable) | `bool`    | True = program account.                                                                        |
+| [`rent_epoch`](mention:rent_epoch) | `Epoch`   | Đã lỗi thời. Được đặt thành `u64::MAX` cho các tài khoản miễn rent.                            |
+
+```rust title="Account"
+pub struct Account {
+    /// lamports in the account
+    // !mention lamports
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    // !mention data
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    // !mention owner
+    pub owner: Pubkey,
+    /// if true, this account's data contains a program (and is now read-only)
+    // !mention executable
+    pub executable: bool,
+    /// deprecated
+    // !mention rent_epoch
+    pub rent_epoch: Epoch,
+}
+```
+
+</WithMentions>
+
+<ScrollyCoding>
+
+## !!steps Lamport
+
+Trường `lamports` lưu trữ số dư của tài khoản tính bằng
+[lamport](/docs/references/terminology#lamport) (1 SOL = 1.000.000.000 lamport).
+
+Mỗi tài khoản phải duy trì số dư lamport tối thiểu, được gọi là số dư miễn rent,
+để giữ dữ liệu của nó được lưu trữ trên chuỗi. Số dư này tỷ lệ thuận với kích
+thước dữ liệu của tài khoản.
+
+<Callout type="info">
+  Mặc dù thường được gọi là "rent", số dư miễn rent hoạt động như một khoản tiền
+  đặt cọc có thể hoàn lại, toàn bộ số dư được thu hồi khi tài khoản bị đóng.
+</Callout>
+
+Xem
+[`minimum_balance()`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L93)
+và các
+[hằng số](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/rent/src/lib.rs#L47-L80)
+rent.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    // !focus
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    // !focus
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Dữ liệu
+
+Trường `data` lưu trữ một mảng byte tùy ý. Nội dung của nó phụ thuộc vào loại
+tài khoản:
+
+- **Program account**: Chứa bytecode có thể thực thi hoặc địa chỉ của một
+  [program data account](/docs/core/accounts/account-types#program-data-accounts)
+  lưu trữ bytecode.
+- **Tài khoản dữ liệu**: Chứa dữ liệu trạng thái do chương trình định nghĩa.
+  Chương trình sở hữu xác định định dạng tuần tự hóa.
+
+Đọc dữ liệu tài khoản yêu cầu hai bước:
+
+1. Lấy tài khoản theo [địa chỉ](#account-address) của nó.
+2. Giải tuần tự hóa trường `data` từ byte thô thành cấu trúc dữ liệu do chương
+   trình định nghĩa.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    // !focus
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    // !focus
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    // !focus
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    // !focus
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Chủ sở hữu
+
+Trường `owner` chứa program ID (khóa công khai) của chương trình sở hữu tài
+khoản này.
+
+Chương trình chủ sở hữu là chương trình duy nhất có thể:
+
+- Sửa đổi trường `data` của tài khoản
+- Trừ lamport từ trường `lamports` của tài khoản
+
+Bất kỳ chương trình nào cũng có thể thêm lamport vào tài khoản khác, nhưng chỉ
+có chủ sở hữu mới có thể trừ lamport từ tài khoản đó.
+
+Đối với program account, chủ sở hữu là
+[chương trình loader](/docs/core/programs/builtin-programs#loader-programs) của
+tài khoản.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    // !focus
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    // !focus
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Có thể thực thi
+
+Trường `executable` là một giá trị boolean xác định liệu tài khoản có phải là
+[program account](/docs/core/accounts/account-types#program-accounts) hay
+[data account](/docs/core/accounts/account-types#data-accounts):
+
+- `true` = program account (chứa mã có thể thực thi)
+- `false` = data account (lưu trữ trạng thái)
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    // !focus
+    executable: false,
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    // !focus
+    executable: true,
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+## !!steps Rent epoch
+
+**Trường `rent_epoch` đã không còn được sử dụng.**
+
+Trước đây theo dõi thời điểm một tài khoản sẽ tự động bị trừ lamport để thanh
+toán chi phí duy trì dữ liệu trên chuỗi. Vì việc thu rent đã không còn được sử
+dụng, `rent_epoch` được đặt thành `u64::MAX` cho tất cả các tài khoản miễn rent
+mới.
+
+```rust !! title="Account Examples"
+// Example Token Mint Account
+Account {
+    lamports: 1461600,
+    data.len: 82,
+    owner: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb,
+    executable: false,
+    // !focus
+    rent_epoch: 0,
+    data: 010000001e213c90625a7e643d9555bb01b6c3fe6416d7afd523ce8c7ddd9b923ceafb9d00000000000000000901010000001e213c90625a7e643d9555bb01b6,
+}
+
+// Example Token Program Account
+Account {
+    lamports: 4513200894,
+    data.len: 134080,
+    owner: BPFLoader2111111111111111111111111111111111,
+    executable: true,
+    // !focus
+    rent_epoch: 18446744073709551615,
+    data: 7f454c460201010000000000000000000300f70001000000d8f90000000000004000000000000000800902000000000000000000400038000400400009000800,
+}
+```
+
+</ScrollyCoding>

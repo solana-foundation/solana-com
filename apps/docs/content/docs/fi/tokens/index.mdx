@@ -1,0 +1,445 @@
+---
+title: Tokenit Solanassa
+description: Opi Solanan Token Programeista.
+---
+
+Tokenit ovat digitaalisia varoja, jotka edustavat omistusta eri
+omaisuusluokkiin. Tokenisaatio mahdollistaa omistusoikeuksien digitalisoinnin.
+Solanan tokeneita kutsutaan SPL-tokeneiksi
+([Solana Program Library](https://github.com/solana-program)).
+
+Tämä osio käsittelee peruskäsitteitä siitä, miten tokenit esitetään Solanassa.
+Katso koodiesimerkkejä osiosta [SPL Token Basics](/docs/tokens/basics).
+
+## Keskeiset kohdat
+
+- [Token Programit](#token-program) sisältävät kaiken ohjelogiikan tokenien
+  kanssa toimimiseen verkossa (sekä vaihdettavat että vaihtamattomat).
+
+- [Mint account](#mint-account) edustaa tiettyä tokenia ja tallentaa globaalit
+  metatiedot tokenista, kuten kokonaistarjonnan ja mint authorityn (osoite,
+  jolla on oikeus luoda uusia tokenin yksiköitä).
+
+- [Token account](#token-account) seuraa yksittäistä tokenien omistusta tietylle
+  mint accountille tietylle omistajalle.
+
+- [Associated token account](#associated-token-account) on token account, joka
+  on luotu osoitteella, joka johdetaan omistajan ja mint accountin osoitteista.
+
+## Token Programit
+
+Solana-ekosysteemissä on kaksi pääasiallista Token Programia. Molempien
+lähdekoodit alla.
+
+<Cards>
+  <Card title="Token Program (alkuperäinen)" href="https://github.com/solana-program/token">
+   - Perustokenitoiminnallisuus (mint, transfer jne.)
+   - Muuttumaton ja laajalti käytetty
+  </Card>
+
+  <Card title="Token Extension Program (Token 2022)" href="https://github.com/solana-program/token-2022">
+   - Sisältää kaikki alkuperäisen Token Programin ominaisuudet
+   - Lisää ominaisuuksia "laajennusten" kautta
+  </Card>
+</Cards>
+
+Token Programit sisältävät kaiken ohjelogiikan tokenien kanssa toimimiseen
+verkossa (sekä vaihdettavat että vaihtamattomat). Kaikki Solanan tokenit ovat
+käytännössä [data accounteja](/docs/core/accounts#data-account), jotka Token
+Program omistaa.
+
+![Token Program](/assets/docs/core/tokens/token-program.svg)
+
+### Mint account
+
+Solanan tokenit tunnistetaan yksilöllisesti
+[mint accountin](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L16-L30)
+osoitteella, jonka Token Program omistaa. Tämä tili toimii globaalina laskurina
+tietylle tokenille ja tallentaa tietoja kuten:
+
+- **Supply**: Tokenin kokonaistarjonta
+- **Decimals**: Tokenin desimaalitarkkuus
+- **Mint authority**: Tili, jolla on valtuutus luoda uusia tokenin yksiköitä,
+  kasvattaen tarjontaa
+- **Freeze authority**: Tili, jolla on valtuutus jäädyttää tokeneita token
+  accountissa, estäen niiden siirtämisen tai polttamisen
+
+![Mint Account](/assets/docs/core/tokens/mint-account.svg)
+
+Jokaiseen mint accountiin tallennetut täydelliset tiedot sisältävät seuraavat:
+
+```rust title="Mint Account State"
+pub struct Mint {
+    /// Optional authority used to mint new tokens. The mint authority may only
+    /// be provided during mint creation. If no mint authority is present
+    /// then the mint has a fixed supply and no further tokens may be
+    /// minted.
+    pub mint_authority: COption<Pubkey>,
+    /// Total supply of tokens.
+    pub supply: u64,
+    /// Number of base 10 digits to the right of the decimal place.
+    pub decimals: u8,
+    /// Is `true` if this structure has been initialized
+    pub is_initialized: bool,
+    /// Optional authority to freeze token accounts.
+    pub freeze_authority: COption<Pubkey>,
+}
+```
+
+Viitteeksi, tässä on Solana Explorer -linkki
+[USDC mint accountiin](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v).
+
+### Token Account
+
+Token Program luo
+[token accounteja](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108)
+seuratakseen jokaisen tokenin yksikön yksittäistä omistajuutta. Token account
+tallentaa tietoja kuten:
+
+- **Mint**: Token, jonka yksiköitä token account sisältää
+- **Owner**: Tili, jolla on valtuutus siirtää tokeneita token accountista
+- **Amount**: Tokenien määrä, jonka token account tällä hetkellä sisältää
+
+![Token Account](/assets/docs/core/tokens/token-account.svg)
+
+Jokaiseen token accountiin tallennetut täydelliset tiedot sisältävät seuraavat:
+
+```rust title="Token Account State"
+pub struct Account {
+    /// The mint associated with this account
+    pub mint: Pubkey,
+    /// The owner of this account.
+    pub owner: Pubkey,
+    /// The amount of tokens this account holds.
+    pub amount: u64,
+    /// If `delegate` is `Some` then `delegated_amount` represents
+    /// the amount authorized by the delegate
+    pub delegate: COption<Pubkey>,
+    /// The account's state
+    pub state: AccountState,
+    /// If is_native.is_some, this is a native token, and the value logs the
+    /// rent-exempt reserve. An Account is required to be rent-exempt, so
+    /// the value is used by the Processor to ensure that wrapped SOL
+    /// accounts do not drop below this threshold.
+    pub is_native: COption<u64>,
+    /// The amount delegated
+    pub delegated_amount: u64,
+    /// Optional authority to close the account.
+    pub close_authority: COption<Pubkey>,
+}
+```
+
+Lompakko tarvitsee token accountin jokaiselle tokenille (mint), jota se haluaa
+säilyttää, ja lompakon osoite asetetaan token accountin omistajaksi. Jokainen
+lompakko voi omistaa useita token accounteja samalle tokenille (mint), mutta
+token accountilla voi olla vain yksi omistaja ja se voi sisältää vain yhden
+tokenin (mint) yksiköitä.
+
+![Tilien suhteet](/assets/docs/core/tokens/token-account-relationship.svg)
+
+<Callout type="info">
+
+Huomaa, että jokaisen token accountin tiedot sisältävät `owner` -kentän, joka
+tunnistaa kenellä on valtuutus token accountiin. Tämä eroaa perus
+[Account](/docs/core/accounts#account-type) -tyypin määrittämästä ohjelman
+omistajasta, joka on Token Program kaikille token accounteille.
+
+</Callout>
+
+### Associated Token Account
+
+Associated token accountit yksinkertaistavat token accountin osoitteen
+löytämistä tietylle mintille ja omistajalle. Ajattele associated token accountia
+tietyn mintin ja omistajan "oletusarvoisena" token accountina.
+
+Associated token account luodaan osoitteella, joka johdetaan omistajan
+osoitteesta ja mint accountin osoitteesta. On tärkeää ymmärtää, että associated
+token account on vain token account, jolla on tietty osoite.
+
+Tämä esittelee keskeisen käsitteen Solana-kehityksessä:
+[Program Derived Address (PDA)](/docs/core/pda). PDA johtaa osoitteen
+deterministisesti käyttäen ennalta määritettyjä syötteitä, mikä helpottaa
+accountin osoitteen löytämistä.
+
+![Associated Token Account](/assets/docs/core/tokens/associated-token-account.svg)
+
+Huomaa, että jokainen lompakko tarvitsee oman token accountinsa pitääkseen
+hallussaan tokeneita samasta mintistä.
+
+![Accounts Relationship Expanded](/assets/docs/core/tokens/token-account-relationship-ata.svg)
+
+## Token CLI -esimerkit
+
+_sh`spl-token`_ CLI auttaa kokeilemaan SPL-tokeneita. Alla olevat esimerkit
+käyttävät [Solana Playgroundin](https://beta.solpg.io/) terminaalia
+CLI-komentojen suorittamiseen suoraan selaimessa ilman paikallista asennusta.
+
+Tokenien ja accountien luominen vaatii SOL:ia accountin rent-talletuksiin ja
+transaktiomaksuihin. Ensikertalaisten Solana Playground -käyttäjien tulee luoda
+Playground-lompakko ja suorittaa _sh`solana airdrop`_ -komento
+Playground-terminaalissa. Voit myös hankkia devnet SOL:ia julkisesta
+[web faucetista](https://faucet.solana.com/).
+
+```terminal
+$ solana airdrop 2
+```
+
+Suorita _sh`spl-token --help`_ nähdäksesi kaikki käytettävissä olevat komennot.
+
+```terminal
+$ spl-token --help
+```
+
+Asenna _sh`spl-token`_ CLI paikallisesti suorittamalla:
+
+```terminal
+$ cargo install spl-token-cli
+```
+
+Löydät lisää esimerkkejä
+_sh`spl-token`_ -[dokumentaatiosta](https://www.solana-program.com/docs/token).
+
+<Callout type="info">
+
+Terminaalin tulosteessa näkyvät account-osoitteet eroavat alla olevista
+esimerkeistä. Käytä Playground-terminaalisi osoitteita seuratessasi mukana.
+Esimerkiksi _sh`create-token`_ -komento tulostaa mint account -osoitteen, jossa
+Playground-lompakkosi on mint authorityna.
+
+</Callout>
+
+### Luo uusi token
+
+Luo uusi token (mint account) suorittamalla:
+
+```terminal
+$ spl-token create-token
+```
+
+Tuloste näyttää tältä:
+
+```sh title="Terminal Output"
+Creating token 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+
+Address:  99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+Decimals:  9
+
+Signature: 44fvKfT1ezBUwdzrCys3fvCdFxbLMnNvBstds76QZyE6cXag5NupBprSXwxPTzzjrC3cA6nvUZaLFTvmcKyzxrm1
+```
+
+Uusi mint account alkaa nollatarjonnalla. Tarkista nykyinen tarjonta komennolla:
+
+```terminal
+$ spl-token supply <TOKEN_ADDRESS>
+```
+
+Uuden tokenin _sh`supply`_ -komento palauttaa `0`:
+
+```sh title="Example"
+spl-token supply 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Uuden mint accountin luominen vaatii transaktion, jossa on kaksi instruktiota.
+Tässä on Javascript-esimerkki
+[Solana Playgroundissa](https://beta.solpg.io/660ce32ecffcf4b13384d00f).
+
+1. System Program luo uuden tilin, jossa on tilaa mint accountin tiedoille ja
+   siirtää omistajuuden Token Programille.
+
+2. Token Program alustaa uuden tilin tiedot mint accountiksi
+
+### Luo token account
+
+Pidä tietyn mintin tokeneita luomalla token account:
+
+```terminal
+$ spl-token create-account <TOKEN_ADDRESS>
+```
+
+Esimerkkikomento:
+
+```sh title="Example"
+spl-token create-account 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Tuloste:
+
+```sh title="Terminal Output"
+Creating account AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2BtrynuCLX9CNofFiaw6Yzbx6hit66pup9Sk7aFjwU2NEbFz7NCHD9w9sWhrCfEd73XveAGK1DxFpJoQZPXU9tS1
+```
+
+_sh`create-account`_ -komento luo associated token accountin, jossa lompakkosi
+osoite on omistajana.
+
+Luo token account eri omistajalla:
+
+```terminal
+$ spl-token create-account --owner <OWNER_ADDRESS> <TOKEN_ADDRESS>
+```
+
+Huomaa: `<TOKEN_ADDRESS>` määrittää mint accountin token accountille.
+
+Esimerkkikomento:
+
+```sh title="Example"
+spl-token create-account --owner 2i3KvjDCZWxBsqcxBHpdEaZYQwQSYE6LXUMx5VjY5XrR 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Tuloste:
+
+```shell title="Terminal Output" /Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt/
+Creating account Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 44vqKdfzspT592REDPY4goaRJH3uJ3Ce13G4BCuUHg35dVUbHuGTHvqn4ZjYF9BGe9QrjMfe9GmuLkQhSZCBQuEt
+```
+
+Associated token accountin luominen vaatii yhden instruktion, joka kutsuu
+[Associated Token Programia](https://github.com/solana-program/associated-token-account).
+Tässä Javascript-esimerkki
+[Solana Playgroundissa](https://beta.solpg.io/660ce868cffcf4b13384d011).
+
+Associated Token Program käyttää [cross program invocationeja](/docs/core/cpi)
+seuraavasti:
+
+- [Kutsuu System Programia](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/tools/account.rs#L19)
+  luodakseen uuden tilin käyttäen annettua PDA:ta osoitteena
+- [Kutsuu Token Programia](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/processor.rs#L138-L161)
+  alustamaan token accountin tiedot
+
+Luodaksesi uuden token accountin uudella keypairilla associated token account
+-osoitteen sijaan, lähetä transaktio kahdella instruktiolla. Tässä
+Javascript-esimerkki
+[Solana Playgroundissa](https://beta.solpg.io/660ce716cffcf4b13384d010).
+
+1. System Program luo uuden tilin, jossa on tilaa token accountin tiedoille ja
+   siirtää omistajuuden Token Programille.
+
+2. Token Program alustaa tiedot token accountiksi
+
+### Tokenien mintaaminen
+
+Luodaksesi uusia token-yksiköitä, mintaa tokeneita token accountille:
+
+```terminal
+$ spl-token mint [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> [--] [RECIPIENT_TOKEN_ACCOUNT_ADDRESS]
+```
+
+Esimerkkikomento:
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100
+```
+
+Tuloste:
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2NJ1m7qCraPSBAVxbr2ssmWZmBU9Jc8pDtJAnyZsZJRcaYCYMqq1oRY1gqA4ddQno3g3xcnny5fzr1dvsnFKMEqG
+```
+
+Mintaamaan tokeneita eri token accountille:
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 -- Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+Tuloste:
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 3SQvNM3o9DsTiLwcEkSPT1Edr14RgE2wC54TEjonEP2swyVCp2jPWYWdD6RwXUGpvDNUkKWzVBZVFShn5yntxVd7
+```
+
+Token Programin _rs`MintTo`_ -instruktio luo uusia tokeneita. Mint authorityn on
+allekirjoitettava transaktio. Instruktio mintaa tokeneita token accountille ja
+kasvattaa mint accountin kokonaistarjontaa. Tässä Javascript-esimerkki
+[Solana Playgroundissa](https://beta.solpg.io/660cea45cffcf4b13384d012).
+
+### Tokenien siirtäminen
+
+Siirtääksesi tokeneita token accountien välillä:
+
+```sh title="Terminal"
+spl-token transfer [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> <RECIPIENT_ADDRESS or RECIPIENT_TOKEN_ACCOUNT_ADDRESS>
+```
+
+Esimerkkikomento:
+
+```sh title="Example"
+spl-token transfer 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+Tuloste:
+
+```shell title="Terminal Output"
+Transfer 100 tokens
+  Sender: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 5y6HVwV8V2hHGLTVmTmdySRiEUCZnWmkasAvJ7J6m7JR46obbGKCBqUFgLpZu5zQGwM4Xy6GZ4M5LKd1h6Padx3o
+```
+
+Token Programin _rs`Transfer`_ -käsky käsittelee tokenien siirtoja. Lähettäjän
+token accountin omistajan on allekirjoitettava transaktio. Käsky siirtää
+tokeneita token accountien välillä. Tässä on Javascript-esimerkki
+[Solana Playgroundissa](https://beta.solpg.io/660ced84cffcf4b13384d013).
+
+Sekä lähettäjä että vastaanottaja tarvitsevat token accountit kyseiselle
+tokenille (mint). Lähettäjä voi sisällyttää käskyt vastaanottajan token
+accountin luomiseen samaan transaktioon.
+
+### Luo tokenin metadata
+
+Token Extensions Program mahdollistaa metadatan (nimi, symboli, kuvalinkki)
+tallentamisen suoraan mint accountiin.
+
+Tokenin luominen metadata-laajennuksella:
+
+```sh title="Example"
+spl-token create-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --enable-metadata
+```
+
+Tuloste:
+
+```shell title="Terminal Output"
+Creating token BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP under program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+To initialize metadata inside the mint, please run `spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>`, and sign with the mint authority.
+
+Address:  BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP
+Decimals:  9
+
+Signature: 5iQofFeXdYhMi9uTzZghcq8stAaa6CY6saUwcdnELST13eNSifiuLbvR5DnRt311frkCTUh5oecj8YEvZSB3wfai
+```
+
+Metadatan alustaminen:
+
+```sh title="Terminal"
+spl-token initialize-metadata <TOKEN_MINT_ADDRESS> <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>
+```
+
+Token URI linkittää off-chain-metadataan. Katso esimerkki JSON-muodosta
+[täältä](https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json).
+
+Esimerkkikomento:
+
+```sh title="Example"
+spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP "TokenName" "TokenSymbol" "https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+```
+
+Tarkastele metadataa
+[Solana Explorerissa](https://explorer.solana.com/address/BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP?cluster=devnet).
+
+Lue lisää
+[Metadata Extension -oppaasta](/developers/guides/token-extensions/metadata-pointer).
+Token Extensions -laajennuksista löydät lisätietoja Token Extensions
+[Getting Started -oppaasta](/developers/guides/token-extensions/getting-started)
+ja
+[SPL-dokumentaatiosta](https://www.solana-program.com/docs/token-2022/extensions).

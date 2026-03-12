@@ -1,0 +1,199 @@
+---
+title: "@solana/react-hooks"
+description:
+  شارك حالة @solana/client عبر تطبيق React الخاص بك مع خطافات جاهزة للاستخدام.
+---
+
+`@solana/react-hooks` يوفر مزود React وخطافات ومساعدات استعلام متوافقة مع
+suspense فوق `@solana/client`. لا يزال بإمكانك تكوين عميل واحد، لكن الخطافات
+تعرض حالة المحفظة والأرصدة والمعاملات واستعلامات البرنامج دون الحاجة لربط
+المخازن أو الاشتراكات يدويًا.
+
+## التثبيت
+
+```terminal
+$ npm install @solana/client @solana/react-hooks
+```
+
+كلا الحزمتين مطلوبتان لأن الخطافات تعيد استخدام وقت تشغيل العميل لإدارة المحافظ
+وRPC والذاكرة المؤقتة.
+
+## قم بتغليف الشجرة مرة واحدة
+
+أنشئ العميل، واختر موصلات المحفظة اختياريًا، ثم قم بتغليف شجرة React الخاصة بك
+بـ `SolanaProvider`. كل خطاف يقرأ من نسخة العميل المشتركة.
+
+```tsx
+"use client";
+
+import { autoDiscover, createClient } from "@solana/client";
+import { SolanaProvider } from "@solana/react-hooks";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <SolanaProvider client={client}>{children}</SolanaProvider>;
+}
+```
+
+## الخطافات تعكس وقت تشغيل العميل
+
+- **المحفظة + الموصلات**: `useWallet`، `useWalletConnection`،
+  `useConnectWallet`، و`useDisconnectWallet` تعرض نفس السجل الذي يشغل العميل.
+- **مراقبو الرصيد + الحساب**: `useBalance`، `useAccount`، `useSolBalance`،
+  و`useProgramAccounts` تبث التحديثات من المراقبين الأساسيين وتشارك الذاكرة
+  المؤقتة مع الإجراءات.
+- **المعاملات + مساعدات SPL**: `useSolTransfer`، `useSplToken`،
+  `useTransactionPool`، و`useSendTransaction` تعتمد على مجموعة مساعدات العميل
+  بحيث ترث الخطافات تحديث blockhash وحل دافع الرسوم والتسجيل.
+
+```tsx
+function WalletPanel() {
+  const { connectors, connect, disconnect, wallet, status } =
+    useWalletConnection();
+  const balance = useBalance(wallet?.account.address);
+
+  if (status === "connected") {
+    return (
+      <div>
+        <p>{wallet?.account.address.toString()}</p>
+        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
+        <button onClick={disconnect}>Disconnect</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {connectors.map((connector) => (
+        <button key={connector.id} onClick={() => connect(connector.id)}>
+          Connect {connector.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+## أنماط الاستعلام والتخزين المؤقت
+
+`SolanaQueryProvider` يوفر عناصر أولية متوافقة مع React Query فوق مخزن العميل
+بحيث يمكن لاستعلامات Solana المحددة أن تتوقف وتعيد الجلب وتتزامن مع اشتراكات
+البرنامج.
+
+```tsx
+import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
+
+function ProgramAccounts({ program }: { program: string }) {
+  const query = useProgramAccounts(program);
+
+  if (query.isLoading) return <p>Loading…</p>;
+  if (query.isError) return <p role="alert">RPC error</p>;
+
+  return (
+    <div>
+      <button onClick={() => query.refresh()}>Refresh</button>
+      <ul>
+        {query.accounts.map(({ pubkey }) => (
+          <li key={pubkey.toString()}>{pubkey.toString()}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ProgramAccountsSection({ program }: { program: string }) {
+  return (
+    <SolanaQueryProvider>
+      <ProgramAccounts program={program} />
+    </SolanaQueryProvider>
+  );
+}
+```
+
+## تدفقات المعاملات بشكل تصريحي
+
+تعرض الخطافات نفس مساعدات المعاملات الموجودة في العميل لكنها تدير حالات التحميل
+والخطأ نيابة عنك. استخدمها لتحويلات SOL أو تدفقات رموز SPL أو دفعات التعليمات
+التعسفية.
+
+```tsx
+import { useSolTransfer } from "@solana/react-hooks";
+
+function SolTransferForm({ destination }: { destination: string }) {
+  const transfer = useSolTransfer();
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void transfer.send({ destination, lamports: 100_000_000n });
+      }}
+    >
+      <button type="submit" disabled={transfer.isSending}>
+        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
+      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
+    </form>
+  );
+}
+```
+
+هل تحتاج إلى تعليمات خام بدلاً من ذلك؟ `useSendTransaction` يقبل `instructions`
+و `prepare` اختيارية، مما يمنحك تتبع التوقيع والحالة عند انتهاء الطلب.
+
+```tsx
+import { useSendTransaction, useWallet } from "@solana/react-hooks";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
+
+function CustomTransactionForm({ destination }: { destination: string }) {
+  const wallet = useWallet();
+  const { send, isSending, signature, error } = useSendTransaction();
+
+  async function handleSend() {
+    if (wallet.status !== "connected") return;
+
+    const instruction = getTransferSolInstruction({
+      source: wallet.session.account,
+      destination: address(destination),
+      amount: lamports(100_000_000n)
+    });
+
+    await send({ instructions: [instruction] });
+  }
+
+  return (
+    <div>
+      <button onClick={handleSend} disabled={isSending}>
+        {isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {signature ? <p>Signature: {signature}</p> : null}
+      {error ? <p role="alert">{String(error)}</p> : null}
+    </div>
+  );
+}
+```
+
+## الأنماط الشائعة لمطوري سولانا
+
+- **بيئة تشغيل مشتركة، تطبيقات متعددة**: قم بتكوين العميل مرة واحدة (ربما في
+  حزمة أساسية) واستخدمه في الويب، أو الويب المحمول، أو جزر React المضمنة.
+- **التطوير بالواجهة أولاً**: تعكس الخطافات أكثر تدفقات سولانا شيوعاً (توصيل
+  محفظة، جلب الأرصدة، إرسال SOL، قراءة أرصدة SPL) حتى تتمكن من التركيز على تجربة
+  المستخدم بدلاً من سباكة RPC.
+- **التحسين التدريجي**: ابدأ بدون واجهة مع `@solana/client`، ثم أضف الخطافات في
+  المناطق التي تريد فيها حالة React وجلب البيانات الصديق للتعليق.
+- **الاختبار**: قم بمحاكاة قيم إرجاع الخطاف أو مرر عميلاً وهمياً إلى
+  `SolanaProvider` لمحاكاة المحافظ، أو نجاحات RPC، أو الفشل في اختبارات الوحدة.
+- **مدرك لمكونات الخادم**: قم بوضع علامة فقط على المكونات الطرفية التي تستدعي
+  الخطافات بـ `"use client"`؛ يمكن أن يبقى كل شيء آخر على الخادم ويتلقى خصائص
+  محسّنة من الأطفال المدعومين بالخطافات.
+
+اقرن هذا الدليل مع [نظرة عامة على @solana/client](/docs/frontend/client) لـ فهم
+بيئة التشغيل التي يبني عليها كل خطاف.
