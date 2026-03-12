@@ -15,7 +15,7 @@ export default defineConfig({
   },
   webServer: {
     command: "NEXT_PUBLIC_KEYSTATIC_LOCAL=true pnpm dev",
-    url: "http://localhost:3002/keystatic",
+    url: "http://127.0.0.1:3002/keystatic",
     reuseExistingServer: true,
     timeout: 120_000,
   },

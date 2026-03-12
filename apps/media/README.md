@@ -52,7 +52,7 @@ pnpm dev
 The app will be available at:
 
 - Frontend: http://localhost:3002
-- Keystatic Admin: http://localhost:3002/keystatic
+- Keystatic Admin: http://127.0.0.1:3002/keystatic
 
 ### Building
 

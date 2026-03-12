@@ -60,7 +60,7 @@ Content moves through two stages:
 
 1. Run the media app locally:
    `NEXT_PUBLIC_KEYSTATIC_LOCAL=true pnpm dev --filter solana-com-media`
-2. Open [localhost:3002/keystatic](http://localhost:3002/keystatic) — no sign-in
+2. Open [127.0.0.1:3002/keystatic](http://127.0.0.1:3002/keystatic) — no sign-in
    required in local mode.
 
 > **Note:** In local mode there is no GitHub sign-in screen and no branch
