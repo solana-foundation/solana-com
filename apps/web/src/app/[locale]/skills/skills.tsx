@@ -67,6 +67,7 @@ export async function SkillsPage() {
     viewOnGitHub: t("viewOnGitHub"),
     viewSkill: t("viewSkill"),
     filterAll: t("filterAll"),
+    searchPlaceholder: t("searchPlaceholder"),
     copyInstallCommand: t("copyInstallCommand"),
     endorsedTitle: t("endorsed.title"),
     endorsedDescription: t("endorsed.description"),
@@ -115,6 +116,7 @@ export async function SkillsPage() {
           communitySkills={COMMUNITY_SKILLS}
           translations={{
             filterAll: translations.filterAll,
+            searchPlaceholder: translations.searchPlaceholder,
             viewOnGitHub: translations.viewOnGitHub,
             viewSkill: translations.viewSkill,
             endorsedTitle: translations.endorsedTitle,

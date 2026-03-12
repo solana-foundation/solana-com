@@ -7,6 +7,7 @@ import {
   DEFAULT_CATEGORY,
   CategoryTranslations,
 } from "./skillCategories";
+import { Search } from "lucide-react";
 import { CommunitySkill } from "@/data/skills/communitySkills";
 import { Divider } from "@/components/solutions/divider.v2";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
@@ -17,6 +18,7 @@ type SkillsGridProps = {
   communitySkills: CommunitySkill[];
   translations: {
     filterAll: string;
+    searchPlaceholder: string;
     viewOnGitHub: string;
     viewSkill: string;
     endorsedTitle: string;
@@ -33,6 +35,7 @@ export function SkillsGrid({
   translations,
 }: SkillsGridProps) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const categoryKeys = useMemo(() => {
     const seen = new Set<string>();
@@ -45,15 +48,19 @@ export function SkillsGrid({
     );
   }, [endorsedSkills, communitySkills]);
 
-  const filteredEndorsed = selected
-    ? endorsedSkills.filter(
-        (s) => (CATEGORY_MAP[s.slug] ?? DEFAULT_CATEGORY).labelKey === selected,
-      )
-    : endorsedSkills;
+  const searchLower = query.toLowerCase().trim();
 
-  const filteredCommunity = selected
-    ? communitySkills.filter((s) => s.category.labelKey === selected)
-    : communitySkills;
+  const filteredEndorsed = endorsedSkills.filter((s) => {
+    if (selected && (CATEGORY_MAP[s.slug] ?? DEFAULT_CATEGORY).labelKey !== selected) return false;
+    if (searchLower && !s.title.toLowerCase().includes(searchLower)) return false;
+    return true;
+  });
+
+  const filteredCommunity = communitySkills.filter((s) => {
+    if (selected && s.category.labelKey !== selected) return false;
+    if (searchLower && !s.title.toLowerCase().includes(searchLower)) return false;
+    return true;
+  });
 
   const { ref: endorsedRef, isIntersecting: endorsedVisible } =
     useIntersectionObserver<HTMLDivElement>({
@@ -71,6 +78,20 @@ export function SkillsGrid({
     <div className="flex flex-col">
       <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] w-full py-[32px] md:py-[48px]">
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+              aria-hidden={true}
+            />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={translations.searchPlaceholder}
+              className="h-[28px] pl-8 pr-3 text-xs bg-transparent border border-white/15 rounded-full text-white placeholder:text-white/30 outline-none focus:border-white/40 transition-colors w-[160px] md:w-[200px]"
+            />
+          </div>
           <button
             onClick={() => setSelected(null)}
             className={`px-3 py-1 text-xs font-medium uppercase tracking-wider rounded-full border transition-colors cursor-pointer ${
