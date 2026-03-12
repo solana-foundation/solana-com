@@ -7,7 +7,11 @@ import { SkillsHeroBackground } from "@/components/skills/SkillsHeroBackground";
 import { Divider } from "@/components/solutions/divider.v2";
 import { COMMUNITY_SKILLS } from "@/data/skills/communitySkills";
 
-function parseSkillMarkdown(filename: string, content: string): SkillItem {
+function parseSkillMarkdown(
+  filename: string,
+  content: string,
+  htmlUrl: string,
+): SkillItem {
   const slug = filename.replace(/\.md$/, "");
   const { data } = matter(content);
 
@@ -15,7 +19,7 @@ function parseSkillMarkdown(filename: string, content: string): SkillItem {
     slug,
     title: data.title ?? slug,
     description: data.description ?? "",
-    githubUrl: `https://github.com/solana-foundation/solana-dev-skill/blob/main/skill/references/${filename}`,
+    githubUrl: htmlUrl,
   };
 }
 
@@ -39,13 +43,20 @@ export async function SkillsPage() {
         : [];
 
       const results = await Promise.allSettled(
-        mdFiles.map(async (file: { name: string; download_url: string }) => {
-          const raw = await fetch(file.download_url, {
-            next: { revalidate: 3600 },
-          });
-          const content = await raw.text();
-          return parseSkillMarkdown(file.name, content);
-        }),
+        mdFiles.map(
+          async (file: {
+            name: string;
+            download_url: string;
+            html_url: string;
+          }) => {
+            const raw = await fetch(file.download_url, {
+              next: { revalidate: 3600 },
+            });
+            const content = await raw.text();
+            console.log("Markdown and url", file.name, file.html_url);
+            return parseSkillMarkdown(file.name, content, file.html_url);
+          },
+        ),
       );
 
       skills = results
@@ -55,8 +66,9 @@ export async function SkillsPage() {
         )
         .map((r) => r.value);
     }
-  } catch {
+  } catch (error) {
     // Render gracefully with empty skills on error
+    console.error("Error loading skills:", error);
   }
 
   const translations = {
