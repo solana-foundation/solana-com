@@ -23,7 +23,7 @@ Create a `.env` file in the root of the media app (see `.env.example` for refere
 
 ```bash
 # Keystatic local mode (uses filesystem storage, no GitHub auth needed)
-KEYSTATIC_LOCAL=true
+NEXT_PUBLIC_KEYSTATIC_LOCAL=true
 
 # Or use GitHub mode (production)
 KEYSTATIC_GITHUB_CLIENT_ID=your_client_id
