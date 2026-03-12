@@ -1,0 +1,201 @@
+---
+title: Akun PDA
+description:
+  Buat akun on-chain di alamat PDA Solana menggunakan invoke_signed dan
+  constraint init Anchor. Alur verifikasi invoke_signed dan pola pembuatan PDA
+  Anchor dengan contoh kode.
+url: /docs/core/pda/pda-accounts
+type: tutorial
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/pda/pda-derivation
+  - /docs/core/cpi
+related:
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/program-deployment
+---
+
+{/* TOC: PDA Signing via invoke_signed, Create a PDA Account */}
+
+<Callout type="info" title="Ringkasan">
+  Buat akun PDA melalui _rs`invoke_signed`_ dengan seed PDA. Hanya program
+  pemilik yang dapat menandatangani untuk PDA. Constraint _rs`init`_ Anchor
+  mengotomatiskan pembuatan akun PDA.
+</Callout>
+
+## Penandatanganan PDA melalui `invoke_signed`
+
+Ketika program perlu menandatangani atas nama PDA selama CPI, program tersebut
+menggunakan _rs`invoke_signed`_ dengan seed PDA. Runtime memverifikasi seed
+menurunkan PDA yang diharapkan menggunakan **ID program pemanggil**, memastikan
+hanya program pemilik yang dapat menandatangani. Untuk alur verifikasi lengkap,
+lihat [Penandatanganan PDA](/docs/core/cpi/cpi-cost-model#pda-signing).
+
+## Membuat akun PDA
+
+Menurunkan PDA dan membuat akun di PDA adalah operasi terpisah. Anda harus
+secara eksplisit membuat akun setelah menurunkan alamat.
+
+Untuk membuat akun di PDA, program penurunan memanggil instruksi
+_rs`create_account`_ System Program melalui [`invoke_signed`](/docs/core/cpi),
+meneruskan seed PDA sehingga runtime dapat memverifikasi otoritas program atas
+alamat tersebut.
+
+<WithMentions>
+
+Contoh di bawah ini menggunakan
+[framework Anchor](https://www.anchor-lang.com/docs) untuk membuat akun baru
+dengan alamat yang diturunkan program. Program ini mencakup satu instruksi
+[`initialize`](mention:initialize) untuk membuat akun baru, yang akan menyimpan
+[alamat pengguna](mention:user-address) dan [bump seed](mention:bump) yang
+digunakan untuk menurunkan PDA.
+
+```rs title="Program"
+use anchor_lang::prelude::*;
+
+declare_id!("75GJVCJNhaukaa2vCCqhreY31gaphv7XTScBChmr1ueR");
+
+#[program]
+pub mod pda_account {
+    use super::*;
+
+    // !mention initialize
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account_data = &mut ctx.accounts.pda_account;
+        // store the address of the `user`
+        // !mark
+        // !mention user-address
+        account_data.user = *ctx.accounts.user.key;
+        // store the canonical bump
+        // !mark
+        // !mention bump
+        account_data.bump = ctx.bumps.pda_account;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mention user-address
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        // define the seeds to derive the PDA
+        // !mark
+        // !mention user-address
+        seeds = [b"data", user.key().as_ref()],
+        // use the canonical bump
+        // !mark
+        // !mention bump
+        bump,
+        payer = user,
+        space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+    )]
+    pub pda_account: Account<'info, DataAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DataAccount {
+    // !mark
+    // !mention user-address
+    pub user: Pubkey,
+    // !mark
+    // !mention bump
+    pub bump: u8,
+}
+```
+
+</WithMentions>
+
+<WithMentions>
+
+Constraint [`init`](mention:init) memberi tahu Anchor untuk
+[memanggil System Program](/docs/core/programs/builtin-programs#the-system-program)
+untuk membuat akun baru menggunakan PDA sebagai alamat. [Seed](mention:seeds)
+yang digunakan untuk membuat PDA adalah:
+
+- String tetap: "data"
+- Alamat akun pengguna yang disediakan dalam instruksi
+- Canonical [bump seed](mention:bump)
+
+Dalam contoh ini, constraint bump tidak diberi nilai, sehingga Anchor akan
+menggunakan _`find_program_address`_ untuk menurunkan PDA dan menemukan bump.
+
+```rust title="pda_account"
+#[account(
+    // !mention init
+    init,
+    // !mention seeds
+    seeds = [b"data", user.key().as_ref()],
+    // !mention bump
+    bump,
+    payer = user,
+    space = 8 + DataAccount::INIT_SPACE // 8 bytes for Anchor account discriminator
+)]
+pub pda_account: Account<'info, DataAccount>,
+```
+
+</WithMentions>
+
+<WithMentions>
+
+File pengujian di bawah ini berisi transaksi yang memanggil instruksi
+[`initialize`](mention:initialize) untuk membuat akun baru dengan
+program-derived address. File ini berisi kode untuk
+[menurunkan PDA](mention:pda).
+
+Contoh ini juga menunjukkan cara [mengambil](mention:fetch) akun baru yang akan
+dibuat.
+
+```ts title="Test"
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PdaAccount } from "../target/types/pda_account";
+import { PublicKey } from "@solana/web3.js";
+
+describe("pda-account", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.PdaAccount as Program<PdaAccount>;
+  const user = provider.wallet as anchor.Wallet;
+
+  // !mention(1:5) pda
+  // Derive the PDA address using the seeds specified on the program
+  const [PDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("data"), user.publicKey.toBuffer()],
+    program.programId
+  );
+
+  it("Is initialized!", async () => {
+    const transactionSignature = await program.methods
+      // !mention initialize
+      .initialize()
+      .accounts({
+        user: user.publicKey
+      })
+      .rpc();
+
+    console.log("Transaction Signature:", transactionSignature);
+  });
+
+  it("Fetch Account", async () => {
+    // !mention fetch
+    const pdaAccount = await program.account.dataAccount.fetch(PDA);
+    console.log(JSON.stringify(pdaAccount, null, 2));
+  });
+});
+```
+
+</WithMentions>
+
+<Callout type="warn">
+  Jika Anda memanggil instruksi `initialize` lagi dengan seed alamat `user` yang
+  sama, transaksi akan gagal. Ini terjadi karena akun sudah ada di alamat yang
+  diturunkan.
+</Callout>

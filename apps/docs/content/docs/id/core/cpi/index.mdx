@@ -1,0 +1,99 @@
+---
+title: Cross Program Invocation
+description:
+  Cross Program Invocation (CPI) di Solana — bagaimana program memanggil program
+  lain menggunakan invoke dan invoke_signed, menangani penandatangan PDA, dan
+  menyusun fungsionalitas on-chain.
+url: /docs/core/cpi
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/programs
+related:
+  - /docs/core/cpi/cpi-without-pda
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/pda
+---
+
+Cross Program Invocation (CPI) adalah ketika satu [program](/docs/core/programs)
+memanggil sebuah [instruksi](/docs/core/instructions) pada program lain selama
+eksekusi. CPI memungkinkan komposabilitas: instruksi program apa pun dapat
+dipanggil oleh program lain mana pun di jaringan.
+
+![Contoh cross-program invocation](/assets/docs/core/cpi/cpi.svg)
+
+<Cards>
+  <Card
+    title="CPI tanpa penandatangan PDA"
+    href="/docs/core/cpi/cpi-without-pda"
+  >
+    Menggunakan fungsi invoke, Anchor CpiContext, contoh Native Rust, contoh CPI
+    transfer SOL.
+  </Card>
+  <Card title="CPI dengan penandatangan PDA" href="/docs/core/cpi/cpi-with-pda">
+    Menggunakan invoke_signed dengan signer seeds, Anchor CpiContext dengan PDA,
+    contoh penandatanganan PDA Native Rust.
+  </Card>
+  <Card
+    title="Eksekusi dan hak istimewa CPI"
+    href="/docs/core/cpi/cpi-execution"
+  >
+    Alur eksekusi CPI 11 langkah, aturan ekstensi hak istimewa, reentrancy,
+    validasi akun.
+  </Card>
+  <Card
+    title="Model biaya CPI dan sinkronisasi data"
+    href="/docs/core/cpi/cpi-cost-model"
+  >
+    Formula biaya CPI, biaya serialisasi, sinkronisasi data akun,
+    penandatanganan PDA, return data.
+  </Card>
+</Cards>
+
+## Fakta kunci
+
+- **Dua fungsi**: _rs`invoke`_ (tanpa penandatanganan PDA) dan
+  _rs`invoke_signed`_ (dengan penandatanganan PDA).
+- **Ekstensi hak istimewa**: Hak istimewa [akun](/docs/core/accounts) (signer,
+  writable) diperluas dari pemanggil ke yang dipanggil. Yang dipanggil tidak
+  dapat meningkatkan hak istimewa melebihi apa yang diberikan pemanggil.
+- **Anggaran komputasi bersama**: Konsumsi CU yang dipanggil mengurangi anggaran
+  pemanggil yang tersisa.
+- **Reentrancy**: Rekursi diri langsung diperbolehkan (A->A->A). Reentrancy
+  tidak langsung tidak diperbolehkan (A->B->A mengembalikan
+  _rs`ReentrancyNotAllowed`_).
+
+## Batasan
+
+| Batasan                        | Nilai                           | Sumber                                                                                                                                                                                                                                                          |
+| ------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kedalaman stack instruksi maks | 5 (9 dengan SIMD-0268)          | [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8), [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) |
+| Biaya pemanggilan CPI          | 1.000 CU (946 dengan SIMD-0339) | [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21), [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)              |
+| Penandatangan PDA maks per CPI | 16                              | [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)                                                                                                                                                                   |
+| instruction data CPI maks      | 10 KiB (10.240 byte)            | [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)                                                                                                                                                  |
+| Return data maks               | 1.024 byte                      | [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)                                                                                                                                                             |
+| Account info CPI maks          | 128 (255 dengan SIMD-0339)\*    | [`MAX_CPI_ACCOUNT_INFOS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L122), [`MAX_CPI_ACCOUNT_INFOS_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L124)                                    |
+| Biaya serialisasi CPI          | 1 CU per 250 byte               | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205)                                                                                                                                              |
+| Realloc data akun maks per CPI | 10.240 byte (10 KiB)            | [`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)                                                                                                                                         |
+
+## `invoke` vs `invoke_signed`
+
+Solana menyediakan dua fungsi untuk melakukan CPI:
+
+| Fungsi          | Kasus penggunaan                                                                    | Penandatanganan PDA      |
+| --------------- | ----------------------------------------------------------------------------------- | ------------------------ |
+| `invoke`        | CPI di mana semua penandatangan yang diperlukan telah menandatangani transaksi asli | Tidak                    |
+| `invoke_signed` | CPI di mana program pemanggil perlu menandatangani atas nama PDA yang dimilikinya   | Ya, melalui signer seeds |
+
+Di balik layar, _rs`invoke`_ hanya memanggil _rs`invoke_signed`_ dengan array
+signer seeds kosong. Gunakan _rs`invoke`_ ketika Anda tidak memerlukan
+penandatanganan PDA, dan _rs`invoke_signed`_ ketika program harus mengotorisasi
+tindakan atas nama PDA.
+
+Kedua fungsi pada akhirnya memicu syscall yang sama
+([`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33))
+dan mengalir melalui jalur runtime yang sama
+([`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925)).
+Satu-satunya perbedaan adalah apakah signer seeds disediakan. Ketika seeds
+disediakan, runtime menurunkan pubkey PDA dan menambahkannya ke set
+penandatangan yang valid sebelum pemeriksaan hak istimewa.

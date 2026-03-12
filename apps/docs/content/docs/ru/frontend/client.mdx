@@ -1,0 +1,123 @@
+---
+title: "@solana/client"
+description:
+  Создавайте легковесные фронтенды Solana с помощью headless-рантайма Solana
+  client.
+---
+
+`@solana/client` обеспечивает минимальный runtime-интерфейс. Один store, один
+RPC-стек и реестр кошельков поддерживают различные вспомогательные функции,
+чтобы один и тот же экземпляр мог использоваться для CLI, скриптов или
+полноценных UI. Actions, watchers и helpers используют общий кэш, подписки и
+сессии кошелька через этот единый клиент.
+
+<Callout type="info">
+  Если вы строите исключительно React-приложение, обычно быстрее начать с
+  [`@solana/react-hooks`](/docs/frontend/react-hooks). Пакет hooks оборачивает
+  этот же client runtime и предоставляет готовые хуки, так что к headless client
+  вы обращаетесь только при необходимости дополнительного контроля.
+</Callout>
+
+## Установка
+
+```terminal
+$ npm install @solana/client
+```
+
+Используйте любой пакетный менеджер; клиент работает в браузерах, воркерах,
+React, Svelte или серверных рантаймах.
+
+## Создайте клиент один раз
+
+Выберите Wallet Standard-коннекторы (автообнаружение — самый быстрый способ
+начать), затем создайте клиент. Этот единый объект предоставляет store, actions,
+watchers и helpers.
+
+```ts
+import { autoDiscover, createClient } from "@solana/client";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+await client.actions.connectWallet("wallet-standard:phantom");
+const balance = await client.actions.fetchBalance("Fke...address");
+console.log(balance.lamports?.toString());
+```
+
+Store клиента отслеживает конфигурацию кластера, подписки, ожидающие транзакции
+и сессии кошелька. Вы можете использовать собственный store на Zustand, если вам
+нужна персистентность или координация между вкладками.
+
+## Оркестрация кошельков
+
+Коннекторы инкапсулируют метаданные Wallet Standard и логику
+подключения/отключения. Зарегистрируйте встроенные `phantom()`, `solflare()`,
+`backpack()` или `autoDiscover()` helpers, либо оберните кастомные провайдеры с
+помощью `createWalletStandardConnector`. Все действия с кошельком (connect,
+disconnect, sign, send) проходят через реестр клиента, чтобы все потребители
+оставались синхронизированы.
+
+## Actions, watchers и helpers
+
+- **Actions** оборачивают типовые RPC-запросы на чтение и запись, обновляя store
+  (например, `fetchAccount`, `requestAirdrop`, `setCluster`).
+- **Watchers** мультиплексируют подписки на websocket, стримят обновления в
+  store и предоставляют abort handles для очистки.
+- **Helpers** реализуют более высокоуровневые сценарии, такие как переводы SOL,
+  работу с SPL-токенами, отслеживание подписей и пулы транзакций.
+
+```ts
+const abortWatcher = client.watchers.watchBalance(
+  { address: "Fke...address" },
+  (lamports) => {
+    console.log("live balance", lamports.toString());
+  }
+);
+
+// Later when the component unmounts or the flow ends
+abortWatcher.abort();
+```
+
+## Паттерн помощника для транзакций
+
+Помощник для транзакций отвечает за обновление blockhash, определение
+плательщика комиссии и подпись. Вы можете подготовить, проверить и отправить
+транзакцию с любым удобным для вас UX.
+
+```ts
+const prepared = await client.helpers.transaction.prepare({
+  authority: client.store.getState().wallet.session!,
+  instructions: [instructionA, instructionB]
+});
+
+await client.helpers.transaction.simulate(prepared, {
+  commitment: "processed"
+});
+const signature = await client.helpers.transaction.send(prepared);
+console.log("submitted", signature.toString());
+```
+
+Используйте `prepareAndSend` для готового процесса (симуляция плюс логирование)
+или вызывайте `sign` / `toWire`, чтобы собрать подписи вручную перед тем, как
+самостоятельно отправить wire-формат.
+
+## Общие паттерны для разработчиков Solana
+
+- **Headless state machines**: Запускайте клиент внутри API-роутов, скриптов или
+  воркеров, чтобы переиспользовать ту же логику оркестрации кошелька и RPC, что
+  и в вашем UI.
+- **Realtime dashboards**: Комбинируйте вотчеры (балансы, аккаунты, подписи) с
+  вашей любимой UI-библиотекой; клиент сам обрабатывает websocket fan-out и
+  инвалидирует кэш.
+- **Custom stores**: Внедряйте свой Zustand store для гидратации из
+  IndexedDB/localStorage, зеркалируйте состояние в сессии сервера или
+  координируйте между вкладками браузера.
+- **Bridge to React hooks**: Передавайте настроенный экземпляр клиента в
+  `@solana/react-hooks`, если хотите использовать эргономичные хуки поверх того
+  же рантайма.
+- **Тестируемость**: Единый интерфейс клиента можно мокать в unit-тестах, что
+  позволяет легко симулировать ответы RPC или сессии кошелька без браузерного
+  кошелька.

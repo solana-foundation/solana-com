@@ -1,0 +1,96 @@
+---
+title: Muokkaussäännöt
+description:
+  Ajonaikaisesti valvotut säännöt Solana-tilin lamporttien, datan, omistajan,
+  suoritettavan lipun ja lainaussematiikan muokkaamiseen.
+url: /docs/core/accounts/modification-rules
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+  - /docs/core/cpi/cpi-execution
+---
+
+<Callout type="info" title="Yhteenveto">
+  Ajonaikaiset tarkistukset jokaisen ohjeen jälkeen: vain omistaja voi vähentää
+  lamportteja tai muokata dataa, data voi kasvaa enintään 10 KiB per ohje,
+  omistajan vaihdot vaativat nolla-alustetun datan, ja suoritettava lippu on
+  peruuttamaton.
+</Callout>
+
+Solana-ajonaikainen ympäristö valvoo näitä sääntöjä jokaisen ohjeen suorituksen
+jälkeen
+[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727)-metodien
+kautta. Jokainen sääntö tarkistetaan muokkaushetkellä, ja transaktio
+peruutetaan, jos jokin tarkistus epäonnistuu.
+
+## Lamportti-säännöt
+
+| Sääntö                                                                 | Valvonta                                                                                                                                                                                                                                     | Virhe                         |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Vain omistaja voi vähentää lamportteja                                 | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): tarkistaa `is_owned_by_current_program()` kun `lamports < current`                                                               | `ExternalAccountLamportSpend` |
+| Vain luku -tilien lamportteja ei voi muuttaa                           | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): tarkistaa `is_writable()`                                                                                                        | `ReadonlyLamportChange`       |
+| Mikä tahansa ohjelma voi hyvittää lamportteja kirjoitettavalle tilille | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789): omistajuustarkistus koskee vain silloin, kun uusi saldo on pienempi kuin nykyinen saldo; kirjoitettavuustarkistus pätee edelleen | `ReadonlyLamportChange`       |
+| Lamporttien on oltava tasapainossa ohjeen yli                          | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): varmistaa `get_lamports_delta() == 0`                                                                                 | `UnbalancedInstruction`       |
+
+## Data-säännöt
+
+| Sääntö                                 | Valvonta                                                                                                                                                                                                                                    | Virhe                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Vain omistaja voi muokata dataa        | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023): tarkistaa `is_owned_by_current_program()`                                                                              | `ExternalAccountDataModified`        |
+| Vain luku -tilien dataa ei voi muokata | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016): tarkistaa `is_writable()`                                                                                              | `ReadonlyDataModified`               |
+| Vain omistaja voi muuttaa datan kokoa  | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037): tarkistaa `is_owned_by_current_program()` kun `new_len != old_len`                                                     | `AccountDataSizeChanged`             |
+| Datan enimmäiskoko: 10 MiB             | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332): tarkistaa `new_len <= MAX_ACCOUNT_DATA_LEN`                                        | `InvalidRealloc`                     |
+| Enimmäiskasvu per ohje: 10 KiB         | Deserialisointi [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629): tarkistaa `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE`                           | `InvalidRealloc`                     |
+| Enimmäiskasvu per transaktio: 20 MiB   | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330): tarkistaa kumulatiivisen `resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION` | `MaxAccountsDataAllocationsExceeded` |
+
+## Omistajasäännöt
+
+| Sääntö                                                   | Valvonta                                                                                                                                           | Virhe               |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Vain nykyinen omistaja voi määrittää omistajan uudelleen | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755): tarkistaa `is_owned_by_current_program()` | `ModifiedProgramId` |
+| Tilin on oltava kirjoitettavissa                         | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759): tarkistaa `is_writable()`                 | `ModifiedProgramId` |
+| Datan on oltava nolla-alustettu                          | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763): tarkistaa `is_zeroed(data)`               | `ModifiedProgramId` |
+
+## Suoritettavuuslippusäännöt
+
+| Sääntö                           | Valvonta                                                                                                                                                     | Virhe                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| Tilin on oltava rent-vapaa       | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967): tarkistaa `rent.is_exempt(lamports, data_len)` | `ExecutableAccountNotRentExempt` |
+| Vain omistaja voi asettaa lipun  | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): tarkistaa `is_owned_by_current_program()`      | `ExecutableModified`             |
+| Tilin on oltava kirjoitettavissa | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): tarkistaa `is_writable()`                      | `ExecutableModified`             |
+
+## Rent-tilasiirtymät
+
+Tilit ovat yhdessä kolmesta
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+-arvosta: _rs`Uninitialized`_ (0 lamportia), _rs`RentPaying`_ (yli 0 mutta alle
+rent-vapaan minimin) ja _rs`RentExempt`_ (minimissä tai sen yli). Kielletyt
+siirtymät tuottavat _rs`TransactionError::InsufficientFundsForRent`_.
+
+Ajonaikainen ympäristö valvoo näitä sääntöjä
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126)-funktion
+kautta:
+
+- Mikä tahansa tili voi siirtyä tilaan _rs`Uninitialized`_ (sulkeminen) tai
+  _rs`RentExempt`_.
+- Mikään tili ei voi siirtyä tilaan _rs`RentPaying`_ tilasta _rs`Uninitialized`_
+  tai _rs`RentExempt`_. Kaikkien uusien tilien on oltava rent-vapaita.
+
+## Tilin lainaussäännöt
+
+Käskyn suorituksen aikana ajonaikainen ympäristö valvoo tilien yhden
+kirjoittajan lainaussematiikkaa. Ohjelma voi saada joko yhden muutettavan
+viitteen tai useita muuttumattomia viitteitä tiliin, mutta ei molempia
+samanaikaisesti. Jos ohjelma yrittää lainata tiliä, joka on jo muutettavasti
+lainattu (tai muutettavasti lainata tiliä, joka on jo muuttumattomasti
+lainattu), käsky epäonnistuu virheellä _rs`AccountBorrowFailed`_
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)-
+ja
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520)-funktioiden
+kautta. Jos käsky valmistuu lainauksen ollessa vielä voimassa, ajonaikainen
+ympäristö palauttaa virheen _rs`AccountBorrowOutstanding`_
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385)-funktiossa.

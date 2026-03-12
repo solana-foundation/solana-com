@@ -1,0 +1,445 @@
+---
+title: Tokeny na Solanie
+description: Dowiedz się więcej o Token Programach Solany.
+---
+
+Tokeny to cyfrowe aktywa reprezentujące własność różnych kategorii dóbr.
+Tokenizacja umożliwia cyfryzację praw własności. Tokeny na Solanie nazywane są
+tokenami SPL ([Solana Program Library](https://github.com/solana-program)).
+
+Ta sekcja omawia podstawowe pojęcia dotyczące reprezentacji tokenów na Solanie.
+Zobacz sekcję [Podstawy tokenów SPL](/docs/tokens/basics) po przykłady kodu.
+
+## Kluczowe informacje
+
+- [Token Programy](#token-program) zawierają całą logikę instrukcji do
+  interakcji z tokenami w sieci (zarówno zamiennymi, jak i niezamiennymi).
+
+- [Mint Account](#mint-account) reprezentuje konkretny token i przechowuje
+  globalne metadane o tokenie, takie jak całkowita podaż i autorytet mint (adres
+  uprawniony do tworzenia nowych jednostek tokena).
+
+- [Token Account](#token-account) śledzi indywidualną własność tokenów dla
+  konkretnego mint account i właściciela.
+
+- [Associated Token Account](#associated-token-account) to Token Account
+  utworzony z adresem pochodzącym od adresów właściciela i mint account.
+
+## Token Programy
+
+Ekosystem Solany posiada dwa główne Token Programy. Poniżej znajduje się kod
+źródłowy obu programów.
+
+<Cards>
+  <Card title="Token Program (Oryginalny)" href="https://github.com/solana-program/token">
+   - Podstawowe możliwości tokenów (mint, transfer itd.)
+   - Niezmienny i szeroko używany
+  </Card>
+
+  <Card title="Token Extension Program (Token 2022)" href="https://github.com/solana-program/token-2022">
+   - Zawiera wszystkie funkcje oryginalnego Token Programu
+   - Dodaje funkcje poprzez "rozszerzenia"
+  </Card>
+</Cards>
+
+Token Programy zawierają całą logikę instrukcji do interakcji z tokenami w sieci
+(zarówno zamiennymi, jak i niezamiennymi). Wszystkie tokeny na Solanie to w
+praktyce [konta danych](/docs/core/accounts#data-account) należące do Token
+Programu.
+
+![Token Program](/assets/docs/core/tokens/token-program.svg)
+
+### Mint Account
+
+Tokeny na Solanie są jednoznacznie identyfikowane przez adres
+[Mint Account](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L16-L30)
+należący do Token Programu. To konto działa jako globalny licznik dla danego
+tokena i przechowuje takie dane jak:
+
+- **Supply**: Całkowita podaż tokena
+- **Decimals**: Precyzja dziesiętna tokena
+- **Mint authority**: Konto uprawnione do tworzenia nowych jednostek tokena,
+  zwiększając podaż
+- **Freeze authority**: Konto uprawnione do zamrażania tokenów na Token Account,
+  uniemożliwiając ich transfer lub spalanie
+
+![Konto mint](/assets/docs/core/tokens/mint-account.svg)
+
+Pełne dane przechowywane na każdym koncie mint obejmują następujące informacje:
+
+```rust title="Mint Account State"
+pub struct Mint {
+    /// Optional authority used to mint new tokens. The mint authority may only
+    /// be provided during mint creation. If no mint authority is present
+    /// then the mint has a fixed supply and no further tokens may be
+    /// minted.
+    pub mint_authority: COption<Pubkey>,
+    /// Total supply of tokens.
+    pub supply: u64,
+    /// Number of base 10 digits to the right of the decimal place.
+    pub decimals: u8,
+    /// Is `true` if this structure has been initialized
+    pub is_initialized: bool,
+    /// Optional authority to freeze token accounts.
+    pub freeze_authority: COption<Pubkey>,
+}
+```
+
+Dla odniesienia, oto link do Solana Explorer z
+[USDC Mint Account](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v).
+
+### Konto tokena
+
+Token Program tworzy
+[Token Accounts](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108),
+aby śledzić indywidualną własność każdej jednostki tokena. Token Account
+przechowuje dane takie jak:
+
+- **Mint**: Token, którego jednostki przechowuje Token Account
+- **Owner**: Konto uprawnione do transferu tokenów z Token Account
+- **Amount**: Liczba tokenów aktualnie przechowywanych na Token Account
+
+![Konto tokena](/assets/docs/core/tokens/token-account.svg)
+
+Pełne dane przechowywane na każdym koncie tokena obejmują następujące
+informacje:
+
+```rust title="Token Account State"
+pub struct Account {
+    /// The mint associated with this account
+    pub mint: Pubkey,
+    /// The owner of this account.
+    pub owner: Pubkey,
+    /// The amount of tokens this account holds.
+    pub amount: u64,
+    /// If `delegate` is `Some` then `delegated_amount` represents
+    /// the amount authorized by the delegate
+    pub delegate: COption<Pubkey>,
+    /// The account's state
+    pub state: AccountState,
+    /// If is_native.is_some, this is a native token, and the value logs the
+    /// rent-exempt reserve. An Account is required to be rent-exempt, so
+    /// the value is used by the Processor to ensure that wrapped SOL
+    /// accounts do not drop below this threshold.
+    pub is_native: COption<u64>,
+    /// The amount delegated
+    pub delegated_amount: u64,
+    /// Optional authority to close the account.
+    pub close_authority: COption<Pubkey>,
+}
+```
+
+Portfel potrzebuje osobnego konta tokena dla każdego tokena (mint), który chce
+przechowywać, z adresem portfela ustawionym jako właściciel konta tokena. Każdy
+portfel może posiadać wiele kont tokena dla tego samego tokena (mint), ale konto
+tokena może mieć tylko jednego właściciela i przechowywać jednostki tylko
+jednego tokena (mint).
+
+![Relacja kont](/assets/docs/core/tokens/token-account-relationship.svg)
+
+<Callout type="info">
+
+Zwróć uwagę, że dane każdego Token Account zawierają pole `owner`
+identyfikujące, kto ma uprawnienia do zarządzania Token Account. Różni się to od
+właściciela programu określonego w podstawowym typie
+[Account](/docs/core/accounts#account-type), którym jest Token Program dla
+wszystkich Token Accounts.
+
+</Callout>
+
+### Powiązane konto tokena
+
+Powiązane konta tokenowe upraszczają proces znajdowania adresu konta tokenowego
+dla konkretnego mintu i właściciela. Możesz traktować powiązane konto tokenowe
+jako „domyślne” konto tokenowe dla danego mintu i właściciela.
+
+Powiązane konto tokenowe jest tworzone z adresem wyprowadzonym z adresu
+właściciela i adresu konta mint. Ważne jest, aby zrozumieć, że powiązane konto
+tokenowe to po prostu konto tokenowe o określonym adresie.
+
+To wprowadza kluczowe pojęcie w programowaniu na Solanie:
+[Program Derived Address (PDA)](/docs/core/pda). PDA wyprowadza adres
+deterministycznie na podstawie zdefiniowanych danych wejściowych, co ułatwia
+znalezienie adresu konta.
+
+![Powiązane konto tokenowe](/assets/docs/core/tokens/associated-token-account.svg)
+
+Pamiętaj, że każdy portfel potrzebuje własnego konta tokenowego, aby
+przechowywać tokeny z tego samego mintu.
+
+![Rozszerzone relacje kont](/assets/docs/core/tokens/token-account-relationship-ata.svg)
+
+## Przykłady Token CLI
+
+_sh`spl-token`_ CLI pomaga eksperymentować z tokenami SPL. Przykłady poniżej
+wykorzystują terminal [Solana Playground](https://beta.solpg.io/) do
+uruchamiania poleceń CLI bezpośrednio w przeglądarce, bez lokalnej instalacji.
+
+Tworzenie tokenów i kont wymaga SOL na depozyty rentowe kont oraz opłaty
+transakcyjne. Jeśli korzystasz z Solana Playground po raz pierwszy, utwórz
+portfel Playground i uruchom polecenie _sh`solana airdrop`_ w terminalu
+Playground. Możesz też uzyskać SOL z devnetu z publicznego
+[web faucet](https://faucet.solana.com/).
+
+```terminal
+$ solana airdrop 2
+```
+
+Uruchom _sh`spl-token --help`_, aby zobaczyć wszystkie dostępne polecenia.
+
+```terminal
+$ spl-token --help
+```
+
+Aby zainstalować _sh`spl-token`_ CLI lokalnie, uruchom:
+
+```terminal
+$ cargo install spl-token-cli
+```
+
+Więcej przykładów znajdziesz w _sh`spl-token`_
+[dokumentacji](https://www.solana-program.com/docs/token).
+
+<Callout type="info">
+
+Adresy kont wyświetlane w twoim terminalu będą się różnić od poniższych
+przykładów. Podczas wykonywania poleceń korzystaj z adresów z terminala
+Playground. Na przykład polecenie _sh`create-token`_ zwraca adres konta mint z
+twoim portfelem Playground jako autorytetem mint.
+
+</Callout>
+
+### Utwórz nowy token
+
+Aby utworzyć nowy token (mint account), uruchom:
+
+```terminal
+$ spl-token create-token
+```
+
+Wynik wygląda następująco:
+
+```sh title="Terminal Output"
+Creating token 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+
+Address:  99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+Decimals:  9
+
+Signature: 44fvKfT1ezBUwdzrCys3fvCdFxbLMnNvBstds76QZyE6cXag5NupBprSXwxPTzzjrC3cA6nvUZaLFTvmcKyzxrm1
+```
+
+Nowy mint account zaczyna z zerową podażą. Sprawdź aktualną podaż poleceniem:
+
+```terminal
+$ spl-token supply <TOKEN_ADDRESS>
+```
+
+Polecenie _sh`supply`_ dla nowego tokena zwraca `0`:
+
+```sh title="Example"
+spl-token supply 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Utworzenie nowego mint account wymaga transakcji z dwoma instrukcjami. Oto
+przykład w JavaScript na
+[Solana Playground](https://beta.solpg.io/660ce32ecffcf4b13384d00f).
+
+1. System Program tworzy nowe konto z miejscem na dane mint account i przenosi
+   własność na Token Program.
+
+2. Token Program inicjalizuje dane nowego konta jako mint account.
+
+### Utwórz konto tokena
+
+Aby przechowywać tokeny danego mint, utwórz token account:
+
+```terminal
+$ spl-token create-account <TOKEN_ADDRESS>
+```
+
+Przykładowe polecenie:
+
+```sh title="Example"
+spl-token create-account 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Wynik:
+
+```sh title="Terminal Output"
+Creating account AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2BtrynuCLX9CNofFiaw6Yzbx6hit66pup9Sk7aFjwU2NEbFz7NCHD9w9sWhrCfEd73XveAGK1DxFpJoQZPXU9tS1
+```
+
+Polecenie _sh`create-account`_ tworzy associated token account z adresem twojego
+portfela jako właścicielem.
+
+Aby utworzyć token account z innym właścicielem:
+
+```terminal
+$ spl-token create-account --owner <OWNER_ADDRESS> <TOKEN_ADDRESS>
+```
+
+Uwaga: `<TOKEN_ADDRESS>` określa mint account dla token account.
+
+Przykładowe polecenie:
+
+```sh title="Example"
+spl-token create-account --owner 2i3KvjDCZWxBsqcxBHpdEaZYQwQSYE6LXUMx5VjY5XrR 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Wynik:
+
+```shell title="Terminal Output" /Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt/
+Creating account Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 44vqKdfzspT592REDPY4goaRJH3uJ3Ce13G4BCuUHg35dVUbHuGTHvqn4ZjYF9BGe9QrjMfe9GmuLkQhSZCBQuEt
+```
+
+Utworzenie associated token account wymaga jednej instrukcji, która wywołuje
+[Associated Token Program](https://github.com/solana-program/associated-token-account).
+Oto przykład w JavaScript na
+[Solana Playground](https://beta.solpg.io/660ce868cffcf4b13384d011).
+
+Associated Token Program używa [Cross Program Invocations](/docs/core/cpi) do:
+
+- [Wywołania System Program](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/tools/account.rs#L19)
+  w celu utworzenia nowego konta z użyciem podanego PDA jako adresu
+- [Wywołania Token Program](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/processor.rs#L138-L161)
+  w celu zainicjowania danych Token Account
+
+Aby utworzyć nowe token account z nowym keypair zamiast adresu associated token
+account, wyślij transakcję z dwiema instrukcjami. Oto przykład w JavaScript na
+[Solana Playground](https://beta.solpg.io/660ce716cffcf4b13384d010).
+
+1. System Program tworzy nowe konto z miejscem na dane Token Account i
+   przekazuje własność do Token Program.
+
+2. Token Program inicjalizuje dane jako Token Account
+
+### Mintowanie tokenów
+
+Aby utworzyć nowe jednostki tokena, mintuj tokeny na Token Account:
+
+```terminal
+$ spl-token mint [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> [--] [RECIPIENT_TOKEN_ACCOUNT_ADDRESS]
+```
+
+Przykładowa komenda:
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100
+```
+
+Wynik:
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2NJ1m7qCraPSBAVxbr2ssmWZmBU9Jc8pDtJAnyZsZJRcaYCYMqq1oRY1gqA4ddQno3g3xcnny5fzr1dvsnFKMEqG
+```
+
+Aby mintować tokeny na inne token account:
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 -- Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+Wynik:
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 3SQvNM3o9DsTiLwcEkSPT1Edr14RgE2wC54TEjonEP2swyVCp2jPWYWdD6RwXUGpvDNUkKWzVBZVFShn5yntxVd7
+```
+
+Instrukcja _rs`MintTo`_ w Token Program tworzy nowe tokeny. Autorytet mint musi
+podpisać transakcję. Instrukcja mintuje tokeny na Token Account i zwiększa
+całkowitą podaż na Mint Account. Oto przykład w JavaScript na
+[Solana Playground](https://beta.solpg.io/660cea45cffcf4b13384d012).
+
+### Przesyłanie tokenów
+
+Aby przesłać tokeny między token accounts:
+
+```sh title="Terminal"
+spl-token transfer [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> <RECIPIENT_ADDRESS or RECIPIENT_TOKEN_ACCOUNT_ADDRESS>
+```
+
+Przykładowa komenda:
+
+```sh title="Example"
+spl-token transfer 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+Wynik:
+
+```shell title="Terminal Output"
+Transfer 100 tokens
+  Sender: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 5y6HVwV8V2hHGLTVmTmdySRiEUCZnWmkasAvJ7J6m7JR46obbGKCBqUFgLpZu5zQGwM4Xy6GZ4M5LKd1h6Padx3o
+```
+
+Instrukcja _rs`Transfer`_ w Token Program obsługuje transfery tokenów.
+Właściciel konta tokenowego nadawcy musi podpisać transakcję. Instrukcja
+przenosi tokeny pomiędzy kontami tokenowymi. Oto przykład w JavaScript na
+[Solana Playground](https://beta.solpg.io/660ced84cffcf4b13384d013).
+
+Zarówno nadawca, jak i odbiorca muszą mieć konta tokenowe dla danego tokena
+(mint). Nadawca może dodać instrukcje tworzące konto tokenowe odbiorcy w tej
+samej transakcji.
+
+### Tworzenie metadanych tokena
+
+Token Extensions Program pozwala przechowywać metadane (nazwa, symbol, link do
+obrazu) bezpośrednio na Mint Account.
+
+Aby utworzyć token z rozszerzeniem metadanych:
+
+```sh title="Example"
+spl-token create-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --enable-metadata
+```
+
+Wynik:
+
+```shell title="Terminal Output"
+Creating token BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP under program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+To initialize metadata inside the mint, please run `spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>`, and sign with the mint authority.
+
+Address:  BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP
+Decimals:  9
+
+Signature: 5iQofFeXdYhMi9uTzZghcq8stAaa6CY6saUwcdnELST13eNSifiuLbvR5DnRt311frkCTUh5oecj8YEvZSB3wfai
+```
+
+Aby zainicjować metadane:
+
+```sh title="Terminal"
+spl-token initialize-metadata <TOKEN_MINT_ADDRESS> <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>
+```
+
+Token URI prowadzi do metadanych poza łańcuchem. Przykładowy format JSON
+znajdziesz
+[tutaj](https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json).
+
+Przykładowa komenda:
+
+```sh title="Example"
+spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP "TokenName" "TokenSymbol" "https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+```
+
+Zobacz metadane w
+[Solana Explorer](https://explorer.solana.com/address/BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP?cluster=devnet).
+
+Dowiedz się więcej w
+[Przewodniku po rozszerzeniu metadanych](/developers/guides/token-extensions/metadata-pointer).
+Szczegóły dotyczące Token Extensions znajdziesz w
+[Przewodniku dla początkujących](/developers/guides/token-extensions/getting-started)
+oraz w dokumentacji
+[SPL](https://www.solana-program.com/docs/token-2022/extensions).

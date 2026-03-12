@@ -36,7 +36,7 @@ export function TemplatesUiLayoutDetail({
         />
         <div className="text-center">
           <Button asChild>
-            <Link href="/">Back to templates</Link>
+            <Link href="/developers/templates">Back to templates</Link>
           </Button>
         </div>
       </div>
@@ -50,7 +50,7 @@ export function TemplatesUiLayoutDetail({
           <div>
             <div className="max-w-5xl mx-auto mb-4">
               <Button asChild variant="ghost" className="mb-4 px-2">
-                <Link href="/">← Back to templates</Link>
+                <Link href="/developers/templates">← Back to templates</Link>
               </Button>
               <h1 className="text-3xl font-bold mb-4">
                 {template.displayName || template.name}

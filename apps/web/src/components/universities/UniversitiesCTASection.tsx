@@ -39,7 +39,6 @@ export default function UniversitiesCTASection({
             {translations.description}
           </p>
 
-          {/* @ts-expect-error button has no props? */}
           <Button
             to={ctaUrl || UNIVERSITY_TYPEFORM_URL}
             variant="secondary"

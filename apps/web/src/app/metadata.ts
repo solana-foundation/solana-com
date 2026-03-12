@@ -1,7 +1,10 @@
+import { Metadata } from "next";
 import { config } from "@@/src/config";
-import { getUrlWithoutLocale } from "@@/src/app/sources/utils";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
+import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
+import faviconSvg from "@solana-com/ui-chrome/assets/favicon.svg";
+import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 
 export function getBaseMetadata(locale: string) {
   const { siteMetadata, siteUrl } = config;
@@ -28,17 +31,17 @@ export function getBaseMetadata(locale: string) {
     metadataBase: new URL(siteUrl),
     icons: [
       {
-        url: "/favicon.png",
+        url: faviconPng.src,
         rel: "icon",
         type: "image/png",
       },
       {
-        url: "/favicon.svg",
+        url: faviconSvg,
         rel: "icon",
         type: "image/svg+xml",
       },
       {
-        url: "/apple-touch-icon.png",
+        url: appleTouchIcon.src,
         rel: "apple-touch-icon",
         sizes: "180x180",
       },
@@ -51,34 +54,16 @@ export async function getIndexMetadata({
   descriptionKey,
   locale,
   path,
-}) {
+}: {
+  titleKey: string;
+  descriptionKey: string;
+  locale: string;
+  path: string;
+}): Promise<Metadata> {
   const t = await getTranslations();
   return {
     title: t(titleKey),
     description: t(descriptionKey),
     alternates: getAlternates(path, locale),
-  };
-}
-
-export function getMdxMetadata(page) {
-  const url = getUrlWithoutLocale(page);
-  const title = page.data.seoTitle || page.data.h1 || page.data.title;
-  const description = page.data.description;
-  const { openGraph } = getBaseMetadata(page.locale);
-
-  const imagePrefix = url?.startsWith("/docs")
-    ? "/opengraph/developers"
-    : "/opengraph";
-
-  return {
-    title,
-    description,
-    alternates: getAlternates(url, page.locale),
-    openGraph: {
-      ...openGraph,
-      images: [imagePrefix + url],
-      title,
-      description,
-    },
   };
 }

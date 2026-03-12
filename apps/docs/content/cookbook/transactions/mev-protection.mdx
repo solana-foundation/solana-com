@@ -1,0 +1,226 @@
+---
+title: "How to Protect Transactions from MEV with Jito"
+description: "Learn how to protect your Solana transactions from sandwich attacks using Jito's dontfront feature."
+---
+
+Sandwich attacks occur when searchers front-run and back-run your transaction within the same bundle, extracting MEV at your expense. Jito's dontfront feature prevents this by ensuring your transaction must appear at index 0 in any bundle. You add a pubkey starting with `jitodontfront` as a read-only account to any instruction.
+
+<Callout type="warning">
+This feature is mainnet/testnet-only and requires sending transactions through Jito's block engine endpoint, not standard RPC nodes.
+</Callout>
+
+<CodeTabs storage="cookbook">
+
+```ts !! title="Kit"
+import {
+  address,
+  appendTransactionMessageInstructions,
+  createKeyPairSignerFromBytes,
+  createSolanaRpc,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  lamports,
+  pipe,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  AccountRole,
+  type Instruction,
+  type Address,
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+// Jito block engine endpoint (mainnet)
+const JITO_ENDPOINT = "https://mainnet.block-engine.jito.wtf/api/v1/transactions";
+
+// Any valid pubkey starting with "jitodontfront". Does not need to exist on-chain.
+// Mark as read-only for optimal landing speed.
+const DONT_FRONT: Address = address(
+  "jitodontfront111111111111111111111111111111"
+);
+
+// Jito tip accounts — pick one at random to reduce contention.
+// Source: https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts
+const TIP_ACCOUNTS: Address[] = [
+  address("96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5"),
+  address("HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe"),
+  address("Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY"),
+  address("ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49"),
+  address("DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh"),
+  address("ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt"),
+  address("DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL"),
+  address("3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT"),
+];
+
+// !mark(1:8)
+// Append jitodontfront as a read-only account to any instruction.
+// The block engine sees this prefix and ensures your tx is at bundle index 0.
+function withDontFront(ix: Instruction): Instruction {
+  return {
+    ...ix,
+    accounts: [
+      ...(ix.accounts ?? []),
+      { address: DONT_FRONT, role: AccountRole.READONLY },
+    ],
+  };
+}
+
+function randomTipAccount(): Address {
+  return TIP_ACCOUNTS[Math.floor(Math.random() * TIP_ACCOUNTS.length)]!;
+}
+
+// Create an RPC for reads — sends go through Jito's endpoint
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const signer = await createKeyPairSignerFromBytes(/* your keypair bytes */);
+const recipient = address("RecipientAddress111111111111111111111111111");
+
+// Build a transfer with dontfront protection
+// !mark
+const transferIx = withDontFront(
+  getTransferSolInstruction({
+    source: signer,
+    destination: recipient,
+    amount: lamports(1_000_000n),
+  })
+);
+
+// Jito tip — SOL transfer to a random tip account (min 1000 lamports)
+const tipIx = getTransferSolInstruction({
+  source: signer,
+  destination: randomTipAccount(),
+  amount: lamports(1_000n),
+});
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(signer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([transferIx, tipIx], m)
+);
+
+const signed = await signTransactionMessageWithSigners(transactionMessage);
+const base64Tx = getBase64EncodedWireTransaction(signed);
+
+// !mark(1:12)
+// Send via Jito block engine (not standard RPC)
+const response = await fetch(JITO_ENDPOINT, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "sendTransaction",
+    params: [base64Tx, { encoding: "base64" }],
+  }),
+});
+const { result: signature } = await response.json();
+console.log(`Sent with dontfront protection: ${signature}`);
+```
+
+```rs !! title="Rust"
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    instruction::AccountMeta, pubkey::Pubkey, signature::Keypair,
+    signer::Signer, transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+use std::str::FromStr;
+
+// Jito block engine endpoint (mainnet)
+const JITO_ENDPOINT: &str =
+    "https://mainnet.block-engine.jito.wtf/api/v1/transactions";
+
+// Any valid pubkey starting with "jitodontfront".
+// Does not need to exist on-chain.
+const DONT_FRONT: &str = "jitodontfront111111111111111111111111111111";
+
+// Jito tip accounts — pick one at random to reduce contention.
+const TIP_ACCOUNTS: &[&str] = &[
+    "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+    "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+    "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+    "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+    "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+    "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+    "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+    "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
+];
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.mainnet-beta.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+    let dontfront = Pubkey::from_str(DONT_FRONT)?;
+
+    // Build a transfer and append the dontfront account as read-only
+    let mut transfer_ix = transfer(
+        &sender.pubkey(), &recipient.pubkey(), 1_000_000,
+    );
+    // !mark
+    transfer_ix.accounts.push(AccountMeta::new_readonly(dontfront, false));
+
+    // Jito tip — SOL transfer to a random tip account (min 1000 lamports)
+    let tip_idx = (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .subsec_nanos() as usize) % TIP_ACCOUNTS.len();
+    let tip_account = Pubkey::from_str(TIP_ACCOUNTS[tip_idx])?;
+    let tip_ix = transfer(&sender.pubkey(), &tip_account, 1_000);
+
+    let recent_blockhash = rpc.get_latest_blockhash().await?;
+
+    let transaction = Transaction::new_signed_with_payer(
+        &[transfer_ix, tip_ix],
+        Some(&sender.pubkey()),
+        &[&sender],
+        recent_blockhash,
+    );
+
+    // Serialize → base64
+    let serialized = bincode::serialize(&transaction)?;
+    let base64_tx = STANDARD.encode(&serialized);
+
+    // !mark(1:14)
+    // Send via Jito block engine (not standard RPC)
+    let client = reqwest::Client::new();
+    let response: serde_json::Value = client
+        .post(JITO_ENDPOINT)
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "sendTransaction",
+            "params": [base64_tx, {"encoding": "base64"}]
+        }))
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    let signature = response["result"].as_str().unwrap();
+    println!("Sent with dontfront protection: {signature}");
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<Callout type="info">
+Jito tip amounts should be minimum 1000 lamports. For sendTransaction, use a 70/30 split between priority fee and Jito tip. Always pick tip accounts at random to reduce contention.
+</Callout>
+
+When using sendBundle, dontfront transactions must be contiguous at the front of the bundle with overlapping signers. This ensures proper MEV protection across the entire bundle.
+
+For a deeper dive into sandwich attacks, bundle ordering rules, and tip
+strategies, see the
+[MEV Protection with Jito DontFront](/developers/guides/advanced/mev-protection)
+guide.

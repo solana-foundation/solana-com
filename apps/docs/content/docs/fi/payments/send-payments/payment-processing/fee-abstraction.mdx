@@ -1,0 +1,397 @@
+---
+title: Maksujen abstraktio
+description:
+  Opi, miten maksujen sponsorointi toimii ja toteuta maksujen abstraktio
+  Koralla.
+---
+
+Jokainen Solana-transaktio vaatii SOL:ia verkkokulujen maksamiseen. Mutta
+maksusovellukseesi tulevat käyttäjät odottavat voivansa käydä kauppaa
+stablecoineilla – eivät hallinnoida toista tokenia. Maksujen abstraktio poistaa
+tämän kitkan antamalla jonkun muun maksaa kulut.
+
+Tämä opas kattaa kaksi tasoa:
+
+1. **Miten maksujen sponsorointi toimii** – taustalla oleva Solana-primitiivi
+2. **Maksujen abstraktio mittakaavassa Koran avulla** – tuotantovalmis maksujen
+   abstraktiointipalvelu
+
+## Miten maksujen sponsorointi toimii
+
+Solana-transaktioilla on määritetty maksaja – tili, joka maksaa verkkokulujen.
+Oletuksena tämä on ensimmäinen allekirjoittaja. Voit kuitenkin määrittää eri
+tilin maksajaksi, jolloin kolmas osapuoli ("sponsori") voi kattaa kulut
+lähettäjän puolesta.
+
+Sekä lähettäjän että sponsorin on allekirjoitettava transaktio:
+
+- **Lähettäjä** allekirjoittaa valtuuttaakseen tokeniensa siirron
+- **Sponsori** allekirjoittaa valtuuttaakseen verkkokulujen maksamisen
+
+<Callout>
+  Katso [Miten maksut toimivat Solanassa](/docs/payments/how-payments-work)
+  ydinmaksukonsepteja varten.
+</Callout>
+
+Alla olevat vaiheet näyttävät ydinkulun. Katso [Demo](#demo) täydellisestä
+ajettavasta koodista.
+
+<ScrollyCoding>
+
+## !!steps Luo sponsoritili
+
+Luo erillinen keypair sponsorille, joka maksaa transaktiokulut. Sponsori
+tarvitsee SOL:ia kuluihin, mutta sen ei tarvitse pitää hallussaan siirrettäviä
+tokeneita.
+
+<CodePlaceholder title="Sponsoroi transaktiokulut" />
+
+```ts !! title="Sponsor Transaction Fee"
+const sponsor = (await generateKeypair()).signer;
+```
+
+## !!steps Luo siirto-ohje
+
+Luo tokenin siirto-ohje lähettäjän ollessa valtuutettu. Lähettäjä omistaa
+tokenit ja hänen on allekirjoitettava siirto.
+
+<CodePlaceholder title="Sponsor Transaction Fee" />
+
+```ts !! title="Sponsor Transaction Fee"
+const sponsor = (await generateKeypair()).signer;
+
+// !focus(1:6)
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender, // Sender signs for the transfer
+  amount: 250_000n // adjusted for the mint's decimals
+});
+```
+
+## !!steps Lähetä sponsorin ollessa maksajana
+
+Käytä `prepareAndSend` -funktiota sekä `authority` (lähettäjä, joka
+allekirjoittaa siirron) että `feePayer` (sponsori, joka maksaa maksut).
+Molempien on allekirjoitettava transaktio.
+
+<CodePlaceholder title="Sponsor Transaction Fee" />
+
+```ts !! title="Sponsor Transaction Fee"
+const sponsor = (await generateKeypair()).signer;
+
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender,
+  amount: 250_000n
+});
+
+// !focus(1:6)
+const signature = await client.transaction.prepareAndSend({
+  authority: sender, // Signs the transfer instruction
+  // !mark
+  feePayer: sponsor, // Pays the transaction fees
+  instructions: [transferInstruction],
+  version: 0
+});
+```
+
+</ScrollyCoding>
+
+### Demo
+
+<CodeTabs flags="r">
+
+```ts !! title="Demo"
+// !collapse(1:14) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getTransferInstruction
+} from "@solana-program/token-2022";
+
+// Generate keypairs for sender, recipient, and sponsor (fee payer)
+const sender = (await generateKeypair()).signer;
+const recipient = (await generateKeypair()).signer;
+// !mark
+const sponsor = (await generateKeypair()).signer;
+
+console.log("Sender Address:", sender.address);
+console.log("Recipient Address:", recipient.address);
+console.log("Sponsor Address (Fee Payer):", sponsor.address);
+
+// Demo Setup: Create client, mint account, token accounts, and fund with initial tokens
+const { client, mint } = await demoSetup(sender, recipient, sponsor);
+
+console.log("\nMint Address:", mint.address);
+
+// Derive the Associated Token Accounts addresses (ATAs) for sender and recipient
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+console.log("Sender Token Account:", senderAta.toString());
+console.log("Recipient Token Account:", recipientAta.toString());
+
+// =============================================================================
+// Sponsored Token Payment Demo
+// =============================================================================
+
+// Create instruction to transfer tokens from sender to recipient
+// Transferring 250,000 base units = 0.25 tokens (with 6 decimals)
+const transferInstruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipientAta,
+  authority: sender, // Pass signer, not just address
+  amount: 250_000n // 0.25 tokens
+});
+
+// Prepare and send transaction with sponsor as fee payer using @solana/client
+// The sponsor pays transaction fees, sender signs for the transfer
+const signature = await client.transaction.prepareAndSend({
+  authority: sender, // Sender signs the transfer instruction
+  // !mark
+  feePayer: sponsor, // Sponsor pays the transaction fees (different account)
+  instructions: [transferInstruction],
+  version: 0
+});
+
+console.log("\n=== Sponsored Token Payment Complete ===");
+console.log("Transaction Signature:", signature.toString());
+
+// Fetch final token account balances using @solana/client SPL token helper
+const splToken = client.splToken({
+  mint: mint.address,
+  tokenProgram: "auto"
+});
+
+const senderBalance = await splToken.fetchBalance(sender.address);
+const recipientBalance = await splToken.fetchBalance(recipient.address);
+
+console.log("\nSender Token Account Balance:", senderBalance);
+console.log("Recipient Token Account Balance:", recipientBalance);
+
+// Fetch transaction details
+const transaction = await client.runtime.rpc
+  .getTransaction(signature, {
+    encoding: "jsonParsed",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+
+const feePayer = transaction?.transaction.message.accountKeys?.[0];
+console.log("\nNote: The first account in accountKeys is always the fee payer");
+console.log("Fee Payer Address:", feePayer);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a sponsored token transfer demo:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to sponsor for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token accounts for sender and recipient
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param recipient - The recipient's keypair
+ * @param sponsor - The sponsor's keypair (will pay all transaction fees)
+ * @returns Returns client instance and mint address
+ */
+async function demoSetup(
+  sender: ServerKeypair["signer"],
+  recipient: ServerKeypair["signer"],
+  sponsor: ServerKeypair["signer"]
+) {
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund sponsor with SOL for transaction fees using @solana/client actions
+  await client.actions.requestAirdrop(
+    sponsor.address,
+    lamports(1_000_000_000n)
+  );
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program (sponsor pays the rent)
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sponsor,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token 2022 program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA (sponsor pays)
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sponsor,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction for recipient's ATA (sponsor pays)
+  const createRecipientAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sponsor,
+      mint: mint.address,
+      owner: recipient.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  // Sender is the mint authority and must sign
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender, // Pass signer, not just address
+    amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
+  });
+
+  // Combine all instructions and send using @solana/client transaction helper
+  const setupInstructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    createRecipientAtaInstruction, // Create recipient's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Prepare and send transaction using @solana/client with sponsor as fee payer
+  await client.transaction.prepareAndSend({
+    authority: sender,
+    feePayer: sponsor, // Sponsor pays all transaction fees
+    instructions: setupInstructions,
+    version: 0
+  });
+
+  return {
+    client,
+    mint
+  };
+}
+```
+
+</CodeTabs>
+
+<Callout type="caution">
+  Kun luot token accountin loppukäyttäjälle, he voivat sulkea sen ja saada
+  takaisin vuokraan käytetyn SOL:n. Harkitse käyttäjiltä veloittamista tilin
+  luomisesta stablecoineilla tai ota tämä kustannus huomioon tuotteesi
+  taloudessa.
+</Callout>
+
+## Maksun abstrahointi mittakaavassa Koran avulla
+
+Maksajan primitiivi on tehokas, mutta tuotantotason kaasuttoman järjestelmän
+rakentaminen vaatii enemmän: sponsorilompakoiden hallintaa, token-muunnosten
+käsittelyä (jotta käyttäjät voivat "maksaa" maksut USDC:llä), nopeusrajoituksia
+ja turvallisuuskontrolleja.
+
+[Kora](https://launch.solana.com/products/kora) käsittelee tämän
+monimutkaisuuden. Se on JSON-RPC-palvelin, joka tarjoaa maksun abstrahoinnin,
+joten käyttäjät eivät koskaan tarvitse SOL:ia. Voit täysin sponsoroida maksut
+tai hyväksyä maksun missä tahansa tokenissa.
+
+Ota Kora käyttöön yhdellä komennolla:
+
+```bash
+cargo install kora-cli
+kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
+```
+
+Käytä sitten Kora-clientia allekirjoittaaksesi ja lähettääksesi transaktioita:
+
+```bash
+pnpm add @solana/kora
+```
+
+```typescript
+import { KoraClient } from "@solana/kora";
+
+const kora = new KoraClient({ rpcUrl: "https://your-kora-instance" });
+
+const { signature } = await kora.signAndSendTransaction({
+  transaction: base64EncodedTransaction
+});
+```
+
+### Kora-resurssit
+
+<Cards>
+  <Card
+    title="Kora-pikaopas"
+    href="https://launch.solana.com/docs/kora/getting-started/quick-start"
+  >
+    Saat Koran käyntiin paikallisesti minuuteissa.
+  </Card>
+  <Card
+    title="Täydellinen transaktio-demo"
+    href="https://launch.solana.com/docs/kora/guides/full-demo"
+  >
+    Täydellinen maksun abstrahoinnin transaktiototeutuksen opas.
+  </Card>
+  <Card
+    title="API-viite"
+    href="https://launch.solana.com/docs/kora/json-rpc-api"
+  >
+    JSON-RPC-metodit ja SDK-dokumentaatio.
+  </Card>
+  <Card
+    title="Solmuoperaattorin opas"
+    href="https://launch.solana.com/docs/kora/operators"
+  >
+    Ota käyttöön ja konfiguroi oma Kora-instanssisi.
+  </Card>
+</Cards>

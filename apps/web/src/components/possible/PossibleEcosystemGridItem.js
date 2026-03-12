@@ -3,7 +3,7 @@ import styles from "./PossibleEcosystemGridItem.module.scss";
 
 const PossibleEcosystemGridItem = ({ data }) => {
   const [tooltipPosition, setTooltipPosition] = useState(
-    "top-100 start-50 translate-middle-x",
+    "top-full left-1/2 -translate-x-1/2",
   );
   const itemRef = useRef(null);
 
@@ -16,11 +16,11 @@ const PossibleEcosystemGridItem = ({ data }) => {
       let right = rect.left + rect.width;
 
       if (left < 0) {
-        setTooltipPosition("top-50 start-100 translate-middle-y");
+        setTooltipPosition("top-1/2 left-full -translate-y-1/2");
       } else if (right >= innerWidth) {
-        setTooltipPosition("top-50 end-100 translate-middle-y");
+        setTooltipPosition("top-1/2 right-full -translate-y-1/2");
       } else {
-        setTooltipPosition("top-100 start-50 translate-middle-x");
+        setTooltipPosition("top-full left-1/2 -translate-x-1/2");
       }
     }
   };
@@ -39,13 +39,13 @@ const PossibleEcosystemGridItem = ({ data }) => {
         alt={`${data.name} logo`}
       />
       <div
-        className={`ecosystem-tooltip position-absolute d-block w-auto h-auto text-center pointer-event-none p-4 ${tooltipPosition}`}
+        className={`ecosystem-tooltip absolute block w-auto h-auto text-center pointer-events-none p-4 ${tooltipPosition}`}
         aria-hidden={"false"}
       >
-        <h5 className="h6 text-white text-center mb-0 text-nowrap">
+        <h5 className="h6 text-white text-center mb-0 whitespace-nowrap">
           {data.name}
         </h5>
-        <p className="mb-0 text-nowrap">{data.category}</p>
+        <p className="mb-0 whitespace-nowrap">{data.category}</p>
       </div>
     </div>
   );

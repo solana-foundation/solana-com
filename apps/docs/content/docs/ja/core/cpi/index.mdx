@@ -1,0 +1,73 @@
+---
+title: Cross Program Invocation
+description:
+  SolanaにおけるCross Program Invocation (CPI) —
+  invokeとinvoke_signedを使用したプログラム間の呼び出し方法、PDA署名者の処理、オンチェーン機能の構成について。
+url: /docs/core/cpi
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/programs
+related:
+  - /docs/core/cpi/cpi-without-pda
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/pda
+---
+
+Cross Program Invocation
+(CPI)とは、実行中に1つの[プログラム](/docs/core/programs)が別のプログラムの[instruction](/docs/core/instructions)を呼び出すことです。CPIは構成可能性を実現します。ネットワーク上の任意のプログラムのinstructionsは、他の任意のプログラムから呼び出すことができます。
+
+![Cross Program Invocationの例](/assets/docs/core/cpi/cpi.svg)
+
+<Cards>
+  <Card title="PDA署名者なしのCPI" href="/docs/core/cpi/cpi-without-pda">
+    invoke関数の使用、Anchor CpiContext、ネイティブRustの例、SOL転送CPIの例。
+  </Card>
+  <Card title="PDA署名者ありのCPI" href="/docs/core/cpi/cpi-with-pda">
+    署名者シードを使用したinvoke_signedの使用、PDAを使用したAnchor
+    CpiContext、ネイティブRust PDA署名の例。
+  </Card>
+  <Card title="CPIの実行と権限" href="/docs/core/cpi/cpi-execution">
+    11ステップのCPI実行フロー、権限拡張ルール、再入可能性、アカウント検証。
+  </Card>
+  <Card
+    title="CPIコストモデルとデータ同期"
+    href="/docs/core/cpi/cpi-cost-model"
+  >
+    CPIコスト計算式、シリアライゼーションコスト、アカウントデータ同期、PDA署名、リターンデータ。
+  </Card>
+</Cards>
+
+## 主要な事実
+
+- **2つの関数**: _rs`invoke`_ (PDA署名なし)と*rs`invoke_signed`* (PDA署名あり)。
+- **権限拡張**:
+  [アカウント](/docs/core/accounts)の権限(署名者、書き込み可能)は呼び出し元から呼び出し先に拡張されます。呼び出し先は、呼び出し元が渡した権限を超えてエスカレートすることはできません。
+- **共有計算バジェット**: 呼び出し先のCU消費は、呼び出し元の残りのバジェットを減少させます。
+- **再入可能性**: 直接的な自己再帰は許可されています(A->A->A)。間接的な再入可能性は許可されていません(A->B->Aは*rs`ReentrancyNotAllowed`*を返します)。
+
+## 制限
+
+| 制限                                      | 値                          | ソース                                                                                                                                                                                                                                                          |
+| ----------------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 最大instructionスタック深度               | 5 (SIMD-0268では9)          | [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8), [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) |
+| CPI呼び出しコスト                         | 1,000 CU (SIMD-0339では946) | [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21), [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)              |
+| CPI当たりの最大PDA署名者数                | 16                          | [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)                                                                                                                                                                   |
+| 最大CPIのinstruction data                 | 10 KiB (10,240バイト)       | [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)                                                                                                                                                  |
+| 最大リターンデータ                        | 1,024バイト                 | [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)                                                                                                                                                             |
+| 最大CPIアカウント情報数                   | 128 (SIMD-0339では255)\*    | [`MAX_CPI_ACCOUNT_INFOS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L122), [`MAX_CPI_ACCOUNT_INFOS_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L124)                                    |
+| CPIシリアライゼーションコスト             | 250バイト当たり1 CU         | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205)                                                                                                                                              |
+| CPI当たりの最大アカウントデータ再割り当て | 10,240バイト (10 KiB)       | [`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)                                                                                                                                         |
+
+## `invoke` vs `invoke_signed`
+
+SolanaはCPIを実行するための2つの関数を提供しています:
+
+| 関数            | 使用例                                                                 | PDA署名                  |
+| --------------- | ---------------------------------------------------------------------- | ------------------------ |
+| `invoke`        | 必要な署名者全員が元のトランザクションに既に署名している場合のCPI      | なし                     |
+| `invoke_signed` | 呼び出し元プログラムが所有するPDAの代わりに署名する必要がある場合のCPI | あり、署名者シードを使用 |
+
+内部的には、*rs`invoke`*は空の署名者シード配列を使用して*rs`invoke_signed`*を呼び出しているだけです。PDA署名が不要な場合は*rs`invoke`*を使用し、プログラムがPDAの代わりにアクションを承認する必要がある場合は*rs`invoke_signed`*を使用してください。
+
+両方の関数は最終的に同じシステムコール([`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33))を呼び出し、同じランタイムパス([`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925))を通過します。唯一の違いは、署名者シードが提供されるかどうかです。シードが提供された場合、ランタイムはPDAの公開鍵を導出し、権限チェックの前に有効な署名者のセットに追加します。

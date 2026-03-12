@@ -7,6 +7,7 @@ import {
   fetchEpisodesForPodcast,
 } from "@/lib/podcast-data";
 import EpisodeClientPage from "./client-page";
+import { podcastEpisodeMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800; // 30 minutes
@@ -64,44 +65,8 @@ export async function generateMetadata({
   params,
 }: EpisodePageProps): Promise<Metadata> {
   const resolvedParams = await params;
-  const podcast = await fetchPodcastBySlug(resolvedParams.podcastSlug);
-  const episode = await fetchEpisodeById(
-    resolvedParams.episodeId,
-    resolvedParams.podcastSlug
+  return podcastEpisodeMetadata(
+    resolvedParams.podcastSlug,
+    resolvedParams.episodeId
   );
-
-  if (!podcast || !episode) {
-    return {
-      title: "Episode Not Found",
-    };
-  }
-
-  const title = `${episode.title} | ${podcast.title}`;
-  const description = episode.description || `Listen to ${episode.title}`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: "music.song",
-      images: episode.thumbnailUrl
-        ? [episode.thumbnailUrl]
-        : podcast.coverImage
-          ? [podcast.coverImage]
-          : undefined,
-      audio: episode.audioUrl ? [episode.audioUrl] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: episode.thumbnailUrl
-        ? [episode.thumbnailUrl]
-        : podcast.coverImage
-          ? [podcast.coverImage]
-          : undefined,
-    },
-  };
 }

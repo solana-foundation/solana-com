@@ -1,0 +1,449 @@
+---
+title: Токены в Solana
+description: Узнайте о Token Programs в Solana.
+---
+
+Токены — это цифровые активы, которые представляют право собственности на
+различные категории активов. Токенизация позволяет оцифровать права
+собственности. Токены в Solana называются SPL
+([Solana Program Library](https://github.com/solana-program)) токенами.
+
+В этом разделе рассматриваются базовые концепции представления токенов в Solana.
+Для примеров кода обратитесь к разделу [Основы SPL Token](/docs/tokens/basics).
+
+## Основные моменты
+
+- [Token Programs](#token-program) содержат всю логику инструкций для
+  взаимодействия с токенами в сети (как с взаимозаменяемыми, так и с
+  невзаимозаменяемыми).
+
+- [Mint Account](#mint-account) представляет конкретный токен и хранит
+  глобальные метаданные о токене, такие как общий объем выпуска и полномочия на
+  выпуск (адрес, уполномоченный создавать новые единицы токена).
+
+- [Token Account](#token-account) отслеживает индивидуальное владение токенами
+  для конкретного mint account и конкретного владельца.
+
+- [Associated Token Account](#associated-token-account) — это Token Account,
+  созданный с адресом, полученным на основе адресов владельца и mint account.
+
+## Token Programs
+
+В экосистеме Solana есть две основные Token Programs. Исходный код обеих
+программ ниже.
+
+<Cards>
+  <Card title="Token Program (Original)" href="https://github.com/solana-program/token">
+   - Базовые возможности работы с токенами (выпуск, перевод и др.)
+   - Неизменяемая и широко используемая
+  </Card>
+
+  <Card title="Token Extension Program (Token 2022)" href="https://github.com/solana-program/token-2022">
+   - Включает все функции оригинальной Token Program
+   - Добавляет возможности через "расширения"
+  </Card>
+</Cards>
+
+Token Programs содержат всю логику инструкций для взаимодействия с токенами в
+сети (как с взаимозаменяемыми, так и с невзаимозаменяемыми). Все токены в Solana
+— это по сути [аккаунты данных](/docs/core/accounts#data-account), принадлежащие
+Token Program.
+
+![Token Program](/assets/docs/core/tokens/token-program.svg)
+
+### Mint Account
+
+Токены в Solana уникально идентифицируются по адресу
+[Mint Account](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L16-L30),
+принадлежащего Token Program. Этот аккаунт выступает в роли глобального счетчика
+для конкретного токена и хранит такие данные, как:
+
+- **Supply**: общий объем выпуска токена
+- **Decimals**: количество знаков после запятой у токена
+- **Mint authority**: аккаунт, уполномоченный создавать новые единицы токена,
+  увеличивая его объем
+- **Freeze authority**: аккаунт, уполномоченный замораживать токены в Token
+  Account, предотвращая их перевод или сжигание
+
+![Mint Account](/assets/docs/core/tokens/mint-account.svg)
+
+Полная информация, хранящаяся в каждом mint account, включает следующее:
+
+```rust title="Mint Account State"
+pub struct Mint {
+    /// Optional authority used to mint new tokens. The mint authority may only
+    /// be provided during mint creation. If no mint authority is present
+    /// then the mint has a fixed supply and no further tokens may be
+    /// minted.
+    pub mint_authority: COption<Pubkey>,
+    /// Total supply of tokens.
+    pub supply: u64,
+    /// Number of base 10 digits to the right of the decimal place.
+    pub decimals: u8,
+    /// Is `true` if this structure has been initialized
+    pub is_initialized: bool,
+    /// Optional authority to freeze token accounts.
+    pub freeze_authority: COption<Pubkey>,
+}
+```
+
+Для справки: вот ссылка в Solana Explorer на
+[USDC Mint Account](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v).
+
+### Token Account
+
+Token Program создает
+[Token Accounts](https://github.com/solana-program/token/blob/6d18ff73b1dd30703a30b1ca941cb0f1d18c2b2a/program/src/state.rs#L87-L108)
+для отслеживания индивидуального владения каждой единицей токена. Token Account
+хранит такие данные, как:
+
+- **Mint**: токен, единицы которого хранятся в Token Account
+- **Owner**: аккаунт, уполномоченный переводить токены из Token Account
+- **Amount**: количество токенов, которые в данный момент находятся на Token
+  Account
+
+![Token Account](/assets/docs/core/tokens/token-account.svg)
+
+Полная информация, хранящаяся в каждом token account, включает следующее:
+
+```rust title="Token Account State"
+pub struct Account {
+    /// The mint associated with this account
+    pub mint: Pubkey,
+    /// The owner of this account.
+    pub owner: Pubkey,
+    /// The amount of tokens this account holds.
+    pub amount: u64,
+    /// If `delegate` is `Some` then `delegated_amount` represents
+    /// the amount authorized by the delegate
+    pub delegate: COption<Pubkey>,
+    /// The account's state
+    pub state: AccountState,
+    /// If is_native.is_some, this is a native token, and the value logs the
+    /// rent-exempt reserve. An Account is required to be rent-exempt, so
+    /// the value is used by the Processor to ensure that wrapped SOL
+    /// accounts do not drop below this threshold.
+    pub is_native: COption<u64>,
+    /// The amount delegated
+    pub delegated_amount: u64,
+    /// Optional authority to close the account.
+    pub close_authority: COption<Pubkey>,
+}
+```
+
+Для хранения каждого токена (mint) кошельку необходим отдельный token account,
+при этом адрес кошелька указывается как владелец token account. Один кошелек
+может иметь несколько token accounts для одного и того же токена (mint), но у
+каждого token account может быть только один владелец и храниться только один
+токен (mint).
+
+![Account Relationship](/assets/docs/core/tokens/token-account-relationship.svg)
+
+<Callout type="info">
+
+Обратите внимание, что данные каждого token account содержат поле `owner`,
+определяющее, кто имеет полномочия над этим token account. Это отличается от
+владельца программы, указанного в базовом типе
+[аккаунт](/docs/core/accounts#account-type), которым для всех token accounts
+является Token Program.
+
+</Callout>
+
+### Associated Token Account
+
+Ассоциированные токен-аккаунты упрощают процесс поиска адреса токен-аккаунта для
+конкретного mint и владельца. Можно считать ассоциированный токен-аккаунт
+«дефолтным» токен-аккаунтом для определённого mint и владельца.
+
+Ассоциированный токен-аккаунт создаётся с адресом, полученным из адреса
+владельца и адреса mint account. Важно понимать, что ассоциированный
+токен-аккаунт — это просто токен-аккаунт с определённым адресом.
+
+Это вводит ключевое понятие в разработке на Solana:
+[Program Derived Address (PDA)](/docs/core/pda). PDA определяет адрес
+детерминированно, используя заранее заданные входные данные, что облегчает поиск
+адреса аккаунта.
+
+![Ассоциированный токен-аккаунт](/assets/docs/core/tokens/associated-token-account.svg)
+
+Обратите внимание, что каждому кошельку нужен свой токен-аккаунт для хранения
+токенов одного и того же mint.
+
+![Расширенные отношения аккаунтов](/assets/docs/core/tokens/token-account-relationship-ata.svg)
+
+## Примеры Token CLI
+
+CLI _sh`spl-token`_ помогает экспериментировать с SPL токенами. Примеры ниже
+используют терминал [Solana Playground](https://beta.solpg.io/) для запуска
+CLI-команд прямо в браузере без локальной установки.
+
+Для создания токенов и аккаунтов требуется SOL для депозита ренты аккаунта и
+оплаты комиссий за транзакции. Если вы впервые используете Solana Playground,
+создайте кошелёк Playground и выполните команду _sh`solana airdrop`_ в терминале
+Playground. Также вы можете получить devnet SOL через публичный
+[web faucet](https://faucet.solana.com/).
+
+```terminal
+$ solana airdrop 2
+```
+
+Выполните _sh`spl-token --help`_ чтобы увидеть все доступные команды.
+
+```terminal
+$ spl-token --help
+```
+
+Чтобы установить CLI _sh`spl-token`_ локально, выполните:
+
+```terminal
+$ cargo install spl-token-cli
+```
+
+Больше примеров можно найти в
+[документации](https://www.solana-program.com/docs/token) по _sh`spl-token`_ .
+
+<Callout type="info">
+
+Адреса аккаунтов, которые вы видите в выводе терминала, будут отличаться от
+приведённых ниже примеров. Используйте адреса из вашего терминала Playground при
+выполнении инструкций. Например, команда _sh`create-token`_ выводит адрес mint
+account с вашим кошельком Playground в качестве mint authority.
+
+</Callout>
+
+### Создание нового токена
+
+Чтобы создать новый токен (mint account), выполните:
+
+```terminal
+$ spl-token create-token
+```
+
+Результат будет выглядеть так:
+
+```sh title="Terminal Output"
+Creating token 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+
+Address:  99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+Decimals:  9
+
+Signature: 44fvKfT1ezBUwdzrCys3fvCdFxbLMnNvBstds76QZyE6cXag5NupBprSXwxPTzzjrC3cA6nvUZaLFTvmcKyzxrm1
+```
+
+Новый mint account начинается с нулевого предложения. Проверить текущее
+предложение можно с помощью:
+
+```terminal
+$ spl-token supply <TOKEN_ADDRESS>
+```
+
+Команда _sh`supply`_ для нового токена возвращает `0`:
+
+```sh title="Example"
+spl-token supply 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Создание нового mint account требует транзакции с двумя инструкциями. Вот пример
+на Javascript в
+[Solana Playground](https://beta.solpg.io/660ce32ecffcf4b13384d00f).
+
+1. System Program создает новый аккаунт с пространством для данных Mint Account
+   и передает право собственности Token Program.
+
+2. Token Program инициализирует данные нового аккаунта как Mint Account.
+
+### Создание токен-аккаунта
+
+Чтобы хранить токены определённого mint, создайте токен-аккаунт:
+
+```terminal
+$ spl-token create-account <TOKEN_ADDRESS>
+```
+
+Пример команды:
+
+```sh title="Example"
+spl-token create-account 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Вывод:
+
+```sh title="Terminal Output"
+Creating account AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2BtrynuCLX9CNofFiaw6Yzbx6hit66pup9Sk7aFjwU2NEbFz7NCHD9w9sWhrCfEd73XveAGK1DxFpJoQZPXU9tS1
+```
+
+Команда _sh`create-account`_ создает associated token account с вашим адресом
+кошелька в качестве владельца.
+
+Чтобы создать токен-аккаунт с другим владельцем:
+
+```terminal
+$ spl-token create-account --owner <OWNER_ADDRESS> <TOKEN_ADDRESS>
+```
+
+Примечание: `<TOKEN_ADDRESS>` указывает mint account для токен-аккаунта.
+
+Пример команды:
+
+```sh title="Example"
+spl-token create-account --owner 2i3KvjDCZWxBsqcxBHpdEaZYQwQSYE6LXUMx5VjY5XrR 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+```
+
+Вывод:
+
+```shell title="Terminal Output" /Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt/
+Creating account Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 44vqKdfzspT592REDPY4goaRJH3uJ3Ce13G4BCuUHg35dVUbHuGTHvqn4ZjYF9BGe9QrjMfe9GmuLkQhSZCBQuEt
+```
+
+Создание associated token account требует одной инструкции, которая вызывает
+[Associated Token Program](https://github.com/solana-program/associated-token-account).
+Вот пример на Javascript в
+[Solana Playground](https://beta.solpg.io/660ce868cffcf4b13384d011).
+
+Associated Token Program использует [Cross Program Invocations](/docs/core/cpi)
+для:
+
+- [Вызова System Program](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/tools/account.rs#L19)
+  для создания нового аккаунта с использованием предоставленного PDA в качестве
+  адреса
+- [Вызова Token Program](https://github.com/solana-program/associated-token-account/blob/9d94201e8158f06015ff80ad47fefac62a2ec450/program/src/processor.rs#L138-L161)
+  для инициализации данных Token Account
+
+Чтобы создать новый token account с новым keypair вместо адреса associated token
+account, отправьте транзакцию с двумя инструкциями. Вот пример на Javascript в
+[Solana Playground](https://beta.solpg.io/660ce716cffcf4b13384d010).
+
+1. System Program создает новый аккаунт с пространством для данных Token Account
+   и передает право собственности Token Program.
+
+2. Token Program инициализирует данные как Token Account.
+
+### Выпуск токенов
+
+Чтобы создать новые единицы токена, выпустите токены на token account:
+
+```terminal
+$ spl-token mint [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> [--] [RECIPIENT_TOKEN_ACCOUNT_ADDRESS]
+```
+
+Пример команды:
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100
+```
+
+Вывод:
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+
+Signature: 2NJ1m7qCraPSBAVxbr2ssmWZmBU9Jc8pDtJAnyZsZJRcaYCYMqq1oRY1gqA4ddQno3g3xcnny5fzr1dvsnFKMEqG
+```
+
+Чтобы выпустить токены на другой token account:
+
+```sh title="Example"
+spl-token mint 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 -- Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+Вывод:
+
+```shell title="Terminal Output"
+Minting 100 tokens
+  Token: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 3SQvNM3o9DsTiLwcEkSPT1Edr14RgE2wC54TEjonEP2swyVCp2jPWYWdD6RwXUGpvDNUkKWzVBZVFShn5yntxVd7
+```
+
+Инструкция _rs`MintTo`_ в Token Program создает новые токены. Mint authority
+должен подписать транзакцию. Инструкция выпускает токены на token account и
+увеличивает общий объем предложения на mint account. Вот пример на Javascript в
+[Solana Playground](https://beta.solpg.io/660cea45cffcf4b13384d012).
+
+### Перевод токенов
+
+Чтобы перевести токены между token account:
+
+```sh title="Terminal"
+spl-token transfer [OPTIONS] <TOKEN_ADDRESS> <TOKEN_AMOUNT> <RECIPIENT_ADDRESS or RECIPIENT_TOKEN_ACCOUNT_ADDRESS>
+```
+
+Пример команды:
+
+```sh title="Example"
+spl-token transfer 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg 100 Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+```
+
+Вывод:
+
+```shell title="Terminal Output"
+Transfer 100 tokens
+  Sender: AfB7uwBEsGtrrBqPTVqEgzWed5XdYfM1psPNLmf7EeX9
+  Recipient: Hmyk3FSw4cfsuAes7sanp2oxSkE9ivaH6pMzDzbacqmt
+
+Signature: 5y6HVwV8V2hHGLTVmTmdySRiEUCZnWmkasAvJ7J6m7JR46obbGKCBqUFgLpZu5zQGwM4Xy6GZ4M5LKd1h6Padx3o
+```
+
+Инструкция _rs`Transfer`_ в Token Program отвечает за перевод токенов. Владелец
+аккаунта отправителя Token Account должен подписать транзакцию. Эта инструкция
+перемещает токены между Token Account. Вот пример на Javascript в
+[Solana Playground](https://beta.solpg.io/660ced84cffcf4b13384d013).
+
+И у отправителя, и у получателя должны быть token account для конкретного токена
+(mint). Отправитель может добавить инструкции по созданию token account
+получателя в ту же транзакцию.
+
+### Создание метаданных токена
+
+Token Extensions Program позволяет хранить метаданные (имя, символ, ссылку на
+изображение) непосредственно в mint account.
+
+Чтобы создать токен с расширением метаданных:
+
+```sh title="Example"
+spl-token create-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --enable-metadata
+```
+
+Вывод:
+
+```shell title="Terminal Output"
+Creating token BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP under program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+To initialize metadata inside the mint, please run `spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>`, and sign with the mint authority.
+
+Address:  BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP
+Decimals:  9
+
+Signature: 5iQofFeXdYhMi9uTzZghcq8stAaa6CY6saUwcdnELST13eNSifiuLbvR5DnRt311frkCTUh5oecj8YEvZSB3wfai
+```
+
+Чтобы инициализировать метаданные:
+
+```sh title="Terminal"
+spl-token initialize-metadata <TOKEN_MINT_ADDRESS> <YOUR_TOKEN_NAME> <YOUR_TOKEN_SYMBOL> <YOUR_TOKEN_URI>
+```
+
+URI токена ссылается на метаданные вне блокчейна. Пример формата JSON можно
+посмотреть
+[здесь](https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json).
+
+Пример команды:
+
+```sh title="Example"
+spl-token initialize-metadata BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP "TokenName" "TokenSymbol" "https://raw.githubusercontent.com/solana-developers/opos-asset/main/assets/DeveloperPortal/metadata.json"
+```
+
+Посмотреть метаданные можно в
+[Solana Explorer](https://explorer.solana.com/address/BdhzpzhTD1MFqBiwNdrRy4jFo2FHFufw3n9e8sVjJczP?cluster=devnet).
+
+Подробнее см. в
+[руководстве по расширению метаданных](/developers/guides/token-extensions/metadata-pointer).
+Подробнее о Token Extensions читайте в
+[руководстве по началу работы](/developers/guides/token-extensions/getting-started)
+и [документации SPL](https://www.solana-program.com/docs/token-2022/extensions).

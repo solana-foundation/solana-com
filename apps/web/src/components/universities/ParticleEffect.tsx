@@ -191,7 +191,7 @@ export default function ParticleEffect({
       ref={canvasRef}
       width={width}
       height={height}
-      className="position-absolute top-0 start-0 w-100 h-100 pointer-events-none"
+      className="absolute top-0 left-0 w-full h-full pointer-events-none"
       style={{
         zIndex: 0,
         opacity: isHovered ? 1 : 0,

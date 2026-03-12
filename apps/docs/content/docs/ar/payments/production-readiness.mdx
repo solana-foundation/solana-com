@@ -1,0 +1,521 @@
+---
+title: الجاهزية للإنتاج
+description: الانتقال من الاختبار على devnet إلى النشر على mainnet
+---
+
+يُعد البناء محليًا والاختبار على devnet طرقًا رائعة للبدء مع مدفوعات سولانا. ومع
+ذلك، عندما تكون مستعدًا للنشر على Mainnet، يجب أن تكون على دراية بالفروق الدقيقة
+في mainnet. يتسامح Devnet مع الأخطاء. أما Mainnet فلا يتسامح. يغطي هذا الدليل
+الاختلافات المهمة لضمان حصول المستخدمين على تجربة سلسة.
+
+| Devnet                         | Mainnet                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------- |
+| SOL مجاني من الصنابير          | [احصل على SOL حقيقي](https://solana.com/ecosystem/explore?categories=exchange) للرسوم |
+| منافسة منخفضة على مساحة الكتلة | رسوم الأولوية مهمة                                                                    |
+| تتم المعاملات بسهولة           | تكوين المعاملات أمر بالغ الأهمية                                                      |
+| RPC العام جيد                  | مطلوب RPC للإنتاج                                                                     |
+| مفاتيح devnet وعمليات السك     | مفاتيح مختلفة وعمليات سك الرموز—قم بتحديث التكوين الخاص بك                            |
+
+## البنية التحتية لـ RPC
+
+[النقاط النهائية العامة](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet-beta.solana.com`) محدودة المعدل بدون اتفاقية مستوى الخدمة. إنها
+جيدة للتطوير ولكنها ستفشل في تدفقات الدفع الإنتاجية—مثل محاولة تشغيل معالج دفع
+من خلال واجهة برمجة تطبيقات مشتركة بدون ضمان وقت التشغيل.
+
+<Callout type="caution" title="لا تستخدم أبدًا RPC العام للإنتاج">
+  استخدم [مزود RPC خاص](https://solana.com/rpc) للوصول الموثوق ومنخفض الكمون.
+</Callout>
+
+عند اختيار مزود RPC، ابحث عن:
+
+- **الموثوقية**: اتفاقيات مستوى الخدمة مع ضمانات وقت التشغيل (99.9%+)
+- **الكمون**: القرب الجغرافي من المستخدمين
+- **الميزات**: ميزات هبوط المعاملات، والفهرسة، وواجهات برمجة تطبيقات رسوم
+  الأولوية
+
+للحصول على قائمة كاملة بمزودي RPC، راجع دليل
+[مزودو البنية التحتية لـ RPC](https://solana.com/rpc).
+
+### تكوين RPC الاحتياطي
+
+مثل أي مزود خدمة شبكة، يمكن أن يواجه مزودو RPC فترات توقف أو فترات من الأداء
+المتدهور. لضمان مرونة تطبيقك، يجب عليك تكوين تطبيقك لاستخدام مزودي RPC متعددين.
+
+توفر
+[مجموعة سولانا](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+مكتبة لتخصيص نقل RPC مما يسمح لك ببناء عميل RPC احتياطي خاص بك. إليك مثال على
+كيفية استخدامه لبناء عميل RPC احتياطي:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+إذا كنت تفضل عدم بناء أدوات التوجيه الخاصة بك، يمكنك الاستفادة من خدمة طرف ثالث
+مثل [Iron Forge](https://www.ironforge.sanctum.so/) للتعامل مع التوجيه نيابة
+عنك.
+
+## هبوط المعاملة
+
+على شبكة Devnet، تهبط المعاملات بسهولة نسبياً. على الشبكة الرئيسية، أنت تتنافس
+على مساحة الكتلة. لزيادة فرص تضمين معاملتك في كتلة، يجب عليك التأكد من أنك قمت
+بتجميع معاملتك بشكل صحيح. هذا يعني:
+
+- تضمين blockhash حديث قبل إرسال المعاملة
+- تضمين تعليمات رسوم الأولوية في المعاملة مع رسوم أولوية تنافسية
+- تضمين تعليمات حد وحدة الحساب في المعاملة مع حد وحدة حساب بناءً على وحدات
+  الحساب المقدرة المطلوبة للمعاملة
+
+بالإضافة إلى ذلك، يجب عليك النظر في أدوات أخرى مثل حزم Jito لزيادة فرص تضمين
+معاملتك في كتلة. دعنا نستكشف هذه الأدوات بمزيد من التفصيل.
+
+### إعدادات إرسال المعاملة
+
+عند إرسال المعاملات على الشبكة الرئيسية، قم بتكوين هذه المعاملات للحصول على
+معدلات هبوط مثالية:
+
+**إدارة Blockhash:**
+
+- الجلب باستخدام التزام `confirmed`
+- تخزين `lastValidBlockHeight` المُرجع بواسطة `getLatestBlockhash`—هذا يخبرك متى
+  تنتهي صلاحية معاملتك
+- تنتهي صلاحية Blockhashes بعد ~150 كتلة (~60-90 ثانية)
+
+**خيارات الإرسال:**
+
+- `maxRetries: 0` — تعطيل إعادة المحاولات التلقائية لـ RPC. تعامل مع إعادة
+  المحاولات بنفسك حتى تتمكن من تحديث blockhash عند الحاجة.
+- `skipPreflight: true` — تجاوز المحاكاة قبل الإرسال. استخدم هذا عندما تكون قد
+  تحققت بالفعل من المعاملة وتريد أقل زمن انتقال. احتفظ به `false` أثناء التطوير
+  لاكتشاف الأخطاء مبكراً.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### استخدام رسوم الأولوية
+
+تتطلب كل معاملة على سولانا رسوم معاملة، تُدفع بعملة SOL. تنقسم رسوم المعاملات
+إلى جزأين: الرسوم الأساسية ورسوم الأولوية. تعوض الرسوم الأساسية المدققين عن
+معالجة المعاملة. أما رسوم الأولوية فهي رسوم اختيارية، لزيادة فرصة قيام القائد
+الحالي بمعالجة معاملتك. فكر في الأمر مثل الشحن السريع: تدفع أكثر للحصول على
+تسليم أسرع وأكثر موثوقية.
+
+**كيفية عمل الرسوم:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**التكاليف الفعلية:**
+
+- تحويل USDC بسيط: ~$0.001-0.005 في الظروف العادية
+- أثناء الازدحام: ~$0.01-0.05
+- ذروة الازدحام: يمكن أن ترتفع أكثر
+
+**مثال على التنفيذ:**
+
+توفر حزمة
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+دالة مساعدة لتحديث أو إلحاق تعليمات سعر وحدة الحوسبة (بالميكرو لامبورت) بسهولة
+إلى معاملة.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**الحصول على تقديرات الرسوم:** يقدم معظم موفري RPC واجهات برمجة تطبيقات لرسوم
+الأولوية:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+للاطلاع على آليات الرسوم الكاملة، راجع [رسوم المعاملات](/docs/core/fees)
+ودليلنا:
+[كيفية إضافة رسوم الأولوية إلى معاملة](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### تحسين وحدات الحوسبة
+
+الحوسبة على سولانا هي فعلياً مقياس لمقدار العمل الذي يقوم به البرنامج. هناك حد
+لمقدار الحوسبة التي يمكن استخدامها في معاملة واحدة (حالياً 1.4 مليون وحدة
+حوسبة)، وحد لمقدار الحوسبة التي يمكن استخدامها لكل حساب في كل كتلة (حالياً 100
+مليون وحدة حوسبة).
+
+عند إرسال معاملة، تحتاج إلى تقدير مقدار الحوسبة التي سيتم استخدامها، وتعيين حد
+وحدة الحوسبة وفقاً لذلك - هذا فعلياً طلب لمقدار السعة الإجمالية التي يجب حجزها
+لمعاملتك. عملياً، هذا يعني أن التقدير الصحيح لوحدات الحوسبة المطلوبة لمعاملتك
+أمر بالغ الأهمية لإدراج معاملتك في كتلة (ومهم لإدارة رسوم الأولوية الخاصة بك).
+
+تحتوي واجهة برمجة تطبيقات JSON RPC الخاصة بـ سولانا على طريقة
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction) يمكن استخدامها
+لتقدير وحدات الحوسبة المطلوبة للمعاملة، والتي تتضمن تقديرًا لوحدات الحوسبة التي
+سيتم استخدامها. توفر حزمة
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+دالة مساعدة لتقدير وحدات الحوسبة المطلوبة للمعاملة بسهولة (والتي تستخدم طريقة
+`simulatetransaction` في الخلفية).
+
+```ts
+import {
+  estimateComputeUnitLimitFactory,
+  updateOrAppendSetComputeUnitLimitInstruction
+} from "@solana-program/compute-budget";
+
+const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
+const computeUnitLimit = await estimateComputeUnitLimit(tx);
+const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
+  computeUnitLimit,
+  tx
+);
+```
+
+في بيئة الإنتاج، إذا كنت تكرر نفس نوع المعاملة عدة مرات، يجب عليك التفكير في
+تخزين تقدير الحوسبة مؤقتًا لنوع المعاملة لتجنب العبء الإضافي لتقدير وحدات
+الحوسبة في كل مرة.
+
+### حزم Jito
+
+حزم Jito هي أداة لإدارة التنفيذ الذري لمعاملات متعددة. يتم تحقيق ذلك عن طريق
+إرسال معاملات متعددة إلى شبكة Jito مع إكرامية. يمكن استخدام الإكراميات لتحفيز
+شبكة Jito على تضمين معاملاتك في كتلة.
+
+**الموارد:**
+
+- [توثيق Jito](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 فيديو: حزم Jito](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [دليل QuickNode حول حزم Jito](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### استراتيجيات إعادة المحاولة
+
+يمكن أن تفشل المعاملات لأسباب عديدة. على عكس واجهات برمجة تطبيقات الدفع
+التقليدية التي تُرجع النجاح/الفشل فورًا، تتطلب معاملات البلوكشين تتبع التأكيد.
+
+**المفاهيم الأساسية:**
+
+- **انتهاء صلاحية blockhash**: المعاملات صالحة لمدة ~150 كتلة (~60-90 ثانية)
+- **التماثل**: نفس المعاملة الموقعة تنتج دائمًا نفس التوقيع—إعادة الإرسال آمنة
+- **التراجع الأسي**: تجنب إرباك الشبكة بإعادة المحاولات السريعة
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+تتعامل `sendAndConfirmTransactionFactory` من `@solana/kit` مع استطلاع التأكيد
+وتتبع ارتفاع الكتلة تلقائيًا. تطرح `SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` عندما
+تنتهي صلاحية blockhash الخاص بالمعاملة، مما يشير إلى أنك بحاجة إلى إعادة بناء
+المعاملة باستخدام blockhash جديد.
+
+### موارد إضافية
+
+- [دليل: تأكيد المعاملات وانتهاء الصلاحية](https://solana.com/developers/guides/advanced/confirmation)
+- [Helius: كيفية إتمام المعاملات على سولانا](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: استراتيجيات لتحسين معاملات سولانا](https://www.quicknode.com/docs/solana/transactions)
+
+## فهم مستويات التأكيد
+
+تقدم سولانا ثلاثة مستويات للتأكيد. بمصطلحات التمويل التقليدي:
+
+| المستوى     | تعريف سولانا                      | المعادل التقليدي | حالة الاستخدام                  |
+| ----------- | --------------------------------- | ---------------- | ------------------------------- |
+| `processed` | في كتلة، لم يتم التصويت عليها بعد | تفويض معلق       | تحديثات الواجهة في الوقت الفعلي |
+| `confirmed` | تم التصويت بأغلبية عظمى           | أموال مقاصة      | **معظم المدفوعات**              |
+| `finalized` | متجذرة، غير قابلة للإلغاء         | أموال مسوّاة     | قيمة عالية، امتثال              |
+
+**متى تستخدم كل منها:**
+
+- **تحديثات الواجهة**: اعرض `processed` للحصول على ملاحظات فورية ("تم إرسال
+  الدفع")
+- **إضافة رصيد لحساب المستخدم**: انتظر `confirmed` (آمن لمعظم المعاملات)
+- **شحن البضائع المادية**: انتظر `finalized`
+- **السحوبات الكبيرة**: انتظر `finalized`
+- **الامتثال/المراجعة**: سجل دائماً حالة `finalized`
+
+لمزيد من المعلومات حول التحقق من حالة المعاملة، راجع
+[التفاعل مع سولانا](/docs/payments/interacting-with-solana).
+
+## معالجة الأخطاء
+
+توفر Solana Kit أخطاء مكتوبة عبر `isSolanaError()`. استخدم رموز أخطاء محددة
+بدلاً من مطابقة النصوص:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**رموز الأخطاء الشائعة:**
+
+| رمز الخطأ                    | السبب                       | الاستعادة                                                                                                       |
+| ---------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | انتهت صلاحية blockhash      | أعد البناء باستخدام blockhash جديد                                                                              |
+| `BLOCKHASH_NOT_FOUND`        | لم يتم العثور على blockhash | أعد البناء باستخدام blockhash جديد                                                                              |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | لا يوجد SOL كافٍ            | قم بتمويل دافع الرسوم أو استخدم [تجريد الرسوم](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | لا توجد رموز كافية          | المستخدم بحاجة إلى مزيد من الرصيد                                                                               |
+| `ACCOUNT_NOT_FOUND`          | حساب الرمز مفقود            | أنشئ ATA في المعاملة                                                                                            |
+
+## المعاملات بدون رسوم غاز
+
+يتوقع المستخدمون الدفع بالعملات المستقرة، وليس الحصول على SOL لرسوم الشبكة. تحل
+المعاملات بدون رسوم غاز هذه المشكلة—بشكل مشابه لكيفية عدم تفكير مستخدمي Venmo في
+رسوم ACH. راجع
+[تجريد الرسوم](/docs/payments/send-payments/payment-processing/fee-abstraction)
+للتنفيذ الكامل.
+
+## الأمان
+
+### إدارة المفاتيح
+
+- **لا تكشف أبدًا المفاتيح الخاصة في كود الواجهة الأمامية.** استخدم التوقيع من
+  الخادم، أو محافظ الأجهزة، أو المحافظ متعددة التوقيع، أو خدمات إدارة المفاتيح.
+- **افصل المحافظ الساخنة والباردة.** المحفظة الساخنة للعمليات، والباردة للخزينة.
+- **احتفظ بنسخة احتياطية من جميع مفاتيح الإنتاج.** خزّن النسخ الاحتياطية المشفرة
+  في مواقع آمنة متعددة. فقدان المفتاح يعني فقدان الوصول بشكل دائم.
+- **استخدم مفاتيح مختلفة لشبكة devnet وشبكة mainnet.** يجب ألا تكون مفاتيح
+  devnet الخاصة بك هي نفسها مفاتيح mainnet. استخدم التكوين المعتمد على البيئة
+  لضمان تحميل المفاتيح الصحيحة لكل شبكة.
+
+### البنية التحتية للتوقيع
+
+للتوقيع من الخادم الخلفي في بيئة الإنتاج، فكّر في استخدام
+[solana-keychain](https://github.com/solana-foundation/solana-keychain)—وهي
+مكتبة توقيع موحدة تجرّد عدة خلفيات لإدارة المفاتيح من خلال واجهة واحدة: Memory،
+Vault، AWS KMS، Privy، Turnkey، Fireblocks، CDP، Dfns، Para. يتيح لك ذلك التطوير
+محليًا باستخدام مفاتيح في الذاكرة، ثم التبديل إلى خلفيات على مستوى الإنتاج دون
+تغيير كود التطبيق.
+
+متاح لكل من [Rust](https://crates.io/crates/solana-keychain) و
+[TypeScript](https://www.npmjs.com/package/@solana/keychain).
+
+راجع
+[دليل إضافة الموقّعين](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
+لدمج خدمات إدارة المفاتيح الإضافية.
+
+### أمان RPC
+
+تعامل مع نقاط نهاية RPC كمفاتيح API—لا تكشفها في كود الواجهة الأمامية حيث يمكن
+استخراجها وإساءة استخدامها. استخدم وكيل خادم خلفي أو متغيرات بيئة لا يتم تضمينها
+في كود العميل.
+
+- [QuickNode: أفضل الممارسات لأمان نقاط النهاية](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius: احمِ مفاتيح Solana API الخاصة بك: أفضل الممارسات الأمنية](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### المراقبة
+
+تتبع هذه المقاييس في بيئة الإنتاج:
+
+| المقياس             | السبب                 |
+| ------------------- | --------------------- |
+| معدل نجاح المعاملات | اكتشاف المشاكل مبكرًا |
+| زمن التأكيد         | مراقبة صحة الشبكة     |
+| إنفاق رسوم الأولوية | إدارة التكاليف        |
+| معدل أخطاء RPC      | صحة المزود            |
+
+قم بإعداد تنبيهات لـ:
+
+- التحويلات فوق الحد الأدنى من الخزينة
+- ارتفاع معدل فشل المعاملات
+- أنماط المستلمين غير الاعتيادية
+- زيادة معدل أخطاء RPC
+
+للمراقبة الفورية للمعاملات على نطاق واسع، راجع
+[دليل الفهرسة](/docs/payments/accept-payments/indexing) الخاص بنا.
+
+### التحقق من العناوين
+
+كل رمز وبرنامج له عنوان صحيح واحد بالضبط على الشبكة الرئيسية. الرموز المزيفة
+التي تحاكي USDC أو العملات المستقرة الأخرى شائعة—سيكون لها نفس الاسم والرمز ولكن
+عنوان سك مختلف. يجب على تطبيقك تضمين عناوين السك بشكل ثابت أو إضافتها إلى قائمة
+مسموح بها (بناءً على متطلباتك)، ولا تقبلها ديناميكيًا أبدًا من مصادر غير موثوقة.
+
+**التكوين القائم على البيئة:** غالبًا ما تستخدم Devnet وMainnet عناوين إصدار
+رموز مختلفة تمامًا. قم بإعداد تكوين تطبيقك لتحميل العناوين الصحيحة لكل بيئة—لا
+تقم بترميز عناوين الشبكة الرئيسية ثم تنسى تبديلها أثناء الاختبار، أو الأسوأ من
+ذلك، شحن عناوين devnet إلى بيئة الإنتاج.
+
+بعض عناوين إصدار العملات المستقرة الشائعة هي:
+
+| الرمز | الجهة المصدرة | عنوان الإصدار                                  |
+| ----- | ------------- | ---------------------------------------------- |
+| USDC  | Circle        | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether        | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal        | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos         | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+عناوين البرامج مهمة أيضًا. إرسال التعليمات إلى البرنامج الخطأ سيفشل—أو الأسوأ من
+ذلك، قد يؤدي إلى فقدان لا رجعة فيه للأموال. عناوين Token Program هي:
+
+| البرنامج           | العنوان                                       |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+## قائمة التحقق قبل الإطلاق
+
+- [ ] الحصول على SOL للشبكة الرئيسية لرسوم المعاملات والإيجار
+- [ ] تكوين RPC للإنتاج (وليس نقطة النهاية العامة)
+- [ ] تكوين نقطة نهاية RPC احتياطية
+- [ ] تطبيق رسوم الأولوية مع التسعير الديناميكي
+- [ ] منطق إعادة المحاولة يتعامل مع انتهاء صلاحية blockhash
+- [ ] مستوى التأكيد مناسب لحالة الاستخدام
+- [ ] معالجة جميع الأخطاء الشائعة بشكل سلس
+- [ ] تكوين Gasless (إن أمكن)
+- [ ] التحقق من عناوين الرموز في الشبكة الرئيسية (وليس عناوين devnet)
+- [ ] النسخ الاحتياطي لجميع المفاتيح بشكل آمن
+- [ ] مراجعة إدارة المفاتيح (عدم وجود مفاتيح في الواجهة الأمامية)
+- [ ] تفعيل مراقبة المعاملات والتنبيهات
+- [ ] اختبار الحمل بالحجم المتوقع
+
+## نشر البرامج
+
+إذا كنت تقوم بنشر برنامج سولانا مخصص كجزء من البنية التحتية للدفع الخاصة بك،
+فهناك اعتبارات إضافية.
+
+### ما قبل النشر
+
+- **إصدار Solana CLI:** تأكد من أنك تستخدم أحدث إصدار من
+  [Solana CLI](https://solana.com/docs/intro/installation).
+- **keypair البرنامج:** سيكون لبرنامجك عنوان مختلف على الشبكة الرئيسية عن شبكة
+  التطوير (إلا إذا كنت تعيد استخدام نفس الـ keypair). قم بتحديث جميع المراجع في
+  إعدادات تطبيقك. احفظ keypair البرنامج في موقع آمن (لاحظ أن تشغيل `cargo clean`
+  من المحتمل أن يحذف keypair البرنامج الخاص بك).
+- **تهيئة الحسابات:** إذا كان برنامجك يتطلب حسابات مسؤول أو PDAs أو حسابات حالة
+  أخرى، فتأكد من إنشائها على الشبكة الرئيسية قبل تفاعل المستخدمين مع تطبيقك.
+  وينطبق الأمر نفسه على أي associated token account (ATAs) يحتاجها برنامجك.
+
+### عملية النشر
+
+- **حسابات المخزن المؤقت:** تُنشر البرامج الكبيرة عبر حسابات المخزن المؤقت.
+  يتعامل أمر `solana program deploy` مع هذا تلقائيًا، لكن افهم أن النشر ليس
+  ذريًا—إذا تمت مقاطعته، قد تحتاج إلى استرداد أو إغلاق حسابات المخزن المؤقت.
+  راجع [نشر البرامج](https://solana.com/docs/programs/deploying).
+- **صلاحية الترقية:** قرر ما إذا كان يجب أن يكون برنامجك قابلاً للترقية بعد
+  الإطلاق. لتحقيق الثبات، قم بإلغاء صلاحية الترقية بعد النشر. من أجل المرونة، قم
+  بتأمين مفتاح صلاحية الترقية بشكل مناسب.
+- **الإيجار:** تأكد من أن محفظة النشر الخاصة بك تحتوي على SOL كافٍ لتغطية الحد
+  الأدنى المعفى من الإيجار لجميع program account.
+- **التحقق:** [تحقق](https://solana.com/docs/programs/verified-builds) من
+  برنامجك للتأكد من أن البرنامج القابل للتنفيذ الذي تنشره على شبكة سولانا يطابق
+  الكود المصدري في مستودعك
+
+للحصول على إرشادات كاملة حول نشر البرامج، راجع
+[نشر البرامج](https://solana.com/docs/programs/deploying).

@@ -1,0 +1,110 @@
+---
+title: Implantação de programas
+description:
+  Implantação, atualização e verificação de programas Solana. Referência de
+  instruções do Loader-v3, o mecanismo de atualização em 9 etapas, verificação
+  de build e os 5 tipos de programa loader.
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Resumo">
+  Programas implantados via loader-v3 podem ser atualizados quando uma
+  autoridade de atualização está definida. Revogar a autoridade torna o programa
+  imutável. Abrange o mecanismo de atualização em 9 etapas, todas as 9
+  instruções do loader-v3, verificação de build e os 5 tipos de loader.
+</Callout>
+
+## Implantação de programas
+
+<Cards>
+  <Card title="Rust nativo" href="/docs/programs/deploying">
+    Implante usando a CLI da Solana com `solana program deploy`.
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    Implante usando o framework Anchor com `anchor deploy`.
+  </Card>
+</Cards>
+
+## Atualização de programas
+
+Para atualizar um programa, uma conta deve possuir a autoridade de atualização
+(normalmente a conta que originalmente
+[implantou o programa](/docs/programs/deploying)). Durante a implantação ou
+atualização, o novo bytecode é carregado para uma conta de buffer temporária, e
+depois escrito na conta de dados do programa. Definir a autoridade de
+atualização como _rs`None`_ torna o programa imutável e impede permanentemente
+futuras atualizações.
+
+### Mecanismo de atualização
+
+Quando
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+é processado, o runtime:
+
+1. Verifica se a conta do programa é gravável e pertence ao loader-v3.
+2. Verifica se a conta de buffer contém um estado _rs`Buffer`_ com a autoridade
+   correta.
+3. Verifica se o `upgrade_authority_address` da conta ProgramData corresponde e
+   não é _rs`None`_.
+4. Verifica se o programa ainda não foi implantado no slot atual
+   (`clock.slot != slot`).
+5. Carrega e verifica os novos bytes ELF do buffer.
+6. Copia o novo bytecode do buffer para a conta ProgramData e zera os bytes
+   restantes.
+7. Financia a conta ProgramData para isenção de aluguel.
+8. Drena a conta de buffer (define lamports como 0) e trunca seus dados.
+9. A nova versão entra em vigor no próximo slot (`deployment_slot + 1`).
+
+A própria conta `Program` (seu estado e o ponteiro `programdata_address`) não
+muda durante uma atualização. Apenas o bytecode da conta _rs`ProgramData`_ e os
+metadados de slot são atualizados.
+
+## Referência de instruções do Loader-v3
+
+O Loader-v3 (BPF Loader Upgradeable) é o carregador padrão atual para
+implementar programas na Solana.
+
+| Instrução                                                                                                    | Descrição                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | Define o estado de uma conta de buffer como `Buffer` com a autoridade especificada. Falha se já estiver inicializada.                                                                                                                                  |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | Escreve bytes no deslocamento especificado numa conta de buffer. A autoridade deve assinar.                                                                                                                                                            |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | Cria um novo programa: deriva o endereço ProgramData, cria a conta ProgramData via CPI para o System Program, verifica e implementa o ELF do buffer, define o estado da conta Program e marca-a como executável.                                       |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | Substitui o bytecode na conta ProgramData de um programa existente a partir de um buffer.                                                                                                                                                              |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | Altera a autoridade de uma conta Buffer ou ProgramData. Definir como `None` em ProgramData torna o programa imutável. A autoridade de Buffer não pode ser definida como `None`.                                                                        |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | Semelhante a `SetAuthority`, mas requer que a nova autoridade também assine a transação.                                                                                                                                                               |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | Fecha uma conta buffer, não inicializada ou ProgramData transferindo seus lamports para um destinatário. Fechar ProgramData também escreve uma marca `Closed` na cache do programa. Não pode fechar um programa que foi implementado no slot atual.    |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | Estende a alocação da conta ProgramData por bytes adicionais, financiando o aluguer extra a partir do pagador.                                                                                                                                         |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | Migra um programa loader-v3 para loader-v4 transferindo a propriedade da conta do programa e copiando o bytecode. Requer que a autoridade de migração ou a autoridade de atualização do programa assine. O Loader-v4 ainda não foi lançado na mainnet. |
+
+## Verificação de programas
+
+A Solana suporta [compilações verificáveis](/docs/programs/verified-builds), que
+permitem aos utilizadores confirmar que o bytecode on-chain de um programa
+corresponde ao seu código fonte público. O framework Anchor fornece
+[suporte integrado](https://www.anchor-lang.com/docs/verifiable-builds) para
+compilações verificáveis.
+
+Para verificar o estado de verificação de um programa implementado, procure o
+seu ID de programa no
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY),
+ou utilize a
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+da Ellipsis Labs para verificar independentemente programas on-chain.
+
+## Programas de carregamento
+
+| Carregador                 | Endereço                                      | Atualizável                                          | Descrição                                                   |
+| -------------------------- | --------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | Apenas via atualização do software do validador      | Possui builtins (System, Vote, Stake) e outros carregadores |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | Não (gestão do carregador desativada)                | Programas legados                                           |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | Não (gestão do carregador desativada)                | Programas legados                                           |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | Sim, se a autoridade de atualização estiver definida | Possui todos os programas recentemente implementados        |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | Sim, se a autoridade estiver definida                | Ainda não lançado na mainnet                                |

@@ -1,0 +1,81 @@
+---
+title: 変更ルール
+description: Solanaアカウントのlamports、データ、所有者、実行可能フラグ、および借用セマンティクスを変更するためのランタイム強制ルール。
+url: /docs/core/accounts/modification-rules
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+  - /docs/core/cpi/cpi-execution
+---
+
+<Callout type="info" title="概要">
+  各命令実行後のランタイムチェック:
+  所有者のみがlamportsを引き落としたりデータを変更でき、データは命令ごとに最大10
+  KiB成長可能、所有者変更にはゼロ初期化されたデータが必要、実行可能フラグは不可逆です。
+</Callout>
+
+Solanaランタイムは、[`BorrowedInstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L722-L727)メソッドを介して、各命令実行後にこれらのルールを強制します。各ルールは変更時点でチェックされ、いずれかのチェックが失敗するとトランザクションはロールバックされます。
+
+## Lamportsルール
+
+| ルール                                                       | 強制                                                                                                                                                                                                                     | エラー                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| 所有者のみがlamportsを引き落とし可能                         | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L785): `lamports < current`の場合に`is_owned_by_current_program()`をチェック                                        | `ExternalAccountLamportSpend` |
+| 読み取り専用アカウントはlamportsを変更不可                   | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L788-L789): `is_writable()`をチェック                                                                                    | `ReadonlyLamportChange`       |
+| 任意のプログラムが書き込み可能アカウントにlamportsを入金可能 | [`set_lamports()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L782-L789): 所有権チェックは新しい残高が現在の残高より少ない場合のみ適用され、書き込み可能チェックは引き続き適用されます | `ReadonlyLamportChange`       |
+| Lamportsは命令全体でバランスする必要がある                   | [`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398): `get_lamports_delta() == 0`を検証                                                                 | `UnbalancedInstruction`       |
+
+## データルール
+
+| ルール                                   | 強制                                                                                                                                                                                                                             | エラー                               |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 所有者のみがデータを変更可能             | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1013-L1023): `is_owned_by_current_program()`をチェック                                                                   | `ExternalAccountDataModified`        |
+| 読み取り専用アカウントはデータを変更不可 | [`can_data_be_changed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1015-L1016): `is_writable()`をチェック                                                                                   | `ReadonlyDataModified`               |
+| 所有者のみがデータをリサイズ可能         | [`can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L1027-L1037): `new_len != old_len`の場合に`is_owned_by_current_program()`をチェック                                       | `AccountDataSizeChanged`             |
+| 最大データサイズ: 10 MiB                 | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L315-L332): `new_len <= MAX_ACCOUNT_DATA_LEN`をチェック                             | `InvalidRealloc`                     |
+| 命令ごとの最大成長量: 10 KiB             | [`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L626-L629)でのデシリアライゼーション: `post_len - pre_len <= MAX_PERMITTED_DATA_INCREASE`をチェック      | `InvalidRealloc`                     |
+| トランザクションごとの最大成長量: 20 MiB | [`TransactionAccounts::can_data_be_resized()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L324-L330): 累積`resize_delta <= MAX_ACCOUNT_DATA_GROWTH_PER_TRANSACTION`をチェック | `MaxAccountsDataAllocationsExceeded` |
+
+## オーナールール
+
+| ルール                                         | 実施                                                                                                                                               | エラー              |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| 現在のオーナーのみがオーナーを再割り当てできる | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L753-L755): `is_owned_by_current_program()`をチェック | `ModifiedProgramId` |
+| アカウントは書き込み可能である必要がある       | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L757-L759): `is_writable()`をチェック                 | `ModifiedProgramId` |
+| データはゼロ初期化されている必要がある         | [`set_owner()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L761-L763): `is_zeroed(data)`をチェック               | `ModifiedProgramId` |
+
+## 実行可能フラグルール
+
+| ルール                                   | 実施                                                                                                                                                         | エラー                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| アカウントはrent免除である必要がある     | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L961-L967): `rent.is_exempt(lamports, data_len)`をチェック | `ExecutableAccountNotRentExempt` |
+| オーナーのみがフラグを設定できる         | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L969-L971): `is_owned_by_current_program()`をチェック      | `ExecutableModified`             |
+| アカウントは書き込み可能である必要がある | [`set_executable()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L973-L975): `is_writable()`をチェック                      | `ExecutableModified`             |
+
+## Rent状態遷移
+
+アカウントは3つの
+[`RentState`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L19-L30)
+値のいずれかに存在します:_rs`Uninitialized`_(0
+lamports)、_rs`RentPaying`_(0より大きいがrent免除最小値未満)、および*rs`RentExempt`*(最小値以上)。許可されていない遷移は*rs`TransactionError::InsufficientFundsForRent`*を生成します。
+
+ランタイムは
+[`transition_allowed()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/rent_calculator.rs#L107-L126)
+を介してこれらのルールを実施します:
+
+- すべてのアカウントは*rs`Uninitialized`*(クローズ)または*rs`RentExempt`*に遷移できます。
+- *rs`Uninitialized`*または*rs`RentExempt`*から*rs`RentPaying`*に入ることはできません。すべての新しいアカウントはrent免除である必要があります。
+
+## アカウント借用ルール
+
+命令実行中、ランタイムはアカウントに対してシングルライター借用セマンティクスを実施します。プログラムは、アカウントに対して1つの可変参照または複数の不変参照のいずれかを取得できますが、両方を同時に取得することはできません。プログラムがすでに可変借用されているアカウントを借用しようとした場合(またはすでに不変借用されているアカウントを可変借用しようとした場合)、命令は
+[`try_borrow()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L498-L508)
+および
+[`try_borrow_mut()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/transaction_accounts.rs#L512-L520)
+を介して*rs`AccountBorrowFailed`*で失敗します。借用がまだ未解決のまま命令が完了した場合、ランタイムは
+[`TransactionContext::pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L374-L385)
+で*rs`AccountBorrowOutstanding`*を返します。

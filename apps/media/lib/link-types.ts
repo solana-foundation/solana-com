@@ -1,13 +1,19 @@
-import { TinaMarkdownContent } from "tinacms/dist/rich-text";
+import { ContentDocument } from "./post-types";
 
-export type LinkType = "article" | "tweet" | "video" | "github" | "other";
+export type LinkType =
+  | "article"
+  | "tweet"
+  | "video"
+  | "podcast"
+  | "github"
+  | "other";
 
 export type LinkItem = {
   id: string;
   title: string;
   url: string;
   linkType: LinkType;
-  description?: TinaMarkdownContent;
+  description?: ContentDocument;
   thumbnailImage?: string | null;
   source?: string;
   publishedAt: string;

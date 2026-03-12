@@ -1,0 +1,563 @@
+---
+title: Транзакции
+description:
+  Узнайте о транзакциях Solana — фундаментальных строительных блоках для
+  взаимодействия с блокчейном Solana. Поймите структуру транзакций и составление
+  инструкций с практическими примерами.
+---
+
+Чтобы взаимодействовать с сетью Solana, необходимо отправить транзакцию. Вы
+можете представить транзакцию как конверт, содержащий несколько форм. Каждая
+форма — это инструкция, которая сообщает сети, что нужно сделать. Отправка
+транзакции подобна отправке конверта по почте, чтобы формы могли быть
+обработаны.
+
+Пример ниже показывает упрощённую версию двух транзакций. Когда первая
+транзакция будет обработана, она выполнит одну инструкцию. Когда вторая
+транзакция будет обработана, она выполнит три инструкции **в последовательном
+порядке**: сначала инструкцию 1, затем инструкцию 2, затем инструкцию 3.
+
+<Callout type="warn">
+  Транзакции являются **атомарными**: если одна инструкция не выполнится, вся
+  транзакция завершится неудачей, и изменения не произойдут.
+</Callout>
+
+![Упрощённая диаграмма, показывающая две транзакции](/assets/docs/core/transactions/transaction-simple.svg)
+
+[`Transaction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/src/transaction/mod.rs#L207)
+содержит следующую информацию:
+
+<WithMentions>
+
+- [`signatures`](mention:signatures): Массив [подписей](#signatures)
+- [`message`](mention:message): Информация о транзакции, включая список
+  инструкций для обработки
+
+```rust title="Transaction"
+pub struct Transaction {
+    #[wasm_bindgen(skip)]
+    #[serde(with = "short_vec")]
+    // !mention signatures
+    pub signatures: Vec<Signature>,
+
+    #[wasm_bindgen(skip)]
+    // !mention message
+    pub message: Message,
+}
+```
+
+</WithMentions>
+
+![Диаграмма, показывающая две части транзакции](/assets/docs/core/transactions/tx_format.png)
+
+Размер транзакции ограничен
+[1232](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/packet/src/lib.rs#L29)
+байт. Это ограничение включает как массив [`signatures`](#signatures), так и
+структуру [`message`](#message).
+
+<Callout>
+  Этот лимит предназначен для предотвращения фрагментации пакетов в типичной
+  интернет-инфраструктуре. Хотя IPv6 поддерживает MTU больше 9000 байт,
+  большинство интернет-маршрутизаторов используют стандартное значение MTU в
+  1500 байт (стандарт Ethernet). Чтобы гарантировать, что транзакции помещаются
+  в один пакет без фрагментации, Solana использует 1280 байт (минимальное
+  значение MTU, требуемое для IPv6) минус 48 байт для сетевых заголовков (40
+  байт для IPv6 + 8 байт для заголовка фрагментации/UDP), что в итоге дает
+  ограничение размера транзакции в 1232 байта.
+</Callout>
+
+![Диаграмма, показывающая формат транзакции и ограничения по размеру](/assets/docs/core/transactions/issues_with_legacy_txs.png)
+
+## Подписи
+
+Массив `signatures` транзакции содержит структуры `Signature`. Каждая
+[`Signature`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/signature/src/lib.rs#L30)
+занимает 64 байта и создаётся путём подписи `Message` транзакции приватным
+ключом аккаунта. Для каждого [аккаунта-подписанта](#account-addresses),
+участвующего в любой из инструкций транзакции, должна быть предоставлена
+подпись.
+
+Первая подпись принадлежит аккаунту, который будет оплачивать
+[базовую комиссию](/docs/core/fees#base-fee) за транзакцию, и является подписью
+самой транзакции. С помощью подписи транзакции можно найти подробности этой
+транзакции в сети.
+
+## Сообщение
+
+Структура `message` транзакции — это
+[`Message`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L131),
+которая содержит следующую информацию:
+
+<WithMentions>
+
+- [`header`](mention:message-header): Заголовок [header](#header) сообщения
+- [`account_keys`](mention:account-addresses): Массив
+  [адресов аккаунтов](#account-addresses), необходимых для инструкций транзакции
+- [`recent_blockhash`](mention:recent-blockhash):
+  [blockhash](#recent-blockhash), который выступает в роли временной метки для
+  транзакции
+- [`instructions`](mention:instructions): Массив [инструкций](#instructions)
+
+<Callout>
+  Чтобы сэкономить место, транзакция не хранит права доступа для каждого
+  аккаунта отдельно. Вместо этого права определяются с помощью `header` и
+  `account_keys`.
+</Callout>
+
+```rust title="Message"
+pub struct Message {
+    /// The message header, identifying signed and read-only `account_keys`.
+    // !mention message-header
+    pub header: MessageHeader,
+
+    /// All the account keys used by this transaction.
+    #[serde(with = "short_vec")]
+    // !mention account-addresses
+    pub account_keys: Vec<Pubkey>,
+
+    /// The id of a recent ledger entry.
+    // !mention recent-blockhash
+    pub recent_blockhash: Hash,
+
+    /// Programs that will be executed in sequence and committed in
+    /// one atomic transaction if all succeed.
+    #[serde(with = "short_vec")]
+    // !mention instructions
+    pub instructions: Vec<CompiledInstruction>,
+}
+```
+
+</WithMentions>
+
+### Заголовок
+
+<WithMentions>
+
+Заголовок сообщения `header` — это
+[`MessageHeader`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/mod.rs#L97)
+структура. Она содержит следующую информацию:
+
+- [`num_required_signatures`](mention:num_required_signatures): Общее количество
+  подписей, необходимых для транзакции
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): Общее
+  количество аккаунтов только для чтения, для которых требуется подпись
+- [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts):
+  Общее количество аккаунтов только для чтения, для которых подпись не требуется
+
+```rust title="MessageHeader"
+pub struct MessageHeader {
+    /// The number of signatures required for this message to be considered
+    /// valid. The signers of those signatures must match the first
+    /// `num_required_signatures` of [`Message::account_keys`].
+    // !mention num_required_signatures
+    pub num_required_signatures: u8,
+
+    /// The last `num_readonly_signed_accounts` of the signed keys are read-only
+    /// accounts.
+    // !mention num_readonly_signed_accounts
+    pub num_readonly_signed_accounts: u8,
+
+    /// The last `num_readonly_unsigned_accounts` of the unsigned keys are
+    /// read-only accounts.
+    // !mention num_readonly_unsigned_accounts
+    pub num_readonly_unsigned_accounts: u8,
+}
+```
+
+</WithMentions>
+
+![Диаграмма, показывающая три части заголовка сообщения](/assets/docs/core/transactions/message_header.png)
+
+### Адреса аккаунтов
+
+Поле сообщения
+[`account_keys`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L138)
+— это массив адресов аккаунтов, передаваемый в
+[компактном формате массива](/docs/references/terminology#compact-array-format).
+Префикс массива указывает его длину. Каждый элемент массива — это публичный
+ключ, указывающий на аккаунт, используемый в инструкциях. Массив `accounts_keys`
+должен быть полным и строго упорядоченным следующим образом:
+
+1. Подписант + Доступ на запись
+2. Подписант + Только для чтения
+3. Не подписант + Доступ на запись
+4. Не подписант + Только для чтения
+
+<Callout>
+  Строгий порядок позволяет массиву `account_keys` быть объединённым с
+  информацией из поля сообщения [`header`](#header) для определения прав доступа
+  для каждого аккаунта.
+</Callout>
+
+![Диаграмма, показывающая порядок массива адресов аккаунтов](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### Недавний blockhash
+
+Поле `recent_blockhash` сообщения — это хеш-значение, которое выступает в роли
+метки времени транзакции и предотвращает дублирование транзакций. Blockhash
+истекает через
+[150 блоков](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/clock/src/lib.rs#L134).
+(Это эквивалентно одной минуте — при условии, что каждый блок занимает 400 мс.)
+После истечения срока действия блока транзакция становится недействительной и не
+может быть обработана.
+
+<Callout>
+  Метод RPC [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) позволяет
+  получить текущий blockhash и последний номер блока, на котором blockhash будет
+  действителен.
+</Callout>
+
+### Инструкции
+
+Поле сообщения
+[`instructions`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/message/legacy.rs#L146)
+— это массив всех инструкций для обработки, передаваемый в
+[компактном формате массива](/docs/references/terminology#compact-array-format).
+Префикс массива указывает его длину. Каждый элемент массива — это структура
+[`CompiledInstruction`](https://github.com/anza-xyz/agave/blob/v2.1.13/sdk/program/src/instruction.rs#L22)
+и содержит следующую информацию:
+
+<WithMentions>
+
+1. [`program_id_index`](mention:program-id-index): Индекс, указывающий на адрес
+   в массиве [`account_keys`](#account-addresses). Это значение определяет адрес
+   программы, которая обрабатывает инструкцию.
+2. [`accounts`](mention:account-indexes): Массив индексов, указывающих на адреса
+   в массиве `account_keys`. Каждый индекс указывает на адрес аккаунта,
+   необходимого для этой инструкции.
+3. [`data`](mention:instruction-data): Массив байтов, определяющий, какую
+   инструкцию вызвать в программе. Также включает любые дополнительные данные,
+   необходимые для инструкции (например, аргументы функции).
+
+```rust title="CompiledInstruction"
+pub struct CompiledInstruction {
+    /// Index into the transaction keys array indicating the program account that executes this instruction.
+    // !mention program-id-index
+    pub program_id_index: u8,
+    /// Ordered indices into the transaction keys array indicating which accounts to pass to the program.
+    #[serde(with = "short_vec")]
+    // !mention account-indexes
+    pub accounts: Vec<u8>,
+    /// The program input data.
+    #[serde(with = "short_vec")]
+    // !mention instruction-data
+    pub data: Vec<u8>,
+}
+```
+
+</WithMentions>
+
+![Компактный массив инструкций](/assets/docs/core/transactions/compact_array_of_ixs.png)
+
+## Пример структуры транзакции
+
+Следующий пример показывает структуру транзакции, содержащей одну инструкцию
+перевода SOL.
+
+<CodeTabs storage="sol-transfer" flags="r">
+
+```ts !! title="Kit"
+import {
+  createSolanaRpc,
+  generateKeyPairSigner,
+  lamports,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstructions,
+  pipe,
+  signTransactionMessageWithSigners,
+  getCompiledTransactionMessageDecoder
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const rpc = createSolanaRpc("http://localhost:8899");
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+// Generate sender and recipient keypairs
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
+
+// Define the amount to transfer
+const LAMPORTS_PER_SOL = 1_000_000_000n;
+const transferAmount = lamports(LAMPORTS_PER_SOL / 100n); // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = getTransferSolInstruction({
+  source: sender,
+  destination: recipient.address,
+  amount: transferAmount
+});
+
+// Create transaction message
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+// Decode the messageBytes
+const compiledTransactionMessage =
+  getCompiledTransactionMessageDecoder().decode(signedTransaction.messageBytes);
+
+console.log(JSON.stringify(compiledTransactionMessage, null, 2));
+```
+
+```ts !! title="Legacy"
+import {
+  LAMPORTS_PER_SOL,
+  SystemProgram,
+  Transaction,
+  Keypair,
+  Connection
+} from "@solana/web3.js";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const { blockhash, lastValidBlockHeight } =
+  await connection.getLatestBlockhash();
+
+// Generate sender and recipient keypairs
+const sender = Keypair.generate();
+const recipient = new Keypair();
+
+// Define the amount to transfer
+const transferAmount = 0.01; // 0.01 SOL
+
+// Create a transfer instruction for transferring SOL from sender to recipient
+const transferInstruction = SystemProgram.transfer({
+  fromPubkey: sender.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: transferAmount * LAMPORTS_PER_SOL // Convert transferAmount to lamports
+});
+
+const transaction = new Transaction({
+  blockhash,
+  lastValidBlockHeight,
+  feePayer: sender.publicKey
+}).add(transferInstruction);
+transaction.sign(sender);
+
+const compiledMessage = transaction.compileMessage();
+console.log(JSON.stringify(compiledMessage, null, 2));
+```
+
+```rs !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    native_token::LAMPORTS_PER_SOL, signature::Signer, signer::keypair::Keypair,
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::transfer;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let connection = RpcClient::new_with_commitment(
+        "http://localhost:8899".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+
+    // Fetch the latest blockhash and last valid block height
+    let blockhash = connection.get_latest_blockhash().await?;
+
+    // Generate sender and recipient keypairs
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+
+    // Create a transfer instruction for transferring SOL from sender to recipient
+    let transfer_instruction = transfer(
+        &sender.pubkey(),
+        &recipient.pubkey(),
+        LAMPORTS_PER_SOL / 100, // 0.01 SOL
+    );
+
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&sender.pubkey()));
+    transaction.sign(&[&sender], blockhash);
+
+    println!("{:#?}", transaction);
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<WithMentions>
+Код ниже показывает вывод из предыдущих фрагментов кода.
+Формат отличается между SDK,
+но обратите внимание, что каждая инструкция содержит одну и ту же необходимую информацию.
+
+<CodeTabs storage="sol-transfer">
+
+```json !! title="Kit"
+{
+  "version": 0,
+  // !mention header
+  "header": {
+    "numSignerAccounts": 1,
+    "numReadonlySignerAccounts": 0,
+    "numReadonlyNonSignerAccounts": 1
+  },
+  // !mention account_keys
+  "staticAccounts": [
+    "HoCy8p5xxDDYTYWEbQZasEjVNM5rxvidx8AfyqA4ywBa",
+    "5T388jBjovy7d8mQ3emHxMDTbUF8b7nWvAnSiP3EAdFL",
+    "11111111111111111111111111111111"
+  ],
+  // !mention recent_blockhash
+  "lifetimeToken": "EGCWPUEXhqHJWYBfDirq3mHZb4qDpATmYqBZMBy9TBC1",
+  // !mention instructions
+  "instructions": [
+    {
+      "programAddressIndex": 2,
+      "accountIndices": [0, 1],
+      "data": {
+        "0": 2,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 128,
+        "5": 150,
+        "6": 152,
+        "7": 0,
+        "8": 0,
+        "9": 0,
+        "10": 0,
+        "11": 0
+      }
+    }
+  ]
+}
+```
+
+```json !! title="Legacy"
+{
+  // !mention header
+  "header": {
+    "numRequiredSignatures": 1,
+    "numReadonlySignedAccounts": 0,
+    "numReadonlyUnsignedAccounts": 1
+  },
+  // !mention account_keys
+  "accountKeys": [
+    "EPLUagqZZAuAtJ5LSbK7eeXjqeTdesd4q8WhoqVrfG3g",
+    "9Txf5pi5jzm7FydFAsQafk7xn5wY9yN2UNm5LW15qvcK",
+    "11111111111111111111111111111111"
+  ],
+  "recentBlockhash": "2qYPgehzMKXcMt4Ku1tKAk9DACKUbtYEY9EUEN42cseT",
+  // !mention instructions
+  "instructions": [
+    {
+      "programIdIndex": 2,
+      "accounts": [0, 1],
+      "data": "3Bxs4NN8M2Yn4TLb"
+    }
+  ],
+  "indexToProgramIds": {}
+}
+```
+
+```json !! title="Rust"
+{
+  "signatures": [
+    "2fPXZtQGWWj6suxfc55FBQiexS8hEhNELqasSL5DRYa1RB1GChHz86Cyy8ukiVwA6qbq91P4cY1FuvTuYtmTHmJP"
+  ],
+  "message": {
+    // !mention header
+    "header": {
+      "num_required_signatures": 1,
+      "num_readonly_signed_accounts": 0,
+      "num_readonly_unsigned_accounts": 1
+    },
+    "account_keys": [
+      "9CpbtdXfUTgLMJL8DEAeEm8thERJPwDuruohjvUuzY7m",
+      "6jELNgS8Q35sF4QZCvwgyKGaKrbcm8P5QcNWUyAb5ekJ",
+      "11111111111111111111111111111111"
+    ],
+    "recent_blockhash": "3P7CVQ9nwXx4B37MvBzghzbcM9K9p5xo7ivDE8W78dCi",
+    // !mention instructions
+    "instructions": [
+      {
+        "program_id_index": 2,
+        "accounts": [0, 1],
+        "data": [2, 0, 0, 0, 128, 150, 152, 0, 0, 0, 0, 0]
+      }
+    ]
+  }
+}
+```
+
+</CodeTabs>
+</WithMentions>
+
+После отправки транзакции вы можете получить её детали, используя подпись
+транзакции и метод RPC [getTransaction](/docs/rpc/http/gettransaction). Ответ
+будет иметь структуру, похожую на следующий фрагмент.
+
+<Callout>
+  Вы также можете найти транзакцию с помощью [Solana
+  Explorer](https://explorer.solana.com).
+</Callout>
+
+```json title="Transaction Data"
+{
+  "blockTime": 1745196488,
+  "meta": {
+    "computeUnitsConsumed": 150,
+    "err": null,
+    "fee": 5000,
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program 11111111111111111111111111111111 invoke [1]",
+      "Program 11111111111111111111111111111111 success"
+    ],
+    "postBalances": [989995000, 10000000, 1],
+    "postTokenBalances": [],
+    "preBalances": [1000000000, 0, 1],
+    "preTokenBalances": [],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": 13049,
+  "transaction": {
+    "message": {
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "accountKeys": [
+        "8PLdpLxkuv9Nt8w3XcGXvNa663LXDjSrSNon4EK7QSjQ",
+        "7GLg7bqgLBv1HVWXKgWAm6YoPf1LoWnyWGABbgk487Ma",
+        "11111111111111111111111111111111"
+      ],
+      "recentBlockhash": "7ZCxc2SDhzV2bYgEQqdxTpweYJkpwshVSDtXuY7uPtjf",
+      "instructions": [
+        {
+          "accounts": [0, 1],
+          "data": "3Bxs4NN8M2Yn4TLb",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "indexToProgramIds": {}
+    },
+    "signatures": [
+      "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX"
+    ]
+  },
+  "version": "legacy"
+}
+```

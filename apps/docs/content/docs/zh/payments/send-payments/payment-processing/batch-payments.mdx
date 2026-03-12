@@ -1,0 +1,468 @@
+---
+title: 批量支付
+description: 了解如何在一笔交易中向多个收款人付款。
+---
+
+Solana 交易是一个包含一个或多个指令的容器。每个指令都是一个操作——转账代币、创建账户、调用程序。网络会按顺序且原子性地执行交易中的所有指令：要么所有指令都成功，要么整个交易失败并回滚。
+
+这意味着你可以在一笔交易中打包多笔转账。与其为三位收款人分别发送三笔交易，不如在一笔交易中包含三条转账指令。这样更快（只需一次确认而不是三次），也更省钱（只需支付一次基础费用而不是三次）。下图展示了如何将多笔支付（在图中称为 "drops"）批量打包进一笔交易，并通过多笔交易处理更大规模的批量支付。
+
+![批量支付示意图](/assets/docs/payments/qn-bulk-send.png)
+
+_来源：
+[QuickNode - 如何在 Solana 上发送批量交易](https://www.quicknode.com/guides/solana-development/transactions/how-to-send-bulk-transactions-on-solana)_
+
+关于交易和指令的更多信息，请参阅 [交易](/docs/core/transactions) 和
+[指令](/docs/core/instructions) 指南。
+
+下面的操作演示了如何将多条转账指令加载到一笔交易中，实现批量支付。
+
+## 将多条指令批量打包进一笔交易
+
+一笔 Solana 交易可以包含对不同收款人的多笔转账。你只需签名一次，支付一次交易费用，所有转账会一起结算。如果有任何一笔转账失败，整个交易都会被拒绝。
+
+<Callout>
+  参见 [Solana 支付原理](/docs/payments/how-payments-work) 了解核心支付概念。
+</Callout>
+
+批量转账需要分别构建每条指令，然后将它们合并到一笔交易中。
+
+以下步骤展示了核心流程。完整可运行代码请参见 [演示](#demo)。
+
+<ScrollyCoding>
+
+## !!steps 派生 Token 账户
+
+首先，为发送方和每个接收方派生 Associated Token Account
+(ATA) 地址。ATA 是基于钱包和 mint 的确定性地址。
+
+<CodePlaceholder title="Batch Payments" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+```
+
+## !!steps 创建转账指令
+
+为每个接收方分别创建一条转账指令。每条指令需指定：
+
+- 源 token account 地址
+- 目标 token account 地址
+- authority（源 token account 拥有者地址）
+- 金额（以基础单位表示，需根据 mint 的 decimals 调整）
+
+<CodePlaceholder title="Batch Payments" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !focus(1:12)
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+```
+
+## !!steps 作为单笔交易发送
+
+将所有转账指令添加到一笔交易中。这样可以原子性地执行所有转账，要么全部成功，要么整个交易失败。
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+// !focus(1:5)
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  // !mark
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+```
+
+## !!steps 验证余额
+
+批量转账完成后，使用 `splToken` helper 验证所有参与方的 token 余额。
+
+<CodePlaceholder title="Batch Payments" />
+
+```ts !! title="Batch Payments"
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n
+});
+
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+
+// !focus(1:8)
+const splToken = client.splToken({
+  mint: mint.address,
+  tokenProgram: "auto"
+});
+
+const senderBalance = await splToken.fetchBalance(sender.address);
+const recipient1Balance = await splToken.fetchBalance(recipient1.address);
+const recipient2Balance = await splToken.fetchBalance(recipient2.address);
+```
+
+</ScrollyCoding>
+
+### 演示
+
+<CodeTabs flags="r">
+
+```ts !! title="Demo"
+// !collapse(1:14) collapsed
+// Click ">" icon on left to expand demo imports
+import { createClient, lamports } from "@solana/client";
+import { generateKeypair } from "@solana/client/server";
+import type { ServerKeypair } from "@solana/client/server";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  getCreateAssociatedTokenInstructionAsync,
+  getInitializeMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  findAssociatedTokenPda,
+  getMintToInstruction,
+  getTransferInstruction
+} from "@solana-program/token-2022";
+
+// Generate keypairs for sender and two recipients
+const sender = (await generateKeypair()).signer;
+const recipient1 = (await generateKeypair()).signer;
+const recipient2 = (await generateKeypair()).signer;
+
+console.log("Sender Address:", sender.address);
+console.log("Recipient 1 Address:", recipient1.address);
+console.log("Recipient 2 Address:", recipient2.address);
+
+// Demo Setup: Create client, mint account, token accounts, and fund with initial tokens
+const { client, mint } = await demoSetup(sender, recipient1, recipient2);
+
+console.log("\nMint Address:", mint.address);
+
+// Derive the Associated Token Accounts addresses (ATAs) for sender and recipients
+// !mark(1:5)
+const [senderAta] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: sender.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !mark(1:5)
+const [recipient1Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient1.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+// !mark(1:5)
+const [recipient2Ata] = await findAssociatedTokenPda({
+  mint: mint.address,
+  owner: recipient2.address,
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+console.log("Sender Token Account:", senderAta.toString());
+console.log("Recipient 1 Token Account:", recipient1Ata.toString());
+console.log("Recipient 2 Token Account:", recipient2Ata.toString());
+
+// =============================================================================
+// Batch Token Payment Demo
+// =============================================================================
+
+// Create instructions to transfer tokens from sender to both recipients
+// Transferring 250,000 base units = 0.25 tokens (with 6 decimals) to each
+// !mark(1:6)
+const transfer1Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient1Ata,
+  authority: sender.address,
+  amount: 250_000n // 0.25 tokens
+});
+
+// !mark(1:6)
+const transfer2Instruction = getTransferInstruction({
+  source: senderAta,
+  destination: recipient2Ata,
+  authority: sender.address,
+  amount: 250_000n // 0.25 tokens
+});
+
+// Prepare and send both transfers in a single transaction using @solana/client
+const signature = await client.transaction.prepareAndSend({
+  authority: sender,
+  // !mark
+  instructions: [transfer1Instruction, transfer2Instruction],
+  version: 0
+});
+
+console.log("\n=== Batch Token Payment Complete ===");
+console.log("Transaction Signature:", signature.toString());
+
+// Fetch final token account balances using @solana/client SPL token helper
+const splToken = client.splToken({
+  mint: mint.address,
+  tokenProgram: "auto"
+});
+
+const senderBalance = await splToken.fetchBalance(sender.address);
+const recipient1Balance = await splToken.fetchBalance(recipient1.address);
+const recipient2Balance = await splToken.fetchBalance(recipient2.address);
+
+console.log("\nSender Token Account Balance:", senderBalance);
+console.log("Recipient 1 Token Account Balance:", recipient1Balance);
+console.log("Recipient 2 Token Account Balance:", recipient2Balance);
+
+// =============================================================================
+// Demo Setup Helper Function
+// =============================================================================
+// !collapse(1:1000) collapsed
+
+/**
+ * Sets up for a batch token transfer demo:
+ * - Creates @solana/client instance
+ * - Airdrops SOL to sender for transaction fees
+ * - Generates mint keypair and creates/initializes mint account
+ * - Creates associated token accounts for sender and both recipients
+ * - Mints initial tokens to sender
+ *
+ * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param recipient1 - The first recipient's keypair
+ * @param recipient2 - The second recipient's keypair
+ * @returns Returns client instance and mint address
+ */
+async function demoSetup(
+  sender: ServerKeypair["signer"],
+  recipient1: ServerKeypair["signer"],
+  recipient2: ServerKeypair["signer"]
+) {
+  // Create @solana/client instance pointing to local validator
+  const client = createClient({
+    endpoint: "http://localhost:8899",
+    websocketEndpoint: "ws://localhost:8900",
+    commitment: "confirmed",
+    logger: () => {} // Disable all logs
+  });
+
+  // Fund sender with SOL for transaction fees using @solana/client actions
+  await client.actions.requestAirdrop(sender.address, lamports(1_000_000_000n));
+
+  // Generate keypair to use as address of mint
+  const mint = (await generateKeypair()).signer;
+
+  // Get default mint account size (in bytes), no extensions enabled
+  const space = BigInt(getMintSize());
+
+  // Get minimum balance for rent exemption
+  const rent = await client.runtime.rpc
+    .getMinimumBalanceForRentExemption(space)
+    .send();
+
+  // Instruction to create new account for mint (token program)
+  // Invokes the system program
+  const createAccountInstruction = getCreateAccountInstruction({
+    payer: sender,
+    newAccount: mint,
+    lamports: rent,
+    space,
+    programAddress: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Instruction to initialize mint account data
+  // Invokes the token 2022 program
+  const initializeMintInstruction = getInitializeMintInstruction({
+    mint: mint.address,
+    decimals: 6,
+    mintAuthority: sender.address
+  });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Create instruction for sender's ATA
+  const createSenderAtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: sender.address
+    });
+
+  // Create instruction for recipient 1's ATA
+  const createRecipient1AtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient1.address
+    });
+
+  // Create instruction for recipient 2's ATA
+  const createRecipient2AtaInstruction =
+    await getCreateAssociatedTokenInstructionAsync({
+      payer: sender,
+      mint: mint.address,
+      owner: recipient2.address
+    });
+
+  // Create instruction to mint initial tokens to sender
+  const mintToInstruction = getMintToInstruction({
+    mint: mint.address,
+    token: senderAta,
+    mintAuthority: sender.address,
+    amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
+  });
+
+  // Combine all instructions and send using @solana/client transaction helper
+  const setupInstructions = [
+    createAccountInstruction, // Create mint account
+    initializeMintInstruction, // Initialize mint
+    createSenderAtaInstruction, // Create sender's ATA
+    createRecipient1AtaInstruction, // Create recipient 1's ATA
+    createRecipient2AtaInstruction, // Create recipient 2's ATA
+    mintToInstruction // Mint tokens to sender
+  ];
+
+  // Prepare and send transaction using @solana/client
+  await client.transaction.prepareAndSend({
+    authority: sender,
+    instructions: setupInstructions,
+    version: 0
+  });
+
+  return {
+    client,
+    mint
+  };
+}
+```
+
+</CodeTabs>
+
+## 通过交易规划实现扩展
+
+单笔交易有大小限制——大约 1232 字节。对于大批量操作（如数百名员工的工资发放、大规模空投），会超出此限制，需要将操作拆分为多笔交易。
+
+当然你可以自行实现交易分发逻辑，但
+[`@solana/instruction-plans`](https://www.solanakit.com/docs/concepts/instruction-plans)
+包（Solana Kit 的一部分）可在两个层面处理此问题：
+
+**指令计划** 用于定义你的操作及其顺序约束：
+
+- **顺序执行** — 必须按顺序执行的指令
+- **并行执行** — 可以以任意顺序执行的指令
+- **不可拆分** — 必须保持在同一笔交易中的指令
+
+**交易计划**
+是由指令计划生成的。规划器会智能地将指令打包进最优大小的交易中，同时遵循你的顺序约束。最终生成的交易计划可以：
+
+- **执行** — 签名并发送到网络，支持并行交易同时发送
+- **模拟** — 在网络上进行试运行，发送前进行验证
+- **序列化** — 编译为 base64，便于外部签名服务或多方协作流程
+
+这种两层结构让你可以专注于操作本身（“先转账给 Alice，再转账给 Bob”），而库会自动处理交易大小、打包和并行执行等细节。

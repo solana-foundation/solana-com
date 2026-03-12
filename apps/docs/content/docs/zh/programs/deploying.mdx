@@ -1,0 +1,480 @@
+---
+title: 部署程序
+description: 使用 Solana CLI 将自定义程序上传到 Solana 区块链。
+---
+
+本指南假设您已了解以下主题：
+
+- [Solana 账户模型](/docs/core/accounts)
+- [Solana 程序概述](/docs/core/programs)
+- [开发自定义 Solana 程序](/docs/programs/rust/)
+
+| 任务                         | 命令                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| 构建程序                     | `cargo build-sbf`                                                                             |
+| 部署新程序                   | `solana program deploy <path_to_program.so>`                                                  |
+| 更新已有程序                 | `solana program deploy <path_to_program.so>`（与部署相同）                                    |
+| 显示程序信息                 | `solana program show <program-id>`                                                            |
+| 转移程序权限                 | `solana program set-upgrade-authority <program-id> --new-upgrade-authority <path_to_keypair>` |
+| 使程序不可变                 | `solana program set-upgrade-authority <program-id> --final`                                   |
+| 关闭程序                     | `solana program close <program-id> --bypass-warning`                                          |
+| 查询钱包余额                 | `solana balance`                                                                              |
+| 请求空投（devnet/localhost） | `solana airdrop 2`                                                                            |
+
+目前正在从 loader-v3（program 子命令）过渡到 loader-v4（program **-v4**
+子命令），因为 loader-v3 正在被弃用。
+
+对于新的部署，请使用 `solana program-v4 deploy` 替代 `solana program deploy`。
+
+要迁移现有程序（本质上是重新部署它）：
+
+```shell
+solana program migrate ./target/deploy/your_program-keypair.json
+```
+
+## 准备工作
+
+首先，需要构建（编译、链接、精简）程序。
+
+```shell
+cargo +solana build --target sbpf-solana-solana --release
+```
+
+此步骤必须在每次重新部署之前执行。
+
+检查默认付款账户是否有足够的资金，资金量应与可执行文件的大小成比例：
+
+```shell
+du -h ./target/deploy/your_program.so
+solana balance
+```
+
+此外，每个程序都有一个程序账户和一个程序 ID，程序 ID 是该程序账户的地址。以下命令生成程序账户的 keypair：
+
+```shell
+solana-keygen new -o ./target/deploy/your_program-keypair.json
+```
+
+```terminal
+$ solana-keygen new
+```
+
+默认会在 `~/.config/solana/id.json` 处创建一个 keypair。
+
+```shell
+cargo-build-sbf
+```
+
+## 初次部署
+
+现在可以将可执行文件上传到程序账户：
+
+选择要部署到哪个 Solana 集群。使用 `solana config get` 命令检查当前配置：
+
+```terminal
+$ solana config get
+Config File: ~/.config/solana/cli/config.yml
+RPC URL: http://localhost:8899
+WebSocket URL: ws://localhost:8900/ (computed)
+Keypair Path: ~/.config/solana/id.json
+Commitment: confirmed
+```
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+```terminal
+$ solana config set --url mainnet-beta
+$ solana config set --url devnet
+$ solana config set --url localhost
+$ solana config set --url testnet
+$ solana config set --url "https://your-rpc-url.com"
+```
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+```
+
+## 重新部署
+
+再次向同一个 program
+account 上传不同的可执行文件将会覆盖/替换它。然而，对于重新部署，只需要程序 ID（程序 keypair 的 pubkey），而不需要整个 keypair，因为签名者是升级权限 keypair。
+
+### Loader-v3
+
+对于 devnet 或 localhost，可使用 `solana airdrop` 命令为钱包充值：
+
+```terminal
+$ solana airdrop 2
+Requesting airdrop of 2 SOL
+Signature: 5zQKxvRdgJDA8fRGPdKfGxRLnLpwmNnMXGYxfBqFSUPqc5BTmFPrTG8vnC4HvKDVY8zQ8aQxZxcEE7WFpGhZGVAA
+2 SOL
+```
+
+如果旧的可执行文件比新的短，可能需要先扩展 programdata account：
+
+```terminal
+$ solana balance
+2 SOL
+```
+
+### Loader-v4
+
+请注意，初始部署使用了 `program-keypair`，而重新部署则使用 `program-id`：
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## 优先上传
+
+要构建程序，请使用 `cargo build-sbf` 命令：
+
+```terminal
+$ cargo build-sbf
+```
+
+## 恢复上传
+
+上传可能会卡住或中断。
+
+### Loader-v3
+
+如果程序部署失败，将会有一个挂起的中间缓冲账户，其中包含非零余额。为了收回该余额，您可以通过将相同的中间缓冲提供给新的调用来恢复失败的部署
+`deploy`。
+
+```rs !! title="src/lib.rs"
+use solana_program::{
+    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
+    _instruction_data: &[u8],
+) -> ProgramResult {
+    msg!("Hello, Solana!");
+    Ok(())
+}
+```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "2.2.0"
+```
+
+要恢复 keypair：
+
+使用 `cargo build-sbf` 命令构建你的程序：
+
+```terminal
+$ cargo build-sbf
+```
+
+这将在 `target/deploy/` 目录下生成两个重要文件：
+
+1. `hello_world-keypair.json`：一个 keypair 文件，其公钥将作为你的 Program ID
+2. `hello_world.so`：已编译的程序可执行文件
+
+```json !! title="target/deploy/hello_world-keypair.json"
+[
+  203, 253, 43, 62, 165, 111, 94, 222, 105, 225, 218, 85, 143, 9, 114, 96, 243,
+  181, 114, 89, 72, 230, 124, 85, 59, 165, 198, 23, 240, 212, 23, 154, 229, 241,
+  153, 61, 153, 105, 79, 204, 193, 163, 33, 65, 82, 183, 49, 240, 224, 137, 248,
+  24, 128, 25, 192, 197, 118, 235, 239, 67, 85, 156, 219, 231
+]
+```
+
+```txt !! title="target/deploy/hello_world.so"
+[binary executable file]
+```
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```
+
+## 最终化
+
+这是一个**不可逆**的操作。
+
+可以通过移除升级权限使程序变为不可变。
+
+```terminal
+$ wc -c < ./target/deploy/hello_world.so
+18504
+```
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```
+
+```terminal
+$ solana rent 18504
+Rent-exempt minimum: 0.12967872 SOL
+```
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```
+
+与覆盖程序不同，还可以通过构建一个已最终化程序的链表，为用户提供选择程序版本的选项：
+
+使用 `solana program deploy` 命令部署你的程序：
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 2BYwsqRP7ZwBNQvJp3S8bphTJ4zKW5JBPVMqCTE5KyLkP8xHzAyUEeC4LdTgjJdGBKHWNCkRF8Mf1T1WkLFyEu8W
+```
+
+对于在 loader-v3 下部署的程序，只能回收其 programdata 账户、缓冲账户以及其中锁定的资金。程序账户及其程序 ID 和锁定在程序账户中的资金将无法回收。
+
+在 loader-v4 下部署的程序可以关闭，其程序账户、程序 ID 和锁定资金将再次可用于其他用途。
+
+### Loader-v3
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so --program-id ./custom-keypair.json
+```
+
+你可以使用 `solana-keygen` 命令生成新的 keypair：
+
+```terminal
+$ solana-keygen new -o ./custom-keypair.json
+```
+
+```shell
+solana program close ./target/deploy/your_program-keypair.json
+```
+
+关闭与当前权限相关的所有缓冲区账户：
+
+使用相同的 `solana program deploy` 命令更新你的程序：
+
+1. 修改你的程序代码
+2. 重新构建你的程序：`cargo build-sbf`
+3. 部署更新：
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 3zKnXDfEm1R8hVcEmTnNFYUaFjVVbLJrKdFj5hBMXoBRfz8xGyDhCYgKr9YY5KxKYPEUQQVfwEPNz9hQGvYhLNBJ
+```
+
+## 检查元数据
+
+`show` 子命令列出程序的元数据。
+
+示例输出如下：
+
+```terminal
+$ solana program extend 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE 1000
+Extended Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE by 1000 bytes
+```
+
+- `Program Id` 是在调用程序时可以在指令的 `program_id` 字段中引用的地址。
+- `Owner`：部署此程序所使用的 loader。
+- `ProgramData Address` 是与程序账户关联的 programdata
+  account，存储程序的可执行文件（仅限 loader-v3）。
+- `Status`：`retracted`、`deployed` 或 `finalized`（仅限 loader-v4）。
+- `Authority` 是程序的升级权限。
+- `Last Deployed In Slot` 是程序最后一次部署的 slot。
+- `Data Length` 是为部署保留的空间大小。目前部署的程序实际使用的空间可能更少。
+
+### Loader-v3
+
+查看特定程序：
+
+```shell
+solana program show ./target/deploy/your_program-keypair.json
+```
+
+要检查你的程序元数据，请使用 `solana program show` 命令：
+
+```terminal
+$ solana program show 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+```
+
+显示所有与权限无关的缓冲区账户：
+
+```shell
+solana program show --buffers --all
+```
+
+```txt
+$ solana program show 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Program Id/] program-id
+Program Id: 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Owner/] owner
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+# !tooltip[/ProgramData Address/] program-data-address
+ProgramData Address: Gqn7YQVCP8NtYV1qkEqR4Udhj8EJ3fkikvS7HskCNQ7c
+# !tooltip[/Authority/] authority
+Authority: 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1
+# !tooltip[/Last Deployed In Slot/] last-deployed-in-slot
+Last Deployed In Slot: 6573
+# !tooltip[/Data Length/] data-length
+Data Length: 18504 (0x4848) bytes
+# !tooltip[/Balance/] balance
+Balance: 0.12999192 SOL
+```
+
+```shell
+solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
+solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v4
+
+查看特定程序：
+
+```shell
+solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```
+
+查看使用默认权限部署的程序列表：
+
+```shell
+solana program-v4 show --all
+```
+
+查看使用特定权限部署的程序列表：
+
+```shell
+solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+```
+
+## 下载可执行文件
+
+有时下载并比较程序以确保其包含已知的可执行文件是有用的。下载的文件可以被截断、哈希并与原始程序文件的哈希值进行比较。
+
+### Loader-v3
+
+```shell
+solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
+```
+
+### Loader-v4
+
+```shell
+solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## 高级：权限转移
+
+更改特定程序的权限归其权限所有者所有。此权限可以转移给另一个密钥对，而无需更改程序密钥对，从而使程序 ID 保持不变。此外，单个权限所有者可以控制多个程序账户。
+
+要将程序权限转移到其他账户，请使用 `solana program set-upgrade-authority` 命令：
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --new-upgrade-authority ./new-authority-keypair.json
+```
+
+首先，必须生成一个用于权限的密钥对：
+
+```shell
+solana-keygen new -o ~/.config/solana/authority-keypair.json
+```
+
+要使你的程序不可变，请使用 `solana program set-upgrade-authority` 命令，并加上
+`--final` 标志以移除程序权限：
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --final
+Account Type: Program
+Authority: none
+```
+
+```shell
+solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+或者在部署后使用默认密钥对作为当前权限：
+
+要关闭你的程序并回收分配给 program account 的 SOL，请使用 `solana program close`
+命令：
+
+```terminal
+$ solana program close 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --bypass-warning
+Closed Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE, 0.12999192 SOL reclaimed
+```
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
+```
+
+### Loader-v4
+
+可以在部署期间指定权限：
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
+```
+
+```terminal
+$ solana program show --programs
+```
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
+```
+
+```txt
+Program Id                                       | Slot       | Authority                                      | Balance
+-------------------------------------------------|------------|------------------------------------------------|-------------
+7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE     | 249885434  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.12999192
+3KSGCk4m5hqJkTjPHBXUCPcqMwJnK3VmkqEsFUKKGJPK     | 249883212  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.28654328
+```
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
+```
+
+要下载已部署的程序，请使用 `solana program dump` 命令：
+
+```terminal
+$ solana program dump 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE ./downloaded_program.so
+Wrote program to ./downloaded_program.so
+```
+
+请注意，使用缓冲区账户会使上传过程所需的资金大约翻倍，因为两个账户会同时持有一个可执行文件。
+
+首先，必须为缓冲区账户创建一个密钥对：
+
+```shell
+solana-keygen new -o ~/.config/solana/buffer-keypair.json
+```
+
+缓冲区账户可以用于不同的上传，并且不绑定到任何特定的程序账户。
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so \
+    --with-compute-unit-price 10000 \
+    --max-sign-attempts 10 \
+    --use-rpc
+```
+
+```shell
+solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+- **`--with-compute-unit-price`**：设置每个计算单元的优先费，单位为微 lamports（0.000001
+  SOL）。可查看
+  [Helius Priority Fee API](https://docs.helius.dev/guides/priority-fee-api)
+  获取当前费率。优先费是额外支付给当前 leader 的费用，用于优先处理你的交易。
+- **`--max-sign-attempts`**：如果交易过期，使用新的 blockhash 重试的次数。（默认值：5）
+- **`--use-rpc`**：将交易发送到已配置的 RPC。此标志需要来自
+  [Triton](https://triton.one/) 或 [Helius](https://www.helius.dev/) 等提供商的
+  [stake-weighted](/developers/guides/advanced/stake-weighted-qos) RPC 连接。

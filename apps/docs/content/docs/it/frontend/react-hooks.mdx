@@ -1,0 +1,206 @@
+---
+title: "@solana/react-hooks"
+description:
+  Condividi lo stato di @solana/client nella tua app React con hook pronti
+  all'uso.
+---
+
+`@solana/react-hooks` aggiunge un provider React, hook e helper di query
+compatibili con suspense sopra `@solana/client`. Configuri comunque un singolo
+client, ma gli hook espongono lo stato del wallet, i saldi, le transazioni e le
+query dei programmi senza dover collegare manualmente store o sottoscrizioni.
+
+## Installazione
+
+```terminal
+$ npm install @solana/client @solana/react-hooks
+```
+
+Entrambi i pacchetti sono necessari perché gli hook riutilizzano il runtime del
+client per gestire wallet, RPC e cache.
+
+## Avvolgi il tuo albero una volta
+
+Crea il client, scegli opzionalmente i connettori del wallet, quindi avvolgi il
+tuo albero React con `SolanaProvider`. Ogni hook legge dall'istanza del client
+condivisa.
+
+```tsx
+"use client";
+
+import { autoDiscover, createClient } from "@solana/client";
+import { SolanaProvider } from "@solana/react-hooks";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <SolanaProvider client={client}>{children}</SolanaProvider>;
+}
+```
+
+## Gli hook rispecchiano il runtime del client
+
+- **Wallet + connettori**: `useWallet`, `useWalletConnection`,
+  `useConnectWallet` e `useDisconnectWallet` espongono lo stesso registro che
+  alimenta il client.
+- **Osservatori di saldo + account**: `useBalance`, `useAccount`,
+  `useSolBalance` e `useProgramAccounts` trasmettono aggiornamenti dagli
+  osservatori sottostanti e condividono la cache con le azioni.
+- **Transazioni + helper SPL**: `useSolTransfer`, `useSplToken`,
+  `useTransactionPool` e `useSendTransaction` si basano sulla suite di helper
+  del client, quindi gli hook ereditano l'aggiornamento del blockhash, la
+  risoluzione del fee payer e il logging.
+
+```tsx
+function WalletPanel() {
+  const { connectors, connect, disconnect, wallet, status } =
+    useWalletConnection();
+  const balance = useBalance(wallet?.account.address);
+
+  if (status === "connected") {
+    return (
+      <div>
+        <p>{wallet?.account.address.toString()}</p>
+        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
+        <button onClick={disconnect}>Disconnect</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {connectors.map((connector) => (
+        <button key={connector.id} onClick={() => connect(connector.id)}>
+          Connect {connector.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+## Pattern di query + caching
+
+`SolanaQueryProvider` aggiunge primitive compatibili con React Query sopra lo
+store del client, così le query specifiche di Solana possono sospendere,
+ricaricare e sincronizzarsi con le sottoscrizioni dei programmi.
+
+```tsx
+import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
+
+function ProgramAccounts({ program }: { program: string }) {
+  const query = useProgramAccounts(program);
+
+  if (query.isLoading) return <p>Loading…</p>;
+  if (query.isError) return <p role="alert">RPC error</p>;
+
+  return (
+    <div>
+      <button onClick={() => query.refresh()}>Refresh</button>
+      <ul>
+        {query.accounts.map(({ pubkey }) => (
+          <li key={pubkey.toString()}>{pubkey.toString()}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ProgramAccountsSection({ program }: { program: string }) {
+  return (
+    <SolanaQueryProvider>
+      <ProgramAccounts program={program} />
+    </SolanaQueryProvider>
+  );
+}
+```
+
+## Flussi di transazione resi dichiarativi
+
+Gli hook espongono gli stessi helper di transazione del client ma gestiscono per
+te gli stati di caricamento ed errore. Usali per trasferimenti SOL, flussi di
+token SPL o batch di istruzioni arbitrarie.
+
+```tsx
+import { useSolTransfer } from "@solana/react-hooks";
+
+function SolTransferForm({ destination }: { destination: string }) {
+  const transfer = useSolTransfer();
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void transfer.send({ destination, lamports: 100_000_000n });
+      }}
+    >
+      <button type="submit" disabled={transfer.isSending}>
+        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
+      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
+    </form>
+  );
+}
+```
+
+Hai bisogno di istruzioni grezze invece? `useSendTransaction` accetta
+`instructions` e sovrascritture opzionali `prepare`, fornendoti il tracciamento
+della firma e dello stato quando la richiesta termina.
+
+```tsx
+import { useSendTransaction, useWallet } from "@solana/react-hooks";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
+
+function CustomTransactionForm({ destination }: { destination: string }) {
+  const wallet = useWallet();
+  const { send, isSending, signature, error } = useSendTransaction();
+
+  async function handleSend() {
+    if (wallet.status !== "connected") return;
+
+    const instruction = getTransferSolInstruction({
+      source: wallet.session.account,
+      destination: address(destination),
+      amount: lamports(100_000_000n)
+    });
+
+    await send({ instructions: [instruction] });
+  }
+
+  return (
+    <div>
+      <button onClick={handleSend} disabled={isSending}>
+        {isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {signature ? <p>Signature: {signature}</p> : null}
+      {error ? <p role="alert">{String(error)}</p> : null}
+    </div>
+  );
+}
+```
+
+## Pattern comuni per gli sviluppatori Solana
+
+- **Runtime condiviso, app multiple**: configura il client una volta (magari in
+  un pacchetto core) e utilizzalo in web, mobile web o isole React incorporate.
+- **Sviluppo UI first**: gli hook rispecchiano i flussi Solana più comuni
+  (connettere un wallet, recuperare i saldi, inviare SOL, leggere i saldi SPL)
+  così puoi concentrarti sulla UX invece che sull'impianto RPC.
+- **Miglioramento progressivo**: inizia headless con `@solana/client`, poi
+  aggiungi hook nelle aree in cui desideri lo stato React e il recupero dati
+  compatibile con suspense.
+- **Testing**: simula i valori di ritorno degli hook o passa un client simulato
+  a `SolanaProvider` per simulare wallet, successi RPC o fallimenti negli unit
+  test.
+- **Consapevolezza dei server component**: marca solo i componenti foglia che
+  chiamano hook con `"use client"`; tutto il resto può rimanere sul server e
+  ricevere prop idratate dai figli alimentati dagli hook.
+
+Abbina questa guida alla [panoramica di @solana/client](/docs/frontend/client)
+per comprendere il runtime su cui si basa ogni hook.

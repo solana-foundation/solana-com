@@ -1,0 +1,141 @@
+---
+title: Runtime de conta
+description:
+  Como o runtime do Solana carrega e valida contas antes da execução, e o
+  formato de serialização usado para passar dados de conta para programas.
+url: /docs/core/accounts/account-runtime
+type: reference
+prerequisites:
+  - /docs/core/accounts
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/accounts/modification-rules
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/programs/program-execution
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="Resumo">
+  Antes da execução, o runtime carrega contas, valida o pagador de taxas,
+  verifica a isenção de renda, e serializa dados de conta num layout de memória
+  que os programas podem aceder.
+</Callout>
+
+<Callout>
+  Esta página aborda os componentes internos do runtime. A maioria dos
+  programadores não precisa desta informação para construir programas. Consulte
+  [Estrutura de conta](/docs/core/accounts/account-structure) para a visão
+  orientada ao programador.
+</Callout>
+
+## Carregamento de conta
+
+Antes de uma transação ser executada, o runtime carrega todas as contas
+referenciadas através de
+[`load_transaction_accounts()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L489-L519).
+Este processo realiza várias validações:
+
+1. **Validação do pagador de taxas**: o pagador de taxas (primeira conta) deve
+   existir, ser uma conta de sistema ou conta nonce, e ter lamports suficientes
+   para cobrir as taxas
+   ([`validate_fee_payer()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
+   Após pagar as taxas, a conta deve permanecer isenta de renda ou ir para
+   exatamente 0 lamports. Não pode terminar entre 0 e o mínimo de isenção de
+   renda. As contas nonce devem sempre reter lamports suficientes para
+   permanecerem isentas de renda. Se o pagador não for uma conta de sistema nem
+   uma conta nonce, a transação falha com
+   _rs`TransactionError::InvalidAccountForFee`_.
+
+2. **Limite de tamanho de dados carregados**: o tamanho total de todas as contas
+   carregadas (incluindo um
+   [`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)
+   de 64 bytes por conta) não deve exceder
+   [`MAX_LOADED_ACCOUNTS_DATA_SIZE_BYTES`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)
+   (64 MiB). Exceder este limite produz
+   _rs`TransactionError::MaxLoadedAccountsDataSizeExceeded`_.
+
+3. **Validação de program account**: cada programa invocado por uma instrução
+   deve existir e ser propriedade de um carregador válido: um dos
+   [`PROGRAM_OWNERS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account/src/lib.rs#L802)
+   (BPF Loader Upgradeable, BPF Loader, BPF Loader Deprecated, Loader V4) ou o
+   carregador nativo. Se o program account não existir, a transação falha com
+   _rs`TransactionError::ProgramAccountNotFound`_. Se existir mas tiver um
+   proprietário inválido, a transação falha com
+   _rs`TransactionError::InvalidProgramForExecution`_.
+
+4. **Contas inexistentes**: Contas que não existem on-chain são carregadas como
+   contas padrão (0 lamports, dados vazios, pertencentes ao System Program) com
+   `rent_epoch` definido como `u64::MAX`.
+
+## Formato de serialização BPF
+
+Quando um programa é invocado, o runtime serializa as contas num buffer de
+memória contíguo e passa-o para a BPF VM. O formato de serialização (para o
+formato alinhado padrão usado por todos os loaders exceto o loader-v1 obsoleto)
+é definido em
+[`serialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L474-L578).
+
+O buffer começa com um `u64` (8 bytes, little-endian) contendo o número de
+contas. Depois, para cada conta na instrução, o buffer contém:
+
+| Offset        | Tamanho         | Campo                                   | Tipo                                                                                                                   |
+| ------------- | --------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 0             | 1               | marcador de duplicação                  | `u8` (`0xFF` = única, índice = duplicação dessa conta)                                                                 |
+| 1             | 1               | is_signer                               | `u8` (0 ou 1)                                                                                                          |
+| 2             | 1               | is_writable                             | `u8` (0 ou 1)                                                                                                          |
+| 3             | 1               | executable                              | `u8` (0 ou 1)                                                                                                          |
+| 4             | 4               | original_data_len (reservado, sempre 0) | `[0u8; 4]`                                                                                                             |
+| 8             | 32              | key                                     | `Pubkey`                                                                                                               |
+| 40            | 32              | owner                                   | `Pubkey`                                                                                                               |
+| 72            | 8               | lamports                                | `u64` (little-endian)                                                                                                  |
+| 80            | 8               | data_len                                | `u64` (little-endian)                                                                                                  |
+| 88            | data_len        | data                                    | `[u8]`                                                                                                                 |
+| 88 + data_len | 10240 + padding | espaço de realloc + alinhamento         | Preenchido com zeros até `MAX_PERMITTED_DATA_INCREASE` (10 KiB) + padding para alinhar a `BPF_ALIGN_OF_U128` (8 bytes) |
+| ...           | 8               | rent_epoch                              | `u64` (little-endian)                                                                                                  |
+
+Após todas as contas, o buffer anexa:
+
+| Tamanho              | Campo                                       |
+| -------------------- | ------------------------------------------- |
+| 8                    | instruction_data_len (`u64`, little-endian) |
+| instruction_data_len | instruction_data                            |
+| 32                   | program_id (`Pubkey`)                       |
+
+Para contas duplicadas, apenas 1 byte (o marcador de duplicação com o índice da
+original) mais 7 bytes de preenchimento são escritos.
+
+## Desduplicação de contas
+
+Quando a mesma chave pública de conta aparece várias vezes no array `accounts`
+de uma instrução, o runtime
+[desduplica](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607-L623)
+as mesmas. Cada entrada na lista de contas da instrução obtém sua própria
+estrutura
+[`InstructionAccount`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L75),
+mas entradas que se referem à mesma conta de nível de transação apontam para os
+mesmos dados subjacentes.
+
+O método
+[`is_instruction_account_duplicate`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L607)
+determina se um determinado índice de conta de instrução é a primeira ocorrência
+ou uma duplicação ao procurar o índice de conta de nível de transação e
+encontrar o primeiro índice de nível de instrução que mapeia para ele:
+
+- Se o índice de conta de instrução atual for igual ao primeiro índice mapeado,
+  ele **não** é uma duplicação (retorna `None`).
+- Caso contrário, retorna `Some(first_index)`, onde `first_index` é o índice da
+  primeira ocorrência.
+
+Como todas as referências à mesma conta compartilham o mesmo
+_rs`AccountSharedData`_ subjacente, modificações através de qualquer referência
+são imediatamente visíveis através de todas as outras referências. No entanto,
+apenas um empréstimo mutável pode ser mantido de cada vez. Tentar emprestar a
+mesma conta de forma mutável através de dois diferentes índices de conta de
+instrução simultaneamente retorna _rs`InstructionError::AccountBorrowFailed`_.
+Os programas devem liberar um empréstimo antes de adquirir outro na mesma conta
+subjacente.
+
+Após a execução do programa, o runtime desserializa o buffer de volta
+([`deserialize_parameters_aligned()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/serialization.rs#L580-L667))
+e aplica quaisquer alterações a `lamports`, `data` (incluindo alterações de
+comprimento até _rs`MAX_PERMITTED_DATA_INCREASE`_), e `owner`.

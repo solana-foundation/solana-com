@@ -1,0 +1,163 @@
+---
+title: トランザクションパイプライン
+description: Solanaトランザクションが送信からコミットまでどのように処理されるか。8段階の検証パイプライン全体、ネットワークからのトランザクション詳細の読み取り、一般的な検証エラーについて説明します。
+url: /docs/core/transactions/transaction-pipeline
+type: reference
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/fees/fee-structure
+  - /docs/core/accounts/account-runtime
+  - /docs/core/programs/program-execution
+---
+
+<Callout type="info" title="概要">
+  トランザクションは8つの段階を経ます:受信、署名検証、サニタイズ、予算/経過時間チェック、手数料支払者検証、アカウント読み込み、命令実行、コミット。
+</Callout>
+
+## トランザクション処理パイプライン
+
+トランザクションがvalidatorに到着すると、一連の検証と実行段階を経ます。以下では、[agave](https://github.com/anza-xyz/agave/tree/v3.1.8)
+validatorクライアントのソースファイル参照とともに、受信からコミットまでの完全なパイプラインを説明します。
+
+### 1. 受信とデシリアライズ
+
+# validatorはUDP/QUIC経由でトランザクションバイトを受信します。生のバイトは単一パケット内に収まる必要があります(_rs`PACKET_DATA_SIZE`_
+
+1,232バイト)。バイトは*rs`VersionedTransaction`*にデシリアライズされ、署名配列と*rs`VersionedMessage`*(レガシーまたはv0)が含まれます。
+
+### 2. 署名検証(sigverify)
+
+署名は、トランザクションがバンキング段階に入る前に[sigverify段階](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs)で検証されます。インデックス`i`の各署名について、検証者はEd25519(`signatures[i]`,
+`account_keys[i]`,
+`message_bytes`)をチェックします。いずれかの署名が無効な場合、パケットは破棄されます。
+
+検証は並列化されています:validatorはパケットバッチを[`VERIFY_PACKET_CHUNK_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/perf/src/sigverify.rs#L27)(128)のチャンクに分割し、並列処理します。
+
+### 3. サニタイズ
+
+デシリアライズされたトランザクションはサニタイズされ、_rs`SanitizedTransaction`_(または[`RuntimeTransaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/runtime_transaction.rs#L31))が生成されます。サニタイズは構造的な不変条件を検証します:
+
+- 署名数がヘッダーの`num_required_signatures`と一致すること
+- すべての命令の`program_id_index`と`account_indices`が範囲内であること
+- 手数料支払者(アカウントインデックス0)が書き込み可能な署名者であること
+
+*rs`RuntimeTransaction`*ラッパーは、[`TransactionMeta`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime-transaction/src/transaction_meta.rs#L38-L44)から事前計算されたメタデータをキャッシュします:メッセージハッシュ、投票トランザクションフラグ、プリコンパイル署名数(Ed25519/secp256k1/secp256r1)、計算予算命令の詳細、命令データの合計長。
+
+### 4. 計算予算、有効期限、ステータスキャッシュの確認
+
+[`check_transactions`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/check_transactions.rs#L55-L69)メソッドは、トランザクションごとに複数のチェックを実行します。
+
+**計算予算**: トランザクションの計算予算instructionsが最初に解析され、検証されます。予算制限と優先度手数料から手数料の詳細が計算されます。計算予算が無効または競合している場合、トランザクションは*rs`DuplicateInstruction`*、`InstructionError(..., InvalidInstructionData)`、または*rs`InvalidLoadedAccountsDataSizeLimit`*などの計算予算解析エラーで失敗します。
+
+**ブロックハッシュの有効期限**: トランザクションの`recent_blockhash`が[`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33)で検索されます。ハッシュが見つかり、その有効期限が*rs`MAX_PROCESSING_AGE`*(150スロット)以内であれば、トランザクションは続行されます。見つからない場合、validatorは有効な[durable nonce](/docs/core/transactions/durable-nonces)を確認します。
+
+**ステータスキャッシュ**: トランザクションのメッセージハッシュがステータスキャッシュと照合されます。見つかった場合、トランザクションは*rs`AlreadyProcessed`*で拒否されます。
+
+### 5. nonceと手数料支払者の検証
+
+SVMの[`validate_transaction_nonce_and_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L580-L620)メソッドは、2つの検証を処理します。
+
+**nonce検証**(該当する場合):
+nonceトランザクションの場合、validatorはnonceアカウントを読み込み、以下を検証します。
+
+- アカウントがSystem Programによって所有されていること
+- *rs`State::Initialized`*として解析されること
+- 保存されているdurable
+  nonceがトランザクションの`recent_blockhash`と一致すること
+- nonceを進めることができること(現在のdurable nonceが次のdurable
+  nonceと異なる、つまり、nonceが現在のブロックで既に使用されていないこと)
+- nonce権限がトランザクションに署名していること
+
+有効な場合、nonceは次のdurable
+nonce値に進められます。[`validate_transaction_nonce`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L676-L729)を参照してください。
+
+**手数料支払者の検証**: 手数料支払者アカウント(常にインデックス0)が読み込まれ、[`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)によってチェックされます。
+
+- アカウントが存在する必要があります(lamports > 0)、そうでない場合は*rs`AccountNotFound`*
+- アカウントはシステムアカウントまたはnonceアカウントである必要があります、そうでない場合は*rs`InvalidAccountForFee`*
+- lamportsは`min_balance + total_fee`をカバーする必要があります。ここで、`min_balance`はシステムアカウントの場合は0、nonceアカウントの場合は`rent.minimum_balance(NonceState::size())`です。そうでない場合は*rs`InsufficientFundsForFee`*
+- 手数料控除後、アカウントはレント免除を維持する必要があります(レント免除からレント支払いに移行できません)
+
+この段階で、手数料は手数料支払者から差し引かれます。手数料が差し引かれた手数料支払者（該当する場合は進行したnonce）のスナップショットが*rs`RollbackAccounts`*として保存されます。これらは、実行が失敗した場合でもコミットされるアカウントです。
+
+### 6. アカウントの読み込み
+
+[`load_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L419-L455)は、トランザクションによって参照されるすべてのアカウントを読み込みます。[`AccountLoader`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L161-L165)は、外部アカウントストアをラップし、バッチローカルキャッシュを維持することで、同じバッチ内の以前のトランザクションによって変更されたアカウントが後続のトランザクションから見えるようにします。
+
+各非手数料支払者アカウントについて、ローダーは次の処理を行います。
+
+1. キャッシュまたはaccounts-dbからアカウントを取得
+2. 必要に応じてレント免除ステータスを更新
+3. アカウントのデータサイズを[`loaded_accounts_data_size_limit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L53)（デフォルト64
+   MiB）に累積。各アカウントは[`TRANSACTION_ACCOUNT_BASE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L45)（64バイト）の基本オーバーヘッドとそのデータ長を発生させます
+
+トランザクションのinstructionsによって呼び出される各programについて、ローダーはprogramアカウントが存在し、有効なローダー（`NativeLoader`または*rs`PROGRAM_OWNERS`*のいずれか）によって所有されていることを検証します。無効なprogramは*rs`ProgramAccountNotFound`*または*rs`InvalidProgramForExecution`*で失敗します。
+
+LoaderV3（アップグレード可能）programは、関連するprogramdataアカウントを暗黙的に読み込みます。これも読み込まれたデータサイズの制限にカウントされます。
+
+アカウントの読み込みが失敗したが、手数料支払者が正常に検証された場合、トランザクションは[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)の結果になります。手数料は引き続き徴収されますが、instructionsは実行されません。
+
+### 7. instructionsの実行
+
+[`execute_loaded_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/transaction_processor.rs#L847)は、読み込まれたすべてのアカウントを含む*rs`TransactionContext`*を作成し、[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs)を呼び出します。instructionsは、メッセージに表示される順序で順次実行されます。各instructionの呼び出しは*rs`InvokeContext`*を作成し、ターゲットprogramを呼び出します。
+
+#### instructionの処理の詳細
+
+ランタイムの[`process_message`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)関数は、各instructionを反復処理し、ターゲットprogramを呼び出します。
+
+1. 各instructionについて、ランタイムは
+   [`prepare_next_top_level_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)
+   を呼び出し、
+   [`InstructionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L519)
+   を構築します。このコンテキストには、instructionのアカウント（コンパイル済みインデックスから解決）、instruction
+   data、およびprogram accountインデックスへの参照が含まれます。
+2. ランタイムは、プログラムが
+   [precompile](/docs/core/programs/precompiles)（Ed25519、Secp256k1、Secp256r1）であるかどうかを確認します。precompileは、BPF
+   VMを呼び出すことなく直接検証されます。
+3. その他すべてのプログラムについて、ランタイムは
+   [`process_instruction`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L477)
+   を呼び出し、キャッシュからプログラムをロードしてBPF仮想マシンで実行します。
+4. instructionが完了すると、ランタイムは
+   [検証](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L366-L398)
+   を行い、すべてのinstructionアカウント全体のlamport残高合計が変更されていないことを確認します（*rs`UnbalancedInstruction`*チェック）。
+5. いずれかのinstructionが失敗した場合、トランザクション全体がロールバックされます。中間状態の変更はコミットされません。
+
+各instructionはinstructionトレースをインクリメントします。トレースには、トップレベルのinstructionsと、それらが呼び出す[CPI](/docs/core/cpi)の両方が含まれます。トレースの合計長（トップレベルのinstructionsとすべてのネストされたCPI）は64を超えることはできません（_rs`MAX_INSTRUCTION_TRACE_LENGTH`_）。この制限を超えると、*rs`InstructionError::MaxInstructionTraceLengthExceeded`*が返されます。
+
+実行後、ランタイムは以下を検証します：
+
+- すべてのアカウント全体のlamport合計が変更されていないこと
+- rent-exemptからrent-payingに移行したアカウントがないこと
+
+### 8. コミットまたはロールバック
+
+実行が成功した場合、`TransactionContext`から変更されたアカウント状態が*rs`AccountLoader`*のバッチローカルキャッシュに書き戻されます。実行が失敗した場合、_rs`RollbackAccounts`_（手数料が差し引かれたfee
+payerと進められたnonce）のみが書き戻されます。手数料は引き続き徴収されますが、その他すべてのアカウント変更は破棄されます。
+
+### パイプラインの概要
+
+```
+Receive packet (UDP/QUIC)
+  --> Deserialize into VersionedTransaction
+  --> Sigverify (parallel Ed25519 verification)
+  --> Sanitize (structural validation, metadata extraction)
+  --> Parse compute budget, calculate fees
+  --> Check blockhash age (or verify nonce account)
+  --> Check status cache (dedup)
+  --> Validate nonce authority and advanceability (if nonce transaction)
+  --> Validate fee payer (load, check balance, deduct fee)
+  --> Load all accounts (with data size limits)
+  --> Load programs (verify loaders)
+  --> Execute instructions sequentially
+  --> Verify post-conditions (lamport balance, rent state)
+  --> Commit account changes (or rollback on failure)
+```
+
+## トランザクションエラーリファレンス
+
+次の表は、すべての
+[`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
+バリアントと、それらが発生するパイプラインステージを示しています：

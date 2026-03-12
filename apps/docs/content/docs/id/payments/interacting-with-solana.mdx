@@ -1,0 +1,229 @@
+---
+title: Berinteraksi dengan Solana
+description: Terhubung ke jaringan dan jelajahi data blockchain
+---
+
+Sebelum membangun alur pembayaran, Anda perlu terhubung ke Solana dan memahami
+cara melakukan kueri data jaringan. Panduan ini mencakup dasar-dasarnya: membuat
+koneksi dan menggunakan metode RPC yang Anda perlukan untuk pembayaran
+menggunakan [@solana/kit](https://www.npmjs.com/package/@solana/kit) TypeScript
+SDK dan [Solana CLI](https://solana.com/docs/intro/installation). Selain itu,
+kami akan membahas dasar-dasar penggunaan
+[Solana Explorer](https://explorer.solana.com) untuk memverifikasi pembayaran
+secara manual, memeriksa akun, dan men-debug masalah.
+
+## Terhubung ke Solana
+
+RPC API Solana adalah cara utama untuk berinteraksi dengan jaringan secara
+terprogram. URL RPC Anda secara efektif adalah kunci API ke jaringan.
+
+<Callout type="caution" title="Jangan gunakan RPC publik untuk produksi">
+  Endpoint publik (`api.mainnet-beta.solana.com`, `api.devnet.solana.com`)
+  memiliki batasan rate, tidak memiliki SLA, dan tidak cocok untuk alur
+  pembayaran produksi. Gunakan [penyedia RPC](https://solana.com/rpc) untuk
+  mengamankan endpoint RPC pribadi untuk deployment produksi.
+</Callout>
+
+Untuk pengembangan dan pengujian, Anda dapat menggunakan endpoint publik dengan
+batasan rate.
+
+Buat klien RPC untuk berinteraksi dengan jaringan:
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.mainnet-beta.solana.com"
+);
+```
+
+```bash !! title="CLI"
+solana config set --url https://api.mainnet-beta.solana.com
+solana config get # to verify the connection
+```
+
+</CodeTabs>
+
+<Callout>
+  Untuk pengembangan, gunakan devnet (`https://api.devnet.solana.com`) atau
+  validator lokal seperti
+  [Surfpool](/docs/intro/installation/surfpool-cli-basics).
+</Callout>
+
+## Metode RPC umum
+
+[JSON-RPC API](/docs/rpc) Solana menyediakan metode untuk melakukan kueri
+jaringan. Berikut adalah metode yang paling sering Anda gunakan untuk alur
+pembayaran.
+
+### Mendapatkan info akun
+
+Semua akun di Solana dapat dialamatkan dengan kunci publik mereka. Gunakan
+metode RPC [`getAccountInfo`](/docs/rpc/http/getaccountinfo) untuk mengambil
+informasi tentang akun mana pun. Metode `getAccountInfo` mengembalikan objek
+`AccountInfo`, yang berisi kunci publik akun, saldo SOL, data, dan beberapa
+metadata lainnya.
+
+Field `data` adalah string yang dikodekan base64 dari data akun. Anda dapat
+mengkodekannya menjadi bytes menggunakan metode `getBase64Codec` dari paket
+`@solana/kit` dan kemudian mendekodekannya menjadi objek yang dapat dibaca
+menggunakan codec yang diharapkan (jika diketahui) untuk data akun (misalnya,
+`getTokenCodec` untuk token account).
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const accountInfo = await rpc
+  .getAccountInfo(address("7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"), {
+    encoding: "base64"
+  })
+  .send();
+const dataBytes = getBase64Codec().encode(accountInfo.value.data);
+const parsedTokenData = getTokenCodec().decode(dataBytes);
+
+console.log(parsedTokenData);
+```
+
+```bash !! title="CLI"
+solana account 7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV
+```
+
+</CodeTabs>
+
+### Mendapatkan saldo token
+
+Periksa saldo token account menggunakan metode RPC
+[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const balance = await rpc.getTokenAccountBalance(tokenAccountAddress).send();
+
+console.log(balance.value.uiAmount); // Human-readable (e.g., 100.50)
+console.log(balance.value.amount); // Base units (e.g., "100500000")
+```
+
+```bash !! title="CLI"
+spl-token balance --address 7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St
+```
+
+</CodeTabs>
+
+### Membangun transaksi
+
+Setiap transaksi memerlukan blockhash terbaru untuk memastikan validitasnya (dan
+tidak kedaluwarsa). Ambil blockhash sebelum membuat transaksi pembayaran
+menggunakan metode RPC
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+```
+
+```bash !! title="CLI"
+solana block-height
+```
+
+</CodeTabs>
+
+> Blockhash kedaluwarsa setelah ~60 detik. Ambil yang baru segera sebelum
+> menandatangani dan mengirim.
+
+### Memeriksa status transaksi
+
+Verifikasi transaksi yang telah diselesaikan menggunakan metode RPC
+[`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const status = await rpc.getSignatureStatuses([signature]).send();
+
+const result = status.value[0];
+// result.confirmationStatus: "processed" | "confirmed" | "finalized"
+```
+
+```bash !! title="CLI"
+solana confirm <SIGNATURE>
+# For more details:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### Mendapatkan detail transaksi
+
+Ambil detail lengkap dari transaksi yang dikonfirmasi menggunakan metode RPC
+[`getTransaction`](/docs/rpc/http/gettransaction):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const transaction = await rpc
+  .getTransaction(signature, { maxSupportedTransactionVersion: 0 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 1 -v
+# Or decode a specific transaction:
+solana confirm <SIGNATURE> -v
+```
+
+</CodeTabs>
+
+### Riwayat transaksi
+
+Dapatkan transaksi terbaru untuk sebuah alamat menggunakan metode RPC
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress):
+
+<CodeTabs storage="kit-cli">
+
+```ts !! title="Kit"
+const signatures = await rpc
+  .getSignaturesForAddress(walletAddress, { limit: 10 })
+  .send();
+```
+
+```bash !! title="CLI"
+solana transaction-history <ADDRESS> --limit 10
+```
+
+</CodeTabs>
+
+> Untuk pemantauan pembayaran yang komprehensif, lihat
+> [Terima Pembayaran](/docs/payments/accept-payments) yang mencakup webhook dan
+> deteksi transaksi secara real-time.
+
+## Menjelajahi data publik
+
+Buku besar publik Solana berarti setiap transaksi, token account, dan mint
+sepenuhnya dapat diaudit. Block explorer memungkinkan Anda memverifikasi
+pembayaran secara manual, memeriksa akun, dan men-debug masalah tanpa menulis
+kode.
+
+**Yang dapat Anda cari:**
+
+- Verifikasi pembayaran yang diselesaikan
+- Periksa saldo token account
+- Debug transaksi yang gagal
+- Cari detail mint (supply, desimal, authority)
+
+**Explorer umum:** [Solana Explorer](https://explorer.solana.com),
+[SolanaFM](https://solana.fm), [Solscan](https://solscan.io),
+[Orb](https://www.orbmarkets.io/)
+
+**Contoh tautan:**
+
+- [USDC Token Mint](https://explorer.solana.com/address/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+  — Supply, pasar, pemegang, dan transaksi untuk USDC
+- [USDC Token Transfer](https://explorer.solana.com/tx/3d2mQChCbqM5iogAN5PZw7KGZuVtQq3LbwU8hk55u4iUvYH1XJ7SQVQpWwoZj43MtthBqGBoqGBe9fn4Bo1VznjG)
+  — Detail transaksi pembayaran USDC
+- [USDG Token Account](https://explorer.solana.com/address/7v45FoihixmfocS3LbANUrEGZQKEJ7QQUg8K9jtZd3St)
+  — Saldo USDG pengguna dan riwayat transaksi

@@ -6,7 +6,7 @@ import { LinkItem } from "@/lib/link-types";
 const CACHE_TAG = "links";
 const REVALIDATE_SECONDS = 300; // 5 minutes
 const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 250;
 
 // Terminal item format expected by the web app
 interface TerminalItem {
@@ -16,6 +16,9 @@ interface TerminalItem {
   categoryId: string;
   date: string;
   url: string;
+  source?: string;
+  linkType?: string;
+  categories?: string[];
 }
 
 // Map category names to category IDs
@@ -31,7 +34,9 @@ const CATEGORY_NAME_TO_ID: Record<string, string> = {
 
 interface LinkConnectionParams {
   limit?: number;
+  cursor?: string;
   category?: string;
+  tag?: string;
 }
 
 /**
@@ -50,15 +55,20 @@ function transformToTerminalItem(link: LinkItem, index: number): TerminalItem {
     categoryId,
     date: link.publishedAt,
     url: link.url,
+    source: link.source,
+    linkType: link.linkType,
+    categories: link.categories.map(
+      (c) => CATEGORY_NAME_TO_ID[c] || c.toLowerCase()
+    ),
   };
 }
 
 /**
- * Cached function to fetch links from TinaCMS
+ * Cached function to fetch links from Keystatic
  */
 async function fetchLinks(params: LinkConnectionParams) {
   try {
-    // Map category ID back to category name for TinaCMS query
+    // Map category ID back to category name for Keystatic query
     const categoryName = params.category
       ? Object.entries(CATEGORY_NAME_TO_ID).find(
           ([, id]) => id === params.category
@@ -67,7 +77,9 @@ async function fetchLinks(params: LinkConnectionParams) {
 
     const { links } = await fetchLatestLinks({
       limit: params.limit ?? DEFAULT_LIMIT,
+      cursor: params.cursor,
       category: categoryName,
+      tag: params.tag,
     });
 
     // Transform links to terminal format
@@ -101,6 +113,16 @@ function parseQueryParams(searchParams: URLSearchParams): LinkConnectionParams {
     params.category = categoryParam;
   }
 
+  const cursorParam = searchParams.get("cursor");
+  if (cursorParam) {
+    params.cursor = cursorParam;
+  }
+
+  const tagParam = searchParams.get("tag");
+  if (tagParam && tagParam !== "all") {
+    params.tag = tagParam;
+  }
+
   return params;
 }
 
@@ -110,7 +132,7 @@ export async function GET(request: NextRequest) {
     const params = parseQueryParams(searchParams);
 
     // Create cache key from params to ensure different queries are cached separately
-    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.category ?? "all"}`;
+    const cacheKey = `links-${params.limit ?? DEFAULT_LIMIT}-${params.cursor ?? "start"}-${params.category ?? "all"}-${params.tag ?? "all"}`;
     const data = await unstable_cache(() => fetchLinks(params), [cacheKey], {
       tags: [CACHE_TAG],
       revalidate: REVALIDATE_SECONDS,

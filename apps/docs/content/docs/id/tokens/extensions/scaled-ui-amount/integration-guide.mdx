@@ -1,0 +1,609 @@
+---
+title: Panduan integrasi scaled UI amount
+description:
+  Pelajari cara mengintegrasikan token yang menggunakan ekstensi scaled UI
+  amount dalam aplikasi Anda.
+---
+
+# Mendukung ekstensi scaled UI amount di Solana
+
+## Latar belakang
+
+Ekstensi scaled UI amount memungkinkan penerbit token untuk menentukan pengali
+yang akan digunakan saat menghitung UI amount dari saldo token pengguna. Ini
+memungkinkan penerbit untuk membuat token rebasing dan mengaktifkan hal-hal
+seperti pemecahan saham. Ekstensi ini, seperti ekstensi token interest bearing,
+menyediakan UI amount yang murni kosmetik yang berarti tim perlu melakukan
+beberapa pekerjaan tambahan untuk memberikan pengalaman yang baik. Kalkulasi dan
+transfer yang mendasari semuanya terjadi menggunakan jumlah mentah dalam
+program.
+
+### Sumber daya:
+
+- [Dokumentasi developer](https://www.solana-program.com/docs/token-2022/extensions#scaled-ui-amount)
+- [Kode Rust ekstensi](https://github.com/solana-program/token-2022/tree/main/program/src/extension/scaled_ui_amount)
+- [Kode Rust amount to UI amount](https://github.com/solana-program/token-2022/blob/main/program/src/processor.rs#L1425)
+
+## Ringkasan
+
+- Pengguna akhir harus berinteraksi dengan UIAmount (jumlah mentah \* pengali)
+  untuk harga token, saldo token, dan jumlah token sedapat mungkin
+- dApp dan penyedia layanan harus menggunakan jumlah mentah dan harga non-scaled
+  untuk semua kalkulasi dan mengonversi untuk pengguna di edge
+- Feed harga historis perlu disediakan untuk jumlah scaled dan non-scaled untuk
+  integrasi yang lebih mudah
+- Nilai pengali historis perlu dapat diakses untuk data historis yang akurat
+
+## Definisi istilah
+
+- Multiplier: pengali statis yang dapat diperbarui yang digunakan untuk
+  kalkulasi UI amount
+- UIAmount: pengali \* jumlah mentah (alias: scaled amount)
+- Raw amount: jumlah (alias: non-scaled amount)
+
+## Saldo saat ini
+
+### Jumlah saat ini untuk tampilan
+
+- Setiap kali Anda menampilkan jumlah untuk token yang menggunakan ekstensi
+  scaled UI amount kepada pengguna akhir, Anda harus menggunakan salah satu:
+  - UIAmount/UIAmountString (**_direkomendasikan_**)
+  - Kalkulasi manual dari jumlah mentah \* pengali
+  - Kami merekomendasikan memotong nilai ini berdasarkan jumlah desimal yang
+    dimiliki token.
+    - Contoh: jika yUSD memiliki 6 desimal dan pengguna memiliki UIAmount
+      1.123456789, Anda harus menampilkan “1.123456”
+
+### Di mana mendapatkan data ini:
+
+- Untuk saldo langsung pengguna, Anda dapat memperoleh informasi terbaru tentang
+  jumlah di atas dengan memanggil getTokenAccountBalance atau getAccountInfo
+- Jika Anda perlu mengetahui UI Amount untuk jumlah tertentu, Anda dapat
+  memperoleh perhitungan ini dengan memanggil fungsi
+  [`amountToUiAmountForMintWithoutSimulation`](https://github.com/solana-program/token-2022/blob/main/clients/js-legacy/src/actions/amountToUiAmount.ts#L164)
+  (web3.js v1) atau mensimulasikan transaksi menggunakan amountToUiAmount.
+  - Catatan: amountToUiAmount memerlukan simulasi transaksi yang berarti juga
+    memerlukan fee payer yang valid dengan saldo. Karena itu, ini tidak boleh
+    menjadi cara default untuk mendapatkan saldo.
+
+#### Panggilan RPC
+
+- `getTokenAccountBalance`
+  - Mengembalikan saldo token account dan informasi mint
+
+<CodeTabs>
+
+```txt !! title="curl-getTokenAccountBalance.sh"
+$ curl http://localhost:8899 -s -X POST -H "Content-Type: application/json" -d '
+{"jsonrpc": "2.0", "id": 1, "method": "getTokenAccountBalance", "params": ["2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk"]}' | jq .
+
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "2.2.14",
+      "slot": 381130751
+    },
+    "value": {
+      "amount": "10000000",
+      "decimals": 6,
+      "uiAmount": 20.0,
+      "uiAmountString": "20"
+    }
+  },
+  "id": 1
+}
+```
+
+```ts !! title="Kit-getTokenAccountBalance.ts"
+import { address, createSolanaRpc } from "@solana/kit";
+const rpc_url = "https://api.devnet.solana.com";
+const rpc = createSolanaRpc(rpc_url);
+
+let tokenAddress = address("2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk");
+
+let tokenBalance = await rpc.getTokenAccountBalance(tokenAddress).send();
+
+console.log("Token Balance:", tokenBalance);
+/* Token Balance: {
+  context: { apiVersion: '2.2.14', slot: 381132711n },
+  value: {
+    amount: '10000000',
+    decimals: 6,
+    uiAmount: 20,
+    uiAmountString: '20'
+  }
+} */
+```
+
+```ts !! title="web3js-getTokenAccountBalance.ts"
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+
+let tokenAddress = new PublicKey(
+  "2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk"
+);
+
+let tokenBalance = await connection.getTokenAccountBalance(tokenAddress);
+
+console.log("Token Balance:", tokenBalance);
+/* Token Balance: {
+  context: { apiVersion: '2.2.14', slot: 381132711n },
+  value: {
+    amount: '10000000',
+    decimals: 6,
+    uiAmount: 20,
+    uiAmountString: '20'
+  }
+} */
+```
+
+</CodeTabs>
+
+- `getAccountInfo`
+  - Mengembalikan informasi akun dan informasi mint
+
+<CodeTabs>
+
+```terminal !! title="curl-getAccountInfo.sh"
+$ curl http://localhost:8899 -s -X POST -H "Content-Type: application/json" -d '
+{"jsonrpc": "2.0", "id": 1, "method": "getAccountInfo", "params": ["2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk", {"encoding": "jsonParsed"}]}' | jq .
+
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "2.2.14",
+      "slot": 381131001
+    },
+    "value": {
+      "data": {
+        "parsed": {
+          "info": {
+            "extensions": [
+              {
+                "extension": "immutableOwner"
+              },
+              {
+                "extension": "pausableAccount"
+              }
+            ],
+            "isNative": false,
+            "mint": "BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG",
+            "owner": "G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib",
+            "state": "initialized",
+            "tokenAmount": {
+              "amount": "10000000",
+              "decimals": 6,
+              "uiAmount": 20.0,
+              "uiAmountString": "20"
+            }
+          },
+          "type": "account"
+        },
+        "program": "spl-token-2022",
+        "space": 174
+      },
+      "executable": false,
+      "lamports": 2101920,
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "rentEpoch": 18446744073709551615,
+      "space": 174
+    }
+  },
+  "id": 1
+}
+```
+
+```ts !! title="Kit-getAccountInfo.ts"
+import { address, createSolanaRpc } from "@solana/kit";
+
+const rpc_url = "https://api.devnet.solana.com";
+const rpc = createSolanaRpc(rpc_url);
+
+const publicKey = address("2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk");
+const accountInfo = await rpc.getAccountInfo(publicKey).send();
+
+console.log(
+  "Account Info:",
+  JSON.stringify(
+    accountInfo,
+    (key, value) => (typeof value === "bigint" ? value.toString() : value),
+    2
+  )
+);
+/* Account Info: {
+  "context": {
+    "apiVersion": "2.2.14",
+    "slot": "381133640"
+  },
+  "value": {
+    "data": {
+      "parsed": {
+        "info": {
+          "extensions": [
+            {
+              "extension": "immutableOwner"
+            },
+            {
+              "extension": "pausableAccount"
+            }
+          ],
+          "isNative": false,
+          "mint": "BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG",
+          "owner": "G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib",
+          "state": "initialized",
+          "tokenAmount": {
+            "amount": "10000000",
+            "decimals": 6,
+            "uiAmount": 20,
+            "uiAmountString": "20"
+          }
+        },
+        "type": "account"
+      },
+      "program": "spl-token-2022",
+      "space": "174"
+    },
+    "executable": false,
+    "lamports": "2101920",
+    "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "rentEpoch": "18446744073709551615",
+    "space": "174"
+  }
+} */
+```
+
+```ts !! title="web3js-getAccountInfo.ts"
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+const publicKey = new PublicKey("2uuvxpnEKw52aTqNerHiQ3WeSqZriCMNVt8LhWfrkbPk");
+const accountInfo = await connection.getParsedAccountInfo(publicKey);
+
+console.log(
+  "Account Info:",
+  JSON.stringify(
+    accountInfo,
+    (key, value) => (typeof value === "bigint" ? value.toString() : value),
+    2
+  )
+);
+/* Account Info: {
+  "context": {
+    "apiVersion": "2.2.14",
+    "slot": "381133640"
+  },
+  "value": {
+    "data": {
+      "parsed": {
+        "info": {
+          "extensions": [
+            {
+              "extension": "immutableOwner"
+            },
+            {
+              "extension": "pausableAccount"
+            }
+          ],
+          "isNative": false,
+          "mint": "BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG",
+          "owner": "G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib",
+          "state": "initialized",
+          "tokenAmount": {
+            "amount": "10000000",
+            "decimals": 6,
+            "uiAmount": 20,
+            "uiAmountString": "20"
+          }
+        },
+        "type": "account"
+      },
+      "program": "spl-token-2022",
+      "space": "174"
+    },
+    "executable": false,
+    "lamports": "2101920",
+    "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "rentEpoch": "18446744073709551615",
+    "space": "174"
+  }
+} */
+```
+
+</CodeTabs>
+
+### Memperbarui jumlah saat ini
+
+Karena penerbit dapat memperbarui multiplier kapan saja, Anda dapat
+mempertimbangkan untuk melakukan polling secara berkala guna menjaga saldo akun
+tetap terbaru. Penerbit tidak mungkin memperbarui multiplier ini lebih dari
+sekali per hari. Jika multiplier ditetapkan untuk tanggal mendatang, Anda dapat
+secara otomatis melakukan polling pada waktu pembaruan ini
+
+## Jumlah token dalam transaksi (transfer / swap dll)
+
+- Pengguna harus memasukkan jumlah yang akan diinterpretasikan sebagai
+  “UIAmount” yang diskalakan. Aplikasi yang harus memproses ini harus
+  mengonversi ke jumlah token mentah untuk transaksi.
+  - Jika ada masalah pembulatan, bulatkan ke bawah dan lebih baik menyisakan
+    sedikit dust daripada berisiko transaksi gagal
+  - Untuk melakukan konversi ini, Anda dapat menggunakan fungsi
+    [`uiAmountToAmountForMintWithoutSimulation`](https://github.com/solana-program/token-2022/blob/main/clients/js-legacy/src/actions/amountToUiAmount.ts#L312C23-L312C63)
+    (web3.js v1) atau mensimulasikan transaksi menggunakan amountToUiAmount.
+
+<CodeTabs>
+
+```ts !! title="web3js-uiAmountToAmountForMintWithoutSimulation.ts"
+import { uiAmountToAmountForMintWithoutSimulation } from "@solana/web3.js";
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+const mint = new PublicKey("BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG");
+const uiAmount = "20.2";
+
+const rawAmount = await uiAmountToAmountForMintWithoutSimulation(
+  connection as unknown as Connection,
+  mint,
+  uiAmount
+);
+console.log("Raw Amount:", rawAmount);
+/* Raw Amount: 20200000 */
+```
+
+</CodeTabs>
+
+- Aplikasi harus menggunakan jumlah mentah total ketika pengguna meminta untuk
+  melakukan tindakan dengan "max" atau "all" dari saldo mereka. Ini memastikan
+  bahwa tidak ada sisa kecil yang tertinggal.
+  - Opsional: Anda dapat mempertimbangkan untuk secara otomatis menutup akun
+    ketika "max" digunakan untuk mengembalikan deposit penyimpanan pengguna
+
+## Harga token
+
+- Harga token harus selalu ditampilkan sebagai harga berskala sedapat mungkin.
+- Jika Anda adalah penyedia layanan umpan harga, seperti oracle, Anda harus
+  menyediakan harga berskala dan non-berskala.
+  - Sedapat mungkin sediakan SDK/API yang mengabstraksi kompleksitas ekstensi
+    jumlah UI berskala.
+
+## Pengali saat ini
+
+- Pengali saat ini dapat dibaca dari token mint kapan saja dengan memanggil
+  `getAccountInfo`. Selain itu, jika pengali masa depan ditetapkan, informasi
+  ini juga tersedia dari token mint. Kami merekomendasikan untuk tidak
+  menampilkan pengali ini karena dapat membingungkan UX.
+
+<CodeTabs>
+
+```ts !! title="Kit-getAccountInfo.ts"
+import { address, createSolanaRpc } from "@solana/kit";
+
+const rpc_url = "https://api.devnet.solana.com";
+const rpc = createSolanaRpc(rpc_url);
+
+const publicKey = address("BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG");
+const accountInfo = await rpc
+  .getAccountInfo(publicKey, { encoding: "jsonParsed" })
+  .send();
+
+const mintData = accountInfo.value?.data as Readonly<{
+  parsed: {
+    info?: {
+      extensions: {
+        extension: string;
+        state: object;
+      }[];
+    };
+    type: string;
+  };
+  program: string;
+  space: bigint;
+}>;
+
+const scaledUiAmountConfig = mintData.parsed.info?.extensions?.find(
+  (extension) => extension.extension === "scaledUiAmountConfig"
+) as Readonly<{
+  state: {
+    newMultiplierEffectiveTimestamp: number;
+    newMultiplier: number;
+    multiplier: number;
+  };
+}>;
+
+const currentMultiplier =
+  scaledUiAmountConfig?.state &&
+  Date.now() / 1000 >=
+    scaledUiAmountConfig.state.newMultiplierEffectiveTimestamp
+    ? scaledUiAmountConfig.state.newMultiplier
+    : scaledUiAmountConfig.state.multiplier;
+
+console.log("Scaled UI Amount Config:", scaledUiAmountConfig);
+console.log("Current Multiplier:", currentMultiplier);
+/*
+Scaled UI Amount Config: {
+  extension: 'scaledUiAmountConfig',
+  state: {
+    authority: 'G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib',
+    multiplier: '2',
+    newMultiplier: '2',
+    newMultiplierEffectiveTimestamp: 1743000000n
+  }
+}
+Current Multiplier: 2
+*/
+```
+
+```ts !! title="web3js-getAccountInfo.ts"
+import {
+  type AccountInfo,
+  Connection,
+  type ParsedAccountData,
+  PublicKey,
+  clusterApiUrl
+} from "@solana/web3.js";
+
+const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+const mint = new PublicKey("BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG");
+
+const accountInfo = await connection.getParsedAccountInfo(mint);
+const mintData = accountInfo?.value as AccountInfo<ParsedAccountData>;
+const mintDataParsed = mintData?.data.parsed as Readonly<{
+  info?: {
+    extensions: {
+      extension: string;
+      state: object;
+    }[];
+  };
+  type: string;
+}>;
+
+const scaledUiAmountConfig = mintDataParsed.info?.extensions?.find(
+  (extension) => extension.extension === "scaledUiAmountConfig"
+) as Readonly<{
+  state: {
+    newMultiplierEffectiveTimestamp: number;
+    newMultiplier: number;
+    multiplier: number;
+  };
+}>;
+
+const currentMultiplier =
+  scaledUiAmountConfig?.state &&
+  Date.now() / 1000 >=
+    scaledUiAmountConfig.state.newMultiplierEffectiveTimestamp
+    ? scaledUiAmountConfig.state.newMultiplier
+    : scaledUiAmountConfig.state.multiplier;
+
+console.log("Scaled UI Amount Config:", scaledUiAmountConfig);
+console.log("Current Multiplier:", currentMultiplier);
+/*
+Scaled UI Amount Config: {
+  extension: 'scaledUiAmountConfig',
+  state: {
+    authority: 'G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib',
+    multiplier: '2',
+    newMultiplier: '2',
+    newMultiplierEffectiveTimestamp: 1743000000
+  }
+}
+Current Multiplier: 2
+*/
+```
+
+</CodeTabs>
+
+## Data historis
+
+### Data historis untuk umpan harga
+
+- Layanan yang menyediakan data historis harus menyimpan dan **menampilkan harga
+  berskala dan non-berskala untuk ekstensi jumlah UI berskala**.
+- Kami mengharapkan jumlah berskala akan digunakan paling sering karena ini
+  sejalan dengan cara dunia keuangan tradisional memperlakukan grafik yang
+  terkait dengan token dengan pemecahan saham.
+- Pembaruan pengali mungkin mencakup stempel waktu yang ada di masa lalu. Kami
+  merekomendasikan menggunakan stempel waktu blok untuk data historis.
+- Perhatikan bahwa pengali aktif mungkin adalah "multiplier" atau
+  "newMultiplier" tergantung pada stempel waktu saat ini dan kapan pengali baru
+  ditetapkan untuk aktif.
+
+### Data historis untuk jumlah
+
+- Jika Anda ingin menampilkan saldo yang ditransfer di masa lalu, Anda
+  memerlukan akses ke pengali pada slot tertentu tersebut. Anda juga dapat
+  menyimpan UiAmount untuk transfer saat Anda memproses transaksi untuk
+  menghindari melakukan perhitungan ini di masa mendatang.
+
+## Kompatibilitas mundur
+
+- Secara default, dompet dan aplikasi yang tidak memahami ekstensi jumlah UI
+  yang diskalakan akan menampilkan total harga aktivitas yang benar dengan
+  mengalikan harga yang tidak diskalakan \* jumlah mentah.
+- Namun, mereka akan menampilkan harga yang tidak diskalakan sehingga
+  menyebabkan kebingungan pengguna.
+- Kami berharap ini mendorong tim untuk memperbarui dapp mereka agar kompatibel
+  dengan token yang menggunakan ekstensi jumlah UI yang diskalakan dan dengan
+  senang hati memberikan dukungan selama proses ini.
+
+## Prioritas integrasi yang direkomendasikan per platform
+
+### **Persyaratan umum**
+
+| Persyaratan                                      | Deskripsi                                                                                                                                                                                                            | Prioritas |
+| :----------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Mendukung tindakan pengguna menggunakan UiAmount | Semua tindakan pengguna harus dimasukkan dalam UiAmount ketika UiAmount diaktifkan di seluruh aplikasi. Jika UiAmount tidak terlihat di aplikasi, mereka harus menggunakan jumlah mentah hingga aplikasi diperbarui. | **P0**    |
+
+---
+
+### **Dompet**
+
+| Persyaratan                                           | Deskripsi                                                                                                                         | Prioritas |
+| :---------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Menampilkan saldo terskalakan                         | Menampilkan jumlah terskalakan (uiAmount) sebagai saldo utama.                                                                    | **P0**    |
+| Dukungan untuk transfer token                         | Pengguna akhir harus memasukkan jumlah transfer dengan saldo terskalakan mereka (jumlah mentah \* saldo).                         | **P0**    |
+| Menampilkan harga spot                                | Menampilkan harga spot yang diskalakan untuk pengguna                                                                             | **P0**    |
+| Metadata riwayat transaksi                            | Menampilkan jumlah terskalakan (UIAmount) untuk setiap transfer jika memungkinkan.                                                | **P1**    |
+| Menampilkan pembaruan pengali dalam riwayat transaksi | Ketika pembaruan pengali terjadi, tampilkan ini sebagai peristiwa dalam riwayat transaksi pengguna termasuk jumlah yang diperoleh | **P2**    |
+| Menampilkan grafik riwayat harga                      | Mencerminkan harga yang diskalakan dalam grafik harga                                                                             | **P1**    |
+| Onboarding/tooltip                                    | Menawarkan tooltip atau onboarding untuk mengedukasi pengguna tentang token yang menggunakan ekstensi jumlah ui yang diskalakan   | **P2**    |
+
+---
+
+### **Explorer**
+
+| Persyaratan                                                       | Deskripsi                                                                                  | Prioritas |
+| :---------------------------------------------------------------- | :----------------------------------------------------------------------------------------- | :-------- |
+| Peningkatan Halaman Detail Token                                  | Menampilkan metadata seperti total kapitalisasi pasar yang diskalakan dan pengali saat ini | **P0**    |
+| Menampilkan Saldo yang Diskalakan untuk Saldo                     | Menampilkan saldo yang diskalakan (UiAmount) untuk saldo saat ini.                         | **P0**    |
+| Menampilkan Saldo yang Diskalakan untuk Transaksi                 | Menampilkan saldo yang diskalakan (UiAmount) untuk jumlah transfer transaksi historis.     | **P0**    |
+| Menampilkan Harga yang Diskalakan untuk Transaksi                 | Menampilkan harga yang diskalakan untuk transaksi sebelumnya                               | **P1**    |
+| Mengurai dan Menampilkan Transaksi Pembaruan Pengali dengan Benar | Menampilkan detail tentang pembaruan pengali dengan benar                                  | **P2**    |
+
+---
+
+### **Agregator Data Pasar (Contoh: CoinGecko, Birdeye)**
+
+| Persyaratan                              | Deskripsi                                                                                                                                                                                                                                                                                                               | Prioritas |
+| :--------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Pembaruan API untuk Data yang Diskalakan | Memperluas fungsi API untuk menyertakan perubahan pengali dari waktu ke waktu serta feed harga yang diskalakan.                                                                                                                                                                                                         | **P0**    |
+| Total Pasokan dengan Penyesuaian Skala   | Saat menampilkan total pasokan dan total kapitalisasi pasar, pertimbangkan saldo yang diskalakan                                                                                                                                                                                                                        | **P0**    |
+| Pelacakan Harga Historis                 | Menyediakan grafik historis harga menggunakan harga yang diskalakan dari waktu ke waktu.                                                                                                                                                                                                                                | **P1**    |
+| Pelacakan Pengali Historis               | Menyediakan penanda historis pembaruan pengali untuk token yang menghasilkan bunga. Perhatikan bahwa pembaruan pengali mungkin menyertakan stempel waktu yang berada di masa lalu. Kami menyarankan menggunakan stempel waktu blok daripada stempel waktu yang ditunjukkan dalam pembaruan pengali untuk data historis. | **P2**    |
+| Konten Edukasi atau Penjelasan           | Menyertakan deskripsi singkat atau tooltips yang menjelaskan cara kerja token yang diskalakan.                                                                                                                                                                                                                          | **P2**    |
+
+---
+
+### **Penyedia umpan harga**
+
+| Persyaratan                            | Deskripsi                                                                                                                                                                                                                                                                                  | Prioritas |
+| :------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Umpan harga terskalakan & non-skalakan | Menyediakan umpan harga untuk harga terskalakan dan non-skalakan.                                                                                                                                                                                                                          | **P0**    |
+| Data pengali historis                  | Menawarkan API dengan perubahan pengali historis. Perhatikan bahwa pembaruan pengali mungkin menyertakan stempel waktu yang berada di masa lalu. Kami merekomendasikan menggunakan stempel waktu blok daripada stempel waktu yang ditunjukkan dalam pembaruan pengali untuk data historis. | **P0**    |
+| Data harga historis                    | Menawarkan API dengan harga historis berdasarkan jumlah terskalakan dan non-skalakan.                                                                                                                                                                                                      | **P0**    |
+
+---
+
+### **DEX**
+
+| Persyaratan                           | Deskripsi                                                                                                                         | Prioritas |
+| :------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Menampilkan saldo token yang direbase | Menampilkan saldo terskalakan untuk perdagangan atau penyediaan likuiditas di UI. (backend masih dapat menggunakan jumlah mentah) | **P0**    |
+| Dukungan untuk tindakan token         | Pengguna akhir harus memasukkan jumlah tindakan dengan saldo UiAmount mereka (pengali \* jumlah mentah).                          | **P0**    |
+| Adaptasi umpan harga                  | Di mana pun umpan harga digunakan untuk menampilkan harga saat ini, berikan harga terskalakan kepada pengguna akhir.              | **P1**    |
+| Menampilkan grafik riwayat harga      | Mencerminkan harga yang diskalakan dalam grafik harga                                                                             | **P1**    |
+
+---
+
+### **CEX**
+
+| Persyaratan                                    | Deskripsi                                                                                                                                     | Prioritas |
+| :--------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Melacak pembaruan pengali                      | Melacak pembaruan pengali untuk token yang menggunakan ekstensi jumlah ui yang diskalakan.                                                    | **P0**    |
+| Menampilkan saldo token yang direbase          | Menampilkan saldo terskalakan untuk perdagangan atau penyediaan likuiditas di UI. (backend masih dapat menggunakan jumlah mentah)             | **P0**    |
+| Dukungan untuk tindakan token                  | Pengguna akhir harus memasukkan jumlah tindakan dengan saldo UiAmount mereka (pengali \* jumlah mentah).                                      | **P0**    |
+| Tindakan historis tidak boleh diskalakan ulang | Tindakan historis seperti perdagangan harus ditampilkan menggunakan jumlah dan harga terskalakan yang akurat pada saat tindakan.              | **P1**    |
+| Melacak saldo mentah secara internal           | Melacak saldo mentah untuk transaksi onchain daripada saldo terskalakan. Ini akan lebih akurat dan lebih mudah dikelola dalam jangka panjang. | **P1**    |
+| Adaptasi umpan harga                           | Di mana pun umpan harga digunakan untuk menampilkan harga saat ini, berikan harga terskalakan kepada pengguna akhir.                          | **P1**    |
+| Menampilkan grafik riwayat harga               | Mencerminkan harga yang diskalakan dalam grafik harga. Ini termasuk menskalakan ulang harga historis ke pengali saat ini.                     | **P1**    |
+| Skalakan basis biaya                           | Biaya per saham harus diskalakan ke pengali saat ini.                                                                                         | **P1**    |

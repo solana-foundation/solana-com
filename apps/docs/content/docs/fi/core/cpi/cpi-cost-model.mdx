@@ -1,0 +1,167 @@
+---
+title: CPI-kustannusmalli ja tietojen synkronointi
+description:
+  CPI-laskentakustannukset, tilitietojen synkronointi kutsijan ja kutsuttavan
+  välillä, PDA-allekirjoitusmekaniikka ja paluudata Solanassa.
+url: /docs/core/cpi/cpi-cost-model
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/cpi/cpi-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/syscall-reference
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI cost model, Account data synchronization, PDA signing, Return data */}
+
+<Callout type="info" title="Yhteenveto">
+  Jokainen CPI maksaa ~1 000 CU:ta peruskustannuksena plus
+  serialisointikustannukset. Tilidata synkronoidaan ennen kutsuttavan suoritusta
+  ja sen jälkeen. PDA-allekirjoitus käyttää kutsijan ohjelmatunnusta. Paluudata
+  on rajoitettu 1 024 tavuun.
+</Callout>
+
+## CPI-kustannusmalli
+
+CPI-kustannukset vähennetään samasta transaktiolaskentabudjetista (jaettu
+mittari). Täydellinen kustannuskaava jokaiselle _rs`invoke`_ /
+_rs`invoke_signed`_ -kutsulle:
+
+```
+total_cpi_cost = invocation_cost
+               + instruction_data_cost
+               + account_meta_cost          (SIMD-0339 only)
+               + account_info_cost          (SIMD-0339 only)
+               + per_account_data_cost      (for each non-executable account)
+               + callee_execution_cost
+```
+
+### Kustannusten erittely
+
+| Kustannuskomponentti                       | Kaava                                                                                                                                               | Lähde                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kutsu (kiinteä)                            | [`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108) = 1 000 CU:ta (946 SIMD-0339:n kanssa) | Veloitetaan [CPI-sisäänkäynnissä](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)                                                                                                                                                                                         |
+| Instruction datan serialisointi            | `instruction_data_len / cpi_bytes_per_unit`                                                                                                         | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205) = 250. Veloitetaan [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569) -funktiossa.                                                |
+| Tilimetatietojen serialisointi (SIMD-0339) | `(num_account_metas * 34) / cpi_bytes_per_unit`                                                                                                     | Jokainen `AccountMeta` on 34 tavua (32 pubkey + 1 is_signer + 1 is_writable). Veloitetaan [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L555-L567) -funktiossa.                                                                                            |
+| Tilitietojen käännös (SIMD-0339)           | `(num_account_infos * 80) / cpi_bytes_per_unit`                                                                                                     | [`ACCOUNT_INFO_BYTE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L63-L68) = 80 tavua (32 key + 32 owner + 8 lamports + 8 data_len). Veloitetaan [translate_account_infos](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981) -funktiossa. |
+| Tilikohtainen data                         | `account_data_len / cpi_bytes_per_unit`                                                                                                             | Veloitetaan tilikohtaisesti [CallerAccount::from_account_info](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374) -funktiossa ja [suoritettaville tileille](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1056-L1060).                           |
+| Kutsuttavan suoritus                       | Mitä tahansa CU:ita kutsuttava ohjelma kuluttaa                                                                                                     | Vähennetään jaetusta mittarista kutsuttavan suorituksen aikana.                                                                                                                                                                                                                                               |
+
+### Esimerkki kustannuslaskelmasta
+
+CPI, jossa on 100 tavua instruction dataa, 5 tilimetatietoa, 5 tilitietoa
+(jokainen 1 000 tavun datalla), SIMD-0339 aktiivisena:
+
+```
+invocation_cost        = 946
+instruction_data_cost  = 100 / 250 = 0  (integer division)
+account_meta_cost      = (5 * 34) / 250 = 0
+account_info_cost      = (5 * 80) / 250 = 1
+per_account_data_cost  = 5 * (1000 / 250) = 20
+total (before callee)  = 967 CUs
+```
+
+## Tilitietojen synkronointi
+
+Tilin tila synkronoidaan kutsijan ja kutsuttavan välillä kahdessa kohdassa CPI:n
+aikana. Tämä varmistaa, että molemmat osapuolet näkevät yhtenäisen näkymän
+tilitiedoista.
+
+### Synkronointi ennen CPI:tä (kutsujalta kutsuttavalle)
+
+Ennen kuin kutsuttava suoritetaan, `update_callee_account` kopioi kutsijan
+käynnissä olevat muutokset kutsuttavan tilinäkymään:
+
+| Kenttä        | Suunta                | Milloin                                                                                                          |
+| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Lamportit     | Kutsuja -> Kutsuttava | Jos arvo eroaa kutsuttavan nykyisestä näkymästä                                                                  |
+| Datan pituus  | Kutsuja -> Kutsuttava | Jos kutsuja on muuttanut tilin kokoa. Ei saa ylittää `original_data_len + MAX_PERMITTED_DATA_INCREASE` (10 KiB). |
+| Datan sisältö | Kutsuja -> Kutsuttava | Jos tilin data on muokattavissa (`can_data_be_changed` hyväksyy)                                                 |
+| Omistaja      | Kutsuja -> Kutsuttava | Asetetaan viimeisenä, jotta data- ja lamport-muutokset ovat sallittuja vanhan omistajan alaisuudessa             |
+
+### Synkronointi CPI:n jälkeen (kutsuttavalta kutsujalle)
+
+Kun kutsuttava palaa, `update_caller_account` kopioi kutsuttavan muutokset
+takaisin kutsijan näkymään. Tämä suoritetaan vain tileille, jotka on merkitty
+kirjoitettaviksi:
+
+| Kenttä        | Suunta                | Milloin                                                                                                                                                                                                                                  |
+| ------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lamportit     | Kutsuttava -> Kutsuja | Kopioidaan aina takaisin                                                                                                                                                                                                                 |
+| Omistaja      | Kutsuttava -> Kutsuja | Kopioidaan aina takaisin                                                                                                                                                                                                                 |
+| Datan pituus  | Kutsuttava -> Kutsuja | Jos muuttunut. VM:n data-osoitin ja sarjallistettu pituuskenttä päivitetään. Jos tiliä kutistettiin, vapautettu muisti nollataan. Jos uusi pituus ylittää `original_data_len + MAX_PERMITTED_DATA_INCREASE`, palauttaa `InvalidRealloc`. |
+| Datan sisältö | Kutsuttava -> Kutsuja | Kopioidaan kutsuttavan datapuskurista kutsijan sarjallistettuun data-alueeseen                                                                                                                                                           |
+
+### Realloc-rajoitukset
+
+Tilin dataa voidaan muuttaa CPI:n aikana enintään
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10 240 tavua (10 KiB) tilin datan pituuden yli nykyisen ylätason instruktion
+alussa. Tämä rajoitus valvotaan sekä
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+(ennen CPI:tä) että
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+(CPI:n jälkeen). Sen ylittäminen palauttaa _rs`InvalidRealloc`_.
+
+## PDA-allekirjoitus
+
+Kun _rs`invoke_signed`_ kutsutaan, runtime johtaa PDA-osoitteet annetuista
+seed-arvoista ja kutsijan ohjelman ID:stä. Tämä tapahtuu
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661):
+
+1. Allekirjoittajan seed-taulukko validoidaan: enintään
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16) allekirjoittajan seed-joukkoa.
+2. Jokainen seed-joukko validoidaan: enintään
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16) seed-arvoa joukkoa kohden, jokainen seed enintään
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   (32) tavua.
+3. [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)
+   kutsutaan seed-arvoilla ja **kutsijan ohjelman ID:llä** (ei kutsuttavan).
+4. Jos seed-arvot eivät tuota kelvollista PDA:ta (eli tuloksena oleva piste on
+   ed25519-käyrällä), CPI epäonnistuu virheellä
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36).
+5. Johdetut PDA-pubkey-arvot kerätään ja välitetään `prepare_next_instruction`
+   kelvollisina allekirjoittajina. Oikeuksien tarkistuksen aikana, jos
+   kutsuttavan tili on merkitty allekirjoittajaksi ja sen pubkey vastaa yhtä
+   näistä johdetuista PDA:ista, allekirjoitustarkistus läpäisee.
+
+<Callout>
+  PDA johdetaan **kutsijan** ohjelman ID:llä, ei kutsuttavan. Tämä tarkoittaa,
+  että vain PDA:n omistava ohjelma (se, jonka ID:tä käytettiin sen johtamiseen)
+  voi allekirjoittaa sen puolesta. Ohjelma ei voi allekirjoittaa muista
+  ohjelmista johdettujen PDA:iden puolesta.
+</Callout>
+
+## Paluudata
+
+Ohjelmat voivat välittää dataa takaisin kutsujille paluudatamekanismilla. Tämä
+käyttää kahta syscall-kutsua:
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439):
+  Asettaa enintään
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  (1 024) tavua paluudataa nykyiselle instruktiolle. Kustannus on
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` CU:ta.
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440):
+  Lukee viimeksi suoritetun instruktion asettaman paluudatan. Palauttaa datan
+  yhdessä sen asettaneen ohjelman ID:n kanssa. Kustannus on
+  `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost` CU:ta (32 tavua
+  ohjelman ID:lle).
+
+Palautusdata tallennetaan transaktiota kohden, ja jokainen
+`sol_set_return_data`-komentoa kutsuva ohje ylikirjoittaa sen. Jokaisen ohjelman
+kutsun alussa ajonaikaympäristö
+[nollaa palautusdatan](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)
+tyhjäksi. CPI:n palautuksen jälkeen kutsuja voi lukea palautusdatan, jonka
+kutsuttu ohjelma (tai mikä tahansa sen kutsuma ohjelma) on viimeksi asettanut.
+
+<Callout>
+  Palautusdata on rajoitettu 1 024 tavuun. Vain **viimeinen** ohjelma, joka
+  kutsuu `sol_set_return_data`-komentoa kutsuketjussa, määrittää mitä kutsuja
+  näkee. Jos kutsuttu ohjelma tekee lisää CPI-kutsuja, jotka asettavat
+  palautusdataa, sen oma palautusdata ylikirjoitetaan.
+</Callout>

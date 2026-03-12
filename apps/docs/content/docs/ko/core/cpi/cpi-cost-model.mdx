@@ -1,0 +1,165 @@
+---
+title: CPI 비용 모델 및 데이터 동기화
+description:
+  Solana의 CPI 컴퓨팅 비용, 호출자와 피호출자 간 계정 데이터 동기화, PDA 서명
+  메커니즘 및 반환 데이터.
+url: /docs/core/cpi/cpi-cost-model
+type: reference
+prerequisites:
+  - /docs/core/cpi
+  - /docs/core/cpi/cpi-execution
+related:
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/syscall-reference
+  - /docs/core/constants-reference
+---
+
+{/* TOC: CPI cost model, Account data synchronization, PDA signing, Return data */}
+
+<Callout type="info" title="요약">
+  각 CPI는 기본 ~1,000 CU에 직렬화 비용이 추가됩니다. 계정 데이터는 피호출자
+  실행 전후로 동기화됩니다. PDA 서명은 호출자의 프로그램 ID를 사용합니다. 반환
+  데이터는 1,024바이트로 제한됩니다.
+</Callout>
+
+## CPI 비용 모델
+
+CPI 비용은 동일한 트랜잭션 컴퓨팅 예산(공유 미터)에서 차감됩니다. 각
+_rs`invoke`_ / _rs`invoke_signed`_ 호출에 대한 전체 비용 공식:
+
+```
+total_cpi_cost = invocation_cost
+               + instruction_data_cost
+               + account_meta_cost          (SIMD-0339 only)
+               + account_info_cost          (SIMD-0339 only)
+               + per_account_data_cost      (for each non-executable account)
+               + callee_execution_cost
+```
+
+### 비용 세부 내역
+
+| 비용 구성 요소               | 공식                                                                                                                                            | 출처                                                                                                                                                                                                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 호출(고정)                   | [`invoke_units`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L108) = 1,000 CU (SIMD-0339 적용 시 946) | [CPI 진입점](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L815-L818)에서 청구                                                                                                                                                                                      |
+| instruction data 직렬화      | `instruction_data_len / cpi_bytes_per_unit`                                                                                                     | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205) = 250. [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L551-L569)에서 청구.                                                |
+| 계정 메타 직렬화 (SIMD-0339) | `(num_account_metas * 34) / cpi_bytes_per_unit`                                                                                                 | 각 `AccountMeta`는 34바이트 (32 pubkey + 1 is_signer + 1 is_writable). [translate_instruction](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L555-L567)에서 청구.                                                                                                   |
+| 계정 정보 변환 (SIMD-0339)   | `(num_account_infos * 80) / cpi_bytes_per_unit`                                                                                                 | [`ACCOUNT_INFO_BYTE_SIZE`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L63-L68) = 80바이트 (32 key + 32 owner + 8 lamports + 8 data_len). [translate_account_infos](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L969-L981)에서 청구. |
+| 계정당 데이터                | `account_data_len / cpi_bytes_per_unit`                                                                                                         | [CallerAccount::from_account_info](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L370-L374)에서 계정당 청구되며 [실행 가능한 계정](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1056-L1060)에 대해서도 청구됨.                         |
+| 피호출자 실행                | 피호출자 프로그램이 소비하는 CU                                                                                                                 | 피호출자 실행 중 공유 미터에서 차감됨.                                                                                                                                                                                                                                                         |
+
+### 비용 계산 예시
+
+100바이트의 instruction data, 5개의 계정 메타, 5개의 계정 정보(각각
+1,000바이트의 데이터 포함), SIMD-0339 활성화 상태인 CPI:
+
+```
+invocation_cost        = 946
+instruction_data_cost  = 100 / 250 = 0  (integer division)
+account_meta_cost      = (5 * 34) / 250 = 0
+account_info_cost      = (5 * 80) / 250 = 1
+per_account_data_cost  = 5 * (1000 / 250) = 20
+total (before callee)  = 967 CUs
+```
+
+## 계정 데이터 동기화
+
+CPI 중 두 시점에서 호출자와 피호출자 간에 계정 상태가 동기화됩니다. 이를 통해
+양측 모두 일관된 계정 데이터 뷰를 확인할 수 있습니다.
+
+### CPI 이전 동기화 (호출자에서 피호출자로)
+
+피호출자가 실행되기 전에
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1145-L1215)는
+호출자의 진행 중인 수정 사항을 피호출자의 계정 뷰로 복사합니다:
+
+| 필드        | 방향               | 시점                                                                                                               |
+| ----------- | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Lamports    | 호출자 -> 피호출자 | 값이 피호출자의 현재 뷰와 다른 경우                                                                                |
+| 데이터 길이 | 호출자 -> 피호출자 | 호출자가 계정 크기를 조정한 경우. `original_data_len + MAX_PERMITTED_DATA_INCREASE` (10 KiB)를 초과할 수 없습니다. |
+| 데이터 내용 | 호출자 -> 피호출자 | 계정의 데이터가 수정 가능한 경우 (`can_data_be_changed` 통과)                                                      |
+| 소유자      | 호출자 -> 피호출자 | 마지막으로 설정되어 이전 소유자 하에서 데이터/램포트 변경이 허용됩니다                                             |
+
+### CPI 이후 동기화 (피호출자에서 호출자로)
+
+피호출자가 반환된 후
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1266-L1352)는
+피호출자의 수정 사항을 호출자의 뷰로 다시 복사합니다. 이는 쓰기 가능으로 표시된
+계정에 대해서만 실행됩니다:
+
+| 필드        | 방향               | 시점                                                                                                                                                                                                                                       |
+| ----------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lamports    | 피호출자 -> 호출자 | 항상 복사됩니다                                                                                                                                                                                                                            |
+| 소유자      | 피호출자 -> 호출자 | 항상 복사됩니다                                                                                                                                                                                                                            |
+| 데이터 길이 | 피호출자 -> 호출자 | 변경된 경우. VM 데이터 슬라이스 포인터와 직렬화된 길이 필드가 업데이트됩니다. 계정이 축소된 경우 해제된 메모리는 0으로 초기화됩니다. 새 길이가 `original_data_len + MAX_PERMITTED_DATA_INCREASE`를 초과하면 `InvalidRealloc`를 반환합니다. |
+| 데이터 내용 | 피호출자 -> 호출자 | 피호출자의 데이터 버퍼에서 호출자의 직렬화된 데이터 영역으로 복사됩니다                                                                                                                                                                    |
+
+### Realloc 제한
+
+계정 데이터는 CPI 중에 현재 최상위 명령어 시작 시점의 계정 데이터 길이를 넘어
+[`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)
+= 10,240바이트(10 KiB)까지 크기를 조정할 수 있습니다. 이 제한은
+[`update_callee_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1171-L1173)
+(CPI 이전)과
+[`update_caller_account`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L1290-L1300)
+(CPI 이후) 모두에서 적용됩니다. 이를 초과하면 *rs`InvalidRealloc`*를 반환합니다.
+
+## PDA 서명
+
+*rs`invoke_signed`*가 호출되면, 런타임은 제공된 seed와 호출자의 프로그램
+ID로부터 PDA 주소를 파생합니다. 이는
+[`translate_signers_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L619-L661)에서
+발생합니다:
+
+1. 서명자 seed 배열이 검증됩니다: 최대
+   [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)
+   (16)개의 서명자 seed 세트.
+2. 각 seed 세트가 검증됩니다: 세트당 최대
+   [`MAX_SEEDS`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L47)
+   (16)개의 seed, 각 seed는 최대
+   [`MAX_SEED_LEN`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L45)
+   (32)바이트.
+3. [`Pubkey::create_program_address`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L653-L654)가
+   seed와 **호출자의 프로그램 ID**(피호출자의 ID가 아님)로 호출됩니다.
+4. seed가 유효한 PDA를 생성하지 못하면(즉, 결과 포인트가 ed25519 곡선 위에
+   있으면), CPI는
+   [`BadSeeds`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L35-L36)와
+   함께 실패합니다.
+5. 파생된 PDA pubkey들이 수집되어 유효한 서명자로서 `prepare_next_instruction`에
+   전달됩니다. 권한 검사 중에 피호출자 계정이 서명자로 표시되고 해당 pubkey가
+   이러한 파생된 PDA 중 하나와 일치하면, 서명자 검사가 통과됩니다.
+
+<Callout>
+  PDA는 피호출자의 프로그램 ID가 아닌 **호출자의** 프로그램 ID를 사용하여
+  파생됩니다. 이는 PDA를 소유한 프로그램(파생에 사용된 ID를 가진 프로그램)만이
+  해당 PDA를 대신하여 서명할 수 있음을 의미합니다. 프로그램은 다른 프로그램에서
+  파생된 PDA에 대해 서명할 수 없습니다.
+</Callout>
+
+## 반환 데이터
+
+프로그램은 반환 데이터 메커니즘을 사용하여 호출자에게 데이터를 전달할 수
+있습니다. 이는 두 개의 syscall을 사용합니다:
+
+- [`sol_set_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L439):
+  현재 명령어에 대해 최대
+  [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)
+  (1,024)바이트의 반환 데이터를 설정합니다. 비용은
+  `data_len / cpi_bytes_per_unit + syscall_base_cost` CU입니다.
+- [`sol_get_return_data`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L440):
+  가장 최근에 실행된 명령어에 의해 설정된 반환 데이터를 읽습니다. 데이터를
+  설정한 프로그램 ID와 함께 데이터를 반환합니다. 비용은
+  `(data_len + 32) / cpi_bytes_per_unit + syscall_base_cost` CU입니다(프로그램
+  ID에 대해 32바이트).
+
+반환 데이터는 트랜잭션별로 저장되며 `sol_set_return_data`를 호출하는 각 명령어에
+의해 덮어쓰여집니다. 각 프로그램 호출이 시작될 때 런타임은
+[반환 데이터를 재설정](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L547)하여
+비웁니다. CPI가 반환된 후 호출자는 피호출자(또는 피호출자가 호출한 모든
+프로그램)가 마지막으로 설정한 반환 데이터를 읽을 수 있습니다.
+
+<Callout>
+  반환 데이터는 1,024바이트로 제한됩니다. 호출 체인에서 `sol_set_return_data`를
+  호출한 **마지막** 프로그램만이 호출자가 보는 내용을 결정합니다. 피호출자가
+  반환 데이터를 설정하는 추가 CPI를 수행하면 피호출자 자체의 반환 데이터가
+  덮어쓰여집니다.
+</Callout>

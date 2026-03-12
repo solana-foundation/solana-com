@@ -1,0 +1,96 @@
+---
+title: Cross Program Invocation
+description:
+  Cross Program Invocation (CPI) na Solana — como os programas chamam outros
+  programas usando invoke e invoke_signed, lidam com signatários PDA e compõem
+  funcionalidades on-chain.
+url: /docs/core/cpi
+type: conceptual
+prerequisites:
+  - /docs/core/instructions
+  - /docs/core/programs
+related:
+  - /docs/core/cpi/cpi-without-pda
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/pda
+---
+
+Um Cross-Program Invocation (CPI) ocorre quando um
+[programa](/docs/core/programs) chama uma [instrução](/docs/core/instructions)
+em outro programa durante a execução. CPIs permitem composabilidade: as
+instruções de qualquer programa podem ser invocadas por qualquer outro programa
+na rede.
+
+![Exemplo de cross-program invocation](/assets/docs/core/cpi/cpi.svg)
+
+<Cards>
+  <Card title="CPIs sem signatários PDA" href="/docs/core/cpi/cpi-without-pda">
+    Usando a função invoke, Anchor CpiContext, exemplos em Rust nativo, exemplos
+    de CPI de transferência SOL.
+  </Card>
+  <Card title="CPIs com signatários PDA" href="/docs/core/cpi/cpi-with-pda">
+    Usando invoke_signed com seeds de signatário, Anchor CpiContext com PDA,
+    exemplos de assinatura PDA em Rust nativo.
+  </Card>
+  <Card
+    title="Execução e privilégios de CPI"
+    href="/docs/core/cpi/cpi-execution"
+  >
+    Fluxo de execução de CPI em 11 etapas, regras de extensão de privilégios,
+    reentrância, validação de contas.
+  </Card>
+  <Card
+    title="Modelo de custo de CPI e sincronização de dados"
+    href="/docs/core/cpi/cpi-cost-model"
+  >
+    Fórmula de custo de CPI, custos de serialização, sincronização de dados de
+    conta, assinatura PDA, dados de retorno.
+  </Card>
+</Cards>
+
+## Factos principais
+
+- **Duas funções**: _rs`invoke`_ (sem assinatura PDA) e _rs`invoke_signed`_ (com
+  assinatura PDA).
+- **Extensão de privilégios**: Os privilégios de [conta](/docs/core/accounts)
+  (signatário, gravável) estendem-se do chamador para o chamado. Um chamado não
+  pode escalar privilégios além do que o chamador passou.
+- **Orçamento de computação partilhado**: O consumo de CU do chamado reduz o
+  orçamento restante do chamador.
+- **Reentrância**: A auto-recursão direta é permitida (A->A->A). A reentrância
+  indireta não é permitida (A->B->A retorna _rs`ReentrancyNotAllowed`_).
+
+## Limites
+
+| Limite                                         | Valor                         | Fonte                                                                                                                                                                                                                                                           |
+| ---------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profundidade máxima da pilha de instruções     | 5 (9 com SIMD-0268)           | [`MAX_INSTRUCTION_STACK_DEPTH`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L8), [`MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L10) |
+| Custo de invocação de CPI                      | 1.000 CUs (946 com SIMD-0339) | [`DEFAULT_INVOCATION_COST`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L21), [`INVOKE_UNITS_COST_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L23)              |
+| Máximo de signatários PDA por CPI              | 16                            | [`MAX_SIGNERS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L62)                                                                                                                                                                   |
+| Máximo de instruction data de CPI              | 10 KiB (10.240 bytes)         | [`MAX_INSTRUCTION_DATA_LEN`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L33)                                                                                                                                                  |
+| Máximo de dados de retorno                     | 1.024 bytes                   | [`MAX_RETURN_DATA`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/cpi/src/lib.rs#L329)                                                                                                                                                             |
+| Máximo de account infos de CPI                 | 128 (255 com SIMD-0339)\*     | [`MAX_CPI_ACCOUNT_INFOS`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L122), [`MAX_CPI_ACCOUNT_INFOS_SIMD_0339`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L124)                                    |
+| Custo de serialização de CPI                   | 1 CU por 250 bytes            | [`cpi_bytes_per_unit`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L205)                                                                                                                                              |
+| Máximo de realocação de dados de conta por CPI | 10.240 bytes (10 KiB)         | [`MAX_PERMITTED_DATA_INCREASE`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/account-info/src/lib.rs#L17)                                                                                                                                         |
+
+## `invoke` vs `invoke_signed`
+
+Solana fornece duas funções para fazer CPIs:
+
+| Função          | Caso de uso                                                                  | Assinatura PDA                  |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------- |
+| `invoke`        | CPIs onde todos os signatários necessários já assinaram a transação original | Não                             |
+| `invoke_signed` | CPIs onde o programa chamador precisa assinar em nome de um PDA que possui   | Sim, via sementes de signatário |
+
+Internamente, _rs`invoke`_ simplesmente chama _rs`invoke_signed`_ com um array
+vazio de sementes de signatário. Use _rs`invoke`_ quando não precisar de
+assinatura PDA, e _rs`invoke_signed`_ quando o programa precisar autorizar uma
+ação em nome de um PDA.
+
+Ambas as funções acabam por acionar a mesma syscall
+([`sol_invoke_signed_rust`](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/cpi.rs#L11-L33))
+e fluem pelo mesmo caminho de runtime
+([`cpi_common`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/cpi.rs#L802-L925)).
+A única diferença é se as sementes de signatário são fornecidas. Quando as
+sementes são fornecidas, o runtime deriva chaves públicas PDA e adiciona-as ao
+conjunto de signatários válidos antes da verificação de privilégios.

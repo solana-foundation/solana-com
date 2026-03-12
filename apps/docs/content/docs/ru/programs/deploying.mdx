@@ -1,0 +1,522 @@
+---
+title: Развёртывание программ
+description:
+  Загрузка пользовательских программ в блокчейн Solana с использованием Solana
+  CLI.
+---
+
+В этом руководстве предполагается знание следующих тем:
+
+- [Модель аккаунтов Solana](/docs/core/accounts)
+- [Программы Solana в общем](/docs/core/programs)
+- [Разработка пользовательских программ Solana](/docs/programs/rust/)
+
+| Задача                               | Команда                                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Сборка программы                     | `cargo build-sbf`                                                                             |
+| Деплой новой программы               | `solana program deploy <path_to_program.so>`                                                  |
+| Обновление существующей программы    | `solana program deploy <path_to_program.so>` (то же, что и деплой)                            |
+| Показать информацию о программе      | `solana program show <program-id>`                                                            |
+| Передать права на программу          | `solana program set-upgrade-authority <program-id> --new-upgrade-authority <path_to_keypair>` |
+| Сделать программу неизменяемой       | `solana program set-upgrade-authority <program-id> --final`                                   |
+| Закрыть программу                    | `solana program close <program-id> --bypass-warning`                                          |
+| Проверить баланс кошелька            | `solana balance`                                                                              |
+| Запросить airdrop (devnet/localhost) | `solana airdrop 2`                                                                            |
+
+В настоящее время происходит переход от loader-v3 (подкоманда program) к
+loader-v4 (подкоманда program **-v4**), так как loader-v3 устаревает.
+
+Для новых развёртываний используйте `solana program-v4 deploy` вместо
+`solana program deploy`.
+
+Чтобы перенести существующую программу (по сути, повторно развернуть её):
+
+```shell
+solana program migrate ./target/deploy/your_program-keypair.json
+```
+
+## Подготовка
+
+Сначала программу необходимо собрать (скомпилировать, связать, оптимизировать).
+
+```shell
+cargo +solana build --target sbpf-solana-solana --release
+```
+
+Этот шаг необходимо выполнять перед каждым повторным/новым развёртыванием.
+
+Убедитесь, что на аккаунте плательщика по умолчанию достаточно средств,
+пропорционально размеру исполняемого файла:
+
+```shell
+du -h ./target/deploy/your_program.so
+solana balance
+```
+
+Кроме того, каждая программа имеет аккаунт программы и ID программы, который
+является адресом этого аккаунта программы. Следующая команда создаёт keypair для
+аккаунта программы:
+
+```shell
+solana-keygen new -o ./target/deploy/your_program-keypair.json
+```
+
+```terminal
+$ solana-keygen new
+```
+
+По умолчанию это создаёт keypair по адресу `~/.config/solana/id.json`.
+
+```shell
+cargo-build-sbf
+```
+
+## Первоначальное развёртывание
+
+Теперь исполняемый файл можно загрузить в аккаунт программы:
+
+Выберите Solana-кластер для деплоя. Используйте команду `solana config get`,
+чтобы проверить текущую конфигурацию:
+
+```terminal
+$ solana config get
+Config File: ~/.config/solana/cli/config.yml
+RPC URL: http://localhost:8899
+WebSocket URL: ws://localhost:8900/ (computed)
+Keypair Path: ~/.config/solana/id.json
+Commitment: confirmed
+```
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+```terminal
+$ solana config set --url mainnet-beta
+$ solana config set --url devnet
+$ solana config set --url localhost
+$ solana config set --url testnet
+$ solana config set --url "https://your-rpc-url.com"
+```
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json
+```
+
+## Повторное развертывание
+
+Загрузка другого исполняемого файла в тот же аккаунт программы снова перезапишет
+/ заменит его. Однако для повторного развертывания требуется только
+идентификатор программы (pubkey аккаунта ключей программы), а не весь keypair,
+так как подписывающим является keypair полномочий на обновление.
+
+### Loader-v3
+
+Для devnet или localhost пополните кошелёк с помощью команды `solana airdrop`:
+
+```terminal
+$ solana airdrop 2
+Requesting airdrop of 2 SOL
+Signature: 5zQKxvRdgJDA8fRGPdKfGxRLnLpwmNnMXGYxfBqFSUPqc5BTmFPrTG8vnC4HvKDVY8zQ8aQxZxcEE7WFpGhZGVAA
+2 SOL
+```
+
+Если старый исполняемый файл был короче нового, может потребоваться сначала
+увеличить аккаунт programdata:
+
+```terminal
+$ solana balance
+2 SOL
+```
+
+### Loader-v4
+
+Обратите внимание, что при первоначальном развертывании использовался
+`program-keypair`, а при повторном развертывании используется `program-id`:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Приоритет загрузки
+
+Для сборки программы используйте команду `cargo build-sbf`:
+
+```terminal
+$ cargo build-sbf
+```
+
+## Возобновление загрузки
+
+Загрузка может быть прервана или остановлена.
+
+### Loader-v3
+
+Если развертывание программы завершилось неудачей, останется зависший
+промежуточный буферный аккаунт с ненулевым балансом. Чтобы вернуть этот баланс,
+вы можете возобновить неудачное развертывание, предоставив тот же промежуточный
+буфер для нового вызова `deploy`.
+
+```rs !! title="src/lib.rs"
+use solana_program::{
+    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
+    _instruction_data: &[u8],
+) -> ProgramResult {
+    msg!("Hello, Solana!");
+    Ok(())
+}
+```
+
+```toml !! title="Cargo.toml"
+[package]
+name = "hello_world"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "2.2.0"
+```
+
+Чтобы восстановить keypair:
+
+Соберите программу с помощью команды `cargo build-sbf`:
+
+```terminal
+$ cargo build-sbf
+```
+
+Это создаёт два важных файла в `target/deploy/`:
+
+1. `hello_world-keypair.json`: Файл keypair, публичный ключ которого будет
+   использоваться как Program ID
+2. `hello_world.so`: Скомпилированный исполняемый файл программы
+
+```json !! title="target/deploy/hello_world-keypair.json"
+[
+  203, 253, 43, 62, 165, 111, 94, 222, 105, 225, 218, 85, 143, 9, 114, 96, 243,
+  181, 114, 89, 72, 230, 124, 85, 59, 165, 198, 23, 240, 212, 23, 154, 229, 241,
+  153, 61, 153, 105, 79, 204, 193, 163, 33, 65, 82, 183, 49, 240, 224, 137, 248,
+  24, 128, 25, 192, 197, 118, 235, 239, 67, 85, 156, 219, 231
+]
+```
+
+```txt !! title="target/deploy/hello_world.so"
+[binary executable file]
+```
+
+```shell
+solana program deploy ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json --start-offset <BYTES_UPLOADED_SO_FAR>
+```
+
+## Завершение
+
+Это действие **необратимо**.
+
+Программа может быть сделана неизменяемой путем удаления полномочий на её
+обновление.
+
+```terminal
+$ wc -c < ./target/deploy/hello_world.so
+18504
+```
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --final
+```
+
+```terminal
+$ solana rent 18504
+Rent-exempt minimum: 0.12967872 SOL
+```
+
+```shell
+solana program finalize --program-id ./target/deploy/your_program-keypair.json
+```
+
+Вместо перезаписи программ также можно предоставить пользователям возможность
+выбора версии программы, которую они хотят использовать, создав связанный список
+финализированных программ:
+
+Для деплоя программы используйте команду `solana program deploy`:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 2BYwsqRP7ZwBNQvJp3S8bphTJ4zKW5JBPVMqCTE5KyLkP8xHzAyUEeC4LdTgjJdGBKHWNCkRF8Mf1T1WkLFyEu8W
+```
+
+Для программ, развернутых с использованием loader-v3, можно вернуть только их
+programdata аккаунт, буферные аккаунты и средства, заблокированные в них.
+Program аккаунт вместе с ID программы и средствами, заблокированными в program
+аккаунте, остаются недоступными.
+
+Программы, развернутые с использованием loader-v4, могут быть закрыты вместе с
+их программным аккаунтом, их программным ID и заблокированными средствами,
+которые снова становятся доступными для других целей.
+
+### Loader-v3
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so --program-id ./custom-keypair.json
+```
+
+Вы можете сгенерировать новые keypair с помощью команды `solana-keygen`:
+
+```terminal
+$ solana-keygen new -o ./custom-keypair.json
+```
+
+```shell
+solana program close ./target/deploy/your_program-keypair.json
+```
+
+Чтобы закрыть все буферные аккаунты, связанные с текущим владельцем:
+
+Обновите свою программу с помощью той же команды `solana program deploy`:
+
+1. Внесите изменения в код вашей программы
+2. Пересоберите программу: `cargo build-sbf`
+3. Задеплойте обновление:
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so
+Program Id: 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+Signature: 3zKnXDfEm1R8hVcEmTnNFYUaFjVVbLJrKdFj5hBMXoBRfz8xGyDhCYgKr9YY5KxKYPEUQQVfwEPNz9hQGvYhLNBJ
+```
+
+## Просмотр метаданных
+
+Подкоманда `show` отображает метаданные программы.
+
+Пример вывода выглядит следующим образом:
+
+```terminal
+$ solana program extend 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE 1000
+Extended Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE by 1000 bytes
+```
+
+- `Program Id` — это адрес, который можно указать в поле `program_id` инструкции
+  при вызове программы.
+- `Owner`: Загрузчик, с которым была развернута эта программа.
+- `ProgramData Address` — это аккаунт programdata, связанный с программным
+  аккаунтом, который содержит исполняемый файл программы (только для loader-v3).
+- `Status`: `retracted`, `deployed` или `finalized` (только для loader-v4).
+- `Authority` — это полномочие на обновление программы.
+- `Last Deployed In Slot` — это слот, в котором программа была развернута в
+  последний раз.
+- `Data Length` — это размер пространства, зарезервированного для развертываний.
+  Фактическое пространство, используемое текущей развернутой программой, может
+  быть меньше.
+
+### Loader-v3
+
+Чтобы просмотреть конкретную программу:
+
+```shell
+solana program show ./target/deploy/your_program-keypair.json
+```
+
+Чтобы проверить метаданные вашей программы, используйте команду
+`solana program show`:
+
+```terminal
+$ solana program show 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE
+```
+
+Чтобы показать все буферные аккаунты независимо от владельца:
+
+```shell
+solana program show --buffers --all
+```
+
+```txt
+$ solana program show 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Program Id/] program-id
+Program Id: 7283x8k8fyBcfaFLyPsxbd2VV1AMmZFP7FNoyTXVKJw7
+# !tooltip[/Owner/] owner
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+# !tooltip[/ProgramData Address/] program-data-address
+ProgramData Address: Gqn7YQVCP8NtYV1qkEqR4Udhj8EJ3fkikvS7HskCNQ7c
+# !tooltip[/Authority/] authority
+Authority: 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1
+# !tooltip[/Last Deployed In Slot/] last-deployed-in-slot
+Last Deployed In Slot: 6573
+# !tooltip[/Data Length/] data-length
+Data Length: 18504 (0x4848) bytes
+# !tooltip[/Balance/] balance
+Balance: 0.12999192 SOL
+```
+
+```shell
+solana program show --programs --buffer-authority ~/.config/solana/authority-keypair.json
+solana program show --buffers --buffer-authority ~/.config/solana/authority-keypair.json
+```
+
+### Loader-v4
+
+Для просмотра определенной программы:
+
+```shell
+solana program-v4 show --program-id ./target/deploy/your_program-keypair.json
+```
+
+Для просмотра списка программ, развернутых с правами доступа по умолчанию:
+
+```shell
+solana program-v4 show --all
+```
+
+Для просмотра списка программ, развернутых с определенными правами доступа:
+
+```shell
+solana program-v4 show --authority ~/.config/solana/authority-keypair.json
+```
+
+## Загрузка исполняемого файла
+
+Иногда полезно загрузить и сравнить программу, чтобы убедиться, что она содержит
+известный исполняемый файл. Загруженный файл можно обрезать, хешировать и
+сравнить с хешем оригинального файла программы.
+
+### Loader-v3
+
+```shell
+solana program dump ./target/deploy/your_program-keypair.json ./target/deploy/your_program.so
+```
+
+### Loader-v4
+
+```shell
+solana program download ./target/deploy/your_program.so --program-id ./target/deploy/your_program-keypair.json
+```
+
+## Продвинуто: передача прав доступа
+
+Право изменять данную программу принадлежит её владельцу. Эти права могут быть
+переданы другому keypair без изменения keypair программы, чтобы идентификатор
+программы оставался прежним. Более того, один владелец может управлять
+несколькими аккаунтами программ.
+
+Чтобы передать права на программу другому аккаунту, используйте команду
+`solana program set-upgrade-authority`:
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --new-upgrade-authority ./new-authority-keypair.json
+```
+
+Сначала необходимо сгенерировать keypair для владельца:
+
+```shell
+solana-keygen new -o ~/.config/solana/authority-keypair.json
+```
+
+Чтобы сделать вашу программу неизменяемой, используйте команду
+`solana program set-upgrade-authority` с флагом `--final`, чтобы удалить права
+на программу:
+
+```terminal
+$ solana program set-upgrade-authority 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --final
+Account Type: Program
+Authority: none
+```
+
+```shell
+solana program deploy ./target/deploy/your_program.so --upgrade-authority ~/.config/solana/authority-keypair.json
+```
+
+Или после развертывания, используя keypair по умолчанию в качестве текущего
+владельца:
+
+Чтобы закрыть программу и вернуть SOL, выделенные на program account,
+используйте команду `solana program close`:
+
+```terminal
+$ solana program close 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE --bypass-warning
+Closed Program Id 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE, 0.12999192 SOL reclaimed
+```
+
+```shell
+solana program set-upgrade-authority ./target/deploy/your_program-keypair.json --upgrade-authority ~/.config/solana/authority-keypair.json --new-upgrade-authority ~/.config/solana/new_authority-keypair.json
+```
+
+### Loader-v4
+
+Владелец может быть указан во время развертывания:
+
+```shell
+solana program-v4 deploy ./target/deploy/your_program.so --program-keypair ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json
+```
+
+```terminal
+$ solana program show --programs
+```
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --new-authority ~/.config/solana/authority-keypair.json
+```
+
+```txt
+Program Id                                       | Slot       | Authority                                      | Balance
+-------------------------------------------------|------------|------------------------------------------------|-------------
+7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE     | 249885434  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.12999192
+3KSGCk4m5hqJkTjPHBXUCPcqMwJnK3VmkqEsFUKKGJPK     | 249883212  | 5kh6HxYZiAebF8HWLsUWod2EaQQ6iWHpHYCz8UcmFbM1   | 0.28654328
+```
+
+```shell
+solana program-v4 transfer-authority --program-id ./target/deploy/your_program-keypair.json --authority ~/.config/solana/authority-keypair.json --new-authority ~/.config/solana/new_authority-keypair.json
+```
+
+Чтобы скачать задеплоенную программу, используйте команду `solana program dump`:
+
+```terminal
+$ solana program dump 7NxQjW8H8hVcqBKgXbVDWqGQCovHbqDW9p1SJJwUyTpE ./downloaded_program.so
+Wrote program to ./downloaded_program.so
+```
+
+Имейте в виду, что использование буферных аккаунтов примерно удваивает средства,
+необходимые в процессе загрузки, так как два аккаунта одновременно хранят один
+исполняемый файл.
+
+Сначала необходимо создать keypair для буферного аккаунта:
+
+```shell
+solana-keygen new -o ~/.config/solana/buffer-keypair.json
+```
+
+Буферный аккаунт может быть повторно использован для различных загрузок и не
+привязан к какому-либо конкретному аккаунту программы.
+
+```terminal
+$ solana program deploy ./target/deploy/hello_world.so \
+    --with-compute-unit-price 10000 \
+    --max-sign-attempts 10 \
+    --use-rpc
+```
+
+```shell
+solana program write-buffer ./target/deploy/your_program.so --buffer ~/.config/solana/buffer-keypair.json
+solana program deploy --program-id ./target/deploy/your_program-keypair.json --buffer ~/.config/solana/buffer-keypair.json
+```
+
+- **`--with-compute-unit-price`**: Установить приоритетную комиссию в
+  микролампортов (0,000001 SOL) за вычислительную единицу. Актуальные ставки
+  смотрите в
+  [Helius Priority Fee API](https://docs.helius.dev/guides/priority-fee-api).
+  Приоритетная комиссия — это дополнительная плата, которая выплачивается
+  текущему лидеру для приоритизации вашей транзакции.
+- **`--max-sign-attempts`**: Количество попыток повторить с новым blockhash,
+  если транзакции истекают. (По умолчанию: 5)
+- **`--use-rpc`**: Отправлять транзакции в настроенный RPC. Этот флаг требует
+  [stake-weighted](/developers/guides/advanced/stake-weighted-qos) RPC
+  соединения от таких провайдеров, как [Triton](https://triton.one/) или
+  [Helius](https://www.helius.dev/).

@@ -20,7 +20,7 @@ const Wallets = ({ walletData, resetWalletsAndFilters }) => {
                   walletImage={wallet.icon.src}
                   body={wallet.body}
                   websiteUrl={wallet.website}
-                  key={key}
+                  key={wallet.name}
                 />
               );
             })
@@ -32,7 +32,7 @@ const Wallets = ({ walletData, resetWalletsAndFilters }) => {
               <Button
                 variant="outline"
                 onClick={resetWalletsAndFilters}
-                className="ms-2"
+                className="ml-2"
               >
                 {t("wallets.grid.reset-filters")}
               </Button>

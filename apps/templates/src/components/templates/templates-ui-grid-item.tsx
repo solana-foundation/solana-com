@@ -13,7 +13,7 @@ export function TemplatesUiGridItem({ template }: { template: Template }) {
 
   return (
     <MotionLink
-      href={`/${template.name}`}
+      href={`/developers/templates/${template.name}`}
       className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 block h-full flex flex-col"
       whileHover={{ scale: 1.02, y: -4 }}
       whileTap={{ scale: 0.98 }}

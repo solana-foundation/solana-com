@@ -1,0 +1,197 @@
+---
+title: "@solana/react-hooks"
+description:
+  즉시 사용 가능한 훅으로 React 앱 전체에서 @solana/client 상태를 공유하세요.
+---
+
+`@solana/react-hooks`는 `@solana/client` 위에 React 프로바이더, 훅, 그리고
+서스펜스 친화적인 쿼리 헬퍼를 제공합니다. 여전히 단일 클라이언트를 구성하지만,
+훅은 스토어나 구독을 직접 연결하지 않고도 지갑 상태, 잔액, 트랜잭션, 프로그램
+쿼리를 노출합니다.
+
+## 설치
+
+```terminal
+$ npm install @solana/client @solana/react-hooks
+```
+
+훅이 지갑, RPC, 캐시를 관리하기 위해 클라이언트 런타임을 재사용하므로 두 패키지
+모두 필요합니다.
+
+## 트리를 한 번 래핑하기
+
+클라이언트를 생성하고, 선택적으로 지갑 커넥터를 선택한 다음, React 트리를
+`SolanaProvider`로 래핑하세요. 모든 훅은 공유 클라이언트 인스턴스에서 읽습니다.
+
+```tsx
+"use client";
+
+import { autoDiscover, createClient } from "@solana/client";
+import { SolanaProvider } from "@solana/react-hooks";
+
+const client = createClient({
+  endpoint: "https://api.devnet.solana.com",
+  websocketEndpoint: "wss://api.devnet.solana.com",
+  walletConnectors: autoDiscover()
+});
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <SolanaProvider client={client}>{children}</SolanaProvider>;
+}
+```
+
+## 훅은 클라이언트 런타임을 반영합니다
+
+- **지갑 + 커넥터**: `useWallet`, `useWalletConnection`, `useConnectWallet`,
+  `useDisconnectWallet`는 클라이언트를 구동하는 동일한 레지스트리를 노출합니다.
+- **잔액 + 계정 감시자**: `useBalance`, `useAccount`, `useSolBalance`,
+  `useProgramAccounts`는 기본 감시자로부터 업데이트를 스트리밍하고 액션과 캐시를
+  공유합니다.
+- **트랜잭션 + SPL 헬퍼**: `useSolTransfer`, `useSplToken`,
+  `useTransactionPool`, `useSendTransaction`는 클라이언트의 헬퍼 제품군을
+  활용하므로 훅은 블록해시 갱신, 수수료 지불자 해결, 로깅을 상속받습니다.
+
+```tsx
+function WalletPanel() {
+  const { connectors, connect, disconnect, wallet, status } =
+    useWalletConnection();
+  const balance = useBalance(wallet?.account.address);
+
+  if (status === "connected") {
+    return (
+      <div>
+        <p>{wallet?.account.address.toString()}</p>
+        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
+        <button onClick={disconnect}>Disconnect</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {connectors.map((connector) => (
+        <button key={connector.id} onClick={() => connect(connector.id)}>
+          Connect {connector.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+## 쿼리 + 캐싱 패턴
+
+`SolanaQueryProvider`는 클라이언트 스토어 위에 React Query 호환 프리미티브를
+제공하여 Solana 특화 쿼리가 서스펜드, 재페치, 프로그램 구독과 동기화할 수 있도록
+합니다.
+
+```tsx
+import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
+
+function ProgramAccounts({ program }: { program: string }) {
+  const query = useProgramAccounts(program);
+
+  if (query.isLoading) return <p>Loading…</p>;
+  if (query.isError) return <p role="alert">RPC error</p>;
+
+  return (
+    <div>
+      <button onClick={() => query.refresh()}>Refresh</button>
+      <ul>
+        {query.accounts.map(({ pubkey }) => (
+          <li key={pubkey.toString()}>{pubkey.toString()}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ProgramAccountsSection({ program }: { program: string }) {
+  return (
+    <SolanaQueryProvider>
+      <ProgramAccounts program={program} />
+    </SolanaQueryProvider>
+  );
+}
+```
+
+## 선언적으로 만들어진 트랜잭션 플로우
+
+훅은 클라이언트와 동일한 트랜잭션 헬퍼를 노출하지만 로딩 및 오류 상태를 자동으로
+관리합니다. SOL 전송, SPL 토큰 플로우 또는 임의의 인스트럭션 배치에 사용하세요.
+
+```tsx
+import { useSolTransfer } from "@solana/react-hooks";
+
+function SolTransferForm({ destination }: { destination: string }) {
+  const transfer = useSolTransfer();
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void transfer.send({ destination, lamports: 100_000_000n });
+      }}
+    >
+      <button type="submit" disabled={transfer.isSending}>
+        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
+      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
+    </form>
+  );
+}
+```
+
+대신 원시 명령어가 필요하신가요? `useSendTransaction`는 `instructions`와 선택적
+`prepare` 재정의를 허용하며, 요청이 완료되면 서명 및 상태 추적을 제공합니다.
+
+```tsx
+import { useSendTransaction, useWallet } from "@solana/react-hooks";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
+
+function CustomTransactionForm({ destination }: { destination: string }) {
+  const wallet = useWallet();
+  const { send, isSending, signature, error } = useSendTransaction();
+
+  async function handleSend() {
+    if (wallet.status !== "connected") return;
+
+    const instruction = getTransferSolInstruction({
+      source: wallet.session.account,
+      destination: address(destination),
+      amount: lamports(100_000_000n)
+    });
+
+    await send({ instructions: [instruction] });
+  }
+
+  return (
+    <div>
+      <button onClick={handleSend} disabled={isSending}>
+        {isSending ? "Sending…" : "Send 0.1 SOL"}
+      </button>
+      {signature ? <p>Signature: {signature}</p> : null}
+      {error ? <p role="alert">{String(error)}</p> : null}
+    </div>
+  );
+}
+```
+
+## Solana 개발자를 위한 일반적인 패턴
+
+- **공유 런타임, 다중 앱**: 클라이언트를 한 번 구성하고(코어 패키지에서) 웹,
+  모바일 웹 또는 임베디드 React 아일랜드에서 사용합니다.
+- **UI 우선 개발**: 훅은 가장 일반적인 Solana 플로우(지갑 연결, 잔액 조회, SOL
+  전송, SPL 잔액 읽기)를 반영하므로 RPC 배관 작업 대신 UX에 집중할 수 있습니다.
+- **점진적 향상**: `@solana/client`로 헤드리스 방식으로 시작한 다음, React
+  상태와 서스펜스 친화적인 데이터 페칭이 필요한 영역에 훅을 추가합니다.
+- **테스팅**: 훅 반환 값을 모킹하거나 모킹된 클라이언트를 `SolanaProvider`에
+  전달하여 단위 테스트에서 지갑, RPC 성공 또는 실패를 시뮬레이션합니다.
+- **서버 컴포넌트 인식**: 훅을 호출하는 리프 컴포넌트만 `"use client"`로
+  표시하고, 나머지는 서버에 유지하여 훅 기반 자식으로부터 하이드레이션된 props를
+  받을 수 있습니다.
+
+이 가이드를 [@solana/client 개요](/docs/frontend/client)와 함께 참고하여 각 훅이
+구축되는 런타임을 이해하세요.

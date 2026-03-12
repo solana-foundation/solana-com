@@ -1,0 +1,94 @@
+---
+title: 程序部署
+description:
+  Solana 程序的部署、升级与验证。包含 loader-v3 指令参考、9
+  步升级机制、构建验证以及 5 种 loader 程序类型。
+url: /docs/core/programs/program-deployment
+type: reference
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/programs/program-execution
+related:
+  - /docs/core/accounts/account-types
+  - /docs/core/programs/builtin-programs
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="概要">
+  通过 loader-v3
+  部署的程序，在设置了升级权限时可以进行升级。撤销该权限后，程序将变为不可变。本文涵盖
+  9 步升级机制、全部 9 条 loader-v3 指令、构建验证以及 5 种 loader 类型。
+</Callout>
+
+## 部署程序
+
+<Cards>
+  <Card title="Native Rust" href="/docs/programs/deploying">
+    使用 Solana CLI 和 `solana program deploy` 进行部署。
+  </Card>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs/quickstart/local">
+    使用 Anchor 框架和 `anchor deploy` 进行部署。
+  </Card>
+</Cards>
+
+## 升级程序
+
+要升级程序，账户必须拥有升级权限（通常是最初[部署该程序](/docs/programs/deploying)的账户）。在部署或升级过程中，新字节码会被上传到临时缓冲区账户，然后写入 programdata
+account。将升级权限设置为 _rs`None`_ 后，程序将变为不可变，永久禁止后续更新。
+
+### 升级机制
+
+当
+[`UpgradeableLoaderInstruction::Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)
+被处理时，运行时会：
+
+1. 验证 Program account 可写且归 loader-v3 所有。
+2. 验证 Buffer account 包含具有正确权限的 _rs`Buffer`_ 状态。
+3. 验证 ProgramData account 的 `upgrade_authority_address` 匹配且不为
+   _rs`None`_。
+4. 验证该程序未在当前 slot (`clock.slot != slot`) 中已部署。
+5. 从缓冲区加载并验证新的 ELF 字节码。
+6. 将新字节码从缓冲区复制到 ProgramData account，并将剩余字节清零。
+7. 为 ProgramData account 提供租金豁免所需资金。
+8. 清空缓冲区账户（将 lamports 设为 0）并截断其数据。
+9. 新版本将在下一个 slot (`deployment_slot + 1`) 生效。
+
+`Program` 账户本身（其状态和 `programdata_address`
+指针）在升级过程中不会发生变化。只有 _rs`ProgramData`_
+账户的字节码和 slot 元数据会被更新。
+
+## Loader-v3 指令参考
+
+Loader-v3（BPF Loader Upgradeable）是当前在 Solana 上部署程序的默认加载器。
+
+| 指令                                                                                                         | 描述                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`InitializeBuffer`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L454)      | 将缓冲区账户的状态设置为 `Buffer`，并指定权限。如果已初始化则操作失败。                                                                                         |
+| [`Write`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L469)                 | 在缓冲区账户的指定偏移处写入字节。需要权限签名。                                                                                                                |
+| [`DeployWithMaxDataLen`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L498)  | 创建新程序：派生 ProgramData 地址，通过 CPI 向 System Program 创建 ProgramData 账户，从缓冲区验证并部署 ELF，设置 Program 账户状态并标记为可执行。              |
+| [`Upgrade`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L662)               | 用缓冲区中的字节码替换现有程序的 ProgramData 账户中的字节码。                                                                                                   |
+| [`SetAuthority`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L835)          | 更改 Buffer 或 ProgramData 账户的权限。将 ProgramData 的权限设置为 `None` 时，程序将变为不可变。Buffer 权限不能设置为 `None`。                                  |
+| [`SetAuthorityChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L892)   | 类似于 `SetAuthority`，但还要求新权限方签署交易。                                                                                                               |
+| [`Close`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L960)                 | 通过将 lamports 转给接收方，关闭缓冲区、未初始化或 ProgramData 账户。关闭 ProgramData 时还会向程序缓存写入 `Closed` tombstone。无法关闭在当前 slot 部署的程序。 |
+| [`ExtendProgramChecked`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1071) | 通过额外字节扩展 ProgramData 账户的分配，额外 rent 由付款方承担。                                                                                               |
+| [`Migrate`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1080)              | 通过转移程序账户所有权并复制字节码，将 loader-v3 程序迁移到 loader-v4。需要迁移权限方或程序升级权限方签名。Loader-v4 尚未在主网发布。                           |
+
+## 验证程序
+
+Solana 支持[可验证构建](/docs/programs/verified-builds)，允许用户确认某个程序的链上字节码与其公开源代码一致。Anchor 框架为可验证构建提供了[内置支持](https://www.anchor-lang.com/docs/verifiable-builds)。
+
+要检查已部署程序的验证状态，可以在
+[Solana Explorer](https://explorer.solana.com/address/PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY)
+上搜索其程序 ID，或使用 Ellipsis Labs 的
+[Solana Verifiable Build CLI](https://github.com/Ellipsis-Labs/solana-verifiable-build)
+独立验证链上程序。
+
+## 加载器程序
+
+| 加载器                     | 地址                                          | 可升级性                  | 描述                                            |
+| -------------------------- | --------------------------------------------- | ------------------------- | ----------------------------------------------- |
+| **Native Loader**          | `NativeLoader1111111111111111111111111111111` | 仅通过 validator 软件升级 | 管理内置程序（System、Vote、Stake）及其他加载器 |
+| **BPF Loader (v1)**        | `BPFLoader1111111111111111111111111111111111` | 否（加载器管理已禁用）    | 旧版程序                                        |
+| **BPF Loader (v2)**        | `BPFLoader2111111111111111111111111111111111` | 否（加载器管理已禁用）    | 旧版程序                                        |
+| **BPF Loader Upgradeable** | `BPFLoaderUpgradeab1e11111111111111111111111` | 是（如设置了升级权限）    | 管理所有新部署的程序                            |
+| **Loader-v4**              | `LoaderV411111111111111111111111111111111111` | 是（如设置了权限）        | 尚未在主网发布                                  |

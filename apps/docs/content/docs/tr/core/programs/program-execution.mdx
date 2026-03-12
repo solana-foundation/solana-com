@@ -1,0 +1,178 @@
+---
+title: Program yürütme
+description:
+  Solana'nın programları nasıl derlediği ve yürüttüğü, sBPF VM, hesaplama birimi
+  modeli, program önbelleği ve syscall'lar dahil.
+url: /docs/core/programs/program-execution
+type: conceptual
+prerequisites:
+  - /docs/core/programs
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/programs/syscall-reference
+  - /docs/core/fees/compute-budget
+  - /docs/core/programs/program-deployment
+  - /docs/core/cpi/cpi-execution
+---
+
+{/* TOC: Compilation, Write programs, Program execution model, Program cache, Syscalls */}
+
+<Callout type="info" title="Özet">
+  Programlar LLVM aracılığıyla sBPF'ye derlenir ve işlem başına 1,4M CU bütçesi
+  olan korumalı bir VM'de çalışır. Runtime, 512 adede kadar derlenmiş programı
+  önbelleğe alır, loglama, CPI, kripto ve bellek için syscall'lar sağlar ve yeni
+  dağıtımları 1 slot geciktirir.
+</Callout>
+
+## Derleme
+
+Solana, programları Solana Bytecode Format (sBPF) içeren
+[ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+binary'lerine derlemek için [LLVM](https://llvm.org/) kullanır. ELF binary,
+zincir üzerinde yürütülebilir bir hesapta saklanır.
+
+<Callout>
+  sBPF, Solana runtime'ı için özelleştirilmiş
+  [eBPF](https://en.wikipedia.org/wiki/EBPF) bytecode'unun Solana'ya özgü
+  varyantıdır. Standart eBPF değildir ve Solana'ya özgü değişiklikler içerir.
+</Callout>
+
+## Program yazma
+
+Solana programları öncelikli olarak iki yaklaşımdan biri kullanılarak
+[Rust](https://rust-book.cs.brown.edu/title-page.html) ile yazılır:
+
+<Cards>
+  <Card title="Anchor" href="https://www.anchor-lang.com/docs">
+    Boilerplate'i azaltmak için Rust makrolarını kullanan bir framework. Çoğu
+    geliştirici için önerilir.
+  </Card>
+  <Card title="Native Rust" href="/docs/programs/rust">
+    Framework olmadan doğrudan Rust. Tam kontrol sunar ancak daha fazla manuel
+    uygulama gerektirir.
+  </Card>
+</Cards>
+
+## Program yürütme modeli
+
+Bir işlem işlendiğinde, runtime her talimatı sırayla
+[`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)
+aracılığıyla yürütür. Her talimat için runtime:
+
+1. **Talimat bağlamını hazırlar.** Talimatın hesap indekslerini eşlemek,
+   imzalayan ve yazılabilir bayraklarını ayarlamak ve
+   [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467)'i
+   yapılandırmak için
+   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)'i
+   çağırır.
+
+2. **Precompile'ları kontrol eder.** Program bir
+   [precompile](/docs/core/programs/precompiles) ise, runtime
+   [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491)'i
+   çağırır, bu hala bir stack frame'i push ve pop eder (_rs`push()`_ ve
+   _rs`pop()`_ aracılığıyla) ancak sBPF VM ve program önbelleği aramasını
+   atlayarak native kodu doğrudan yürütür.
+
+3. **Bir yığın çerçevesi iter.** (3-6. adımlar
+   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
+   ve
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   içinde gerçekleşir, _rs`process_message()`_ tarafından çağrılır.)
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
+   fonksiyonunu
+   [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184)
+   üzerinde çağırır, bu da komut yığını yüksekliğini artırır ve yeniden giriş
+   kuralını uygular: bir program yalnızca **doğrudan** çağıran (komut yığınının
+   mevcut tepesindeki program) aynı programsa kendisine yeniden girebilir. Derin
+   öz-özyineleme (A -> A -> A) yığın derinliği sınırlarına tabi olarak izin
+   verilir. Diğer yeniden giriş kalıpları (örneğin, A, B'yi çağırır, B, A'yı
+   çağırır) _rs`InstructionError::ReentrancyNotAllowed`_ döndürür.
+
+4. **Programı çözümler.** Çalışma zamanı
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
+   fonksiyonunu çağırır ve yükleyiciyi belirler. Program hesabının sahibi
+   [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517)
+   ise, program bir builtin'dir ve giriş noktası fonksiyonu doğrudan
+   [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706)
+   içinden aranır. Sahip BPF yükleyicilerinden biri ise
+   (`bpf_loader_deprecated`, `bpf_loader`, `bpf_loader_upgradeable` veya
+   `loader_v4`), bunun yerine yükleyicinin kendi builtin giriş noktası çağrılır.
+
+5. **BPF programını çalıştırır.** BPF programları için,
+   [loader entrypoint](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+   derlenmiş çalıştırılabilir dosyayı program önbelleğinden arar.
+   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)
+   fonksiyonu ardından:
+   - Hesap verilerini düz bir parametre arabelleğine serileştirir
+   - Yığın, heap ve bellek bölgeleriyle sBPF VM'ini oluşturur
+   - Derlenmiş kodu çalıştırır, yürütme sırasında işlem birimlerini tüketir.
+     Bütçe aşılırsa _rs`ComputationalBudgetExceeded`_ döndürür.
+   - Hesap verilerini arabellekten tekrar hesap durumuna deserileştirir
+
+6. **Yığın çerçevesini çıkarır.**
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)
+   fonksiyonunu çağırır ve komutun çalışma zamanının muhasebe kurallarını ihlal
+   etmediğini doğrular (lamport bakiyeleri dengelidir, salt okunur hesaplar
+   değiştirilmemiştir, hesap veri boyutları sınırlar dahilindedir).
+
+7. **İşlem birimlerini biriktirir.** Komut tarafından tüketilen işlem birimleri,
+   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53)
+   aracılığıyla işlem toplamına eklenir.
+
+## Program önbelleği
+
+Çalışma zamanı, doğrulanmış ve derlenmiş programları saklayan global bir
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)
+tutmaktadır. Fork-graph farkındalığına sahiptir ve dağıtım görünürlük
+kurallarını, tahliye işlemlerini ve epoch sınırı yeniden derlemelerini yönetir.
+
+### Önbellek giriş türleri
+
+Önbelleğe alınmış her programın, çalışma zamanı davranışını belirleyen bir
+[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132)
+bulunmaktadır:
+
+| Tür                                                                                                               | Açıklama                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | Doğrulanmış ve derlenmiş program, yürütmeye hazır.                                                                                                                                                                                                                                                                     |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | Validator binary'sine derlenmiş native program (System, Stake, Vote, vb.). Zincir üzerinde saklanmaz.                                                                                                                                                                                                                  |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | Daha önce doğrulanmış ancak derlenmiş çalıştırılabilir dosyası alan boşaltmak için bellekten tahliye edilmiş program. Hala kullanım istatistiklerini takip eder. Yeniden doğrulama olmadan yeniden yüklenebilir.                                                                                                       |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Mevcut özellik seti altında sBPF doğrulayıcısını geçemeyen programlar için mezar taşı. Özellik aktivasyonları doğrulama kurallarını değiştirirse `Loaded` olabilir.                                                                                                                                                    |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | Açıkça kapatılmış veya hiç dağıtılmamış programlar için mezar taşı. Ayrıca bir loader'a ait olan ancak çalıştırılabilir kod içermeyen hesaplar (buffer hesapları gibi) için kullanılır.                                                                                                                                |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) tarafından bir `Loaded` girişi mevcut olduğunda ancak henüz etkin olmadığında (`effective_slot` gelecekte olduğunda) döndürülen sentetik mezar taşı. Önbellekte asla doğrudan saklanmaz. |
+
+### Görünürlük gecikmesi
+
+Yeni dağıtılan veya yükseltilen programlar hemen etkin olmaz.
+[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
+sabiti `1`'dir, yani N slotunda dağıtılan bir program N+1 slotunda etkin hale
+gelir. Dağıtım slotu sırasında, yeni sürümü çağırma girişimi
+_rs`DelayVisibility`_ döndürür ve çalışma zamanının "Program dağıtılmamış"
+bildirmesine neden olur.
+
+### Çıkarma politikası
+
+Önbellek en fazla
+[`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)
+(512) derlenmiş program girişi tutar. Limite ulaşıldığında, en az kullanılan
+programlar _rs`Unloaded`_ durumuna çıkarılır. Kullanım,
+[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)
+(bir işlem programa her referans verdiğinde artırılır) ve
+[`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199)
+tarafından izlenir.
+
+### Epoch sınırında yeniden derleme
+
+Bir özellik aktivasyonu epoch sınırında
+[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)
+değiştirirse, önbellekteki tüm programlar yeni ortama karşı
+[yeniden derlenir](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L1494).
+
+## Dönüş verisi
+
+Programlar `sol_set_return_data` syscall'u aracılığıyla dönüş verisi
+ayarlayabilir. Veri, işlem düzeyinde bir
+[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499)
+struct'ında saklanır ve bu struct veri baytlarını ile syscall'u çağıran
+talimatın programının `program_id` değerini tutar. Maksimum boyut 1.024 bayttır
+(_rs`MAX_RETURN_DATA`_).

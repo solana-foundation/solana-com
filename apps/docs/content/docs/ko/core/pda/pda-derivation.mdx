@@ -1,0 +1,425 @@
+---
+title: PDA 유도
+description:
+  시드, 범프 값, 프로그램 ID를 사용한 SHA-256으로 Solana PDA가 유도되는 방법.
+  유도 알고리즘, 정규 범프 검색, 컴퓨팅 비용, TypeScript 및 Rust의 SDK 예제.
+url: /docs/core/pda/pda-derivation
+type: conceptual
+prerequisites:
+  - /docs/core/pda
+  - /docs/core/accounts/account-structure
+related:
+  - /docs/core/pda/pda-accounts
+  - /docs/core/cpi/cpi-with-pda
+  - /docs/core/constants-reference
+---
+
+<Callout type="info" title="요약">
+  PDA는 시드 + 프로그램 ID + 범프를 SHA-256으로 해싱하여 결과가 Ed25519 곡선
+  밖에 있을 때까지 유도됩니다. 정규 범프는 곡선 밖 주소를 생성하는 첫 번째
+  값입니다. 최대 16개의 시드, 시드당 최대 32바이트.
+</Callout>
+
+## 배경
+
+Solana
+[`Keypair`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/keypair/src/lib.rs#L26)
+값은 [Ed25519 곡선](https://ed25519.cr.yp.to/)의 점입니다. 키페어는 공개 키(계정
+주소로 사용)와 비밀 키(서명 생성에 사용)로 구성됩니다. 비밀 키를 가진 사람은
+누구나 해당 주소에 대한 트랜잭션에 서명할 수 있습니다.
+
+![곡선 위 주소를 가진 두 개의 계정](/assets/docs/core/pda/address-on-curve.svg)
+
+PDA는 의도적으로 Ed25519 곡선 _밖에_ 위치하도록 유도됩니다. 유효한 곡선 점이
+아니기 때문에 비밀 키가 존재하지 않으며, 외부 당사자는 서명을 생성할 수
+없습니다. 유도 프로그램만이 *`invoke_signed`*를 통해 PDA에 대한 작업을 승인할 수
+있습니다.
+
+![곡선 밖 주소](/assets/docs/core/pda/address-off-curve.svg)
+
+### PDA vs 키페어 계정
+
+| 속성               | 키페어 계정                                  | PDA 계정                        |
+| ------------------ | -------------------------------------------- | ------------------------------- |
+| 주소 유형          | Ed25519 곡선 위                              | Ed25519 곡선 밖                 |
+| 개인 키 보유       | 예                                           | 아니오                          |
+| 트랜잭션 서명 가능 | 예(개인 키 사용)                             | 아니오                          |
+| CPI 중 서명 가능   | 아니오(트랜잭션에 서명이 포함되지 않은 경우) | 예(`invoke_signed`를 통해)      |
+| 유도               | Ed25519 키페어 생성                          | 시드 + 프로그램 ID로부터 결정적 |
+| 일반적인 용도      | 사용자 지갑, 프로그램 ID                     | 프로그램 소유 데이터 계정       |
+
+## 선택적 시드
+
+선택적 시드는 PDA 파생의 입력으로 사용되는 사용자 정의 바이트 문자열입니다.
+이들은 프로그램에 범위가 지정된 고유하고 결정론적인 주소를 생성합니다. 예를
+들어, `["user", user_pubkey]`를 시드로 사용하면 각 사용자에 대해 서로 다른 PDA가
+파생됩니다.
+
+시드는 다음 제약 조건을 따라야 합니다:
+
+- 파생당 최대 16개의 시드 (_rs`MAX_SEEDS`_)
+- 시드당 최대 32바이트 (_rs`MAX_SEED_LEN`_)
+
+## 범프 시드
+
+범프 시드는 파생 중에 선택적 시드에 추가되는 단일 바이트(0-255)입니다.
+[`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L800)는
+255부터 0까지 검색하며, 결과가 Ed25519 곡선에서 벗어날 때까지 각 값으로
+*rs`create_program_address`*를 호출합니다. 성공하는 첫 번째 값이 **정규
+범프**입니다.
+
+프로그램은 시드에서 주소로의 고유하고 결정론적인 매핑을 보장하기 위해 항상 정규
+범프를 사용해야 합니다.
+
+<Callout type="warn">
+  PDA를 파생할 때는 항상 정규 범프를 사용하세요. 비정규 범프를 사용하면 동일한
+  시드에 대해 두 번째 유효한 주소가 생성되어 공격자가 예상과 다른 계정을 대체할
+  수 있는 취약점이 발생할 수 있습니다.
+</Callout>
+
+![PDA 파생](/assets/docs/core/pda/pda-derivation.svg)
+
+## 파생 알고리즘
+
+PDA 파생은 SDK의
+[`create_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L911)
+함수에 구현되어 있습니다. 알고리즘은 다음과 같이 작동합니다:
+
+1. 시드의 수가 _rs`MAX_SEEDS`_(16)를 초과하지 않고 개별 시드가
+   _rs`MAX_SEED_LEN`_(32바이트)를 초과하지 않는지 검증합니다. 두 검사 중
+   하나라도 실패하면 *rs`PubkeyError::MaxSeedLengthExceeded`*를 반환합니다.
+2. 모든 시드, 프로그램 ID, 그리고 문자열 `"ProgramDerivedAddress"`를 함께
+   SHA-256 해시하여 32바이트 결과를 생성합니다.
+3. 결과가 Ed25519 곡선의 유효한 점인지 확인합니다.
+4. 결과가 곡선 위에 있으면 *rs`PubkeyError::InvalidSeeds`*를 반환합니다(주소에
+   해당하는 개인 키가 있어 PDA 보안 속성을 위반함).
+5. 결과가 곡선 위에 없으면 이를 PDA로 반환합니다.
+
+## 컴퓨트 유닛 비용
+
+*rs`create_program_address`*를 위한
+[온체인 syscall](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L798-L834)은
+호출당
+[1,500 CU](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/execution_budget.rs#L200)를
+청구합니다.
+
+[`try_find_program_address` syscall](https://github.com/anza-xyz/agave/blob/v3.1.8/syscalls/src/lib.rs#L836-L886)은
+진입 시(루프 이전) 1,500 CU를 청구하고, 루프 내에서 실패한 각 범프 시도마다
+추가로 1,500 CU를 청구합니다.
+
+## 일반적인 seed 패턴
+
+Seed는 애플리케이션별로 다릅니다. 일반적인 패턴은 다음과 같습니다:
+
+| 패턴              | Seed                                              | 사용 사례                       |
+| ----------------- | ------------------------------------------------- | ------------------------------- |
+| 전역 싱글톤       | `["global"]`                                      | 프로그램 전체 단일 설정 계정    |
+| 사용자별 계정     | `["user", user_pubkey]`                           | 프로그램당 사용자당 하나의 계정 |
+| 사용자별-엔티티별 | `["vault", user_pubkey, mint_pubkey]`             | 토큰 볼트, 사용자별-토큰별      |
+| 카운터 / 순차적   | `["order", user_pubkey, &order_id.to_le_bytes()]` | 사용자당 순차적 레코드          |
+
+<Callout type="warn">
+  Seed는 해싱 전에 연결되므로 `["ab", "cd"]`와 `["abcd"]`는 동일한 PDA를
+  생성합니다. 충돌을 방지하려면 고정 길이 seed 또는 구분자를 사용하세요. 예를
+  들어, `["ab", "-", "cd"]`는 명확합니다.
+</Callout>
+
+## 예제: PDA 파생
+
+PDA 파생은 주소만 계산합니다. 해당 주소에 온체인 계정을 생성하지는 않습니다.
+계정은 별도의 명령어를 통해 명시적으로 생성되어야 합니다(일반적으로 CPI를 통한
+_rs`create_account`_).
+
+Solana SDK는 PDA 파생을 위한 함수를 제공합니다. 각 함수는 다음을 받습니다:
+
+- **프로그램 ID**: PDA를 파생하는 데 사용되는 프로그램의 주소입니다. 이
+  프로그램은 PDA를 대신하여 서명할 수 있습니다.
+- **선택적 seed**: 문자열, 숫자 또는 기타 계정 주소와 같은 미리 정의된
+  입력입니다.
+
+| SDK                            | 함수                                                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `@solana/kit` (TypeScript)     | [`getProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L157) |
+| `@solana/web3.js` (TypeScript) | [`findProgramAddressSync`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/publickey.ts#L212)               |
+| `solana_sdk` (Rust)            | [`find_program_address`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/pubkey/src/lib.rs#L800)                      |
+
+아래 예제는 Solana SDK를 사용하여 PDA를 파생합니다. **&#9655; 실행**을 클릭하여
+코드를 실행하세요.
+
+### 문자열 seed로 PDA 파생하기
+
+아래 예제는 프로그램 ID와 선택적 문자열 seed를 사용하여 PDA를 파생합니다.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import { Address, getProgramDerivedAddress } from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus
+const seeds = ["helloWorld"];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus
+const seeds = [Buffer.from("helloWorld")];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let seeds: &[&[u8]] = &[b"helloWorld"];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### 주소 seed로 PDA 파생하기
+
+아래 예제는 프로그램 ID와 선택적 주소 seed를 사용하여 PDA를 파생합니다.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:4)
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+
+// !focus(1:3)
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### 여러 seed로 PDA 파생하기
+
+아래 예제는 프로그램 ID와 여러 선택적 seed를 사용하여 PDA를 파생합니다.
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Kit"
+import {
+  Address,
+  getAddressEncoder,
+  getProgramDerivedAddress
+} from "@solana/kit";
+
+const programAddress = "11111111111111111111111111111111" as Address;
+// !focus(1:5)
+const optionalSeedString = "helloWorld";
+const addressEncoder = getAddressEncoder();
+const optionalSeedAddress = addressEncoder.encode(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka" as Address
+);
+const seeds = [optionalSeedString, optionalSeedAddress];
+const [pda, bump] = await getProgramDerivedAddress({
+  programAddress,
+  seeds
+});
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programAddress = new PublicKey("11111111111111111111111111111111");
+// !focus(1:4)
+const optionalSeedString = "helloWorld";
+const optionalSeedAddress = new PublicKey(
+  "B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka"
+);
+const seeds = [Buffer.from(optionalSeedString), optionalSeedAddress.toBuffer()];
+const [pda, bump] = await PublicKey.findProgramAddressSync(
+  seeds,
+  programAddress
+);
+
+console.log(`PDA: ${pda}`);
+console.log(`Bump: ${bump}`);
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_address = Pubkey::from_str("11111111111111111111111111111111")?;
+    // !focus(1:2)
+    let optional_seed_bytes = b"helloWorld";
+    let optional_seed_address = Pubkey::from_str("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")?;
+    let seeds: &[&[u8]] = &[optional_seed_bytes, optional_seed_address.as_ref()];
+    let (pda, bump) = Pubkey::find_program_address(seeds, &program_address);
+
+    println!("PDA: {}", pda);
+    println!("Bump: {}", bump);
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### 모든 범프 반복하기
+
+다음 예제는 가능한 모든 범프 seed(255부터 0까지)를 사용한 PDA 파생을 보여주며,
+*`find_program_address`*가 [정규 범프](#bump-seed-search)를 반환하는 방법을
+설명합니다:
+
+<Callout type="info">
+  [`createProgramDerivedAddress`](https://github.com/anza-xyz/kit/blob/v2.1.0/packages/addresses/src/program-derived-address.ts#L101)
+  함수가 내보내지지 않기 때문에 Kit 예제는 포함되지 않았습니다.
+</Callout>
+
+<CodeTabs storage="pda-examples" flags="r">
+
+```ts !! title="Legacy"
+import { PublicKey } from "@solana/web3.js";
+
+const programId = new PublicKey("11111111111111111111111111111111");
+const optionalSeed = "helloWorld";
+
+// Loop through all bump seeds (255 down to 0)
+for (let bump = 255; bump >= 0; bump--) {
+  try {
+    const PDA = PublicKey.createProgramAddressSync(
+      [Buffer.from(optionalSeed), Buffer.from([bump])],
+      programId
+    );
+    console.log("bump " + bump + ": " + PDA);
+  } catch (error) {
+    console.log("bump " + bump + ": " + error);
+  }
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let program_id = Pubkey::from_str("11111111111111111111111111111111")?;
+    let optional_seed = b"helloWorld";
+
+    // Loop through all bump seeds (255 down to 0)
+    for bump in (0..=255).rev() {
+        match Pubkey::create_program_address(&[optional_seed.as_ref(), &[bump]], &program_id) {
+            Ok(pda) => println!("bump {}: {}", bump, pda),
+            Err(err) => println!("bump {}: {}", bump, err),
+        }
+    }
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+<CodeTabs>
+
+```sh !! title="Expected TS Output"
+bump 255: Error: Invalid seeds, address must fall off the curve
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Error: Invalid seeds, address must fall off the curve
+...
+// remaining bump outputs
+```
+
+```sh !! title="Expected Rust Output"
+bump 255: Provided seeds do not result in a valid address
+bump 254: 46GZzzetjCURsdFPb7rcnspbEMnCBXe9kpjrsZAkKb6X
+bump 253: GBNWBGxKmdcd7JrMnBdZke9Fumj9sir4rpbruwEGmR4y
+bump 252: THfBMgduMonjaNsCisKa7Qz2cBoG1VCUYHyso7UXYHH
+bump 251: EuRrNqJAofo7y3Jy6MGvF7eZAYegqYTwH2dnLCwDDGdP
+bump 250: Provided seeds do not result in a valid address
+...
+// remaining bump outputs
+```
+
+</CodeTabs>
+
+이 예제에서 bump 255는 곡선 위의 주소를 생성하여 실패합니다. 첫 번째 유효한
+bump는 254이며, 이것이 정규 bump가 됩니다.

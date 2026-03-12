@@ -1,0 +1,84 @@
+---
+title: Transakcje wersjonowane
+description:
+  Porównanie formatów transakcji legacy i wersjonowanych (V0) w Solanie, w tym
+  Address Lookup Tables (ALT), wykrywanie wersji, format wiadomości V0 oraz
+  rozwiązywanie ALT.
+url: /docs/core/transactions/versioned-transactions
+type: conceptual
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/transaction-pipeline
+  - /docs/core/accounts/account-types
+---
+
+<Callout type="info" title="Podsumowanie">
+  Transakcje V0 wprowadzają Address Lookup Tables (ALT), umożliwiając
+  odwoływanie się do kont za pomocą 1-bajtowych indeksów zamiast 32-bajtowych
+  kluczy. Pozwala to zaoszczędzić 31 bajtów na każdym koncie rozpoznanym przez
+  ALT.
+</Callout>
+
+Solana obsługuje dwa formaty transakcji: **legacy** oraz **wersjonowany** (v0).
+
+Validator określa format, sprawdzając pierwszy bajt wiadomości:
+
+- Jeśli pierwszy bajt ma ustawiony
+  [prefiks wersji](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29),
+  to jest to **wiadomość wersjonowana**. Obecnie obsługiwana jest tylko
+  wersja 0. Kolejne 3 bajty to _rs`MessageHeader`_.
+- W przeciwnym razie jest to **wiadomość legacy**. Pierwszy bajt to
+  `num_required_signatures`, a kolejne 2 bajty uzupełniają nagłówek.
+
+<Callout type="info" title="Kiedy używać transakcji V0">
+  Używaj V0, gdy Twoja transakcja odwołuje się do wielu kont i zbliża się do
+  limitu pakietu 1 232 bajtów. Jeśli transakcja mieści się w limicie rozmiaru ze
+  wszystkimi kontami wpisanymi bezpośrednio, transakcje legacy są prostsze i
+  mają szersze wsparcie narzędziowe. V0 jest wymagane do korzystania z Address
+  Lookup Tables.
+</Callout>
+
+## Format wiadomości V0
+
+Wiadomość v0 ma te same pola co wiadomość legacy, plus dodatkową tablicę
+`address_table_lookups` dołączoną po instrukcjach:
+
+| Pole                    | Rozmiar                    | Opis                                      |
+| ----------------------- | -------------------------- | ----------------------------------------- |
+| `0x80`                  | 1 bajt                     | Bajt prefiksu wersji                      |
+| `header`                | 3 bajty                    | MessageHeader (jak w legacy)              |
+| `static_account_keys`   | compact-u16 + N x 32 bajty | Klucze występujące dosłownie w transakcji |
+| `recent_blockhash`      | 32 bajty                   | Blockhash                                 |
+| `instructions`          | compact-u16 + zmienna      | Ten sam format co legacy                  |
+| `address_table_lookups` | compact-u16 + zmienna      | Odwołania ALT (patrz poniżej)             |
+
+Każdy wpis w tabeli wyszukiwania adresów zawiera:
+
+| Pole               | Rozmiar                  | Opis                                     |
+| ------------------ | ------------------------ | ---------------------------------------- |
+| `account_key`      | 32 bajty                 | Klucz publiczny konta ALT                |
+| `writable_indexes` | compact-u16 + N x 1 bajt | Indeksy do ALT dla kont z prawem zapisu  |
+| `readonly_indexes` | compact-u16 + N x 1 bajt | Indeksy do ALT dla kont tylko do odczytu |
+
+## Rozwiązywanie tabeli wyszukiwania adresów
+
+ALT to konto on-chain, które przechowuje do 256 kluczy publicznych. Odwołując
+się do ALT, transakcja może uwzględnić dodatkowe konta, używając 1-bajtowych
+indeksów zamiast 32-bajtowych kluczy publicznych, co znacząco zmniejsza narzut
+na każde konto.
+
+W czasie wykonywania, zanim rozpocznie się egzekucja, validator rozwiązuje
+wszystkie odwołania do ALT na pełne klucze publiczne. Rozwiązane adresy są
+dołączane do statycznych kluczy kont, tworząc pełną listę kluczy kont. Konta
+rozwiązane przez ALT są uporządkowane tak samo jak konta statyczne: najpierw
+zapisywalne, potem tylko do odczytu.
+
+<Callout>
+  Tabele wyszukiwania adresów wpływają jedynie na sposób odwoływania się do kont
+  w transakcji przesyłanej w sieci. Podczas wykonywania, środowisko
+  uruchomieniowe rozwiązuje wszystkie indeksy na pełne adresy kont. Konta
+  rozwiązane przez ALT mogą być tylko zapisywalne lub tylko do odczytu (nie mogą
+  być sygnatariuszami).
+</Callout>
