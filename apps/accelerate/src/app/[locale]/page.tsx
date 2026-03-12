@@ -1,27 +1,26 @@
 import {
-  Hero,
-  EventDetails,
-  AgendaBanner,
-  Speakers,
-  Sponsors,
-  FAQ,
-  GettingThere,
-  FooterCTA,
-  HashScroll,
-} from "@/components";
+  HomepageNav,
+  HomepageHero,
+  HeroWaveWrapper,
+  EventLineup,
+  Highlights,
+  VideoCarousel,
+  StayUpdated,
+  HomepageFooter,
+} from "@/components/homepage";
 
 export default function HomePage() {
   return (
-    <>
-      <HashScroll />
-      <Hero />
-      <EventDetails />
-      <AgendaBanner />
-      <Speakers />
-      <Sponsors />
-      <FAQ />
-      <GettingThere />
-      <FooterCTA />
-    </>
+    <main className="relative overflow-x-clip bg-black text-white">
+      <HomepageNav />
+      <HeroWaveWrapper>
+        <HomepageHero />
+      </HeroWaveWrapper>
+      <EventLineup />
+      <Highlights />
+      <VideoCarousel />
+      <StayUpdated />
+      <HomepageFooter />
+    </main>
   );
 }

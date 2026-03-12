@@ -6,19 +6,7 @@ import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import speakersData from "../data/speakers.json";
 import { getImagePath } from "@/config";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
+import { fadeInUp, stagger } from "@/lib/animations";
 
 interface Speaker {
   name: string;
@@ -39,7 +27,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
     >
-      {/* Image - full width on mobile, fixed sizes on tablet/desktop */}
+      {/* Image - constrained on mobile, fixed sizes on tablet/desktop */}
       <motion.div
         className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#a0a0a0] sm:aspect-auto sm:h-[140px] sm:w-[140px] lg:h-[145px] lg:w-[145px]"
         whileHover={{ scale: 1.05 }}
@@ -73,11 +61,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
       <div className="relative flex w-full flex-col gap-1.5 sm:w-[140px] sm:gap-2 lg:w-[145px]">
         {/* Name - uppercase, multi-line */}
         <motion.div
-          className="text-[18px] uppercase leading-none sm:text-[16px] lg:text-[18px]"
-          style={{
-            fontFamily:
-              "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-          }}
+          className="text-[14px] uppercase leading-none sm:text-[16px] lg:text-[18px]"
           animate={{
             color: isHovered ? "#19fb9b" : "#9945ff",
           }}
@@ -91,11 +75,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
         <div className="flex flex-col gap-0.5 sm:gap-1">
           {/* Company */}
           <motion.p
-            className="text-[16px] sm:text-[14px] lg:text-[16px]"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            }}
+            className="text-[13px] sm:text-[14px] lg:text-[16px]"
             animate={{
               color: isHovered ? "#d2d2d2" : "#ffffff",
             }}
@@ -105,7 +85,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
           </motion.p>
 
           {/* Title */}
-          <p className="text-sm text-white/80 sm:text-sm">{speaker.title}</p>
+          <p className="text-xs text-white/80 sm:text-sm">{speaker.title}</p>
         </div>
       </div>
     </motion.div>
@@ -114,8 +94,8 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
 
 export function Speakers() {
   return (
-    <section id="speakers" className="bg-black py-12 lg:py-16">
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+    <section id="speakers" className="section-accelerate">
+      <div className="container-accelerate">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -219,15 +199,7 @@ function AllSpeakersSection() {
           variants={fadeInUp}
           className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
         >
-          <h2
-            className="text-h1 text-accelerate-gray-100 shrink-0"
-            style={{
-              fontFamily:
-                "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-            }}
-          >
-            {t("heading")}
-          </h2>
+          <h2 className="section-heading !mb-0 shrink-0">{t("heading")}</h2>
           {/* Search and Filter Bar */}
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:justify-end ">
             <div className="relative min-w-0 flex-1 sm:max-w-none md:max-w-lg">
@@ -237,10 +209,6 @@ function AllSpeakersSection() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("searchPlaceholder")}
                 className="w-full min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-3 pl-11 text-white placeholder:text-white/40 focus:border-accelerate-purple/50 focus:outline-none focus:ring-2 focus:ring-accelerate-purple/30 transition-all sm:min-w-[280px]"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                }}
               />
               <svg
                 width="20"
@@ -283,10 +251,6 @@ function AllSpeakersSection() {
                   exit={{ opacity: 0, scale: 0.8 }}
                   onClick={clearFilters}
                   className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm text-white/80 transition-all hover:border-accelerate-purple/50 hover:bg-accelerate-purple/10 hover:text-white whitespace-nowrap"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                  }}
                 >
                   {t("clear")}
                 </motion.button>
@@ -312,7 +276,7 @@ function AllSpeakersSection() {
       </div>
 
       {/* Divider */}
-      <div className="mb-8 border-t border-white/10 lg:mb-10" />
+      <div className="section-divider" />
 
       {/* Speaker Grid - Dynamic Layout */}
       <div className="relative">
@@ -342,7 +306,7 @@ function AllSpeakersSection() {
                 ))}
               </motion.div>
 
-              {/* Mobile: show first 10, then accordion for rest */}
+              {/* Mobile: show first 10 in 2-col grid, then accordion for rest */}
               <div className="sm:hidden">
                 <motion.div
                   key="speakers-grid-mobile"
@@ -350,7 +314,7 @@ function AllSpeakersSection() {
                   animate="visible"
                   exit="hidden"
                   variants={stagger}
-                  className="grid grid-cols-1 gap-6 pb-6"
+                  className="grid grid-cols-2 gap-4 pb-6"
                 >
                   {filteredSpeakers
                     .slice(0, MOBILE_INITIAL_COUNT)
@@ -385,7 +349,7 @@ function AllSpeakersSection() {
                             initial="hidden"
                             animate="visible"
                             variants={stagger}
-                            className="grid grid-cols-1 gap-6 pb-6"
+                            className="grid grid-cols-2 gap-4 pb-6"
                           >
                             {filteredSpeakers
                               .slice(MOBILE_INITIAL_COUNT)
@@ -409,10 +373,6 @@ function AllSpeakersSection() {
                     <motion.button
                       onClick={() => setShowAllMobile(!showAllMobile)}
                       className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-6 py-4 text-white transition-all hover:border-accelerate-purple/50 hover:bg-accelerate-purple/10"
-                      style={{
-                        fontFamily:
-                          "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                      }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <span>
@@ -450,22 +410,10 @@ function AllSpeakersSection() {
               exit={{ opacity: 0, y: 20 }}
               className="py-16 text-center"
             >
-              <p
-                className="text-h3 text-white/60 mb-4"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                }}
-              >
-                {t("noResults")}
-              </p>
+              <p className="text-h3 text-white/60 mb-4">{t("noResults")}</p>
               <button
                 onClick={clearFilters}
                 className="text-accelerate-purple hover:text-accelerate-green transition-colors underline"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                }}
               >
                 {t("clearFiltersToSeeAll")}
               </button>
