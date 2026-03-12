@@ -6,6 +6,7 @@ import { SkillsInstallCommand } from "@/components/skills/SkillsInstallCommand";
 import { SkillsHeroBackground } from "@/components/skills/SkillsHeroBackground";
 import { Divider } from "@/components/solutions/divider.v2";
 import { COMMUNITY_SKILLS } from "@/data/skills/communitySkills";
+import { SOLANA_DEV_SKILLS_GITHUB_API_URL } from "@/components/skills/skills";
 
 function parseSkillMarkdown(
   filename: string,
@@ -28,10 +29,9 @@ export async function SkillsPage() {
   let skills: SkillItem[] = [];
 
   try {
-    const res = await fetch(
-      "https://api.github.com/repos/solana-foundation/solana-dev-skill/contents/skill/references",
-      { next: { revalidate: 3600 } },
-    );
+    const res = await fetch(SOLANA_DEV_SKILLS_GITHUB_API_URL, {
+      next: { revalidate: 3600 },
+    });
 
     if (res.ok) {
       const files = await res.json();

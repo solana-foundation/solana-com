@@ -3,9 +3,9 @@
 import { useState } from "react";
 import CopyIcon from "@@/public/src/img/icons/Copy.inline.svg";
 import CopyConfirmIcon from "@@/public/src/img/icons/CopyConfirm.inline.svg";
+import { SOLANA_DEV_SKILLS_REPO_URL } from "./skills";
 
-const COMMAND =
-  "npx skills add https://github.com/solana-foundation/solana-dev-skill";
+const COMMAND = `npx skills add ${SOLANA_DEV_SKILLS_REPO_URL}`;
 
 export function SkillsInstallCommand({ copyLabel }: { copyLabel: string }) {
   const [copied, setCopied] = useState(false);
