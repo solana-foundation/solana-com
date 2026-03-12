@@ -40,9 +40,9 @@ Reason rejected: even selective reuse would bias the outcome toward the old info
 
 ### 3. Treat legacy Breakpoint assets as references, then copy only approved design inputs into the new app
 
-The legacy repo exposes concrete brand tokens that are worth preserving: `ABCDiatype`, `FH Lecturis`, and `Macan Mono`, plus the core palette built around `#11081b`, `#ab66fd`, `#e7d2f9`, `#c9ff7c`, `#14f195`, and `#59b8fe`. The new app should define its own local design tokens and CSS variables using those references, and it should copy any approved textures or assets into `apps/breakpoint` so the app does not depend on files outside the workspace at runtime.
+The legacy repo exposes concrete brand tokens that are worth preserving: `ABCDiatype`, `FH Lecturis`, and `Macan Mono`, plus the core palette built around `#11081b`, `#ab66fd`, `#e7d2f9`, `#c9ff7c`, `#14f195`, and `#59b8fe`. It also contains the approved water-ripple shader utility in `lib/water.ts`, which should be treated as a reusable texture primitive for the new hero background. The new app should define its own local design tokens and CSS variables using those references, and it should copy any approved textures, shader utilities, or assets into `apps/breakpoint` so the app does not depend on files outside the workspace at runtime.
 
-Alternative considered: import styles or assets directly from `~/Sites/solana-com-breakpoint`.
+Alternative considered: import styles, assets, or the shader effect directly from `~/Sites/solana-com-breakpoint`.
 Reason rejected: cross-repo runtime coupling is brittle and makes the new app non-portable.
 
 ### 4. Use static curated content for the first version
@@ -55,7 +55,7 @@ Reason rejected: it adds operational and schema complexity before the content mo
 ### 5. Design the page as section-based storytelling with anchored navigation
 
 The single-page brochure should be composed around a small number of high-signal sections:
-- Hero and event identity
+- Hero and event identity with a shader-driven background derived from the approved water effect
 - Event overview and audience
 - Program formats and experience
 - Featured sizzle video
@@ -84,7 +84,7 @@ Reason rejected: the app is net-new and needs fast, repeatable checks from the s
 
 ## Risks / Trade-offs
 
-- [Visual drift from established Breakpoint identity] -> Mitigation: lock brand references up front around the legacy fonts, color palette, and approved texture direction, then define local tokens in the new app.
+- [Visual drift from established Breakpoint identity] -> Mitigation: lock brand references up front around the legacy fonts, color palette, approved texture direction, and the water shader behavior, then define local tokens and effect wrappers in the new app.
 - [Scope creep from the legacy site inventory] -> Mitigation: restrict v1 to brochure sections driven by the supplied narrative and explicitly exclude schedule, speaker, map, and sponsor systems unless later requested.
 - [Missing conversion details such as CTA destinations] -> Mitigation: ship a configurable localized placeholder CTA in v1 and keep the destination swappable through content configuration.
 - [Localization adds route and message complexity to a new app] -> Mitigation: adopt the existing `@workspace/i18n` package rather than inventing app-specific locale plumbing.

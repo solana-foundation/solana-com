@@ -44,6 +44,11 @@ The system SHALL use a newly built layout and section composition for Breakpoint
 - **THEN** the page reflects the Breakpoint visual identity through approved typography, color, and texture references
 - **AND** the page does not depend on direct reproduction of legacy page layouts or CMS-driven page-builder sections
 
+#### Scenario: Hero uses the approved shader treatment
+- **WHEN** a visitor lands in the brochure hero
+- **THEN** the hero may use a locally implemented shader background derived from the approved `solana-com-breakpoint/lib/water.ts` effect
+- **AND** the implementation remains app-owned inside `apps/breakpoint` rather than importing runtime code from the legacy project
+
 ### Requirement: Brochure page remains usable across viewport sizes
 The system SHALL present the single-page brochure content in a responsive layout that preserves hierarchy, readability, and navigation access on mobile and desktop viewports.
 
