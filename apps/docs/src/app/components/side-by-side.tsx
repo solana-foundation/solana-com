@@ -8,6 +8,7 @@ const Schema = Block.extend({
   right: Block,
 });
 
+// usage example: https://github.com/solana-foundation/solana-com/pull/1226
 export function SideBySide(props: unknown) {
   const { left, right } = parseProps(props, Schema) as z.infer<typeof Schema>;
 
