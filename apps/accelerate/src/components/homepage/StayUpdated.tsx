@@ -6,8 +6,7 @@ import { motion } from "framer-motion";
 const ITERABLE_BASE_URL =
   "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
 
-// Placeholder form ID - replace with actual Iterable form ID
-const ITERABLE_FORM_ID = "PLACEHOLDER_FORM_ID";
+const ITERABLE_FORM_ID = "fdd4a0db-f4af-4b29-90f9-98b0556d4c89";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
