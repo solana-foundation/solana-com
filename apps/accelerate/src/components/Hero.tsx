@@ -18,6 +18,7 @@ interface HeroProps {
   translationPrefix?: string;
   skylineImage?: string;
   logoImage?: string;
+  homePath?: string;
   agendaPath?: string | null;
   showVideo?: boolean;
   ctaLabel?: string;
@@ -28,6 +29,7 @@ export function Hero({
   translationPrefix = "accelerate",
   skylineImage = "/images/hk-skyline.svg",
   logoImage = "/images/accelerate-logo.svg",
+  homePath = "/accelerate",
   agendaPath = "/accelerate/hong-kong/agenda",
   showVideo = true,
   ctaLabel,
@@ -136,7 +138,7 @@ export function Hero({
       {/* Header Navigation */}
       <header className="relative z-20 flex items-center justify-between px-6 py-5 lg:px-[240px] lg:py-5">
         {/* Logo */}
-        <Link href="/" className="flex items-center">
+        <Link href={homePath} className="flex items-center">
           <Image
             src={getImagePath(logoImage)}
             alt="Accelerate APAC"
