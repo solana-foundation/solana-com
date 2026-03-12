@@ -34,6 +34,9 @@ export const config = {
           ? `https://${process.env.VERCEL_URL}`
           : `https://media.solana.com`) || `https://media.solana.com`,
 
+  /** Public-facing base URL for canonical links, OG tags, and social sharing */
+  publicUrl: `https://solana.com`,
+
   shareImageWidth: 1000,
   shareImageHeight: 523,
   social: {

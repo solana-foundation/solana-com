@@ -148,7 +148,7 @@ export default function PostsClientPage(props: PostsClientPageProps) {
 
                   <div className="flex flex-col gap-6">
                     <SocialShare
-                      url={`${typeof window !== "undefined" ? window.location.origin : ""}${featuredPost.url}`}
+                      url={featuredPost.url}
                       title={featuredPost.title}
                       variant="dark"
                     />

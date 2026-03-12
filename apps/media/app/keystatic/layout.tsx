@@ -1,15 +1,17 @@
-import type { ReactNode } from "react";
-import type { Metadata } from "next";
+import { Metadata } from "next";
+import KeystaticApp from "./keystatic";
 
 export const metadata: Metadata = {
   title: "Keystatic Admin",
   description: "Content management for Solana Media",
 };
 
-export default function KeystaticLayout({ children }: { children: ReactNode }) {
+export default function Layout() {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html>
+      <body>
+        <KeystaticApp />
+      </body>
     </html>
   );
 }

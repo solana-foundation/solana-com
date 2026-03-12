@@ -6,6 +6,7 @@ export interface LatestPostsParams {
   limit?: number;
   cursor?: string;
   category?: string;
+  tag?: string;
 }
 
 export interface LatestPostsResponse {
@@ -193,23 +194,70 @@ export const fetchLatestPosts = async (
       return b.date.getTime() - a.date.getTime();
     });
 
-    // Filter by category if specified
+    const normalizedCategory = params.category?.trim().toLowerCase();
+    const normalizedTag = params.tag?.trim().toLowerCase();
+
+    // Filter by category and/or tag if specified
     let filteredPosts = postsWithDates;
-    if (params.category) {
+    if (normalizedCategory || normalizedTag) {
       filteredPosts = [];
+
       for (const item of postsWithDates) {
-        if (item.post?.categories) {
+        let matchesCategory = !normalizedCategory;
+        if (normalizedCategory && item.post?.categories) {
           for (const catRef of item.post.categories) {
-            if (catRef.category) {
-              const catData = await reader.collections.categories.read(
-                catRef.category
-              );
-              if (String(catData?.name) === params.category) {
-                filteredPosts.push(item);
+            let categorySlug: string | null = null;
+
+            if (typeof catRef === "string") {
+              categorySlug = catRef;
+            } else if (catRef?.category) {
+              categorySlug = String(catRef.category);
+            }
+
+            if (categorySlug) {
+              const catData =
+                await reader.collections.categories.read(categorySlug);
+              const categoryName = String(catData?.name || "").toLowerCase();
+
+              if (
+                categoryName === normalizedCategory ||
+                categorySlug.toLowerCase() === normalizedCategory
+              ) {
+                matchesCategory = true;
                 break;
               }
             }
           }
+        }
+
+        let matchesTag = !normalizedTag;
+        if (normalizedTag && item.post?.tags) {
+          for (const tagRef of item.post.tags) {
+            let tagSlug: string | null = null;
+
+            if (typeof tagRef === "string") {
+              tagSlug = tagRef;
+            } else if (tagRef?.tag) {
+              tagSlug = String(tagRef.tag);
+            }
+
+            if (tagSlug) {
+              const tagData = await reader.collections.tags.read(tagSlug);
+              const tagName = String(tagData?.name || "").toLowerCase();
+
+              if (
+                tagName === normalizedTag ||
+                tagSlug.toLowerCase() === normalizedTag
+              ) {
+                matchesTag = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (matchesCategory && matchesTag) {
+          filteredPosts.push(item);
         }
       }
     }
