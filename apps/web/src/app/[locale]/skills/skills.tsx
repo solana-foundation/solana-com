@@ -82,8 +82,6 @@ export async function SkillsPage() {
       reference: t("categories.reference"),
       defi: t("categories.defi"),
       infrastructure: t("categories.infrastructure"),
-      agents: t("categories.agents"),
-      devtools: t("categories.devtools"),
     },
   };
 
