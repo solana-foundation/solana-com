@@ -4,7 +4,8 @@ hideTableOfContents: true
 h1: simulateTransaction RPC Method
 ---
 
-Simulates a transaction without submitting it to the cluster.
+Simulates a signed transaction using the chain data available at the requested
+commitment, without broadcasting it.
 
 <Callout type="info" title="Source">
   [`simulate_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/rpc/src/rpc.rs#L3943)
@@ -177,6 +178,8 @@ Configuration object containing the following fields:
 ##### !! commitment
 
 !type string
+!values processed confirmed finalized
+!default finalized
 
 Commitment level to simulate the transaction at. See
 [Configuring State Commitment](/docs/rpc#configuring-state-commitment).
@@ -212,12 +215,20 @@ blockhash (conflicts with `sigVerify`)
 If `true` the transaction signatures will be verified (conflicts with
 `replaceRecentBlockhash`)
 
+```json title="Example"
+{ "sigVerify": true }
+```
+
 ##### !! minContextSlot
 
 !type number
 !optional
 
 The minimum slot that the request can be evaluated at
+
+```json title="Example"
+{ "minContextSlot": 341197000 }
+```
 
 
 ##### !! innerInstructions
@@ -229,6 +240,10 @@ If `true` the response will include
 CPI instructions (`innerInstructions`). These inner
 instructions will be `jsonParsed` where possible, otherwise `json`.
 
+```json title="Example"
+{ "innerInstructions": true }
+```
+
 ##### !! accounts
 
 !type object
@@ -236,14 +251,10 @@ instructions will be `jsonParsed` where possible, otherwise `json`.
 
 Accounts configuration object containing the following fields:
 
-- `addresses` (array) - accounts to return, as base-58 encoded strings. The
-  list length must not exceed the number of account keys in the transaction.
-- `encoding` (string) - encoding for returned Account data (default: `base64`).
-  Values: `base64`, `base64+zstd`, `jsonParsed`. Note: `base58` is **not
-  supported** for this field. `jsonParsed` encoding attempts to use
-  program-specific state parsers to return more human-readable and explicit
-  account state data. If `jsonParsed` is requested but a parser cannot be
-  found, the field falls back to `[data, "base64"]`.
+| Field | Type | Description |
+| --- | --- | --- |
+| `addresses` | `array` | Account addresses to return, as base-58 encoded strings. The list length must not exceed the number of account keys in the transaction. |
+| `encoding` | `string` | Encoding for returned account data. Default is `base64`. Supported values are `base64`, `base64+zstd`, and `jsonParsed`. `base58` is not supported. If `jsonParsed` is requested but no parser is available, Agave falls back to `[data, "base64"]`. |
 
 ```json title="Example"
 {
@@ -311,7 +322,24 @@ Accounts configuration object containing the following fields:
 
 !type object
 
-The result will contain:
+RpcResponse object containing:
+
+#### !! context
+
+!type object
+
+Slot and API version the node used to answer this request.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `slot` | `u64` | Slot at which the node evaluated this request. |
+| `apiVersion` | `string` | RPC API version reported by the node. This field may be omitted by older nodes. |
+
+#### !! value
+
+!type object
+
+Simulation result object containing:
 
 ##### !! accounts
 
@@ -321,24 +349,37 @@ Array of accounts with the same length as the `accounts.addresses` array in the
 request. Each element is either:
 
 - `null` - if the account doesn't exist or if `err` is not null
-- An object containing:
-  - `lamports: <u64>` - number of lamports assigned to this account
-  - `owner: <string>` - base-58 encoded Pubkey of the program this account has
-    been assigned to
-  - `data: <[string, encoding]|object>` - data associated with the account,
-    either as encoded binary data or a parsed object with `program`, `parsed`,
-    and `space`
-  - `executable: <bool>` - boolean indicating if the account contains a program
-  - `rentEpoch: <u64>` - the epoch at which this account will next owe rent
-  - `space: <u64|null>` - account data size in bytes. This may be null if the
-    RPC response omits the size for the selected encoding
+- An account object with the following fields:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | `[string, encoding] \| object` | Account data. Binary forms depend on `accounts.encoding`. When `accounts.encoding` is `jsonParsed`, this field is `{program, parsed, space}`; if no parser is available, Agave falls back to `[data, "base64"]`. |
+| `executable` | `bool` | Whether the account contains a program and is therefore read-only. |
+| `lamports` | `u64` | Lamports assigned to the account. |
+| `owner` | `string` | Program owner pubkey, as a base-58 encoded string. |
+| `rentEpoch` | `u64` | Next epoch at which the account owes rent. |
+| `space` | `u64 \| null` | Account data size in bytes. This may be `null` if the selected encoding omits it. |
+
+When `accounts[].data` is returned as an object, it contains:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `program` | `string` | Name of the parser that produced the decoded account data. |
+| `parsed` | `object` | Parser-specific JSON payload. Its structure depends on the owning program and account type. |
+| `space` | `u64` | Account data size in bytes. |
 
 ##### !! err
 
 !type object|string|null
 
-Error if transaction failed, null if transaction succeeded. See
-[TransactionError definitions](https://github.com/solana-labs/solana/blob/c0c60386544ec9a9ec7119229f37386d9f070523/sdk/src/transaction/error.rs#L13)
+Error if the transaction failed. `null` if the transaction succeeded.
+
+When `err` is returned as an object, it is a transaction error enum payload
+rather than a fixed JSON schema:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `<variantName>` | `array \| object \| string \| null` | Transaction error variant payload. Most variants serialize as strings. `InstructionError` serializes as `[instructionIndex, instructionError]`. |
 
 ##### !! innerInstructions
 
@@ -364,23 +405,24 @@ if simulation failed before the transaction was able to execute
 
 !type object|null
 
-The blockhash used to simulate the transaction, containing:
+The blockhash Agave used to simulate the transaction when
+`replaceRecentBlockhash` is enabled.
 
-- `blockhash: <string>` - the blockhash used to simulate the transaction
-- `lastValidBlockHeight: <u64>` - the last valid block height at which the
-  blockhash is valid
+| Field | Type | Description |
+| --- | --- | --- |
+| `blockhash` | `string` | Blockhash used during simulation, as a base-58 encoded string. |
+| `lastValidBlockHeight` | `u64` | Last block height at which that blockhash remains valid. |
 
 ##### !! returnData
 
 !type object|null
 
-The most-recent return data generated by an instruction in the transaction,
-containing:
+Most recent instruction return data captured during simulation, when present.
 
-- `programId: <string>` - the program that generated the return data, as base-58
-  encoded Pubkey
-- `data: <[string, encoding]>` - the return data itself, as base-64 encoded
-  binary data
+| Field | Type | Description |
+| --- | --- | --- |
+| `programId` | `string` | Program that generated the return data, as a base-58 encoded Pubkey. |
+| `data` | `[string, encoding]` | Return data payload and encoding. Agave currently returns base-64 data with `"base64"` encoding. |
 
 ##### !! unitsConsumed
 
@@ -427,12 +469,12 @@ transaction was processed. `null` if token balance recording is not available.
 
 !type object | null
 
-Transaction addresses loaded from address lookup tables, containing:
+Transaction addresses loaded from address lookup tables, when present.
 
-- `writable: <[string]>` - Ordered list of base-58 encoded addresses for
-  writable loaded accounts
-- `readonly: <[string]>` - Ordered list of base-58 encoded addresses for
-  readonly loaded accounts
+| Field | Type | Description |
+| --- | --- | --- |
+| `writable` | `array` | Ordered list of writable loaded-account addresses, as base-58 encoded strings. |
+| `readonly` | `array` | Ordered list of readonly loaded-account addresses, as base-58 encoded strings. |
 
 </APIMethod>
 
