@@ -40,6 +40,10 @@ The `staging` branch has its own preview deployment at
 [https://solana-com-media-git-staging-solana-foundation.vercel.app/](https://solana-com-media-git-staging-solana-foundation.vercel.app/).
 Use this link to verify how your content looks before opening a Pull Request.
 
+> **Note:** After saving a change to `staging`, allow 1–2 minutes for the
+> preview to update. Vercel needs to rebuild the site before new content
+> appears.
+
 Important rules:
 
 - Always select the `staging` branch before you create or edit content.
@@ -133,6 +137,7 @@ When the article is still in progress:
 This does **not** publish the article to the live site. You can preview your
 draft on the staging site at
 [https://solana-com-media-git-staging-solana-foundation.vercel.app/](https://solana-com-media-git-staging-solana-foundation.vercel.app/).
+Allow 1–2 minutes after saving for the preview to update while Vercel rebuilds.
 
 ### Step 5: Mark the Post Ready for Publishing
 
