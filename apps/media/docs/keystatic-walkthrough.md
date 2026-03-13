@@ -36,6 +36,10 @@ There are two separate stages in the workflow:
 | **Drafting / editing** | `staging` branch                      | Safe working copy for content updates       |
 | **Publishing**         | Pull Request from `staging` to `main` | Review and release process for live content |
 
+The `staging` branch has its own preview deployment at
+[https://solana-com-media-git-staging-solana-foundation.vercel.app/](https://solana-com-media-git-staging-solana-foundation.vercel.app/).
+Use this link to verify how your content looks before opening a Pull Request.
+
 Important rules:
 
 - Always select the `staging` branch before you create or edit content.
@@ -126,7 +130,9 @@ When the article is still in progress:
 2. Click **Create**.
 3. Keystatic saves the new post to the current **`staging`** branch.
 
-This does **not** publish the article to the live site.
+This does **not** publish the article to the live site. You can preview your
+draft on the staging site at
+[https://solana-com-media-git-staging-solana-foundation.vercel.app/](https://solana-com-media-git-staging-solana-foundation.vercel.app/).
 
 ### Step 5: Mark the Post Ready for Publishing
 
@@ -151,7 +157,10 @@ Publishing happens after the content is already saved on `staging`.
    - **base:** `main`
    - **compare:** `staging`
 5. Review the diff and create the Pull Request.
-6. Wait for the preview deployment to finish building.
+6. Wait for the preview deployment to finish building. You can also verify
+   content on the staging preview at
+   [https://solana-com-media-git-staging-solana-foundation.vercel.app/](https://solana-com-media-git-staging-solana-foundation.vercel.app/)
+   before merging.
 7. After review and approval, merge the Pull Request into `main`.
 
 > **Important:** A post with **Status = Published** is still not live until the
