@@ -4,7 +4,12 @@ hideTableOfContents: true
 h1: getAccountInfo RPC Method
 ---
 
-Returns all information associated with the account of provided Pubkey
+Returns the account state and metadata for a single address. Returns `null` if
+the account does not exist at the requested commitment.
+
+<Callout type="info" title="Source">
+  [`get_account_info`](https://github.com/anza-xyz/agave/blob/v3.1.8/rpc/src/rpc.rs#L530)
+</Callout>
 
 <APIMethod>
 
@@ -16,12 +21,12 @@ Returns all information associated with the account of provided Pubkey
   "params": [
     // !hover pubkey
     "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg",
-    // !hover(1:3) 1
+    // !hover(1:4) config
     {
       // !hover commitment
       "commitment": "finalized",
       // !hover encoding
-      "encoding": "base58"
+      "encoding": "base64"
     }
   ]
 }
@@ -82,7 +87,7 @@ async fn main() -> Result<()> {
 
 Pubkey of account to query, as base-58 encoded string.
 
-#### !! 1
+#### !! config
 
 !type object
 
@@ -91,6 +96,8 @@ Configuration object.
 ##### !! commitment
 
 !type string
+!values processed confirmed finalized
+!default finalized
 
 The commitment describes how finalized a block is at that point in time. See
 [Configuring State Commitment](/docs/rpc#configuring-state-commitment).
@@ -104,15 +111,13 @@ The commitment describes how finalized a block is at that point in time. See
 Encoding format for Account data. See
 [Parsed Responses](/docs/rpc#parsed-responses).
 
-- `base58` is slow and limited to less than 129 bytes of Account data.
-- `base64` will return base64 encoded data for Account data of any size.
-- `base64+zstd` compresses the Account data using
-  [Zstandard](https://facebook.github.io/zstd/) and base64-encodes the result.
-- `binary` (⚠️ deprecated) is similar to `base58`, except data will be a base58-encoded string and not an array that includes the encoding.
-- `jsonParsed` encoding attempts to use program-specific state parsers to return
-  more human-readable and explicit account state data.
-- If `jsonParsed` is requested but a parser cannot be found, the field falls
-  back to `base64` encoding, detectable when the `data` field is type `string`.
+| Encoding | Data format | Notes |
+|---|---|---|
+| `base64` | `[data, "base64"]` | Recommended |
+| `base58` | `[data, "base58"]` | Slow. The account's data field must be 128 bytes or fewer |
+| `base64+zstd` | `[data, "base64+zstd"]` | [Zstandard](https://facebook.github.io/zstd/) compressed |
+| `jsonParsed` | `{program, parsed, space}` | Falls back to `[data, "base64"]` if no parser found |
+| `binary` | `string` | ⚠️ Deprecated. Legacy encoding retained for backwards compatibility. Same base58 encoding as `base58` with the same 128-byte data field limit, but returns data as a plain string instead of an array. Use `base64` instead |
 
 ##### !! dataSlice
 
@@ -120,12 +125,18 @@ Encoding format for Account data. See
 
 Request a slice of the account&apos;s data.
 
-- `length: <usize>` - number of bytes to return
-- `offset: <usize>` - byte offset from which to start reading
+| Field | Type | Description |
+| --- | --- | --- |
+| `offset` | `usize` | Byte offset from which to start reading account data. |
+| `length` | `usize` | Number of bytes to return. |
+
+```json title="Example"
+{ "offset": 0, "length": 32 }
+```
 
 <Callout type="info">
-  Data slicing is only available for `base58`, `base64`, or `base64+zstd`
-  encodings.
+  Data slicing is only available for `base58`, `base64`, `base64+zstd`, and
+  `binary` encodings.
 </Callout>
 
 ##### !! minContextSlot
@@ -134,17 +145,23 @@ Request a slice of the account&apos;s data.
 
 The minimum slot that the request can be evaluated at.
 
+```json title="Example"
+{ "minContextSlot": 341197000 }
+```
+
 ### !!result
 
 ```jsonc !response
 {
   "jsonrpc": "2.0",
+  // !hover(1:11) result
   "result": {
-    "context": { "apiVersion": "2.0.15", "slot": 341197053 },
-    // !hover(1:8) result
+    // !hover context
+    "context": { "apiVersion": "3.1.8", "slot": 341197053 },
+    // !hover(1:8) value
     "value": {
       // !hover data
-      "data": ["", "base58"],
+      "data": ["", "base64"],
       // !hover executable
       "executable": false,
       // !hover lamports
@@ -161,47 +178,73 @@ The minimum slot that the request can be evaluated at.
 }
 ```
 
+!type object
+
+RpcResponse object containing:
+
+#### !! context
+
+!type object
+
+Slot and API version the node used to answer this request.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `slot` | `u64` | Slot at which the node evaluated this request. |
+| `apiVersion` | `string` | RPC API version reported by the node. This field may be omitted by older nodes. |
+
+#### !! value
+
 !type object | null
 
-If the requested account doesn't exist result will be `null`. Otherwise, an
-object containing:
+If the requested account does not exist, `value` is `null`. Otherwise, it is an
+account object containing:
 
-#### !! data
+##### !! data
 
 !type string | \[string,encoding\] | object
 
 Data associated with the account. Format depends on encoding parameter:
-- If the encoding parameter is left as the deprecated default of `binary`, this will be a string containing encoded binary data.
-- If `base58`, `base64`, or `base64+zstd` is specified, this will be an array, where the first element is the encoded data string and the second element is the encoding format.
-- If `jsonParsed` is specified, this will be JSON format `{<program>: <state>}`.
+- If `binary` (deprecated default), this will be a plain base58-encoded string.
+- If `base58`, `base64`, or `base64+zstd`, this will be an array `[data, encoding]` where the first element is the encoded data string and the second is the encoding name.
+- If `jsonParsed`, this will be a JSON object `{program, parsed, space}`. If no parser is available, falls back to `[data, "base64"]` array format.
 
-#### !! executable
+When `data` is returned as an object, it contains:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `program` | `string` | Name of the parser that produced the decoded account data. |
+| `parsed` | `object` | Parser-specific JSON payload. Its structure depends on the owning program and account type. |
+| `space` | `u64` | Account data size in bytes. |
+
+##### !! executable
 
 !type bool
 
 Boolean indicating if the account contains a program (and is strictly read-only)
 
-#### !! lamports
+##### !! lamports
 !type u64
 
 Number of lamports assigned to this account
 
-#### !! owner
+##### !! owner
 
 !type string
 
 base-58 encoded Pubkey of the program this account has been assigned to
 
-#### !! rentEpoch
+##### !! rentEpoch
 
 !type u64
 
 The epoch at which this account will next owe rent, as u64
 
-#### !! space
+##### !! space
 
-!type u64
+!type u64 | null
 
-The data size of the account
+Account data size in bytes. This may be `null` if the RPC response omits the
+size for the selected encoding.
 
 </APIMethod>

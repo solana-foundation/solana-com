@@ -4,7 +4,12 @@ hideTableOfContents: true
 h1: getTransaction RPC Method
 ---
 
-Returns transaction details for a confirmed transaction
+Returns a confirmed transaction by signature, or `null` if it is not found at
+the requested commitment.
+
+<Callout type="info" title="Source">
+  [`get_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/rpc/src/rpc.rs#L1737)
+</Callout>
 
 <APIMethod>
 
@@ -58,7 +63,7 @@ const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 let signature =
   "5zSQuTcWsPy2cVAshBXWuJJXLwMD1GbgMpz3iq4xgwiV1s6mxYRbYb7qBiRGZd1xvDcYhQQRBKoNcnW8eKtcyZWg";
 
-// !hover(1:3) 1
+// !hover(1:4) config
 let config: GetVersionedTransactionConfig = {
   // !hover commitment
   commitment: "finalized",
@@ -91,12 +96,12 @@ async fn main() -> Result<()> {
         "5zSQuTcWsPy2cVAshBXWuJJXLwMD1GbgMpz3iq4xgwiV1s6mxYRbYb7qBiRGZd1xvDcYhQQRBKoNcnW8eKtcyZWg",
     )?;
 
-    // !hover(1:5) 1
+    // !hover(1:5) config
     let config = RpcTransactionConfig {
         // !hover commitment
         commitment: CommitmentConfig::finalized().into(),
         // !hover encoding
-        encoding: UiTransactionEncoding::Base64.into(),
+        encoding: UiTransactionEncoding::Json.into(),
         // !hover maxSupportedTransactionVersion
         max_supported_transaction_version: Some(0),
     };
@@ -120,9 +125,18 @@ Transaction signature, as base-58 encoded string
 
 #### !! config
 
-!type object
+!type string | object
+!optional
 
-Configuration object containing the following fields:
+Either a configuration object or, for backwards compatibility, a bare encoding
+string. Prefer the object form.
+
+<Callout type="warn">
+  Passing a bare encoding string as the second positional parameter is
+  deprecated. Use the configuration object instead.
+</Callout>
+
+When this parameter is an object, it may contain the following fields:
 
 ##### !! commitment
 
@@ -139,7 +153,6 @@ The commitment describes how finalized a block is at that point in time. See
 
 !type number
 !values 0
-!default 0
 
 Currently, the only valid value for this parameter is `0`.
 Setting it to `0` allows you to fetch all transactions, including both Versioned and legacy transactions.
@@ -152,24 +165,29 @@ If you omit this parameter, only legacy transactions will be returned—any vers
 ##### !! encoding
 
 !type string
-!values json jsonParsed base64 base58
+!values binary base58 base64 json jsonParsed
 !default json
 
-Encoding for the returned Transaction
+Encoding for the returned Transaction. See
+[Parsed Responses](/docs/rpc#parsed-responses).
 
-- `jsonParsed` encoding attempts to use program-specific state parsers to return
-  more human-readable and explicit data in the
-  `transaction.message.instructions` list.
-- If `jsonParsed` is requested but a parser cannot be found, the instruction
-  falls back to regular JSON encoding (`accounts`, `data`, and `programIdIndex`
-  fields).
+| Encoding | Transaction format | Notes |
+|---|---|---|
+| `json` | JSON object | Default. Returns parsed transaction with `message` and `signatures` |
+| `jsonParsed` | JSON object | Uses program-specific parsers for `transaction.message.instructions`. Falls back to standard JSON fields (`accounts`, `data`, `programIdIndex`) if no parser found |
+| `base64` | `[data, "base64"]` | Base64 encoded binary transaction |
+| `base58` | `[data, "base58"]` | Slow |
+| `binary` | `[data, "base58"]` | ⚠️ Deprecated. Legacy alias for `base58`, retained for backwards compatibility |
+
+If you use the deprecated shorthand form for `config`, pass one of these
+encoding strings directly.
 
 ### !!result
 
 ```jsonc !response
 {
   "jsonrpc": "2.0",
-  // !hover(1:64) result
+  // !hover(1:65) result
   "result": {
     // !hover blockTime
     "blockTime": 1763747336,
@@ -256,17 +274,62 @@ an object containing:
 !type i64 | null
 
 Estimated production time, as Unix timestamp (seconds since the Unix epoch) of
-when the transaction was processed. null if not available
+when the transaction was processed. `null` if not available.
 
 ##### !! meta
 
 !type object | null
 
-Transaction status
-[metadata object](/docs/rpc/json-structures#transaction-status-metadata) or
-`null`.
+Transaction status metadata object, or `null` if the transaction metadata is
+not available.
 
-Source Type Definition: [UiTransactionStatusMeta](https://github.com/anza-xyz/agave/blob/v3.0.10/transaction-status-client-types/src/lib.rs#L328)
+Source Type Definition: [UiTransactionStatusMeta](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-status-client-types/src/lib.rs#L332)
+
+When present, this object may contain:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `err` | `object \| string \| null` | Transaction error. `null` indicates success. |
+| `status` | `object` | Deprecated status object that mirrors `err`. It is `"Ok": <null>` for success or `"Err": <ERR>` for failure. |
+| `fee` | `u64` | Fee charged for the transaction, in lamports. |
+| `preBalances` | `array` | Lamport balances before execution, indexed to `transaction.message.accountKeys`. |
+| `postBalances` | `array` | Lamport balances after execution, indexed to `transaction.message.accountKeys`. |
+| `innerInstructions` | `array \| null` | CPI instructions recorded during execution. This field may be `null` or omitted when unavailable. |
+| `logMessages` | `array \| null` | Program log output captured during execution. This field may be `null` or omitted when unavailable. |
+| `preTokenBalances` | `array \| null` | Token balances before execution. Each element is a [token balance](/docs/rpc/json-structures#token-balances) object. |
+| `postTokenBalances` | `array \| null` | Token balances after execution. Each element is a [token balance](/docs/rpc/json-structures#token-balances) object. |
+| `rewards` | `array \| null` | Rewards applied while processing the transaction. Each element is a [reward](/docs/rpc/json-structures#rewards) object. |
+| `loadedAddresses` | `object` | Addresses loaded from address lookup tables, when present. |
+| `returnData` | `object` | Most recent program return data, when present. |
+| `computeUnitsConsumed` | `u64` | Total compute units consumed, when reported by the validator. |
+| `costUnits` | `u64` | Total cost-model units charged, when reported by the validator. |
+
+**`err` object form**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `<variantName>` | `array \| object \| string \| null` | Transaction error variant payload. Most variants serialize as strings. `InstructionError` serializes as `[instructionIndex, instructionError]`. |
+
+**`status` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `Ok` | `null` | Deprecated success marker. |
+| `Err` | `object \| string` | Deprecated failure payload. Uses the same serialization as `err`. |
+
+**`loadedAddresses` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `writable` | `array` | Ordered list of writable loaded addresses, as base-58 encoded strings. |
+| `readonly` | `array` | Ordered list of readonly loaded addresses, as base-58 encoded strings. |
+
+**`returnData` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `programId` | `string` | Program that generated the return data, as a base-58 encoded Pubkey. |
+| `data` | `[string, encoding]` | Return data payload and encoding. Agave currently returns base-64 data with `"base64"` encoding. |
 
 ##### !! slot
 
@@ -276,17 +339,64 @@ The slot this transaction was processed in
 
 ##### !! transaction
 
-!type object | [string,encoding]
+!type object | string | [string,encoding]
 
-[Transaction](/docs/rpc/json-structures#transactions) object, either in JSON
-format or encoded binary data, depending on encoding parameter
+[Transaction](/docs/rpc/json-structures#transactions) payload. The shape
+depends on the `encoding` parameter:
+
+| Encoding | Returned Structure |
+| --- | --- |
+| `json` | Object with `signatures` and raw `message` fields |
+| `jsonParsed` | Object with `signatures` and parsed `message` fields |
+| `base64`, `base58`, `binary` | Encoded transaction data |
+
+When `encoding` is `json`, the top-level transaction object may contain:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `signatures` | `array` | Transaction signatures in wire order. |
+| `message` | `object` | Serialized message content. |
+
+**`message` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `header` | `object` | Message header object. |
+| `accountKeys` | `array` | Ordered list of account addresses referenced by the message, as base-58 encoded strings. |
+| `recentBlockhash` | `string` | Recent blockhash referenced by the message. |
+| `instructions` | `array` | Compiled instructions in the message. |
+| `addressTableLookups` | `array \| null` | Address lookup table references for versioned transactions, when present. |
+
+**`message.header` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `numRequiredSignatures` | `u8` | Number of required signatures. |
+| `numReadonlySignedAccounts` | `u8` | Number of readonly signer accounts. |
+| `numReadonlyUnsignedAccounts` | `u8` | Number of readonly unsigned accounts. |
+
+**`message.instructions[]` fields**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `programIdIndex` | `u8` | Index into `accountKeys` for the invoked program. |
+| `accounts` | `array` | Account indexes referenced by the instruction. |
+| `data` | `string` | Instruction data, base-58 encoded. |
+| `stackHeight` | `u32 \| null` | Invocation stack height, when reported. |
+
+When `message` is returned as the parsed form (`encoding: "jsonParsed"`),
+`accountKeys` is an array of account descriptor objects and `instructions` is
+an array of parsed or partially decoded instruction objects. The exact parsed
+instruction schema depends on the program and is documented in
+[Parsed Responses](/docs/rpc#parsed-responses) and
+[JSON Structures](/docs/rpc/json-structures).
 
 ##### !! version
 
-!type "legacy" | number | undefined
+!type "legacy" | number
 
-Transaction version. Undefined if `maxSupportedTransactionVersion` is not set in
-request params.
+Transaction version. This field is omitted if
+`maxSupportedTransactionVersion` is not set in the request params.
 
 </APIMethod>
 
