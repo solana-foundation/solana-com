@@ -36,7 +36,7 @@ export function SkillCard({
       href={skill.githubUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className={`flex flex-col gap-3 group cursor-pointer border-l-2 ${category.accent} bg-white/5 hover:bg-white/[0.08] backdrop-blur-sm transition-all duration-200 p-[20px] md:p-[24px] rounded-xl h-full`}
+      className={`flex flex-col gap-3 group cursor-pointer border-l-2 ${category.accent} bg-white/5 hover:bg-white/[0.08] backdrop-blur-sm transition-all duration-200 p-[20px] md:p-[24px] h-full`}
     >
       <span
         className={`self-start text-[11px] font-medium uppercase tracking-[0.05em] px-2 py-0.5 rounded-full ${category.badge}`}
