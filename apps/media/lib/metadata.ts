@@ -10,6 +10,7 @@ import { config } from "@/lib/config";
 import { reader } from "@/lib/reader";
 import { fetchCategoryByPath } from "@/lib/category-data";
 import { fetchPodcastBySlug, fetchEpisodeById } from "@/lib/podcast-data";
+import { isPublishedPost } from "@/lib/keystatic/post-status";
 
 const { publicUrl, siteMetadata, social } = config;
 
@@ -71,7 +72,7 @@ export async function newsListingMetadata(): Promise<Metadata> {
 export async function newsPostMetadata(slug: string): Promise<Metadata> {
   const post = await reader.collections.posts.read(slug);
 
-  if (!post) {
+  if (!isPublishedPost(post)) {
     return { title: "Post Not Found", description: "" };
   }
 
