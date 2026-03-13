@@ -11,7 +11,10 @@ import { componentBlocks } from "./lib/keystatic/components";
 // Keep local filesystem mode for local development only.
 // On Vercel, always use GitHub mode so /keystatic can bootstrap GitHub App setup.
 const isVercel = process.env.VERCEL === "1";
-const isLocal = process.env.KEYSTATIC_LOCAL === "true" && !isVercel;
+const keystaticLocalFlag = (process.env.NEXT_PUBLIC_KEYSTATIC_LOCAL ?? "")
+  .trim()
+  .toLowerCase();
+const isLocal = keystaticLocalFlag === "true" && !isVercel;
 
 // Storage configuration
 const localStorage: LocalConfig["storage"] = {

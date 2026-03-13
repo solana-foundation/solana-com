@@ -185,6 +185,7 @@ describe("latest content filters", () => {
     it("filters by tag name alone", async () => {
       const posts = {
         "matching-post": {
+          status: "published",
           title: "Matching Post",
           description: "matching post",
           date: "2026-03-10",
@@ -193,6 +194,7 @@ describe("latest content filters", () => {
           tags: [{ tag: "defi" }],
         },
         "other-post": {
+          status: "published",
           title: "Other Post",
           description: "other post",
           date: "2026-03-09",
@@ -217,6 +219,7 @@ describe("latest content filters", () => {
     it("matches mixed category and tag reference formats by slug", async () => {
       const posts = {
         "slug-match-post": {
+          status: "published",
           title: "Slug Match Post",
           description: "slug match post",
           date: "2026-03-11",
@@ -225,6 +228,7 @@ describe("latest content filters", () => {
           tags: ["defi"],
         },
         "wrong-post": {
+          status: "published",
           title: "Wrong Post",
           description: "wrong post",
           date: "2026-03-10",
@@ -245,6 +249,38 @@ describe("latest content filters", () => {
       });
 
       expect(result.posts.map((item) => item.id)).toEqual(["slug-match-post"]);
+    });
+
+    it("excludes draft posts from latest post results", async () => {
+      const posts = {
+        "published-post": {
+          status: "published",
+          title: "Published Post",
+          description: "published post",
+          date: "2026-03-11",
+          author: "solana-foundation",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "defi" }],
+        },
+        "draft-post": {
+          status: "draft",
+          title: "Draft Post",
+          description: "draft post",
+          date: "2026-03-12",
+          author: "solana-foundation",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "defi" }],
+        },
+      };
+
+      readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
+      readerMock.collections.posts.read.mockImplementation((slug: string) =>
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null)
+      );
+
+      const result = await fetchLatestPosts({});
+
+      expect(result.posts.map((item) => item.id)).toEqual(["published-post"]);
     });
   });
 

@@ -11,6 +11,7 @@ import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { newsPostMetadata } from "@/lib/metadata";
+import { isPublishedPost } from "@/lib/keystatic/post-status";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -26,7 +27,7 @@ export default async function PostPage({
 
   const post = await reader.collections.posts.read(slug);
 
-  if (!post) {
+  if (!isPublishedPost(post)) {
     notFound();
   }
 
@@ -176,7 +177,16 @@ export default async function PostPage({
 export async function generateStaticParams() {
   try {
     const slugs = await reader.collections.posts.list();
-    return slugs.map((slug) => ({
+    const publishedSlugs: string[] = [];
+
+    for (const slug of slugs) {
+      const post = await reader.collections.posts.read(slug);
+      if (isPublishedPost(post)) {
+        publishedSlugs.push(slug);
+      }
+    }
+
+    return publishedSlugs.map((slug) => ({
       urlSegments: slug.split("/"),
     }));
   } catch (error) {
