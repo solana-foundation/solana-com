@@ -1,4 +1,4 @@
-import { DevelopersEvmToSvmCompleteGuidePage } from "./developers-evm-to-svm-complete-guide";
+import { DevelopersEvmToSvmConsensusPage } from "./developers-evm-to-svm-consensus";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 
@@ -7,15 +7,15 @@ type Props = { params: Promise<{ locale: string }> };
 export const revalidate = 60;
 
 export default async function Page(_props: Props) {
-  return <DevelopersEvmToSvmCompleteGuidePage />;
+  return <DevelopersEvmToSvmConsensusPage />;
 }
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  const t = await getTranslations("developers-evm-to-svm-complete-guide");
+  const t = await getTranslations("developers-evm-to-svm-consensus");
   return {
     title: t("meta.seoTitle"),
     description: t("meta.seoDescription"),
-    alternates: getAlternates("/developers/evm-to-svm/complete-guide", locale),
+    alternates: getAlternates("/developers/chain-migration/consensus", locale),
   };
 }

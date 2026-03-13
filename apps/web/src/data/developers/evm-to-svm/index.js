@@ -8,7 +8,7 @@ export const HERO_BUTTONS = [
     hierarchy: "primary",
     size: "md",
     iconSize: "md",
-    url: "/developers/evm-to-svm/complete-guide",
+    url: "/developers/chain-migration/complete-guide",
   },
   {
     hierarchy: "outline",
@@ -17,6 +17,48 @@ export const HERO_BUTTONS = [
     url: "https://www.rareskills.io/solana-tutorial",
   },
 ];
+
+export const CHAIN_SELECTOR = {
+  headingAs: "h2",
+  color: "purple",
+};
+
+export const CHAIN_SELECTOR_CARDS = [
+  {
+    variant: "none",
+    color: "purple",
+    stat: {
+      value: {
+        statType: "none",
+      },
+      description: "",
+    },
+    button: {
+      hierarchy: "outline",
+      size: "md",
+      url: "/developers/chain-migration/complete-guide",
+    },
+  },
+  {
+    variant: "none",
+    color: "aqua",
+    stat: {
+      value: {
+        statType: "none",
+      },
+      description: "",
+    },
+    button: {
+      hierarchy: "outline",
+      size: "md",
+      url: "/developers/chain-migration/cosmwasm",
+    },
+  },
+];
+
+export const EVM_GUIDES_HEADING = {
+  variant: "floatingButton",
+};
 
 export const PRIMARY_CARD_DECK = {
   numCols: 2,
@@ -30,7 +72,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/complete-guide",
+        url: "/developers/chain-migration/complete-guide",
         size: "md",
         hierarchy: "primary",
       },
@@ -47,7 +89,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/erc20",
+        url: "/developers/chain-migration/erc20",
         size: "md",
         hierarchy: "primary",
       },
@@ -60,7 +102,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/721",
+        url: "/developers/chain-migration/721",
         size: "md",
         hierarchy: "primary",
       },
@@ -73,7 +115,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/ERC4337",
+        url: "/developers/chain-migration/ERC4337",
         size: "md",
         hierarchy: "primary",
       },
@@ -86,7 +128,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/ERC3643",
+        url: "/developers/chain-migration/ERC3643",
         size: "md",
         hierarchy: "primary",
       },
@@ -99,7 +141,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/ERC4626",
+        url: "/developers/chain-migration/ERC4626",
         size: "md",
         hierarchy: "primary",
       },
@@ -112,7 +154,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/eip2612",
+        url: "/developers/chain-migration/eip2612",
         size: "md",
         hierarchy: "primary",
       },
@@ -125,7 +167,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/consensus",
+        url: "/developers/chain-migration/consensus",
         size: "md",
         hierarchy: "primary",
       },
@@ -138,7 +180,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/accounts",
+        url: "/developers/chain-migration/accounts",
         size: "md",
         hierarchy: "primary",
       },
@@ -151,7 +193,7 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/smart-contracts",
+        url: "/developers/chain-migration/smart-contracts",
         size: "md",
         hierarchy: "primary",
       },
@@ -164,13 +206,15 @@ export const PRIMARY_CARD_DECK = {
       },
       backgroundGradient: "purple",
       callToAction: {
-        url: "/developers/evm-to-svm/client-differences",
+        url: "/developers/chain-migration/client-differences",
         size: "md",
         hierarchy: "primary",
       },
     },
   ],
 };
+
+export const FAQ_COUNT = 4;
 
 export const SECONDARY_CARD_DECK = {
   numCols: 3,

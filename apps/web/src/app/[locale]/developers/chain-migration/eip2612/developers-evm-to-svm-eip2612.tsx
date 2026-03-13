@@ -16,7 +16,7 @@ import {
   CODE_BLOCKS,
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
-} from "@/data/developers/evm-to-svm/eip2612";
+} from "@/data/developers/chain-migration/eip2612";
 
 export function DevelopersEvmToSvmEip2612Page() {
   const t = useTranslations("developers-evm-to-svm-eip2612");
@@ -55,7 +55,7 @@ export function DevelopersEvmToSvmEip2612Page() {
             description: t("contentEditor.callToAction.description"),
             button: {
               label: t("contentEditor.callToAction.button.label"),
-              url: "/developers/evm-to-svm/erc20",
+              url: "/developers/chain-migration/erc20",
             },
           }}
         >
