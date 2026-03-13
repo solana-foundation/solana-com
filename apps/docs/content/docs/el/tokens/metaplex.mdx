@@ -1,0 +1,364 @@
+---
+title: Metaplex Metadata
+description:
+  Μάθετε πώς να προσθέτετε μεταδεδομένα σε SPL Tokens χρησιμοποιώντας το
+  Metaplex Token Metadata Program.
+---
+
+Τα τυπικά SPL Tokens δεν περιλαμβάνουν μεταδεδομένα όπως όνομα, σύμβολο ή
+εικόνα. Το
+[Metaplex Token Metadata Program](https://developers.metaplex.com/token-metadata)
+επιλύει αυτό το πρόβλημα δημιουργώντας έναν λογαριασμό μεταδεδομένων συνδεδεμένο
+με κάθε mint account.
+
+<Callout type="info">
+  Αυτός ο οδηγός καλύπτει το Metaplex Token Metadata Program το οποίο μπορεί να
+  χρησιμοποιηθεί για τυπικά SPL Tokens και Token-2022. Για να χρησιμοποιήσετε το
+  Token-2022 Metadata Extension, δείτε τον [οδηγό Metadata
+  Extension](/docs/tokens/extensions/metadata) ο οποίος αποθηκεύει μεταδεδομένα
+  απευθείας στον λογαριασμό mint.
+</Callout>
+
+## Πώς Λειτουργούν τα Μεταδεδομένα Token
+
+Το Token Metadata Program δημιουργεί ένα Program Derived Address (PDA) για κάθε
+mint account. Αυτός ο λογαριασμός μεταδεδομένων αποθηκεύει πληροφορίες on-chain
+όπως το όνομα του token και το σύμβολο, συν ένα URI που δείχνει σε off-chain
+μεταδεδομένα JSON (εικόνες, περιγραφές, κλπ.).
+
+```text
+┌─────────────────┐       ┌─────────────────────┐
+│   Mint Account  │       │  Metadata Account   │
+│                 │       │  (PDA)              │
+│  - Supply       │◄──────│  - Name             │
+│  - Decimals     │       │  - Symbol           │
+│  - Authority    │       │  - URI              │
+└─────────────────┘       │  - Seller Fee       │
+                          │  - Creators         │
+                          └─────────────────────┘
+```
+
+Το PDA μεταδεδομένων προκύπτει από seeds:
+`["metadata", program_id, mint_address]`
+
+## Δημιουργία Token με Μεταδεδομένα
+
+Η εντολή `createV1` δημιουργεί τόσο τον λογαριασμό mint όσο και τα μεταδεδομένα
+του σε μία μόνο συναλλαγή.
+
+### Typescript
+
+<CodeTabs storage="token-ts">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getCreateV1InstructionAsync,
+  TokenStandard
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Fund payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Create fungible token with metadata
+const createInstruction = await getCreateV1InstructionAsync({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token.json",
+  sellerFeeBasisPoints: 0,
+  tokenStandard: TokenStandard.Fungible
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Mint Address:", mint.address);
+```
+
+```ts !! title="Kit Helper"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { createFungible } from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Fund payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Use the createFungible helper for simpler API
+const createInstruction = await createFungible({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token.json",
+  sellerFeeBasisPoints: 0
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Mint Address:", mint.address);
+```
+
+</CodeTabs>
+
+## Ανάκτηση Μεταδεδομένων Token
+
+Για να μάθετε πώς να ανακτάτε μεταδεδομένα για υπάρχοντα tokens, δείτε τη
+συνταγή cookbook
+[Fetch Token Metadata](/developers/cookbook/tokens/fetch-token-metadata).
+
+## Ενημέρωση Μεταδεδομένων Token
+
+Η αρχή ενημέρωσης μπορεί να τροποποιήσει τα μεταδεδομένα εάν ο λογαριασμός είναι
+μεταβλητός.
+
+<CodeTabs storage="token-ts">
+
+```ts !! title="Kit"
+import {
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getUpdateV1InstructionAsync,
+  findMetadataPda,
+  fetchMetadata
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// authority must be a KeyPairSigner with update authority
+const mintAddress = "YOUR_MINT_ADDRESS";
+
+// Fetch current metadata to preserve existing values
+const [metadataAddress] = await findMetadataPda({ mint: mintAddress });
+const currentMetadata = await fetchMetadata(rpc, metadataAddress);
+
+// Update metadata (must provide all data fields)
+const updateInstruction = await getUpdateV1InstructionAsync({
+  mint: mintAddress,
+  authority, // Update authority signer
+  payer: authority,
+  data: {
+    name: "Updated Token Name",
+    symbol: "UPD",
+    uri: "https://example.com/updated-token.json",
+    sellerFeeBasisPoints: 100, // 1%
+    creators:
+      currentMetadata.data.creators.__option === "Some"
+        ? currentMetadata.data.creators.value
+        : null
+  }
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([updateInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Metadata updated successfully");
+```
+
+</CodeTabs>
+
+## Πρότυπα Token
+
+Το Token Metadata Program υποστηρίζει διαφορετικά πρότυπα token:
+
+| Πρότυπο                          | Περιγραφή                                                          | Περίπτωση Χρήσης            |
+| -------------------------------- | ------------------------------------------------------------------ | --------------------------- |
+| `Fungible`                       | Τυπικό ανταλλάξιμο token με μεταδεδομένα                           | Νομίσματα, πόντοι           |
+| `FungibleAsset`                  | Ανταλλάξιμο token που αντιπροσωπεύει μοναδικό περιουσιακό στοιχείο | Ημι-ανταλλάξιμα αντικείμενα |
+| `NonFungible`                    | NFT με Master Edition                                              | Μοναδικά έργα τέχνης        |
+| `ProgrammableNonFungible`        | NFT με επιβεβλημένα δικαιώματα εκμετάλλευσης                       | Δικαιώματα δημιουργών       |
+| `NonFungibleEdition`             | Εκτυπωμένο αντίγραφο ενός NFT                                      | Περιορισμένες εκδόσεις      |
+| `ProgrammableNonFungibleEdition` | Εκτυπωμένο αντίγραφο με επιβεβλημένα δικαιώματα εκμετάλλευσης      | Περιορισμένες εκδόσεις      |
+
+```ts
+import { TokenStandard } from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// For fungible tokens
+tokenStandard: TokenStandard.Fungible;
+
+// For NFTs
+tokenStandard: TokenStandard.NonFungible;
+
+// For programmable NFTs (enforced royalties)
+tokenStandard: TokenStandard.ProgrammableNonFungible;
+```
+
+## Μορφή Μεταδεδομένων Εκτός Αλυσίδας
+
+Το πεδίο `uri` δείχνει σε ένα αρχείο JSON που περιέχει εκτεταμένα μεταδεδομένα.
+Η τυπική μορφή ακολουθεί το
+[Πρότυπο Μεταδεδομένων Token της Metaplex](https://developers.metaplex.com/token-metadata/token-standard):
+
+```json title="token-metadata.json"
+{
+  "name": "My Token",
+  "symbol": "MTK",
+  "description": "A description of the token",
+  "image": "https://example.com/token-image.png",
+  "external_url": "https://example.com",
+  "attributes": [
+    {
+      "trait_type": "Category",
+      "value": "Utility"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "https://example.com/token-image.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}
+```
+
+<Callout type="caution">
+  Αποθηκεύστε το JSON μεταδεδομένων σας σε μια αξιόπιστη, μόνιμη λύση
+  αποθήκευσης όπως το Arweave, το IPFS ή ένα αποκλειστικό CDN. Εάν το URI
+  καταστεί μη προσβάσιμο, τα πορτοφόλια και οι εξερευνητές δεν θα μπορούν να
+  εμφανίσουν τα μεταδεδομένα του token σας.
+</Callout>
+
+## Δομή Λογαριασμού Μεταδεδομένων
+
+Ο λογαριασμός μεταδεδομένων εντός αλυσίδας περιέχει:
+
+```rust
+pub struct Metadata {
+    pub key: Key,                              // Account type identifier
+    pub update_authority: Pubkey,              // Can update metadata
+    pub mint: Pubkey,                          // Associated mint
+    pub name: String,                          // Token name (max 32 chars)
+    pub symbol: String,                        // Token symbol (max 10 chars)
+    pub uri: String,                           // URI to off-chain JSON (max 200 chars)
+    pub seller_fee_basis_points: u16,          // Royalty % (100 = 1%)
+    pub creators: Option<Vec<Creator>>,        // Creator list with shares
+    pub primary_sale_happened: bool,           // Primary sale flag
+    pub is_mutable: bool,                      // Can metadata be updated
+    pub edition_nonce: Option<u8>,             // Edition nonce
+    pub token_standard: Option<TokenStandard>, // Token type
+    pub collection: Option<Collection>,        // Collection info
+    pub uses: Option<Uses>,                    // Use tracking
+}
+```
+
+## Βέλτιστες Πρακτικές
+
+1. **Ορίστε την κατάλληλη δυνατότητα τροποποίησης**: Χρησιμοποιήστε
+   `isMutable: false` για tokens που δεν θα πρέπει ποτέ να αλλάξουν
+2. **Χρησιμοποιήστε αξιόπιστο φιλοξενητή URI**: Τα μεταδεδομένα εκτός αλυσίδας
+   θα πρέπει να βρίσκονται σε μόνιμη αποθήκευση
+3. **Επαληθεύστε τους δημιουργούς**: Οι διευθύνσεις των δημιουργών θα πρέπει να
+   επαληθεύονται για επιβεβαίωση γνησιότητας
+4. **Λάβετε υπόψη τα δικαιώματα**: Ορίστε `sellerFeeBasisPoints` για δικαιώματα
+   δευτερογενών πωλήσεων (τα marketplaces ενδέχεται να επιβάλλουν ή όχι αυτά τα
+   δικαιώματα)

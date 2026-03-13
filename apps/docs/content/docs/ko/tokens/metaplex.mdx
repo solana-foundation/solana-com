@@ -1,0 +1,356 @@
+---
+title: Metaplex 메타데이터
+description:
+  Metaplex Token Metadata 프로그램을 사용하여 SPL 토큰에 메타데이터를 추가하는
+  방법을 알아보세요.
+---
+
+표준 SPL 토큰에는 이름, 심볼, 이미지와 같은 메타데이터가 포함되어 있지 않습니다.
+[Metaplex Token Metadata 프로그램](https://developers.metaplex.com/token-metadata)은
+각 토큰 발행 계정에 연결된 메타데이터 계정을 생성하여 이 문제를 해결합니다.
+
+<Callout type="info">
+  이 가이드는 표준 SPL 토큰 및 Token-2022에 사용할 수 있는 Metaplex Token
+  Metadata 프로그램을 다룹니다. Token-2022 Metadata Extension을 사용하려면 발행
+  계정에 직접 메타데이터를 저장하는 [Metadata Extension
+  가이드](/docs/tokens/extensions/metadata)를 참조하세요.
+</Callout>
+
+## 토큰 메타데이터 작동 방식
+
+Token Metadata 프로그램은 각 토큰 발행 계정에 대해 Program Derived Address
+(PDA)를 생성합니다. 이 메타데이터 계정은 토큰의 이름과 심볼 같은 온체인 정보와
+오프체인 JSON 메타데이터(이미지, 설명 등)를 가리키는 URI를 저장합니다.
+
+```text
+┌─────────────────┐       ┌─────────────────────┐
+│   Mint Account  │       │  Metadata Account   │
+│                 │       │  (PDA)              │
+│  - Supply       │◄──────│  - Name             │
+│  - Decimals     │       │  - Symbol           │
+│  - Authority    │       │  - URI              │
+└─────────────────┘       │  - Seller Fee       │
+                          │  - Creators         │
+                          └─────────────────────┘
+```
+
+메타데이터 PDA는 다음 시드로 파생됩니다:
+`["metadata", program_id, mint_address]`
+
+## 메타데이터가 있는 토큰 생성
+
+`createV1` 명령어는 발행 계정과 메타데이터를 단일 트랜잭션으로 생성합니다.
+
+### Typescript
+
+<CodeTabs storage="token-ts">
+
+```ts !! title="Kit"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getCreateV1InstructionAsync,
+  TokenStandard
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Fund payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Create fungible token with metadata
+const createInstruction = await getCreateV1InstructionAsync({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token.json",
+  sellerFeeBasisPoints: 0,
+  tokenStandard: TokenStandard.Fungible
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Mint Address:", mint.address);
+```
+
+```ts !! title="Kit Helper"
+import {
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import { createFungible } from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// Create connection
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// Generate keypairs
+const payer = await generateKeyPairSigner();
+const mint = await generateKeyPairSigner();
+
+// Fund payer
+await airdropFactory({ rpc, rpcSubscriptions })({
+  recipientAddress: payer.address,
+  lamports: lamports(1_000_000_000n),
+  commitment: "confirmed"
+});
+
+// Use the createFungible helper for simpler API
+const createInstruction = await createFungible({
+  mint,
+  authority: payer,
+  payer,
+  name: "My Token",
+  symbol: "MTK",
+  uri: "https://example.com/token.json",
+  sellerFeeBasisPoints: 0
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([createInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Mint Address:", mint.address);
+```
+
+</CodeTabs>
+
+## 토큰 메타데이터 가져오기
+
+기존 토큰의 메타데이터를 가져오는 방법은
+[토큰 메타데이터 가져오기](/developers/cookbook/tokens/fetch-token-metadata)
+쿡북 레시피를 참조하세요.
+
+## 토큰 메타데이터 업데이트
+
+계정이 변경 가능한 경우 업데이트 권한자는 메타데이터를 수정할 수 있습니다.
+
+<CodeTabs storage="token-ts">
+
+```ts !! title="Kit"
+import {
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners
+} from "@solana/kit";
+import {
+  getUpdateV1InstructionAsync,
+  findMetadataPda,
+  fetchMetadata
+} from "@metaplex-foundation/mpl-token-metadata-kit";
+
+const rpc = createSolanaRpc("http://127.0.0.1:8899");
+const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
+
+// authority must be a KeyPairSigner with update authority
+const mintAddress = "YOUR_MINT_ADDRESS";
+
+// Fetch current metadata to preserve existing values
+const [metadataAddress] = await findMetadataPda({ mint: mintAddress });
+const currentMetadata = await fetchMetadata(rpc, metadataAddress);
+
+// Update metadata (must provide all data fields)
+const updateInstruction = await getUpdateV1InstructionAsync({
+  mint: mintAddress,
+  authority, // Update authority signer
+  payer: authority,
+  data: {
+    name: "Updated Token Name",
+    symbol: "UPD",
+    uri: "https://example.com/updated-token.json",
+    sellerFeeBasisPoints: 100, // 1%
+    creators:
+      currentMetadata.data.creators.__option === "Some"
+        ? currentMetadata.data.creators.value
+        : null
+  }
+});
+
+// Build and send transaction
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (tx) => setTransactionMessageFeePayerSigner(authority, tx),
+  (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+  (tx) => appendTransactionMessageInstructions([updateInstruction], tx)
+);
+
+const signedTransaction =
+  await signTransactionMessageWithSigners(transactionMessage);
+
+await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+  signedTransaction,
+  { commitment: "confirmed" }
+);
+
+console.log("Metadata updated successfully");
+```
+
+</CodeTabs>
+
+## 토큰 표준
+
+Token Metadata 프로그램은 다양한 토큰 표준을 지원합니다:
+
+| 표준                             | 설명                                  | 사용 사례          |
+| -------------------------------- | ------------------------------------- | ------------------ |
+| `Fungible`                       | 메타데이터가 있는 표준 대체 가능 토큰 | 통화, 포인트       |
+| `FungibleAsset`                  | 고유 자산을 나타내는 대체 가능 토큰   | 준대체 가능 아이템 |
+| `NonFungible`                    | 마스터 에디션이 있는 NFT              | 1/1 아트워크       |
+| `ProgrammableNonFungible`        | 로열티가 강제되는 NFT                 | 창작자 로열티      |
+| `NonFungibleEdition`             | NFT의 인쇄된 사본                     | 한정판             |
+| `ProgrammableNonFungibleEdition` | 로열티가 강제되는 인쇄된 사본         | 한정판             |
+
+```ts
+import { TokenStandard } from "@metaplex-foundation/mpl-token-metadata-kit";
+
+// For fungible tokens
+tokenStandard: TokenStandard.Fungible;
+
+// For NFTs
+tokenStandard: TokenStandard.NonFungible;
+
+// For programmable NFTs (enforced royalties)
+tokenStandard: TokenStandard.ProgrammableNonFungible;
+```
+
+## 오프체인 메타데이터 형식
+
+`uri` 필드는 확장 메타데이터를 포함하는 JSON 파일을 가리킵니다. 표준 형식은
+[Metaplex 토큰 메타데이터 표준](https://developers.metaplex.com/token-metadata/token-standard)을
+따릅니다:
+
+```json title="token-metadata.json"
+{
+  "name": "My Token",
+  "symbol": "MTK",
+  "description": "A description of the token",
+  "image": "https://example.com/token-image.png",
+  "external_url": "https://example.com",
+  "attributes": [
+    {
+      "trait_type": "Category",
+      "value": "Utility"
+    }
+  ],
+  "properties": {
+    "files": [
+      {
+        "uri": "https://example.com/token-image.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}
+```
+
+<Callout type="caution">
+  메타데이터 JSON을 Arweave, IPFS 또는 전용 CDN과 같은 신뢰할 수 있는 영구
+  스토리지 솔루션에 저장하세요. URI에 액세스할 수 없게 되면 지갑과 탐색기에서
+  토큰의 메타데이터를 표시할 수 없습니다.
+</Callout>
+
+## 메타데이터 계정 구조
+
+온체인 메타데이터 계정에는 다음이 포함됩니다:
+
+```rust
+pub struct Metadata {
+    pub key: Key,                              // Account type identifier
+    pub update_authority: Pubkey,              // Can update metadata
+    pub mint: Pubkey,                          // Associated mint
+    pub name: String,                          // Token name (max 32 chars)
+    pub symbol: String,                        // Token symbol (max 10 chars)
+    pub uri: String,                           // URI to off-chain JSON (max 200 chars)
+    pub seller_fee_basis_points: u16,          // Royalty % (100 = 1%)
+    pub creators: Option<Vec<Creator>>,        // Creator list with shares
+    pub primary_sale_happened: bool,           // Primary sale flag
+    pub is_mutable: bool,                      // Can metadata be updated
+    pub edition_nonce: Option<u8>,             // Edition nonce
+    pub token_standard: Option<TokenStandard>, // Token type
+    pub collection: Option<Collection>,        // Collection info
+    pub uses: Option<Uses>,                    // Use tracking
+}
+```
+
+## 모범 사례
+
+1. **적절한 가변성 설정**: 절대 변경되어서는 안 되는 토큰의 경우
+   `isMutable: false`를 사용하세요
+2. **신뢰할 수 있는 URI 호스팅 사용**: 오프체인 메타데이터는 영구 스토리지에
+   있어야 합니다
+3. **크리에이터 확인**: 진위 여부를 확인하기 위해 크리에이터 주소를 검증해야
+   합니다
+4. **로열티 고려**: 2차 판매 로열티를 위해 `sellerFeeBasisPoints`를 설정하세요
+   (마켓플레이스에서 이를 시행할 수도 있고 시행하지 않을 수도 있습니다)
