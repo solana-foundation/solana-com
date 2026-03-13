@@ -16,6 +16,9 @@ export async function generateMetadata({ params }: Props) {
   return {
     title: t("meta.seoTitle"),
     description: t("meta.seoDescription"),
-    alternates: getAlternates("/developers/evm-to-svm/smart-contracts", locale),
+    alternates: getAlternates(
+      "/developers/chain-migration/smart-contracts",
+      locale,
+    ),
   };
 }

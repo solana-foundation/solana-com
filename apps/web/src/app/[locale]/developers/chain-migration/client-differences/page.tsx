@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: Props) {
     title: t("meta.seoTitle"),
     description: t("meta.seoDescription"),
     alternates: getAlternates(
-      "/developers/evm-to-svm/client-differences",
+      "/developers/chain-migration/client-differences",
       locale,
     ),
   };
