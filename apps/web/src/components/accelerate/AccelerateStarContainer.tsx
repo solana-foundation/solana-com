@@ -1,9 +1,10 @@
 import { FC, ReactNode } from "react";
 import styles from "./AccelerateStarContainer.module.scss";
+import type { SolanaLibAttributes } from "@/types/solana-lib";
 
 export const AccelerateStarContainer: FC<{
   children: ReactNode;
-  attributes: any;
+  attributes: SolanaLibAttributes;
 }> = ({ children, attributes }) => {
   return (
     <div {...attributes} className={styles.root}>
@@ -29,8 +30,8 @@ export const AccelerateStarContainer: FC<{
               y2="69.6667"
               gradientUnits="userSpaceOnUse"
             >
-              <stop stop-color="#707070" />
-              <stop offset="1" stop-color="#707070" stop-opacity="0.1" />
+              <stop stopColor="#707070" />
+              <stop offset="1" stopColor="#707070" stopOpacity="0.1" />
             </linearGradient>
           </defs>
         </svg>

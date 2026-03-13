@@ -1,10 +1,11 @@
 import React, { FC, ReactNode } from "react";
 import styles from "./AccelerateHero.module.scss";
+import type { SolanaLibAttributes } from "@/types/solana-lib";
 
 interface AccelerateHeroProps {
   variant: "none" | "scale" | "ship";
   children: ReactNode;
-  attributes: any;
+  attributes: SolanaLibAttributes;
 }
 
 export const AccelerateHero: FC<AccelerateHeroProps> = ({

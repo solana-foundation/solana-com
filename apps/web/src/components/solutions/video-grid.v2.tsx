@@ -1,6 +1,9 @@
 import Image from "next/image";
 import { VideoTrigger } from "@/component-library/video-modal";
-import Carousel, { CarouselControls } from "@/component-library/carousel";
+import Carousel, {
+  CarouselControls,
+  CarouselHandle,
+} from "@/component-library/carousel";
 import { useRef } from "react";
 import { cn } from "@/app/components/utils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
@@ -82,7 +85,7 @@ export type VideoGridProps = {
  * />
  */
 export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
-  const carouselRef = useRef(null);
+  const carouselRef = useRef<CarouselHandle>(null);
   const t = useTranslations();
 
   const { ref: statsRef, isIntersecting } =

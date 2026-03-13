@@ -4,7 +4,7 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
   CardDeck,
   ConversionPanel,
-  FeatureHighlight,
+  FeatureHighlight as FeatureHighlightBase,
   Heading,
   Hero,
   Stats,
@@ -24,6 +24,9 @@ import {
   SWITCHBACK_IMAGE,
 } from "@/data/developers/payments";
 import { useTranslations } from "next-intl";
+
+// Cast to avoid valueOf() type conflict in solana-lib types (upstream issue)
+const FeatureHighlight = FeatureHighlightBase as React.ComponentType<any>;
 
 export function DevelopersPaymentsPage() {
   const t = useTranslations("developers-payments");
@@ -108,7 +111,6 @@ export function DevelopersPaymentsPage() {
           desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
           cards={featureHighlightCards as any}
           buttons={[]}
-          valueOf={null}
         />
       </ResponsiveBox>
       <ResponsiveBox responsiveStyles={blockSpacing}>

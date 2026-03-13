@@ -13,3 +13,16 @@ export type PostItem = {
   };
   cursor?: string;
 };
+
+export interface PodcastEpisode {
+  id: string;
+  recordingId: string;
+  podcastSlug: string;
+  title: string;
+  description?: string;
+  publishedDate: string;
+  duration: number;
+  audioUrl: string;
+  thumbnailUrl?: string;
+  status: "processing" | "ready" | "failed";
+}

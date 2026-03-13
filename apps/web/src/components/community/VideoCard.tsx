@@ -3,11 +3,7 @@ import Button from "../shared/Button";
 import { useTranslations } from "next-intl";
 import { Link } from "../../utils/Link";
 import { getMaximalThumbnailResolutionUrl } from "../../utils/ytUtils";
-
-type Video = {
-  contentDetails: { videoId: string };
-  snippet: { title: string };
-};
+import type { YTVideoItem } from "../../utils/followerFunctions";
 
 /**
  * Show video info in the card
@@ -20,7 +16,7 @@ const VideoCard = ({
   showThumbnail,
   isFeatured,
 }: {
-  video: Video;
+  video: YTVideoItem;
   showThumbnail?: boolean;
   isFeatured?: boolean;
 }) => {

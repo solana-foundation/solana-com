@@ -24,9 +24,9 @@ export default async function Page(_props: Props) {
     ]);
 
   const socialData = {
-    youtube: youtube.status === "fulfilled" ? youtube.value : null,
-    github: github.status === "fulfilled" ? github.value : null,
-    meetup: meetup.status === "fulfilled" ? meetup.value : null,
+    youtube: youtube.status === "fulfilled" ? youtube.value : undefined,
+    github: github.status === "fulfilled" ? github.value : undefined,
+    meetup: meetup.status === "fulfilled" ? meetup.value : undefined,
   };
 
   return (

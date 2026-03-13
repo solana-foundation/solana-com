@@ -9,7 +9,7 @@ import {
   Slider,
   ConversionPanel,
   Accordion,
-  FeatureHighlight,
+  FeatureHighlight as FeatureHighlightBase,
   HtmlParser,
 } from "@solana-foundation/solana-lib";
 import { ResponsiveBox } from "@/component-library/responsive-box";
@@ -25,6 +25,9 @@ import {
   CONVERSION_PANEL_LOGOS,
   VIDEO_SOURCE,
 } from "@/data/solutions/actions";
+
+// Cast to avoid valueOf() type conflict in solana-lib types (upstream issue)
+const FeatureHighlight = FeatureHighlightBase as React.ComponentType<any>;
 
 export function ActionsPage() {
   const t = useTranslations("actions-solution");
@@ -289,7 +292,6 @@ export function ActionsPage() {
           body={t("headings.aboutSolana.body")}
           dynamicDataFootnote="Live data"
           headingAs="h3"
-          valueOf={null}
         />
       </ResponsiveBox>
     </>

@@ -4,7 +4,7 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 import {
   CardDeck,
   CommunityGallery,
-  FeatureHighlight,
+  FeatureHighlight as FeatureHighlightBase,
   Heading,
   Hero,
   Stats,
@@ -26,6 +26,9 @@ import {
   SWITCHBACK_IMAGE,
 } from "@/data/developers/nfts";
 import { useTranslations } from "next-intl";
+
+// Cast to avoid valueOf() type conflict in solana-lib types (upstream issue)
+const FeatureHighlight = FeatureHighlightBase as React.ComponentType<any>;
 
 export function DevelopersNftsPage() {
   const t = useTranslations("developers-nfts");
@@ -159,7 +162,6 @@ export function DevelopersNftsPage() {
         desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
         cards={featureHighlightCards as any}
         buttons={featureHighlightButtons as any}
-        valueOf={null}
       />
       <Heading
         eyebrow={t("headings.earlyMovers.eyebrow")}

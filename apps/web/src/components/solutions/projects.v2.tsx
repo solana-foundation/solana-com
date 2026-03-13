@@ -3,7 +3,10 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Logos, LogosProps } from "@/component-library/logos";
 import { cn } from "@/app/components/utils";
-import Carousel, { CarouselControls } from "@/component-library/carousel";
+import Carousel, {
+  CarouselControls,
+  CarouselHandle,
+} from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const NAV_BUTTON_CLASSNAME =
@@ -55,7 +58,7 @@ export const Projects = ({
   bgSrc,
 }: EcoProjectsProps) => {
   const t = useTranslations();
-  const carouselRef = useRef(null);
+  const carouselRef = useRef<CarouselHandle>(null);
   const isTablet = useMediaQuery("(min-width: 768px)");
   const isDesktop = useMediaQuery("(min-width: 1280px)");
   const lastPageOffset = isDesktop ? 3 : isTablet ? 1 : 1;

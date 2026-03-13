@@ -3,28 +3,9 @@ import Link from "../../utils/Link";
 import EventsSingleLocation from "./EventsSingleLocation";
 import FormattedDate from "../shared/FormattedDate";
 import defaultImg from "../../../assets/events/solana-event.jpg";
+import { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
 
-type EventData = {
-  platform?: string;
-  key?: string;
-  rsvp?: string;
-  lumaUrl?: string;
-  img?: { primary?: { alt?: string } | string };
-  title?: string;
-  schedule?: {
-    from?: string | Date;
-    to?: string | Date;
-    timezone?: string;
-  };
-  type?: string;
-  venue?: {
-    address?: string;
-    city_state?: string;
-    [key: string]: string | undefined;
-  };
-};
-
-const EventsSingleCard = ({ event }: { event?: EventData }) => {
+const EventsSingleCard = ({ event }: { event?: CalendarEvent }) => {
   const eventUrl =
     event?.platform === "external"
       ? event.key!
