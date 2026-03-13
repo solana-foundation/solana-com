@@ -37,7 +37,10 @@ export default async function middleware(req: NextRequest) {
       );
     }
 
-    return NextResponse.next();
+    // Rewrite /SKILL.md to the skills.md route handler
+    const rewriteUrl = req.nextUrl.clone();
+    rewriteUrl.pathname = "/skill.md";
+    return NextResponse.rewrite(rewriteUrl);
   }
 
   if (pathname !== pathname.toLowerCase()) {
