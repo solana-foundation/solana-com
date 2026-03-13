@@ -12,10 +12,11 @@ async function snap(page: Page, name: string) {
 
 /** Bootstrap the Keystatic SPA and wait for sidebar nav to render. */
 async function gotoKeystatic(page: Page) {
-  await page.goto("/keystatic", { waitUntil: "domcontentloaded" });
-  await page.waitForSelector('nav a[href*="/keystatic/collection"]', {
-    timeout: 30_000,
+  await page.goto("/keystatic/branch/staging", {
+    waitUntil: "domcontentloaded",
   });
+  await page.waitForSelector('nav a:has-text("Posts")', { timeout: 30_000 });
+  await page.getByRole("combobox", { name: "Current branch" }).waitFor();
   await page.waitForLoadState("networkidle");
 }
 
@@ -51,18 +52,10 @@ test("Keystatic walkthrough screenshots", async ({ page }) => {
   await clickAddButton(page);
   await snap(page, "03-post-create-form.png");
 
-  // 04 — Post saved confirmation (fill required title, then save)
-  const titleInput = page.getByRole("textbox").first();
-  if (await titleInput.isVisible()) {
-    await titleInput.fill("Getting Started with Solana dApps");
-    await page.waitForTimeout(300);
-  }
-  const createBtn = page.locator('button:has-text("Create")').last();
-  if ((await createBtn.isVisible()) && (await createBtn.isEnabled())) {
-    await createBtn.click();
-    await page.waitForTimeout(3000);
-  }
-  await snap(page, "04-post-saved.png");
+  // 04 — Post create form, lower fields
+  await page.mouse.wheel(0, 1800);
+  await page.waitForTimeout(1000);
+  await snap(page, "04-post-form-details.png");
 
   // 05 — Links list
   await gotoKeystatic(page);
