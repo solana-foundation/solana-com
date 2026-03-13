@@ -3,7 +3,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 import { getImagePath } from "@/config";
 import type { Speaker } from "@/types/speakers";
 
@@ -300,19 +299,31 @@ export function MiamiSpeakersCarousel({
                 type="button"
                 onClick={() => scrollByCards("prev")}
                 disabled={!canScrollLeft}
-                className="group/btn flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-transparent text-white/60 transition-all duration-300 hover:border-accelerate-green/40 hover:bg-accelerate-green/[0.06] hover:text-accelerate-green disabled:pointer-events-none disabled:opacity-20"
+                className="flex h-9 w-9 items-center justify-center disabled:pointer-events-none disabled:opacity-30"
                 aria-label="Previous speakers"
               >
-                <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover/btn:-translate-x-0.5" />
+                <Image
+                  src={getImagePath("/images/faq-arrow.svg")}
+                  alt=""
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 rotate-180"
+                />
               </button>
               <button
                 type="button"
                 onClick={() => scrollByCards("next")}
                 disabled={!canScrollRight}
-                className="group/btn flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-transparent text-white/60 transition-all duration-300 hover:border-accelerate-green/40 hover:bg-accelerate-green/[0.06] hover:text-accelerate-green disabled:pointer-events-none disabled:opacity-20"
+                className="flex h-9 w-9 items-center justify-center disabled:pointer-events-none disabled:opacity-30"
                 aria-label="Next speakers"
               >
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover/btn:translate-x-0.5" />
+                <Image
+                  src={getImagePath("/images/faq-arrow.svg")}
+                  alt=""
+                  width={36}
+                  height={36}
+                  className="h-9 w-9"
+                />
               </button>
             </div>
           </motion.div>
