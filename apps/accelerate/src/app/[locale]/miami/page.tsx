@@ -8,6 +8,7 @@ import {
   FooterCTA,
   HashScroll,
   GetInvolved,
+  MiamiSpeakers,
 } from "@/components";
 import sponsorsData from "@/data/miami/sponsors.json";
 import type { Sponsor } from "@/types/sponsors";
@@ -41,7 +42,9 @@ export async function generateMetadata({
   });
 }
 
-export default function MiamiPage() {
+export default async function MiamiPage({ params }: PageProps) {
+  const { locale } = await params;
+
   return (
     <>
       <SeoJsonLd
@@ -63,7 +66,7 @@ export default function MiamiPage() {
         showTicketsRow={false}
       />
       <GetInvolved translationPrefix="accelerate.miami.getInvolved" />
-      {/* <Speakers /> */}
+      <MiamiSpeakers locale={locale} />
       <Sponsors sponsors={sponsorsData.sponsors as Sponsor[]} />
       <FAQ
         faqKeys={["q1", "q2", "q3", "q4"]}

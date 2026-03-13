@@ -6,6 +6,7 @@ export interface Speaker {
   title: string;
   company: string;
   image: string;
+  twitter?: string;
 }
 
 export interface SpeakersData {
