@@ -11,7 +11,7 @@ export function SkillsAudienceToggle() {
           Human
         </span>
         <a
-          href="/skills.md"
+          href="/SKILL.md"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/40 hover:text-white/60 hover:bg-white/5 transition-colors"
         >
           <Terminal size={12} />

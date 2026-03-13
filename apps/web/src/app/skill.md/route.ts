@@ -65,7 +65,6 @@ export async function GET() {
             `### ${title}`,
             description,
             `- **Category**: ${categoryLabel}`,
-            `- **Install**: \`npx skills add ${file.html_url}\``,
           ].join("\n");
         }),
       );
