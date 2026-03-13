@@ -140,6 +140,8 @@ When the post is ready to go live:
 1. Open the post from the Posts list.
 2. Change the **Status** from "Draft" to **Published**.
 3. Click **Save**.
+4. From the Keystatic dashboard, click **Create pull request** to open a GitHub
+   Pull Request from your `staging/*` branch to `main`.
 
 > Changing the status to "Published" does **not** make the post live
 > immediately. It flags the post as ready on your staging branch. The post only
@@ -285,22 +287,47 @@ in the sidebar.
 | ------------------- | ----------------------------- | --------------------------------------------------- |
 | Save as Draft       | Keystatic UI                  | Content on `staging/*` branch, not visible publicly |
 | Change to Published | Keystatic UI                  | Still on staging branch, flagged as ready           |
+| Create PR to `main` | GitHub PR (done by admin/dev) | Content is ready for review and preview             |
 | Merge to `main`     | GitHub PR (done by admin/dev) | Content goes live on solana.com/news                |
 
 **How publishing works in production:**
 
 1. You save your content on a `staging/*` branch in Keystatic.
-2. Keystatic automatically creates a Pull Request on GitHub.
-3. An admin reviews and merges the PR into `main`.
-4. The site rebuilds and your content appears on the live site.
+2. From the Keystatic dashboard, click **Create pull request** to open a GitHub
+   Pull Request from that `staging/*` branch to `main`.
+3. Review the preview build at
+   [solana-com-media-git-staging-solana-foundation.vercel.app](https://solana-com-media-git-staging-solana-foundation.vercel.app).
+4. Wait around 2 minutes for the preview build to finish before checking the
+   changes.
+5. After approval, an admin reviews and merges the PR into `main`.
+6. The site rebuilds and your content appears on the live site.
 
-You do not need to interact with GitHub directly — just let your admin know the
-post is ready.
+The PR should always be opened with **base** set to `main` and **compare** set
+to your `staging/*` branch.
+
+### Creating a Pull Request from Staging to Publish Articles
+
+Use this flow when an article has been marked **Published** in Keystatic and is
+ready to go live:
+
+1. In the Keystatic dashboard, click **Create pull request**.
+2. GitHub opens the PR screen. Confirm **base** is `main` and **compare** is
+   the `staging/*` branch that contains the article changes.
+3. Add the PR title and any description your team wants to include.
+4. Confirm the PR diff includes the expected content updates.
+5. Create the Pull Request.
+6. Wait around 2 minutes for the Vercel preview build to become available.
+7. Review the preview at
+   [solana-com-media-git-staging-solana-foundation.vercel.app](https://solana-com-media-git-staging-solana-foundation.vercel.app).
+8. Once the preview looks correct and approvals are in place, merge the PR into
+   `main`.
 
 ### Tips
 
-- **Preview before publishing:** Ask your admin for the staging preview URL to
-  review how your content looks before merging to production.
+- **Preview before publishing:** Use
+  [solana-com-media-git-staging-solana-foundation.vercel.app](https://solana-com-media-git-staging-solana-foundation.vercel.app)
+  to review staging changes. New preview builds usually take around 2 minutes
+  to become available.
 - **Images:** Use high-quality images (at least 1200px wide for hero images).
   Keystatic stores them in the repository automatically.
 - **Drafts are safe:** Saving a draft does not affect the live site. Take your
