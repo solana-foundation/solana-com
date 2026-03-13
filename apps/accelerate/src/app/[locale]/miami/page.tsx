@@ -75,7 +75,7 @@ export default async function MiamiPage({ params }: PageProps) {
       <GettingThere
         translationPrefix="accelerate.miami.gettingThere"
         hotelDealsLink={{
-          text: "View hotel deals on Nomadz",
+          text: "View hotel deals on Nomadz (sign up required).",
           href: "https://nomadz.xyz/stays?locationInputValue=Miami,%20FL,%20USA&destination.location=Miami&destination.latitude=25.7949095&destination.longitude=-80.1358448&filters.stars[0]=2&filters.stars[1]=3&filters.stars[2]=4&filters.stars[3]=5&filters.hideSoldOut=true&filters.distanceToPointMax=5000&checkIn=2026-05-04T00:00:00.000Z&checkOut=2026-05-07T00:00:00.000Z&guests.rooms[0].adults=1&guests.rooms[0].children[]&sort.property=Discount&sort.direction=desc",
         }}
       />
