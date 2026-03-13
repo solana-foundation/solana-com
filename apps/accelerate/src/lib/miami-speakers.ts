@@ -176,6 +176,21 @@ function normalizeSpeakerRecord(
       asNumber,
     ) ?? index;
 
+  const twitter =
+    getField(
+      fields,
+      [
+        "Twitter",
+        "twitter",
+        "X",
+        "x",
+        "Twitter Handle",
+        "twitterHandle",
+        "X Handle",
+      ],
+      asString,
+    ) ?? undefined;
+
   return {
     sortOrder,
     speaker: {
@@ -186,6 +201,7 @@ function normalizeSpeakerRecord(
       title,
       company,
       image,
+      twitter,
     },
   };
 }
