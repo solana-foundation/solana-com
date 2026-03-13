@@ -229,7 +229,7 @@ export function MiamiSpeakersCarousel({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !isInView) return;
 
     updateScrollState();
     container.addEventListener("scroll", updateScrollState, { passive: true });
@@ -239,7 +239,7 @@ export function MiamiSpeakersCarousel({
       container.removeEventListener("scroll", updateScrollState);
       window.removeEventListener("resize", updateScrollState);
     };
-  }, [updateScrollState, speakers]);
+  }, [isInView, updateScrollState, speakers]);
 
   const scrollByCards = (direction: "prev" | "next") => {
     const container = containerRef.current;
