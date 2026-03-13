@@ -75,6 +75,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "img.youtube.com",
       },
+      {
+        protocol: "https",
+        hostname: "**.airtableusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "dl.airtable.com",
+      },
     ],
   },
 
