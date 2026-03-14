@@ -12,6 +12,8 @@ import { useTranslations } from "next-intl";
 import {
   CHAIN_SELECTOR,
   CHAIN_SELECTOR_CARDS,
+  COSMOS_CARD_DECK,
+  COSMOS_GUIDES_HEADING,
   EVM_GUIDES_HEADING,
   FAQ_COUNT,
   HERO_BUTTONS,
@@ -64,6 +66,17 @@ export function DevelopersChainMigrationPage() {
     body: t(`secondaryCardDeck.cards.${index}.body`),
   }));
 
+  const cosmosCards = COSMOS_CARD_DECK.cards.map((card, index) => ({
+    ...card,
+    eyebrow: t(`cosmosCardDeck.cards.${index}.eyebrow`),
+    heading: t(`cosmosCardDeck.cards.${index}.heading`),
+    body: t(`cosmosCardDeck.cards.${index}.body`),
+    callToAction: {
+      ...card.callToAction,
+      label: t(`cosmosCardDeck.cards.${index}.callToAction.label`),
+    },
+  }));
+
   return (
     <>
       <ResponsiveBox responsiveStyles={blockSpacing}>
@@ -107,6 +120,25 @@ export function DevelopersChainMigrationPage() {
           >["numCols"]
         }
         featured={PRIMARY_CARD_DECK.featured}
+      />
+
+      <ResponsiveBox responsiveStyles={blockSpacing}>
+        <Heading
+          variant={COSMOS_GUIDES_HEADING.variant as "floatingButton"}
+          eyebrow={t("cosmosGuidesHeading.eyebrow")}
+          headline={t("cosmosGuidesHeading.headline")}
+          body={t("cosmosGuidesHeading.body")}
+        />
+      </ResponsiveBox>
+
+      <CardDeck
+        cards={cosmosCards as React.ComponentProps<typeof CardDeck>["cards"]}
+        numCols={
+          COSMOS_CARD_DECK.numCols as React.ComponentProps<
+            typeof CardDeck
+          >["numCols"]
+        }
+        featured={COSMOS_CARD_DECK.featured}
       />
 
       <ResponsiveBox responsiveStyles={{ large: { minHeight: "100px" } }}>

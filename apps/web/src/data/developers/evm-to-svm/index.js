@@ -60,6 +60,34 @@ export const EVM_GUIDES_HEADING = {
   variant: "floatingButton",
 };
 
+export const COSMOS_GUIDES_HEADING = {
+  variant: "floatingButton",
+};
+
+export const COSMOS_CARD_DECK = {
+  numCols: 2,
+  featured: true,
+  cards: [
+    {
+      type: "image",
+      headingAs: "h2",
+      backgroundImage: {
+        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ff1d4c0384bf94fd4bd51807305310e9e.png",
+      },
+      backgroundGradient: "aqua",
+      callToAction: {
+        url: "/developers/chain-migration/cosmwasm",
+        size: "md",
+        hierarchy: "primary",
+      },
+      mobileBackgroundImage: {
+        src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
+      },
+      isFeatured: true,
+    },
+  ],
+};
+
 export const PRIMARY_CARD_DECK = {
   numCols: 2,
   featured: true,
