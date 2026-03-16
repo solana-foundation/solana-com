@@ -32,7 +32,7 @@ data in the requested encoding.
       // !hover maxSupportedTransactionVersion
       "maxSupportedTransactionVersion": 0,
       // !hover rewards
-      "rewards": false
+      "rewards": true
     }
   ]
 }
@@ -61,8 +61,8 @@ let block = await rpc
       // !hover maxSupportedTransactionVersion
       maxSupportedTransactionVersion: 0,
       // !hover rewards
-      rewards: false,
-    },
+      rewards: true
+    }
   )
   .send();
 
@@ -88,8 +88,8 @@ const block = await connection.getBlock(
     // !hover maxSupportedTransactionVersion
     maxSupportedTransactionVersion: 0,
     // !hover rewards
-    rewards: false,
-  },
+    rewards: true
+  }
 );
 
 console.log("block:", block);
@@ -146,8 +146,8 @@ Slot number.
 !type string | object
 !optional
 
-Configuration object. For backwards compatibility, this parameter also accepts
-a bare encoding string, but prefer the object form.
+Configuration object. For backwards compatibility, this parameter also accepts a
+bare encoding string, but prefer the object form.
 
 <Callout type="warn">
   Passing a bare encoding string as the second positional parameter is
@@ -162,10 +162,15 @@ When this parameter is an object, it may contain the following fields:
 !values confirmed finalized
 !default finalized
 
-The commitment describes how finalized a block is at that point in time. See
-[Configuring State Commitment](/docs/rpc#configuring-state-commitment).
+Solana RPC uses the following commitment levels:
 
-- `processed` is not supported.
+| Value | Description |
+|---|---|
+| `processed` | Return data from the highest slot this node has processed on the fork it currently considers best. This is the newest view, but it can still change if the cluster switches forks. |
+| `confirmed` | Return data from the highest slot that at least two-thirds of active stake has directly voted to confirm. This is more stable than `processed`, but it is still a weaker guarantee than `finalized`. |
+| `finalized` | Return data from the highest slot that the cluster recognizes as finalized. In Agave, this means the slot has reached maximum vote lockout in validators' vote towers and is recognized by at least two-thirds of active stake. This is the strongest commitment level. |
+
+This method does not accept `processed`.
 
 ##### !! encoding
 
@@ -175,22 +180,21 @@ The commitment describes how finalized a block is at that point in time. See
 
 Encoding format for each returned transaction.
 
-| Encoding | Transaction format | Notes |
-|---|---|---|
-| `json` | JSON object | Default. Returns parsed transaction with `message` and `signatures` |
-| `jsonParsed` | JSON object | Uses program-specific parsers for `transaction.message.instructions`. Falls back to standard JSON fields (`accounts`, `data`, `programIdIndex`) if no parser found |
-| `base64` | `[data, "base64"]` | Base64 encoded binary transaction |
-| `base58` | `[data, "base58"]` | Slow |
-| `binary` | `[data, "base58"]` | ⚠️ Deprecated. Legacy alias for `base58`, retained for backwards compatibility |
+| Encoding     | Transaction format | Notes                                                                                                                                                              |
+| ------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `json`       | JSON object        | Default. Returns parsed transaction with `message` and `signatures`                                                                                                |
+| `jsonParsed` | JSON object        | Uses program-specific parsers for `transaction.message.instructions`. Falls back to standard JSON fields (`accounts`, `data`, `programIdIndex`) if no parser found |
+| `base64`     | `[data, "base64"]` | Base64 encoded binary transaction                                                                                                                                  |
+| `base58`     | `[data, "base58"]` | Slow                                                                                                                                                               |
+| `binary`     | `[data, "base58"]` | ⚠️ Deprecated. Legacy alias for `base58`, retained for backwards compatibility                                                                                     |
 
 For `jsonParsed`, instruction entries use one of two stable outer shapes:
 `{program, programId, parsed, stackHeight}` when Agave can parse the
-instruction, or `{programId, accounts, data, stackHeight}` when it falls back
-to a partially decoded form. The nested `parsed` payload remains
-program-specific.
+instruction, or `{programId, accounts, data, stackHeight}` when it falls back to
+a partially decoded form. The nested `parsed` payload remains program-specific.
 
-If you use the deprecated shorthand encoding form, pass one of these
-encoding strings directly.
+If you use the deprecated shorthand encoding form, pass one of these encoding
+strings directly.
 
 ##### !! transactionDetails
 
@@ -200,23 +204,31 @@ encoding strings directly.
 
 Level of transaction detail to return.
 
-- If `accounts` are requested, transaction details only include signatures and
-  an annotated list of accounts in each transaction.
-- Transaction metadata is limited to only: fee, err, pre_balances,
-  post_balances, pre_token_balances, and post_token_balances.
+- If `accounts` is requested, the response still includes `transactions`, but
+  each `transactions[].transaction` object only contains `signatures` and an
+  annotated `accountKeys` list.
+- In `accounts` mode, `transactions[].meta` is limited to `fee`, `err`,
+  `status`, `preBalances`, `postBalances`, `preTokenBalances`,
+  `postTokenBalances`, and `rewards`.
+- If `signatures` is requested, the response omits `transactions` and returns
+  only the `signatures` array for the block.
+- If `none` is requested, the response omits both `transactions` and
+  `signatures`.
 
 ##### !! maxSupportedTransactionVersion
 
 !type number
 !values 0
 
-Currently, the only valid value for this parameter is `0`.
-Setting it to `0` allows you to fetch all transactions, including both Versioned and legacy transactions.
+Currently, the only valid value for this parameter is `0`. Setting it to `0`
+allows you to fetch all transactions, including both Versioned and legacy
+transactions.
 
-This parameter determines the maximum transaction version that will be returned in the response.
-If you request a transaction with a higher version than this value, an error will be returned.
-If you omit this parameter, only legacy transactions will be returned—any block containing a versioned transaction will result in an error.
-
+This parameter determines the maximum transaction version that will be returned
+in the response. If you request a transaction with a higher version than this
+value, an error will be returned. If you omit this parameter, only legacy
+transactions will be returned—any block containing a versioned transaction will
+result in an error.
 
 ##### !! rewards
 
@@ -246,6 +258,8 @@ includes rewards.
     "previousBlockhash": "mfcyqEXB3DnHXki6KjjmZck6YjmZLvpAByy2fj4nh6B",
     // !hover rewards
     "rewards": [],
+    // !hover numRewardPartitions
+    "numRewardPartitions": null,
     // !hover(1:45) transactions
     "transactions": [
       {
@@ -345,72 +359,74 @@ block is not available due to ledger cleanup, this field will return
 Present if `transactionDetails` is `"full"` or `"accounts"`; an array of JSON
 objects containing:
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `transaction` | `object \| string \| [string, encoding]` | Encoded transaction payload. For `transactionDetails: "full"`, this uses the same encoding-dependent transaction structure described by `getTransaction`. For `transactionDetails: "accounts"`, this is the accounts-only object documented below. |
-| `meta` | `object \| null` | Transaction status metadata, or `null` if metadata is unavailable. For `transactionDetails: "accounts"`, Agave returns the simplified metadata object documented below. |
-| `version` | `"legacy" \| number` | Transaction version. This field is omitted if `maxSupportedTransactionVersion` is not set in the request params. |
+| Field         | Type                                     | Description                                                                                                                                                                                                                                                                                                     |
+| ------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `transaction` | `object \| string \| [string, encoding]` | Encoded transaction payload. For `transactionDetails: "full"`, this uses the same encoding-dependent transaction structure described by `getTransaction`. For `transactionDetails: "accounts"`, this is the accounts-only object documented below.                                                              |
+| `meta`        | `object \| null`                         | Transaction status metadata, or `null` if metadata is unavailable. For `transactionDetails: "full"`, this uses the same metadata structure described by [`getTransaction`](/docs/rpc/http/gettransaction). For `transactionDetails: "accounts"`, Agave returns the simplified metadata object documented below. |
+| `version`     | `"legacy" \| number`                     | Transaction version. This field is omitted if `maxSupportedTransactionVersion` is not set in the request params.                                                                                                                                                                                                |
 
-**`transactions[].transaction` fields when `transactionDetails` is `"accounts"`**
+**`transactions[].transaction` fields when `transactionDetails` is
+`"accounts"`**
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `signatures` | `array` | Transaction signatures in wire order. |
+| Field         | Type    | Description                                                                                             |
+| ------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `signatures`  | `array` | Transaction signatures in wire order.                                                                   |
 | `accountKeys` | `array` | Objects containing the listed `pubkey`, `signer`, and `writable` metadata for each transaction account. |
 
-**`transactions[].transaction.accountKeys[]` fields when `transactionDetails` is `"accounts"`**
+**`transactions[].transaction.accountKeys[]` fields when `transactionDetails` is
+`"accounts"`**
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `pubkey` | `string` | Account address, as a base-58 encoded string. |
-| `signer` | `bool` | Whether this account signed the transaction. |
-| `writable` | `bool` | Whether the transaction marks this account writable. |
-| `source` | `string \| null` | Source of the account key. When present, the value is `transaction` or `lookupTable`. |
+| Field      | Type             | Description                                                                           |
+| ---------- | ---------------- | ------------------------------------------------------------------------------------- |
+| `pubkey`   | `string`         | Account address, as a base-58 encoded string.                                         |
+| `signer`   | `bool`           | Whether this account signed the transaction.                                          |
+| `writable` | `bool`           | Whether the transaction marks this account writable.                                  |
+| `source`   | `string \| null` | Source of the account key. When present, the value is `transaction` or `lookupTable`. |
 
 **`transactions[].meta` fields when `transactionDetails` is `"accounts"`**
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `err` | `object \| string \| null` | Transaction error. `null` indicates success. |
-| `status` | `object` | Deprecated status object that mirrors `err`. It is `"Ok": <null>` for success or `"Err": <ERR>` for failure. |
-| `fee` | `u64` | Fee charged for the transaction, in lamports. |
-| `preBalances` | `array` | Lamport balances before execution, indexed to `transaction.accountKeys`. |
-| `postBalances` | `array` | Lamport balances after execution, indexed to `transaction.accountKeys`. |
-| `preTokenBalances` | `array \| null` | Token balances before execution. Each element uses the token-balance schema documented below. |
-| `postTokenBalances` | `array \| null` | Token balances after execution. Each element uses the token-balance schema documented below. |
-| `rewards` | `array \| null` | Rewards applied while processing the transaction. Each element uses the reward schema documented below. |
+| Field               | Type                       | Description                                                                                                  |
+| ------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `err`               | `object \| string \| null` | Transaction error. `null` indicates success.                                                                 |
+| `status`            | `object`                   | Deprecated status object that mirrors `err`. It is `"Ok": <null>` for success or `"Err": <ERR>` for failure. |
+| `fee`               | `u64`                      | Fee charged for the transaction, in lamports.                                                                |
+| `preBalances`       | `array`                    | Lamport balances before execution, indexed to `transaction.accountKeys`.                                     |
+| `postBalances`      | `array`                    | Lamport balances after execution, indexed to `transaction.accountKeys`.                                      |
+| `preTokenBalances`  | `array \| null`            | Token balances before execution. Each element uses the token-balance schema documented below.                |
+| `postTokenBalances` | `array \| null`            | Token balances after execution. Each element uses the token-balance schema documented below.                 |
+| `rewards`           | `array \| null`            | Rewards applied while processing the transaction. Each element uses the reward schema documented below.      |
 
 **`transactions[].meta.err` object form**
 
-| Field | Type | Description |
-| --- | --- | --- |
+| Field           | Type                                | Description                                                                                                                                     |
+| --------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<variantName>` | `array \| object \| string \| null` | Transaction error variant payload. Most variants serialize as strings. `InstructionError` serializes as `[instructionIndex, instructionError]`. |
 
 **`token balance` fields**
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `accountIndex` | `u8` | Index into the transaction account list for the token account whose balance is reported. |
-| `mint` | `string` | Token mint pubkey, as a base-58 encoded string. |
-| `uiTokenAmount` | `object` | Token amount object with raw and decimal-scaled representations. |
-| `owner` | `string` | Token account owner pubkey, when the validator recorded it. This field may be omitted. |
-| `programId` | `string` | SPL Token program pubkey for this account, when the validator recorded it. This field may be omitted. |
+| Field           | Type     | Description                                                                                           |
+| --------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `accountIndex`  | `u8`     | Index into the transaction account list for the token account whose balance is reported.              |
+| `mint`          | `string` | Token mint pubkey, as a base-58 encoded string.                                                       |
+| `uiTokenAmount` | `object` | Token amount object with raw and decimal-scaled representations.                                      |
+| `owner`         | `string` | Token account owner pubkey, when the validator recorded it. This field may be omitted.                |
+| `programId`     | `string` | SPL Token program pubkey for this account, when the validator recorded it. This field may be omitted. |
 
 **`token balance.uiTokenAmount` fields**
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `uiAmount` | `number \| null` | Decimal-scaled amount as a floating-point number. Deprecated in favor of `uiAmountString`. |
-| `decimals` | `u8` | Number of decimal places configured on the mint. |
-| `amount` | `string` | Raw token amount, as a base-10 integer string. |
-| `uiAmountString` | `string` | Decimal-scaled amount as a string. |
+| Field            | Type             | Description                                                                                |
+| ---------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| `uiAmount`       | `number \| null` | Decimal-scaled amount as a floating-point number. Deprecated in favor of `uiAmountString`. |
+| `decimals`       | `u8`             | Number of decimal places configured on the mint.                                           |
+| `amount`         | `string`         | Raw token amount, as a base-10 integer string.                                             |
+| `uiAmountString` | `string`         | Decimal-scaled amount as a string.                                                         |
 
 ##### !! signatures
 
 !type array
 
-Present if "signatures" transaction details are requested; an array of
-signature strings, corresponding to the transaction order in the block.
+Present if "signatures" transaction details are requested; an array of signature
+strings, corresponding to the transaction order in the block.
 
 ##### !! rewards
 
@@ -419,19 +435,19 @@ signature strings, corresponding to the transaction order in the block.
 Present if rewards are requested; an array of reward objects with the following
 fields:
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `pubkey` | `string` | Rewarded account pubkey, as a base-58 encoded string. |
-| `lamports` | `i64` | Lamports credited or debited by this reward entry. |
-| `postBalance` | `u64` | Account balance after the reward was applied. |
-| `rewardType` | `string \| null` | Reward category. When present, the value is `fee`, `rent`, `voting`, or `staking`. |
-| `commission` | `u8 \| null` | Vote-account commission at the time of the reward. Present only for voting and staking rewards. |
+| Field         | Type             | Description                                                                                     |
+| ------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| `pubkey`      | `string`         | Rewarded account pubkey, as a base-58 encoded string.                                           |
+| `lamports`    | `i64`            | Lamports credited or debited by this reward entry.                                              |
+| `postBalance` | `u64`            | Account balance after the reward was applied.                                                   |
+| `rewardType`  | `string \| null` | Reward category. When present, the value is `fee`, `rent`, `voting`, or `staking`.              |
+| `commission`  | `u8 \| null`     | Vote-account commission at the time of the reward. Present only for voting and staking rewards. |
 
 ##### !! numRewardPartitions
 
 !type u64 | null
 
-The number of reward partitions for this block if using partitioned rewards,
-or `null`.
+The number of reward partitions for this block if using partitioned rewards, or
+`null`.
 
 </APIMethod>
