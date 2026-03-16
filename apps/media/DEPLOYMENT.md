@@ -70,7 +70,7 @@ When users visit `solana.com/news/*` or `solana.com/podcasts/*`, Next.js rewrite
    KEYSTATIC_SECRET=your_random_secret
 
    # Or use local mode
-   KEYSTATIC_LOCAL=true
+   NEXT_PUBLIC_KEYSTATIC_LOCAL=true
 
    # Vercel (auto-set)
    VERCEL_ENV=production

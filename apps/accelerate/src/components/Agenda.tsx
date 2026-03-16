@@ -5,13 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import agendaData from "@/data/agenda.json";
+import { fadeInUp } from "@/lib/animations";
+import type { Variants } from "framer-motion";
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
+const staggerAgenda: Variants = {
   visible: {
     transition: {
       staggerChildren: 0.03,
@@ -411,7 +408,7 @@ export function Agenda() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          variants={stagger}
+          variants={staggerAgenda}
         >
           {/* Focus Topics */}
           <motion.div variants={fadeInUp} className="mb-10 lg:mb-14">

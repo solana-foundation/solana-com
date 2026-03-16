@@ -9,28 +9,34 @@ import { LumaModal } from "./LumaModal";
 import { YoutubeEmbed } from "./YoutubeEmbed";
 import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
+import { fadeInUp, stagger } from "@/lib/animations";
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
+const navLinkStyle =
+  "font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80 text-button";
 
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
+interface HeroProps {
+  translationPrefix?: string;
+  skylineImage?: string;
+  logoImage?: string;
+  homePath?: string;
+  agendaPath?: string | null;
+  showVideo?: boolean;
+  ctaLabel?: string;
+  backgroundContent?: React.ReactNode;
+}
 
-const navLinkStyle = {
-  fontFamily: "'Space Grotesk', sans-serif",
-  fontSize: "16px",
-};
-
-export function Hero() {
+export function Hero({
+  translationPrefix = "accelerate",
+  skylineImage = "/images/hk-skyline.svg",
+  logoImage = "/images/accelerate-logo.svg",
+  homePath = "/accelerate",
+  agendaPath = "/accelerate/hong-kong/agenda",
+  showVideo = true,
+  ctaLabel,
+  backgroundContent,
+}: HeroProps = {}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const t = useTranslations("accelerate");
+  const t = useTranslations(translationPrefix);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -57,19 +63,25 @@ export function Hero() {
         />
       </div>
 
-      {/* Hong Kong Skyline - centered, flipped (z-1: bottom layer) */}
-      <div
-        className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[600px] md:h-[750px] lg:h-[932px] w-[1187px] -translate-x-1/2"
-        style={{ transform: "translateX(-50%) scaleY(-1) rotate(180deg)" }}
-      >
-        <Image
-          src={getImagePath("/images/hk-skyline.svg")}
-          alt=""
-          fill
-          className="object-contain"
-          priority
-        />
-      </div>
+      {/* Background content (Miami symbols) or default skyline */}
+      {backgroundContent ? (
+        <div className="pointer-events-none absolute inset-0 z-[1]">
+          {backgroundContent}
+        </div>
+      ) : (
+        <div
+          className="pointer-events-none absolute left-1/2 top-0 z-[1] h-[600px] md:h-[750px] lg:h-[932px] w-[1187px] -translate-x-1/2"
+          style={{ transform: "translateX(-50%) scaleY(-1) rotate(180deg)" }}
+        >
+          <Image
+            src={getImagePath(skylineImage)}
+            alt=""
+            fill
+            className="object-contain"
+            priority
+          />
+        </div>
+      )}
 
       {/* Dots pattern (z-2: between skyline and wave) */}
       <div className="pointer-events-none absolute bottom-0 right-0 z-[2] h-[200px] md:h-[250px] lg:h-[322px] w-full">
@@ -126,9 +138,9 @@ export function Hero() {
       {/* Header Navigation */}
       <header className="relative z-20 flex items-center justify-between px-6 py-5 lg:px-[240px] lg:py-5">
         {/* Logo */}
-        <Link href="/" className="flex items-center">
+        <Link href={homePath} className="flex items-center">
           <Image
-            src={getImagePath("/images/accelerate-logo.svg")}
+            src={getImagePath(logoImage)}
             alt="Accelerate APAC"
             width={197}
             height={100}
@@ -139,67 +151,25 @@ export function Hero() {
 
         {/* Navigation */}
         <nav className="hidden items-center gap-[38px] md:flex">
-          <a
-            href="#speakers"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
+          <a href="#speakers" className={navLinkStyle}>
             {t("nav.speakers")}
           </a>
-          <Link
-            href="/accelerate/agenda"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
-            {t("nav.agenda")}
-          </Link>
-          <a
-            href="#sponsors"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
+          {agendaPath && (
+            <Link href={agendaPath} className={navLinkStyle}>
+              {t("nav.agenda")}
+            </Link>
+          )}
+          <a href="#sponsors" className={navLinkStyle}>
             {t("nav.sponsors")}
           </a>
-          <a
-            href="#faq"
-            className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontSize: "16px",
-            }}
-          >
+          <a href="#faq" className={navLinkStyle}>
             {t("nav.faq")}
           </a>
           <LanguageSelector className="!text-white/60 hover:!text-white" />
           <LumaModal lumaId="accelerate-miami">
-            <button
-              className="relative inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: "16px",
-                minWidth: "186px",
-                background:
-                  "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                border: "1px solid transparent",
-              }}
-            >
-              <span>{t("nav.requestToJoin")}</span>
-              <svg
-                width="8"
-                height="8"
-                viewBox="0 0 11 11"
-                fill="none"
-                className="ml-2"
-              >
+            <button className="btn-outline-gradient px-7 py-4 text-button">
+              <span>{ctaLabel || t("nav.requestToJoin")}</span>
+              <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
                 <path
                   d="M2 9L9 2M9 2H4M9 2V7"
                   stroke="currentColor"
@@ -251,7 +221,7 @@ export function Hero() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: "100%" }}
               transition={{ type: "tween", duration: 0.25 }}
-              className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-[#0D0D0D] px-6 py-5"
+              className="absolute right-0 top-0 z-40 flex h-full w-full max-w-[320px] flex-col bg-accelerate-dark px-6 py-5"
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-white/60">
@@ -278,32 +248,30 @@ export function Hero() {
               <nav className="mt-8 flex flex-col gap-6">
                 <a
                   href="#speakers"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.speakers")}
                 </a>
-                <Link
-                  href="/accelerate/agenda"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t("nav.agenda")}
-                </Link>
+                {agendaPath && (
+                  <Link
+                    href={agendaPath}
+                    className={navLinkStyle}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {t("nav.agenda")}
+                  </Link>
+                )}
                 <a
                   href="#sponsors"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.sponsors")}
                 </a>
                 <a
                   href="#faq"
-                  className="font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:text-white/80"
-                  style={navLinkStyle}
+                  className={navLinkStyle}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {t("nav.faq")}
@@ -314,23 +282,10 @@ export function Hero() {
                 <LumaModal lumaId="accelerate-miami">
                   <button
                     type="button"
-                    className="relative mt-2 w-full inline-flex items-center justify-center rounded-full bg-transparent px-7 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5"
-                    style={{
-                      ...navLinkStyle,
-                      minWidth: "186px",
-                      background:
-                        "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                      border: "1px solid transparent",
-                    }}
+                    className="btn-outline-gradient mt-2 w-full px-7 py-4 text-button"
                   >
-                    <span>{t("nav.requestToJoin")}</span>
-                    <svg
-                      width="8"
-                      height="8"
-                      viewBox="0 0 11 11"
-                      fill="none"
-                      className="ml-2"
-                    >
+                    <span>{ctaLabel || t("nav.requestToJoin")}</span>
+                    <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
                       <path
                         d="M2 9L9 2M9 2H4M9 2V7"
                         stroke="currentColor"
@@ -347,7 +302,7 @@ export function Hero() {
         )}
       </AnimatePresence>
 
-      {/* Main Content - YouTube Video */}
+      {/* Main Content */}
       <div className="absolute inset-x-0 bottom-0 top-[120px] z-10 flex flex-col items-center justify-center px-4 md:top-[140px] md:px-8 lg:top-[160px]">
         <motion.div
           initial="hidden"
@@ -355,32 +310,61 @@ export function Hero() {
           variants={stagger}
           className="flex w-full max-w-[960px] flex-col items-center gap-4 md:gap-6"
         >
-          {/* Title row */}
-          <motion.div
-            variants={fadeInUp}
-            className="flex items-center justify-center"
-          >
-            <h1
-              className="text-center text-lg font-semibold uppercase tracking-[0.15em] sm:text-xl md:text-2xl"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                lineHeight: 1,
-                color: "#D2D2D2",
-              }}
-            >
-              {t("hero.title")}
-              <span className="ml-2 text-[#19FB9B]">/</span>
-              <span className="ml-2 text-[#19FB9B]">
-                {t("hero.dateLocation")}
-              </span>
-            </h1>
-          </motion.div>
+          {showVideo ? (
+            <>
+              {/* Title row */}
+              <motion.div
+                variants={fadeInUp}
+                className="flex items-center justify-center"
+              >
+                <h1 className="text-center text-lg font-semibold uppercase tracking-[0.15em] text-accelerate-gray-light sm:text-xl md:text-2xl leading-none">
+                  {t("hero.title")}
+                  <span className="ml-2 text-accelerate-green">/</span>
+                  <span className="ml-2 text-accelerate-green">
+                    {t("hero.dateLocation")}
+                  </span>
+                </h1>
+              </motion.div>
 
-          {/* YouTube embed */}
-          <motion.div variants={fadeInUp} className="w-full">
-            <YoutubeEmbed id="LsfnC62q8oE" title={t("hero.title")} />
-          </motion.div>
+              {/* YouTube embed */}
+              <motion.div variants={fadeInUp} className="w-full">
+                <YoutubeEmbed id="LsfnC62q8oE" title={t("hero.title")} />
+              </motion.div>
+            </>
+          ) : (
+            <>
+              {/* Centered hero content — matches Figma layout */}
+              <motion.div
+                variants={fadeInUp}
+                className="flex flex-col items-center gap-[20px] text-center"
+              >
+                <p className="text-lg text-accelerate-green font-normal leading-[1.1] sm:text-xl md:text-2xl lg:text-[32px]">
+                  {t("hero.dateLocation")}
+                </p>
+                <h1 className="text-3xl font-light leading-none text-accelerate-gray-light font-diatype sm:text-4xl md:text-5xl lg:text-[60px]">
+                  {t("hero.title")}
+                </h1>
+              </motion.div>
+
+              {/* CTA Button */}
+              <motion.div variants={fadeInUp}>
+                <LumaModal lumaId="accelerate-miami">
+                  <button className="btn-cta group h-[56px] w-[320px] justify-between px-[28px] py-[24px] sm:h-[66px] sm:w-[480px]">
+                    <span className="text-sm uppercase tracking-[0.9px] font-semibold leading-none sm:text-lg">
+                      {ctaLabel || t("nav.requestToJoin")}
+                    </span>
+                    <Image
+                      src={getImagePath("/images/ticket-icon.svg")}
+                      alt=""
+                      width={18}
+                      height={12}
+                      className="flex-shrink-0"
+                    />
+                  </button>
+                </LumaModal>
+              </motion.div>
+            </>
+          )}
         </motion.div>
       </div>
     </section>

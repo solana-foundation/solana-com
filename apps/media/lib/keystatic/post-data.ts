@@ -1,6 +1,7 @@
 import { reader } from "../reader";
 import { PostItem } from "../post-types";
 import { format } from "date-fns";
+import { isPublishedPost } from "./post-status";
 
 export interface LatestPostsParams {
   limit?: number;
@@ -169,7 +170,7 @@ export const fetchLatestPosts = async (
     for (const slug of allSlugs) {
       try {
         const post = await reader.collections.posts.read(slug);
-        if (post) {
+        if (isPublishedPost(post)) {
           // Ensure date is a string before creating Date object
           const dateString =
             typeof post.date === "string" ? post.date : String(post.date || "");
@@ -320,7 +321,7 @@ export const fetchFeaturedPost = async (): Promise<FeaturedPostResponse> => {
     for (const slug of allSlugs) {
       try {
         const post = await reader.collections.posts.read(slug);
-        if (post?.tags) {
+        if (isPublishedPost(post) && post.tags) {
           let isFeatured = false;
           for (const tagItem of post.tags) {
             let tagSlug: string | null = null;

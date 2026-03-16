@@ -5,8 +5,8 @@ import { ThemeProvider } from "@solana-com/ui-chrome";
 import { staticLocales } from "@workspace/i18n/config";
 import { getLangDir } from "rtl-detect";
 import { Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import { getBaseMetadata } from "../metadata";
-import { config } from "@@/src/config";
 import "@@/src/scss/index.scss";
 import "../globals.css";
 
@@ -52,6 +52,64 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
+// Load ABC Diatype font locally
+const abcDiatype = localFont({
+  src: [
+    {
+      path: "../../fonts/diatype/ABCDiatype-Thin.woff2",
+      weight: "100",
+      style: "normal",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-ThinItalic.woff2",
+      weight: "100",
+      style: "italic",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-Light.woff2",
+      weight: "300",
+      style: "normal",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-LightItalic.woff2",
+      weight: "300",
+      style: "italic",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-RegularItalic.woff2",
+      weight: "400",
+      style: "italic",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-Medium.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-MediumItalic.woff2",
+      weight: "500",
+      style: "italic",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "../../fonts/diatype/ABCDiatype-BoldItalic.woff2",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  variable: "--font-diatype",
+  display: "swap",
+});
+
 type Props = {
   children: ReactNode;
   params: Promise<{ locale: string }>;
@@ -81,48 +139,14 @@ export default async function RootLayout({ children, params }: Props) {
     }
   }
 
-  // Structured data for Event schema
-  const eventStructuredData = {
-    "@context": "https://schema.org",
-    "@type": "Event",
-    name: config.event.name,
-    description: config.event.description,
-    startDate: config.event.startDate,
-    endDate: config.event.endDate,
-    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-    eventStatus: "https://schema.org/EventScheduled",
-    location: {
-      "@type": "Place",
-      name: config.event.location.name,
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: config.event.location.name,
-      },
-    },
-    organizer: {
-      "@type": "Organization",
-      name: "Solana Foundation",
-      url: "https://solana.com",
-    },
-    image: config.siteMetadata.socialShare,
-    url: config.siteUrl,
-  };
-
   return (
     <html
       lang={locale}
       dir={direction}
-      className={`dark ${spaceGrotesk.variable}`}
+      className={`dark ${spaceGrotesk.variable} ${abcDiatype.variable}`}
       suppressHydrationWarning
     >
       <body className={spaceGrotesk.className} suppressHydrationWarning>
-        {/* Structured Data for Event (JSON-LD) */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(eventStructuredData, null, 2),
-          }}
-        />
         {/* Google tag (gtag.js) */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-1YDTXXYYQ4"

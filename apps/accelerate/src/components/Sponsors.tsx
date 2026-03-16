@@ -19,28 +19,14 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   VisuallyHidden,
 } from "@workspace/ui";
-import sponsorsData from "@/data/sponsors.json";
 import { getSponsorsByTier } from "@/lib/sponsors";
 import type { GridProfile, Sponsor, SponsorTier } from "@/types/sponsors";
 import { getImagePath } from "@/config";
-
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
+import { fadeInUp, staggerFast } from "@/lib/animations";
 
 const GRID_API_ENDPOINT = "https://beta.node.thegrid.id/graphql";
 
@@ -207,9 +193,21 @@ async function fetchGridProfiles(slugs: string[], signal?: AbortSignal) {
   }
 
   const profiles = payload.data?.profileInfos ?? [];
+  const requestedByLower = new Map(
+    slugs.map((slug) => [slug.toLowerCase(), slug]),
+  );
+
   return profiles.reduce<Record<string, GridProfile>>((acc, profile) => {
-    const slug = profile.root?.slug;
-    if (slug) acc[slug] = profile;
+    const returnedSlug = profile.root?.slug;
+    if (!returnedSlug) return acc;
+
+    acc[returnedSlug] = profile;
+
+    const requestedSlug = requestedByLower.get(returnedSlug.toLowerCase());
+    if (requestedSlug) {
+      acc[requestedSlug] = profile;
+    }
+
     return acc;
   }, {});
 }
@@ -238,8 +236,8 @@ type ActiveSponsor = {
   tier: SponsorTier;
 };
 
-export function Sponsors() {
-  const sponsorTiers = getSponsorsByTier(sponsorsData.sponsors as Sponsor[]);
+export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
+  const sponsorTiers = getSponsorsByTier(sponsors);
   const [activeSponsor, setActiveSponsor] = useState<ActiveSponsor | null>(
     null,
   );
@@ -333,7 +331,7 @@ export function Sponsors() {
   }
 
   return (
-    <section id="sponsors" className="relative bg-black py-12 lg:py-16">
+    <section id="sponsors" className="section-accelerate relative">
       {/* Pattern background */}
       <div className="pointer-events-none absolute inset-0 z-0 opacity-50">
         <Image
@@ -345,12 +343,12 @@ export function Sponsors() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-[60px]">
+      <div className="container-accelerate relative z-10">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          variants={stagger}
+          variants={staggerFast}
         >
           {/* Header section with title and button */}
           <motion.div
@@ -358,13 +356,7 @@ export function Sponsors() {
             className="mb-8 flex flex-col items-start justify-between gap-6 lg:mb-12 lg:flex-row lg:items-center"
           >
             <div className="flex flex-col">
-              <h2
-                className="text-h1 text-accelerate-gray-100"
-                style={{
-                  fontFamily:
-                    "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                }}
-              >
+              <h2 className="text-h1 text-accelerate-gray-100">
                 {t("heading")}
               </h2>
             </div>
@@ -372,10 +364,6 @@ export function Sponsors() {
             <a
               href="mailto:events@solana.org"
               className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.05em] text-accelerate-green underline underline-offset-4 transition-colors hover:text-white lg:hidden"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-              }}
             >
               <span>{t("becomeSponsor")}</span>
               <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
@@ -391,15 +379,7 @@ export function Sponsors() {
             {/* Desktop: Styled button */}
             <a
               href="mailto:events@solana.org"
-              className="hidden items-center gap-2 rounded-full px-8 py-4 font-semibold uppercase tracking-[0.05em] text-white transition-colors hover:bg-white/5 lg:inline-flex"
-              style={{
-                fontFamily:
-                  "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                fontSize: "16px",
-                background:
-                  "linear-gradient(black, black) padding-box, linear-gradient(to right, #9945FF, #19FB9B) border-box",
-                border: "1px solid transparent",
-              }}
+              className="btn-outline-gradient !hidden px-8 py-4 text-button lg:!inline-flex"
             >
               <span>{t("becomeSponsor")}</span>
               <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
@@ -415,7 +395,7 @@ export function Sponsors() {
           </motion.div>
 
           {/* Divider line */}
-          <div className="mb-8 border-t border-white/10 lg:mb-10" />
+          <div className="section-divider" />
 
           <div className="space-y-16 lg:space-y-20">
             {sponsorTiers.map((tier) => (
@@ -423,21 +403,17 @@ export function Sponsors() {
                 <motion.p
                   variants={fadeInUp}
                   className="text-button mb-8 text-center uppercase tracking-[0.2em]"
-                  style={{
-                    fontFamily:
-                      "var(--font-space-grotesk), 'Space Grotesk', sans-serif",
-                    color: tier.color,
-                  }}
+                  style={{ color: tier.color }}
                 >
                   {tier.name}
                 </motion.p>
                 <div
                   className={`flex flex-wrap items-center justify-center ${
                     tier.level === "headline"
-                      ? "gap-16"
+                      ? "gap-8 sm:gap-16"
                       : tier.level === "signature"
-                        ? "gap-12 lg:gap-[60px]"
-                        : "gap-8 lg:gap-12"
+                        ? "gap-6 sm:gap-12 lg:gap-[60px]"
+                        : "gap-4 sm:gap-8 lg:gap-12"
                   }`}
                 >
                   {tier.sponsors.map((sponsor) => (
@@ -449,10 +425,10 @@ export function Sponsors() {
                       aria-label={t("openProfile", { name: sponsor.name })}
                       className={`flex items-center justify-center bg-transparent p-0 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accelerate-purple/60 ${
                         tier.level === "headline"
-                          ? "h-[168px] w-[400px]"
+                          ? "h-[100px] w-[260px] sm:h-[168px] sm:w-[400px]"
                           : tier.level === "signature"
-                            ? "h-[134px] w-[320px]"
-                            : "h-[80px] w-[200px]"
+                            ? "h-[80px] w-[200px] sm:h-[134px] sm:w-[320px]"
+                            : "h-[56px] w-[150px] sm:h-[80px] sm:w-[200px]"
                       }`}
                     >
                       <SponsorLogo sponsor={sponsor} />
@@ -525,9 +501,9 @@ export function Sponsors() {
                             <p className="text-2xl font-semibold text-white">
                               {activeDisplayName}
                             </p>
-                            {activeProfile?.tagLine && (
+                            {resolvedProfile?.tagLine && (
                               <p className="text-sm text-white/70">
-                                {activeProfile.tagLine}
+                                {resolvedProfile.tagLine}
                               </p>
                             )}
                           </div>

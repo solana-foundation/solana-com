@@ -2,6 +2,7 @@ import { Feed } from "feed";
 import { NextResponse } from "next/server";
 import { reader } from "@/lib/reader";
 import { contentDocumentToPlainText } from "@/lib/content-renderer";
+import { isPublishedPost } from "@/lib/keystatic/post-status";
 import faviconPng from "@solana-com/ui-chrome/assets/favicon.png";
 
 export const revalidate = 300;
@@ -40,7 +41,7 @@ export async function GET() {
 
     for (const slug of allSlugs) {
       const post = await reader.collections.posts.read(slug);
-      if (post) {
+      if (isPublishedPost(post)) {
         postsWithDates.push({
           slug,
           date: post.date ? new Date(post.date) : null,

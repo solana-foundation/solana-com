@@ -107,7 +107,7 @@ Access the CMS at `/keystatic`:
 
 Keystatic uses a **GitHub App** (not an OAuth App) for production access:
 
-1. Deploy with GitHub storage enabled (`KEYSTATIC_LOCAL` unset or false)
+1. Deploy with GitHub storage enabled (`NEXT_PUBLIC_KEYSTATIC_LOCAL` unset or false)
 2. Visit `/keystatic` and click "Create GitHub App"
 3. Keystatic walks you through GitHub's app creation wizard
 4. Env vars (`KEYSTATIC_GITHUB_CLIENT_ID`, etc.) are auto-generated
@@ -116,7 +116,7 @@ Keystatic uses a **GitHub App** (not an OAuth App) for production access:
 ### Environment Variables
 
 ```bash
-KEYSTATIC_LOCAL                          # Set "true" for local mode (filesystem storage)
+NEXT_PUBLIC_KEYSTATIC_LOCAL                          # Set "true" for local mode (filesystem storage)
 KEYSTATIC_GITHUB_CLIENT_ID               # GitHub App client ID (auto-generated)
 KEYSTATIC_GITHUB_CLIENT_SECRET           # GitHub App client secret (auto-generated)
 KEYSTATIC_SECRET                         # Session signing secret (auto-generated)
@@ -182,7 +182,7 @@ Podcast episodes link to Simplecast:
 The build runs:
 
 1. Next.js build (includes Keystatic)
-2. Conditional local vs GitHub mode based on `KEYSTATIC_LOCAL`
+2. Conditional local vs GitHub mode based on `NEXT_PUBLIC_KEYSTATIC_LOCAL`
 
 ## Lint-Staged Configuration
 
@@ -202,7 +202,7 @@ Pre-commit formatting:
 
 ## Gotchas
 
-1. **Local Mode**: Set `KEYSTATIC_LOCAL=true` to use filesystem storage (no GitHub auth needed)
+1. **Local Mode**: Set `NEXT_PUBLIC_KEYSTATIC_LOCAL=true` to use filesystem storage (no GitHub auth needed)
 2. **GitHub Mode**: Requires a GitHub App — run the setup flow at `/keystatic` to auto-generate env vars
 3. **Public Repo**: Since the repo is public, any GitHub user can authenticate. Users with write access edit directly; others fork and create PRs
 4. **Asset Prefix**: All assets served from `/media-assets/` path
