@@ -1,115 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-
-type FaqItem = {
-  question: string;
-  answer: ReactNode;
-};
-
-const sponsorLogos = [
-  "https://cdn.sanity.io/images/a4237xbr/production/10b92a11808918fb3677321526d3158c1009ba5e-728x200.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/063a4b1e96d4bea2b2f5ffba7a56091faffc5e98-1376x182.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/970fb8f24b6ac37f65208f116aca033f89831c6b-687x162.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/56a5125c1d55b83d9fa756e046aad1d7e7139fe2-650x100.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/f6351edbc10a24fb837ff9e27b2143f2bdd66ad3-925x235.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/ece947eeecf506fb6520b13ba92f568659d661ed-1622x285.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/4b3c04a636c53cae969a1cc287918066004700c8-1000x176.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/21b297f0b0f86c1588dbb22450c413fe2286d1f8-601x162.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/c6ad23e736be20dec1c0f0bc640dc3267b1175d5-672x73.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/ca35db3e5294fafd75baa300d9dbe0042b2d27ba-750x250.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/8bf9c1d957031e52a6ede31c8f035fca933b4f36-1102x197.svg",
-  "https://cdn.sanity.io/images/a4237xbr/production/cba796b681350ede24fa3caaea3750bcfb973201-2264x750.svg",
-];
-
-const faqItems: FaqItem[] = [
-  {
-    question: "What is included in Breakpoint?",
-    answer:
-      "Your Breakpoint ticket unlocks two days of boundary-pushing talks, workshops, immersive experiences, unforgettable celebrations, and meaningful connections with the entire Solana ecosystem and the builders shaping the future beyond it!",
-  },
-  {
-    question: "What is the refund or cancellation policy?",
-    answer: (
-      <>
-        <p>
-          Tickets are non-refundable but can be transferred. To transfer your
-          ticket:
-        </p>
-        <ul>
-          <li>
-            Click{" "}
-            <a
-              target="_blank"
-              href="https://luma.com/breakpoint2025/transfer"
-              className="underline"
-              rel="noreferrer"
-            >
-              HERE
-            </a>{" "}
-            (make sure you&apos;re logged into the Luma account associated with
-            the ticket)
-          </li>
-          <li>
-            Enter the email of the person you&apos;d like to transfer the ticket
-            to, then click &apos;Complete Transfer&apos;
-          </li>
-          <li>
-            The new ticket holder will receive a separate email to accept the
-            ticket
-          </li>
-        </ul>
-        <p>
-          If you have further questions, please email{" "}
-          <a href="mailto:breakpoint@solana.org" className="underline">
-            breakpoint@solana.org
-          </a>
-          .
-        </p>
-      </>
-    ),
-  },
-  {
-    question:
-      "Are there any special ticket tiers, grant programs, or discounts on Breakpoint tickets?",
-    answer:
-      "Breakpoint is for everyone, and the Solana Foundation wants to ensure that it’s within reach to almost everyone in the Solana community. Applications for developer, artist, and student programs will be available in 2026 — stay tuned!",
-  },
-  {
-    question: "Are travel and accommodation part of my ticket?",
-    answer:
-      "Breakpoint attendees are responsible for making their own travel and accommodation — but the Solana Foundation is working to get discounts during Breakpoint. Check back in 2026 for more details.",
-  },
-  {
-    question: "How do I connect with other attendees?",
-    answer: (
-      <p>
-        Join the{" "}
-        <a
-          target="_blank"
-          href="https://t.me/+wxxRNayehMdhOGEx"
-          className="underline"
-          rel="noreferrer"
-        >
-          Breakpoint Telegram group
-        </a>
-        .
-      </p>
-    ),
-  },
-  {
-    question: "Additional questions?",
-    answer: (
-      <p>
-        Please email{" "}
-        <a href="mailto:breakpoint@solana.org" className="underline">
-          breakpoint@solana.org
-        </a>
-        .
-      </p>
-    ),
-  },
-];
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 
 function LogoMark() {
   return (
@@ -160,82 +51,127 @@ function CTAButton({
   href,
   children,
   className = "",
+  onClick,
+  type = "link",
 }: {
-  href: string;
+  href?: string;
   children: ReactNode;
   className?: string;
+  onClick?: () => void;
+  type?: "link" | "button";
 }) {
-  return (
-    <a
-      className={`gap-xs cta cursor-pointer uppercase flex gap-xs items-center justify-center cta-transition [&>svg]:transition-all [&>svg]:duration-300 outline-offset-[8px] outline-transparent focus:outline focus:outline-transparent-wisp-40 px-[var(--spacing-xs)] h-[3rem] w-full hover:text-invert hover:[&>svg]:fill-primary-null active:bg-transparent-wisp-80 bg-byte text-invert [&>svg]:fill-primary-null ${className}`.trim()}
-      target="_blank"
-      rel="noreferrer"
-      href={href}
+  const classes =
+    `gap-xs cta cursor-pointer uppercase flex gap-xs items-center justify-center cta-transition [&>svg]:transition-all [&>svg]:duration-300 outline-offset-[8px] outline-transparent focus:outline focus:outline-transparent-wisp-40 px-[var(--spacing-xs)] h-[3rem] w-full hover:text-invert hover:[&>svg]:fill-primary-null active:bg-transparent-wisp-80 bg-byte text-invert [&>svg]:fill-primary-null ${className}`.trim();
+
+  const arrow = (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 9 10"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
     >
-      {children}
-      <svg
-        width="10"
-        height="10"
-        viewBox="0 0 9 10"
+      <path
+        d="M3.35938 8.65625L5.10156 6.97656L6.6875 5.57812V5.53125L4.77344 5.625H0V4.21094H4.78906L6.6875 4.3125V4.26562L5.10156 2.86719L3.35938 1.1875L4.32812 0.171875L9 4.92188L4.32812 9.66406L3.35938 8.65625Z"
         fill="currentColor"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M3.35938 8.65625L5.10156 6.97656L6.6875 5.57812V5.53125L4.77344 5.625H0V4.21094H4.78906L6.6875 4.3125V4.26562L5.10156 2.86719L3.35938 1.1875L4.32812 0.171875L9 4.92188L4.32812 9.66406L3.35938 8.65625Z"
-          fill="currentColor"
-        />
-      </svg>
+      />
+    </svg>
+  );
+
+  if (type === "button") {
+    return (
+      <button className={classes} onClick={onClick}>
+        {children}
+        {arrow}
+      </button>
+    );
+  }
+
+  return (
+    <a className={classes} target="_blank" rel="noreferrer" href={href}>
+      {children}
+      {arrow}
     </a>
   );
 }
 
-function FaqAccordion() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+function PlayIcon() {
+  return (
+    <svg
+      width="14"
+      height="16"
+      viewBox="0 0 14 16"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M0 0L14 8L0 16V0Z" />
+    </svg>
+  );
+}
+
+function VideoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    if (open) {
+      document.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [open, handleKeyDown]);
+
+  if (!open) return null;
 
   return (
-    <div className="w-full mt-xl md:w-6/12">
-      {faqItems.map((item, index) => {
-        const open = openIndex === index;
-        return (
-          <div
-            key={item.question}
-            data-state={open ? "open" : "closed"}
-            className="group mt-s pb-s border-b-wisp-10 border-b-1 grid"
+    <div
+      className="video-modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Breakpoint 2025 video"
+    >
+      <div className="video-modal-content" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={onClose}
+          className="absolute -top-xl right-0 text-primary hover:text-byte cta-transition cursor-pointer"
+          aria-label="Close video"
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
           >
-            <button
-              type="button"
-              className="h5 w-full flex justify-start items-start gap-3xs"
-              onClick={() => setOpenIndex(open ? null : index)}
-            >
-              <div className="group cursor-pointer flex justify-between w-full">
-                <h5 className="h5 cta-transition normal-case text-left group-hover:text-byte row-1">
-                  {item.question}
-                </h5>
-                <div className="change-border-hover cta-transition group-hover:border-primary-byte relative cursor-pointer outline-0 outline-wisp-40 outline-offset-4 size-m text-primary shrink-0 text-2xl border-1 border-stroke-tertiary text-center group-focus-visible:outline-1 ms-xs">
-                  <span className="change-bg-hover cta-transition group-hover:bg-primary-byte absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-0.5 w-2xs bg-primary" />
-                  <span
-                    className={`change-bg-hover cta-transition group-hover:bg-primary-byte absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-0.5 w-2xs bg-primary ${open ? "rotate-180 opacity-0" : "rotate-90"}`.trim()}
-                  />
-                </div>
-              </div>
-            </button>
-            <div
-              className={`accordion-transition mt-xs overflow-hidden ${open ? "block" : "hidden"}`.trim()}
-            >
-              {typeof item.answer === "string" ? (
-                <p>{item.answer}</p>
-              ) : (
-                item.answer
-              )}
-            </div>
-          </div>
-        );
-      })}
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="aspect-video overflow-hidden">
+          <iframe
+            className="h-full w-full"
+            src="https://www.youtube.com/embed/394wb968J68?autoplay=1"
+            title="Solana Breakpoint 2025 - The Movie"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function HomePage() {
+  const [videoOpen, setVideoOpen] = useState(false);
+
   return (
     <>
       <nav
@@ -255,25 +191,23 @@ export default function HomePage() {
             </li>
             <li className="flex-end hidden nav-sm:flex">
               <ul className="inline-flex unstyled-list transition-transform duration-300 transform-[translateX(0)] transform-[translateX(158px)]">
-                <NavLink href="#bp26">BP26</NavLink>
-                <NavLink href="#highlights">Highlights</NavLink>
-                <NavLink href="#get-involved">Get Involved</NavLink>
-                <NavLink href="#faq">FAQ</NavLink>
-                <NavLink href="#sponsors">Sponsors</NavLink>
+                <NavLink href="#overview">Overview</NavLink>
+                <NavLink href="#why-london">Why London</NavLink>
+                <NavLink href="#logistics">Logistics</NavLink>
                 <li>
                   <CTAButton
-                    href="https://www.youtube.com/@SolanaFndn/videos"
+                    href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20interest"
                     className="px-s focus:outline-none focus:underline focus:underline-offset-4 focus:decoration-null"
                   >
-                    Videos
+                    Get Notified
                   </CTAButton>
                 </li>
               </ul>
             </li>
             <div className="nav-sm:hidden flex-end transition-transform duration-300 transform-[translateX(0)] transform-[translateX(158px)]">
               <li>
-                <CTAButton href="https://www.youtube.com/@SolanaFndn/videos">
-                  Videos
+                <CTAButton href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20interest">
+                  Get Notified
                 </CTAButton>
               </li>
             </div>
@@ -282,6 +216,7 @@ export default function HomePage() {
       </nav>
 
       <main id="top" className="container">
+        {/* ── Hero ── */}
         <section className="[&&]:pb-2xl [&&]:md:pb-2xl px-s py-s flex flex-col justify-between relative">
           <img
             className="w-full hidden md:block"
@@ -294,168 +229,158 @@ export default function HomePage() {
             src="/assets/bg-logo-mobile-full.svg"
           />
 
-          <div className="mt-m md:mt-l">
-            <div className="aspect-video overflow-hidden">
-              <iframe
-                className="h-full w-full"
-                src="https://www.youtube.com/embed/394wb968J68"
-                title="Solana Breakpoint 2025 - The Movie"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          </div>
-
           <div className="mt-m gap-l flex flex-col md:flex-row items-start">
             <div className="gap-s flex flex-col w-full md:w-2/3">
-              <p className="text-eyebrow">Solana Breakpoint 2025</p>
-              <h3>The Movie</h3>
+              <p className="text-eyebrow">Breakpoint 2026</p>
+              <h3>
+                The global Solana community comes to London, November 15-17
+              </h3>
+              <p className="text-p1 mt-xs text-secondary">
+                Breakpoint 2026 brings together the leaders, builders,
+                investors, institutions, and creators shaping the future of the
+                Solana ecosystem.
+              </p>
+            </div>
+            <div className="flex flex-col gap-xs w-full md:w-1/3 md:mt-l">
+              <CTAButton
+                type="button"
+                onClick={() => setVideoOpen(true)}
+                className="bg-transparent-wisp-10 text-primary border-1 border-wisp-10 hover:bg-byte hover:text-invert hover:border-byte"
+              >
+                <PlayIcon />
+                Watch Breakpoint 2025
+              </CTAButton>
+              <CTAButton href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20interest">
+                Get Notified
+              </CTAButton>
             </div>
           </div>
         </section>
 
+        {/* ── Overview ── */}
         <article
-          id="bp26"
-          className="p-xs w-full md:px-s md:py-m text-primary bg-null pb-xl pt-xl md:pt-3xl"
+          id="overview"
+          className="p-xs w-full md:px-s md:py-m text-invert bg-byte pt-2xl pb-2xl md:pt-3xl md:pb-3xl"
         >
           <div className="flex flex-col gap-2xl sm:gap-l">
-            <p className="text-eyebrow">Solana Breakpoint 2026</p>
-            <h2>Solana BP26 is coming to London</h2>
-            <div className="grid gap-m md:grid-cols-2">
-              <p>November 15-17, 2026</p>
-              <p>
-                Olympia
-                <br />
-                London, England
+            <p className="text-eyebrow">The Event</p>
+            <h2>A high-signal gathering for the Solana ecosystem</h2>
+          </div>
+          <div className="grid gap-m md:grid-cols-2 mt-l">
+            <p className="text-p1">
+              Designed as a high-signal gathering, Breakpoint creates space for
+              meaningful connections, new ideas, and the unveiling of products
+              and technologies pushing the network forward.
+            </p>
+            <p className="text-p1">
+              Attendees will experience a curated program of keynotes, lightning
+              talks, debates, workshops, and networking designed to spark
+              collaboration and accelerate the next phase of growth across the
+              ecosystem.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-xs mt-xl">
+            {["Keynotes", "Lightning Talks", "Debates", "Workshops"].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="border-1 border-primary-null/20 p-s flex items-center justify-center text-center"
+                >
+                  <p className="text-eyebrow">{item}</p>
+                </div>
+              ),
+            )}
+          </div>
+        </article>
+
+        {/* ── Why London ── */}
+        <article
+          id="why-london"
+          className="p-xs w-full md:px-s md:py-m text-invert bg-lime pt-2xl pb-2xl md:pt-3xl md:pb-3xl"
+        >
+          <div className="flex flex-col gap-2xl sm:gap-l">
+            <p className="text-eyebrow">Why London</p>
+            <h2>At the intersection of global capital</h2>
+          </div>
+          <div className="grid gap-m md:grid-cols-2 mt-l">
+            <div className="flex flex-col gap-m">
+              <p className="text-p1">
+                London sits at the intersection of global capital. It is where
+                money is accumulated, structured, legitimized, and
+                redeployed&mdash;home to family offices, sovereign wealth funds,
+                hedge funds, commodity traders, private credit firms, insurers,
+                and the legal and financial infrastructure that connects markets
+                across continents.
+              </p>
+            </div>
+            <div className="flex flex-col gap-m">
+              <p className="text-p1">
+                Winning London means gaining distribution across Europe, the
+                Middle East, Africa, and beyond&mdash;making it the ideal stage
+                for the next chapter of Solana&apos;s growth.
+              </p>
+              <p className="text-p1">
+                Breakpoint 2026 brings the global Solana community to one of the
+                world&apos;s most influential financial centers.
               </p>
             </div>
           </div>
         </article>
 
-        <section id="highlights" className="grid gap-xs md:gap-s">
-          <article className="p-xs w-full md:px-s md:py-m text-invert bg-lime grid gap-l md:grid-rows-1 md:grid-cols-12 md:gap-s">
-            <div className="col-span-full w-full [&_img]:w-full md:col-span-6 md:order-1">
-              <img
-                src="https://cdn.sanity.io/images/a4237xbr/production/50bec578ef31739266634bcea83754045f23d1ed-1000x800.jpg"
-                alt="Discover recordings, transcripts, and presentations from Breakpoint 2025"
-              />
-            </div>
-            <div className="grid md:grid-rows-[1fr_auto] gap-l col-span-full md:col-span-6 pb-m md:pb-0">
-              <div className="flex flex-col gap-m md:self-center md:pt-l md:gap-l [&>p]:text-h5">
-                <div className="flex flex-col gap-2xl sm:gap-l">
-                  <p className="text-eyebrow">Session Archives</p>
-                  <h2>
-                    Discover recordings, transcripts, and presentations from
-                    Breakpoint 2025
-                  </h2>
-                </div>
-              </div>
-              <CTAButton
-                href="https://www.youtube.com/playlist?list=PLilwLeBwGuK53OUOcc_GsCcbqcU5V4H9Z"
-                className="md:self-end border-1 border-primary-null text-invert hover:bg-primary-null hover:text-primary"
-              >
-                Explore the archives
-              </CTAButton>
-            </div>
-          </article>
-
-          <article className="p-xs w-full md:px-s md:py-m text-invert bg-byte grid gap-l md:grid-rows-1 md:grid-cols-12 md:gap-s">
-            <div className="col-span-full w-full [&_img]:w-full md:col-span-6 md:order-1">
-              <img
-                src="https://cdn.sanity.io/images/a4237xbr/production/abe83c176d0329c7d353871213ca3ecfd1784049-684x685.png"
-                alt="Sign up for updates and early registration for Breakpoint 2026"
-              />
-            </div>
-            <div className="grid md:grid-rows-[1fr_auto] gap-l col-span-full md:col-span-6 pb-m md:pb-0">
-              <div className="flex flex-col gap-m md:self-center md:pt-l md:gap-l [&>p]:text-h5">
-                <div className="flex flex-col gap-2xl sm:gap-l">
-                  <p className="text-eyebrow">Breakpoint 2026</p>
-                  <h2>
-                    Sign up for updates and early registration for Breakpoint
-                    2026
-                  </h2>
-                </div>
-              </div>
-              <form
-                action="https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=7b8f7f90-b5cc-479e-af28-7121d89fc6a4"
-                method="get"
-                target="_blank"
-                className="flex flex-col gap-xs md:flex-row"
-              >
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="email"
-                  required
-                  className="border-1 border-primary-null bg-transparent px-xs h-[3rem] w-full focus:outline-none focus:border-primary-null"
-                />
-                <button
-                  type="submit"
-                  className="gap-xs cta cursor-pointer uppercase flex gap-xs items-center justify-center cta-transition outline-offset-[8px] outline-transparent focus:outline focus:outline-transparent-null-40 px-[var(--spacing-xs)] h-[3rem] hover:bg-primary-wisp hover:text-invert bg-null text-primary"
-                >
-                  SIGN UP
-                </button>
-              </form>
-            </div>
-          </article>
-        </section>
-
+        {/* ── Logistics ── */}
         <article
-          id="get-involved"
-          className="p-xs w-full md:px-s md:py-m text-invert bg-mint pt-2xl md:pt-3xl"
+          id="logistics"
+          className="p-xs w-full md:px-s md:py-m text-primary bg-null pt-xl pb-xl md:pt-3xl md:pb-2xl"
         >
+          <div className="flex flex-col gap-2xl sm:gap-l">
+            <p className="text-eyebrow">Logistics</p>
+            <h2>Venue &amp; Dates</h2>
+          </div>
+          <div className="grid gap-m md:grid-cols-3 mt-l">
+            <div className="border-1 border-wisp-10 p-s bg-transparent-wisp-10">
+              <p className="text-eyebrow">Dates</p>
+              <h4 className="mt-s">November 15-17, 2026</h4>
+            </div>
+            <div className="border-1 border-wisp-10 p-s bg-transparent-wisp-10">
+              <p className="text-eyebrow">Venue</p>
+              <h4 className="mt-s">Olympia London</h4>
+            </div>
+            <div className="border-1 border-wisp-10 p-s bg-transparent-wisp-10">
+              <p className="text-eyebrow">Format</p>
+              <h4 className="mt-s">
+                Keynotes, talks, demos, workshops, side events
+              </h4>
+            </div>
+          </div>
+        </article>
+
+        {/* ── CTA ── */}
+        <article className="p-xs w-full md:px-s md:py-m text-invert bg-mint pt-2xl pb-2xl md:pt-3xl md:pb-3xl">
           <div className="flex flex-col gap-2xl sm:gap-l [&&]:gap-m md:[&&]:gap-l">
-            <p className="text-eyebrow">Get Involved BP26</p>
-            <h2>Sponsors</h2>
-            <p className="text-p1">Take part in Breakpoint 2026</p>
+            <p className="text-eyebrow">Be There</p>
+            <h2>Breakpoint 2026 is coming</h2>
+            <p className="text-p1">
+              Sign up for updates and early registration details.
+            </p>
           </div>
           <div className="flex flex-col gap-xs mt-m md:flex-row md:gap-s md:mt-l">
             <CTAButton
-              href="https://solanafoundation.typeform.com/bp26sponsorform"
+              href="mailto:breakpoint@solana.org?subject=Breakpoint%202026%20interest"
               className="bg-null text-primary hover:bg-primary hover:text-invert"
             >
-              Reach out
+              Get Notified
+            </CTAButton>
+            <CTAButton
+              href="https://solanafoundation.typeform.com/bp26sponsorform"
+              className="bg-transparent border-1 border-primary-null/30 text-invert hover:bg-primary-null hover:text-primary"
+            >
+              Become a Sponsor
             </CTAButton>
           </div>
         </article>
-
-        <article
-          id="sponsors"
-          className="p-xs w-full md:px-s md:py-m text-primary bg-null pt-xl md:pt-3xl"
-        >
-          <div className="flex flex-col gap-2xl sm:gap-l">
-            <p className="text-eyebrow">Sponsors</p>
-            <h2>Partners already shaping Breakpoint</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-s mt-xl">
-            {sponsorLogos.map((logo) => (
-              <div
-                key={logo}
-                className="border-1 border-wisp-10 p-s min-h-20 flex items-center justify-center bg-transparent-wisp-10"
-              >
-                <img
-                  src={logo}
-                  alt="Breakpoint sponsor logo"
-                  className="w-full h-12 object-contain"
-                />
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article
-          id="faq"
-          className="p-xs w-full md:px-s md:py-m text-primary bg-null p-xs pt-xl pb-xl flex flex-col md:flex-row md:p-s md:pt-3xl md:pb-2xl"
-        >
-          <div className="w-full mr-auto md:w-5/12">
-            <div className="flex flex-col gap-2xl sm:gap-l pt-0">
-              <p className="text-eyebrow">Faq</p>
-              <h2>Frequently asked questions</h2>
-            </div>
-          </div>
-          <FaqAccordion />
-        </article>
       </main>
+
+      <VideoModal open={videoOpen} onClose={() => setVideoOpen(false)} />
     </>
   );
 }

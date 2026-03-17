@@ -208,16 +208,8 @@ export default {
         button: "0.09375rem",
         caption: "0.06875rem",
       },
-      borderRadius: {
-        bp: "1.5rem",
-        "bp-lg": "2rem",
-      },
       backgroundSize: {
         grid: "56px 56px",
-      },
-      backgroundImage: {
-        "bp-grid":
-          "linear-gradient(rgba(231,210,249,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(231,210,249,0.06) 1px, transparent 1px)",
       },
       animation: {
         ticker: "ticker 2000ms linear infinite",
@@ -287,27 +279,6 @@ export default {
         "slide-out-left": {
           from: { transform: "translateX(0)", opacity: "1" },
           to: { transform: "translateX(-100%)", opacity: "0" },
-        },
-        grain: {
-          "0%, 100%": { transform: "translate(0, 0)" },
-          "10%": { transform: "translate(-5%, -10%)" },
-          "20%": { transform: "translate(-15%, 5%)" },
-          "30%": { transform: "translate(7%, -25%)" },
-          "40%": { transform: "translate(-5%, 25%)" },
-          "50%": { transform: "translate(-15%, 10%)" },
-          "60%": { transform: "translate(15%, 0%)" },
-          "70%": { transform: "translate(0%, 15%)" },
-          "80%": { transform: "translate(3%, 35%)" },
-          "90%": { transform: "translate(-10%, 10%)" },
-        },
-        glowPulse: {
-          "0%, 100%": { opacity: "0.18", transform: "scale(1)" },
-          "50%": { opacity: "0.28", transform: "scale(1.04)" },
-        },
-        glowDrift: {
-          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
-          "33%": { transform: "translate(3%, -2%) scale(1.02)" },
-          "66%": { transform: "translate(-2%, 1%) scale(0.98)" },
         },
       },
     },
